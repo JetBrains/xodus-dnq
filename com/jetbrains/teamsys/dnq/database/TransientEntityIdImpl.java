@@ -1,0 +1,63 @@
+package com.jetbrains.teamsys.dnq.database;
+
+import com.jetbrains.teamsys.database.EntityId;
+import com.jetbrains.teamsys.database.TransientEntityId;
+import com.jetbrains.teamsys.dnq.database.TransientEntityImpl;
+import org.jetbrains.annotations.NotNull;
+
+/**
+ * Date: 05.02.2007
+ * Time: 17:34:24
+ *
+ * @author Vadim.Gurov
+ */
+class TransientEntityIdImpl implements TransientEntityId {
+
+  private int hashCode;
+
+  TransientEntityIdImpl(@NotNull TransientEntityImpl entity) {
+    this.hashCode = entity.hashCode();
+  }
+
+  private TransientEntityIdImpl(int hashCode) {
+    this.hashCode = hashCode;
+  }
+
+  public int getTypeId() {
+    return 0;
+  }
+
+  public long getLocalId() {
+    return hashCode;
+  }
+
+  public int compareTo(EntityId o) {
+    throw new UnsupportedOperationException("Not supported by transient entity id");
+  }
+
+  @NotNull
+  public String toString() {
+    return Integer.toString(hashCode);
+  }
+
+  public int hashCode() {
+    return hashCode;
+  }
+
+  public boolean equals(Object obj) {
+    if (!(obj instanceof TransientEntityIdImpl)) {
+      return false;
+    }
+
+    return this.hashCode == ((TransientEntityIdImpl)obj).hashCode;
+  }
+
+  static TransientEntityId fromString(String id) {
+    try {
+      return new TransientEntityIdImpl(Integer.parseInt(id));
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Invalid structure of entity id representation [" + id + "]");
+    }
+  }
+
+}
