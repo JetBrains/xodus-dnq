@@ -71,7 +71,7 @@ public class PrimitiveAssociationSemantics {
     return null;
   }
 
-  public static void set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue) {
+  public static Comparable set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
     Comparable oldPropertyValue = e.getProperty(propertyName);
@@ -81,9 +81,10 @@ public class PrimitiveAssociationSemantics {
     } else if (propertyValue != null && !propertyValue.equals(oldPropertyValue)) {
       e.setProperty(propertyName, propertyValue);
     }
+    return propertyValue;
   }
 
-  public static void set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue, Class clazz) {
+  public static Comparable set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue, Class clazz) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
     Comparable oldPropertyValue = e.getProperty(propertyName);
@@ -129,6 +130,7 @@ public class PrimitiveAssociationSemantics {
         }
       }
     }
+    return propertyValue;
   }
 
   public static void setHashed(@NotNull Entity e, @NotNull String propertyName, String value) {
@@ -158,7 +160,7 @@ public class PrimitiveAssociationSemantics {
     return e.getBlobString(blobName);
   }
 
-  public static void setBlob(@NotNull Entity e, @NotNull String blobName, @Nullable String blobString) {
+  public static Comparable setBlob(@NotNull Entity e, @NotNull String blobName, @Nullable String blobString) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
     String oldPropertyValue = e.getBlobString(blobName);
@@ -168,9 +170,10 @@ public class PrimitiveAssociationSemantics {
     } else if (blobString != null && !blobString.equals(oldPropertyValue)) {
       e.setBlobString(blobName, blobString);
     }
+    return blobString;
   }
 
-  public static void setBlobWithFixedNewlines(@NotNull Entity e, @NotNull String blobName, @Nullable String blobString) {
+  public static Comparable setBlobWithFixedNewlines(@NotNull Entity e, @NotNull String blobName, @Nullable String blobString) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
     String oldPropertyValue = e.getBlobString(blobName);
@@ -180,9 +183,11 @@ public class PrimitiveAssociationSemantics {
     } else if (blobString != null) {
       final String fixed = (blobString.indexOf('\r') >= 0) ? blobString.replace("\r", "") : blobString;
       if (!fixed.equals(oldPropertyValue)) {
-        e.setBlobString(blobName, blobString);
+        e.setBlobString(blobName, fixed);
+          return fixed;
       }
     }
+    return blobString;
   }
 
   public static void setBlob(@NotNull Entity e, @NotNull String blobName, @Nullable InputStream blob) {
