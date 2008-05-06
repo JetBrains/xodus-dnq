@@ -1,14 +1,12 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.impl.iterate.PropertiesIterable;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
-import com.jetbrains.teamsys.database.exceptions.EntityRemovedException;
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
 import com.sleepycat.je.DatabaseException;
-import jetbrains.mps.baseLanguage.ext.collections.internal.query.SequenceOperations;
 import jetbrains.mps.baseLanguage.ext.collections.internal.query.ISelector;
+import jetbrains.mps.baseLanguage.ext.collections.internal.query.SequenceOperations;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -334,13 +332,13 @@ public class EntityOperations {
   }
 
   public static boolean hasChanges(@NotNull TransientEntity e) {
-    e = TransientStoreUtil.reattach((TransientEntity) e);
+    e = TransientStoreUtil.reattach(e);
 
     return e.hasChanges();
   }
 
   public static boolean hasChanges(@NotNull TransientEntity e, String property) {
-    e = TransientStoreUtil.reattach((TransientEntity) e);
+    e = TransientStoreUtil.reattach(e);
 
     return e.hasChanges(property);
   }
@@ -359,6 +357,13 @@ public class EntityOperations {
 
   public static boolean contains(@NotNull Iterable<Entity> it, Entity e) {
     return indexOf(it, e) >= 0;
+  }
+
+  public static Entity getLast(@NotNull final TransientStoreSession session, @NotNull final Iterable<Entity> it) {
+    if(it instanceof PersistentEntityIterableWrapper) {
+      return session.getLast((EntityIterable) it);   
+    }
+    return SequenceOperations.getLast(it);
   }
 
   public static boolean isCached(@NotNull final TransientStoreSession session,

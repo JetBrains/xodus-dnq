@@ -3,10 +3,8 @@ package com.jetbrains.teamsys.dnq.association;
 import com.jetbrains.teamsys.core.crypto.MessageDigestUtil;
 import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.TransientEntity;
-import com.jetbrains.teamsys.database.TransientEntityStore;
 import com.jetbrains.teamsys.database.TransientStoreSession;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -16,6 +14,9 @@ import java.io.InputStream;
 /**
  */
 public class PrimitiveAssociationSemantics {
+
+  private static float MIN_FLOAT = 0.000001f;
+  private static double MIN_DOUBLE = 0.00000000001f;
 
   /**
    * Simple property getter.
@@ -53,7 +54,7 @@ public class PrimitiveAssociationSemantics {
 
   private static Object getPropertyNullValue(Class clazz) {
     if (Integer.class.equals(clazz)) {
-      return (int) 0;
+      return 0;
     } else if (Long.class.equals(clazz)) {
       return (long) 0;
     } else if (Double.class.equals(clazz)) {
@@ -184,7 +185,7 @@ public class PrimitiveAssociationSemantics {
       final String fixed = (blobString.indexOf('\r') >= 0) ? blobString.replace("\r", "") : blobString;
       if (!fixed.equals(oldPropertyValue)) {
         e.setBlobString(blobName, fixed);
-          return fixed;
+        return fixed;
       }
     }
     return blobString;
@@ -239,4 +240,81 @@ public class PrimitiveAssociationSemantics {
     }
   }
 
+  public static Comparable nextGreater(@NotNull final Comparable value, @NotNull final Class clazz) {
+    if (Integer.class.equals(clazz)) {
+      return ((Integer) value) + 1;
+    } else if (Long.class.equals(clazz)) {
+      return ((Long) value) + 1;
+    } else if (Double.class.equals(clazz)) {
+      return (Double) value + MIN_DOUBLE;
+    } else if (Float.class.equals(clazz)) {
+      return (Float) value + MIN_FLOAT;
+    } else if (Short.class.equals(clazz)) {
+      return ((Short) value) + 1;
+    } else if (Byte.class.equals(clazz)) {
+      return ((Byte) value) + 1;
+    } else if (Boolean.class.equals(clazz)) {
+      return Boolean.TRUE;
+    }
+    return null;
+  }
+
+  public static Comparable previousLess(@NotNull final Comparable value, @NotNull final Class clazz) {
+    if (Integer.class.equals(clazz)) {
+      return ((Integer) value) - 1;
+    } else if (Long.class.equals(clazz)) {
+      return ((Long) value) - 1;
+    } else if (Double.class.equals(clazz)) {
+      return (Double) value - MIN_DOUBLE;
+    } else if (Float.class.equals(clazz)) {
+      return (Float) value - MIN_FLOAT;
+    } else if (Short.class.equals(clazz)) {
+      return ((Short) value) - 1;
+    } else if (Byte.class.equals(clazz)) {
+      return ((Byte) value) - 1;
+    } else if (Boolean.class.equals(clazz)) {
+      return Boolean.FALSE;
+    }
+    return null;
+  }
+
+  public static Comparable positiveInfinity(@NotNull final Class clazz) {
+    if (Integer.class.equals(clazz)) {
+      return Integer.MAX_VALUE;
+    } else if (Long.class.equals(clazz)) {
+      return Long.MAX_VALUE;
+    } else if (Double.class.equals(clazz)) {
+      return Double.MAX_VALUE;
+    } else if (Float.class.equals(clazz)) {
+      return Float.MAX_VALUE;
+    } else if (Short.class.equals(clazz)) {
+      return Short.MAX_VALUE;
+    } else if (Byte.class.equals(clazz)) {
+      return Byte.MAX_VALUE;
+    }
+    if (Boolean.class.equals(clazz)) {
+      return Boolean.TRUE;
+    }
+    return null;
+  }
+
+  public static Comparable negativeInfinity(@NotNull final Class clazz) {
+    if (Integer.class.equals(clazz)) {
+      return Integer.MIN_VALUE;
+    } else if (Long.class.equals(clazz)) {
+      return Long.MIN_VALUE;
+    } else if (Double.class.equals(clazz)) {
+      return Double.MIN_VALUE;
+    } else if (Float.class.equals(clazz)) {
+      return Float.MIN_VALUE;
+    } else if (Short.class.equals(clazz)) {
+      return Short.MIN_VALUE;
+    } else if (Byte.class.equals(clazz)) {
+      return Byte.MIN_VALUE;
+    }
+    if (Boolean.class.equals(clazz)) {
+      return Boolean.FALSE;
+    }
+    return null;
+  }
 }

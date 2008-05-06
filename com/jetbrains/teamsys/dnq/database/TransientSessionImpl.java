@@ -449,6 +449,18 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
+  @Nullable
+  public Entity getLast(@NotNull final EntityIterable it) {
+    switch (state) {
+      case Open:
+        final Entity last = getPersistentSessionInternal().getLast(it.getSource());
+        return (last == null) ? null : newEntityImpl(last);
+
+      default:
+        throw new IllegalStateException("Can't execute in state [" + state + "]");
+    }
+  }
+
   @NotNull
   public Sequence getSequence(@NotNull final String sequenceName) {
     switch (state) {
@@ -903,7 +915,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (!areChangesCompatible(localCopy)) {
           if (log.isDebugEnabled()) {
             log.warn("Incompatible concurrent changes for " + localCopy + ". Changed properties [" + TransientStoreUtil.toString(changesTracker.getChangedProperties(localCopy)) +
-              "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinks(localCopy)) + "]");
+                    "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinks(localCopy)) + "]");
           }
           throw new VersionMismatchException(localCopy, localCopyVersion, lastDatabaseCopyVersion);
         }
@@ -950,7 +962,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     // 2. changed property is marked as versionMismatchResolution: ignore
     Set<String> changedProps = tec.getChangedProperties();
     if (changedProps != null) {
-      for (String p: changedProps) {
+      for (String p : changedProps) {
         if (!emd.isVersionMismatchIgnored(p)) {
           return false;
         }
