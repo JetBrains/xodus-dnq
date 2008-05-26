@@ -245,10 +245,22 @@ public class PrimitiveAssociationSemantics {
       return ((Integer) value) + 1;
     } else if (Long.class.equals(clazz)) {
       return ((Long) value) + 1;
-    } else if (Double.class.equals(clazz)) {
-      return (Double) value + MIN_DOUBLE;
     } else if (Float.class.equals(clazz)) {
-      return (Float) value + MIN_FLOAT;
+      float result;
+      float addend = MIN_FLOAT;
+      do {
+        result = (Float) value + addend;
+        addend *= 2;
+      } while (value.equals(result));
+      return result;
+    } else if (Double.class.equals(clazz)) {
+      double result;
+      double addend = MIN_DOUBLE;
+      do {
+        result = (Double) value + addend;
+        addend *= 2;
+      } while (value.equals(result));
+      return result;
     } else if (Short.class.equals(clazz)) {
       return ((Short) value) + 1;
     } else if (Byte.class.equals(clazz)) {
@@ -264,10 +276,22 @@ public class PrimitiveAssociationSemantics {
       return ((Integer) value) - 1;
     } else if (Long.class.equals(clazz)) {
       return ((Long) value) - 1;
-    } else if (Double.class.equals(clazz)) {
-      return (Double) value - MIN_DOUBLE;
     } else if (Float.class.equals(clazz)) {
-      return (Float) value - MIN_FLOAT;
+      float result;
+      float subtrahend = MIN_FLOAT;
+      do {
+        result = (Float) value - subtrahend;
+        subtrahend *= 2;
+      } while (value.equals(result));
+      return result;
+    } else if (Double.class.equals(clazz)) {
+      double result;
+      double subtrahend = MIN_DOUBLE;
+      do {
+        result = (Double) value - subtrahend;
+        subtrahend *= 2;
+      } while (value.equals(result));
+      return result;
     } else if (Short.class.equals(clazz)) {
       return ((Short) value) - 1;
     } else if (Byte.class.equals(clazz)) {
@@ -283,10 +307,10 @@ public class PrimitiveAssociationSemantics {
       return Integer.MAX_VALUE;
     } else if (Long.class.equals(clazz)) {
       return Long.MAX_VALUE;
-    } else if (Double.class.equals(clazz)) {
-      return Double.MAX_VALUE;
     } else if (Float.class.equals(clazz)) {
       return Float.MAX_VALUE;
+    } else if (Double.class.equals(clazz)) {
+      return Double.MAX_VALUE;
     } else if (Short.class.equals(clazz)) {
       return Short.MAX_VALUE;
     } else if (Byte.class.equals(clazz)) {
@@ -303,10 +327,10 @@ public class PrimitiveAssociationSemantics {
       return Integer.MIN_VALUE;
     } else if (Long.class.equals(clazz)) {
       return Long.MIN_VALUE;
-    } else if (Double.class.equals(clazz)) {
-      return Double.MIN_VALUE;
     } else if (Float.class.equals(clazz)) {
-      return Float.MIN_VALUE;
+      return MIN_FLOAT;
+    } else if (Double.class.equals(clazz)) {
+      return MIN_DOUBLE;
     } else if (Short.class.equals(clazz)) {
       return Short.MIN_VALUE;
     } else if (Byte.class.equals(clazz)) {
