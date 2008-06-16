@@ -1025,6 +1025,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   private void notifyCommitedListeners(final Set<TransientEntityChange> changes) {
+    if (changes == null || changes.isEmpty()) {
+        return;
+    }
+
     if (log.isDebugEnabled()) {
       log.debug("Notify commited listeners " + this);
     }
@@ -1037,6 +1041,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   private void notifyFlushedListeners(final Set<TransientEntityChange> changes) {
+    if (changes == null || changes.isEmpty()) {
+        return;
+    }
+
     if (log.isDebugEnabled()) {
       log.debug("Notify flushed listeners " + this);
     }
@@ -1049,13 +1057,19 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   private void notifyBeforeFlushListeners() {
+    final Set<TransientEntityChange> changes = changesTracker.getChangesDescription();
+
+    if (changes == null || changes.isEmpty()) {
+        return;
+    }
+
     if (log.isDebugEnabled()) {
       log.debug("Notify before flush listeners " + this);
     }
 
     store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
       public void visit(TransientStoreSessionListener listener) {
-        listener.beforeFlush(changesTracker.getChangesDescription());
+        listener.beforeFlush(changes);
       }
     });
   }
