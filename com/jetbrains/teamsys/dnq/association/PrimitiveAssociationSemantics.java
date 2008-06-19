@@ -15,8 +15,8 @@ import java.io.InputStream;
  */
 public class PrimitiveAssociationSemantics {
 
-  private static float MIN_FLOAT = 0.000001f;
-  private static double MIN_DOUBLE = 0.00000000001f;
+  private static float FLOAT_PRECISION = 0.0001f;
+  private static double DOUBLE_PRECISION = 0.0000001f;
 
   /**
    * Simple property getter.
@@ -247,7 +247,7 @@ public class PrimitiveAssociationSemantics {
       return ((Long) value) + 1;
     } else if (Float.class.equals(clazz)) {
       float result;
-      float addend = MIN_FLOAT;
+      float addend = FLOAT_PRECISION;
       do {
         result = (Float) value + addend;
         addend *= 2;
@@ -255,7 +255,7 @@ public class PrimitiveAssociationSemantics {
       return result;
     } else if (Double.class.equals(clazz)) {
       double result;
-      double addend = MIN_DOUBLE;
+      double addend = DOUBLE_PRECISION;
       do {
         result = (Double) value + addend;
         addend *= 2;
@@ -278,7 +278,7 @@ public class PrimitiveAssociationSemantics {
       return ((Long) value) - 1;
     } else if (Float.class.equals(clazz)) {
       float result;
-      float subtrahend = MIN_FLOAT;
+      float subtrahend = FLOAT_PRECISION;
       do {
         result = (Float) value - subtrahend;
         subtrahend *= 2;
@@ -286,7 +286,7 @@ public class PrimitiveAssociationSemantics {
       return result;
     } else if (Double.class.equals(clazz)) {
       double result;
-      double subtrahend = MIN_DOUBLE;
+      double subtrahend = DOUBLE_PRECISION;
       do {
         result = (Double) value - subtrahend;
         subtrahend *= 2;
@@ -328,9 +328,9 @@ public class PrimitiveAssociationSemantics {
     } else if (Long.class.equals(clazz)) {
       return Long.MIN_VALUE;
     } else if (Float.class.equals(clazz)) {
-      return MIN_FLOAT;
+      return -Float.MAX_VALUE;
     } else if (Double.class.equals(clazz)) {
-      return MIN_DOUBLE;
+      return -Double.MAX_VALUE;
     } else if (Short.class.equals(clazz)) {
       return Short.MIN_VALUE;
     } else if (Byte.class.equals(clazz)) {
