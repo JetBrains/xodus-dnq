@@ -7,10 +7,9 @@ import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.io.InputStream;
+import java.util.List;
 
 abstract class AbstractTransientEntity implements TransientEntity {
 
@@ -21,7 +20,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
     Saved("saved"),
     SavedNew("savedNew"),
     RemovedSaved("removedSaved"),
-    RemovedNew("removedNew");
+    RemovedNew("removedNew"),
+    Temporary("temporary");
 
     private String name;
 
@@ -44,7 +44,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
       try {
         throw new Exception();
       } catch (Exception e) {
-        for (StackTraceElement ste: e.getStackTrace()) {
+        for (StackTraceElement ste : e.getStackTrace()) {
           //TODO: change prefix after refactoring
           if (!ste.getClassName().startsWith("com.jetbrains.teamsys") && !ste.getMethodName().equals("constructor")) {
             entityCreationPosition = ste;
@@ -72,6 +72,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processOpenNew() {
+        return throwNoPersistentEntity();
+      }
+
+      Object processTemporary() {
         return throwNoPersistentEntity();
       }
     }.handle();
@@ -113,6 +117,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
     return state == State.RemovedNew || state == State.RemovedSaved;
   }
 
+  public boolean isTemporary() {
+    return state == State.Temporary;
+  }
+
   State getState() {
     return state;
   }
@@ -148,6 +156,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return AbstractTransientEntity.this.type;
       }
 
+      Object processTemporary() {
+        return AbstractTransientEntity.this.type;
+      }
+
       Object processCommittedSaved() {
         return AbstractTransientEntity.this.type;
       }
@@ -177,6 +189,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processOpenNew() {
+        return id;
+      }
+
+      Object processTemporary() {
         return id;
       }
 
@@ -230,6 +246,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       String processOpenNew() {
+        return id.toString();
+      }
+
+      Object processTemporary() {
         return id.toString();
       }
 
@@ -290,6 +310,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return null;
       }
 
+      Object processTemporary() {
+        throw new IllegalStateException("Can't set persistent entity for a temporary transient one. " + AbstractTransientEntity.this);
+      }
+
     }.handle();
   }
 
@@ -304,6 +328,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       Object processOpenNew() {
         return throwNoPersistentEntity();
       }
+
+      Object processTemporary() {
+        return throwNoPersistentEntity();
+      }
     }.handle();
   }
 
@@ -314,24 +342,14 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return throwNoPersistentEntity();
       }
 
+      Object processTemporary() {
+        return throwNoPersistentEntity();
+      }
+
       Object processOpenSaved() {
         version = getPersistentEntityInternal().getVersion();
         return null;
       }
-    }.handle();
-  }
-
-  @Nullable
-  public <T extends Comparable> T getProperty(@NotNull final String propertyName) {
-    return (T) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return getPersistentEntityInternal().getProperty(propertyName);
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
     }.handle();
   }
 
@@ -343,34 +361,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processOpenNew() {
-        throw new UnsupportedOperationException("Not supported by new transient entity." + AbstractTransientEntity.this);
-      }
-
-    }.handle();
-  }
-
-  @Nullable
-  public InputStream getBlob(@NotNull final String blobName) {
-    return (InputStream) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return getPersistentEntityInternal().getBlob(blobName);
-      }
-
-      Object processOpenNew() {
         return throwNoPersistentEntity();
       }
 
-    }.handle();
-  }
-
-  @Nullable
-  public String getBlobString(@NotNull final String blobName) {
-    return (String) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return getPersistentEntityInternal().getBlobString(blobName);
-      }
-
-      Object processOpenNew() {
+      Object processTemporary() {
         return throwNoPersistentEntity();
       }
 
@@ -385,7 +379,11 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processOpenNew() {
-        throw new UnsupportedOperationException("Not supported by new transient entity." + AbstractTransientEntity.this);
+        return throwNoPersistentEntity();
+      }
+
+      Object processTemporary() {
+        return throwNoPersistentEntity();
       }
 
     }.handle();
@@ -399,44 +397,14 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processOpenNew() {
-        throw new UnsupportedOperationException("Not supported by new transient entity." + AbstractTransientEntity.this);
+        return throwNoPersistentEntity();
       }
 
-    }.handle();
-  }
-
-  @NotNull
-  public EntityIterable getLinks(@NotNull final String linkName) {
-    return (EntityIterable) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return new PersistentEntityIterableWrapper(
-                getPersistentEntityInternal().getLinks(linkName), getTransientStoreSession());
-      }
-
-      Object processOpenNew() {
+      Object processTemporary() {
         return throwNoPersistentEntity();
       }
 
     }.handle();
-  }
-
-  @Nullable
-  public Entity getLink(@NotNull final String linkName) {
-    return (Entity) new StandartEventHandler() {
-      Object processOpenSaved() {
-        final Entity result = getPersistentEntityInternal().getLink(linkName);
-        return result == null ? null : getTransientStoreSession().newEntity(result);
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-    }.handle();
-  }
-
-  public long getLinksSize(@NotNull final String linkName) {
-    return getPersistentEntityInternal().getLinks(linkName).size();
   }
 
   public int getVersion() {
@@ -446,6 +414,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processOpenNew() {
+        return throwNoPersistentEntity();
+      }
+
+      Object processTemporary() {
         return throwNoPersistentEntity();
       }
     }.handle();
@@ -464,6 +436,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processOpenNew() {
+        return throwNoPersistentEntity();
+      }
+
+      Object processTemporary() {
         return throwNoPersistentEntity();
       }
     }.handle();
@@ -487,6 +463,11 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return Collections.EMPTY_LIST;
       }
 
+      Object processTemporary() {
+        // temporary transient entity has no history
+        return Collections.EMPTY_LIST;
+      }
+
     }.handle();
   }
 
@@ -499,6 +480,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processOpenNew() {
+        return null;
+      }
+
+      Object processTemporary() {
         return null;
       }
     }.handle();
@@ -515,6 +500,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       Object processOpenNew() {
         return null;
       }
+
+      Object processTemporary() {
+        return null;
+      }
     }.handle();
   }
 
@@ -525,6 +514,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processOpenNew() {
+        return throwNoPersistentEntity();
+      }
+
+      Object processTemporary() {
         return throwNoPersistentEntity();
       }
     }.handle();
@@ -582,6 +575,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return AbstractTransientEntity.this == that;
       }
 
+      Object processTemporary() {
+        return AbstractTransientEntity.this == that;
+      }
+
       Object processOpenRemoved() {
         switch (state) {
           case RemovedNew:
@@ -594,7 +591,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processSuspendedSaved() {
-        return that.isSaved() && getPersistentEntityInternal().equals(that.getPersistentEntityInternal());        
+        return that.isSaved() && getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
       }
 
     }.handle();
@@ -623,6 +620,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return System.identityHashCode(AbstractTransientEntity.this);
       }
 
+      Object processTemporary() {
+        return System.identityHashCode(AbstractTransientEntity.this);
+      }
+
       Object processOpenRemoved() {
         switch (state) {
           case RemovedNew:
@@ -639,7 +640,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processSuspendedSaved() {
-        return getPersistentEntityInternal().hashCode();        
+        return getPersistentEntityInternal().hashCode();
       }
 
     }.handle();
@@ -669,7 +670,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
   }
 
   private Object throwNoPersistentEntity() {
-    throw new IllegalStateException("New transient entity has no associated persistent entity. " + this);
+    throw new IllegalStateException("Transient entity has no associated persistent entity. " + this);
   }
 
   protected abstract class StandartEventHandler {
@@ -690,6 +691,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
             case RemovedNew:
             case RemovedSaved:
               return processOpenFromAnotherSessionRemoved();
+            case Temporary:
+              return processTemporary();
           }
         }
 
@@ -704,7 +707,9 @@ abstract class AbstractTransientEntity implements TransientEntity {
           case RemovedNew:
           case RemovedSaved:
             return processOpenRemoved();
-        }                                         
+          case Temporary:
+            return processTemporary();
+        }
 
       } else if (session.isSuspended()) {
         switch (state) {
@@ -718,6 +723,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
           case RemovedNew:
           case RemovedSaved:
             return processSuspendedRemoved();
+          case Temporary:
+            return processTemporary();
         }
 
       } else if (session.isAborted()) {
@@ -732,6 +739,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
           case RemovedNew:
           case RemovedSaved:
             throw new EntityRemovedException(AbstractTransientEntity.this);
+          case Temporary:
+            return processTemporary();
         }
 
       } else if (session.isCommitted()) {
@@ -746,6 +755,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
           case RemovedNew:
           case RemovedSaved:
             throw new EntityRemovedException(AbstractTransientEntity.this);
+          case Temporary:
+            return processTemporary();
         }
       }
 
@@ -771,6 +782,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
     abstract Object processOpenSaved();
 
     abstract Object processOpenNew();
+
+    abstract Object processTemporary();
 
     Object processOpenRemoved() {
       throw new EntityRemovedException(AbstractTransientEntity.this);

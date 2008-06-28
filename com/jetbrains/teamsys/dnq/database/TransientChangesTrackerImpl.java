@@ -1,19 +1,18 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.decorators.MapDecorator;
+import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
+import com.jetbrains.teamsys.core.dataStructures.decorators.SetDecorator;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.CantRemoveEntityException;
 import com.jetbrains.teamsys.database.exceptions.ConstraintsValidationException;
 import com.jetbrains.teamsys.database.exceptions.EntityRemovedException;
-import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
-import com.jetbrains.teamsys.core.dataStructures.decorators.SetDecorator;
-import com.jetbrains.teamsys.core.dataStructures.decorators.MapDecorator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.io.InputStream;
 import java.util.*;
 
 /**
@@ -173,7 +172,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved()) {
+        if (!e.isRemoved() && !e.isTemporary()) {
           assert e.isNew();
           log.debug("Add new entity: " + e);
           ((TransientEntityImpl) e).setPersistentEntity(session.getPersistentSession().newEntity(e.getType()));
@@ -326,7 +325,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved()) {
+        if (!e.isRemoved() && !e.isTemporary()) {
           log.debug("Set property: " + e + "." + propertyName + "=" + propertyNewValue);
           e.getPersistentEntity().setProperty(propertyName, propertyNewValue);
         }
@@ -340,7 +339,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved()) {
+        if (!e.isRemoved() && !e.isTemporary()) {
           log.debug("Delete property: " + e + "." + propertyName);
           e.getPersistentEntity().deleteProperty(propertyName);
         }
@@ -357,24 +356,6 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     });
   }
 
-/*
-  public void blobChanged(@NotNull final TransientEntity e,
-                          @NotNull final String blobName,
-                          @NotNull final InputStream newValue) {
-    entityChanged(e);
-    propertyChanged(e, blobName);
-
-    offerChange(new Runnable() {
-      public void run() {
-        if (!e.isRemoved()) {
-          log.debug("Set blob property: " + e + "." + blobName + "=" + newValue);
-          e.getPersistentEntity().setBlob(blobName, newValue);
-        }
-      }
-    });
-  }
-*/
-
   public void blobChanged(@NotNull final TransientEntity e,
                           @NotNull final String blobName,
                           @NotNull final File file) {
@@ -383,7 +364,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved()) {
+        if (!e.isRemoved() && !e.isTemporary()) {
           log.debug("Set blob property: " + e + "." + blobName + "=" + file);
           e.getPersistentEntity().setBlob(blobName, file);
         }
@@ -399,7 +380,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved()) {
+        if (!e.isRemoved() && !e.isTemporary()) {
           log.debug("Set blob property: " + e + "." + blobName + "=" + newValue);
           e.getPersistentEntity().setBlobString(blobName, newValue);
         }
@@ -413,7 +394,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved()) {
+        if (!e.isRemoved() && !e.isTemporary()) {
           log.debug("Delete blob property: " + e + "." + blobName);
           e.getPersistentEntity().deleteBlob(blobName);
         }

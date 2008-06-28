@@ -59,6 +59,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return (T) getPropertiesCache().get(propertyName);
       }
 
+      Object processTemporary() {
+        return (T) getPropertiesCache().get(propertyName);
+      }
+
     }.handle();
   }
 
@@ -75,6 +79,11 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
+      Object processTemporary() {
+        getPropertiesCache().put(propertyName, value);
+        return null;
+      }
+
     }.handle();
   }
 
@@ -88,6 +97,11 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
       Object processOpenNew() {
         return processOpenSaved();
+      }
+
+      Object processTemporary() {
+        getPropertiesCache().put(propertyName, null);
+        return null;
       }
 
     }.handle();
@@ -122,6 +136,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
       }
 
+      Object processTemporary() {
+        return processOpenNew();
+      }
+
     }.handle();
   }
 
@@ -136,6 +154,12 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
       Object processOpenNew() {
         return processOpenSaved();
+      }
+
+      Object processTemporary() {
+        File f = createFile(blob);
+        getFileBlobsCache().put(blobName, f);
+        return null;
       }
 
     }.handle();
@@ -173,6 +197,12 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
       Object processOpenNew() {
         return processOpenSaved();
+      }
+
+      Object processTemporary() {
+        File f = moveOrCopy(file);
+        getFileBlobsCache().put(blobName, f);
+        return null;
       }
 
     }.handle();
@@ -225,6 +255,11 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
+      Object processTemporary() {
+        getFileBlobsCache().put(blobName, null);
+        return null;
+      }
+
     }.handle();
   }
 
@@ -242,6 +277,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return getPropertiesCache().get(blobName);
       }
 
+      Object processTemporary() {
+        return processOpenNew();
+      }
+
     }.handle();
   }
 
@@ -255,6 +294,11 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
       Object processOpenNew() {
         return processOpenSaved();
+      }
+
+      Object processTemporary() {
+        getPropertiesCache().put(blobName, blobString);
+        return null;
       }
 
     }.handle();
@@ -272,6 +316,11 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
+      Object processTemporary() {
+        getPropertiesCache().put(blobName, null);
+        return null;
+      }
+
     }.handle();
   }
 
@@ -283,6 +332,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
+        return processOpenSaved();
+      }
+
+      Object processTemporary() {
         return processOpenSaved();
       }
 
@@ -300,6 +353,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
+      Object processTemporary() {
+        return processOpenSaved();
+      }
+
     }.handle();
   }
 
@@ -311,6 +368,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
+        return processOpenSaved();
+      }
+
+      Object processTemporary() {
         return processOpenSaved();
       }
 
@@ -328,6 +389,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
+      Object processTemporary() {
+        return processOpenSaved();
+      }
+
     }.handle();
   }
 
@@ -339,6 +404,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
+        return processOpenSaved();
+      }
+
+      Object processTemporary() {
         return processOpenSaved();
       }
 
@@ -356,6 +425,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
+      Object processTemporary() {
+        return processOpenSaved();
+      }
+
     }.handle();
   }
 
@@ -366,6 +439,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
+        return getLinksManager(linkName).getLinksSize();
+      }
+
+      Object processTemporary() {
         return getLinksManager(linkName).getLinksSize();
       }
 
@@ -391,6 +468,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return null;
       }
 
+      Object processTemporary() {
+        throw new IllegalStateException("Can't delete temporary entity. " + TransientEntityImpl.this);
+      }
+
     }.handle();
   }
 
@@ -401,11 +482,15 @@ class TransientEntityImpl extends AbstractTransientEntity {
     new StandartEventHandler() {
 
       Object processOpenSaved() {
-        throw new IllegalStateException("Can't rollback delete in state Saved.");
+        throw new IllegalStateException("Can't rollback delete in current state. " + TransientEntityImpl.this);
       }
 
       Object processOpenNew() {
-        throw new IllegalStateException("Can't rollback delete in state New.");
+        return processOpenSaved();
+      }
+
+      Object processTemporary() {
+        return processOpenSaved();
       }
 
       Object processOpenRemoved() {
@@ -432,9 +517,20 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
-        throw new UnsupportedOperationException("Not supported by new entity wrapper. " + TransientEntityImpl.this);
+        throw new UnsupportedOperationException("Not supported by transient entity in the current state. " + TransientEntityImpl.this);
+      }
+
+      Object processTemporary() {
+        return processOpenNew();
       }
     }.handle();
+  }
+
+  public void markAsTemporary() {
+    if (getState() != State.New) {
+      throw new IllegalStateException("An entity in the New state only can be marked as temporary.");
+    }
+    setState(State.Temporary);
   }
 
   private TransientLinksManager getLinksManager(@NotNull String linkName) {
@@ -508,33 +604,41 @@ class TransientEntityImpl extends AbstractTransientEntity {
   }
 
   public boolean hasChanges() {
-    return (Boolean)(new StandartEventHandler() {
+    return (Boolean) (new StandartEventHandler() {
 
       Object processOpenNew() {
         return true;
       }
 
+      Object processTemporary() {
+        return false;
+      }
+
       Object processOpenSaved() {
         Set<String> changesLinks = getTransientStoreSession().getTransientChangesTracker().getChangedLinks(TransientEntityImpl.this);
         Set<String> changesProperties = getTransientStoreSession().getTransientChangesTracker().getChangedProperties(TransientEntityImpl.this);
-        return (changesLinks != null && !changesLinks.isEmpty()) || (changesProperties != null && !changesProperties.isEmpty()); 
+        return (changesLinks != null && !changesLinks.isEmpty()) || (changesProperties != null && !changesProperties.isEmpty());
       }
 
     }.handle());
   }
 
   public boolean hasChanges(final String property) {
-    return (Boolean)(new StandartEventHandler() {
+    return (Boolean) (new StandartEventHandler() {
 
       Object processOpenNew() {
         return processOpenSaved();
+      }
+
+      Object processTemporary() {
+        return false;
       }
 
       Object processOpenSaved() {
         Set<String> changesLinks = getTransientStoreSession().getTransientChangesTracker().getChangedLinks(TransientEntityImpl.this);
         Set<String> changesProperties = getTransientStoreSession().getTransientChangesTracker().getChangedProperties(TransientEntityImpl.this);
         return (changesLinks != null && changesLinks.contains(property)) ||
-               (changesProperties != null && changesProperties.contains(property));
+                (changesProperties != null && changesProperties.contains(property));
       }
 
     }.handle());

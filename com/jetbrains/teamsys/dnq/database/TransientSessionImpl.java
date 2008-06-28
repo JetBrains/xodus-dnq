@@ -643,7 +643,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public TransientEntity newLocalCopy(@NotNull final TransientEntity entity) {
     switch (state) {
       case Open:
-        if (entity.isNew()) {
+        if (entity.isTemporary()) {
+          return entity;
+        } else if (entity.isNew()) {
           if (((TransientEntityImpl) entity).getTransientStoreSession() == this) {
             // this is transient entity that was created in this session
             // check session wasn't reverted
@@ -1026,7 +1028,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
   private void notifyCommitedListeners(final Set<TransientEntityChange> changes) {
     if (changes == null || changes.isEmpty()) {
-        return;
+      return;
     }
 
     if (log.isDebugEnabled()) {
@@ -1042,7 +1044,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
   private void notifyFlushedListeners(final Set<TransientEntityChange> changes) {
     if (changes == null || changes.isEmpty()) {
-        return;
+      return;
     }
 
     if (log.isDebugEnabled()) {
@@ -1060,7 +1062,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     final Set<TransientEntityChange> changes = changesTracker.getChangesDescription();
 
     if (changes == null || changes.isEmpty()) {
-        return;
+      return;
     }
 
     if (log.isDebugEnabled()) {
