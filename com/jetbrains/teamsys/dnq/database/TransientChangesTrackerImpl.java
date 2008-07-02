@@ -172,7 +172,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved() && !e.isTemporary()) {
+        if (!e.isRemovedOrTemporary()) {
           assert e.isNew();
           log.debug("Add new entity: " + e);
           ((TransientEntityImpl) e).setPersistentEntity(session.getPersistentSession().newEntity(e.getType()));
@@ -199,7 +199,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!source.isRemoved() && !target.isRemoved()) {
+        if (!source.isRemovedOrTemporary() && !target.isRemovedOrTemporary()) {
           log.debug("Add link: " + source + "-[" + linkName + "]-> " + target);
           source.getPersistentEntity().addLink(linkName, target.getPersistentEntity());
         }
@@ -221,7 +221,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!source.isRemoved() && !target.isRemoved()) {
+        if (!source.isRemovedOrTemporary() && !target.isRemovedOrTemporary()) {
           log.debug("Set link: " + source + "-[" + linkName + "]-> " + target);
           source.getPersistentEntity().setLink(linkName, target.getPersistentEntity());
         }
@@ -293,7 +293,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     offerChange(new Runnable() {
       public void run() {
         // do not remove link if source or target removed and was new
-        if (!((source.isRemoved() && source.wasNew()) || (target.isRemoved() && target.wasNew()))) {
+        if (!((source.isRemovedOrTemporary() && source.wasNew()) || (target.isRemoved() && target.wasNew()))) {
           log.debug("Delete link: " + source + "-[" + linkName + "]-> " + target);
           ((TransientEntityImpl) source).getPersistentEntityInternal().deleteLink(linkName, ((TransientEntityImpl) target).getPersistentEntityInternal());
         }
@@ -308,7 +308,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     offerChange(new Runnable() {
       public void run() {
         // remove link if source is not removed or source is removed and was not new
-        if (!source.isRemoved() || (source.isRemoved() && !source.wasNew())) {
+        if (!source.isRemovedOrTemporary() || (source.isRemoved() && !source.wasNew())) {
           log.debug("Delete links: " + source + "-[" + linkName + "]-> *");
           ((TransientEntityImpl) source).getPersistentEntityInternal().deleteLinks(linkName);
         }
@@ -325,7 +325,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved() && !e.isTemporary()) {
+        if (!e.isRemovedOrTemporary()) {
           log.debug("Set property: " + e + "." + propertyName + "=" + propertyNewValue);
           e.getPersistentEntity().setProperty(propertyName, propertyNewValue);
         }
@@ -339,7 +339,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved() && !e.isTemporary()) {
+        if (!e.isRemovedOrTemporary()) {
           log.debug("Delete property: " + e + "." + propertyName);
           e.getPersistentEntity().deleteProperty(propertyName);
         }
@@ -364,7 +364,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved() && !e.isTemporary()) {
+        if (!e.isRemovedOrTemporary()) {
           log.debug("Set blob property: " + e + "." + blobName + "=" + file);
           e.getPersistentEntity().setBlob(blobName, file);
         }
@@ -380,7 +380,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved() && !e.isTemporary()) {
+        if (!e.isRemovedOrTemporary()) {
           log.debug("Set blob property: " + e + "." + blobName + "=" + newValue);
           e.getPersistentEntity().setBlobString(blobName, newValue);
         }
@@ -394,7 +394,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemoved() && !e.isTemporary()) {
+        if (!e.isRemovedOrTemporary()) {
           log.debug("Delete blob property: " + e + "." + blobName);
           e.getPersistentEntity().deleteBlob(blobName);
         }

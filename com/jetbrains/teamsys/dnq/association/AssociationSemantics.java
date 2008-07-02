@@ -72,7 +72,7 @@ public class AssociationSemantics {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
     // can't return persistent iterable for new transient entity
-    if (((TransientEntity)e).isNew()) {
+    if (((TransientEntity)e).isNewOrTemporary()) {
       //throw new IllegalStateException("1111");
       return e.getLinks(linkName);
     }

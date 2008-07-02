@@ -581,7 +581,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     for (TransientEntity e : new HashSet<TransientEntity>(changesTracker.getChangedEntities())) {
-      if (!e.isRemoved()) {
+      if (!e.isRemovedOrTemporary()) {
         EntityMetaData emd = modelMetaData.getEntityMetaData(e.getRealType());
 
         if (emd != null && emd.hasAggregationChildEnds() && !emd.hasParent(e, changesTracker)) {
@@ -827,7 +827,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
       if (e.isNew()) {
         throw new IllegalStateException("Bug! New transient entity after commit!");
 
-      } else if (e.isRemoved()) {
+      } else if (e.isRemovedOrTemporary()) {
 
         //createdTransientForPersistentEntities.remove(e.getId());
         //createdNewTransientEntities.remove(e.getId());
@@ -991,7 +991,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
 
     for (final TransientEntity e : changedPersistentEntities) {
-      if (!e.isNew() && !e.isRemoved()) {
+      if (!e.isNew() && !e.isRemovedOrTemporary()) {
         final EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
         if (emd != null && emd.getHasHistory() && emd.changesReflectHistory(e, changesTracker)) {
           if (log.isDebugEnabled()) {

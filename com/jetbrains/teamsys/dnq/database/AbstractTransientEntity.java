@@ -76,7 +76,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       Object processTemporary() {
-        return throwNoPersistentEntity();
+        return AbstractTransientEntity.this; // there is no persistent entity for the temporary one
       }
     }.handle();
   }
@@ -109,12 +109,20 @@ abstract class AbstractTransientEntity implements TransientEntity {
     return state == State.New;
   }
 
+  public boolean isNewOrTemporary() {
+    return isNew() || isTemporary();
+  }
+
   public boolean isSaved() {
     return state == State.Saved || state == State.SavedNew;
   }
 
   public boolean isRemoved() {
     return state == State.RemovedNew || state == State.RemovedSaved;
+  }
+
+  public boolean isRemovedOrTemporary() {
+    return isRemoved() || isTemporary();
   }
 
   public boolean isTemporary() {

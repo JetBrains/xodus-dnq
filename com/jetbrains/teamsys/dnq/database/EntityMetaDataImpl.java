@@ -197,7 +197,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public boolean hasParent(@NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
-    if (e.isNew() || parentChanged(tracker.getChangedLinks(e))) {
+    if (e.isNewOrTemporary() || parentChanged(tracker.getChangedLinks(e))) {
       for (String childEnd : aggregationChildEnds) {
         if (AssociationSemantics.getToOne(e, childEnd) != null) {
           return true;

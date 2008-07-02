@@ -54,7 +54,7 @@ class ConstraintsUtil {
 
         // meta-data may be null for persistent enums
         if (md != null) {
-          if (e.isNew()) {
+          if (e.isNewOrTemporary()) {
             // check all links of new entity
             for (AssociationEndMetaData aemd : md.getAssociationEndsMetaData()) {
               if (log.isTraceEnabled()) {
@@ -301,9 +301,9 @@ class ConstraintsUtil {
           Set<String> uniqueProperties = emd.getUniqueProperties();
           Set<String> chanchedProperties = tracker.getChangedProperties(e);
 
-          if (uniqueProperties.size() > 0 && (e.isNew() || (chanchedProperties != null && chanchedProperties.size() > 0))) {
+          if (uniqueProperties.size() > 0 && (e.isNewOrTemporary() || (chanchedProperties != null && chanchedProperties.size() > 0))) {
             for (String uniquePropertyName : uniqueProperties) {
-              if (e.isNew() || chanchedProperties.contains(uniquePropertyName)) {
+              if (e.isNewOrTemporary() || chanchedProperties.contains(uniquePropertyName)) {
                 Comparable uniquePropertyValue = e.getProperty(uniquePropertyName);
 
                 if (isEmptyProperty(uniquePropertyValue)) {
@@ -382,9 +382,9 @@ class ConstraintsUtil {
           Set<String> requiredProperties = emd.getRequiredProperties();
           Set<String> chanchedProperties = tracker.getChangedProperties(e);
 
-          if ((requiredProperties.size() > 0 && (e.isNew() || (chanchedProperties != null && chanchedProperties.size() > 0)))) {
+          if ((requiredProperties.size() > 0 && (e.isNewOrTemporary() || (chanchedProperties != null && chanchedProperties.size() > 0)))) {
             for (String requiredPropertyName : requiredProperties) {
-              if (e.isNew() || chanchedProperties.contains(requiredPropertyName)) {
+              if (e.isNewOrTemporary() || chanchedProperties.contains(requiredPropertyName)) {
                 Comparable requiredPropertyValue = e.getProperty(requiredPropertyName);
 
                 if (isEmptyProperty(requiredPropertyValue)) {
