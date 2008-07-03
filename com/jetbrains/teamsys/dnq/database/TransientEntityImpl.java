@@ -99,11 +99,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
-      Object processTemporary() {
-        getPropertiesCache().put(propertyName, null);
-        return null;
-      }
-
     }.handle();
   }
 
@@ -199,12 +194,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
-      Object processTemporary() {
-        File f = moveOrCopy(file);
-        getFileBlobsCache().put(blobName, f);
-        return null;
-      }
-
     }.handle();
   }
 
@@ -255,11 +244,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
-      Object processTemporary() {
-        getFileBlobsCache().put(blobName, null);
-        return null;
-      }
-
     }.handle();
   }
 
@@ -296,11 +280,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
-      Object processTemporary() {
-        getPropertiesCache().put(blobName, blobString);
-        return null;
-      }
-
     }.handle();
   }
 
@@ -316,11 +295,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
-      Object processTemporary() {
-        getPropertiesCache().put(blobName, null);
-        return null;
-      }
-
     }.handle();
   }
 
@@ -332,10 +306,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
-        return processOpenSaved();
-      }
-
-      Object processTemporary() {
         return processOpenSaved();
       }
 
@@ -371,10 +341,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
-      Object processTemporary() {
-        return processOpenSaved();
-      }
-
     }.handle();
   }
 
@@ -386,10 +352,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
-        return processOpenSaved();
-      }
-
-      Object processTemporary() {
         return processOpenSaved();
       }
 
@@ -407,10 +369,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
-      Object processTemporary() {
-        return processOpenSaved();
-      }
-
     }.handle();
   }
 
@@ -425,10 +383,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
-      Object processTemporary() {
-        return processOpenSaved();
-      }
-
     }.handle();
   }
 
@@ -439,11 +393,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
-        return getLinksManager(linkName).getLinksSize();
-      }
-
-      Object processTemporary() {
-        return getLinksManager(linkName).getLinksSize();
+        return processOpenSaved();
       }
 
     }.handle();
@@ -489,10 +439,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return processOpenSaved();
       }
 
-      Object processTemporary() {
-        return processOpenSaved();
-      }
-
       Object processOpenRemoved() {
         switch (getState()) {
           case RemovedNew:
@@ -527,7 +473,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   }
 
   public void markAsTemporary() {
-    if (getState() != State.New) {
+    if (!isNew()) {
       throw new IllegalStateException("An entity in the New state only can be marked as temporary.");
     }
     setState(State.Temporary);
@@ -608,10 +554,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
       Object processOpenNew() {
         return true;
-      }
-
-      Object processTemporary() {
-        return false;
       }
 
       Object processOpenSaved() {

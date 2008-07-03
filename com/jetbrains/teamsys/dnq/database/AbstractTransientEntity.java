@@ -134,6 +134,9 @@ abstract class AbstractTransientEntity implements TransientEntity {
   }
 
   protected void setState(State state) {
+    if(this.state == State.Temporary && state != State.Temporary) {
+      throw new IllegalStateException("Can't change Temporary state of entity.");
+    }
     this.state = state;
   }
 
@@ -791,7 +794,9 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     abstract Object processOpenNew();
 
-    abstract Object processTemporary();
+    Object processTemporary() {
+      return processOpenSaved();
+    }
 
     Object processOpenRemoved() {
       throw new EntityRemovedException(AbstractTransientEntity.this);

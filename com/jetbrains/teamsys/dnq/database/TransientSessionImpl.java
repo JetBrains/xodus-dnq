@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
 import com.jetbrains.teamsys.core.execution.locks.Latch;
+import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 
 import java.util.*;
 import java.io.File;
@@ -691,9 +692,30 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   /**
+   * Entities created as new ones (using the "new" operator, not "new transient") which are
+   * the childs of temporary parents (created using the "new transient" operator, or by induction)
+   */
+  private void transformNewChildsOfTempoparyParents() {
+    for (final TransientEntity e : changesTracker.getChangedEntities()) {
+      if (e.isNew()) {
+        TransientEntity parent = (TransientEntity) AggregationAssociationSemantics.getParent(e);
+        while (parent != null && parent.isNewOrTemporary()) {
+          if (parent.isTemporary()) {
+            e.markAsTemporary();
+            break;
+          }
+          parent = (TransientEntity) AggregationAssociationSemantics.getParent(parent); 
+        }
+      }
+    }
+  }
+
+  /**
    * Checks constraints before save changes
    */
-  private void checkBeforeSaveChangesConstraints(@NotNull Set<DataIntegrityViolationException> exceptions) {
+  private void checkBeforeSaveChangesConstraints
+          (
+                  @NotNull Set<DataIntegrityViolationException> exceptions) {
     final ModelMetaData modelMetaData = store.getModelMetaData();
 
     if (modelMetaData == null) {
@@ -727,13 +749,15 @@ public class TransientSessionImpl extends AbstractTransientSession {
    * @return changed description excluding deleted entities
    */
   @Nullable
-  private Set<TransientEntityChange> flush() {
+  private Set<TransientEntityChange> flush
+          () {
     if (!changesTracker.areThereChanges()) {
       log.debug("Nothing to flush.");
       return null;
     }
 
     checkDatabaseState();
+    transformNewChildsOfTempoparyParents();
     checkBeforeSaveChangesConstraints(removeOrphans());
 
     changesTracker.markState();
@@ -791,20 +815,24 @@ public class TransientSessionImpl extends AbstractTransientSession {
     return changesDescription;
   }
 
-  private void checkDatabaseState() {
+  private void checkDatabaseState
+          () {
     if (store.getPersistentStore().isReadonly()) {
       throw new DatabaseStateIsReadonlyException("Database backup is in progress. Please wait and then repeat your action.");
     }
   }
 
-  private void fixEntityIdsInDataIntegrityViolationException(Throwable e) {
+  private void fixEntityIdsInDataIntegrityViolationException
+          (Throwable
+                  e) {
     // fix entity ids - we can do it after rollback tracker changes
     if (e instanceof DataIntegrityViolationException) {
       ((DataIntegrityViolationException) e).fixEntityId();
     }
   }
 
-  private void rollbackTransientTrackerChanges() {
+  private void rollbackTransientTrackerChanges
+          () {
     if (log.isDebugEnabled()) {
       log.debug("Rollback transient entities changes made by changes tracker." + this);
     }
@@ -817,7 +845,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  private void updateCaches() {
+  private void updateCaches
+          () {
     // all new transient entities was saved or removed - clear cache
     // FIX: do not clear cache of new entities to support old IDs for Webr
     // createdNewTransientEntities.clear();
@@ -859,7 +888,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
    * locks exclusively all entities affected by the transaction in order to prevent
    * race condition during checking version mismatches.
    */
-  private void lockForUpdate(@NotNull final StoreTransaction txn) {
+  private void lockForUpdate
+          (
+                  @NotNull final StoreTransaction txn) {
     final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
     final List<Entity> affected = new ArrayList<Entity>(changedPersistentEntities.size());
     for (final TransientEntity localCopy : changedPersistentEntities) {
@@ -871,7 +902,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
     txn.lockForUpdate(affected);
   }
 
-  private void checkVersions() {
+  private void checkVersions
+          () {
     if (!checkEntityVersionOnCommit) {
       if (log.isWarnEnabled()) {
         log.warn("Skip versions checking. " + this);
@@ -931,7 +963,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
    * @param entity
    * @return
    */
-  private boolean areChangesCompatible(TransientEntity entity) {
+  private boolean areChangesCompatible
+          (TransientEntity
+                  entity) {
     ModelMetaData md = store.getModelMetaData();
     EntityMetaData emd = md == null ? null : md.getEntityMetaData(entity.getRealType());
     if (emd == null) {
@@ -974,7 +1008,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
     return true;
   }
 
-  private void saveHistory() {
+  private void saveHistory
+          () {
     final ModelMetaData modelMetaData = store.getModelMetaData();
 
     if (modelMetaData == null) {
@@ -1003,14 +1038,16 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  private Set<File> getCreatedBlobFiles() {
+  private Set<File> getCreatedBlobFiles
+          () {
     if (createdBlobFiles == null) {
       createdBlobFiles = new HashSet<File>();
     }
     return createdBlobFiles;
   }
 
-  private void deleteBlobsStore() {
+  private void deleteBlobsStore
+          () {
     if (createdBlobFiles == null) {
       return;
     }
@@ -1026,7 +1063,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
     createdBlobFiles.clear();
   }
 
-  private void notifyCommitedListeners(final Set<TransientEntityChange> changes) {
+  private void notifyCommitedListeners
+          (
+                  final Set<TransientEntityChange> changes) {
     if (changes == null || changes.isEmpty()) {
       return;
     }
@@ -1042,7 +1081,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
     });
   }
 
-  private void notifyFlushedListeners(final Set<TransientEntityChange> changes) {
+  private void notifyFlushedListeners
+          (
+                  final Set<TransientEntityChange> changes) {
     if (changes == null || changes.isEmpty()) {
       return;
     }
@@ -1058,7 +1099,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
     });
   }
 
-  private void notifyBeforeFlushListeners() {
+  private void notifyBeforeFlushListeners
+          () {
     final Set<TransientEntityChange> changes = changesTracker.getChangesDescription();
 
     if (changes == null || changes.isEmpty()) {
@@ -1076,7 +1118,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
     });
   }
 
-  protected void doSuspend() {
+  protected void doSuspend
+          () {
     try {
       closePersistentSession();
     } finally {
@@ -1085,14 +1128,17 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  protected void doIntermediateAbort() {
+  protected void doIntermediateAbort
+          () {
     deleteBlobsStore();
     createdTransientForPersistentEntities.clear();
     createdNewTransientEntities.clear();
     changesTracker = new TransientChangesTrackerImpl(this);
   }
 
-  protected TransientEntity newEntityImpl(Entity persistent) {
+  protected TransientEntity newEntityImpl
+          (Entity
+                  persistent) {
     final EntityId entityId = persistent.getId();
     TransientEntity e = createdTransientForPersistentEntities.get(entityId);
     if (e == null) {
@@ -1103,7 +1149,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   @Nullable
-  protected Entity getEntityImpl(@NotNull final EntityId id) {
+  protected Entity getEntityImpl
+          (
+                  @NotNull final EntityId id) {
     if (id instanceof TransientEntityId) {
       return createdNewTransientEntities.get(id);
     } else {
@@ -1119,7 +1167,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   @NotNull
-  protected EntityId toEntityIdImpl(@NotNull final String representation) {
+  protected EntityId toEntityIdImpl
+          (
+                  @NotNull final String representation) {
     // treat given id as id of transient entity first
     try {
       return getPersistentSessionInternal().toEntityId(representation);
@@ -1128,12 +1178,16 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  protected void doClearHistory(@NotNull final String entityType) {
+  protected void doClearHistory
+          (
+                  @NotNull final String entityType) {
     changesTracker.historyCleared(entityType);
   }
 
   @NotNull
-  protected File doCreateBlobFile(boolean createNewFile) {
+  protected File doCreateBlobFile
+          (
+                  boolean createNewFile) {
     String fileName = id + "-" + getPersistentSessionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment() + ".dat";
     File f = new File(store.getBlobsStore(), fileName);
 

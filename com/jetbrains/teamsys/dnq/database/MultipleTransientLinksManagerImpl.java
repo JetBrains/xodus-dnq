@@ -46,6 +46,9 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
       case New:
         links.add(entity);
         break;
+      case Temporary:
+        links.add(entity);
+        return;
 
       case Saved:
       case SavedNew:
@@ -67,16 +70,21 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   }
 
   public void deleteLink(@NotNull final TransientEntity entity) {
-    switch (owner.getState()) {
+    final AbstractTransientEntity.State state = owner.getState();
+    switch (state) {
       case New:
+      case Temporary:
         if (!links.remove(entity)) {
           throw new IllegalArgumentException("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
+        }
+        if (state == AbstractTransientEntity.State.Temporary) {
+          return;
         }
         break;
 
       case Saved:
       case SavedNew:
-        switch (state) {
+        switch (this.state) {
           case LinksNotLoaded:
             if (!added.remove(entity)) {
               removed.add(entity);
@@ -100,6 +108,9 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
       case New:
         links.clear();
         break;
+      case Temporary:
+        links.clear();
+        return;
 
       case Saved:
       case SavedNew:
@@ -125,6 +136,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   public EntityIterable getLinks() {
     switch (owner.getState()) {
       case New:
+      case Temporary:
         return new TransientEntityIterable(links /*, EntityIterableBase.EMPTY*/);
 
       case Saved:
@@ -151,6 +163,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   public long getLinksSize() {
     switch (owner.getState()) {
       case New:
+      case Temporary:
         return links.size();
 
       case Saved:
@@ -205,7 +218,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
 
       if (!removed.contains(te)) {
         links.add(te);
-      } 
+      }
 
       if (i++ > 100 && !warnReported) {
         if (log.isWarnEnabled()) {

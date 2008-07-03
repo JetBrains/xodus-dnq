@@ -31,6 +31,9 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
       case New:
         this.target = target;
         break;
+      case Temporary:
+        this.target = target;
+        return;
 
       case Saved:
       case SavedNew:
@@ -53,6 +56,7 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
   public Entity getLink() {
     switch (owner.getState()) {
       case New:
+      case Temporary:
         return target;
 
       case Saved:
@@ -81,6 +85,9 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
       case New:
         target = null;
         break;
+      case Temporary:
+        target = null;
+        return;
 
       case Saved:
       case SavedNew:
@@ -105,6 +112,7 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
   public long getLinksSize() {
     switch (owner.getState()) {
       case New:
+      case Temporary:
         return target == null ? 0 : 1;
 
       case SavedNew:

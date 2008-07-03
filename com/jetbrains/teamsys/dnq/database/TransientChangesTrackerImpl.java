@@ -1,8 +1,8 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.decorators.MapDecorator;
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
-import com.jetbrains.teamsys.core.dataStructures.decorators.SetDecorator;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.CantRemoveEntityException;
 import com.jetbrains.teamsys.database.exceptions.ConstraintsValidationException;
@@ -29,13 +29,13 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   private Queue<Runnable> changes = new QueueDecorator<Runnable>();
   private LinkedList<Runnable> deletes = new LinkedList<Runnable>();
   private Queue<Runnable> rollbackChanges = new QueueDecorator<Runnable>();
-  private Set<TransientEntity> changedPersistentEntities = new SetDecorator<TransientEntity>();
-  private Set<TransientEntity> changedEntities = new SetDecorator<TransientEntity>();
-  private Map<TransientEntity, Set<String>> entityToChangedLinks = new MapDecorator<TransientEntity, Set<String>>();
-  private Map<TransientEntity, Set<String>> entityToChangedProperties = new MapDecorator<TransientEntity, Set<String>>();
+  private Set<TransientEntity> changedPersistentEntities = new HashSetDecorator<TransientEntity>();
+  private Set<TransientEntity> changedEntities = new HashSetDecorator<TransientEntity>();
+  private Map<TransientEntity, Set<String>> entityToChangedLinks = new HashMapDecorator<TransientEntity, Set<String>>();
+  private Map<TransientEntity, Set<String>> entityToChangedProperties = new HashMapDecorator<TransientEntity, Set<String>>();
 
   private Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed =
-    new MapDecorator<TransientEntity, Map<String, LinkChange>>();
+    new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
   private boolean wasChanges = false;
 
   public TransientChangesTrackerImpl(TransientStoreSession session) {

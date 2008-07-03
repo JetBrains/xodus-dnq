@@ -3,7 +3,6 @@ package com.jetbrains.teamsys.dnq.association;
 import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.TransientEntity;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -191,6 +190,23 @@ public class AggregationAssociationSemantics {
         child.setProperty(CHILD_TO_PARENT_LINK_NAME, childToParentLinkName);
       }
     }
+  }
+
+  @Nullable
+  public static Entity getParent(@NotNull Entity child) {
+    String childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME);
+    String parentToChildLinkName = child.getProperty(PARENT_TO_CHILD_LINK_NAME);
+
+    if (parentToChildLinkName == null && childToParentLinkName == null) {
+      return null;
+    }
+
+    assert parentToChildLinkName != null && childToParentLinkName != null;
+
+    Entity parent = child.getLink(childToParentLinkName);
+    assert parent != null;
+
+    return parent;
   }
 
 }
