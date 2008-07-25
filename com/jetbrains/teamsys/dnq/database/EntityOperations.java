@@ -20,6 +20,9 @@ public class EntityOperations {
 
   private static final Log log = LogFactory.getLog(EntityOperations.class);
 
+  private EntityOperations() {
+  }
+
   public static void remove(@NotNull Entity e) {
     remove(e, false);
   }
