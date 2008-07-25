@@ -1,52 +1,49 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.*;
-
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Set;
-import java.util.HashSet;
-
+import com.jetbrains.teamsys.database.EntityMetaData;
+import com.jetbrains.teamsys.database.ModelMetaData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  */
 public class ModelMetaDataImpl implements ModelMetaData {
 
-  private Map<String, EntityMetaData> typeToEntitiesMetaData = new HashMap<String, EntityMetaData>();
-  private Map<String, Set<String>> typeToSubtypes = new HashMap<String, Set<String>>();
+  private Map<String, EntityMetaData> typeToEntityMetaDatas = new HashMap<String, EntityMetaData>();
 
   public void setEntityMetaDatas(Set<EntityMetaData> entityMetaDatas) {
-    for (EntityMetaData emd : entityMetaDatas) {
-      if (typeToEntitiesMetaData.get(emd.getType()) != null) {
-        throw new IllegalArgumentException("Duplicate entity [" + emd.getType() + "]");        
+    for (final EntityMetaData emd : entityMetaDatas) {
+      final String type = emd.getType();
+      if (typeToEntityMetaDatas.get(type) != null) {
+        throw new IllegalArgumentException("Duplicate entity [" + type + "]");
       }
-      typeToEntitiesMetaData.put(emd.getType(), emd);
+      typeToEntityMetaDatas.put(type, emd);
     }
 
-    for (EntityMetaData emd : entityMetaDatas) {
-      if (emd.getSuperType() != null) {
-        Set<String> subtypes = typeToSubtypes.get(emd.getSuperType());
-
-        if (subtypes == null) {
-          subtypes = new HashSet<String>();
-          typeToSubtypes.put(emd.getSuperType(), subtypes);
+    for (final EntityMetaData emd : entityMetaDatas) {
+      final String superType = emd.getSuperType();
+      if (superType != null) {
+        final EntityMetaData superEmd = typeToEntityMetaDatas.get(superType);
+        if (superEmd == null) {
+          throw new IllegalArgumentException("No entity metadata for super type [" + superType + "]");
         }
-
-        subtypes.add(emd.getType());
+        superEmd.addSubType(emd.getType());
       }
     }
   }
 
   @Nullable
   public EntityMetaData getEntityMetaData(@NotNull String typeName) {
-    return typeToEntitiesMetaData.get(typeName);
+    return typeToEntityMetaDatas.get(typeName);
   }
 
   @NotNull
   public Iterable<EntityMetaData> getEntitiesMetaData() {
-    return typeToEntitiesMetaData.values();
+    return typeToEntityMetaDatas.values();
   }
 
   public void init() {
@@ -54,52 +51,27 @@ public class ModelMetaDataImpl implements ModelMetaData {
   }
 
   private void initHierarchies() {
-    for (EntityMetaData emd : typeToEntitiesMetaData.values()) {
-      if (emd.getSuperType() != null) {
-        if (typeToEntitiesMetaData.get(emd.getSuperType()) == null) {
-          throw new IllegalStateException("Can't find metadata for type [" + emd.getSuperType() + "]");
+    for (final EntityMetaData emd : typeToEntityMetaDatas.values()) {
+      final String type = emd.getType();
+      final String superType = emd.getSuperType();
+      if (superType != null) {
+        if (typeToEntityMetaDatas.get(superType) == null) {
+          throw new IllegalStateException("Can't find metadata for type [" + superType + "]");
         }
 
         emd.setWithinHierarchy(true);
-      } else if (hasSubtypes(emd.getType())) {
+      } else if (emd.hasSubTypes()) {
         emd.setWithinHierarchy(true);
       }
 
-      emd.setRootSuperType(getRootSuperType(emd.getType()));
+      emd.setRootSuperType(getRootSuperType(type));
     }
-  }
-
-  private boolean hasSubtypes(@NotNull String type) {
-    for (EntityMetaData emd : typeToEntitiesMetaData.values()) {
-      if (type.equals(emd.getSuperType())) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  @Nullable
-  private Set<String> getAllSubtypes(@NotNull String type) {
-    Set<String> res = typeToSubtypes.get(type);
-
-    if (res != null) {
-      for (String t: new HashSet<String>(res)) {
-        Set<String> s = getAllSubtypes(t);
-        if (s != null) {
-          res.addAll(s);
-        }
-      }
-    }
-
-    return res;
   }
 
   private String getRootSuperType(@NotNull String type) {
-    EntityMetaData emd = typeToEntitiesMetaData.get(type);
-
-    if (emd.getSuperType() != null) {
-      return getRootSuperType(emd.getSuperType());
+    final String superType = typeToEntityMetaDatas.get(type).getSuperType();
+    if (superType != null) {
+      return getRootSuperType(superType);
     } else {
       return type;
     }

@@ -2,6 +2,7 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -20,12 +21,13 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private Runnable initializer = null;
   private boolean history = false;
   private boolean removeOrphan = true;
+  private Set<String> subTypes = new HashSetDecorator<String>();
   private Map<String, AssociationEndMetaData> associationEnds = new HashMap<String, AssociationEndMetaData>();
-  private Set<String> aggregationChildEnds = new HashSet<String>(3);
-  private Set<String> uniqueProperties = new HashSet<String>(1);
-  private Set<String> requiredProperties = new HashSet<String>(1);
-  private Set<String> historyIgnoredFields = new HashSet<String>(1);
-  private Set<String> versionMismatchIgnored = new HashSet<String>(1);
+  private Set<String> aggregationChildEnds = new HashSetDecorator<String>();
+  private Set<String> uniqueProperties = new HashSetDecorator<String>();
+  private Set<String> requiredProperties = new HashSetDecorator<String>();
+  private Set<String> historyIgnoredFields = new HashSetDecorator<String>();
+  private Set<String> versionMismatchIgnored = new HashSetDecorator<String>();
   private boolean versionMismatchIgnoredForWholeClass = false;
 
   public void setType(String type) {
@@ -43,6 +45,18 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public void setRootSuperType(@NotNull String rootSuperType) {
     this.rootSuperType = rootSuperType;
+  }
+
+  public boolean hasSubTypes() {
+    return !subTypes.isEmpty();
+  }
+
+  public Iterable<String> getSubTypes() {
+    return subTypes;
+  }
+
+  public void addSubType(@NotNull String type) {
+    subTypes.add(type);
   }
 
   public void setWithinHierarchy(boolean withinHierarchy) {
