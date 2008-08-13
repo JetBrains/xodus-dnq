@@ -509,7 +509,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   protected void doResume() {
-    log.debug("Open persistent session for transient session " + this);
+    if (log.isDebugEnabled()) {
+      log.debug("Open persistent session for transient session " + this);
+    }
     store.getPersistentStore().beginSession();
     state = State.Open;
   }
@@ -713,9 +715,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   /**
    * Checks constraints before save changes
    */
-  private void checkBeforeSaveChangesConstraints
-          (
-                  @NotNull Set<DataIntegrityViolationException> exceptions) {
+  private void checkBeforeSaveChangesConstraints(@NotNull Set<DataIntegrityViolationException> exceptions) {
     final ModelMetaData modelMetaData = store.getModelMetaData();
 
     if (modelMetaData == null) {
@@ -749,8 +749,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
    * @return changed description excluding deleted entities
    */
   @Nullable
-  private Set<TransientEntityChange> flush
-          () {
+  private Set<TransientEntityChange> flush() {
     if (!changesTracker.areThereChanges()) {
       log.debug("Nothing to flush.");
       return null;
@@ -1063,9 +1062,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     createdBlobFiles.clear();
   }
 
-  private void notifyCommitedListeners
-          (
-                  final Set<TransientEntityChange> changes) {
+  private void notifyCommitedListeners(final Set<TransientEntityChange> changes) {
     if (changes == null || changes.isEmpty()) {
       return;
     }
@@ -1081,9 +1078,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     });
   }
 
-  private void notifyFlushedListeners
-          (
-                  final Set<TransientEntityChange> changes) {
+  private void notifyFlushedListeners(final Set<TransientEntityChange> changes) {
     if (changes == null || changes.isEmpty()) {
       return;
     }
@@ -1099,8 +1094,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     });
   }
 
-  private void notifyBeforeFlushListeners
-          () {
+  private void notifyBeforeFlushListeners() {
     final Set<TransientEntityChange> changes = changesTracker.getChangesDescription();
 
     if (changes == null || changes.isEmpty()) {
@@ -1149,9 +1143,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   @Nullable
-  protected Entity getEntityImpl
-          (
-                  @NotNull final EntityId id) {
+  protected Entity getEntityImpl(@NotNull final EntityId id) {
     if (id instanceof TransientEntityId) {
       return createdNewTransientEntities.get(id);
     } else {

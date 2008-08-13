@@ -49,18 +49,22 @@ class TransientEntityImpl extends AbstractTransientEntity {
   public <T extends Comparable> T getProperty(@NotNull final String propertyName) {
     return (T) new StandartEventHandler() {
       Object processOpenSaved() {
+        Comparable v = null;
         if (!getPropertiesCache().containsKey(propertyName)) {
-          getPropertiesCache().put(propertyName, getPersistentEntityInternal().getProperty(propertyName));
+          v = getPersistentEntityInternal().getProperty(propertyName);
+          getPropertiesCache().put(propertyName, v);
+          return (T)v;
+        } else {
+          return (T) getPropertiesCache().get(propertyName);
         }
-        return (T) getPropertiesCache().get(propertyName);
       }
 
       Object processOpenNew() {
-        return (T) getPropertiesCache().get(propertyName);
+        return (T) (propertiesCache == null ? null : getPropertiesCache().get(propertyName));
       }
 
       Object processTemporary() {
-        return (T) getPropertiesCache().get(propertyName);
+        return (T) (propertiesCache == null ? null : getPropertiesCache().get(propertyName));
       }
 
     }.handle();
@@ -96,6 +100,9 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
+        if (propertiesCache == null) {
+          return null;
+        }
         return processOpenSaved();
       }
 
@@ -106,13 +113,13 @@ class TransientEntityImpl extends AbstractTransientEntity {
   public InputStream getBlob(@NotNull final String blobName) {
     return (InputStream) new StandartEventHandler() {
       Object processOpenSaved() {
-        if (!getFileBlobsCache().containsKey(blobName)) {
+        if (fileBlobsCache == null || !getFileBlobsCache().containsKey(blobName)) {
           //TODO: bad solution - it breaks transaction isolation.
           //TODO: Better solution is to get blob from persistent store only ones and save it somehow in transient session.
           return getPersistentEntityInternal().getBlob(blobName);
         }
 
-        File f = getFileBlobsCache().get(blobName);
+        File f = fileBlobsCache == null ? null : getFileBlobsCache().get(blobName);
 
         try {
           return f == null ? null : new FileInputStream(f);
@@ -122,7 +129,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenNew() {
-        File f = getFileBlobsCache().get(blobName);
+        File f = fileBlobsCache == null ? null : getFileBlobsCache().get(blobName);
 
         try {
           return f == null ? null : new FileInputStream(f);
@@ -252,13 +259,15 @@ class TransientEntityImpl extends AbstractTransientEntity {
     return (String) new StandartEventHandler() {
       Object processOpenSaved() {
         if (!getPropertiesCache().containsKey(blobName)) {
-          getPropertiesCache().put(blobName, getPersistentEntityInternal().getBlobString(blobName));
+          String value = getPersistentEntityInternal().getBlobString(blobName);
+          getPropertiesCache().put(blobName, value);
+          return value;
         }
         return getPropertiesCache().get(blobName);
       }
 
       Object processOpenNew() {
-        return getPropertiesCache().get(blobName);
+        return propertiesCache == null ? null : getPropertiesCache().get(blobName);
       }
 
       Object processTemporary() {
@@ -480,7 +489,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   }
 
   private TransientLinksManager getLinksManager(@NotNull String linkName) {
-    TransientLinksManager m = getLinksManagers().get(linkName);
+    TransientLinksManager m = linksManagers == null ? null : getLinksManagers().get(linkName);
 
     if (m == null) {
       ModelMetaData md = ((TransientEntityStore) getStore()).getModelMetaData();
@@ -511,7 +520,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   private Map<String, TransientLinksManager> getLinksManagers() {
     if (linksManagers == null) {
-      linksManagers = new HashMap<String, TransientLinksManager>();
+      linksManagers = new HashMap<String, TransientLinksManager>(8);
     }
 
     return linksManagers;
@@ -519,7 +528,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   private Map<String, Comparable> getPropertiesCache() {
     if (propertiesCache == null) {
-      propertiesCache = new HashMap<String, Comparable>();
+      propertiesCache = new HashMap<String, Comparable>(8);
     }
 
     return propertiesCache;
@@ -527,7 +536,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   private Map<String, File> getFileBlobsCache() {
     if (fileBlobsCache == null) {
-      fileBlobsCache = new HashMap<String, File>();
+      fileBlobsCache = new HashMap<String, File>(4);
     }
 
     return fileBlobsCache;
@@ -537,6 +546,9 @@ class TransientEntityImpl extends AbstractTransientEntity {
    * Is called by session on flush, because all files stored in temp location will be moved to persistent store location.
    */
   void clearFileBlobsCache() {
+    if (fileBlobsCache == null) {
+      return;
+    }
     getFileBlobsCache().clear();
   }
 
@@ -544,6 +556,9 @@ class TransientEntityImpl extends AbstractTransientEntity {
    * Notifies links managers about successful flush. Called by transient session
    */
   void updateLinkManagers() {
+    if (linksManagers == null) {
+      return;
+    }
     for (TransientLinksManager lm : getLinksManagers().values()) {
       lm.flushed();
     }
