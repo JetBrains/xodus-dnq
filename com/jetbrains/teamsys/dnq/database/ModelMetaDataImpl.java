@@ -9,11 +9,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import gnu.trove.THashMap;
+
 /**
  */
 public class ModelMetaDataImpl implements ModelMetaData {
 
-  private Map<String, EntityMetaData> typeToEntityMetaDatas = new HashMap<String, EntityMetaData>();
+  private Map<String, EntityMetaData> typeToEntityMetaDatas = new THashMap<String, EntityMetaData>();
 
   public void setEntityMetaDatas(Set<EntityMetaData> entityMetaDatas) {
     for (final EntityMetaData emd : entityMetaDatas) {

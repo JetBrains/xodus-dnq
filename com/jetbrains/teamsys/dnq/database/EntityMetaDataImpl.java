@@ -11,6 +11,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
 
+import gnu.trove.THashMap;
+import gnu.trove.THashSet;
+
 public class EntityMetaDataImpl implements EntityMetaData {
 
   private String type = null;
@@ -22,7 +25,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private boolean history = false;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
-  private Map<String, AssociationEndMetaData> associationEnds = new HashMap<String, AssociationEndMetaData>();
+  private Map<String, AssociationEndMetaData> associationEnds = new THashMap<String, AssociationEndMetaData>();
   private Set<String> aggregationChildEnds = new HashSetDecorator<String>();
   private Set<String> uniqueProperties = new HashSetDecorator<String>();
   private Set<String> requiredProperties = new HashSetDecorator<String>();
@@ -117,7 +120,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   private void initAssociationChildEnds() {
-    aggregationChildEnds = new HashSet<String>();
+    aggregationChildEnds = new THashSet<String>();
     for (AssociationEndMetaData aemd: associationEnds.values()) {
       if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
         aggregationChildEnds.add(aemd.getName());

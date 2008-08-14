@@ -3,6 +3,7 @@ package com.jetbrains.teamsys.dnq.database;
 import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.EntityIterable;
 import com.jetbrains.teamsys.database.TransientEntity;
+import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -10,6 +11,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Map;
+import java.util.Collections;
+
+import gnu.trove.THashSet;
 
 /**
  * Manages link related methods of TransinetEntity.
@@ -18,13 +23,14 @@ import java.util.Set;
 class MultipleTransientLinksManagerImpl implements TransientLinksManager {
 
   protected static Log log = LogFactory.getLog(MultipleTransientLinksManagerImpl.class);
+  private static final Set<TransientEntity> EMPTY = Collections.EMPTY_SET;
 
   protected State state;
   protected final String linkName;
   protected final TransientEntityImpl owner;
-  protected Set<TransientEntity> removed = new HashSet<TransientEntity>();
-  protected Set<TransientEntity> added = new HashSet<TransientEntity>();
-  protected Set<TransientEntity> links = new HashSet<TransientEntity>();
+  private Set<TransientEntity> removed;
+  private Set<TransientEntity> added;
+  private Set<TransientEntity> links;
 
   MultipleTransientLinksManagerImpl(@NotNull String linkName, TransientEntityImpl owner) {
     this.state = State.LinksNotLoaded;
@@ -44,22 +50,22 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   public void addLink(@NotNull final TransientEntity entity) {
     switch (owner.getState()) {
       case New:
-        links.add(entity);
+        getLinksSet().add(entity);
         break;
       case Temporary:
-        links.add(entity);
+        getLinksSet().add(entity);
         return;
 
       case Saved:
       case SavedNew:
         switch (state) {
           case LinksNotLoaded:
-            if (!removed.remove(entity)) {
-              added.add(entity);
+            if (removed == null || !removed.remove(entity)) {
+              getAdded().add(entity);
             }
             break;
           case LinksLoaded:
-            links.add(entity);
+            getLinksSet().add(entity);
             break;
         }
         break;
@@ -69,12 +75,36 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
             owner, linkName, entity);
   }
 
+  private Set<TransientEntity> getAdded() {
+    if (added == null) {
+      added = new THashSet<TransientEntity>();
+    }
+
+    return added;
+  }
+
+  private Set<TransientEntity> getRemoved() {
+    if (removed == null) {
+      removed = new THashSet<TransientEntity>();
+    }
+
+    return removed;
+  }
+
+  private Set<TransientEntity> getLinksSet() {
+    if (links == null) {
+      links = new THashSet<TransientEntity>();
+    }
+
+    return links;
+  }
+
   public void deleteLink(@NotNull final TransientEntity entity) {
     final AbstractTransientEntity.State state = owner.getState();
     switch (state) {
       case New:
       case Temporary:
-        if (!links.remove(entity)) {
+        if (links == null || !links.remove(entity)) {
           throw new IllegalArgumentException("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
         }
         if (state == AbstractTransientEntity.State.Temporary) {
@@ -86,12 +116,12 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
       case SavedNew:
         switch (this.state) {
           case LinksNotLoaded:
-            if (!added.remove(entity)) {
-              removed.add(entity);
+            if (added == null || !added.remove(entity)) {
+              getRemoved().add(entity);
             }
             break;
           case LinksLoaded:
-            if (!links.remove(entity)) {
+            if (links == null || !links.remove(entity)) {
               throw new IllegalArgumentException("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
             }
             break;
@@ -106,23 +136,29 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   public void deleteLinks() {
     switch (owner.getState()) {
       case New:
-        links.clear();
-        break;
       case Temporary:
-        links.clear();
+        if (links != null) {
+          links.clear();
+        }
         return;
 
       case Saved:
       case SavedNew:
         switch (state) {
           case LinksNotLoaded:
-            added.clear();
-            removed.clear();
+            if (added != null) {
+              added.clear();
+            }
+            if (removed != null) {
+              removed.clear();
+            }
             // do not load links actually, because all of them are removed now
             state = State.LinksLoaded;
             break;
           case LinksLoaded:
-            links.clear();
+            if (links != null) {
+              links.clear();
+            }
             break;
         }
         break;
@@ -137,23 +173,23 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     switch (owner.getState()) {
       case New:
       case Temporary:
-        return new TransientEntityIterable(links /*, EntityIterableBase.EMPTY*/);
+        return new TransientEntityIterable(links == null ? EMPTY : links);
 
       case Saved:
       case SavedNew:
         switch (state) {
           case LinksNotLoaded:
             // if there were no changes for this link - query underlying database
-            if (added.size() == 0 && removed.size() == 0) {
+            if ((added == null || added.size() == 0) && (removed == null || removed.size() == 0)) {
               return new PersistentEntityIterableWrapper(owner.getPersistentEntityInternal().getLinks(linkName), owner.getTransientStoreSession());
             } else {
               loadLinksAndMerge();
               state = State.LinksLoaded;
-              return new TransientEntityIterable(links/*, owner.getPersistentEntityInternal().getLinks(linkName)*/);
+              return new TransientEntityIterable(links == null ? EMPTY : links/*, owner.getPersistentEntityInternal().getLinks(linkName)*/);
             }
 
           case LinksLoaded:
-            return new TransientEntityIterable(links/*, owner.getPersistentEntityInternal().getLinks(linkName)*/);
+            return new TransientEntityIterable(links == null ? EMPTY : links/*, owner.getPersistentEntityInternal().getLinks(linkName)*/);
         }
     }
 
@@ -164,16 +200,19 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     switch (owner.getState()) {
       case New:
       case Temporary:
-        return links.size();
+        return links == null ? 0 : links.size();
 
       case Saved:
       case SavedNew:
         switch (state) {
           case LinksNotLoaded:
             //TODO: error prone code, we don't know if 'removed' contains 'real' records 
-            return owner.getPersistentEntityInternal().getLinks(linkName).size() - removed.size() + added.size();
+            return
+                    owner.getPersistentEntityInternal().getLinks(linkName).size() -
+                            (removed == null ? 0 : removed.size()) +
+                            (added == null ? 0 : added.size());
           case LinksLoaded:
-            return links.size();
+            return links == null ? 0 : links.size();
         }
     }
 
@@ -187,8 +226,12 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
         switch (state) {
           case LinksNotLoaded:
             // all changes are saved into database after flush - clear local data about changes
-            removed.clear();
-            added.clear();
+            if (removed != null) {
+              removed.clear();
+            }
+            if (added != null) {
+              added.clear();
+            }
         }
     }
   }
@@ -216,8 +259,8 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     for (final Entity persistent : owner.getPersistentEntityInternal().getLinks(linkName)) {
       TransientEntity te = owner.getTransientStoreSession().newEntity(persistent);
 
-      if (!removed.contains(te)) {
-        links.add(te);
+      if (removed == null || !removed.contains(te)) {
+        getLinksSet().add(te);
       }
 
       if (i++ > 100 && !warnReported) {
@@ -235,9 +278,13 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     }
 
     // add added links
-    links.addAll(added);
-    added.clear();
-    removed.clear();
+    if (added != null) {
+      getLinksSet().addAll(added);
+      added.clear();
+    }
+    if (removed != null) {
+      removed.clear();
+    }
   }
 
 }

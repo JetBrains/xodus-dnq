@@ -13,6 +13,8 @@ import java.util.Set;
 import java.util.HashMap;
 
 import jetbrains.mps.baseLanguage.ext.collections.internal.query.SequenceOperations;
+import gnu.trove.THashMap;
+import gnu.trove.THashSet;
 
 class ConstraintsUtil {
 
@@ -44,7 +46,7 @@ class ConstraintsUtil {
 
   @NotNull
   static Set<DataIntegrityViolationException> checkAssociationsCardinality(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
-    Set<DataIntegrityViolationException> exceptions = new HashSet<DataIntegrityViolationException>();
+    Set<DataIntegrityViolationException> exceptions = new THashSet<DataIntegrityViolationException>();
 
     for (TransientEntity e : changesTracker.getChangedEntities()) {
       if (!e.isRemoved()) {
@@ -290,8 +292,8 @@ class ConstraintsUtil {
 
   @NotNull
   static Set<DataIntegrityViolationException> checkUniqueProperties(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
-    Set<DataIntegrityViolationException> errors = new HashSet<DataIntegrityViolationException>();
-    Map<String, Map<String, Set<Comparable>>> entityTypeToProperiesValues = new HashMap<String, Map<String, Set<Comparable>>>();
+    Set<DataIntegrityViolationException> errors = new THashSet<DataIntegrityViolationException>();
+    Map<String, Map<String, Set<Comparable>>> entityTypeToProperiesValues = new THashMap<String, Map<String, Set<Comparable>>>();
 
     for (TransientEntity e : tracker.getChangedEntities()) {
       if (!e.isRemoved()) {
@@ -311,13 +313,13 @@ class ConstraintsUtil {
                 } else {
                   Map<String, Set<Comparable>> propertiesValues = entityTypeToProperiesValues.get(e.getRealType());
                   if (propertiesValues == null) {
-                    propertiesValues = new HashMap<String, Set<Comparable>>();
+                    propertiesValues = new THashMap<String, Set<Comparable>>();
                     entityTypeToProperiesValues.put(e.getRealType(), propertiesValues);
                   }
 
                   Set<Comparable> propertyValues = propertiesValues.get(uniquePropertyName);
                   if (propertyValues == null) {
-                    propertyValues = new HashSet<Comparable>();
+                    propertyValues = new THashSet<Comparable>();
                     propertiesValues.put(uniquePropertyName, propertyValues);
                   }
 
@@ -371,7 +373,7 @@ class ConstraintsUtil {
 
   @NotNull
   static Set<DataIntegrityViolationException> checkRequiredProperties(@NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
-    Set<DataIntegrityViolationException> errors = new HashSet<DataIntegrityViolationException>();
+    Set<DataIntegrityViolationException> errors = new THashSet<DataIntegrityViolationException>();
 
     for (TransientEntity e : tracker.getChangedEntities()) {
       if (!e.isRemoved()) {

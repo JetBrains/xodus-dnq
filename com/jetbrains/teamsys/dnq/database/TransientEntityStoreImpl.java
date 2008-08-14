@@ -10,6 +10,9 @@ import org.springframework.beans.factory.InitializingBean;
 import java.util.*;
 import java.io.File;
 
+import gnu.trove.THashMap;
+import gnu.trove.THashSet;
+
 /**
  * @author Vadim.Gurov
  */
@@ -19,9 +22,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
   private EntityStore persistentStore;
   private ModelMetaData modelMetaData;
-  private Map<Object, TransientStoreSession> sessions = new HashMap<Object, TransientStoreSession>();
+  private Map<Object, TransientStoreSession> sessions = new THashMap<Object, TransientStoreSession>();
   private ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
-  private Set<TransientStoreSessionListener> listeners = new HashSet<TransientStoreSessionListener>();
+  private Set<TransientStoreSessionListener> listeners = new THashSet<TransientStoreSessionListener>();
 
   private boolean trackEntityCreation = true;
   private boolean abortSessionsOnClose = false;

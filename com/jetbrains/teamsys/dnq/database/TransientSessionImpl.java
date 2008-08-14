@@ -13,6 +13,9 @@ import java.util.*;
 import java.io.File;
 import java.io.IOException;
 
+import gnu.trove.THashMap;
+import gnu.trove.THashSet;
+
 /**
  */
 public class TransientSessionImpl extends AbstractTransientSession {
@@ -41,10 +44,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
   private TransientChangesTracker changesTracker;
 
   // stores transient entities that was created for loaded persistent entities to avoid double loading
-  private Map<EntityId, TransientEntity> createdTransientForPersistentEntities = new HashMap<EntityId, TransientEntity>();
+  private Map<EntityId, TransientEntity> createdTransientForPersistentEntities = new THashMap<EntityId, TransientEntity>();
 
   // stores new transient entities to support getEntity(EntityId) operation
-  private Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new HashMap<TransientEntityId, TransientEntity>();
+  private Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new THashMap<TransientEntityId, TransientEntity>();
 
   protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id, final boolean checkEntityVersionOnCommit) {
     super(store, name, id);
@@ -115,7 +118,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
       case Open:
         synchronized (this) {
           if (localEntities == null) {
-            localEntities = new HashMap<String, TransientEntity>();
+            localEntities = new THashMap<String, TransientEntity>();
           }
           localEntities.put(localName, (TransientEntity) e);
         }
@@ -182,6 +185,15 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public void commit() {
     final Set<TransientEntityChange> changes = commitReturnChanges();
     notifyCommitedListeners(changes);
+  }
+
+  private void dispose() {
+    localEntities = null;
+    changesTracker.dispose();
+    changesTracker = null;
+    createdBlobFiles = null;
+    createdNewTransientEntities = null;
+    createdTransientForPersistentEntities = null;
   }
 
   public void intermediateCommit() {
@@ -544,6 +556,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
           deleteBlobsStore();
           store.unregisterStoreSession(this);
           state = State.Committed;
+          dispose();
           lock.release();
         }
 
@@ -576,14 +589,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
    */
   @NotNull
   private Set<DataIntegrityViolationException> removeOrphans() {
-    Set<DataIntegrityViolationException> orphans = new HashSet<DataIntegrityViolationException>(4);
+    Set<DataIntegrityViolationException> orphans = new THashSet<DataIntegrityViolationException>(4);
     final ModelMetaData modelMetaData = store.getModelMetaData();
 
     if (modelMetaData == null) {
       return orphans;
     }
 
-    for (TransientEntity e : new HashSet<TransientEntity>(changesTracker.getChangedEntities())) {
+    for (TransientEntity e : new THashSet<TransientEntity>(changesTracker.getChangedEntities())) {
       if (!e.isRemovedOrTemporary()) {
         EntityMetaData emd = modelMetaData.getEntityMetaData(e.getRealType());
 
@@ -814,24 +827,20 @@ public class TransientSessionImpl extends AbstractTransientSession {
     return changesDescription;
   }
 
-  private void checkDatabaseState
-          () {
+  private void checkDatabaseState() {
     if (store.getPersistentStore().isReadonly()) {
       throw new DatabaseStateIsReadonlyException("Database backup is in progress. Please wait and then repeat your action.");
     }
   }
 
-  private void fixEntityIdsInDataIntegrityViolationException
-          (Throwable
-                  e) {
+  private void fixEntityIdsInDataIntegrityViolationException(Throwable e) {
     // fix entity ids - we can do it after rollback tracker changes
     if (e instanceof DataIntegrityViolationException) {
       ((DataIntegrityViolationException) e).fixEntityId();
     }
   }
 
-  private void rollbackTransientTrackerChanges
-          () {
+  private void rollbackTransientTrackerChanges() {
     if (log.isDebugEnabled()) {
       log.debug("Rollback transient entities changes made by changes tracker." + this);
     }
@@ -844,8 +853,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  private void updateCaches
-          () {
+  private void updateCaches() {
     // all new transient entities was saved or removed - clear cache
     // FIX: do not clear cache of new entities to support old IDs for Webr
     // createdNewTransientEntities.clear();
@@ -1040,13 +1048,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
   private Set<File> getCreatedBlobFiles
           () {
     if (createdBlobFiles == null) {
-      createdBlobFiles = new HashSet<File>();
+      createdBlobFiles = new THashSet<File>();
     }
     return createdBlobFiles;
   }
 
-  private void deleteBlobsStore
-          () {
+  private void deleteBlobsStore() {
     if (createdBlobFiles == null) {
       return;
     }
@@ -1073,7 +1080,13 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
       public void visit(TransientStoreSessionListener listener) {
-        listener.commited(changes);
+        try{
+          listener.commited(changes);
+        } catch (Exception e) {
+          if (log.isErrorEnabled()) {
+            log.error("Exception while inside listener [" + listener + "]", e);
+          }
+        }
       }
     });
   }
@@ -1089,7 +1102,13 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
       public void visit(TransientStoreSessionListener listener) {
-        listener.flushed(changes);
+        try{
+          listener.flushed(changes);
+        } catch (Exception e) {
+          if (log.isErrorEnabled()) {
+            log.error("Exception while inside listener [" + listener + "]", e);
+          }
+        }
       }
     });
   }
@@ -1107,13 +1126,18 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
       public void visit(TransientStoreSessionListener listener) {
-        listener.beforeFlush(changes);
+        try{
+          listener.beforeFlush(changes);
+        } catch (Exception e) {
+          if (log.isErrorEnabled()) {
+            log.error("Exception while inside listener [" + listener + "]", e);
+          }
+        }
       }
     });
   }
 
-  protected void doSuspend
-          () {
+  protected void doSuspend() {
     try {
       closePersistentSession();
     } finally {
@@ -1122,17 +1146,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  protected void doIntermediateAbort
-          () {
+  protected void doIntermediateAbort() {
     deleteBlobsStore();
     createdTransientForPersistentEntities.clear();
     createdNewTransientEntities.clear();
     changesTracker = new TransientChangesTrackerImpl(this);
   }
 
-  protected TransientEntity newEntityImpl
-          (Entity
-                  persistent) {
+  protected TransientEntity newEntityImpl(Entity persistent) {
     final EntityId entityId = persistent.getId();
     TransientEntity e = createdTransientForPersistentEntities.get(entityId);
     if (e == null) {
@@ -1159,9 +1180,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   @NotNull
-  protected EntityId toEntityIdImpl
-          (
-                  @NotNull final String representation) {
+  protected EntityId toEntityIdImpl(@NotNull final String representation) {
     // treat given id as id of transient entity first
     try {
       return getPersistentSessionInternal().toEntityId(representation);
@@ -1177,9 +1196,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   @NotNull
-  protected File doCreateBlobFile
-          (
-                  boolean createNewFile) {
+  protected File doCreateBlobFile(boolean createNewFile) {
     String fileName = id + "-" + getPersistentSessionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment() + ".dat";
     File f = new File(store.getBlobsStore(), fileName);
 

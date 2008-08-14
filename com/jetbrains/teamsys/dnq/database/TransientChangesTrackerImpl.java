@@ -15,6 +15,9 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.util.*;
 
+import gnu.trove.THashMap;
+import gnu.trove.THashSet;
+
 /**
  * Saves in queue all changes made during transient session
  * TODO: implement more intelligent changes tracking for links and properties
@@ -34,8 +37,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   private Map<TransientEntity, Set<String>> entityToChangedLinks = new HashMapDecorator<TransientEntity, Set<String>>();
   private Map<TransientEntity, Set<String>> entityToChangedProperties = new HashMapDecorator<TransientEntity, Set<String>>();
 
-  private Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed =
-    new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
+  private Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
   private boolean wasChanges = false;
 
   public TransientChangesTrackerImpl(TransientStoreSession session) {
@@ -88,7 +90,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   public Set<TransientEntityChange> getChangesDescription() {
     //TODO: optimization hint: do not rebuild set on every request - incrementaly build it 
-    Set<TransientEntityChange> res = new HashSet<TransientEntityChange>();
+    Set<TransientEntityChange> res = new THashSet<TransientEntityChange>();
 
     for (TransientEntity e : getChangedEntities()) {
       //TODO: return removed for text index?
@@ -129,7 +131,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     Set<String> links = entityToChangedLinks.get(e);
 
     if (links == null) {
-      links = new HashSet<String>();
+      links = new THashSet<String>();
       entityToChangedLinks.put(e, links);
     }
 
@@ -141,7 +143,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   private void linkChangedDetailed(TransientEntity e, String linkName, LinkChangeType changeType) {
     Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(e);
     if (linksDetailed == null) {
-      linksDetailed = new HashMap<String, LinkChange>();
+      linksDetailed = new THashMap<String, LinkChange>();
       entityToChangedLinksDetailed.put(e, linksDetailed);
       linksDetailed.put(linkName, new LinkChange(linkName, changeType));
     } else {
@@ -159,7 +161,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     Set<String> properties = entityToChangedProperties.get(e);
 
     if (properties == null) {
-      properties = new HashSet<String>();
+      properties = new THashSet<String>();
       entityToChangedProperties.put(e, properties);
     }
 
@@ -257,7 +259,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
           //TODO: use delete instead of tryDelete, but in session.check() check that there's no incomming links
           Map<String, EntityId> incomingLinks = ((TransientEntityImpl) e).getPersistentEntityInternal().tryDelete();
           if (incomingLinks.size() > 0) {
-            Map<String, TransientEntity> _incomingLinks = new HashMap<String, TransientEntity>(incomingLinks.size());
+            Map<String, TransientEntity> _incomingLinks = new THashMap<String, TransientEntity>(incomingLinks.size());
             for (String key : incomingLinks.keySet()) {
               _incomingLinks.put(key, (TransientEntity) ((TransientStoreSession) e.getStore().getThreadSession()).getEntity(incomingLinks.get(key)));
             }
@@ -406,4 +408,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     changes.offer(change);
   }
 
+  public void dispose() {
+    session = null;
+  }
 }

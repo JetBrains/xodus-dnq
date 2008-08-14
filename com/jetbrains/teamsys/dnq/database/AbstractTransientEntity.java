@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
+
 abstract class AbstractTransientEntity implements TransientEntity {
 
   protected static final Log log = LogFactory.getLog(TransientEntity.class);
@@ -59,6 +61,20 @@ abstract class AbstractTransientEntity implements TransientEntity {
     return entityCreationPosition;
   }
 
+  private static final StandartEventHandler getPersistentEntityEventHandler =  new StandartEventHandler() {
+    Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.persistentEntity;
+    }
+
+    Object processOpenNew(AbstractTransientEntity entity,Object param1, Object param2 ) {
+      return entity.throwNoPersistentEntity();
+    }
+
+    Object processTemporary(AbstractTransientEntity entity,Object param1, Object param2 ) {
+      return entity; // there is no persistent entity for the temporary one
+    }
+  };
+
   /**
    * It's allowed to get persistent entity in state Open-Removed.
    *
@@ -66,19 +82,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
    */
   @NotNull
   public Entity getPersistentEntity() {
-    return (Entity) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return persistentEntity;
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processTemporary() {
-        return AbstractTransientEntity.this; // there is no persistent entity for the temporary one
-      }
-    }.handle();
+    return (Entity)getPersistentEntityEventHandler.handle(this, null, null);
   }
 
   Entity getPersistentEntityInternal() {
@@ -93,6 +97,9 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
   @NotNull
   public EntityStore getStore() {
+    if (session == null) {
+      return DnqUtils.getTransientStore();
+    }
     return session.getStore();
   }
 
@@ -155,32 +162,85 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
   }
 
+  private static final StandartEventHandler getTypeEventHandler = new StandartEventHandler() {
+
+    Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.type;
+    }
+
+    Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.type;
+    }
+
+    Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.type;
+    }
+
+    Object processClosedSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.type;
+    }
+
+  };
+
   @NotNull
   public String getType() {
-    return (String) new StandartEventHandler() {
-
-      Object processOpenSaved() {
-        return AbstractTransientEntity.this.type;
-      }
-
-      Object processOpenNew() {
-        return AbstractTransientEntity.this.type;
-      }
-
-      Object processTemporary() {
-        return AbstractTransientEntity.this.type;
-      }
-
-      Object processCommittedSaved() {
-        return AbstractTransientEntity.this.type;
-      }
-
-    }.handle();
+    return (String) getTypeEventHandler.handle(this, null, null);
   }
 
   protected void setType(String type) {
     this.type = type;
   }
+
+  private static final StandartEventHandler getIdEventHandler = new StandartEventHandler() {
+
+    Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return processOpenSaved(entity, param1, param2);
+    }
+
+    Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.getPersistentEntityInternal().getId();
+    }
+
+    Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.id;
+    }
+
+    Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.id;
+    }
+
+    Object processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      switch (entity.state) {
+        case RemovedNew:
+          return entity.id;
+        case RemovedSaved:
+          return entity.getPersistentEntityInternal().getId();
+      }
+
+      throw new IllegalStateException();
+    }
+
+    Object processSuspendedRemoved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      switch (entity.state) {
+        case RemovedNew:
+          return super.processSuspendedRemoved(entity, param1, param2);
+        case RemovedSaved:
+          return entity.getPersistentEntityInternal().getId();
+      }
+
+      throw new IllegalStateException();
+    }
+
+    Object processClosedSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.getPersistentEntityInternal().getId();
+    }
+
+    Object processSuspendedSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.getPersistentEntityInternal().getId();
+    }
+
+  };
+
 
   /**
    * Allows getting id for Commited-Saved, Aborted-Saved and Open-Removed
@@ -189,349 +249,329 @@ abstract class AbstractTransientEntity implements TransientEntity {
    */
   @NotNull
   public EntityId getId() {
-    return (EntityId) new StandartEventHandler() {
-
-      Object processOpenFromAnotherSessionSaved() {
-        return processOpenSaved();
-      }
-
-      Object processOpenSaved() {
-        return getPersistentEntityInternal().getId();
-      }
-
-      Object processOpenNew() {
-        return id;
-      }
-
-      Object processTemporary() {
-        return id;
-      }
-
-      Object processOpenRemoved() {
-        switch (state) {
-          case RemovedNew:
-            return id;
-          case RemovedSaved:
-            return getPersistentEntityInternal().getId();
-        }
-
-        throw new IllegalStateException();
-      }
-
-      Object processSuspendedRemoved() {
-        switch (state) {
-          case RemovedNew:
-            return super.processSuspendedRemoved();
-          case RemovedSaved:
-            return getPersistentEntityInternal().getId();
-        }
-
-        throw new IllegalStateException();
-      }
-
-      Object processCommittedSaved() {
-        return getPersistentEntityInternal().getId();
-      }
-
-      Object processAbortedSaved() {
-        return getPersistentEntityInternal().getId();
-      }
-
-      Object processSuspendedSaved() {
-        return getPersistentEntityInternal().getId();
-      }
-
-    }.handle();
+    return (EntityId) getIdEventHandler.handle(this, null, null);
   }
+
+  private final static StandartEventHandler toIdStringEventHandler = new StandartEventHandler() {
+
+      String processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return processOpenSaved(entity, param1, param2);
+      }
+
+      String processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.getPersistentEntityInternal().toIdString();
+      }
+
+      String processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.id.toString();
+      }
+
+      Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.id.toString();
+      }
+
+      String processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        switch (entity.state) {
+          case RemovedNew:
+            return entity.id.toString();
+          case RemovedSaved:
+            return entity.getPersistentEntityInternal().toIdString();
+        }
+
+        throw new IllegalStateException();
+      }
+
+      String processSuspendedRemoved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        switch (entity.state) {
+          case RemovedNew:
+            super.processSuspendedRemoved(entity, param1, param2);
+          case RemovedSaved:
+            return entity.getPersistentEntityInternal().toIdString();
+        }
+
+        throw new IllegalStateException();
+      }
+
+      String processClosedSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.getPersistentEntityInternal().toIdString();
+      }
+
+      String processSuspendedSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.getPersistentEntityInternal().toIdString();
+      }
+
+    };
+
 
   @NotNull
   public String toIdString() {
-    return (String) new StandartEventHandler() {
-
-      String processOpenFromAnotherSessionSaved() {
-        return processOpenSaved();
-      }
-
-      String processOpenSaved() {
-        return getPersistentEntityInternal().toIdString();
-      }
-
-      String processOpenNew() {
-        return id.toString();
-      }
-
-      Object processTemporary() {
-        return id.toString();
-      }
-
-      String processOpenRemoved() {
-        switch (state) {
-          case RemovedNew:
-            return id.toString();
-          case RemovedSaved:
-            return getPersistentEntityInternal().toIdString();
-        }
-
-        throw new IllegalStateException();
-      }
-
-      String processSuspendedRemoved() {
-        switch (state) {
-          case RemovedNew:
-            super.processSuspendedRemoved();
-          case RemovedSaved:
-            return getPersistentEntityInternal().toIdString();
-        }
-
-        throw new IllegalStateException();
-      }
-
-      String processCommittedSaved() {
-        return getPersistentEntityInternal().toIdString();
-      }
-
-      String processAbortedSaved() {
-        return getPersistentEntityInternal().toIdString();
-      }
-
-      String processSuspendedSaved() {
-        return getPersistentEntityInternal().toIdString();
-      }
-
-    }.handle();
+    return (String) toIdStringEventHandler.handle(this, null, null);
   }
 
   protected void setId(TransientEntityIdImpl id) {
     this.id = id;
   }
 
+  private final static StandartEventHandler<Entity, Object> setPersistentEntityEventHandler = new StandartEventHandler<Entity, Object>() {
+
+    Object processOpenSaved(AbstractTransientEntity entity, Entity param1, Object param2) {
+      throw new IllegalStateException("Transient entity already associated with persistent entity. " + entity);
+    }
+
+    Object processOpenNew(AbstractTransientEntity entity, Entity param1, Object param2) {
+      entity.setPersistentEntityInternal(param1);
+      entity.state = State.SavedNew;
+      return null;
+    }
+
+    Object processTemporary(AbstractTransientEntity entity, Entity param1, Object param2) {
+      throw new IllegalStateException("Can't set persistent entity for a temporary transient one. " + entity);
+    }
+
+  };
+
   void setPersistentEntity(@NotNull final Entity persistentEntity) {
     if (persistentEntity instanceof TransientEntity) {
       throw new IllegalArgumentException("Can't create transient entity as wrapper for another transient entity. " + AbstractTransientEntity.this);
     }
 
-    new StandartEventHandler() {
-      Object processOpenSaved() {
-        throw new IllegalStateException("Transient entity already associated with persistent entity. " + AbstractTransientEntity.this);
-      }
+    setPersistentEntityEventHandler.handle(this, persistentEntity, null);
+  }
 
-      Object processOpenNew() {
-        setPersistentEntityInternal(persistentEntity);
-        state = State.SavedNew;
+  private final static StandartEventHandler clearPersistentEntityEventHandler = new StandartEventHandler() {
+      Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        entity.setPersistentEntityInternal(null);
+        entity.state = State.New;
         return null;
       }
 
-      Object processTemporary() {
-        throw new IllegalStateException("Can't set persistent entity for a temporary transient one. " + AbstractTransientEntity.this);
+      Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
       }
 
-    }.handle();
-  }
+      Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
+      }
+    };
+
 
   void clearPersistentEntity() {
-    new StandartEventHandler() {
-      Object processOpenSaved() {
-        setPersistentEntityInternal(null);
-        state = State.New;
-        return null;
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processTemporary() {
-        return throwNoPersistentEntity();
-      }
-    }.handle();
+    clearPersistentEntityEventHandler.handle(this, null, null);
   }
+
+  private static final StandartEventHandler updateVersionEventHandler = new StandartEventHandler() {
+
+    Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.throwNoPersistentEntity();
+    }
+
+    Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.throwNoPersistentEntity();
+    }
+
+    Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      entity.version = entity.getPersistentEntityInternal().getVersion();
+      return null;
+    }
+  };
+
 
   void updateVersion() {
-    new StandartEventHandler() {
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processTemporary() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processOpenSaved() {
-        version = getPersistentEntityInternal().getVersion();
-        return null;
-      }
-    }.handle();
+    updateVersionEventHandler.handle(this, null, null);
   }
+
+  private static final StandartEventHandler getPropertyNamesEventHandler = new StandartEventHandler() {
+      Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.getPersistentEntityInternal().getPropertyNames();
+      }
+
+      Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
+      }
+
+      Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
+      }
+
+    };
 
   @NotNull
   public List<String> getPropertyNames() {
-    return (List<String>) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return getPersistentEntityInternal().getPropertyNames();
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processTemporary() {
-        return throwNoPersistentEntity();
-      }
-
-    }.handle();
+    return (List<String>) getPropertyNamesEventHandler.handle(this, null, null);
   }
+
+  private static final StandartEventHandler getBlobNamesEventHandler = new StandartEventHandler() {
+      Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.getPersistentEntityInternal().getBlobNames();
+      }
+
+      Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
+      }
+
+      Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
+      }
+
+    };
+
 
   @NotNull
   public List<String> getBlobNames() {
-    return (List<String>) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return getPersistentEntityInternal().getBlobNames();
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processTemporary() {
-        return throwNoPersistentEntity();
-      }
-
-    }.handle();
+    return (List<String>) getBlobNamesEventHandler.handle(this, null, null);
   }
+
+  private static final StandartEventHandler getLinkNamesEventHandler = new StandartEventHandler() {
+    Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.getPersistentEntityInternal().getLinkNames();
+    }
+
+    Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.throwNoPersistentEntity();
+    }
+
+    Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return entity.throwNoPersistentEntity();
+    }
+
+  };
 
   @NotNull
   public List<String> getLinkNames() {
-    return (List<String>) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return getPersistentEntityInternal().getLinkNames();
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processTemporary() {
-        return throwNoPersistentEntity();
-      }
-
-    }.handle();
+    return (List<String>) getLinkNamesEventHandler.handle(this, null, null);
   }
 
+  private static final StandartEventHandler getVersionEventHandler = new StandartEventHandler() {
+      Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.version;
+      }
+
+      Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
+      }
+
+      Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
+      }
+    };
+
+
   public int getVersion() {
-    return (Integer) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return version;
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processTemporary() {
-        return throwNoPersistentEntity();
-      }
-    }.handle();
+    return (Integer) getVersionEventHandler.handle(this, null, null);
   }
 
   int getVersionInternal() {
     return version;
   }
 
+  private static final StandartEventHandler getUpToDateVersionEventHandler = new StandartEventHandler() {
+      Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        Entity e = entity.getPersistentEntityInternal().getUpToDateVersion();
+        return e == null ? null : entity.session.newEntity(e);
+      }
+
+      Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
+      }
+
+      Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.throwNoPersistentEntity();
+      }
+    };
+
+
   @Nullable
   public Entity getUpToDateVersion() {
-    return (Entity) new StandartEventHandler() {
-      Object processOpenSaved() {
-        Entity e = getPersistentEntityInternal().getUpToDateVersion();
-        return e == null ? null : session.newEntity(e);
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processTemporary() {
-        return throwNoPersistentEntity();
-      }
-    }.handle();
+    return (Entity) getUpToDateVersionEventHandler.handle(this, null, null);
   }
 
-  @NotNull
-  public List<Entity> getHistory() {
-    return (List<Entity>) new StandartEventHandler() {
-      Object processOpenSaved() {
-        final List<Entity> history = getPersistentEntityInternal().getHistory();
+  private static final StandartEventHandler getHistoryEventHandler = new StandartEventHandler() {
+      Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        final List<Entity> history = entity.getPersistentEntityInternal().getHistory();
         final List<Entity> result = new ArrayList<Entity>(history.size());
-        final TransientStoreSession session = getTransientStoreSession();
-        for (final Entity entity : history) {
-          result.add(session.newEntity(entity));
+        final TransientStoreSession session = entity.getTransientStoreSession();
+        for (final Entity _entity : history) {
+          result.add(session.newEntity(_entity));
         }
         return result;
       }
 
-      Object processOpenNew() {
+      Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
         // new transient entity has no history
         return Collections.EMPTY_LIST;
       }
 
-      Object processTemporary() {
+      Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
         // temporary transient entity has no history
         return Collections.EMPTY_LIST;
       }
 
-    }.handle();
+    };
+
+
+  @NotNull
+  public List<Entity> getHistory() {
+    return (List<Entity>) getHistoryEventHandler.handle(this, null, null);
   }
+
+  private static final StandartEventHandler getNextVersionEventHandler = new StandartEventHandler() {
+      Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        final Entity e = entity.getPersistentEntityInternal().getNextVersion();
+        return e == null ? null : entity.session.newEntity(e);
+      }
+
+      Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return null;
+      }
+
+      Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return null;
+      }
+    };
+
 
   @Nullable
   public Entity getNextVersion() {
-    return (Entity) new StandartEventHandler() {
-      Object processOpenSaved() {
-        final Entity e = getPersistentEntityInternal().getNextVersion();
-        return e == null ? null : session.newEntity(e);
-      }
-
-      Object processOpenNew() {
-        return null;
-      }
-
-      Object processTemporary() {
-        return null;
-      }
-    }.handle();
+    return (Entity) getNextVersionEventHandler.handle(this, null, null);
   }
+
+  private static final StandartEventHandler getPreviousVersionEventHandler = new StandartEventHandler() {
+    Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      final Entity e = entity.getPersistentEntityInternal().getPreviousVersion();
+      return e == null ? null : entity.session.newEntity(e);
+    }
+
+    Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return null;
+    }
+
+    Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+      return null;
+    }
+  };
 
   @Nullable
   public Entity getPreviousVersion() {
-    return (Entity) new StandartEventHandler() {
-      Object processOpenSaved() {
-        final Entity e = getPersistentEntityInternal().getPreviousVersion();
-        return e == null ? null : session.newEntity(e);
-      }
-
-      Object processOpenNew() {
-        return null;
-      }
-
-      Object processTemporary() {
-        return null;
-      }
-    }.handle();
+    return (Entity) getPreviousVersionEventHandler.handle(this, null, null);
   }
 
+  private static final StandartEventHandler<Entity, Object> compareToEventHandler = new StandartEventHandler<Entity, Object>() {
+      Object processOpenSaved(AbstractTransientEntity entity, Entity e, Object param2) {
+        return entity.getPersistentEntityInternal().compareTo(e);
+      }
+
+      Object processOpenNew(AbstractTransientEntity entity, Entity param, Object param2) {
+        return entity.throwNoPersistentEntity();
+      }
+
+      Object processTemporary(AbstractTransientEntity entity, Entity param, Object param2) {
+        return entity.throwNoPersistentEntity();
+      }
+    };
+
+
   public int compareTo(final Entity e) {
-    return (Integer) new StandartEventHandler() {
-      Object processOpenSaved() {
-        return getPersistentEntityInternal().compareTo(e);
-      }
-
-      Object processOpenNew() {
-        return throwNoPersistentEntity();
-      }
-
-      Object processTemporary() {
-        return throwNoPersistentEntity();
-      }
-    }.handle();
+    return (Integer) compareToEventHandler.handle(this, e, null);
   }
 
   public String toString() {
@@ -559,102 +599,105 @@ abstract class AbstractTransientEntity implements TransientEntity {
     return sb.toString();
   }
 
-  public boolean equals(Object obj) {
-    if (!(obj instanceof AbstractTransientEntity)) {
-      return false;
-    }
+  private static final StandartEventHandler<AbstractTransientEntity, Object> equalsEventHandler = new StandartEventHandler<AbstractTransientEntity, Object>() {
 
-    // equals may be called
-
-    final AbstractTransientEntity that = (AbstractTransientEntity) obj;
-
-    return (Boolean) new StandartEventHandler() {
-
-      Object processOpenFromAnotherSessionSaved() {
-        return processOpenSaved();
+      Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        return processOpenSaved(entity, that, param2);
       }
 
-      Object processOpenSaved() {
-        return that.isSaved() && getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
+      Object processOpenSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        return that.isSaved() && entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
       }
 
-      Object processCommittedSaved() {
-        return processOpenSaved();
+      Object processClosedSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        return processOpenSaved(entity, that, param2);
       }
 
-      Object processOpenNew() {
-        return AbstractTransientEntity.this == that;
+      Object processOpenNew(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        return entity == that;
       }
 
-      Object processTemporary() {
-        return AbstractTransientEntity.this == that;
+      Object processTemporary(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        return entity == that;
       }
 
-      Object processOpenRemoved() {
-        switch (state) {
+      Object processOpenRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        switch (entity.state) {
           case RemovedNew:
-            return AbstractTransientEntity.this == that;
+            return entity == that;
           case RemovedSaved:
-            return that.isRemoved() && !that.wasNew() && getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
+            return that.isRemoved() && !that.wasNew() && entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
         }
 
         return false;
       }
 
-      Object processSuspendedSaved() {
-        return that.isSaved() && getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
+      Object processSuspendedSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        return that.isSaved() && entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
       }
 
-    }.handle();
+    };
+
+
+
+  public boolean equals(Object obj) {
+    if (!(obj instanceof AbstractTransientEntity)) {
+      return false;
+    }
+
+    return (Boolean) equalsEventHandler.handle(this, (AbstractTransientEntity) obj, null);
   }
 
-  public int hashCode() {
-    return (Integer) new StandartEventHandler() {
+  private static final StandartEventHandler hashCodeEventHandler = new StandartEventHandler() {
 
-      Object processOpenFromAnotherSessionSaved() {
-        return getPersistentEntityInternal().hashCode();
+      Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.getPersistentEntityInternal().hashCode();
       }
 
-      Object processOpenSaved() {
+      Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
         // to sutisfy hashCode contract, return old hashCode for saved entities that was new, later, in this session
-        if (state == State.SavedNew) {
+        if (entity.state == State.SavedNew) {
           // return hasCode for own session
-          return System.identityHashCode(AbstractTransientEntity.this);
-        } else if (state == State.Saved) {
-          return getPersistentEntityInternal().hashCode();
+          return System.identityHashCode(entity);
+        } else if (entity.state == State.Saved) {
+          return entity.getPersistentEntityInternal().hashCode();
         } else {
-          throw new IllegalStateException("Unknown state [" + state + "]");
+          throw new IllegalStateException("Unknown state [" + entity.state + "]");
         }
       }
 
-      Object processOpenNew() {
-        return System.identityHashCode(AbstractTransientEntity.this);
+      Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return System.identityHashCode(entity);
       }
 
-      Object processTemporary() {
-        return System.identityHashCode(AbstractTransientEntity.this);
+      Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return System.identityHashCode(entity);
       }
 
-      Object processOpenRemoved() {
-        switch (state) {
+      Object processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        switch (entity.state) {
           case RemovedNew:
-            return System.identityHashCode(AbstractTransientEntity.this);
+            return System.identityHashCode(entity);
           case RemovedSaved:
-            return getPersistentEntityInternal().hashCode();
+            return entity.getPersistentEntityInternal().hashCode();
           default:
             throw new IllegalArgumentException();
         }
       }
 
-      Object processCommittedSaved() {
-        return getPersistentEntityInternal().hashCode();
+      Object processClosedSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.getPersistentEntityInternal().hashCode();
       }
 
-      Object processSuspendedSaved() {
-        return getPersistentEntityInternal().hashCode();
+      Object processSuspendedSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
+        return entity.getPersistentEntityInternal().hashCode();
       }
 
-    }.handle();
+    };
+
+
+  public int hashCode() {
+    return (Integer) hashCodeEventHandler.handle(this, null, null);
   }
 
   @NotNull
@@ -684,134 +727,118 @@ abstract class AbstractTransientEntity implements TransientEntity {
     throw new IllegalStateException("Transient entity has no associated persistent entity. " + this);
   }
 
-  protected abstract class StandartEventHandler {
+  protected static abstract class StandartEventHandler<P1, P2> {
 
-    Object handle() {
-      if (session.isOpened()) {
+    protected StandartEventHandler() {
+    }
+
+    Object handle(@NotNull AbstractTransientEntity entity, @Nullable P1 param1, @Nullable P2 param2) {
+      if (entity.session.isAborted() || entity.session.isCommitted()) {
+        switch (entity.state) {
+          case New:
+            throw new IllegalStateException("Illegal comination of session and transient entity states (Commited or Aborted, New). Possible bug. " + entity);
+
+          case Saved:
+          case SavedNew:
+            return processClosedSaved(entity, param1, param2);
+
+          case RemovedNew:
+          case RemovedSaved:
+            throw new EntityRemovedException(entity);
+          case Temporary:
+            return processTemporary(entity, param1, param2);
+        }
+      } else if (entity.session.isOpened()) {
         // check that entity is accessed in the same thread as session
-        final TransientStoreSession storeSession = (TransientStoreSession) getStore().getThreadSession();
-        if (session != storeSession) {
-          switch (state) {
+        final TransientStoreSession storeSession = (TransientStoreSession) entity.getStore().getThreadSession();
+        if (entity.session != storeSession) {
+          switch (entity.state) {
             case New:
-              return processOpenFromAnotherSessionNew();
+              return processOpenFromAnotherSessionNew(entity, param1, param2);
 
             case Saved:
             case SavedNew:
-              return processOpenFromAnotherSessionSaved();
+              return processOpenFromAnotherSessionSaved(entity, param1, param2);
 
             case RemovedNew:
             case RemovedSaved:
-              return processOpenFromAnotherSessionRemoved();
+              return processOpenFromAnotherSessionRemoved(entity, param1, param2);
             case Temporary:
-              return processTemporary();
+              return processTemporary(entity, param1, param2);
           }
         }
 
-        switch (state) {
+        switch (entity.state) {
           case New:
-            return processOpenNew();
+            return processOpenNew(entity, param1, param2);
 
           case Saved:
           case SavedNew:
-            return processOpenSaved();
+            return processOpenSaved(entity, param1, param2);
 
           case RemovedNew:
           case RemovedSaved:
-            return processOpenRemoved();
+            return processOpenRemoved(entity, param1, param2);
           case Temporary:
-            return processTemporary();
+            return processTemporary(entity, param1, param2);
         }
 
-      } else if (session.isSuspended()) {
-        switch (state) {
+      } else if (entity.session.isSuspended()) {
+        switch (entity.state) {
           case New:
-            throw new IllegalStateException("Can't access new transient entity while its session is suspended. " + AbstractTransientEntity.this);
+            throw new IllegalStateException("Can't access new transient entity while its session is suspended. " + entity);
 
           case Saved:
           case SavedNew:
-            return processSuspendedSaved();
+            return processSuspendedSaved(entity, param1, param2);
 
           case RemovedNew:
           case RemovedSaved:
-            return processSuspendedRemoved();
+            return processSuspendedRemoved(entity, param1, param2);
           case Temporary:
-            return processTemporary();
-        }
-
-      } else if (session.isAborted()) {
-        switch (state) {
-          case New:
-            throw new IllegalStateException("Can't access new transient entity from aborted session. " + AbstractTransientEntity.this);
-
-          case Saved:
-          case SavedNew:
-            return processAbortedSaved();
-
-          case RemovedNew:
-          case RemovedSaved:
-            throw new EntityRemovedException(AbstractTransientEntity.this);
-          case Temporary:
-            return processTemporary();
-        }
-
-      } else if (session.isCommitted()) {
-        switch (state) {
-          case New:
-            throw new IllegalStateException("Illegal comination of session and transient entity states (Commited, New). Possible bug. " + AbstractTransientEntity.this);
-
-          case Saved:
-          case SavedNew:
-            return processCommittedSaved();
-
-          case RemovedNew:
-          case RemovedSaved:
-            throw new EntityRemovedException(AbstractTransientEntity.this);
-          case Temporary:
-            return processTemporary();
+            return processTemporary(entity, param1, param2);
         }
       }
 
-      throw new IllegalStateException("Unknown session state. " + AbstractTransientEntity.this);
+      throw new IllegalStateException("Unknown session state. " + entity);
     }
 
-    Object processOpenFromAnotherSessionNew() {
-      throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + AbstractTransientEntity.this);
+    Object processOpenFromAnotherSessionNew(AbstractTransientEntity entity, P1 param1, P2 param2) {
+      throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + entity);
     }
 
-    Object processOpenFromAnotherSessionSaved() {
-      throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + AbstractTransientEntity.this);
+    Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+      throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + entity);
     }
 
-    Object processOpenFromAnotherSessionRemoved() {
-      throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + AbstractTransientEntity.this);
+    Object processOpenFromAnotherSessionRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+      throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + entity);
     }
 
-    Object processSuspendedSaved() {
-      throw new IllegalStateException("Can't access transient saved entity while it's session is suspended. Only getId is permitted. " + AbstractTransientEntity.this);
+    Object processSuspendedSaved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+      throw new IllegalStateException("Can't access transient saved entity while it's session is suspended. Only getId is permitted. " + entity);
     }
 
-    abstract Object processOpenSaved();
+    abstract Object processOpenSaved(AbstractTransientEntity entity, P1 param1, P2 param2);
 
-    abstract Object processOpenNew();
+    abstract Object processOpenNew(AbstractTransientEntity entity, P1 param1, P2 param2);
 
-    Object processTemporary() {
-      return processOpenSaved();
+    Object processTemporary(AbstractTransientEntity entity, P1 param1, P2 param2) {
+      return processOpenSaved(entity, param1, param2);
     }
 
-    Object processOpenRemoved() {
-      throw new EntityRemovedException(AbstractTransientEntity.this);
+    Object processOpenRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+      throw new EntityRemovedException(entity);
     }
 
-    Object processSuspendedRemoved() {
-      throw new EntityRemovedException(AbstractTransientEntity.this);
+    Object processSuspendedRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+      throw new EntityRemovedException(entity);
     }
 
-    Object processCommittedSaved() {
-      throw new IllegalStateException("Can't access committed saved entity. Only getId is permitted. " + AbstractTransientEntity.this);
+    Object processClosedSaved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+      throw new IllegalStateException("Can't access committed saved entity. Only getId is permitted. " + entity);
     }
 
-    Object processAbortedSaved() {
-      throw new IllegalStateException("Can't access saved entity from aborted transaction. Only getId is permitted. " + AbstractTransientEntity.this);
-    }
   }
+
 }
