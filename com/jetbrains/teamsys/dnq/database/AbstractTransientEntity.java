@@ -11,8 +11,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
-
 abstract class AbstractTransientEntity implements TransientEntity {
 
   protected static final Log log = LogFactory.getLog(TransientEntity.class);
