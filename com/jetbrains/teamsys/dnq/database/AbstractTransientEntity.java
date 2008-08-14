@@ -95,9 +95,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
   @NotNull
   public EntityStore getStore() {
-    if (session == null) {
-      return DnqUtils.getTransientStore();
-    }
     return session.getStore();
   }
 
