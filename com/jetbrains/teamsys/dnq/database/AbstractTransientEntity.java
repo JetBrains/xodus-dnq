@@ -640,7 +640,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
       return false;
     }
 
-    return (Boolean) equalsEventHandler.handle(this, (AbstractTransientEntity) obj, null);
+    return obj == this || (Boolean) equalsEventHandler.handle(this, (AbstractTransientEntity) obj, null);
   }
 
   private static final StandartEventHandler hashCodeEventHandler = new StandartEventHandler() {
