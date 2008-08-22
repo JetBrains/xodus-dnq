@@ -7,12 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import java.util.Set;
-import java.util.Iterator;
-
-import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
-
 /**
  * Date: 18.12.2006
  * Time: 13:43:10
