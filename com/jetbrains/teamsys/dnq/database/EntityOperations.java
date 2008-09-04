@@ -207,6 +207,10 @@ public class EntityOperations {
       return (int) ((EntityIterable) input).count();
     }
 
+    if (log.isDebugEnabled()) {
+      log.debug("Brute force calculation of count!", new Exception("Brute force calculation of count!"));
+    }
+
     return SequenceOperations.count(input);
   }
 
@@ -249,8 +253,7 @@ public class EntityOperations {
                                       @Nullable final Iterable<Entity> source,
                                       @NotNull final Comparator<Entity> comparator,
                                       final boolean ascending) {
-    if (source instanceof EntityIterable &&
-      !(source instanceof TransientEntityIterable)) {
+    if (source instanceof EntityIterable && !(source instanceof TransientEntityIterable)) {
       final EntityIterable it = ((EntityIterable) source).getSource();
       final long enumCount = session.getAll(enumType).size();
       final long itCount = it.size();
@@ -299,7 +302,7 @@ public class EntityOperations {
                                            @NotNull final Iterable<Entity> right) {
     if (left instanceof PersistentEntityIterableWrapper && right instanceof PersistentEntityIterableWrapper) {
       return session.createPersistentEntityIterableWrapper(
-        ((EntityIterable) left).getSource().intersect(((EntityIterable) right).getSource()));
+              ((EntityIterable) left).getSource().intersect(((EntityIterable) right).getSource()));
     }
     return SequenceOperations.intersect(left, right);
   }
@@ -309,7 +312,7 @@ public class EntityOperations {
                                        @NotNull final Iterable<Entity> right) {
     if (left instanceof PersistentEntityIterableWrapper && right instanceof PersistentEntityIterableWrapper) {
       return session.createPersistentEntityIterableWrapper(
-        ((EntityIterable) left).getSource().union(((EntityIterable) right).getSource()));
+              ((EntityIterable) left).getSource().union(((EntityIterable) right).getSource()));
     }
     return SequenceOperations.union(left, right);
   }
@@ -319,7 +322,7 @@ public class EntityOperations {
                                         @NotNull final Iterable<Entity> right) {
     if (left instanceof PersistentEntityIterableWrapper && right instanceof PersistentEntityIterableWrapper) {
       return session.createPersistentEntityIterableWrapper(
-        ((EntityIterable) left).getSource().concat(((EntityIterable) right).getSource()));
+              ((EntityIterable) left).getSource().concat(((EntityIterable) right).getSource()));
     }
     return SequenceOperations.concat(left, right);
   }
@@ -329,7 +332,7 @@ public class EntityOperations {
                                          @NotNull final Iterable<Entity> right) {
     if (left instanceof PersistentEntityIterableWrapper && right instanceof PersistentEntityIterableWrapper) {
       return session.createPersistentEntityIterableWrapper(
-        ((EntityIterable) left).getSource().minus(((EntityIterable) right).getSource()));
+              ((EntityIterable) left).getSource().minus(((EntityIterable) right).getSource()));
     }
     return SequenceOperations.exclude(left, right);
   }
@@ -363,8 +366,8 @@ public class EntityOperations {
   }
 
   public static Entity getLast(@NotNull final TransientStoreSession session, @NotNull final Iterable<Entity> it) {
-    if(it instanceof PersistentEntityIterableWrapper) {
-      return session.getLast((EntityIterable) it);   
+    if (it instanceof PersistentEntityIterableWrapper) {
+      return session.getLast((EntityIterable) it);
     }
     return SequenceOperations.getLast(it);
   }
