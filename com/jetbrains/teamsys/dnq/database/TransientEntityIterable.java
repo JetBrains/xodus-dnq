@@ -6,9 +6,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collection;
-import java.util.Set;
 import java.util.Arrays;
+import java.util.Set;
 
 /**
  * Date: 28.12.2006
@@ -16,7 +15,7 @@ import java.util.Arrays;
  *
  * @author Vadim.Gurov
  */
-class TransientEntityIterable implements EntityIterable {
+public class TransientEntityIterable implements EntityIterable {
 
   private static final Log log = LogFactory.getLog(TransientEntityIterable.class);
 
