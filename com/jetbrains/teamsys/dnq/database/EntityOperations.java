@@ -12,6 +12,7 @@ import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 
@@ -199,6 +200,10 @@ public class EntityOperations {
       return (int) ((EntityIterable) input).size();
     }
 
+    if(input instanceof Collection) {
+      return ((Collection<Entity>)input).size();
+    }
+
     return SequenceOperations.getSize(input);
   }
 
@@ -209,6 +214,10 @@ public class EntityOperations {
 
     if (log.isDebugEnabled()) {
       log.debug("Brute force calculation of count!", new Exception("Brute force calculation of count!"));
+    }
+
+    if(input instanceof Collection) {
+      return ((Collection<Entity>)input).size();
     }
 
     return SequenceOperations.count(input);
