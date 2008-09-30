@@ -23,6 +23,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private DestructorRef destructor = null;
   private Runnable initializer = null;
   private boolean history = false;
+  private HistoryConditionRef historyConditionRef = null;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
   private Map<String, AssociationEndMetaData> associationEnds = new THashMap<String, AssociationEndMetaData>();
@@ -68,6 +69,10 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public void setDestructor(DestructorRef destructor) {
     this.destructor = destructor;
+  }
+
+  public void setHistoryConditionRef(HistoryConditionRef historyConditionRef) {
+    this.historyConditionRef = historyConditionRef;
   }
 
   public void setInitializer(Runnable initializer) {
@@ -158,8 +163,12 @@ public class EntityMetaDataImpl implements EntityMetaData {
     return associationEnds.values();
   }
 
-  public boolean getHasHistory() {
-    return history;
+  public boolean getHasHistory(Entity e) {
+    if(historyConditionRef == null) {
+       return history;
+    } else {
+       return historyConditionRef.evaluate(e);
+    }
   }
 
   @Nullable
