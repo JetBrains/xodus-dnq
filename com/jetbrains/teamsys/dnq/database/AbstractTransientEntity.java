@@ -33,7 +33,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
   private Entity persistentEntity;
   private int version;
   private String type;
-  private String realType; // real type for entities within hierarchy
   private State state;
   private TransientStoreSession session;
   private TransientEntityIdImpl id;
@@ -175,6 +174,9 @@ abstract class AbstractTransientEntity implements TransientEntity {
       return entity.type;
     }
 
+    Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+      return entity.type;
+    }
   };
 
   @NotNull
@@ -580,8 +582,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     sb.append(" (");
-    sb.append(realType);
-    sb.append(":");
     sb.append(state);
 
     if (entityCreationPosition != null) {
@@ -693,29 +693,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
   public int hashCode() {
     return (Integer) hashCodeEventHandler.handle(this, null, null);
-  }
-
-  @NotNull
-  public String getRealType() {
-    if (realType != null) {
-      return realType;
-    }
-
-    ModelMetaData md = ((TransientEntityStore) getStore()).getModelMetaData();
-
-    // TODO: to support extensibility - every entity should have TYPE and DISCRIMINATOR
-    final EntityMetaData emd;
-    if (md == null || (emd = md.getEntityMetaData(type)) == null || !emd.getWithinHierarchy()) {
-      realType = type;
-    } else {
-      realType = getProperty(__TYPE__);
-
-      if (realType == null) {
-        throw new IllegalArgumentException("Can't determine real type of entity within hierarchy [" + type + "]");
-      }
-    }
-
-    return realType;
   }
 
   private Object throwNoPersistentEntity() {

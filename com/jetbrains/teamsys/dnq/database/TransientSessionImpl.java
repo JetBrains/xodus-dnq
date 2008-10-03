@@ -1,20 +1,22 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.execution.locks.Latch;
+import com.jetbrains.teamsys.database.*;
+import com.jetbrains.teamsys.database.exceptions.*;
+import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
+import gnu.trove.THashMap;
+import gnu.trove.THashSet;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.exceptions.*;
-import com.jetbrains.teamsys.core.execution.locks.Latch;
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 
-import java.util.*;
 import java.io.File;
 import java.io.IOException;
-
-import gnu.trove.THashMap;
-import gnu.trove.THashSet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  */
@@ -598,7 +600,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     for (TransientEntity e : new THashSet<TransientEntity>(changesTracker.getChangedEntities())) {
       if (!e.isRemovedOrTemporary()) {
-        EntityMetaData emd = modelMetaData.getEntityMetaData(e.getRealType());
+        EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
 
         if (emd != null && emd.hasAggregationChildEnds() && !emd.hasParent(e, changesTracker)) {
           if (emd.getRemoveOrphan()) {
@@ -974,7 +976,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
           (TransientEntity
                   entity) {
     ModelMetaData md = store.getModelMetaData();
-    EntityMetaData emd = md == null ? null : md.getEntityMetaData(entity.getRealType());
+    EntityMetaData emd = md == null ? null : md.getEntityMetaData(entity.getType());
     if (emd == null) {
       if (log.isWarnEnabled()) {
         log.warn("Metadata for " + entity + " is not found. Can't merge changes. " + this);

@@ -3,7 +3,6 @@ package com.jetbrains.teamsys.dnq.database;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
 import com.sleepycat.je.DatabaseException;
 import jetbrains.mps.baseLanguage.ext.collections.internal.query.ISelector;
 import jetbrains.mps.baseLanguage.ext.collections.internal.query.SequenceOperations;
@@ -39,7 +38,7 @@ public class EntityOperations {
     ModelMetaData md = store.getModelMetaData();
     if (md != null) {
       // cascade delete
-      EntityMetaData emd = md.getEntityMetaData(((TransientEntity) e).getRealType());
+      EntityMetaData emd = md.getEntityMetaData(e.getType());
       if (emd != null) {
         // call destructors starting with it and continuing with super class destructor up to root super class
         executeDestructors(e, md);
@@ -54,7 +53,7 @@ public class EntityOperations {
   }
 
   private static void executeDestructors(@NotNull Entity e, @NotNull ModelMetaData md) {
-    EntityMetaData emd = md.getEntityMetaData(((TransientEntity) e).getRealType());
+    EntityMetaData emd = md.getEntityMetaData(e.getType());
 
     while (emd != null) {
       DestructorRef descructor = emd.getDestructor();
@@ -110,63 +109,12 @@ public class EntityOperations {
     return e1.equals(e2);
   }
 
-  @Nullable
-  public static Entity cast(@Nullable Object e, @NotNull String toTypeDiscriminator) throws ClassCastException {
-    if (e == null) {
-      return null;
-    }
-
-    if (!(e instanceof Entity)) {
-      throw new ClassCastException("Can't cast from [" + e.getClass().getName() + "] to [" + toTypeDiscriminator + "]");
-    }
-
-    if (instanceOfDiscriminator(e, toTypeDiscriminator)) {
-      return (Entity) e;
-    } else {
-      throw new ClassCastException("Can't cast from to [" + toTypeDiscriminator + "]");
-    }
-  }
-
   public static boolean instanceOfType(@Nullable Object e, @NotNull String toType) {
     if (e == null || !(e instanceof Entity)) {
       return false;
     }
 
     return toType.equals(((Entity) e).getType());
-  }
-
-  public static boolean instanceOfDiscriminator(@Nullable Object e, @NotNull String toTypeDiscriminator) {
-    if (e == null || !(e instanceof Entity)) {
-      return false;
-    }
-
-    String fromTypeDiscriminator = (String) PrimitiveAssociationSemantics.get((Entity) e, TransientEntity.__DISCRIMINATOR__, null);
-
-    if (fromTypeDiscriminator == null) {
-      throw new IllegalArgumentException("fromTypeDiscriminator can't be null if entity is not null.");
-    }
-
-    if (fromTypeDiscriminator.startsWith(toTypeDiscriminator)) {
-      return true;
-    }
-
-    return false;
-  }
-
-  public static Entity as(@Nullable Object e, @NotNull String toType) {
-    Entity result = null;
-    if (instanceOfType(e, toType)) {
-      result = (Entity) e;
-    }
-    return result;
-  }
-
-  public static Entity asDiscriminator(@Nullable Object e, @NotNull String toTypeDiscriminator) {
-    Entity result = null;
-    if (instanceOfDiscriminator(e, toTypeDiscriminator)) {
-      result = (Entity) e;
-    }
-    return result;
   }
 
   /**

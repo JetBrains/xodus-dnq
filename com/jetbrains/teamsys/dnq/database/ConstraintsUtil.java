@@ -2,19 +2,19 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
-import com.jetbrains.teamsys.dnq.association.*;
+import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
+import gnu.trove.THashMap;
+import gnu.trove.THashSet;
+import jetbrains.mps.baseLanguage.ext.collections.internal.query.SequenceOperations;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashMap;
-
-import jetbrains.mps.baseLanguage.ext.collections.internal.query.SequenceOperations;
-import gnu.trove.THashMap;
-import gnu.trove.THashSet;
 
 class ConstraintsUtil {
 
@@ -52,7 +52,7 @@ class ConstraintsUtil {
       if (!e.isRemoved()) {
         // if entity is new - check cardinality of all links
         // if entity saved - check cardinality of changed links only
-        EntityMetaData md = modelMetaData.getEntityMetaData(e.getRealType());
+        EntityMetaData md = modelMetaData.getEntityMetaData(e.getType());
 
         // meta-data may be null for persistent enums
         if (md != null) {
@@ -297,7 +297,7 @@ class ConstraintsUtil {
 
     for (TransientEntity e : tracker.getChangedEntities()) {
       if (!e.isRemoved()) {
-        EntityMetaData emd = md.getEntityMetaData(e.getRealType());
+        EntityMetaData emd = md.getEntityMetaData(e.getType());
 
         if (emd != null) {
           Set<String> uniqueProperties = emd.getUniqueProperties();
@@ -311,10 +311,10 @@ class ConstraintsUtil {
                 if (isEmptyProperty(uniquePropertyValue)) {
                   errors.add(new NullPropertyException(e, uniquePropertyName));
                 } else {
-                  Map<String, Set<Comparable>> propertiesValues = entityTypeToProperiesValues.get(e.getRealType());
+                  Map<String, Set<Comparable>> propertiesValues = entityTypeToProperiesValues.get(e.getType());
                   if (propertiesValues == null) {
                     propertiesValues = new THashMap<String, Set<Comparable>>();
-                    entityTypeToProperiesValues.put(e.getRealType(), propertiesValues);
+                    entityTypeToProperiesValues.put(e.getType(), propertiesValues);
                   }
 
                   Set<Comparable> propertyValues = propertiesValues.get(uniquePropertyName);
@@ -344,19 +344,8 @@ class ConstraintsUtil {
     return errors;
   }
 
-  private static boolean isPropertyValueAbsentInDatabase(TransientStoreSession session, EntityMetaData emd, String propertyName, Comparable propertyValue) {
-    return findInDatabase(session, emd, propertyName, propertyValue) == null;
-  }
-
   private static Entity findInDatabase(TransientStoreSession session, EntityMetaData emd, String propertyName, Comparable propertyValue) {
-    if (emd.getWithinHierarchy()) {
-      return SequenceOperations.getFirst(
-              session.find(emd.getRootSuperType(), propertyName, propertyValue).intersect(
-                session.find(emd.getRootSuperType(), TransientEntity.__TYPE__, emd.getType()))
-      );
-    } else {
-      return SequenceOperations.getFirst(session.find(emd.getType(), propertyName, propertyValue));
-    }
+    return SequenceOperations.getFirst(session.find(emd.getType(), propertyName, propertyValue));
   }
 
   private static boolean isEmptyProperty(Comparable propertyValue) {
@@ -378,7 +367,7 @@ class ConstraintsUtil {
     for (TransientEntity e : tracker.getChangedEntities()) {
       if (!e.isRemoved()) {
 
-        EntityMetaData emd = md.getEntityMetaData(e.getRealType());
+        EntityMetaData emd = md.getEntityMetaData(e.getType());
 
         if (emd != null) {
           Set<String> requiredProperties = emd.getRequiredProperties();

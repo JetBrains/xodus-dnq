@@ -1,14 +1,14 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.database.*;
+import gnu.trove.THashMap;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
-import java.util.*;
-
-import gnu.trove.THashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Date: 05.02.2007
@@ -550,7 +550,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
         m = new UnifiedTransientLinksManagerImpl(linkName, this);
       } else {
-        switch (md.getEntityMetaData(getRealType()).getAssociationEndMetaData(linkName).getCardinality()) {
+        switch (md.getEntityMetaData(getType()).getAssociationEndMetaData(linkName).getCardinality()) {
           case _0_1:
           case _1:
             m = new SingleTransientLinksManagerImpl(linkName, this);
