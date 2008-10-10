@@ -155,8 +155,12 @@ abstract class AbstractTransientEntity implements TransientEntity {
         throw new IllegalStateException("Entity is not in removed or saved state.");
     }
   }
-
+  
   private static final StandartEventHandler getTypeEventHandler = new StandartEventHandler() {
+
+    Object processSuspendedSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+      return entity.type;
+    }
 
     Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
       return entity.type;
