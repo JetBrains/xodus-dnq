@@ -56,11 +56,7 @@ public class EntityOperations {
     EntityMetaData emd = md.getEntityMetaData(e.getType());
 
     while (emd != null) {
-      DestructorRef descructor = emd.getDestructor();
-      if (descructor != null) {
-        descructor.execute(e);
-      }
-
+      emd.callDestructor(e);
       final String superType = emd.getSuperType();
       emd = superType == null ? null : md.getEntityMetaData(superType);
     }

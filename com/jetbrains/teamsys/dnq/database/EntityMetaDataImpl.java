@@ -20,7 +20,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private String superType = null;
   private String rootSuperType = null;
   private boolean withinHierarchy = false;
-  private DestructorRef destructor = null;
   private Runnable initializer = null;
   private boolean history = false;
   private InstanceRef instanceRef = null;
@@ -67,10 +66,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public void setWithinHierarchy(boolean withinHierarchy) {
     this.withinHierarchy = withinHierarchy;
-  }
-
-  public void setDestructor(DestructorRef destructor) {
-    this.destructor = destructor;
   }
 
   public void setHistoryConditionRef(HistoryConditionRef historyConditionRef) {
@@ -177,9 +172,8 @@ public class EntityMetaDataImpl implements EntityMetaData {
     }
   }
 
-  @Nullable
-  public DestructorRef getDestructor() {
-    return destructor;
+  public void callDestructor(Entity e) {
+      instanceRef.getInstance(e).destructor(e);
   }
 
   public boolean getRemoveOrphan() {
