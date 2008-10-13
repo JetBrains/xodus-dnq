@@ -20,10 +20,11 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private String superType = null;
   private String rootSuperType = null;
   private boolean withinHierarchy = false;
+  private DestructorRef destructor = null; // left for backward compatibility with no generation
+  private boolean useNewWithHistory = false;  // for backward compatibility   with no generation
   private Runnable initializer = null;
   private boolean history = false;
   private InstanceRef instanceRef = null;
-  private HistoryConditionRef historyConditionRef = null;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
   private Map<String, AssociationEndMetaData> associationEnds = new THashMap<String, AssociationEndMetaData>();
@@ -68,8 +69,12 @@ public class EntityMetaDataImpl implements EntityMetaData {
     this.withinHierarchy = withinHierarchy;
   }
 
-  public void setHistoryConditionRef(HistoryConditionRef historyConditionRef) {
-    this.historyConditionRef = historyConditionRef;
+  public void setDestructor(DestructorRef destructor) {
+    this.destructor = destructor;
+  }
+
+  public void setUseNewWithHistory(boolean useNewWithHistory) {
+    this.useNewWithHistory = useNewWithHistory;
   }
 
   public void setInstanceRef(InstanceRef instanceRef) {
@@ -165,15 +170,19 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public boolean getHasHistory(Entity e) {
-    if(historyConditionRef == null) {
-       return history;
+    if(useNewWithHistory) {
+       return instanceRef.getInstance(e).evaluateWithHistory(e);
     } else {
-       return historyConditionRef.evaluate(e);
+       return history;
     }
   }
 
   public void callDestructor(Entity e) {
-      instanceRef.getInstance(e).destructor(e);
+      if(destructor == null) {
+          instanceRef.getInstance(e).destructor(e);
+      } else {
+          destructor.execute(e);
+      }
   }
 
   public boolean getRemoveOrphan() {
