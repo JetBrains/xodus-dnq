@@ -20,7 +20,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private String superType = null;
   private String rootSuperType = null;
   private boolean withinHierarchy = false;
-  private DestructorRef destructor = null; // left for backward compatibility with no generation
   private boolean useNewWithHistory = false;  // for backward compatibility   with no generation
   private Runnable initializer = null;
   private boolean history = false;
@@ -67,10 +66,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public void setWithinHierarchy(boolean withinHierarchy) {
     this.withinHierarchy = withinHierarchy;
-  }
-
-  public void setDestructor(DestructorRef destructor) {
-    this.destructor = destructor;
   }
 
   public void setUseNewWithHistory(boolean useNewWithHistory) {
@@ -178,11 +173,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public void callDestructor(Entity e) {
-      if(destructor == null) {
-          instanceRef.getInstance(e).destructor(e);
-      } else {
-          destructor.execute(e);
-      }
+      instanceRef.getInstance(e).destructor(e);
   }
 
   public boolean getRemoveOrphan() {
