@@ -23,6 +23,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private DestructorRef destructor = null;
   private Runnable initializer = null;
   private boolean history = false;
+  private InstanceRef instanceRef = null;
   private HistoryConditionRef historyConditionRef = null;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
@@ -30,6 +31,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private Set<String> aggregationChildEnds = new HashSetDecorator<String>();
   private Set<String> uniqueProperties = new HashSetDecorator<String>();
   private Set<String> requiredProperties = new HashSetDecorator<String>();
+  private Set<String> requiredIfProperties = new HashSetDecorator<String>();
   private Set<String> historyIgnoredFields = new HashSetDecorator<String>();
   private Set<String> versionMismatchIgnored = new HashSetDecorator<String>();
   private boolean versionMismatchIgnoredForWholeClass = false;
@@ -73,6 +75,10 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public void setHistoryConditionRef(HistoryConditionRef historyConditionRef) {
     this.historyConditionRef = historyConditionRef;
+  }
+
+  public void setInstanceRef(InstanceRef instanceRef) {
+    this.instanceRef = instanceRef;
   }
 
   public void setInitializer(Runnable initializer) {
@@ -197,9 +203,19 @@ public class EntityMetaDataImpl implements EntityMetaData {
     this.uniqueProperties = uniqueProperties;
   }
 
-  @NotNull
   public Set<String> getRequiredProperties() {
     return requiredProperties;
+  }
+
+
+  public Set<String> getRequiredIfProperties(Entity e) {
+      Set<String> result = new HashSetDecorator<String>();
+      for (String property: requiredIfProperties) {
+          if(instanceRef.getInstance(e).isPropertyRequired(property, e)) {
+              result.add(property);
+          }
+      }
+      return result;
   }
 
   public boolean isVersionMismatchIgnoredForWholeClass() {
@@ -212,6 +228,10 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public void setRequiredProperties(@NotNull Set<String> requiredProperties) {
     this.requiredProperties = requiredProperties;
+  }
+
+  public void setRequiredIfProperties(@NotNull Set<String> requiredIfProperties) {
+    this.requiredIfProperties = requiredIfProperties;
   }
 
   public boolean isVersionMismatchIgnored(@NotNull String propertyName) {
