@@ -54,12 +54,7 @@ public class EntityOperations {
 
   private static void executeDestructors(@NotNull Entity e, @NotNull ModelMetaData md) {
     EntityMetaData emd = md.getEntityMetaData(e.getType());
-
-    while (emd != null) {
-      emd.callDestructor(e);
-      final String superType = emd.getSuperType();
-      emd = superType == null ? null : md.getEntityMetaData(superType);
-    }
+    emd.callDestructor(e);
   }
 
   public static List<Entity> getHistory(@NotNull Entity e) {
