@@ -375,12 +375,12 @@ class ConstraintsUtil {
           Set<String> changhedProperties = tracker.getChangedProperties(e);
 
           if ((requiredProperties.size()+requiredIfProperties.size() > 0 && (e.isNewOrTemporary() || (changhedProperties != null && changhedProperties.size() > 0)))) {
-            for (String requiredPropertyName : requiredProperties) {
-                checkProperty(errors, e, changhedProperties, requiredPropertyName);
-            }
-            for (String requiredIfPropertyName : requiredIfProperties) {
-                checkProperty(errors, e, changhedProperties, requiredIfPropertyName);
-            }
+             for (String requiredPropertyName : requiredProperties) {
+                 checkProperty(errors, e, changhedProperties, requiredPropertyName);
+             }
+             for (String requiredIfPropertyName : requiredIfProperties) {
+                 checkProperty(errors, e, requiredIfPropertyName);
+             }
           }
         }
       }
@@ -389,13 +389,16 @@ class ConstraintsUtil {
     return errors;
   }
 
+    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, String propertyName) {
+        Comparable propertyValue = e.getProperty(propertyName);
+        if (isEmptyProperty(propertyValue)) {
+            errors.add(new NullPropertyException(e, propertyName));
+        }
+    }
+
     private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Set<String> changhedProperties, String propertyName) {
         if (e.isNewOrTemporary() || changhedProperties.contains(propertyName)) {
-          Comparable requiredPropertyValue = e.getProperty(propertyName);
-
-          if (isEmptyProperty(requiredPropertyValue)) {
-            errors.add(new NullPropertyException(e, propertyName));
-          }
+            checkProperty(errors, e, propertyName);
         }
     }
 
