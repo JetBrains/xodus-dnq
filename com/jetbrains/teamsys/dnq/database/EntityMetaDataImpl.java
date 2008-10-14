@@ -22,7 +22,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private boolean withinHierarchy = false;
   private Runnable initializer = null;
   private boolean history = false;
-  private InstanceRef instanceRef = null;
+  private InstanceRef<? extends BasePersistentClass> instanceRef = null;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
   private Map<String, AssociationEndMetaData> associationEnds = new THashMap<String, AssociationEndMetaData>();
