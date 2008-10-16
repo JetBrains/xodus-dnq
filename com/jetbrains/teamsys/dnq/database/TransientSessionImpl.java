@@ -1017,8 +1017,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     return true;
   }
 
-  private void saveHistory
-          () {
+  private void saveHistory() {
     final ModelMetaData modelMetaData = store.getModelMetaData();
 
     if (modelMetaData == null) {

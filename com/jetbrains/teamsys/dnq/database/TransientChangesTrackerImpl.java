@@ -94,7 +94,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     for (TransientEntity e : getChangedEntities()) {
       //TODO: return removed for text index?
-      if (!e.isRemoved()) {
+      if (!e.isRemovedOrTemporary()) {
         res.add(new TransientEntityChange(e, getChangedProperties(e), getChangedLinks(e),
                 getChangedLinksDetailed(e), e.isNew() ? EntityChangeType.ADD : EntityChangeType.UPDATE));
       }
@@ -294,8 +294,8 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     offerChange(new Runnable() {
       public void run() {
-        // do not remove link if source or target removed and was new
-        if (!((source.isRemovedOrTemporary() && source.wasNew()) || (target.isRemoved() && target.wasNew()))) {
+        // do not remove link if source or target removed and was new, or source or target is temporary
+        if (!(((source.isRemoved() && source.wasNew()) || source.isTemporary()) || ((target.isRemoved() && target.wasNew()) || target.isTemporary()))) {
           log.debug("Delete link: " + source + "-[" + linkName + "]-> " + target);
           ((TransientEntityImpl) source).getPersistentEntityInternal().deleteLink(linkName, ((TransientEntityImpl) target).getPersistentEntityInternal());
         }
