@@ -3,6 +3,7 @@ package com.jetbrains.teamsys.dnq.database;
 import com.jetbrains.teamsys.database.StoreTransaction;
 import com.jetbrains.teamsys.database.TransientEntity;
 import com.jetbrains.teamsys.database.TransientStoreSession;
+import com.jetbrains.teamsys.database.TransientEntityStore;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.apache.commons.logging.Log;
@@ -17,6 +18,11 @@ import java.util.Set;
 public class TransientStoreUtil {
 
   private static final Log log = LogFactory.getLog(TransientStoreUtil.class);
+  private static TransientEntityStore store = null;
+
+  public static void setTransientEntityStore(@Nullable TransientEntityStore transientEntityStore) {
+      store = transientEntityStore;
+  }
 
   /**
    * Attach entity to current session if possible.
@@ -30,7 +36,13 @@ public class TransientStoreUtil {
 
     // todo: rewrite as MPS code
     // todo: get store from service locator, because given entity may be attached to another closed store
-    TransientStoreSession s = (TransientStoreSession)entity.getStore().getThreadSession();
+    // TransientStoreSession s = (TransientStoreSession)entity.getStore().getThreadSession();
+
+    if (store == null) {
+      throw new IllegalStateException("There's no current session entity store.");  
+    }
+
+    TransientStoreSession s = (TransientStoreSession)store.getThreadSession();
 
     if (s == null) {
       throw new IllegalStateException("There's no current session to attach transient entity to.");
