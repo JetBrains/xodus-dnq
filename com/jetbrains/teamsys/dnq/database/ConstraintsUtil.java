@@ -8,13 +8,14 @@ import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
 import gnu.trove.THashMap;
 import gnu.trove.THashSet;
-import jetbrains.mps.baseLanguage.ext.collections.internal.query.SequenceOperations;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 import java.util.Set;
+
+import jetbrains.mps.internal.collections.runtime.ListSequence;
 
 class ConstraintsUtil {
 
@@ -345,7 +346,7 @@ class ConstraintsUtil {
   }
 
   private static Entity findInDatabase(TransientStoreSession session, EntityMetaData emd, String propertyName, Comparable propertyValue) {
-    return SequenceOperations.getFirst(session.find(emd.getType(), propertyName, propertyValue));
+    return ListSequence.fromIterable(session.find(emd.getType(), propertyName, propertyValue)).first();
   }
 
   private static boolean isEmptyProperty(Comparable propertyValue) {

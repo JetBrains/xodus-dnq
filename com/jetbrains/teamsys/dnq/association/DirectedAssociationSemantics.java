@@ -6,9 +6,6 @@ import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-
-import jetbrains.mps.baseLanguage.ext.collections.internal.query.SequenceOperations;
 
 /**
  * 1:

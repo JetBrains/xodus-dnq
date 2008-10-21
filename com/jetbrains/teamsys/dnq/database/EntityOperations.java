@@ -4,8 +4,6 @@ import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.sleepycat.je.DatabaseException;
-import jetbrains.mps.baseLanguage.ext.collections.internal.query.ISelector;
-import jetbrains.mps.baseLanguage.ext.collections.internal.query.SequenceOperations;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -14,6 +12,9 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+
+import jetbrains.mps.internal.collections.runtime.ListSequence;
+import jetbrains.mps.internal.collections.runtime.ISelector;
 
 // TODO: move this class to the associations semantics package
 public class EntityOperations {
@@ -143,7 +144,7 @@ public class EntityOperations {
       return ((Collection<Entity>)input).size();
     }
 
-    return SequenceOperations.getSize(input);
+    return ListSequence.fromIterable(input).size();
   }
 
   public static int count(Iterable<Entity> input) {
@@ -159,7 +160,7 @@ public class EntityOperations {
       return ((Collection<Entity>)input).size();
     }
 
-    return SequenceOperations.count(input);
+    return ListSequence.fromIterable(input).count();
   }
 
   public static Iterable<Entity> skip(final Iterable<Entity> input, final int elementsToSkip) {
@@ -167,7 +168,7 @@ public class EntityOperations {
       return ((EntityIterable) input).skip(elementsToSkip);
     }
 
-    return SequenceOperations.skip(input, elementsToSkip);
+    return ListSequence.fromIterable(input).skip(elementsToSkip);
   }
 
   public static Iterable<Entity> sort(@NotNull final TransientStoreSession session,
@@ -187,10 +188,10 @@ public class EntityOperations {
       if (isCached(session, session.findWithProp(entityType, propertyName).getSource(), true) || it.count() > 1000) {
         return session.sort(entityType, propertyName, it, ascending);
       }
-      return SequenceOperations.sort(session.createPersistentEntityIterableWrapper(it), comparator, ascending);
+      return ListSequence.fromIterable(session.createPersistentEntityIterableWrapper(it)).sort(comparator, ascending);
     }
     // for TransientEntityIterable and other Iterable<Entity> instances
-    return SequenceOperations.sort(source, comparator, ascending);
+    return ListSequence.fromIterable(source).sort(comparator, ascending);
   }
 
   public static Iterable<Entity> sort(@NotNull final TransientStoreSession session,
@@ -219,7 +220,7 @@ public class EntityOperations {
         return session.createPersistentEntityIterableWrapper(result);
       }
     }
-    return SequenceOperations.sort(source, comparator, ascending);
+    return ListSequence.fromIterable(source).sort(comparator, ascending);
   }
 
   public static Iterable<Entity> distinct(@NotNull final TransientStoreSession session,
@@ -228,7 +229,7 @@ public class EntityOperations {
       return session.distinct(((EntityIterable) source).getSource());
     }
     // for TransientEntityIterable and other Iterable<Entity> instances
-    return SequenceOperations.distinct(source);
+    return ListSequence.fromIterable(source).distinct();
   }
 
   public static Iterable<Entity> selectDistinct(@NotNull final TransientStoreSession session,
@@ -238,11 +239,11 @@ public class EntityOperations {
       return session.selectDistinct(((EntityIterable) source).getSource(), linkName);
     }
     // for TransientEntityIterable and other Iterable<Entity> instances
-    return SequenceOperations.distinct(SequenceOperations.select(source, new ISelector<Entity, Entity>() {
+    return ListSequence.fromIterable(ListSequence.fromIterable(source).select(new ISelector<Entity, Entity>() {
       public Entity select(Entity input) {
         return AssociationSemantics.getToOne(input, linkName);
       }
-    }));
+    })).distinct();
   }
 
   public static Iterable<Entity> intersect(@NotNull final TransientStoreSession session,
@@ -252,7 +253,7 @@ public class EntityOperations {
       return session.createPersistentEntityIterableWrapper(
               ((EntityIterable) left).getSource().intersect(((EntityIterable) right).getSource()));
     }
-    return SequenceOperations.intersect(left, right);
+    return ListSequence.fromIterable(left).intersect(ListSequence.fromIterable(right));
   }
 
   public static Iterable<Entity> union(@NotNull final TransientStoreSession session,
@@ -262,7 +263,7 @@ public class EntityOperations {
       return session.createPersistentEntityIterableWrapper(
               ((EntityIterable) left).getSource().union(((EntityIterable) right).getSource()));
     }
-    return SequenceOperations.union(left, right);
+    return ListSequence.fromIterable(left).union(ListSequence.fromIterable(right));
   }
 
   public static Iterable<Entity> concat(@NotNull final TransientStoreSession session,
@@ -272,7 +273,7 @@ public class EntityOperations {
       return session.createPersistentEntityIterableWrapper(
               ((EntityIterable) left).getSource().concat(((EntityIterable) right).getSource()));
     }
-    return SequenceOperations.concat(left, right);
+    return ListSequence.fromIterable(left).concat(ListSequence.fromIterable(right));
   }
 
   public static Iterable<Entity> exclude(@NotNull final TransientStoreSession session,
@@ -282,7 +283,7 @@ public class EntityOperations {
       return session.createPersistentEntityIterableWrapper(
               ((EntityIterable) left).getSource().minus(((EntityIterable) right).getSource()));
     }
-    return SequenceOperations.exclude(left, right);
+    return ListSequence.fromIterable(left).substract(ListSequence.fromIterable(right));
   }
 
   public static boolean hasChanges(@NotNull TransientEntity e) {
@@ -306,7 +307,7 @@ public class EntityOperations {
       return ((EntityIterable) it).getSource().indexOf(e);
     }
 
-    return SequenceOperations.indexOf(it, e);
+    return ListSequence.fromIterable(it).indexOf(e);
   }
 
   public static boolean contains(@NotNull Iterable<Entity> it, Entity e) {
@@ -317,7 +318,7 @@ public class EntityOperations {
     if (it instanceof PersistentEntityIterableWrapper) {
       return session.getLast((EntityIterable) it);
     }
-    return SequenceOperations.getLast(it);
+    return ListSequence.fromIterable(it).last();
   }
 
   public static boolean isCached(@NotNull final TransientStoreSession session,
