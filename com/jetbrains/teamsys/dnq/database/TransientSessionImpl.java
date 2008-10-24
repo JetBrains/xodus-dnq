@@ -395,7 +395,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable findLinks(@NotNull String entityType, @NotNull EntityIterable entities, @NotNull String linkName) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findLinks(entityType, entities, linkName), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findLinks(entityType, entities.getSource(), linkName), this);
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -435,7 +435,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     switch (state) {
       case Open:
         return new PersistentEntityIterableWrapper(
-                getPersistentSessionInternal().sort(entityType, propertyName, rightOrder, ascending), this);
+                getPersistentSessionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending), this);
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -446,7 +446,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable distinct(@NotNull final EntityIterable source) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().distinct(source), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().distinct(source.getSource()), this);
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -457,7 +457,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable selectDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().selectDistinct(source, linkName), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().selectDistinct(source.getSource(), linkName), this);
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -470,6 +470,17 @@ public class TransientSessionImpl extends AbstractTransientSession {
       case Open:
         final Entity last = getPersistentSessionInternal().getLast(it.getSource());
         return (last == null) ? null : newEntityImpl(last);
+
+      default:
+        throw new IllegalStateException("Can't execute in state [" + state + "]");
+    }
+  }
+
+  @NotNull
+  public EntityIterable reverse(@NotNull final EntityIterable source) {
+    switch (state) {
+      case Open:
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().reverse(source.getSource()), this);
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");

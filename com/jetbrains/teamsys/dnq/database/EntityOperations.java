@@ -4,6 +4,8 @@ import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.sleepycat.je.DatabaseException;
+import jetbrains.mps.internal.collections.runtime.ISelector;
+import jetbrains.mps.internal.collections.runtime.ListSequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -12,9 +14,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-
-import jetbrains.mps.internal.collections.runtime.ListSequence;
-import jetbrains.mps.internal.collections.runtime.ISelector;
 
 // TODO: move this class to the associations semantics package
 public class EntityOperations {
@@ -140,8 +139,8 @@ public class EntityOperations {
       return (int) ((EntityIterable) input).size();
     }
 
-    if(input instanceof Collection) {
-      return ((Collection<Entity>)input).size();
+    if (input instanceof Collection) {
+      return ((Collection<Entity>) input).size();
     }
 
     return ListSequence.fromIterable(input).size();
@@ -156,8 +155,8 @@ public class EntityOperations {
       log.debug("Brute force calculation of count!", new Exception("Brute force calculation of count!"));
     }
 
-    if(input instanceof Collection) {
-      return ((Collection<Entity>)input).size();
+    if (input instanceof Collection) {
+      return ((Collection<Entity>) input).size();
     }
 
     return ListSequence.fromIterable(input).count();
@@ -315,7 +314,7 @@ public class EntityOperations {
   }
 
   public static Entity getLast(@NotNull final TransientStoreSession session, @NotNull final Iterable<Entity> it) {
-    if (it instanceof PersistentEntityIterableWrapper) {
+    if ((it instanceof EntityIterable) && !(it instanceof TransientEntityIterable)) {
       return session.getLast((EntityIterable) it);
     }
     return ListSequence.fromIterable(it).last();
