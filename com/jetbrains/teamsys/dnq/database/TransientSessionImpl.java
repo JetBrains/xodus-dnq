@@ -464,6 +464,17 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
+  @NotNull
+  public EntityIterable selectManyDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
+    switch (state) {
+      case Open:
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().selectManyDistinct(source.getSource(), linkName), this);
+
+      default:
+        throw new IllegalStateException("Can't execute in state [" + state + "]");
+    }
+  }
+
   @Nullable
   public Entity getLast(@NotNull final EntityIterable it) {
     switch (state) {

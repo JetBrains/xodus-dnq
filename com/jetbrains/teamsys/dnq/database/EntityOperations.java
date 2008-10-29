@@ -245,6 +245,16 @@ public class EntityOperations {
     })).distinct();
   }
 
+  public static Iterable<Entity> selectManyDistinct(@NotNull final TransientStoreSession session,
+                                                    @NotNull final Iterable<Entity> source,
+                                                    @NotNull final String linkName) {
+    if (source instanceof EntityIterable && !(source instanceof TransientEntityIterable)) {
+      return session.selectManyDistinct(((EntityIterable) source).getSource(), linkName);
+    }
+    // for TransientEntityIterable and other Iterable<Entity> instances
+    throw new UnsupportedOperationException("selectMany is not implemented by collection language");
+  }
+
   public static Iterable<Entity> intersect(@NotNull final TransientStoreSession session,
                                            @NotNull final Iterable<Entity> left,
                                            @NotNull final Iterable<Entity> right) {
