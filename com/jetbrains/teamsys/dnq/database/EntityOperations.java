@@ -121,13 +121,17 @@ public class EntityOperations {
       log.warn("Slow method getElementOfMultiple() was called!");
     }
 
-    //TODO: use skip if input is EntityIterable
-
-    int j = 0;
-
-    for (Entity e : entities) {
-      if (i == j++) {
-        return e;
+    if (entities instanceof EntityIterable) {
+      final EntityIterator it = ((EntityIterable) entities).skip(i).iterator();
+      if (it.hasNext()) {
+        return it.next();
+      }
+    } else {
+      int j = 0;
+      for (Entity e : entities) {
+        if (i == j++) {
+          return e;
+        }
       }
     }
 
