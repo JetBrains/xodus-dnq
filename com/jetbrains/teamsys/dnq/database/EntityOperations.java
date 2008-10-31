@@ -100,14 +100,6 @@ public class EntityOperations {
     return e1.equals(e2);
   }
 
-  public static boolean instanceOfType(@Nullable Object e, @NotNull String toType) {
-    if (e == null || !(e instanceof Entity)) {
-      return false;
-    }
-
-    return toType.equals(((Entity) e).getType());
-  }
-
   /**
    * Slow method! Use with care.
    *
@@ -226,15 +218,6 @@ public class EntityOperations {
     return ListSequence.fromIterable(source).sort(comparator, ascending);
   }
 
-  public static Iterable<Entity> distinct(@NotNull final TransientStoreSession session,
-                                          @NotNull final Iterable<Entity> source) {
-    if (source instanceof EntityIterable && !(source instanceof TransientEntityIterable)) {
-      return session.distinct(((EntityIterable) source).getSource());
-    }
-    // for TransientEntityIterable and other Iterable<Entity> instances
-    return ListSequence.fromIterable(source).distinct();
-  }
-
   public static Iterable<Entity> selectDistinct(@NotNull final TransientStoreSession session,
                                                 @NotNull final Iterable<Entity> source,
                                                 @NotNull final String linkName) {
@@ -247,56 +230,6 @@ public class EntityOperations {
         return AssociationSemantics.getToOne(input, linkName);
       }
     })).distinct();
-  }
-
-  public static Iterable<Entity> selectManyDistinct(@NotNull final TransientStoreSession session,
-                                                    @NotNull final Iterable<Entity> source,
-                                                    @NotNull final String linkName) {
-    if (source instanceof EntityIterable && !(source instanceof TransientEntityIterable)) {
-      return session.selectManyDistinct(((EntityIterable) source).getSource(), linkName);
-    }
-    // for TransientEntityIterable and other Iterable<Entity> instances
-    throw new UnsupportedOperationException("selectMany is not implemented by collection language");
-  }
-
-  public static Iterable<Entity> intersect(@NotNull final TransientStoreSession session,
-                                           @NotNull final Iterable<Entity> left,
-                                           @NotNull final Iterable<Entity> right) {
-    if (left instanceof PersistentEntityIterableWrapper && right instanceof PersistentEntityIterableWrapper) {
-      return session.createPersistentEntityIterableWrapper(
-              ((EntityIterable) left).getSource().intersect(((EntityIterable) right).getSource()));
-    }
-    return ListSequence.fromIterable(left).intersect(ListSequence.fromIterable(right));
-  }
-
-  public static Iterable<Entity> union(@NotNull final TransientStoreSession session,
-                                       @NotNull final Iterable<Entity> left,
-                                       @NotNull final Iterable<Entity> right) {
-    if (left instanceof PersistentEntityIterableWrapper && right instanceof PersistentEntityIterableWrapper) {
-      return session.createPersistentEntityIterableWrapper(
-              ((EntityIterable) left).getSource().union(((EntityIterable) right).getSource()));
-    }
-    return ListSequence.fromIterable(left).union(ListSequence.fromIterable(right));
-  }
-
-  public static Iterable<Entity> concat(@NotNull final TransientStoreSession session,
-                                        @NotNull final Iterable<Entity> left,
-                                        @NotNull final Iterable<Entity> right) {
-    if (left instanceof PersistentEntityIterableWrapper && right instanceof PersistentEntityIterableWrapper) {
-      return session.createPersistentEntityIterableWrapper(
-              ((EntityIterable) left).getSource().concat(((EntityIterable) right).getSource()));
-    }
-    return ListSequence.fromIterable(left).concat(ListSequence.fromIterable(right));
-  }
-
-  public static Iterable<Entity> exclude(@NotNull final TransientStoreSession session,
-                                         @NotNull final Iterable<Entity> left,
-                                         @NotNull final Iterable<Entity> right) {
-    if (left instanceof PersistentEntityIterableWrapper && right instanceof PersistentEntityIterableWrapper) {
-      return session.createPersistentEntityIterableWrapper(
-              ((EntityIterable) left).getSource().minus(((EntityIterable) right).getSource()));
-    }
-    return ListSequence.fromIterable(left).substract(ListSequence.fromIterable(right));
   }
 
   public static boolean hasChanges(@NotNull TransientEntity e) {
@@ -325,13 +258,6 @@ public class EntityOperations {
 
   public static boolean contains(@NotNull Iterable<Entity> it, Entity e) {
     return indexOf(it, e) >= 0;
-  }
-
-  public static Entity getLast(@NotNull final TransientStoreSession session, @NotNull final Iterable<Entity> it) {
-    if ((it instanceof EntityIterable) && !(it instanceof TransientEntityIterable)) {
-      return session.getLast((EntityIterable) it);
-    }
-    return ListSequence.fromIterable(it).last();
   }
 
   public static boolean isCached(@NotNull final TransientStoreSession session,
