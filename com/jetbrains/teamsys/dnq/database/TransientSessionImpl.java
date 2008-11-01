@@ -743,7 +743,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             e.markAsTemporary();
             break;
           }
-          parent = (TransientEntity) AggregationAssociationSemantics.getParent(parent); 
+          parent = (TransientEntity) AggregationAssociationSemantics.getParent(parent);
         }
       }
     }
@@ -923,14 +923,17 @@ public class TransientSessionImpl extends AbstractTransientSession {
           (
                   @NotNull final StoreTransaction txn) {
     final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
-    final List<Entity> affected = new ArrayList<Entity>(changedPersistentEntities.size());
-    for (final TransientEntity localCopy : changedPersistentEntities) {
-      //if (/*!localCopy.isNew() && */!localCopy.isRemoved()) {
-      Entity e = ((TransientEntityImpl) localCopy).getPersistentEntityInternal();
-      affected.add(e);
-      //}
+    final int changedEntitiesCount = changedPersistentEntities.size();
+    if (changedEntitiesCount > 0) {
+      final List<Entity> affected = new ArrayList<Entity>(changedEntitiesCount);
+      for (final TransientEntity localCopy : changedPersistentEntities) {
+        //if (/*!localCopy.isNew() && */!localCopy.isRemoved()) {
+        Entity e = ((TransientEntityImpl) localCopy).getPersistentEntityInternal();
+        affected.add(e);
+        //}
+      }
+      txn.lockForUpdate(affected);
     }
-    txn.lockForUpdate(affected);
   }
 
   private void checkVersions
@@ -1103,7 +1106,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
       public void visit(TransientStoreSessionListener listener) {
-        try{
+        try {
           listener.commited(changes);
         } catch (Exception e) {
           if (log.isErrorEnabled()) {
@@ -1125,7 +1128,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
       public void visit(TransientStoreSessionListener listener) {
-        try{
+        try {
           listener.flushed(changes);
         } catch (Exception e) {
           if (log.isErrorEnabled()) {
@@ -1149,7 +1152,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
       public void visit(TransientStoreSessionListener listener) {
-        try{
+        try {
           listener.beforeFlush(changes);
         } catch (Exception e) {
           if (log.isErrorEnabled()) {
