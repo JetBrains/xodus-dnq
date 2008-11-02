@@ -643,17 +643,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
     return orphans;
   }
 
-  private void disposeCursors() {
-    if (log.isDebugEnabled()) {
-      log.debug("Dispose open cursors. " + this);
-    }
-    try {
-      ((BerkeleyDbSession) getPersistentSessionInternal()).disposeOpenedIterables();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   /**
    * Creates new transient entity
    *
@@ -802,7 +791,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
       checkBeforeSaveChangesConstraints(removeOrphans());
     }
 
-    disposeCursors();
     StoreTransaction transaction = null;
     try {
       if (log.isDebugEnabled()) {
@@ -828,7 +816,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
       if (log.isDebugEnabled()) {
         log.debug("Commit persistent transaction in transient session " + this);
       }
-      disposeCursors();
 
       transaction.commit();
 
