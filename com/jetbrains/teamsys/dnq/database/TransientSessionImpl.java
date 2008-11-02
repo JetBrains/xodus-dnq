@@ -1202,9 +1202,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  protected void doClearHistory
-          (
-                  @NotNull final String entityType) {
+  protected void doClearHistory(@NotNull final String entityType) {
     changesTracker.historyCleared(entityType);
   }
 
