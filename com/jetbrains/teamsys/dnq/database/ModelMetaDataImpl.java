@@ -1,21 +1,19 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.database.EntityMetaData;
 import com.jetbrains.teamsys.database.ModelMetaData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-
-import gnu.trove.THashMap;
 
 /**
  */
 public class ModelMetaDataImpl implements ModelMetaData {
 
-  private Map<String, EntityMetaData> typeToEntityMetaDatas = new THashMap<String, EntityMetaData>();
+  private Map<String, EntityMetaData> typeToEntityMetaDatas = new HashMap<String, EntityMetaData>();
 
   public void setEntityMetaDatas(Set<EntityMetaData> entityMetaDatas) {
     for (final EntityMetaData emd : entityMetaDatas) {

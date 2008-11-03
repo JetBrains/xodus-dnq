@@ -1,18 +1,14 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashMap;
-
-import gnu.trove.THashMap;
-import gnu.trove.THashSet;
 
 public class EntityMetaDataImpl implements EntityMetaData {
 
@@ -25,7 +21,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private InstanceRef<? extends BasePersistentClass> instanceRef = null;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
-  private Map<String, AssociationEndMetaData> associationEnds = new THashMap<String, AssociationEndMetaData>();
+  private Map<String, AssociationEndMetaData> associationEnds = new HashMapDecorator<String, AssociationEndMetaData>();
   private Set<String> aggregationChildEnds = new HashSetDecorator<String>();
   private Set<String> uniqueProperties = new HashSetDecorator<String>();
   private Set<String> requiredProperties = new HashSetDecorator<String>();
@@ -121,7 +117,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   private void initAssociationChildEnds() {
-    aggregationChildEnds = new THashSet<String>();
     for (AssociationEndMetaData aemd: associationEnds.values()) {
       if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
         aggregationChildEnds.add(aemd.getName());

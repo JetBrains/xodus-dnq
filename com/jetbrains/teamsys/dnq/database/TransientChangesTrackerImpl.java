@@ -3,6 +3,8 @@ package com.jetbrains.teamsys.dnq.database;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.CantRemoveEntityException;
 import com.jetbrains.teamsys.database.exceptions.ConstraintsValidationException;
@@ -13,10 +15,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.util.*;
-
-import gnu.trove.THashMap;
-import gnu.trove.THashSet;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 
 /**
  * Saves in queue all changes made during transient session
@@ -90,7 +92,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   public Set<TransientEntityChange> getChangesDescription() {
     //TODO: optimization hint: do not rebuild set on every request - incrementaly build it 
-    Set<TransientEntityChange> res = new THashSet<TransientEntityChange>();
+    Set<TransientEntityChange> res = new HashSetDecorator<TransientEntityChange>();
 
     for (TransientEntity e : getChangedEntities()) {
       //TODO: return removed for text index?
@@ -131,7 +133,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     Set<String> links = entityToChangedLinks.get(e);
 
     if (links == null) {
-      links = new THashSet<String>();
+      links = new HashSet<String>();
       entityToChangedLinks.put(e, links);
     }
 
@@ -143,7 +145,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   private void linkChangedDetailed(TransientEntity e, String linkName, LinkChangeType changeType) {
     Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(e);
     if (linksDetailed == null) {
-      linksDetailed = new THashMap<String, LinkChange>();
+      linksDetailed = new HashMap<String, LinkChange>();
       entityToChangedLinksDetailed.put(e, linksDetailed);
       linksDetailed.put(linkName, new LinkChange(linkName, changeType));
     } else {
@@ -161,7 +163,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     Set<String> properties = entityToChangedProperties.get(e);
 
     if (properties == null) {
-      properties = new THashSet<String>();
+      properties = new HashSet<String>();
       entityToChangedProperties.put(e, properties);
     }
 
@@ -259,7 +261,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
           //TODO: use delete instead of tryDelete, but in session.check() check that there's no incomming links
           Map<String, EntityId> incomingLinks = ((TransientEntityImpl) e).getPersistentEntityInternal().tryDelete();
           if (incomingLinks.size() > 0) {
-            Map<String, TransientEntity> _incomingLinks = new THashMap<String, TransientEntity>(incomingLinks.size());
+            Map<String, TransientEntity> _incomingLinks = new HashMap<String, TransientEntity>(incomingLinks.size());
             for (String key : incomingLinks.keySet()) {
               _incomingLinks.put(key, (TransientEntity) ((TransientStoreSession) e.getStore().getThreadSession()).getEntity(incomingLinks.get(key)));
             }

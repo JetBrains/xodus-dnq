@@ -1,11 +1,12 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.execution.locks.Latch;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
-import gnu.trove.THashMap;
-import gnu.trove.THashSet;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -38,18 +39,18 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  private Map<String, TransientEntity> localEntities;
+  private Map<String, TransientEntity> localEntities = new HashMapDecorator<String, TransientEntity>();
   private State state;
   private boolean checkEntityVersionOnCommit = true;
-  private Set<File> createdBlobFiles;
+  private Set<File> createdBlobFiles = new HashSetDecorator<File>();
   private Latch lock = new Latch();
   private TransientChangesTracker changesTracker;
 
-  // stores transient entities that was created for loaded persistent entities to avoid double loading
-  private Map<EntityId, TransientEntity> createdTransientForPersistentEntities = new THashMap<EntityId, TransientEntity>();
+  // stores transient entities that were created for loaded persistent entities to avoid double loading
+  private Map<EntityId, TransientEntity> createdTransientForPersistentEntities = new HashMap<EntityId, TransientEntity>();
 
   // stores new transient entities to support getEntity(EntityId) operation
-  private Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new THashMap<TransientEntityId, TransientEntity>();
+  private Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new HashMapDecorator<TransientEntityId, TransientEntity>();
 
   protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id, final boolean checkEntityVersionOnCommit) {
     super(store, name, id);
@@ -119,9 +120,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
     switch (state) {
       case Open:
         synchronized (this) {
-          if (localEntities == null) {
-            localEntities = new THashMap<String, TransientEntity>();
-          }
           localEntities.put(localName, (TransientEntity) e);
         }
         return e;
@@ -135,13 +133,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public TransientEntity getSessionLocalEntity(@NotNull String localName) throws IllegalStateException, IllegalArgumentException {
     switch (state) {
       case Open:
-        TransientEntity res = null;
         synchronized (this) {
-          final Map<String, TransientEntity> le = localEntities;
-          res = le == null ? null : le.get(localName);
+          return localEntities.get(localName);
         }
-        return res;
-
       default:
         throw new IllegalStateException("Can't get session local entity in state [" + state + "]");
     }
@@ -190,10 +184,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   private void dispose() {
-    localEntities = null;
+    localEntities.clear();
     changesTracker.dispose();
     changesTracker = null;
-    createdBlobFiles = null;
+    createdBlobFiles.clear();
     createdNewTransientEntities = null;
     createdTransientForPersistentEntities = null;
   }
@@ -613,14 +607,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
    */
   @NotNull
   private Set<DataIntegrityViolationException> removeOrphans() {
-    Set<DataIntegrityViolationException> orphans = new THashSet<DataIntegrityViolationException>(4);
+    Set<DataIntegrityViolationException> orphans = new HashSetDecorator<DataIntegrityViolationException>();
     final ModelMetaData modelMetaData = store.getModelMetaData();
 
     if (modelMetaData == null) {
       return orphans;
     }
 
-    for (TransientEntity e : new THashSet<TransientEntity>(changesTracker.getChangedEntities())) {
+    for (TransientEntity e : new ArrayList<TransientEntity>(changesTracker.getChangedEntities())) {
       if (!e.isRemovedOrTemporary()) {
         EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
 
@@ -1058,19 +1052,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  private Set<File> getCreatedBlobFiles
-          () {
-    if (createdBlobFiles == null) {
-      createdBlobFiles = new THashSet<File>();
-    }
-    return createdBlobFiles;
-  }
-
   private void deleteBlobsStore() {
-    if (createdBlobFiles == null) {
-      return;
-    }
-
     for (File f : createdBlobFiles) {
       if (f.exists() && !f.delete()) {
         log.warn("Can't delete temp blob file [" + f.getAbsolutePath() + "]");
@@ -1221,7 +1203,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
       }
     }
 
-    getCreatedBlobFiles().add(f);
+    createdBlobFiles.add(f);
 
     return f;
   }

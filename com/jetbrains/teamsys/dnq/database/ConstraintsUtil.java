@@ -1,5 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
@@ -7,15 +9,13 @@ import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
 import gnu.trove.THashMap;
-import gnu.trove.THashSet;
+import jetbrains.mps.internal.collections.runtime.ListSequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 import java.util.Set;
-
-import jetbrains.mps.internal.collections.runtime.ListSequence;
 
 class ConstraintsUtil {
 
@@ -47,7 +47,7 @@ class ConstraintsUtil {
 
   @NotNull
   static Set<DataIntegrityViolationException> checkAssociationsCardinality(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
-    Set<DataIntegrityViolationException> exceptions = new THashSet<DataIntegrityViolationException>();
+    Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
 
     for (TransientEntity e : changesTracker.getChangedEntities()) {
       if (!e.isRemoved()) {
@@ -93,7 +93,6 @@ class ConstraintsUtil {
   }
 
   static void processOnDeleteConstraints(@NotNull Entity e, @NotNull EntityMetaData emd) {
-    Entity target;
     for (AssociationEndMetaData amd : emd.getAssociationEndsMetaData()) {
       if (amd.getCascadeDelete() || amd.getClearOnDelete()) {
 
@@ -293,7 +292,7 @@ class ConstraintsUtil {
 
   @NotNull
   static Set<DataIntegrityViolationException> checkUniqueProperties(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
-    Set<DataIntegrityViolationException> errors = new THashSet<DataIntegrityViolationException>();
+    Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
     Map<String, Map<String, Set<Comparable>>> entityTypeToProperiesValues = new THashMap<String, Map<String, Set<Comparable>>>();
 
     for (TransientEntity e : tracker.getChangedEntities()) {
@@ -302,11 +301,11 @@ class ConstraintsUtil {
 
         if (emd != null) {
           Set<String> uniqueProperties = emd.getUniqueProperties();
-          Set<String> chanchedProperties = tracker.getChangedProperties(e);
+          Set<String> changedProperties = tracker.getChangedProperties(e);
 
-          if (uniqueProperties.size() > 0 && (e.isNewOrTemporary() || (chanchedProperties != null && chanchedProperties.size() > 0))) {
+          if (uniqueProperties.size() > 0 && (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0))) {
             for (String uniquePropertyName : uniqueProperties) {
-              if (e.isNewOrTemporary() || chanchedProperties.contains(uniquePropertyName)) {
+              if (e.isNewOrTemporary() || changedProperties.contains(uniquePropertyName)) {
                 Comparable uniquePropertyValue = e.getProperty(uniquePropertyName);
 
                 if (isEmptyProperty(uniquePropertyValue)) {
@@ -320,7 +319,7 @@ class ConstraintsUtil {
 
                   Set<Comparable> propertyValues = propertiesValues.get(uniquePropertyName);
                   if (propertyValues == null) {
-                    propertyValues = new THashSet<Comparable>();
+                    propertyValues = new HashSet<Comparable>();
                     propertiesValues.put(uniquePropertyName, propertyValues);
                   }
 
@@ -363,7 +362,7 @@ class ConstraintsUtil {
 
   @NotNull
   static Set<DataIntegrityViolationException> checkRequiredProperties(@NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
-    Set<DataIntegrityViolationException> errors = new THashSet<DataIntegrityViolationException>();
+    Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
 
     for (TransientEntity e : tracker.getChangedEntities()) {
       if (!e.isRemoved()) {

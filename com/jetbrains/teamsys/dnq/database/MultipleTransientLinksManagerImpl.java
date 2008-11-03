@@ -1,20 +1,16 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.EntityIterable;
 import com.jetbrains.teamsys.database.TransientEntity;
-import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.Map;
 import java.util.Collections;
-
-import gnu.trove.THashSet;
+import java.util.Set;
 
 /**
  * Manages link related methods of TransinetEntity.
@@ -77,7 +73,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
 
   private Set<TransientEntity> getAdded() {
     if (added == null) {
-      added = new THashSet<TransientEntity>();
+      added = new HashSet<TransientEntity>();
     }
 
     return added;
@@ -85,7 +81,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
 
   private Set<TransientEntity> getRemoved() {
     if (removed == null) {
-      removed = new THashSet<TransientEntity>();
+      removed = new HashSet<TransientEntity>();
     }
 
     return removed;
@@ -93,7 +89,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
 
   private Set<TransientEntity> getLinksSet() {
     if (links == null) {
-      links = new THashSet<TransientEntity>();
+      links = new HashSet<TransientEntity>();
     }
 
     return links;

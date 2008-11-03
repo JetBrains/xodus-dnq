@@ -1,7 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.database.*;
-import gnu.trove.THashMap;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,9 +21,9 @@ import java.util.Set;
  */
 class TransientEntityImpl extends AbstractTransientEntity {
 
-  private Map<String, TransientLinksManager> linksManagers = null;
-  private Map<String, Comparable> propertiesCache = null;
-  private Map<String, File> fileBlobsCache = null;
+  private Map<String, TransientLinksManager> linksManagers = new HashMapDecorator<String, TransientLinksManager>();
+  private Map<String, Comparable> propertiesCache = new HashMapDecorator<String, Comparable>();
+  private Map<String, File> fileBlobsCache = new HashMapDecorator<String, File>();
 
   TransientEntityImpl(@NotNull String type, @NotNull TransientStoreSession session) {
     setTransientStoreSession(session);
@@ -50,21 +50,21 @@ class TransientEntityImpl extends AbstractTransientEntity {
   private static final StandartEventHandler<String, Object> getPropertyEventHandler = new StandartEventHandler2<String, Object>() {
       Object processOpenSaved(AbstractTransientEntity entity, String propertyName, Object param2) {
         Comparable v = null;
-        if (!(_(entity).getPropertiesCache().containsKey(propertyName))) {
+        if (!(_(entity).propertiesCache.containsKey(propertyName))) {
           v = entity.getPersistentEntityInternal().getProperty(propertyName);
-          _(entity).getPropertiesCache().put(propertyName, v);
+          _(entity).propertiesCache.put(propertyName, v);
           return v;
         } else {
-          return _(entity).getPropertiesCache().get(propertyName);
+          return _(entity).propertiesCache.get(propertyName);
         }
       }
 
       Object processOpenNew(AbstractTransientEntity entity, String propertyName, Object param2) {
-        return (_(entity).propertiesCache == null ? null : _(entity).getPropertiesCache().get(propertyName));
+        return _(entity).propertiesCache.get(propertyName);
       }
 
       Object processTemporary(AbstractTransientEntity entity, String propertyName, Object param2) {
-        return (_(entity).propertiesCache == null ? null : _(entity).getPropertiesCache().get(propertyName));
+        return _(entity).propertiesCache.get(propertyName);
       }
 
     };
@@ -78,7 +78,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   private static final StandartEventHandler<String, Comparable> setPropertyEventHandler = new StandartEventHandler2<String, Comparable>() {
       Object processOpenSaved(AbstractTransientEntity entity, String propertyName, Comparable value) {
         entity.getTransientStoreSession().getTransientChangesTracker().propertyChanged(entity, propertyName, entity.getProperty(propertyName), value);
-        _(entity).getPropertiesCache().put(propertyName, value);
+        _(entity).propertiesCache.put(propertyName, value);
         return null;
       }
 
@@ -87,7 +87,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processTemporary(AbstractTransientEntity entity, String propertyName, Comparable value) {
-        _(entity).getPropertiesCache().put(propertyName, value);
+        _(entity).propertiesCache.put(propertyName, value);
         return null;
       }
 
@@ -104,14 +104,11 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
       Object processOpenSaved(AbstractTransientEntity entity, String propertyName, Object value) {
         entity.getTransientStoreSession().getTransientChangesTracker().propertyDeleted(entity, propertyName);
-        _(entity).getPropertiesCache().put(propertyName, null);
+        _(entity).propertiesCache.put(propertyName, null);
         return null;
       }
 
       Object processOpenNew(AbstractTransientEntity entity, String propertyName, Object value) {
-        if (_(entity).propertiesCache == null) {
-          return null;
-        }
         return processOpenSaved(entity, propertyName, value);
       }
 
@@ -124,13 +121,13 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   private static final StandartEventHandler<String, Object> getBlobEventHandler = new StandartEventHandler2<String, Object>() {
     Object processOpenSaved(AbstractTransientEntity entity, String blobName, Object value) {
-      if (_(entity).fileBlobsCache == null || !_(entity).getFileBlobsCache().containsKey(blobName)) {
+      if (_(entity).fileBlobsCache.containsKey(blobName)) {
         //TODO: bad solution - it breaks transaction isolation.
         //TODO: Better solution is to get blob from persistent store only ones and save it somehow in transient session.
         return entity.getPersistentEntityInternal().getBlob(blobName);
       }
 
-      File f = _(entity).fileBlobsCache == null ? null : _(entity).getFileBlobsCache().get(blobName);
+      File f = _(entity).fileBlobsCache.get(blobName);
 
       try {
         return f == null ? null : new FileInputStream(f);
@@ -140,7 +137,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
     }
 
     Object processOpenNew(AbstractTransientEntity entity, String blobName, Object value) {
-      File f = _(entity).fileBlobsCache == null ? null : _(entity).getFileBlobsCache().get(blobName);
+      File f = _(entity).fileBlobsCache.get(blobName);
 
       try {
         return f == null ? null : new FileInputStream(f);
@@ -166,7 +163,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
       Object processOpenSaved(AbstractTransientEntity entity, String blobName, InputStream blob) {
         File f = _(entity).createFile(blob);
         entity.getTransientStoreSession().getTransientChangesTracker().blobChanged(entity, blobName, f);
-        _(entity).getFileBlobsCache().put(blobName, f);
+        _(entity).fileBlobsCache.put(blobName, f);
         return null;
       }
 
@@ -176,7 +173,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
       Object processTemporary(AbstractTransientEntity entity, String blobName, InputStream blob) {
         File f = _(entity).createFile(blob);
-        _(entity).getFileBlobsCache().put(blobName, f);
+        _(entity).fileBlobsCache.put(blobName, f);
         return null;
       }
 
@@ -213,7 +210,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
       Object processOpenSaved(AbstractTransientEntity entity, String blobName, File file) {
         File f = _(entity).moveOrCopy(file);
         entity.getTransientStoreSession().getTransientChangesTracker().blobChanged(entity, blobName, f);
-        _(entity).getFileBlobsCache().put(blobName, f);
+        _(entity).fileBlobsCache.put(blobName, f);
         return null;
       }
 
@@ -266,7 +263,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   private static final StandartEventHandler<String, Object> deleteBlobEventHandler = new StandartEventHandler2<String, Object>() {
 
       Object processOpenSaved(AbstractTransientEntity entity, String blobName, Object param2) {
-        _(entity).getFileBlobsCache().put(blobName, null);
+        _(entity).fileBlobsCache.put(blobName, null);
         entity.getTransientStoreSession().getTransientChangesTracker().blobDeleted(entity, blobName);
         return null;
       }
@@ -285,16 +282,16 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   private static final StandartEventHandler<String, Object> getBlobStringEventHandler = new StandartEventHandler2<String, Object>() {
       Object processOpenSaved(AbstractTransientEntity entity, String blobName, Object param2) {
-        if (!_(entity).getPropertiesCache().containsKey(blobName)) {
+        if (!_(entity).propertiesCache.containsKey(blobName)) {
           String value = entity.getPersistentEntityInternal().getBlobString(blobName);
-          _(entity).getPropertiesCache().put(blobName, value);
+          _(entity).propertiesCache.put(blobName, value);
           return value;
         }
-        return _(entity).getPropertiesCache().get(blobName);
+        return _(entity).propertiesCache.get(blobName);
       }
 
       Object processOpenNew(AbstractTransientEntity entity, String blobName, Object param2) {
-        return _(entity).propertiesCache == null ? null : _(entity).propertiesCache.get(blobName);
+        return _(entity).propertiesCache.get(blobName);
       }
 
       Object processTemporary(AbstractTransientEntity entity, String blobName, Object param2) {
@@ -312,7 +309,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   private static final StandartEventHandler<String, String> setBlobStringEventHandler = new StandartEventHandler2<String, String>() {
       Object processOpenSaved(AbstractTransientEntity entity, String blobName, String blobString) {
         entity.getTransientStoreSession().getTransientChangesTracker().blobChanged(entity, blobName, blobString);
-        _(entity).getPropertiesCache().put(blobName, blobString);
+        _(entity).propertiesCache.put(blobName, blobString);
         return null;
       }
 
@@ -329,7 +326,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   private static final StandartEventHandler<String, Object> deleteBlobStringEventHandler = new StandartEventHandler2<String, Object>() {
       Object processOpenSaved(AbstractTransientEntity entity, String blobName, Object blobString) {
-        _(entity).getPropertiesCache().put(blobName, null);
+        _(entity).propertiesCache.put(blobName, null);
         entity.getTransientStoreSession().getTransientChangesTracker().blobDeleted(entity, blobName);
         return null;
       }
@@ -540,7 +537,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   }
 
   private TransientLinksManager getLinksManager(@NotNull String linkName) {
-    TransientLinksManager m = linksManagers == null ? null : getLinksManagers().get(linkName);
+    TransientLinksManager m = linksManagers.get(linkName);
 
     if (m == null) {
       ModelMetaData md = ((TransientEntityStore) getStore()).getModelMetaData();
@@ -563,54 +560,24 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
       }
 
-      getLinksManagers().put(linkName, m);
+      linksManagers.put(linkName, m);
     }
 
     return m;
-  }
-
-  private Map<String, TransientLinksManager> getLinksManagers() {
-    if (linksManagers == null) {
-      linksManagers = new THashMap<String, TransientLinksManager>(8);
-    }
-
-    return linksManagers;
-  }
-
-  private Map<String, Comparable> getPropertiesCache() {
-    if (propertiesCache == null) {
-      propertiesCache = new THashMap<String, Comparable>(8);
-    }
-
-    return propertiesCache;
-  }
-
-  private Map<String, File> getFileBlobsCache() {
-    if (fileBlobsCache == null) {
-      fileBlobsCache = new THashMap<String, File>(4);
-    }
-
-    return fileBlobsCache;
   }
 
   /**
    * Is called by session on flush, because all files stored in temp location will be moved to persistent store location.
    */
   void clearFileBlobsCache() {
-    if (fileBlobsCache == null) {
-      return;
-    }
-    getFileBlobsCache().clear();
+    fileBlobsCache.clear();
   }
 
   /**
    * Notifies links managers about successful flush. Called by transient session
    */
   void updateLinkManagers() {
-    if (linksManagers == null) {
-      return;
-    }
-    for (TransientLinksManager lm : getLinksManagers().values()) {
+    for (TransientLinksManager lm : linksManagers.values()) {
       lm.flushed();
     }
   }

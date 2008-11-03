@@ -1,5 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
+import com.jetbrains.teamsys.core.dataStructures.hash.LinkedHashSet;
 import com.jetbrains.teamsys.database.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -7,11 +9,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.InitializingBean;
 
-import java.util.*;
 import java.io.File;
-
-import gnu.trove.THashMap;
-import gnu.trove.THashSet;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Vadim.Gurov
@@ -22,9 +23,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
   private EntityStore persistentStore;
   private ModelMetaData modelMetaData;
-  private Map<Object, TransientStoreSession> sessions = new THashMap<Object, TransientStoreSession>();
+  private Map<Object, TransientStoreSession> sessions = new HashMap<Object, TransientStoreSession>();
   private ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
-  private Set<TransientStoreSessionListener> listeners = new THashSet<TransientStoreSessionListener>();
+  private Set<TransientStoreSessionListener> listeners = new LinkedHashSet<TransientStoreSessionListener>();
 
   private boolean trackEntityCreation = true;
   private boolean abortSessionsOnClose = false;
