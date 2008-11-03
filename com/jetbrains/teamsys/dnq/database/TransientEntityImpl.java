@@ -49,9 +49,8 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   private static final StandartEventHandler<String, Object> getPropertyEventHandler = new StandartEventHandler2<String, Object>() {
       Object processOpenSaved(AbstractTransientEntity entity, String propertyName, Object param2) {
-        Comparable v = null;
         if (!(_(entity).propertiesCache.containsKey(propertyName))) {
-          v = entity.getPersistentEntityInternal().getProperty(propertyName);
+          final Comparable v = entity.getPersistentEntityInternal().getProperty(propertyName);
           _(entity).propertiesCache.put(propertyName, v);
           return v;
         } else {
@@ -64,7 +63,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processTemporary(AbstractTransientEntity entity, String propertyName, Object param2) {
-        return _(entity).propertiesCache.get(propertyName);
+        return processOpenNew(entity, propertyName, param2);
       }
 
     };
@@ -121,7 +120,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   private static final StandartEventHandler<String, Object> getBlobEventHandler = new StandartEventHandler2<String, Object>() {
     Object processOpenSaved(AbstractTransientEntity entity, String blobName, Object value) {
-      if (_(entity).fileBlobsCache.containsKey(blobName)) {
+      if (!_(entity).fileBlobsCache.containsKey(blobName)) {
         //TODO: bad solution - it breaks transaction isolation.
         //TODO: Better solution is to get blob from persistent store only ones and save it somehow in transient session.
         return entity.getPersistentEntityInternal().getBlob(blobName);
@@ -283,7 +282,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   private static final StandartEventHandler<String, Object> getBlobStringEventHandler = new StandartEventHandler2<String, Object>() {
       Object processOpenSaved(AbstractTransientEntity entity, String blobName, Object param2) {
         if (!_(entity).propertiesCache.containsKey(blobName)) {
-          String value = entity.getPersistentEntityInternal().getBlobString(blobName);
+          final String value = entity.getPersistentEntityInternal().getBlobString(blobName);
           _(entity).propertiesCache.put(blobName, value);
           return value;
         }
