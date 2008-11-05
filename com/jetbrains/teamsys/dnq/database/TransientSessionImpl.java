@@ -107,7 +107,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (wrappedIterable instanceof PersistentEntityIterableWrapper) {
           return wrappedIterable;
         } else {
-          return new PersistentEntityIterableWrapper(wrappedIterable, this);
+          return new PersistentEntityIterableWrapper(wrappedIterable);
         }
 
       default:
@@ -323,7 +323,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable getAll(@NotNull final String entityType) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().getAll(entityType), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().getAll(entityType));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -335,7 +335,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @Nullable final Comparable value) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().find(entityType, propertyName, value), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().find(entityType, propertyName, value));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -346,7 +346,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable minValue, @NotNull final Comparable maxValue) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().find(entityType, propertyName, minValue, maxValue), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().find(entityType, propertyName, minValue, maxValue));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -356,7 +356,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable findWithProp(@NotNull final String entityType, @NotNull final String propertyName) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findWithProp(entityType, propertyName), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findWithProp(entityType, propertyName));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -367,7 +367,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable startsWith(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final String value) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().startsWith(entityType, propertyName, value), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().startsWith(entityType, propertyName, value));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -378,7 +378,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable findLinks(@NotNull final String entityType, @NotNull final Entity entity, @NotNull final String linkName) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findLinks(entityType, entity, linkName), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findLinks(entityType, entity, linkName));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -389,7 +389,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable findLinks(@NotNull String entityType, @NotNull EntityIterable entities, @NotNull String linkName) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findLinks(entityType, entities.getSource(), linkName), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findLinks(entityType, entities.getSource(), linkName));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -400,7 +400,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable findWithLinks(@NotNull String entityType, @NotNull String linkName) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findWithLinks(entityType, linkName), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findWithLinks(entityType, linkName));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -413,8 +413,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                              final boolean ascending) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(
-                getPersistentSessionInternal().sort(entityType, propertyName, ascending), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().sort(entityType, propertyName, ascending));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -429,7 +428,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     switch (state) {
       case Open:
         return new PersistentEntityIterableWrapper(
-                getPersistentSessionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending), this);
+                getPersistentSessionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -440,7 +439,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable distinct(@NotNull final EntityIterable source) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().distinct(source.getSource()), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().distinct(source.getSource()));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -451,7 +450,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable selectDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().selectDistinct(source.getSource(), linkName), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().selectDistinct(source.getSource(), linkName));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -462,7 +461,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable selectManyDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().selectManyDistinct(source.getSource(), linkName), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().selectManyDistinct(source.getSource(), linkName));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -485,7 +484,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable reverse(@NotNull final EntityIterable source) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().reverse(source.getSource()), this);
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().reverse(source.getSource()));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");

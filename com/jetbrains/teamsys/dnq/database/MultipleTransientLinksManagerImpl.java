@@ -177,7 +177,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
           case LinksNotLoaded:
             // if there were no changes for this link - query underlying database
             if ((added == null || added.size() == 0) && (removed == null || removed.size() == 0)) {
-              return new PersistentEntityIterableWrapper(owner.getPersistentEntityInternal().getLinks(linkName), owner.getTransientStoreSession());
+              return new PersistentEntityIterableWrapper(owner.getPersistentEntityInternal().getLinks(linkName));
             } else {
               loadLinksAndMerge();
               state = State.LinksLoaded;
