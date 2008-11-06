@@ -1,6 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
@@ -8,7 +9,6 @@ import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
-import gnu.trove.THashMap;
 import jetbrains.mps.internal.collections.runtime.ListSequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -293,11 +293,12 @@ class ConstraintsUtil {
   @NotNull
   static Set<DataIntegrityViolationException> checkUniqueProperties(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
     Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
-    Map<String, Map<String, Set<Comparable>>> entityTypeToProperiesValues = new THashMap<String, Map<String, Set<Comparable>>>();
+    Map<String, Map<String, Set<Comparable>>> entityTypeToProperiesValues = new HashMap<String, Map<String, Set<Comparable>>>();
 
     for (TransientEntity e : tracker.getChangedEntities()) {
       if (!e.isRemoved()) {
-        EntityMetaData emd = md.getEntityMetaData(e.getType());
+        final String entityType = e.getType();
+        EntityMetaData emd = md.getEntityMetaData(entityType);
 
         if (emd != null) {
           Set<String> uniqueProperties = emd.getUniqueProperties();
@@ -311,10 +312,10 @@ class ConstraintsUtil {
                 if (isEmptyProperty(uniquePropertyValue)) {
                   errors.add(new NullPropertyException(e, uniquePropertyName));
                 } else {
-                  Map<String, Set<Comparable>> propertiesValues = entityTypeToProperiesValues.get(e.getType());
+                  Map<String, Set<Comparable>> propertiesValues = entityTypeToProperiesValues.get(entityType);
                   if (propertiesValues == null) {
-                    propertiesValues = new THashMap<String, Set<Comparable>>();
-                    entityTypeToProperiesValues.put(e.getType(), propertiesValues);
+                    propertiesValues = new HashMap<String, Set<Comparable>>();
+                    entityTypeToProperiesValues.put(entityType, propertiesValues);
                   }
 
                   Set<Comparable> propertyValues = propertiesValues.get(uniquePropertyName);
