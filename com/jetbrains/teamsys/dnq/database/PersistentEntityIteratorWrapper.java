@@ -1,12 +1,10 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.database.Entity;
+import com.jetbrains.teamsys.database.EntityId;
 import com.jetbrains.teamsys.database.EntityIterator;
 import com.jetbrains.teamsys.database.TransientStoreSession;
-import com.jetbrains.teamsys.database.EntityId;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Iterator;
 
 class PersistentEntityIteratorWrapper implements EntityIterator {
 
@@ -35,6 +33,10 @@ class PersistentEntityIteratorWrapper implements EntityIterator {
 
   public EntityId nextId() {
     return source.nextId();
+  }
+
+  public boolean dispose() {
+    return source.dispose();
   }
 
   public boolean skip(int number) {

@@ -28,11 +28,6 @@ public class TransientEntityIterable implements EntityIterable {
     //this.source = source;
   }
 
-  public void dispose() {
-    throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    //source.dispose();
-  }
-
   public long size() {
     if (log.isWarnEnabled()) {
       log.warn("Size is requested from TransientEntityIterable!");

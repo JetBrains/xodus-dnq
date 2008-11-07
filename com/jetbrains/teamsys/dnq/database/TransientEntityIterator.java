@@ -30,16 +30,19 @@ class TransientEntityIterator implements EntityIterator {
   }
 
   public void remove() {
-    throw new IllegalArgumentException("Remove from iterator is not supported by transient iterator");
+    throw new UnsupportedOperationException("Remove from iterator is not supported by transient iterator");
   }
 
   public EntityId nextId() {
     return iter.next().getId();
   }
 
+  public boolean dispose() {
+    throw new UnsupportedOperationException("Transient iterator doesn't support disposing.");
+  }
+
   public boolean skip(int number) {
-    while (number > 0 && hasNext()) {
-      --number;
+    while (number-- > 0 && hasNext()) {
       next();
     }
     return hasNext();

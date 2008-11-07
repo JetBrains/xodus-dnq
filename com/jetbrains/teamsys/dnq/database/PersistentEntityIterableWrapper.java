@@ -25,10 +25,6 @@ class PersistentEntityIterableWrapper implements EntityIterable {
     this.wrappedIterable = wrappedIterable;
   }
 
-  public void dispose() {
-    wrappedIterable.dispose();
-  }
-
   public long size() {
     return wrappedIterable.size();
   }
