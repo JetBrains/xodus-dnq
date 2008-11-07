@@ -3,6 +3,7 @@ package com.jetbrains.teamsys.dnq.association;
 import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.EntityIterable;
 import com.jetbrains.teamsys.database.TransientEntity;
+import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -41,6 +42,10 @@ public class AssociationSemantics {
   public static EntityIterable getToMany(@NotNull Entity e, @NotNull String linkName) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
+    if (e == null) {
+      return EntityIterableBase.EMPTY;
+    }
+
     return e.getLinks(linkName);
   }
 
@@ -71,6 +76,10 @@ public class AssociationSemantics {
   public static EntityIterable getToManyPersistentIterable(@NotNull Entity e, @NotNull String linkName) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
+    if (e == null) {
+      return EntityIterableBase.EMPTY;
+    }
+
     // can't return persistent iterable for new transient entity
     if (((TransientEntity)e).isNewOrTemporary()) {
       //throw new IllegalStateException("1111");
@@ -94,7 +103,7 @@ public class AssociationSemantics {
       return ((TransientEntity) e).getLinksSize(linkName);
     }
 
-    return e.getLinks(linkName).size();
+    return e == null ? 0 : e.getLinks(linkName).size();
   }
 
 }

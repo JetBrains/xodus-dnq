@@ -14,7 +14,6 @@ import java.util.Set;
  * Date: 05.02.2007
  * Time: 16:34:36
  * <p/>
- * TODO: do not create new handler class on every method call
  * TODO: for blobs implement BlobsManagers, like LinkManager, because there're 3 blob types - String, File, InputStream
  *
  * @author Vadim.Gurov
