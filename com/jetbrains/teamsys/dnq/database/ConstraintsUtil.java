@@ -70,9 +70,9 @@ class ConstraintsUtil {
             }
           } else if (e.isSaved()) {
             // check only changed links of saved entity
-            Set<String> changedLinks = changesTracker.getChangedLinks(e);
+            Map<String, LinkChange> changedLinks = changesTracker.getChangedLinksDetailed(e);
             if (changedLinks != null) {
-              for (String changedLink : changedLinks) {
+              for (String changedLink : changedLinks.keySet()) {
                 AssociationEndMetaData aemd = md.getAssociationEndMetaData(changedLink);
 
                 if (log.isTraceEnabled()) {
@@ -302,11 +302,11 @@ class ConstraintsUtil {
 
         if (emd != null) {
           Set<String> uniqueProperties = emd.getUniqueProperties();
-          Set<String> changedProperties = tracker.getChangedProperties(e);
+          Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
 
           if (uniqueProperties.size() > 0 && (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0))) {
             for (String uniquePropertyName : uniqueProperties) {
-              if (e.isNewOrTemporary() || changedProperties.contains(uniquePropertyName)) {
+              if (e.isNewOrTemporary() || changedProperties.containsKey(uniquePropertyName)) {
                 Comparable uniquePropertyValue = e.getProperty(uniquePropertyName);
 
                 if (isEmptyProperty(uniquePropertyValue)) {
@@ -373,11 +373,11 @@ class ConstraintsUtil {
         if (emd != null) {
           Set<String> requiredProperties = emd.getRequiredProperties();
           Set<String> requiredIfProperties = emd.getRequiredIfProperties(e);
-          Set<String> changhedProperties = tracker.getChangedProperties(e);
+          Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
 
-          if ((requiredProperties.size()+requiredIfProperties.size() > 0 && (e.isNewOrTemporary() || (changhedProperties != null && changhedProperties.size() > 0)))) {
+          if ((requiredProperties.size()+requiredIfProperties.size() > 0 && (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)))) {
              for (String requiredPropertyName : requiredProperties) {
-                 checkProperty(errors, e, changhedProperties, requiredPropertyName);
+                 checkProperty(errors, e, changedProperties, requiredPropertyName);
              }
              for (String requiredIfPropertyName : requiredIfProperties) {
                  checkProperty(errors, e, requiredIfPropertyName);
@@ -397,8 +397,8 @@ class ConstraintsUtil {
         }
     }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Set<String> changhedProperties, String propertyName) {
-        if (e.isNewOrTemporary() || changhedProperties.contains(propertyName)) {
+    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changhedProperties, String propertyName) {
+        if (e.isNewOrTemporary() || changhedProperties.containsKey(propertyName)) {
             checkProperty(errors, e, propertyName);
         }
     }

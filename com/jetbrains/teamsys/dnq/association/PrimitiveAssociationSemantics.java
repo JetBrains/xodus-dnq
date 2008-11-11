@@ -4,12 +4,14 @@ import com.jetbrains.teamsys.core.crypto.MessageDigestUtil;
 import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.TransientEntity;
 import com.jetbrains.teamsys.database.TransientStoreSession;
+import com.jetbrains.teamsys.database.PropertyChange;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.InputStream;
+import java.util.Map;
 
 /**
  */
@@ -28,15 +30,35 @@ public class PrimitiveAssociationSemantics {
    */
   @Nullable
   public static Object get(@Nullable Entity e, @NotNull String propertyName, @Nullable Object nullValue) {
+    e = TransientStoreUtil.reattach((TransientEntity) e);
+
     if (e == null) {
       return nullValue;
     }
 
-    e = TransientStoreUtil.reattach((TransientEntity) e);
-
     //noinspection ConstantConditions
     return e.getProperty(propertyName);
   }
+
+  @Nullable
+  public static Object getOldValue(@NotNull TransientEntity e, @NotNull String propertyName, @NotNull Class propertyType, @Nullable Object nullValue) {
+    e = TransientStoreUtil.reattach(e);
+
+    if (e == null) {
+      return null;
+    }
+
+    Map<String,PropertyChange> propertiesDetailed = e.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(e);
+    if (propertiesDetailed != null) {
+      PropertyChange pc = propertiesDetailed.get(propertyName);
+      if (pc != null) {
+        return pc.getOldValue();
+      }
+    }
+
+    return get(e, propertyName, propertyType, nullValue);
+  }
+
 
   /**
    * Simple property getter.
@@ -152,11 +174,19 @@ public class PrimitiveAssociationSemantics {
   public static InputStream getBlob(@NotNull Entity e, @NotNull String blobName) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
+    if (e == null) {
+      return null;
+    }
+
     return e.getBlob(blobName);
   }
 
   public static String getBlobAsString(@NotNull Entity e, @NotNull String blobName) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
+
+    if (e == null) {
+      return null;
+    }
 
     return e.getBlobString(blobName);
   }

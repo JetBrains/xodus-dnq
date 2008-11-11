@@ -587,8 +587,8 @@ class TransientEntityImpl extends AbstractTransientEntity {
       }
 
       Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-        Set<String> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinks(entity);
-        Set<String> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedProperties(entity);
+        Map<String, PropertyChange> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(entity);
+        Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
 
         return (changesLinks != null && !changesLinks.isEmpty()) || (changesProperties != null && !changesProperties.isEmpty());
       }
@@ -611,11 +611,11 @@ class TransientEntityImpl extends AbstractTransientEntity {
     }
 
     Object processOpenSaved(AbstractTransientEntity entity, String property, Object param2) {
-      Set<String> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinks(entity);
-      Set<String> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedProperties(entity);
+      Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
+      Map<String, PropertyChange> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(entity);
 
-      return (changesLinks != null && changesLinks.contains(property)) ||
-              (changesProperties != null && changesProperties.contains(property));
+      return (changesLinks != null && changesLinks.containsKey(property)) ||
+              (changesProperties != null && changesProperties.containsKey(property));
     }
 
   };

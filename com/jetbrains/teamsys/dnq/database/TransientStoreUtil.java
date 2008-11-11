@@ -9,6 +9,8 @@ import org.jetbrains.annotations.Nullable;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import java.util.Set;
+import java.util.Map;
+
 /**
  * Date: 18.12.2006
  * Time: 13:43:10
@@ -34,10 +36,6 @@ public class TransientStoreUtil {
       return null;
     }
 
-    // todo: rewrite as MPS code
-    // todo: get store from service locator, because given entity may be attached to another closed store
-    // TransientStoreSession s = (TransientStoreSession)entity.getStore().getThreadSession();
-
     if (store == null) {
       throw new IllegalStateException("There's no current session entity store.");  
     }
@@ -46,9 +44,10 @@ public class TransientStoreUtil {
 
     if (s == null) {
       throw new IllegalStateException("There's no current session to attach transient entity to.");
-    } else {
-      return s.newLocalCopy(entity);
     }
+
+    
+    return s.newLocalCopy(entity);
   }
 
   public static void commit(@Nullable TransientStoreSession s) {
@@ -132,6 +131,26 @@ public class TransientStoreUtil {
       }
 
       sb.append(s);
+
+      first = false;
+    }
+
+    return sb.toString();
+  }
+
+  static String toString(Map map) {
+    if (map == null) {
+      return "";
+    }
+
+    StringBuilder sb = new StringBuilder();
+    boolean first = true;
+    for (Object s: map.keySet()) {
+      if (!first) {
+        sb.append(",");
+      }
+
+      sb.append(s).append(":").append(map.get(s));
 
       first = false;
     }

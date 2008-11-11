@@ -29,12 +29,13 @@ public class AssociationSemantics {
    */
   @Nullable
   public static Entity getToOne(@Nullable Entity e, @NotNull String linkName) {
-    // nullable objects support 
+    e = TransientStoreUtil.reattach((TransientEntity) e);
+
+    // nullable objects support
     if (e == null) {
       return null;
     }
 
-    e = TransientStoreUtil.reattach((TransientEntity) e);
     return e.getLink(linkName);
   }
 
@@ -99,6 +100,10 @@ public class AssociationSemantics {
   public static long getToManySize(@NotNull Entity e, String linkName) {
     if (e instanceof TransientEntity) {
       e = TransientStoreUtil.reattach((TransientEntity) e);
+
+      if (e == null) {
+        return 0;
+      }
 
       return ((TransientEntity) e).getLinksSize(linkName);
     }

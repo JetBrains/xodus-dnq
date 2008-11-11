@@ -98,7 +98,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
   }
 
   @NotNull
-  TransientStoreSession getTransientStoreSession() {
+  public TransientStoreSession getTransientStoreSession() {
     return session;
   }
 

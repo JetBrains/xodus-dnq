@@ -661,7 +661,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
    * @param entity
    * @return
    */
-  @NotNull
   public TransientEntity newLocalCopy(@NotNull final TransientEntity entity) {
     switch (state) {
       case Open:
@@ -784,7 +783,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     changesTracker.markState();
     notifyBeforeFlushListeners();
-    if (changesTracker.wasChangesAfterMarkState()) {
+    if (changesTracker.wereChangesAfterMarkState()) {
       checkBeforeSaveChangesConstraints(removeOrphans());
     }
 
@@ -966,8 +965,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
         //TODO: delegate to MergeHandler. This handler should be generated or handcoded for concrete problem domain.
         if (!areChangesCompatible(localCopy)) {
           if (log.isDebugEnabled()) {
-            log.warn("Incompatible concurrent changes for " + localCopy + ". Changed properties [" + TransientStoreUtil.toString(changesTracker.getChangedProperties(localCopy)) +
-                    "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinks(localCopy)) + "]");
+            log.warn("Incompatible concurrent changes for " + localCopy + ". Changed properties [" + TransientStoreUtil.toString(changesTracker.getChangedPropertiesDetailed(localCopy)) +
+                    "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinksDetailed(localCopy)) + "]");
           }
           throw new VersionMismatchException(localCopy, localCopyVersion, lastDatabaseCopyVersion);
         }
@@ -1014,9 +1013,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     // 2. changed property is marked as versionMismatchResolution: ignore
-    Set<String> changedProps = tec.getChangedProperties();
+    Map<String, PropertyChange> changedProps = tec.getChangedPropertiesDetaled();
     if (changedProps != null) {
-      for (String p : changedProps) {
+      for (String p : changedProps.keySet()) {
         if (!emd.isVersionMismatchIgnored(p)) {
           return false;
         }

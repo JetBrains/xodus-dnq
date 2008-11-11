@@ -84,18 +84,18 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public boolean changesReflectHistory(TransientEntity e, TransientChangesTracker tracker) {
-    Set<String> changedProperties = tracker.getChangedProperties(e);
+    Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
     if (changedProperties != null) {
-      for (String field: changedProperties) {
+      for (String field: changedProperties.keySet()) {
         if (!historyIgnoredFields.contains(field)) {
           return true;
         }
       }
     }
 
-    Set<String> changedLinks = tracker.getChangedLinks(e);
+    Map<String, LinkChange> changedLinks = tracker.getChangedLinksDetailed(e);
     if (changedLinks != null) {
-      for (String field: changedLinks) {
+      for (String field: changedLinks.keySet()) {
         if (!historyIgnoredFields.contains(field)) {
           return true;
         }
@@ -223,7 +223,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public boolean hasParent(@NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
-    if (e.isNewOrTemporary() || parentChanged(tracker.getChangedLinks(e))) {
+    if (e.isNewOrTemporary() || parentChanged(tracker.getChangedLinksDetailed(e))) {
       for (String childEnd : aggregationChildEnds) {
         if (AssociationSemantics.getToOne(e, childEnd) != null) {
           return true;
@@ -235,13 +235,13 @@ public class EntityMetaDataImpl implements EntityMetaData {
     return true;
   }
 
-  private boolean parentChanged(Set<String> changedLinks) {
+  private boolean parentChanged(Map<String, LinkChange> changedLinks) {
     if(changedLinks == null) {
       return false;
     }
 
     for (String childEnd : aggregationChildEnds) {
-      if (changedLinks.contains(childEnd)) {
+      if (changedLinks.containsKey(childEnd)) {
         return true;
       }
     }
