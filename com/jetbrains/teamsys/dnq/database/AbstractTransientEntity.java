@@ -130,6 +130,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
     return state == State.Temporary;
   }
 
+  public boolean isReadonly() {
+    return false;
+  }
+
   State getState() {
     return state;
   }
@@ -156,36 +160,9 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
   }
   
-  private static final StandartEventHandler getTypeEventHandler = new StandartEventHandler() {
-
-    Object processSuspendedSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-      return entity.type;
-    }
-
-    Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
-      return entity.type;
-    }
-
-    Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2 ) {
-      return entity.type;
-    }
-
-    Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2 ) {
-      return entity.type;
-    }
-
-    Object processClosedSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
-      return entity.type;
-    }
-
-    Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-      return entity.type;
-    }
-  };
-
   @NotNull
   public String getType() {
-    return (String) getTypeEventHandler.handle(this, null, null);
+    return type;
   }
 
   protected void setType(String type) {
@@ -196,6 +173,18 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
       return processOpenSaved(entity, param1, param2);
+    }
+
+    @Override
+    protected Object processClosedRemoved(AbstractTransientEntity entity) {
+      switch (entity.state) {
+        case RemovedNew:
+          return super.processClosedRemoved(entity);
+        case RemovedSaved:
+          return entity.getPersistentEntityInternal().getId();
+      }
+
+      throw new IllegalStateException();
     }
 
     Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
@@ -720,7 +709,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
           case RemovedNew:
           case RemovedSaved:
-            throw new EntityRemovedException(entity);
+            return processClosedRemoved(entity);
+
           case Temporary:
             return processTemporary(entity, param1, param2);
         }
@@ -777,6 +767,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
       }
 
       throw new IllegalStateException("Unknown session state. " + entity);
+    }
+
+    protected Object processClosedRemoved(AbstractTransientEntity entity) {
+      throw new EntityRemovedException(entity);
     }
 
     Object processOpenFromAnotherSessionNew(AbstractTransientEntity entity, P1 param1, P2 param2) {

@@ -1,9 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.StoreTransaction;
-import com.jetbrains.teamsys.database.TransientEntity;
-import com.jetbrains.teamsys.database.TransientStoreSession;
-import com.jetbrains.teamsys.database.TransientEntityStore;
+import com.jetbrains.teamsys.database.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.apache.commons.logging.Log;
@@ -48,6 +45,25 @@ public class TransientStoreUtil {
 
     
     return s.newLocalCopy(entity);
+  }
+
+  /**
+   * Attach entity to current session if possible.
+   * @return
+   */
+  public static TransientEntity readonlyCopy(@NotNull TransientEntityChange change) {
+    if (store == null) {
+      throw new IllegalStateException("There's no current session entity store.");
+    }
+
+    TransientStoreSession s = (TransientStoreSession)store.getThreadSession();
+
+    if (s == null) {
+      throw new IllegalStateException("There's no current session to attach transient entity to.");
+    }
+
+
+    return s.newReadonlyLocalCopy(change);
   }
 
   public static void commit(@Nullable TransientStoreSession s) {

@@ -99,14 +99,31 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     Set<TransientEntityChange> res = new HashSetDecorator<TransientEntityChange>();
 
     for (TransientEntity e : getChangedEntities()) {
-      //TODO: return removed for text index?
-      if (!e.isRemovedOrTemporary()) {
+      if (!e.isTemporary()) {
         res.add(new TransientEntityChange(e, getChangedPropertiesDetailed(e),
-                getChangedLinksDetailed(e), e.isNew() ? EntityChangeType.ADD : EntityChangeType.UPDATE));
+          getChangedLinksDetailed(e), decodeState(e)));
       }
     }
 
     return res;
+  }
+
+  private EntityChangeType decodeState(TransientEntity e) {
+    switch (((AbstractTransientEntity)e).getState()) {
+      case New:
+      case SavedNew:
+        return EntityChangeType.ADD;
+
+      case RemovedSaved:
+      case RemovedNew:
+        return EntityChangeType.REMOVE;
+
+      case Saved:
+        return EntityChangeType.UPDATE;
+
+      default:
+        throw new IllegalStateException("Can't decode change for state [" + ((AbstractTransientEntity)e).getState() + "]");
+    }
   }
 
 

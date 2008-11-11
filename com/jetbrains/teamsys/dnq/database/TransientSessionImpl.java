@@ -52,6 +52,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
   // stores new transient entities to support getEntity(EntityId) operation
   private Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new HashMapDecorator<TransientEntityId, TransientEntity>();
 
+  // stores created readonly entities
+  private Map<EntityId, ReadonlyTransientEntityImpl> createdReadonlyTransientEntities = new HashMapDecorator<EntityId, ReadonlyTransientEntityImpl>();
+
   protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id, final boolean checkEntityVersionOnCommit) {
     super(store, name, id);
 
@@ -655,6 +658,37 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
+  public TransientEntity newReadonlyLocalCopy(TransientEntityChange change) {
+    switch (state) {
+      case Open:
+        AbstractTransientEntity orig = (AbstractTransientEntity)change.getTransientEntity();
+        switch (orig.getState()) {
+          case New:
+            throw new IllegalStateException("Can't create readonly local copy of entity in new state.");
+
+          case Temporary:
+            return orig;
+
+          case Saved:
+          case SavedNew:
+          case RemovedNew:
+          case RemovedSaved:
+            EntityId entityId = orig.getPersistentEntityInternal().getId();
+            ReadonlyTransientEntityImpl entity = createdReadonlyTransientEntities.get(entityId);
+            if (entity == null) {
+              entity = new ReadonlyTransientEntityImpl(change, this);
+              createdReadonlyTransientEntities.put(entityId, entity);
+            }
+            return entity;
+
+          default:
+            throw new IllegalStateException("Can't create readonly local copy in state [" + orig.getState() + "]");
+        }
+      default:
+        throw new IllegalStateException("Can't create readonly local copy in state [" + state + "]");
+    }
+  }
+
   /**
    * Creates local copy of given entity in current session.
    *
@@ -664,7 +698,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public TransientEntity newLocalCopy(@NotNull final TransientEntity entity) {
     switch (state) {
       case Open:
-        if (entity.isTemporary()) {
+        if (entity.isTemporary() || entity.isReadonly()) {
           return entity;
         } else if (entity.isNew()) {
           if (((TransientEntityImpl) entity).getTransientStoreSession() == this) {
