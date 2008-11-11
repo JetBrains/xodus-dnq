@@ -176,10 +176,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     @Override
-    protected Object processClosedRemoved(AbstractTransientEntity entity) {
+    protected Object processClosedRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
       switch (entity.state) {
         case RemovedNew:
-          return super.processClosedRemoved(entity);
+          return super.processClosedRemoved(entity, param1, param2);
         case RemovedSaved:
           return entity.getPersistentEntityInternal().getId();
       }
@@ -609,7 +609,12 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return entity == that;
       }
 
-      Object processOpenRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+    @Override
+    protected Object processClosedRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+      return processOpenRemoved(entity, that, param2);
+    }
+
+    Object processOpenRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
         switch (entity.state) {
           case RemovedNew:
             return entity == that;
@@ -709,7 +714,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
           case RemovedNew:
           case RemovedSaved:
-            return processClosedRemoved(entity);
+            return processClosedRemoved(entity, param1, param2);
 
           case Temporary:
             return processTemporary(entity, param1, param2);
@@ -769,7 +774,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
       throw new IllegalStateException("Unknown session state. " + entity);
     }
 
-    protected Object processClosedRemoved(AbstractTransientEntity entity) {
+    protected Object processClosedRemoved(AbstractTransientEntity entity, P1 paraP1, P2 param2) {
       throw new EntityRemovedException(entity);
     }
 

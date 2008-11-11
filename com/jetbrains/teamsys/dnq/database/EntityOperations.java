@@ -14,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Collections;
 
 // TODO: move this class to the associations semantics package
 public class EntityOperations {
@@ -60,31 +61,29 @@ public class EntityOperations {
   public static List<Entity> getHistory(@NotNull Entity e) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
-    return e.getHistory();
+    return e == null ? Collections.EMPTY_LIST : e.getHistory();
   }
 
   public static boolean isRemoved(@NotNull Entity e) {
-    e = TransientStoreUtil.reattach((TransientEntity) e);
-
-    return e == null || ((TransientEntity)e).isRemoved();
+    return ((TransientEntity)e).isRemoved() || TransientStoreUtil.reattach((TransientEntity) e) == null;
   }
 
   public static int getVersion(@NotNull Entity e) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
-    return e.getVersion();
+    return e == null ? -1 : e.getVersion();
   }
 
   public static Entity getPreviousVersion(@NotNull Entity e) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
-    return e.getPreviousVersion();
+    return e == null ? null : e.getPreviousVersion();
   }
 
   public static Entity getNextVersion(@NotNull Entity e) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
-    return e.getNextVersion();
+    return e == null ? null : e.getNextVersion();
   }
 
   public static boolean equals(Entity e1, Object e2) {
@@ -100,8 +99,8 @@ public class EntityOperations {
       return false;
     }
 
-    e1 = TransientStoreUtil.reattach((TransientEntity) e1);
-    e2 = TransientStoreUtil.reattach((TransientEntity) e2);
+    //e1 = TransientStoreUtil.reattach((TransientEntity) e1);
+    //e2 = TransientStoreUtil.reattach((TransientEntity) e2);
 
     return e1.equals(e2);
   }
@@ -241,13 +240,13 @@ public class EntityOperations {
   public static boolean hasChanges(@NotNull TransientEntity e) {
     e = TransientStoreUtil.reattach(e);
 
-    return e.hasChanges();
+    return e == null ? false : e.hasChanges();
   }
 
   public static boolean hasChanges(@NotNull TransientEntity e, String property) {
     e = TransientStoreUtil.reattach(e);
 
-    return e.hasChanges(property);
+    return e == null ? false : e.hasChanges(property);
   }
 
   public static int indexOf(@NotNull Iterable<Entity> it, Entity e) {
