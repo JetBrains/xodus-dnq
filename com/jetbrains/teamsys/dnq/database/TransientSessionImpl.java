@@ -953,8 +953,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
   }
 
-  private void checkVersions
-          () {
+  private void checkVersions() {
     if (!checkEntityVersionOnCommit) {
       if (log.isWarnEnabled()) {
         log.warn("Skip versions checking. " + this);
@@ -1014,9 +1013,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
    * @param entity
    * @return
    */
-  private boolean areChangesCompatible
-          (TransientEntity
-                  entity) {
+  private boolean areChangesCompatible(TransientEntity entity) {
     ModelMetaData md = store.getModelMetaData();
     EntityMetaData emd = md == null ? null : md.getEntityMetaData(entity.getType());
     if (emd == null) {
@@ -1033,6 +1030,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     // compatible changes:
     // 1. add association (for multiple associations)
+    // 2. changed links is marked as versionMismatchResolution: ignore
 
     TransientEntityChange tec = changesTracker.getChangeDescription(entity);
 
@@ -1040,13 +1038,13 @@ public class TransientSessionImpl extends AbstractTransientSession {
     if (changedLinks != null) {
       for (LinkChange lc : changedLinks.values()) {
         AssociationEndMetaData amd = emd.getAssociationEndMetaData(lc.getLinkName());
-        if (!(amd.getCardinality().isMultiple() && lc.getChangeType() == LinkChangeType.ADD)) {
+        if (!((emd.isVersionMismatchIgnored(lc.getLinkName())) || (amd.getCardinality().isMultiple() && lc.getChangeType() == LinkChangeType.ADD))) {
           return false;
         }
       }
     }
 
-    // 2. changed property is marked as versionMismatchResolution: ignore
+    // 3. changed property is marked as versionMismatchResolution: ignore
     Map<String, PropertyChange> changedProps = tec.getChangedPropertiesDetaled();
     if (changedProps != null) {
       for (String p : changedProps.keySet()) {
