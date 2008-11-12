@@ -99,6 +99,7 @@ public class EntityOperations {
       return false;
     }
 
+    //no need to reattach - it's ok to compare entities from different sessions, Entity.equals should handle this situation itself 
     //e1 = TransientStoreUtil.reattach((TransientEntity) e1);
     //e2 = TransientStoreUtil.reattach((TransientEntity) e2);
 
