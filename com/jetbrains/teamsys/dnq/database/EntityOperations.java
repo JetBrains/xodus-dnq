@@ -65,7 +65,7 @@ public class EntityOperations {
   }
 
   public static boolean isRemoved(@NotNull Entity e) {
-    return ((TransientEntity)e).isRemoved() || TransientStoreUtil.reattach((TransientEntity) e) == null;
+    return e == null || ((TransientEntity)e).isRemoved() || TransientStoreUtil.reattach((TransientEntity) e) == null;
   }
 
   public static int getVersion(@NotNull Entity e) {
