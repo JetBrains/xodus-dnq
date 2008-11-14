@@ -28,6 +28,7 @@ public class TransientStoreUtil {
    * @param entity
    * @return
    */
+  @Nullable
   public static TransientEntity reattach(@Nullable TransientEntity entity) {
     if (entity == null) {
       return null;

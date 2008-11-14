@@ -24,12 +24,8 @@ public class EntityOperations {
   private EntityOperations() {
   }
 
-  public static void remove(@NotNull Entity e) {
-    remove(e, false);
-  }
-
-  static void remove(@NotNull Entity e, boolean skipEntityRemovedByYouException) {
-    if (((TransientEntity) e).isRemoved() && skipEntityRemovedByYouException) {
+  public static void remove(Entity e) {
+    if (e == null || ((TransientEntity) e).isRemoved()) {
       return;
     }
 

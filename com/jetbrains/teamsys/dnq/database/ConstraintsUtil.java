@@ -192,7 +192,7 @@ class ConstraintsUtil {
     for (Entity t : AssociationSemantics.getToManyList(e, amd.getName())) {
       DirectedAssociationSemantics.removeToMany(e, amd.getName(), t);
       if (amd.getCascadeDelete()) {
-        EntityOperations.remove(t, true);
+        EntityOperations.remove(t);
       }
     }
   }
@@ -203,7 +203,7 @@ class ConstraintsUtil {
     if (target != null) {
       DirectedAssociationSemantics.setToOne(e, amd.getName(), null);
       if (amd.getCascadeDelete()) {
-        EntityOperations.remove(target, true);
+        EntityOperations.remove(target);
       }
     }
   }
@@ -218,7 +218,7 @@ class ConstraintsUtil {
           // one to one
           UndirectedAssociationSemantics.setOneToOne(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
           if (amd.getCascadeDelete()) {
-            EntityOperations.remove(target, true);
+            EntityOperations.remove(target);
           }
           break;
 
@@ -227,7 +227,7 @@ class ConstraintsUtil {
           // many to one
           UndirectedAssociationSemantics.removeOneToMany(target, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), amd.getName(), e);
           if (amd.getCascadeDelete()) {
-            EntityOperations.remove(target, true);
+            EntityOperations.remove(target);
           }
           break;
       }
@@ -243,7 +243,7 @@ class ConstraintsUtil {
         for (Entity t : AssociationSemantics.getToManyList(e, amd.getName())) {
           UndirectedAssociationSemantics.removeOneToMany(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), t);
           if (amd.getCascadeDelete()) {
-            EntityOperations.remove(t, true);
+            EntityOperations.remove(t);
           }
         }
         break;
@@ -254,7 +254,7 @@ class ConstraintsUtil {
         for (Entity t : AssociationSemantics.getToManyList(e, amd.getName())) {
           UndirectedAssociationSemantics.removeManyToMany(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), t);
           if (amd.getCascadeDelete()) {
-            EntityOperations.remove(t, true);
+            EntityOperations.remove(t);
           }
         }
         break;
@@ -274,7 +274,7 @@ class ConstraintsUtil {
         }
       }
       if (amd.getCascadeDelete()) {
-        EntityOperations.remove(child, true);
+        EntityOperations.remove(child);
       }
     }
   }
@@ -285,7 +285,7 @@ class ConstraintsUtil {
     if (target != null) {
       AggregationAssociationSemantics.setOneToOne(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
       if (amd.getCascadeDelete()) {
-        EntityOperations.remove(target, true);
+        EntityOperations.remove(target);
       }
     }
   }

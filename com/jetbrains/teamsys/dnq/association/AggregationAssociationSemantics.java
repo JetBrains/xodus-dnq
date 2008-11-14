@@ -127,8 +127,13 @@ public class AggregationAssociationSemantics {
    * @param child
    */
   public static void removeOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
-    //parent.parentToChild.remove(child)
     child = TransientStoreUtil.reattach((TransientEntity) child);
+    
+    if (child == null) {
+      return;
+    }
+    
+    //parent.parentToChild.remove(child)
     String currentParentToChildLinkName = child.getProperty(PARENT_TO_CHILD_LINK_NAME);
 
     if (parentToChildLinkName.equals(currentParentToChildLinkName)) {

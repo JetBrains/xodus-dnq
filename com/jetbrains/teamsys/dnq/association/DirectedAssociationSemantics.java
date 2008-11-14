@@ -21,8 +21,13 @@ public class DirectedAssociationSemantics {
    * @param linkName
    * @param target
    */
-  public static void setToOne(@NotNull Entity source, @NotNull String linkName, @Nullable Entity target) {
+  public static void setToOne(Entity source, @NotNull String linkName, @Nullable Entity target) {
     source = TransientStoreUtil.reattach((TransientEntity)source);
+
+    if (source == null) {
+      return;
+    }
+
     target = TransientStoreUtil.reattach((TransientEntity)target);
 
     // find old target
