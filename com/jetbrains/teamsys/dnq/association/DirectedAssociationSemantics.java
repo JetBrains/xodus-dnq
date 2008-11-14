@@ -72,7 +72,16 @@ public class DirectedAssociationSemantics {
    */
   public static void removeToMany(@NotNull Entity source, @NotNull String linkName, @NotNull Entity target) {
     source = TransientStoreUtil.reattach((TransientEntity)source);
+
+    if (source == null) {
+      return;
+    }
+
     target = TransientStoreUtil.reattach((TransientEntity)target);
+
+    if (target == null) {
+      return;
+    }
 
     source.deleteLink(linkName, target);
   }
