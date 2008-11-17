@@ -661,7 +661,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public TransientEntity newReadonlyLocalCopy(TransientEntityChange change) {
     switch (state) {
       case Open:
-        AbstractTransientEntity orig = (AbstractTransientEntity)change.getTransientEntity();
+        AbstractTransientEntity orig = (AbstractTransientEntity) change.getTransientEntity();
         switch (orig.getState()) {
           case New:
             throw new IllegalStateException("Can't create readonly local copy of entity in new state.");
@@ -714,8 +714,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             throw new IllegalStateException("Can't create local copy of transient entity in New state from another session. " + entity);
           }
         } else if (entity.isSaved()) {
-          if (((TransientEntityImpl) entity).getTransientStoreSession() == this &&
-                  this.createdTransientForPersistentEntities.get(entity.getId()) == entity) {
+          if (entity.getTransientStoreSession() == this && createdTransientForPersistentEntities.get(entity.getId()) == entity) {
             // was created in this session and session wasn't reverted
             return entity;
           } else {
@@ -936,9 +935,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
    * locks exclusively all entities affected by the transaction in order to prevent
    * race condition during checking version mismatches.
    */
-  private void lockForUpdate
-          (
-                  @NotNull final StoreTransaction txn) {
+  private void lockForUpdate(@NotNull final StoreTransaction txn) {
     final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
     final int changedEntitiesCount = changedPersistentEntities.size();
     if (changedEntitiesCount > 0) {
