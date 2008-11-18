@@ -30,7 +30,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     Open("open"),
     Suspended("suspended"),
     Committed("committed"),
-    Aborted("aborted");
+    Aborted("aborted");                              
 
     private String name;
 
