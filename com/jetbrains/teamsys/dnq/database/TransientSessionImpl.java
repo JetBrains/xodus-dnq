@@ -43,7 +43,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   private State state;
   private boolean checkEntityVersionOnCommit = true;
   private Set<File> createdBlobFiles = new HashSetDecorator<File>();
-  private Latch lock = new Latch();
+  private Latch lock = Latch.create();
   private TransientChangesTracker changesTracker;
 
   // stores transient entities that were created for loaded persistent entities to avoid double loading
