@@ -176,6 +176,11 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     @Override
+    Object processOpenFromAnotherSessionRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
+      return processOpenRemoved(entity, param1, param2); 
+    }
+
+    @Override
     protected Object processClosedRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
       switch (entity.state) {
         case RemovedNew:
