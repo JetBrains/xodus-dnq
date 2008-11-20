@@ -88,9 +88,11 @@ public class AggregationAssociationSemantics {
     assert parentToChildLinkName != null && childToParentLinkName != null;
 
     Entity parent = child.getLink(childToParentLinkName);
-    assert parent != null;
-
-    parent.deleteLink(parentToChildLinkName, child);
+    /*assert parent != null;*/
+    //parent was deleted?
+    if (parent != null) {
+      parent.deleteLink(parentToChildLinkName, child);
+    }
 
     // remove link child->parent
     child.deleteLink(childToParentLinkName, parent);
