@@ -41,7 +41,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
   private Map<String, TransientEntity> localEntities = new HashMapDecorator<String, TransientEntity>();
   private State state;
-  private boolean checkEntityVersionOnCommit = true;
+  private boolean quietFlush = false;
   private Set<File> createdBlobFiles = new HashSetDecorator<File>();
   private Latch lock = Latch.create();
   private TransientChangesTracker changesTracker;
@@ -55,10 +55,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
   // stores created readonly entities
   private Map<EntityId, ReadonlyTransientEntityImpl> createdReadonlyTransientEntities = new HashMapDecorator<EntityId, ReadonlyTransientEntityImpl>();
 
-  protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id, final boolean checkEntityVersionOnCommit) {
+  protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id, final boolean quietFlush) {
     super(store, name, id);
 
-    this.checkEntityVersionOnCommit = checkEntityVersionOnCommit;
+    this.quietFlush = quietFlush;
     this.changesTracker = new TransientChangesTrackerImpl(this);
 
     try {
@@ -92,14 +92,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
   State getState() {
     return state;
-  }
-
-  boolean isCheckEntityVersionOnCommit() {
-    return checkEntityVersionOnCommit;
-  }
-
-  void setCheckEntityVersionOnCommit(boolean checkEntityVersionOnCommit) {
-    this.checkEntityVersionOnCommit = checkEntityVersionOnCommit;
   }
 
   @NotNull
@@ -521,12 +513,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   public void quietIntermediateCommit() {
-    final boolean checkVersions = isCheckEntityVersionOnCommit();
+    final boolean checkVersions = quietFlush;
     try {
-      setCheckEntityVersionOnCommit(false);
+      this.quietFlush = true;
       intermediateCommit();
     } finally {
-      setCheckEntityVersionOnCommit(checkVersions);
+      this.quietFlush = checkVersions;
     }
   }
 
@@ -768,15 +760,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
    * Checks constraints before save changes
    */
   private void checkBeforeSaveChangesConstraints(@NotNull Set<DataIntegrityViolationException> exceptions) {
-    final ModelMetaData modelMetaData = store.getModelMetaData();
-
-    if (modelMetaData == null) {
+    if (quietFlush) {
       if (log.isDebugEnabled()) {
-        log.warn("Model meta data is not defined. Skip before save changes constraints checking. " + this);
+        log.warn("Quiet intermediate commit: skip before save changes constraints checking. " + this);
       }
       return;
     }
 
+    final ModelMetaData modelMetaData = store.getModelMetaData();
     if (log.isDebugEnabled()) {
       log.debug("Check before save changes constraints. " + this);
     }
@@ -948,9 +939,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   private void checkVersions() {
-    if (!checkEntityVersionOnCommit) {
+    if (quietFlush) {
       if (log.isWarnEnabled()) {
-        log.warn("Skip versions checking. " + this);
+        log.warn("Quiet intermediate commit: skip versions checking. " + this);
       }
 
       return;
