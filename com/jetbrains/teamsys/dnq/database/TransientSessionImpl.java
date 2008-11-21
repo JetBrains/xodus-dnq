@@ -55,10 +55,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
   // stores created readonly entities
   private Map<EntityId, ReadonlyTransientEntityImpl> createdReadonlyTransientEntities = new HashMapDecorator<EntityId, ReadonlyTransientEntityImpl>();
 
-  protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id, final boolean quietFlush) {
+  protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id) {
     super(store, name, id);
 
-    this.quietFlush = quietFlush;
     this.changesTracker = new TransientChangesTrackerImpl(this);
 
     try {

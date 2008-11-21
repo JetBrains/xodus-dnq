@@ -31,7 +31,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
   private boolean abortSessionsOnClose = false;
   private boolean resumeOnBeginIfExists = false;
   private boolean attachToCurrentOnBeginIfExists = false;
-  private boolean checkEntityVersionOnCommit = true;
   private String blobsStorePath;
   private File blobsStore;
 
@@ -89,20 +88,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     this.resumeOnBeginIfExists = resumeOnBeginIfExists;
   }
 
-  /**
-   * Check versions of changed entities during persistent transaction commit.
-   * Version checking allows to avoid race conditions if users perform concurrent changes of the same entitites.
-   *
-   * @param checkEntityVersionOnCommit
-   */
-  public void setCheckEntityVersionOnCommit(boolean checkEntityVersionOnCommit) {
-    this.checkEntityVersionOnCommit = checkEntityVersionOnCommit;
-  }
-
-  public boolean getCheckEntityVersionOnCommit() {
-    return checkEntityVersionOnCommit;
-  }
-
   @NotNull
   public String getName() {
     return "transient store";
@@ -153,7 +138,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
       }
     }
 
-    return registerStoreSession(new TransientSessionImpl(this, name, id, checkEntityVersionOnCommit));
+    return registerStoreSession(new TransientSessionImpl(this, name, id));
   }
 
   public boolean isSessionExists(@NotNull Object id) {
