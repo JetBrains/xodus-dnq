@@ -513,12 +513,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   public void quietIntermediateCommit() {
-    final boolean checkVersions = quietFlush;
+    final boolean qf = quietFlush;
     try {
       this.quietFlush = true;
       intermediateCommit();
     } finally {
-      this.quietFlush = checkVersions;
+      this.quietFlush = qf;
     }
   }
 
