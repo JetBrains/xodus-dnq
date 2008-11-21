@@ -521,15 +521,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   public void quietIntermediateCommit() {
-    final ModelMetaData saved = store.getModelMetaData();
     final boolean checkVersions = isCheckEntityVersionOnCommit();
     try {
-      store.setModelMetaData(null);
       setCheckEntityVersionOnCommit(false);
       intermediateCommit();
     } finally {
       setCheckEntityVersionOnCommit(checkVersions);
-      store.setModelMetaData(saved);
     }
   }
 
