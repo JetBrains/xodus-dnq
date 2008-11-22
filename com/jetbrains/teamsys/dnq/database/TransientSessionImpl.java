@@ -759,14 +759,15 @@ public class TransientSessionImpl extends AbstractTransientSession {
    * Checks constraints before save changes
    */
   private void checkBeforeSaveChangesConstraints(@NotNull Set<DataIntegrityViolationException> exceptions) {
-    if (quietFlush) {
+    final ModelMetaData modelMetaData = store.getModelMetaData();
+
+    if (quietFlush || /* for tests only */ modelMetaData == null) {
       if (log.isDebugEnabled()) {
         log.warn("Quiet intermediate commit: skip before save changes constraints checking. " + this);
       }
       return;
     }
 
-    final ModelMetaData modelMetaData = store.getModelMetaData();
     if (log.isDebugEnabled()) {
       log.debug("Check before save changes constraints. " + this);
     }
