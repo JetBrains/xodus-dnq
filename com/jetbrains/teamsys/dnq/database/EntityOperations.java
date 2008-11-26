@@ -1,9 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import com.sleepycat.je.DatabaseException;
 import jetbrains.mps.internal.collections.runtime.ISelector;
 import jetbrains.mps.internal.collections.runtime.ListSequence;
 import org.apache.commons.logging.Log;
@@ -12,9 +10,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Collections;
 
 // TODO: move this class to the associations semantics package
 public class EntityOperations {
@@ -180,12 +178,7 @@ public class EntityOperations {
     }
     // for BerkeleyDb entity iterables and PersistentEntityIterableWrapper
     if (source instanceof EntityIterable && !(source instanceof TransientEntityIterable)) {
-      final EntityIterable it = ((EntityIterable) source).getSource();
-      // sort by index if the index is already in-memory or if the source iterable is known to be enough large
-      if (isCached(session, session.findWithProp(entityType, propertyName).getSource(), true) || it.count() > 1000) {
-        return session.sort(entityType, propertyName, it, ascending);
-      }
-      return ListSequence.fromIterable(session.createPersistentEntityIterableWrapper(it)).sort(comparator, ascending);
+      return session.sort(entityType, propertyName, ((EntityIterable) source).getSource(), ascending);
     }
     // for TransientEntityIterable and other Iterable<Entity> instances
     return ListSequence.fromIterable(source).sort(comparator, ascending);
@@ -262,25 +255,4 @@ public class EntityOperations {
     return indexOf(it, e) >= 0;
   }
 
-  public static boolean isCached(@NotNull final TransientStoreSession session,
-                                 @NotNull final EntityIterable it,
-                                 final boolean forceCachingIfNotCached) {
-    final StoreSession persistentSession = session.getPersistentSession();
-    final BerkeleyDbEntityStore store = (BerkeleyDbEntityStore) persistentSession.getStore();
-    final BerkeleyDbEntityIterableCache cache = store.getEntityIterableCache();
-    if (!forceCachingIfNotCached) {
-      return cache.getCachedObject(it.getHandle()) != null;
-    }
-    final EntityIterable cached = putIfNotCached(cache, it);
-    return cached != it;
-  }
-
-  public static EntityIterable putIfNotCached(@NotNull final BerkeleyDbEntityIterableCache cache,
-                                              @NotNull final EntityIterable it) {
-    try {
-      return cache.putIfNotCached((EntityIterableBase) it);
-    } catch (DatabaseException e) {
-      throw new RuntimeException(e);
-    }
-  }
 }
