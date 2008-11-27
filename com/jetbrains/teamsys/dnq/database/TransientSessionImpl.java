@@ -30,7 +30,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     Open("open"),
     Suspended("suspended"),
     Committed("committed"),
-    Aborted("aborted");                              
+    Aborted("aborted");
 
     private String name;
 
@@ -47,7 +47,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   private TransientChangesTracker changesTracker;
 
   // stores transient entities that were created for loaded persistent entities to avoid double loading
-  private Map<EntityId, TransientEntity> createdTransientForPersistentEntities = new HashMap<EntityId, TransientEntity>();
+  private Map<EntityId, TransientEntity> createdTransientForPersistentEntities = new HashMap<EntityId, TransientEntity>(100, 1.5f);
 
   // stores new transient entities to support getEntity(EntityId) operation
   private Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new HashMapDecorator<TransientEntityId, TransientEntity>();
