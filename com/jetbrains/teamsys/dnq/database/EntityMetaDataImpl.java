@@ -2,6 +2,7 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import org.jetbrains.annotations.NotNull;
@@ -25,6 +26,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private Set<String> requiredIfProperties = new HashSetDecorator<String>();
   private Set<String> historyIgnoredFields = new HashSetDecorator<String>();
   private Set<String> versionMismatchIgnored = new HashSetDecorator<String>();
+  private Map<String, Set<String>> incomingAssociations = null;
   private boolean versionMismatchIgnoredForWholeClass = false;
 
   public void setType(String type) {
@@ -66,7 +68,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   public boolean changesReflectHistory(TransientEntity e, TransientChangesTracker tracker) {
     Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
     if (changedProperties != null) {
-      for (String field: changedProperties.keySet()) {
+      for (String field : changedProperties.keySet()) {
         if (!historyIgnoredFields.contains(field)) {
           return true;
         }
@@ -75,7 +77,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
     Map<String, LinkChange> changedLinks = tracker.getChangedLinksDetailed(e);
     if (changedLinks != null) {
-      for (String field: changedLinks.keySet()) {
+      for (String field : changedLinks.keySet()) {
         if (!historyIgnoredFields.contains(field)) {
           return true;
         }
@@ -97,7 +99,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   private void initAssociationChildEnds() {
-    for (AssociationEndMetaData aemd: associationEnds.values()) {
+    for (AssociationEndMetaData aemd : associationEnds.values()) {
       if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
         aggregationChildEnds.add(aemd.getName());
       }
@@ -131,11 +133,11 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public boolean getHasHistory(Entity e) {
-       return instanceRef.getInstance(e).evaluateWithHistory(e);
+    return instanceRef.getInstance(e).evaluateWithHistory(e);
   }
 
   public void callDestructor(Entity e) {
-      instanceRef.getInstance(e).destructor(e);
+    instanceRef.getInstance(e).destructor(e);
   }
 
   public boolean getRemoveOrphan() {
@@ -148,6 +150,43 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public Set<String> getAggregationChildEnds() {
     return aggregationChildEnds;
+  }
+
+  @NotNull
+  public Map<String, Set<String>> getIncomingAssociations(final ModelMetaData mmd) {
+    if (incomingAssociations == null) {
+      synchronized (this) {
+        if (incomingAssociations == null) {
+          incomingAssociations = new HashMapDecorator<String, Set<String>>();
+          final Set<String> typeWithSubTypes = new HashSet<String>();
+          typeWithSubTypes.add(type);
+          for (final String subType : getSubTypes()) {
+            typeWithSubTypes.add(subType);
+          }
+          for (final EntityMetaData emd : mmd.getEntitiesMetaData()) {
+            for (final AssociationEndMetaData aemd : emd.getAssociationEndsMetaData()) {
+              if (typeWithSubTypes.contains(aemd.getEntityMetaData().getType())) {
+                final String associationName = aemd.getName();
+                addIncomingAssociation(emd.getType(), associationName);
+                for (final String subtype : emd.getSubTypes()) {
+                  addIncomingAssociation(subtype, associationName);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return incomingAssociations;
+  }
+
+  private void addIncomingAssociation(@NotNull final String type, @NotNull final String associationName) {
+    Set<String> links = incomingAssociations.get(type);
+    if (links == null) {
+      links = new HashSet<String>();
+      incomingAssociations.put(type, links);
+    }
+    links.add(associationName);
   }
 
   @NotNull
@@ -167,13 +206,13 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   @NotNull
   public Set<String> getRequiredIfProperties(Entity e) {
-      Set<String> result = new HashSetDecorator<String>();
-      for (String property: requiredIfProperties) {
-          if(instanceRef.getInstance(e).isPropertyRequired(property, e)) {
-              result.add(property);
-          }
+    Set<String> result = new HashSetDecorator<String>();
+    for (String property : requiredIfProperties) {
+      if (instanceRef.getInstance(e).isPropertyRequired(property, e)) {
+        result.add(property);
       }
-      return result;
+    }
+    return result;
   }
 
   public boolean isVersionMismatchIgnoredForWholeClass() {
@@ -193,11 +232,11 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public boolean isVersionMismatchIgnored(@NotNull String propertyName) {
-    return versionMismatchIgnored.contains(propertyName); 
+    return versionMismatchIgnored.contains(propertyName);
   }
 
   public void setVersionMismatchIgnored(@NotNull Set<String> versionMismatchIgnored) {
-    this.versionMismatchIgnored = versionMismatchIgnored; 
+    this.versionMismatchIgnored = versionMismatchIgnored;
   }
 
   public boolean hasParent(@NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
@@ -214,7 +253,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   private boolean parentChanged(Map<String, LinkChange> changedLinks) {
-    if(changedLinks == null) {
+    if (changedLinks == null) {
       return false;
     }
 

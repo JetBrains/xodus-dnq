@@ -1,14 +1,12 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.AssociationEndMetaData;
-import com.jetbrains.teamsys.database.AssociationEndCardinality;
-import com.jetbrains.teamsys.database.AssociationMetaData;
-import com.jetbrains.teamsys.database.AssociationEndType;
+import com.jetbrains.teamsys.database.*;
 import org.jetbrains.annotations.NotNull;
 
 public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
 
   private String name;
+  private EntityMetaData emd;
   private AssociationEndCardinality cardinality;
   private AssociationMetaData associationMetaData;
   private AssociationEndType type;
@@ -18,6 +16,11 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
   @NotNull
   public String getName() {
     return name;
+  }
+
+  @NotNull
+  public EntityMetaData getEntityMetaData() {
+    return emd;
   }
 
   @NotNull
@@ -45,6 +48,10 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
 
   public void setName(@NotNull String name) {
     this.name = name;
+  }
+
+  public void setEntityMetaData(@NotNull final EntityMetaData emd) {
+    this.emd = emd;
   }
 
   public void setCardinality(@NotNull AssociationEndCardinality cardinality) {
