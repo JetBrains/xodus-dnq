@@ -4,6 +4,7 @@ import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.CantRemoveEntityException;
 import com.jetbrains.teamsys.database.exceptions.ConstraintsValidationException;
@@ -153,9 +154,10 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
       linksDetailed.put(linkName, new LinkChange(linkName, changeType, addedEntities, removedEntities));
     } else {
       LinkChange lc = linksDetailed.get(linkName);
-
       if (lc != null) {
         lc.setChangeType(lc.getChangeType().getMerged(changeType));
+        lc.appendAddedEntities(addedEntities);
+        lc.appendRemovedEntities(removedEntities);
       } else {
         linksDetailed.put(linkName, new LinkChange(linkName, changeType, addedEntities, removedEntities));
       }
@@ -293,7 +295,13 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   public void linkDeleted(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
     // target is not changed - it has new incomming link
     entityChanged(source);
-    linkChangedDetailed(source, linkName, LinkChangeType.REMOVE, null, null);
+
+    HashSet<TransientEntity> removed = null;
+    if (target != null) {
+        removed = new HashSet<TransientEntity>();
+        removed.add(target);
+    }
+    linkChangedDetailed(source, linkName, LinkChangeType.REMOVE, null, removed);
 
     offerChange(new Runnable() {
       public void run() {

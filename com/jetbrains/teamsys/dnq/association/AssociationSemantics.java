@@ -118,7 +118,7 @@ public class AssociationSemantics {
    * @param name
    * @return
    */
-  public static Iterable<TransientEntity> getAddedLinks(@NotNull TransientEntity e, String name) {
+  public static EntityIterable getAddedLinks(@NotNull TransientEntity e, String name) {
     e = TransientStoreUtil.reattach(e);
 
     return e.getAddedLinks(name);
@@ -131,7 +131,7 @@ public class AssociationSemantics {
    * @param name
    * @return
    */
-  public static Iterable<TransientEntity> getRemovedLinks(@NotNull TransientEntity e, String name) {
+  public static EntityIterable getRemovedLinks(@NotNull TransientEntity e, String name) {
     e = TransientStoreUtil.reattach(e);
 
     return e.getRemovedLinks(name);
