@@ -8,7 +8,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.util.Map;
-import java.util.Set;
+import java.util.Iterator;
 
 /**
  * Date: 05.02.2007
@@ -24,7 +24,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   protected Map<String, Comparable> propertiesCache = new HashMapDecorator<String, Comparable>();
   private Map<String, File> fileBlobsCache = new HashMapDecorator<String, File>();
 
-  TransientEntityImpl(@NotNull String type, @NotNull TransientStoreSession session) {
+    TransientEntityImpl(@NotNull String type, @NotNull TransientStoreSession session) {
     setTransientStoreSession(session);
     setType(type);
     setState(State.New);
@@ -622,6 +622,45 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   public boolean hasChanges(final String property) {
     return (Boolean) (hasChangesForPropertyEventHandler.handle(this, property, null));
+  }
+
+  private static final StandartEventHandler addedRemovedLinksEventHandler = new StandartEventHandler2<String, Boolean>() {
+
+    private final Iterable<Entity> emptyEntityIterable = new Iterable<Entity>() {
+        public Iterator<Entity> iterator() { return new Iterator<Entity>() {
+           public boolean hasNext() { return false; }
+           public Entity next() { return null; }
+           public void remove() {}
+        }; }
+    };
+
+    @NotNull
+    Object processOpenNew(AbstractTransientEntity entity, String name, Boolean removed) {
+      return emptyEntityIterable;
+    }
+
+    @NotNull
+    Object processOpenSaved(AbstractTransientEntity entity, String name, Boolean removed) {
+      Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
+      if (changesLinks != null) {
+          LinkChange linkChange = changesLinks.get(name);
+          if (linkChange != null) {
+              Iterable<TransientEntity> result = removed ? linkChange.getRemovedEntities() : linkChange.getAddedEntities();
+              if (result != null) {
+                  return result;
+              }
+          }
+      }
+      return emptyEntityIterable;
+    }
+  };
+
+  public Iterable<TransientEntity> getAddedLinks(final String name) {
+    return (Iterable<TransientEntity>) (addedRemovedLinksEventHandler.handle(this, name, false));
+  }
+
+  public Iterable<TransientEntity> getRemovedLinks(final String name) {
+      return (Iterable<TransientEntity>) (addedRemovedLinksEventHandler.handle(this, name, true));
   }
 
   private static abstract class StandartEventHandler2<P1, P2> extends StandartEventHandler<P1, P2> {

@@ -4,7 +4,6 @@ import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.CantRemoveEntityException;
 import com.jetbrains.teamsys.database.exceptions.ConstraintsValidationException;
@@ -146,19 +145,19 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     return entityToChangedPropertiesDetailed.get(e); 
   }
 
-  private void linkChangedDetailed(TransientEntity e, String linkName, LinkChangeType changeType) {
+  private void linkChangedDetailed(TransientEntity e, String linkName, LinkChangeType changeType, Set<TransientEntity> addedEntities, Set<TransientEntity> removedEntities) {
     Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(e);
     if (linksDetailed == null) {
       linksDetailed = new HashMap<String, LinkChange>();
       entityToChangedLinksDetailed.put(e, linksDetailed);
-      linksDetailed.put(linkName, new LinkChange(linkName, changeType));
+      linksDetailed.put(linkName, new LinkChange(linkName, changeType, addedEntities, removedEntities));
     } else {
       LinkChange lc = linksDetailed.get(linkName);
 
       if (lc != null) {
         lc.setChangeType(lc.getChangeType().getMerged(changeType));
       } else {
-        linksDetailed.put(linkName, new LinkChange(linkName, changeType));        
+        linksDetailed.put(linkName, new LinkChange(linkName, changeType, addedEntities, removedEntities));
       }
     }
   }
@@ -199,9 +198,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     });
   }
 
-  public void linkAdded(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
+  public void linkAdded(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target, Set<TransientEntity> added) {
     entityChanged(source);
-    linkChangedDetailed(source, linkName, LinkChangeType.ADD);
+    linkChangedDetailed(source, linkName, LinkChangeType.ADD, added, null);
 
     offerChange(new Runnable() {
       public void run() {
@@ -223,7 +222,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
     entityChanged(source);
-    linkChangedDetailed(source, linkName, LinkChangeType.SET);
+    linkChangedDetailed(source, linkName, LinkChangeType.SET, null, null);
 
     offerChange(new Runnable() {
       public void run() {
@@ -294,7 +293,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   public void linkDeleted(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
     // target is not changed - it has new incomming link
     entityChanged(source);
-    linkChangedDetailed(source, linkName, LinkChangeType.REMOVE);
+    linkChangedDetailed(source, linkName, LinkChangeType.REMOVE, null, null);
 
     offerChange(new Runnable() {
       public void run() {
@@ -307,9 +306,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     });
   }
 
-  public void linksDeleted(@NotNull final TransientEntity source, @NotNull final String linkName) {
+  public void linksDeleted(@NotNull final TransientEntity source, @NotNull final String linkName, Set<TransientEntity> removed) {
     entityChanged(source);
-    linkChangedDetailed(source, linkName, LinkChangeType.REMOVE);
+    linkChangedDetailed(source, linkName, LinkChangeType.REMOVE, null, removed);
 
     offerChange(new Runnable() {
       public void run() {

@@ -111,4 +111,30 @@ public class AssociationSemantics {
     return e == null ? 0 : e.getLinks(linkName).size();
   }
 
+  /**
+   * Returns added links
+   *
+   * @param e
+   * @param name
+   * @return
+   */
+  public static Iterable<TransientEntity> getAddedLinks(@NotNull TransientEntity e, String name) {
+    e = TransientStoreUtil.reattach(e);
+
+    return e.getAddedLinks(name);
+  }
+
+  /**
+   * Returns removed links
+   *
+   * @param e
+   * @param name
+   * @return
+   */
+  public static Iterable<TransientEntity> getRemovedLinks(@NotNull TransientEntity e, String name) {
+    e = TransientStoreUtil.reattach(e);
+
+    return e.getRemovedLinks(name);
+  }
+
 }

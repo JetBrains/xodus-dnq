@@ -68,7 +68,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     }
 
     owner.getTransientStoreSession().getTransientChangesTracker().linkAdded(
-            owner, linkName, entity);
+            owner, linkName, entity, added);
   }
 
   private Set<TransientEntity> getAdded() {
@@ -161,7 +161,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     }
 
     owner.getTransientStoreSession().getTransientChangesTracker().linksDeleted(
-            owner, linkName);
+            owner, linkName, removed);
   }
 
   @NotNull

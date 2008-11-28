@@ -106,7 +106,7 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
     }
 
     owner.getTransientStoreSession().getTransientChangesTracker().linksDeleted(
-            owner, linkName);
+            owner, linkName, null);
   }
 
   public long getLinksSize() {
