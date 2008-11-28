@@ -3,6 +3,7 @@ package com.jetbrains.teamsys.dnq.database;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
+import com.jetbrains.teamsys.database.impl.iterate.EntityIteratorBase;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -464,7 +465,21 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   @NotNull
   public Map<String, EntityId> tryDelete() {
-    throw new UnsupportedOperationException("Unsupported operation for transient entity. Use delete()." + TransientEntityImpl.this);
+    final Map<String, EntityId> result = new HashMapDecorator<String, EntityId>();
+    final TransientStoreSession session = getTransientStoreSession();
+    final StoreSession persistentSession = session.getPersistentSession();
+    final ModelMetaData mmd = ((TransientEntityStore) session.getStore()).getModelMetaData();
+    final EntityMetaData emd = mmd.getEntityMetaData(getType());
+    for (final Map.Entry<String, Set<String>> entry : emd.getIncomingAssociations(mmd).entrySet()) {
+      final String entityType = entry.getKey();
+      for (final String linkName : entry.getValue()) {
+        final EntityIteratorBase it = (EntityIteratorBase) persistentSession.findLinks(entityType, this, linkName).iterator();
+        while (it.hasNext()) {
+          result.put(linkName, it.nextId());
+        }
+      }
+    }
+    return result;
   }
 
   private static final StandartEventHandler deleteEventHandler = new StandartEventHandler2() {
@@ -637,13 +652,13 @@ class TransientEntityImpl extends AbstractTransientEntity {
       Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
 
       if (changesLinks != null) {
-          LinkChange linkChange = changesLinks.get(name);
-          if (linkChange != null) {
-              Set<TransientEntity> result = removed ? linkChange.getRemovedEntities() : linkChange.getAddedEntities();
-              if (result != null) {
-                  return new TransientEntityIterable(result);
-              }
+        LinkChange linkChange = changesLinks.get(name);
+        if (linkChange != null) {
+          Set<TransientEntity> result = removed ? linkChange.getRemovedEntities() : linkChange.getAddedEntities();
+          if (result != null) {
+            return new TransientEntityIterable(result);
           }
+        }
       }
       return EntityIterableBase.EMPTY;
     }
@@ -654,7 +669,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   }
 
   public EntityIterable getRemovedLinks(final String name) {
-      return (EntityIterable) (addedRemovedLinksEventHandler.handle(this, name, true));
+    return (EntityIterable) (addedRemovedLinksEventHandler.handle(this, name, true));
   }
 
   private static abstract class StandartEventHandler2<P1, P2> extends StandartEventHandler<P1, P2> {
