@@ -262,7 +262,8 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
           }
 
           //TODO: use delete instead of tryDelete, but in session.check() check that there's no incomming links
-          Map<String, EntityId> incomingLinks = e.tryDelete();
+          //Map<String, EntityId> incomingLinks = e.tryDelete();
+          Map<String, EntityId> incomingLinks = ((TransientEntityImpl)e).getPersistentEntity().tryDelete();
           if (incomingLinks.size() > 0) {
             Map<String, TransientEntity> _incomingLinks = new HashMap<String, TransientEntity>(incomingLinks.size());
             for (String key : incomingLinks.keySet()) {
