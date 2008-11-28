@@ -14,10 +14,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   private String type = null;
   private String superType = null;
-  private String rootSuperType = null;
-  private boolean withinHierarchy = false;
   private Runnable initializer = null;
-  private boolean history = false;
   private InstanceRef<? extends BasePersistentClass> instanceRef = null;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
@@ -38,15 +35,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
     this.superType = superType;
   }
 
-  @NotNull
-  public String getRootSuperType() {
-    return rootSuperType;
-  }
-
-  public void setRootSuperType(@NotNull String rootSuperType) {
-    this.rootSuperType = rootSuperType;
-  }
-
   public boolean hasSubTypes() {
     return !subTypes.isEmpty();
   }
@@ -59,10 +47,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
     subTypes.add(type);
   }
 
-  public void setWithinHierarchy(boolean withinHierarchy) {
-    this.withinHierarchy = withinHierarchy;
-  }
-
   public void setInstanceRef(InstanceRef instanceRef) {
     this.instanceRef = instanceRef;
   }
@@ -73,10 +57,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public Runnable getInitializer() {
     return initializer;
-  }
-
-  public void setHistory(boolean history) {
-    this.history = history;
   }
 
   public void setHistoryIgnoredFields(Set<String> historyIgnoredFields) {
@@ -134,10 +114,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
     return superType;
   }
 
-  public boolean getWithinHierarchy() {
-    return withinHierarchy;
-  }
-
   @NotNull
   public AssociationEndMetaData getAssociationEndMetaData(@NotNull String name) {
     AssociationEndMetaData res = associationEnds.get(name);
@@ -183,11 +159,13 @@ public class EntityMetaDataImpl implements EntityMetaData {
     this.uniqueProperties = uniqueProperties;
   }
 
+  @NotNull
   public Set<String> getRequiredProperties() {
     return requiredProperties;
   }
 
 
+  @NotNull
   public Set<String> getRequiredIfProperties(Entity e) {
       Set<String> result = new HashSetDecorator<String>();
       for (String property: requiredIfProperties) {

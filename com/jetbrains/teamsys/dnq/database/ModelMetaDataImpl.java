@@ -45,36 +45,4 @@ public class ModelMetaDataImpl implements ModelMetaData {
   public Iterable<EntityMetaData> getEntitiesMetaData() {
     return typeToEntityMetaDatas.values();
   }
-
-  public void init() {
-    initHierarchies();
-  }
-
-  private void initHierarchies() {
-    for (final EntityMetaData emd : typeToEntityMetaDatas.values()) {
-      final String type = emd.getType();
-      final String superType = emd.getSuperType();
-      if (superType != null) {
-        if (typeToEntityMetaDatas.get(superType) == null) {
-          throw new IllegalStateException("Can't find metadata for type [" + superType + "]");
-        }
-
-        emd.setWithinHierarchy(true);
-      } else if (emd.hasSubTypes()) {
-        emd.setWithinHierarchy(true);
-      }
-
-      emd.setRootSuperType(getRootSuperType(type));
-    }
-  }
-
-  private String getRootSuperType(@NotNull String type) {
-    final String superType = typeToEntityMetaDatas.get(type).getSuperType();
-    if (superType != null) {
-      return getRootSuperType(superType);
-    } else {
-      return type;
-    }
-  }
-
 }
