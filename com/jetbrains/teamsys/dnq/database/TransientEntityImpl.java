@@ -479,6 +479,9 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
       }
     }
+    if (result.size() == 0) {
+      getPersistentEntityInternal().delete();
+    }
     return result;
   }
 
