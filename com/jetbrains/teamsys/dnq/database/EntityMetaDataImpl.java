@@ -165,7 +165,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
           }
           for (final EntityMetaData emd : mmd.getEntitiesMetaData()) {
             for (final AssociationEndMetaData aemd : emd.getAssociationEndsMetaData()) {
-              if (typeWithSubTypes.contains(aemd.getEntityMetaData().getType())) {
+              if (typeWithSubTypes.contains(aemd.getOppositeEntityMetaData().getType())) {
                 final String associationName = aemd.getName();
                 addIncomingAssociation(emd.getType(), associationName);
                 for (final String subtype : emd.getSubTypes()) {

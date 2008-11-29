@@ -13,7 +13,7 @@ import java.util.ArrayList;
 public class AssociationMetaDataImpl implements AssociationMetaData  {
 
   private AssociationType type;
-  private List<AssociationEndMetaData> ends = new ArrayList<AssociationEndMetaData>();
+  private List<AssociationEndMetaData> ends = new ArrayList<AssociationEndMetaData>(2);
 
   public void addEnd(@NotNull AssociationEndMetaData end) {
     this.ends.add(end);

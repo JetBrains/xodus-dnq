@@ -19,7 +19,7 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
   }
 
   @NotNull
-  public EntityMetaData getEntityMetaData() {
+  public EntityMetaData getOppositeEntityMetaData() {
     return emd;
   }
 
@@ -50,7 +50,7 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
     this.name = name;
   }
 
-  public void setEntityMetaData(@NotNull final EntityMetaData emd) {
+  public void setOppositeEntityMetaData(@NotNull final EntityMetaData emd) {
     this.emd = emd;
   }
 
