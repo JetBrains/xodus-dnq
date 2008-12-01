@@ -263,11 +263,15 @@ public class EntityMetaDataImpl implements EntityMetaData {
     if (associationEnds == null) {
       synchronized (this) {
         if (associationEnds == null) {
-          associationEnds = new LinkedHashMap<String, AssociationEndMetaData>(externalAssociationEnds.size());
-          for (AssociationEndMetaData aemd : externalAssociationEnds) {
-            associationEnds.put(aemd.getName(), aemd);
-            if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
-              aggregationChildEnds.add(aemd.getName());
+          if (externalAssociationEnds == null) {
+            associationEnds = Collections.emptyMap();
+          } else {
+            associationEnds = new LinkedHashMap<String, AssociationEndMetaData>(externalAssociationEnds.size());
+            for (final AssociationEndMetaData aemd : externalAssociationEnds) {
+              associationEnds.put(aemd.getName(), aemd);
+              if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
+                aggregationChildEnds.add(aemd.getName());
+              }
             }
           }
           externalAssociationEnds = null;
