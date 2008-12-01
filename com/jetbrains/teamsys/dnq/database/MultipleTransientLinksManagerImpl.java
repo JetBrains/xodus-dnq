@@ -222,12 +222,8 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
         switch (state) {
           case LinksNotLoaded:
             // all changes are saved into database after flush - clear local data about changes
-            if (removed != null) {
-              removed.clear();
-            }
-            if (added != null) {
-              added.clear();
-            }
+            getRemoved();
+            getAdded();
         }
     }
   }
