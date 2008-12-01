@@ -118,15 +118,25 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
   @Override
   public boolean hasChanges() {
+    if (super.hasChanges()) {
+      return true;
+    } else {
+      // lazy hasChanges evaluation
       if (hasChanges == null) evaluateHasChanges();
       return hasChanges;
+    }
   }
 
   @Override
   public boolean hasChanges(final String property) {
+    if (super.hasChanges(property)) {
+      return true;
+    } else {
+      // lazy hasChanges evaluation
       if (hasChangesForProperty == null) evaluateHasChangesForProperty();
       Boolean hasChanges = hasChangesForProperty.get(property);
       return hasChanges == null ? false : hasChanges;
+    }
   }
 
     @Override
