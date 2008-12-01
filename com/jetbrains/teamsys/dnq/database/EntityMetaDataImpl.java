@@ -273,8 +273,8 @@ public class EntityMetaDataImpl implements EntityMetaData {
                 aggregationChildEnds.add(aemd.getName());
               }
             }
+            externalAssociationEnds = null;
           }
-          externalAssociationEnds = null;
         }
       }
     }
