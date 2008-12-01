@@ -2,7 +2,9 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
+import com.jetbrains.teamsys.core.dataStructures.decorators.LinkedHashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
+import com.jetbrains.teamsys.core.dataStructures.hash.LinkedHashMap;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import org.jetbrains.annotations.NotNull;
@@ -10,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.Collections;
 
 public class EntityMetaDataImpl implements EntityMetaData {
 
@@ -19,13 +22,14 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private InstanceRef<? extends BasePersistentClass> instanceRef = null;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
-  private Map<String, AssociationEndMetaData> associationEnds = new HashMapDecorator<String, AssociationEndMetaData>();
-  private Set<String> aggregationChildEnds = new HashSetDecorator<String>();
-  private Set<String> uniqueProperties = new HashSetDecorator<String>();
-  private Set<String> requiredProperties = new HashSetDecorator<String>();
-  private Set<String> requiredIfProperties = new HashSetDecorator<String>();
-  private Set<String> historyIgnoredFields = new HashSetDecorator<String>();
-  private Set<String> versionMismatchIgnored = new HashSetDecorator<String>();
+  private Map<String, AssociationEndMetaData> associationEnds = null;
+  private Set<AssociationEndMetaData> externalAssociationEnds = null;
+  private Set<String> aggregationChildEnds = new LinkedHashSetDecorator<String>();
+  private Set<String> uniqueProperties = Collections.emptySet();
+  private Set<String> requiredProperties = Collections.emptySet();
+  private Set<String> requiredIfProperties = Collections.emptySet();
+  private Set<String> historyIgnoredFields = Collections.emptySet();
+  private Set<String> versionMismatchIgnored = Collections.emptySet();
   private Map<String, Set<String>> incomingAssociations = null;
   private boolean versionMismatchIgnoredForWholeClass = false;
 
@@ -92,18 +96,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public void setAssociationEnds(Set<AssociationEndMetaData> associationEnds) {
-    for (AssociationEndMetaData ae : associationEnds) {
-      this.associationEnds.put(ae.getName(), ae);
-    }
-    initAssociationChildEnds();
-  }
-
-  private void initAssociationChildEnds() {
-    for (AssociationEndMetaData aemd : associationEnds.values()) {
-      if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
-        aggregationChildEnds.add(aemd.getName());
-      }
-    }
+    externalAssociationEnds = associationEnds;
   }
 
   @NotNull
@@ -118,17 +111,17 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   @NotNull
   public AssociationEndMetaData getAssociationEndMetaData(@NotNull String name) {
+    checkAssociationEndsCreated();
     AssociationEndMetaData res = associationEnds.get(name);
-
     if (res == null) {
       throw new IllegalArgumentException("Association end with name [" + name + "] is not found in metadata.");
     }
-
     return res;
   }
 
   @NotNull
   public Iterable<AssociationEndMetaData> getAssociationEndsMetaData() {
+    checkAssociationEndsCreated();
     return associationEnds.values();
   }
 
@@ -145,10 +138,12 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public boolean hasAggregationChildEnds() {
+    checkAssociationEndsCreated();
     return !aggregationChildEnds.isEmpty();
   }
 
   public Set<String> getAggregationChildEnds() {
+    checkAssociationEndsCreated();
     return aggregationChildEnds;
   }
 
@@ -203,7 +198,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
     return requiredProperties;
   }
 
-
   @NotNull
   public Set<String> getRequiredIfProperties(Entity e) {
     Set<String> result = new HashSetDecorator<String>();
@@ -241,6 +235,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public boolean hasParent(@NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
     if (e.isNewOrTemporary() || parentChanged(tracker.getChangedLinksDetailed(e))) {
+      checkAssociationEndsCreated();
       for (String childEnd : aggregationChildEnds) {
         if (AssociationSemantics.getToOne(e, childEnd) != null) {
           return true;
@@ -248,7 +243,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
       }
       return false;
     }
-
     return true;
   }
 
@@ -256,14 +250,30 @@ public class EntityMetaDataImpl implements EntityMetaData {
     if (changedLinks == null) {
       return false;
     }
-
+    checkAssociationEndsCreated();
     for (String childEnd : aggregationChildEnds) {
       if (changedLinks.containsKey(childEnd)) {
         return true;
       }
     }
-
     return false;
+  }
+
+  private void checkAssociationEndsCreated() {
+    if (associationEnds == null) {
+      synchronized (this) {
+        if (associationEnds == null) {
+          associationEnds = new LinkedHashMap<String, AssociationEndMetaData>(externalAssociationEnds.size());
+          for (AssociationEndMetaData aemd : externalAssociationEnds) {
+            associationEnds.put(aemd.getName(), aemd);
+            if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
+              aggregationChildEnds.add(aemd.getName());
+            }
+          }
+          externalAssociationEnds = null;
+        }
+      }
+    }
   }
 
 }
