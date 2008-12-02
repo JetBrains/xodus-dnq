@@ -2,17 +2,16 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
-import com.jetbrains.teamsys.core.dataStructures.decorators.LinkedHashSetDecorator;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
-import com.jetbrains.teamsys.core.dataStructures.hash.LinkedHashMap;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import java.util.Collections;
 
 public class EntityMetaDataImpl implements EntityMetaData {
 
@@ -24,7 +23,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private Set<String> subTypes = new HashSetDecorator<String>();
   private Map<String, AssociationEndMetaData> associationEnds = null;
   private Set<AssociationEndMetaData> externalAssociationEnds = null;
-  private Set<String> aggregationChildEnds = new LinkedHashSetDecorator<String>();
+  private Set<String> aggregationChildEnds = null;
   private Set<String> uniqueProperties = Collections.emptySet();
   private Set<String> requiredProperties = Collections.emptySet();
   private Set<String> requiredIfProperties = Collections.emptySet();
@@ -265,8 +264,10 @@ public class EntityMetaDataImpl implements EntityMetaData {
         if (associationEnds == null) {
           if (externalAssociationEnds == null) {
             associationEnds = Collections.emptyMap();
+            aggregationChildEnds = Collections.emptySet();
           } else {
-            associationEnds = new LinkedHashMap<String, AssociationEndMetaData>(externalAssociationEnds.size());
+            associationEnds = new HashMap<String, AssociationEndMetaData>(externalAssociationEnds.size());
+            aggregationChildEnds = new HashSetDecorator<String>();
             for (final AssociationEndMetaData aemd : externalAssociationEnds) {
               associationEnds.put(aemd.getName(), aemd);
               if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
