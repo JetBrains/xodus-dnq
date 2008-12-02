@@ -140,7 +140,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
     @Override
-    public synchronized EntityIterable getAddedLinks(String name) {
+    public EntityIterable getAddedLinks(String name) {
         LinkChange c = linksDetaled.get(name);
         if (c != null) {
             Set<TransientEntity> added = c.getAddedEntities();
@@ -152,7 +152,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
 
     @Override
-    public synchronized EntityIterable getRemovedLinks(String name) {
+    public EntityIterable getRemovedLinks(String name) {
         LinkChange c = linksDetaled.get(name);
         if (c != null) {
             Set<TransientEntity> removed = c.getRemovedEntities();
