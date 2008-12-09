@@ -658,11 +658,33 @@ class TransientEntityImpl extends AbstractTransientEntity {
       Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
 
       if (changesLinks != null) {
-        LinkChange linkChange = changesLinks.get(name);
+        final LinkChange linkChange = changesLinks.get(name);
         if (linkChange != null) {
           Set<TransientEntity> result = removed ? linkChange.getRemovedEntities() : linkChange.getAddedEntities();
           if (result != null) {
-            return new TransientEntityIterable(result);
+            if (removed) {
+              return new TransientEntityIterable(result) {
+                    @Override
+                    public long size() {
+                        return linkChange.getRemovedEntitiesSize();
+                    }
+                    @Override
+                    public long count() {
+                        return linkChange.getRemovedEntitiesSize();
+                    }
+                };
+            } else {
+              return new TransientEntityIterable(result) {
+                    @Override
+                    public long size() {
+                        return linkChange.getAddedEntitiesSize();
+                    }
+                    @Override
+                    public long count() {
+                        return linkChange.getAddedEntitiesSize();
+                    }
+                };
+            }
           }
         }
       }

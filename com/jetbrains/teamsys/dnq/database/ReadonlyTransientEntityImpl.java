@@ -141,11 +141,21 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
     @Override
     public EntityIterable getAddedLinks(String name) {
-        LinkChange c = linksDetaled.get(name);
+        final LinkChange c = linksDetaled.get(name);
         if (c != null) {
             Set<TransientEntity> added = c.getAddedEntities();
+
             if (added != null) {
-                return new TransientEntityIterable(added);
+                return new TransientEntityIterable(added) {
+                    @Override
+                    public long size() {
+                        return c.getAddedEntitiesSize();
+                    }
+                    @Override
+                    public long count() {
+                        return c.getAddedEntitiesSize();
+                    }
+                };
             }
         }
         return EntityIterableBase.EMPTY;
@@ -153,11 +163,20 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
     @Override
     public EntityIterable getRemovedLinks(String name) {
-        LinkChange c = linksDetaled.get(name);
+        final LinkChange c = linksDetaled.get(name);
         if (c != null) {
             Set<TransientEntity> removed = c.getRemovedEntities();
             if (removed != null) {
-                return new TransientEntityIterable(removed);
+                return new TransientEntityIterable(removed) {
+                    @Override
+                    public long size() {
+                        return c.getRemovedEntitiesSize();
+                    }
+                    @Override
+                    public long count() {
+                        return c.getRemovedEntitiesSize();
+                    }
+                };
             }
         }
         return EntityIterableBase.EMPTY;
@@ -218,45 +237,6 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     return new IllegalStateException("Entity is readonly.");
   }
 
-    private class ReadonlyTransientLinksManager implements TransientLinksManager {
-        private final Set<TransientEntity> links;
-
-        public ReadonlyTransientLinksManager(Set<TransientEntity> links) {
-            this.links = links;
-        }
-
-
-        public void setLink(@NotNull TransientEntity target) {
-            throw createReadonlyException();
-        }
-
-        public Entity getLink() {
-            return null;  //To change body of implemented methods use File | Settings | File Templates.
-        }
-
-        public void addLink(@NotNull TransientEntity entity) {
-            throw createReadonlyException();
-        }
-
-        public void deleteLink(@NotNull TransientEntity entity) {
-            throw createReadonlyException();
-        }
-
-        public void deleteLinks() {
-            throw createReadonlyException();
-        }
-
-        @NotNull
-                public EntityIterable getLinks() {
-            return null;  //To change body of implemented methods use File | Settings | File Templates.
-        }
-
-        public long getLinksSize() {
-            return 0;
-        }
-
-        public void flushed() { /* no body */}
-    }
 }
 
 
