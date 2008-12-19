@@ -4,6 +4,7 @@ import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
+import com.jetbrains.teamsys.database.impl.iterate.EntityIteratorBase;
 import com.jetbrains.teamsys.database.exceptions.*;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
@@ -92,7 +93,7 @@ class ConstraintsUtil {
     return exceptions;
   }
 
-  static void processOnDeleteConstraints(@NotNull Entity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md) {
+  static void processOnDeleteConstraints(@NotNull StoreSession session, @NotNull Entity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md) {
     for (AssociationEndMetaData amd : emd.getAssociationEndsMetaData()) {
       if (amd.getCascadeDelete() || amd.getClearOnDelete()) {
 
@@ -105,7 +106,19 @@ class ConstraintsUtil {
             log.debug("Clear associations with targets for link [" + e + "]." + amd.getName());
           }
         }
+        processOnDeleteConstrainsSwitch(e, amd);
+      }
+    }
 
+   Map<String, Set<String>> incomingAssociations = emd.getIncomingAssociations(md);
+   for (String key: incomingAssociations.keySet()) {
+       for (String linkName: incomingAssociations.get(key)) {
+           processOnTargetDeleteConstraints(e, emd, md, key, linkName, session);
+       }
+   }
+  }
+
+    private static void processOnDeleteConstrainsSwitch(Entity e, AssociationEndMetaData amd) {
         // cascade delete depend association end type and cardinality
         switch (amd.getAssociationEndType()) {
           case ParentEnd:
@@ -168,21 +181,37 @@ class ConstraintsUtil {
           default:
             throw new IllegalArgumentException("Cascade delete is not supported for association end type [" + amd.getAssociationEndType() + "]");
         }
-      }
     }
 
-   Map<String, Set<String>> incomingAssociations = emd.getIncomingAssociations(md);
-   for (String key: incomingAssociations.keySet()) {
-       System.out.println("key: " + key);
-       Set<String> associations = incomingAssociations.get(key);
+    private static void processOnTargetDeleteConstraints(Entity source, EntityMetaData emd, ModelMetaData md, String oppositeType, String linkName, StoreSession session) {
+        EntityMetaData oppositeEmd = md.getEntityMetaData(oppositeType);
+        if (oppositeEmd == null) {
+            throw new RuntimeException("can't find metadata for entity type " + oppositeType + " as opposite to " + source.getType());
+        }
+        AssociationEndMetaData amd = oppositeEmd.getAssociationEndMetaData(linkName);
+        final EntityIterator it = session.findLinks(oppositeType, source, linkName).iterator();
+        while (it.hasNext()) {
+          Entity e = it.next();
+          // System.out.println("opposite entity (instance of " + oppositeType + "): " + e + ", link name: " + linkName);
+          if (amd.getTargetCascadeDelete()) {
+            EntityOperations.remove(e);
+          } else if (amd.getTargetClearOnDelete()) {
+            if (log.isDebugEnabled()) {
+              if (amd.getTargetCascadeDelete()) {
+                log.debug("Cascade delete targets for link [" + e + "]." + amd.getName());
+              }
+    
+              if (amd.getTargetClearOnDelete()) {
+                log.debug("Clear associations with targets for link [" + e + "]." + amd.getName());
+              }
+            }
+            processOnDeleteConstrainsSwitch(e, amd);
+          }
+        }
+    }
 
-       for (String a: associations) {
-           System.out.println("ass: " + a);
-       }
-   }
-  }
 
-  private static void processOnDeleteConstraintsForSingleChildEnd(Entity child, AssociationEndMetaData amd) {
+    private static void processOnDeleteConstraintsForSingleChildEnd(Entity child, AssociationEndMetaData amd) {
     Entity parent = AssociationSemantics.getToOne(child, amd.getName());
 
     if (parent != null) {

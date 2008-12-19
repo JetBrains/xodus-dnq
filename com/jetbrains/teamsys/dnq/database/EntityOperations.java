@@ -39,7 +39,7 @@ public class EntityOperations {
         executeDestructors(e, md);
 
         // remove associations and cascade delete 
-        ConstraintsUtil.processOnDeleteConstraints(e, emd, md);
+        ConstraintsUtil.processOnDeleteConstraints(store.getThreadSession(), e, emd, md);
       }
     }
 
