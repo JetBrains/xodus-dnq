@@ -25,8 +25,6 @@ class ConstraintsUtil {
   static boolean checkCardinality(TransientEntity e, AssociationEndMetaData md) {
     long size;
 
-    boolean targetDelete = md.getTargetCascadeDelete() || md.getTargetClearOnDelete();
-
     switch (md.getCardinality()) {
       case _0_1:
         size = e.getLinksSize(md.getName());
@@ -37,7 +35,7 @@ class ConstraintsUtil {
 
       case _1:
         size = e.getLinksSize(md.getName());
-        return targetDelete || (size == 1);
+        return size == 1;
 
       case _1_n:
         size = e.getLinksSize(md.getName());
@@ -94,7 +92,7 @@ class ConstraintsUtil {
     return exceptions;
   }
 
-  static void processOnDeleteConstraints(@NotNull Entity e, @NotNull EntityMetaData emd) {
+  static void processOnDeleteConstraints(@NotNull Entity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md) {
     for (AssociationEndMetaData amd : emd.getAssociationEndsMetaData()) {
       if (amd.getCascadeDelete() || amd.getClearOnDelete()) {
 
@@ -172,6 +170,16 @@ class ConstraintsUtil {
         }
       }
     }
+
+   Map<String, Set<String>> incomingAssociations = emd.getIncomingAssociations(md);
+   for (String key: incomingAssociations.keySet()) {
+       System.out.println("key: " + key);
+       Set<String> associations = incomingAssociations.get(key);
+
+       for (String a: associations) {
+           System.out.println("ass: " + a);
+       }
+   }
   }
 
   private static void processOnDeleteConstraintsForSingleChildEnd(Entity child, AssociationEndMetaData amd) {
