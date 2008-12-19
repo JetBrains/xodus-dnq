@@ -12,6 +12,8 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
   private AssociationEndType type;
   private boolean cascadeDelete = false;
   private boolean clearOnDelete = false;
+  private boolean targetCascadeDelete = false;
+  private boolean targetClearOnDelete = false;
 
   @NotNull
   public String getName() {
@@ -46,7 +48,15 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
     return clearOnDelete;
   }
 
-  public void setName(@NotNull String name) {
+  public boolean getTargetCascadeDelete() {
+    return targetCascadeDelete;
+  }
+
+  public boolean getTargetClearOnDelete() {
+    return targetClearOnDelete;
+  }
+
+    public void setName(@NotNull String name) {
     this.name = name;
   }
 
@@ -73,5 +83,13 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
 
   public void setClearOnDelete(boolean clearOnDelete) {
     this.clearOnDelete = clearOnDelete;
+  }
+
+  public void setTargetCascadeDelete(boolean cascadeDelete) {
+    this.targetCascadeDelete = cascadeDelete;
+  }
+
+  public void setTargetClearOnDelete(boolean clearOnDelete) {
+    this.targetClearOnDelete = clearOnDelete;
   }
 }

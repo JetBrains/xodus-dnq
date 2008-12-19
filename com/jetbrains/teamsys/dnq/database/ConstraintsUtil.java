@@ -25,6 +25,8 @@ class ConstraintsUtil {
   static boolean checkCardinality(TransientEntity e, AssociationEndMetaData md) {
     long size;
 
+    boolean targetDelete = md.getTargetCascadeDelete() || md.getTargetClearOnDelete();
+
     switch (md.getCardinality()) {
       case _0_1:
         size = e.getLinksSize(md.getName());
@@ -35,7 +37,7 @@ class ConstraintsUtil {
 
       case _1:
         size = e.getLinksSize(md.getName());
-        return size == 1;
+        return targetDelete || (size == 1);
 
       case _1_n:
         size = e.getLinksSize(md.getName());
