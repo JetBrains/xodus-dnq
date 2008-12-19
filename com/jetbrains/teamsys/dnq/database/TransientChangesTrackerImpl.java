@@ -265,9 +265,8 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
             log.debug("Delete entity: " + e);
           }
 
-          e.delete();
           //TODO: use delete instead of tryDelete, but in session.check() check that there's no incomming links
-          /* Map<String, EntityId> incomingLinks = e.tryDelete();
+          Map<String, EntityId> incomingLinks = e.tryDelete();
           //Map<String, EntityId> incomingLinks = ((TransientEntityImpl)e).getPersistentEntityInternal().tryDelete();
           if (incomingLinks.size() > 0) {
             Map<String, TransientEntity> _incomingLinks = new HashMap<String, TransientEntity>(incomingLinks.size());
@@ -275,7 +274,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
               _incomingLinks.put(key, (TransientEntity) e.getStore().getThreadSession().getEntity(incomingLinks.get(key)));
             }
             throw new ConstraintsValidationException(new CantRemoveEntityException(e, _incomingLinks));
-          }  */
+          }
         }
       }
     };
