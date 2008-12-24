@@ -63,7 +63,8 @@ class ConstraintsUtil {
                   String type = entity.getType();
 
                   AssociationEndMetaData end = modelMetaData.getEntityMetaData(type).getAssociationEndMetaData(key);
-                  if (end.getTargetCascadeDelete() || end.getTargetClearOnDelete() || entity.isRemoved()) {
+
+                  if (end.getCascadeDelete() || end.getTargetClearOnDelete() || entity.isRemoved()) {
                       continue;
                   }
 
