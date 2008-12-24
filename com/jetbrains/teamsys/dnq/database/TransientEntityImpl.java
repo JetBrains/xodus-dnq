@@ -463,32 +463,33 @@ class TransientEntityImpl extends AbstractTransientEntity {
     return (Long) getLinksSizeEventHandler.handle(this, linkName, null);
   }
 
-  @NotNull
-  public Map<String, EntityId> tryDelete() {
-    final Map<String, EntityId> result = new HashMapDecorator<String, EntityId>();
-    final TransientStoreSession session = getTransientStoreSession();
-    final StoreSession persistentSession = session.getPersistentSession();
-    final ModelMetaData mmd = ((TransientEntityStore) session.getStore()).getModelMetaData();
-    final EntityMetaData emd = mmd.getEntityMetaData(getType());
-    // EntityMetaData can be null during refactorings
-    if (emd != null) {
-      for (final Map.Entry<String, Set<String>> entry : emd.getIncomingAssociations(mmd).entrySet()) {
-        final String entityType = entry.getKey();
-        for (final String linkName : entry.getValue()) {
-          final EntityIteratorBase it = (EntityIteratorBase) persistentSession.findLinks(entityType, this, linkName).iterator();
-          while (it.hasNext()) {
-            result.put(linkName, it.nextId());
-          }
-        }
-      }
-    }
-    if (result.size() == 0) {
-      getPersistentEntityInternal().delete();
-    }
-    return result;
+  public void safeDelete() {
+    getPersistentEntityInternal().delete();
   }
 
-  private static final StandartEventHandler deleteEventHandler = new StandartEventHandler2() {
+  @NotNull
+  public Map<String, EntityId> getIncomingLinks() {
+        final Map<String, EntityId> result = new HashMapDecorator<String, EntityId>();
+        final TransientStoreSession session = getTransientStoreSession();
+        final StoreSession persistentSession = session.getPersistentSession();
+        final ModelMetaData mmd = ((TransientEntityStore) session.getStore()).getModelMetaData();
+        final EntityMetaData emd = mmd.getEntityMetaData(getType());
+        // EntityMetaData can be null during refactorings
+        if (emd != null) {
+          for (final Map.Entry<String, Set<String>> entry : emd.getIncomingAssociations(mmd).entrySet()) {
+            final String entityType = entry.getKey();
+            for (final String linkName : entry.getValue()) {
+              final EntityIteratorBase it = (EntityIteratorBase) persistentSession.findLinks(entityType, this, linkName).iterator();
+              while (it.hasNext()) {
+                result.put(linkName, it.nextId());
+              }
+            }
+          }
+        }
+        return result;
+    }
+
+    private static final StandartEventHandler deleteEventHandler = new StandartEventHandler2() {
 
     Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
       entity.getTransientStoreSession().getTransientChangesTracker().entityDeleted(entity);

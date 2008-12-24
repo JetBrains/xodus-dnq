@@ -6,8 +6,6 @@ import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.exceptions.CantRemoveEntityException;
-import com.jetbrains.teamsys.database.exceptions.ConstraintsValidationException;
 import com.jetbrains.teamsys.database.exceptions.EntityRemovedException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -265,16 +263,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
             log.debug("Delete entity: " + e);
           }
 
-          //TODO: use delete instead of tryDelete, but in session.check() check that there's no incomming links
-          Map<String, EntityId> incomingLinks = e.tryDelete();
-          //Map<String, EntityId> incomingLinks = ((TransientEntityImpl)e).getPersistentEntityInternal().tryDelete();
-          if (incomingLinks.size() > 0) {
-            Map<String, TransientEntity> _incomingLinks = new HashMap<String, TransientEntity>(incomingLinks.size());
-            for (String key : incomingLinks.keySet()) {
-              _incomingLinks.put(key, (TransientEntity) e.getStore().getThreadSession().getEntity(incomingLinks.get(key)));
-            }
-            throw new ConstraintsValidationException(new CantRemoveEntityException(e, _incomingLinks));
-          }
+          e.deleteInternal();
         }
       }
     };

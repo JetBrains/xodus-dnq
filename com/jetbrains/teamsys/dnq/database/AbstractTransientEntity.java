@@ -82,6 +82,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
     return (Entity)getPersistentEntityEventHandler.handle(this, null, null);
   }
 
+  public void deleteInternal() {
+      persistentEntity.delete();
+  }
+
   Entity getPersistentEntityInternal() {
     return persistentEntity;
   }

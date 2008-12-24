@@ -1,6 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
@@ -44,6 +45,37 @@ class ConstraintsUtil {
     }
 
     throw new IllegalArgumentException("Unknown cardinality [" + md.getCardinality() + "]");
+  }
+
+  @NotNull
+  static Set<DataIntegrityViolationException> checkIncomingLinks(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
+      Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
+
+      for (TransientEntity e : changesTracker.getChangedEntities()) {
+        if (e.isRemoved()) {
+            Map<String, EntityId> incomingLinks = e.getIncomingLinks();
+
+            if (incomingLinks.size() > 0) {
+              Map<String, TransientEntity> _incomingLinks = new HashMapDecorator<String, TransientEntity>();
+              boolean bad = false;
+              for (String key : incomingLinks.keySet()) {
+                  TransientEntity entity = (TransientEntity) e.getStore().getThreadSession().getEntity(incomingLinks.get(key));
+                  String type = entity.getType();
+
+                  AssociationEndMetaData end = modelMetaData.getEntityMetaData(type).getAssociationEndMetaData(key);
+                  if (end.getTargetCascadeDelete() || end.getTargetClearOnDelete() || entity.isRemoved()) {
+                      continue;
+                  }
+
+                  bad = true;
+                  _incomingLinks.put(key, entity);
+              }
+              if (bad) exceptions.add(new ConstraintsValidationException(new CantRemoveEntityException(e, _incomingLinks)));
+            }
+        }
+      }
+
+      return exceptions;
   }
 
   @NotNull

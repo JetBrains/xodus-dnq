@@ -772,6 +772,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
       log.debug("Check before save changes constraints. " + this);
     }
 
+    // 0. check incoming links
+    exceptions.addAll(ConstraintsUtil.checkIncomingLinks(changesTracker, modelMetaData));
+
     // 1. check associations cardinality
     exceptions.addAll(ConstraintsUtil.checkAssociationsCardinality(changesTracker, modelMetaData));
 
