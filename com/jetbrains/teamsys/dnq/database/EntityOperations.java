@@ -43,8 +43,8 @@ public class EntityOperations {
       }
     }
 
-    // delete itself
-    e.delete();
+    // delete itself; the check is performed, because onDelete constraints could already delete entity 'e'
+    if (!((TransientEntity) e).isRemoved()) e.delete();
   }
 
   private static void executeDestructors(@NotNull Entity e, @NotNull ModelMetaData md) {

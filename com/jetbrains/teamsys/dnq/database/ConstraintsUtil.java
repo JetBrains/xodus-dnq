@@ -205,6 +205,7 @@ class ConstraintsUtil {
                 log.debug("Clear associations with targets for link [" + e + "]." + amd.getName());
               }
             }
+            // TODO: (optimization hint) write new switch, which methods doesn't call "if (amd.getCascadeDelete()) EntityOperations.remove(t)" and source is provided by our local variable
             processOnDeleteConstrainsSwitch(e, amd);
           }
         }
