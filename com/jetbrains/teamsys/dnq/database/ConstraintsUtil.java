@@ -48,6 +48,21 @@ class ConstraintsUtil {
   }
 
   @NotNull
+  static Set<DataIntegrityViolationException> checkInvariants(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
+      Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
+
+      for (TransientEntity e : changesTracker.getChangedEntities()) {
+          EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
+
+          if (!emd.getInvariant(e)) {
+              exceptions.add(new InvariantViolationException(e));
+          }
+      }
+
+      return exceptions;
+  }
+
+  @NotNull
   static Set<DataIntegrityViolationException> checkIncomingLinks(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
       Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
 

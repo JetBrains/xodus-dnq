@@ -124,6 +124,10 @@ public class EntityMetaDataImpl implements EntityMetaData {
     return associationEnds.values();
   }
 
+  public boolean getInvariant(Entity e) {
+    return instanceRef.getInstance(e).evaluateInvariant(e);
+  }
+
   public boolean getHasHistory(Entity e) {
     return instanceRef.getInstance(e).evaluateWithHistory(e);
   }

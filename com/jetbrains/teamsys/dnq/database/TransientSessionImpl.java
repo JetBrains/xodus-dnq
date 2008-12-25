@@ -782,6 +782,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
     exceptions.addAll(ConstraintsUtil.checkRequiredProperties(changesTracker, modelMetaData));
     exceptions.addAll(ConstraintsUtil.checkUniqueProperties(this, changesTracker, modelMetaData));
 
+    // 3. check invariants
+    exceptions.addAll(ConstraintsUtil.checkInvariants(changesTracker, modelMetaData));
+
     if (exceptions.size() != 0) {
       ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
       e.fixEntityId();
