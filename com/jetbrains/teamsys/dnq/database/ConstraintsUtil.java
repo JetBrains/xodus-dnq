@@ -71,6 +71,10 @@ class ConstraintsUtil {
                       continue;
                   }
 
+                  if (end.getAssociationMetaData().getOppositeEnd(end).getClearOnDelete()) {
+                      continue;
+                  }
+
                   bad = true;
                   _incomingLinks.put(key, entity);
               }
