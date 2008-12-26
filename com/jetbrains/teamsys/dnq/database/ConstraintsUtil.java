@@ -7,10 +7,7 @@ import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIteratorBase;
 import com.jetbrains.teamsys.database.exceptions.*;
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.*;
 import jetbrains.mps.internal.collections.runtime.ListSequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -86,20 +83,21 @@ class ConstraintsUtil {
                   EntityMetaData metaData = modelMetaData.getEntityMetaData(type);
                   AssociationEndMetaData end = metaData.getAssociationEndMetaData(key);
 
-                  if (end.getTargetClearOnDelete()) {
+                  if (end.getTargetClearOnDelete() || end.getTargetCascadeDelete()) {
                     continue;
                   }
 
                   AssociationMetaData associationMetaData = end.getAssociationMetaData();
                   if (!associationMetaData.getType().equals(AssociationType.Directed)) {
-                    if (associationMetaData.getOppositeEnd(end).getClearOnDelete()) {
+                      AssociationEndMetaData oppositeEnd = associationMetaData.getOppositeEnd(end);
+                      if (oppositeEnd.getClearOnDelete() || oppositeEnd.getCascadeDelete()) {
                       continue;
                     }
                   }
 
                   _incomingLinks.put(key, entity);
               }
-              if (_incomingLinks.size() > 0) exceptions.add(new ConstraintsValidationException(new CantRemoveEntityException(e, _incomingLinks)));
+              if (_incomingLinks.size() > 0) exceptions.add(new CantRemoveEntityException(e, _incomingLinks));
             }
         }
       }

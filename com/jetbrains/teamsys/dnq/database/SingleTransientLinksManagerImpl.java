@@ -3,6 +3,8 @@ package com.jetbrains.teamsys.dnq.database;
 import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.EntityIterable;
 import com.jetbrains.teamsys.database.TransientEntity;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
+import com.sleepycat.je.utilint.TinyHashSet;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -27,6 +29,8 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
   }
 
   public void setLink(@NotNull TransientEntity target) {
+    TransientEntity oldTarget = this.target;
+
     switch (owner.getState()) {
       case New:
         this.target = target;
@@ -48,7 +52,7 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
     }
 
     owner.getTransientStoreSession().getTransientChangesTracker().linkSet(
-            owner, linkName, target
+            owner, linkName, target, oldTarget
     );
   }
 
@@ -81,6 +85,9 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
   }
 
   public void deleteLinks() {
+    HashSet removed = new HashSet();
+    removed.add(target);
+
     switch (owner.getState()) {
       case New:
         target = null;
@@ -106,7 +113,7 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
     }
 
     owner.getTransientStoreSession().getTransientChangesTracker().linksDeleted(
-            owner, linkName, null);
+            owner, linkName, removed);
   }
 
   public long getLinksSize() {

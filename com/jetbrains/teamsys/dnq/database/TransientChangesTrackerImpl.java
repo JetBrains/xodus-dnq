@@ -224,9 +224,18 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     changedEntities.add(source);
   }
 
-  public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
+  public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target, final TransientEntity oldTarget) {
+    HashSet<TransientEntity> added = new HashSet<TransientEntity>();
+    added.add(target);
+
+    HashSet<TransientEntity> removed = null;
+    if (oldTarget != null) {
+      removed = new HashSet<TransientEntity>();
+      removed.add(oldTarget);
+    }
+
     entityChanged(source);
-    linkChangedDetailed(source, linkName, LinkChangeType.SET, null, null);
+    linkChangedDetailed(source, linkName, LinkChangeType.SET, added, removed);
 
     offerChange(new Runnable() {
       public void run() {
