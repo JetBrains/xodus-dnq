@@ -37,6 +37,10 @@ class PersistentEntityIterableWrapper implements EntityIterable {
     return wrappedIterable.indexOf(entity);
   }
 
+  public boolean contains(@NotNull Entity entity) {
+    return wrappedIterable.contains(entity);
+  }
+
   @NotNull
   public EntityIterableHandle getHandle() {
     return wrappedIterable.getHandle();
@@ -77,6 +81,6 @@ class PersistentEntityIterableWrapper implements EntityIterable {
     }
 
     return new PersistentEntityIteratorWrapper(wrappedIterable.iterator(),
-            (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
+           (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
   }
 }

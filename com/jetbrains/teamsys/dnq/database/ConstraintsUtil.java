@@ -74,16 +74,19 @@ class ConstraintsUtil {
               String sourceType = e.getType();
 
               Map<String, TransientEntity> _incomingLinks = new HashMapDecorator<String, TransientEntity>();
-              boolean bad = false;
               for (String key : incomingLinks.keySet()) {
                   TransientEntity entity = (TransientEntity) e.getStore().getThreadSession().getEntity(incomingLinks.get(key));
+                  if (entity.getRemovedLinks(key).contains(e)) {
+                    continue;
+                  }
+
                   String type = entity.getType();
 
                   EntityMetaData metaData = modelMetaData.getEntityMetaData(type);
                   AssociationEndMetaData end = metaData.getAssociationEndMetaData(key);
 
                   if (end.getTargetClearOnDelete() || entity.isRemoved()) {
-                      continue;
+                    continue;
                   }
 
                   AssociationMetaData associationMetaData = end.getAssociationMetaData();
@@ -93,10 +96,9 @@ class ConstraintsUtil {
                     }
                   }
 
-                  bad = true;
                   _incomingLinks.put(key, entity);
               }
-              if (bad) exceptions.add(new ConstraintsValidationException(new CantRemoveEntityException(e, _incomingLinks)));
+              if (_incomingLinks.size() > 0) exceptions.add(new ConstraintsValidationException(new CantRemoveEntityException(e, _incomingLinks)));
             }
         }
       }

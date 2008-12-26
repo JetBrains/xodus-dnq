@@ -46,6 +46,10 @@ public class TransientEntityIterable implements EntityIterable {
     return Arrays.asList(values.toArray(new Entity[values.size()])).indexOf(entity);
   }
 
+  public boolean contains(@NotNull Entity entity) {
+    return values.contains(entity);
+  }
+    
   @NotNull
   public EntityIterableHandle getHandle() {
     throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
