@@ -76,7 +76,8 @@ class ConstraintsUtil {
               Map<String, TransientEntity> _incomingLinks = new HashMapDecorator<String, TransientEntity>();
               for (String key : incomingLinks.keySet()) {
                   TransientEntity entity = (TransientEntity) e.getStore().getThreadSession().getEntity(incomingLinks.get(key));
-                  if (entity.getRemovedLinks(key).contains(e)) {
+
+                  if (entity.isRemoved() || entity.getRemovedLinks(key).contains(e)) {
                     continue;
                   }
 
@@ -85,7 +86,7 @@ class ConstraintsUtil {
                   EntityMetaData metaData = modelMetaData.getEntityMetaData(type);
                   AssociationEndMetaData end = metaData.getAssociationEndMetaData(key);
 
-                  if (end.getTargetClearOnDelete() || entity.isRemoved()) {
+                  if (end.getTargetClearOnDelete()) {
                     continue;
                   }
 
