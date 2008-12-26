@@ -5,6 +5,7 @@ import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
+import com.jetbrains.teamsys.core.dataStructures.NanoSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.EntityRemovedException;
 import org.apache.commons.logging.Log;
@@ -99,7 +100,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     for (TransientEntity e : getChangedEntities()) {
       if (!e.isTemporary()) {
         res.add(new TransientEntityChange(e, getChangedPropertiesDetailed(e),
-          getChangedLinksDetailed(e), decodeState(e)));
+                getChangedLinksDetailed(e), decodeState(e)));
       }
     }
 
@@ -107,7 +108,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private EntityChangeType decodeState(TransientEntity e) {
-    switch (((AbstractTransientEntity)e).getState()) {
+    switch (((AbstractTransientEntity) e).getState()) {
       case New:
       case SavedNew:
         return EntityChangeType.ADD;
@@ -120,7 +121,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
         return EntityChangeType.UPDATE;
 
       default:
-        throw new IllegalStateException("Can't decode change for state [" + ((AbstractTransientEntity)e).getState() + "]");
+        throw new IllegalStateException("Can't decode change for state [" + ((AbstractTransientEntity) e).getState() + "]");
     }
   }
 
@@ -136,12 +137,12 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   @Nullable
   public Map<String, LinkChange> getChangedLinksDetailed(@NotNull TransientEntity e) {
-    return entityToChangedLinksDetailed.get(e);    
+    return entityToChangedLinksDetailed.get(e);
   }
 
   @Nullable
   public Map<String, PropertyChange> getChangedPropertiesDetailed(@NotNull TransientEntity e) {
-    return entityToChangedPropertiesDetailed.get(e); 
+    return entityToChangedPropertiesDetailed.get(e);
   }
 
   private void linkChangedDetailed(TransientEntity e, String linkName, LinkChangeType changeType, Set<TransientEntity> addedEntities, Set<TransientEntity> removedEntities) {
@@ -155,10 +156,10 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
       if (lc != null) {
         lc.setChangeType(lc.getChangeType().getMerged(changeType));
         if (addedEntities != null) {
-            lc.setAddedEntities(addedEntities);
+          lc.setAddedEntities(addedEntities);
         }
         if (removedEntities != null) {
-            lc.setRemovedEntities(removedEntities);
+          lc.setRemovedEntities(removedEntities);
         }
       } else {
         linksDetailed.put(linkName, new LinkChange(linkName, changeType, addedEntities, removedEntities));
@@ -225,17 +226,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target, final TransientEntity oldTarget) {
-    HashSet<TransientEntity> added = new HashSet<TransientEntity>();
-    added.add(target);
-
-    HashSet<TransientEntity> removed = null;
-    if (oldTarget != null) {
-      removed = new HashSet<TransientEntity>();
-      removed.add(oldTarget);
-    }
-
     entityChanged(source);
-    linkChangedDetailed(source, linkName, LinkChangeType.SET, added, removed);
+    linkChangedDetailed(source, linkName, LinkChangeType.SET,
+            new NanoSet<TransientEntity>(target), oldTarget != null ? new NanoSet<TransientEntity>(oldTarget) : null);
 
     offerChange(new Runnable() {
       public void run() {
@@ -259,7 +252,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
             log.debug("Delete outgoing links for entity: " + e);
           }
 
-          ((BerkeleyDbEntity)((TransientEntityImpl) e).getPersistentEntityInternal()).deleteLinks();
+          ((BerkeleyDbEntity) ((TransientEntityImpl) e).getPersistentEntityInternal()).deleteLinks();
         }
       }
     };
@@ -301,8 +294,8 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
     HashSet<TransientEntity> removed = null;
     if (target != null) {
-        removed = new HashSet<TransientEntity>();
-        removed.add(target);
+      removed = new HashSet<TransientEntity>();
+      removed.add(target);
     }
     linkChangedDetailed(source, linkName, LinkChangeType.REMOVE, null, removed);
 
