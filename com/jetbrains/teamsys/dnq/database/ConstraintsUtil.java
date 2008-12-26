@@ -86,8 +86,11 @@ class ConstraintsUtil {
                       continue;
                   }
 
-                  if (end.getAssociationMetaData().getOppositeEnd(end).getClearOnDelete()) {
+                  AssociationMetaData associationMetaData = end.getAssociationMetaData();
+                  if (!associationMetaData.getType().equals(AssociationType.Directed)) {
+                    if (associationMetaData.getOppositeEnd(end).getClearOnDelete()) {
                       continue;
+                    }
                   }
 
                   bad = true;
