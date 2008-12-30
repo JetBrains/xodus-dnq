@@ -823,6 +823,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
       transaction = getPersistentSessionInternal().beginTransaction();
 
       // lock entities to be updated by current transaction
+      // TODO: move to the first line of the method - before constraints check 
       lockForUpdate(transaction);
 
       // check versions before commit changes
