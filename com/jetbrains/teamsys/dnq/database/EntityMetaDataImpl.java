@@ -129,10 +129,14 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   public boolean getHasHistory(Entity e) {
-    return instanceRef.getInstance(e).evaluateWithHistory(e);
+    return instanceRef.getInstance(e).evaluateSaveHistoryCondition(e);
   }
 
-  public void callDestructor(Entity e) {
+  public void executeSaveHistoryCallback(Entity e) {
+    instanceRef.getInstance(e).saveHistoryCallback(e);
+  }
+
+  public void executeDestructor(Entity e) {
     instanceRef.getInstance(e).destructor(e);
   }
 

@@ -35,8 +35,7 @@ public class EntityOperations {
       // cascade delete
       EntityMetaData emd = md.getEntityMetaData(e.getType());
       if (emd != null) {
-        // call destructors starting with it and continuing with super class destructor up to root super class
-        executeDestructors(e, md);
+        md.getEntityMetaData(e.getType()).executeDestructor(e);
 
         // remove associations and cascade delete 
         ConstraintsUtil.processOnDeleteConstraints(store.getThreadSession(), e, emd, md);
@@ -47,9 +46,8 @@ public class EntityOperations {
     if (!((TransientEntity) e).isRemoved()) e.delete();
   }
 
-  private static void executeDestructors(@NotNull Entity e, @NotNull ModelMetaData md) {
-    EntityMetaData emd = md.getEntityMetaData(e.getType());
-    emd.callDestructor(e);
+  private static void invokeDestructor(@NotNull Entity e, @NotNull ModelMetaData md) {
+    md.getEntityMetaData(e.getType()).executeDestructor(e);
   }
 
   public static List<Entity> getHistory(@NotNull Entity e) {

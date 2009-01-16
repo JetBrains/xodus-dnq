@@ -1073,6 +1073,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
             log.debug("Save history of: " + e);
           }
           e.newVersion();
+
+          // !!! should be called after e.newVersion(); 
+          emd.executeSaveHistoryCallback(e);
         }
       }
     }
