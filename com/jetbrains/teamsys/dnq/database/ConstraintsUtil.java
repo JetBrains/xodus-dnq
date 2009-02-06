@@ -319,7 +319,7 @@ class ConstraintsUtil {
         final EntityIterator it = session.findLinks(oppositeType, target, linkName).iterator();
         while (it.hasNext()) {
           Entity source = it.next();
-          System.out.println("opposite entity (instance of " + oppositeType + "): " + source + ", link name: " + linkName);
+          // System.out.println("opposite entity (instance of " + oppositeType + "): " + source + ", link name: " + linkName);
           if (amd.getTargetCascadeDelete()) {
             if (log.isDebugEnabled()) {
               log.debug("cascade delete targets for link [" + source + "]." + linkName);
