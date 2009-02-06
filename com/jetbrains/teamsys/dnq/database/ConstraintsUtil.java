@@ -475,9 +475,6 @@ class ConstraintsUtil {
       case _1:
         // one to one
         UndirectedAssociationSemantics.setOneToOne(source, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
-        if (amd.getCascadeDelete()) {
-          EntityOperations.remove(target);
-        }
         break;
 
       case _0_n:
