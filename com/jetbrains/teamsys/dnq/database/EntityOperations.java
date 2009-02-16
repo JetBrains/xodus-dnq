@@ -7,11 +7,9 @@ import jetbrains.mps.internal.collections.runtime.ListSequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 // TODO: move this class to the associations semantics package
@@ -162,53 +160,6 @@ public class EntityOperations {
     }
 
     return ListSequence.fromIterable(input).skip(elementsToSkip);
-  }
-
-  public static Iterable<Entity> sort(@NotNull final TransientStoreSession session,
-                                      @NotNull final String entityType,
-                                      @NotNull final String propertyName,
-                                      @Nullable final Iterable<Entity> source,
-                                      @NotNull final Comparator<Entity> comparator,
-                                      final boolean ascending) {
-    // for getAll("") particularly
-    if (source == null) {
-      return session.sort(entityType, propertyName, ascending);
-    }
-    // for BerkeleyDb entity iterables and PersistentEntityIterableWrapper
-    if (source instanceof EntityIterable && !(source instanceof TransientEntityIterable)) {
-      return session.sort(entityType, propertyName, ((EntityIterable) source).getSource(), ascending);
-    }
-    // for TransientEntityIterable and other Iterable<Entity> instances
-    return ListSequence.fromIterable(source).sort(comparator, ascending);
-  }
-
-  public static Iterable<Entity> sort(@NotNull final TransientStoreSession session,
-                                      @NotNull final String enumType,
-                                      @NotNull final String propertyName,
-                                      @NotNull final String entityType,
-                                      @NotNull final String linkName,
-                                      @Nullable final Iterable<Entity> source,
-                                      @NotNull final Comparator<Entity> comparator,
-                                      final boolean ascending) {
-    if (source instanceof EntityIterable && !(source instanceof TransientEntityIterable)) {
-      final EntityIterable it = ((EntityIterable) source).getSource();
-      final long enumCount = session.getAll(enumType).size();
-      final long itCount = it.size();
-      if (enumCount < 40 && (itCount > enumCount || itCount < 0)) {
-        EntityIterable result = null;
-        for (final Entity sortedEnum : session.sort(enumType, propertyName, ascending)) {
-          final EntityIterable equal = session.findLinks(entityType, sortedEnum, linkName).getSource().intersect(it);
-          if (result == null) {
-            result = equal;
-          } else {
-            result = result.getSource().concat(equal);
-          }
-        }
-        assert result != null;
-        return session.createPersistentEntityIterableWrapper(result);
-      }
-    }
-    return ListSequence.fromIterable(source).sort(comparator, ascending);
   }
 
   public static Iterable<Entity> selectDistinct(@NotNull final TransientStoreSession session,
