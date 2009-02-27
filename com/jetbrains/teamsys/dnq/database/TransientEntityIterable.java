@@ -90,6 +90,10 @@ public class TransientEntityIterable implements EntityIterable {
     throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
   }
 
+  public EntityIterable asSortResult() {
+    throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+  }
+
   @NotNull
   public EntityIterable getSource() {
     throw new UnsupportedOperationException("Not supported by TransientEntityIterable");

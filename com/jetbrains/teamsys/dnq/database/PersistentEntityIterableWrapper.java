@@ -79,6 +79,10 @@ class PersistentEntityIterableWrapper implements EntityIterable {
     return wrappedIterable.isSortResult();
   }
 
+  public EntityIterable asSortResult() {
+    return new PersistentEntityIterableWrapper(wrappedIterable.asSortResult());
+  }
+
   @NotNull
   public EntityIterable getSource() {
     return wrappedIterable;
