@@ -63,6 +63,11 @@ public class TransientEntityIterable implements EntityIterable {
   }
 
   @NotNull
+  public EntityIterable intersectSavingOrder(@NotNull EntityIterable right) {
+    throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+  }
+
+  @NotNull
   public EntityIterable union(@NotNull EntityIterable right) {
     throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
   }
@@ -79,6 +84,10 @@ public class TransientEntityIterable implements EntityIterable {
 
   public EntityIterable skip(int number) {
     return new TransientEntityIterable(SequenceOperations.toSet(SequenceOperations.skip(values, number)));
+  }
+
+  public boolean isSortResult() {
+    throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
   }
 
   @NotNull

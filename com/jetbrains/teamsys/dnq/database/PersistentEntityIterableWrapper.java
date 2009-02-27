@@ -52,6 +52,11 @@ class PersistentEntityIterableWrapper implements EntityIterable {
   }
 
   @NotNull
+  public EntityIterable intersectSavingOrder(@NotNull EntityIterable right) {
+    return new PersistentEntityIterableWrapper(wrappedIterable.intersectSavingOrder(right.getSource()));
+  }
+
+  @NotNull
   public EntityIterable union(@NotNull EntityIterable right) {
     return new PersistentEntityIterableWrapper(wrappedIterable.union(right.getSource()));
   }
@@ -68,6 +73,10 @@ class PersistentEntityIterableWrapper implements EntityIterable {
 
   public EntityIterable skip(int number) {
     return new PersistentEntityIterableWrapper(wrappedIterable.skip(number));
+  }
+
+  public boolean isSortResult() {
+    return wrappedIterable.isSortResult();
   }
 
   @NotNull
