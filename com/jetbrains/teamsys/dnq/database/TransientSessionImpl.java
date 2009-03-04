@@ -326,6 +326,18 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   @NotNull
+  public EntityIterable getSingletonIterable(@NotNull final Entity entity) {
+    switch (state) {
+      case Open:
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().getSingletonIterable(entity));
+
+      default:
+        throw new IllegalStateException("Can't execute in state [" + state + "]");
+
+    }
+  }
+
+  @NotNull
   public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @Nullable final Comparable value) {
     switch (state) {
       case Open:
