@@ -1,14 +1,10 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import jetbrains.mps.internal.collections.runtime.ISelector;
-import jetbrains.mps.internal.collections.runtime.ListSequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -42,10 +38,6 @@ public class EntityOperations {
 
     // delete itself; the check is performed, because onDelete constraints could already delete entity 'e'
     if (!((TransientEntity) e).isRemoved()) e.delete();
-  }
-
-  private static void invokeDestructor(@NotNull Entity e, @NotNull ModelMetaData md) {
-    md.getEntityMetaData(e.getType()).executeDestructor(e);
   }
 
   public static List<Entity> getHistory(@NotNull Entity e) {
@@ -126,56 +118,6 @@ public class EntityOperations {
     throw new IllegalArgumentException("Out of bounds: " + i);
   }
 
-  public static int getSize(Iterable<Entity> input) {
-    if (input instanceof EntityIterable) {
-      return (int) ((EntityIterable) input).size();
-    }
-
-    if (input instanceof Collection) {
-      return ((Collection<Entity>) input).size();
-    }
-
-    return ListSequence.fromIterable(input).size();
-  }
-
-  public static int count(Iterable<Entity> input) {
-    if (input instanceof EntityIterable) {
-      return (int) ((EntityIterable) input).count();
-    }
-
-    if (log.isDebugEnabled()) {
-      log.debug("Brute force calculation of count!", new Exception("Brute force calculation of count!"));
-    }
-
-    if (input instanceof Collection) {
-      return ((Collection<Entity>) input).size();
-    }
-
-    return ListSequence.fromIterable(input).count();
-  }
-
-  public static Iterable<Entity> skip(final Iterable<Entity> input, final int elementsToSkip) {
-    if (input instanceof EntityIterable) {
-      return ((EntityIterable) input).skip(elementsToSkip);
-    }
-
-    return ListSequence.fromIterable(input).skip(elementsToSkip);
-  }
-
-  public static Iterable<Entity> selectDistinct(@NotNull final TransientStoreSession session,
-                                                @NotNull final Iterable<Entity> source,
-                                                @NotNull final String linkName) {
-    if (source instanceof EntityIterable && !(source instanceof TransientEntityIterable)) {
-      return session.selectDistinct(((EntityIterable) source).getSource(), linkName);
-    }
-    // for TransientEntityIterable and other Iterable<Entity> instances
-    return ListSequence.fromIterable(ListSequence.fromIterable(source).select(new ISelector<Entity, Entity>() {
-      public Entity select(Entity input) {
-        return AssociationSemantics.getToOne(input, linkName);
-      }
-    })).distinct();
-  }
-
   public static boolean hasChanges(@NotNull TransientEntity e) {
     e = TransientStoreUtil.reattach(e);
 
@@ -187,21 +129,4 @@ public class EntityOperations {
 
     return e == null ? false : e.hasChanges(property);
   }
-
-  public static int indexOf(@NotNull Iterable<Entity> it, Entity e) {
-    if (e == null) {
-      return -1;
-    }
-
-    if (it instanceof PersistentEntityIterableWrapper) {
-      return ((EntityIterable) it).getSource().indexOf(e);
-    }
-
-    return ListSequence.fromIterable(it).indexOf(e);
-  }
-
-  public static boolean contains(@NotNull Iterable<Entity> it, Entity e) {
-    return indexOf(it, e) >= 0;
-  }
-
 }
