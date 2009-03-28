@@ -561,14 +561,15 @@ class TransientEntityImpl extends AbstractTransientEntity {
     TransientLinksManager m = linksManagers.get(linkName);
 
     if (m == null) {
-      ModelMetaData md = ((TransientEntityStore) getStore()).getModelMetaData();
-      if (md == null) {
+      final ModelMetaData md = ((TransientEntityStore) getStore()).getModelMetaData();
+      final AssociationEndMetaData aemd;
+      if (md == null || (aemd = md.getEntityMetaData(getType()).getAssociationEndMetaData(linkName)) == null) {
         if (log.isTraceEnabled()) {
           log.trace("Model-meta data is not defined. Use unified link manager for link [" + linkName + "]");
         }
         m = new UnifiedTransientLinksManagerImpl(linkName, this);
       } else {
-        switch (md.getEntityMetaData(getType()).getAssociationEndMetaData(linkName).getCardinality()) {
+        switch (aemd.getCardinality()) {
           case _0_1:
           case _1:
             m = new SingleTransientLinksManagerImpl(linkName, this);

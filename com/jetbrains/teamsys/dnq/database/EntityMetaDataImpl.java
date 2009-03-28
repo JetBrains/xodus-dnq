@@ -108,14 +108,9 @@ public class EntityMetaDataImpl implements EntityMetaData {
     return superType;
   }
 
-  @NotNull
   public AssociationEndMetaData getAssociationEndMetaData(@NotNull String name) {
     checkAssociationEndsCreated();
-    AssociationEndMetaData res = associationEnds.get(name);
-    if (res == null) {
-      throw new IllegalArgumentException("Association end with name [" + name + "] is not found in metadata.");
-    }
-    return res;
+    return associationEnds.get(name);
   }
 
   @NotNull

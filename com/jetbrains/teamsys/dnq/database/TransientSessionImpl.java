@@ -1041,8 +1041,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
     Map<String, LinkChange> changedLinks = tec.getChangedLinksDetaled();
     if (changedLinks != null) {
       for (LinkChange lc : changedLinks.values()) {
-        AssociationEndMetaData amd = emd.getAssociationEndMetaData(lc.getLinkName());
-        if (!((emd.isVersionMismatchIgnored(lc.getLinkName())) || (amd.getCardinality().isMultiple() && lc.getChangeType() == LinkChangeType.ADD))) {
+        final String linkName = lc.getLinkName();
+        if (!((emd.isVersionMismatchIgnored(linkName)) || (lc.getChangeType() == LinkChangeType.ADD && emd.getAssociationEndMetaData(linkName).getCardinality().isMultiple()))) {
           return false;
         }
       }
