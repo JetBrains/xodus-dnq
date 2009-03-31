@@ -475,6 +475,18 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   @Nullable
+  public Entity getFirst(@NotNull final EntityIterable it) {
+    switch (state) {
+      case Open:
+        final Entity last = getPersistentSessionInternal().getFirst(it.getSource());
+        return (last == null) ? null : newEntityImpl(last);
+
+      default:
+        throw new IllegalStateException("Can't execute in state [" + state + "]");
+    }
+  }
+
+  @Nullable
   public Entity getLast(@NotNull final EntityIterable it) {
     switch (state) {
       case Open:
