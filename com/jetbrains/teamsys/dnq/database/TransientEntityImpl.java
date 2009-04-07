@@ -563,7 +563,8 @@ class TransientEntityImpl extends AbstractTransientEntity {
     if (m == null) {
       final ModelMetaData md = ((TransientEntityStore) getStore()).getModelMetaData();
       final AssociationEndMetaData aemd;
-      if (md == null || (aemd = md.getEntityMetaData(getType()).getAssociationEndMetaData(linkName)) == null) {
+      final EntityMetaData emd;
+      if (md == null || (emd = md.getEntityMetaData(getType())) == null || (aemd = emd.getAssociationEndMetaData(linkName)) == null) {
         if (log.isTraceEnabled()) {
           log.trace("Model-meta data is not defined. Use unified link manager for link [" + linkName + "]");
         }
