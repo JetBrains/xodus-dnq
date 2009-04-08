@@ -329,7 +329,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   public EntityIterable getSingletonIterable(@NotNull final Entity entity) {
     switch (state) {
       case Open:
-        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().getSingletonIterable(entity));
+        return new PersistentEntityIterableWrapper(getPersistentSessionInternal().getSingletonIterable(((TransientEntity)entity).getPersistentEntity()));
 
       default:
         throw new IllegalStateException("Can't execute in state [" + state + "]");
