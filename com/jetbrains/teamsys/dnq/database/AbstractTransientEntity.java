@@ -484,6 +484,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
     return (Entity) getUpToDateVersionEventHandler.handle(this, null, null);
   }
 
+  public boolean isUpToDate() {
+    return getPersistentEntity().isUpToDate();
+  }
+
   private static final StandartEventHandler getHistoryEventHandler = new StandartEventHandler() {
       Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2 ) {
         final List<Entity> history = entity.getPersistentEntityInternal().getHistory();
