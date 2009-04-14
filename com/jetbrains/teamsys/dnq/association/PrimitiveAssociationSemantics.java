@@ -216,7 +216,7 @@ public class PrimitiveAssociationSemantics {
       if (!fixed.equals(oldPropertyValue)) {
         e.setBlobString(blobName, fixed);
         return fixed;
-      }
+      }                                                                                               
     }
     return blobString;
   }
