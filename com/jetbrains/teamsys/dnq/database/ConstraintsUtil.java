@@ -138,13 +138,19 @@ class ConstraintsUtil {
               for (String changedLink : changedLinks.keySet()) {
                 AssociationEndMetaData aemd = md.getAssociationEndMetaData(changedLink);
 
-                if (log.isTraceEnabled()) {
-                  log.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
+                if (aemd == null) {
+                  log.error("aemd is null. Type: [" + e.getType() + "]. Changed link: " + changedLink);
+                } else {
+                  if (log.isTraceEnabled()) {
+                    log.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
+                  }
+
+                  if (!checkCardinality(e, aemd)) {
+                    exceptions.add(new CardinalityViolationException(e, aemd));
+                  }
+
                 }
 
-                if (!checkCardinality(e, aemd)) {
-                  exceptions.add(new CardinalityViolationException(e, aemd));
-                }
               }
             }
           }
