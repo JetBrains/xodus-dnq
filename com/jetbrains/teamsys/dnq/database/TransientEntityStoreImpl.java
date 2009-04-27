@@ -108,11 +108,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     throw new UnsupportedOperationException("Not supported by transient store. Use beginSession(name, id) instead.");
   }
 
-  public TransientStoreSession beginSession(@Nullable String name, @NotNull Object id) {
+  public TransientStoreSession beginSession(@Nullable String name, Object id) {
     return beginSession(name, id, TransientStoreSessionMode.readwrite);
   }
 
-  public TransientStoreSession beginSession(@Nullable String name, @NotNull Object id, @NotNull TransientStoreSessionMode mode) {
+  protected TransientStoreSession beginSession(@Nullable String name, Object id, @NotNull TransientStoreSessionMode mode) {
     if (name == null) {
       name = "anonymous";
     }
@@ -130,14 +130,17 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
       }
     }
 
-    if (getStoreSession(id) != null) {
-      if (resumeOnBeginIfExists) {
-        return resumeSession(id);
-      } else {
-        throw new IllegalArgumentException("Transient session with id [" + id + "] already exists.");
-      }
+    if (id == null) {
+        return registerStoreSession(new TransientSessionImpl(this, name));
+    } else {
+        if (getStoreSession(id) != null) {
+          if (resumeOnBeginIfExists) {
+            return resumeSession(id);
+          } else {
+            throw new IllegalArgumentException("Transient session with id [" + id + "] already exists.");
+          }
+        }
     }
-
     return registerStoreSession(new TransientSessionImpl(this, name, id));
   }
 
@@ -168,6 +171,24 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     currentSession.set(s);
 
     return s;
+  }
+
+  public void resumeSession(TransientStoreSession session) {
+    if (session != null) {
+      if (log.isDebugEnabled()) {
+        log.debug("Resume session [" + session.getName() + "] with id [" + session.getId() + "]");
+      }
+
+      TransientStoreSession current = currentSession.get();
+      if (current != null) {
+        if (current != session) {
+         throw new IllegalStateException("Another open transient session already associated with current thread.");
+        }
+      }
+
+      session.resume();
+      currentSession.set(session);
+    }
   }
 
   public void setModelMetaData(final ModelMetaData modelMetaData) {

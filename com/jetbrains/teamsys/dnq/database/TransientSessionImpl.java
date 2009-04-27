@@ -55,6 +55,11 @@ public class TransientSessionImpl extends AbstractTransientSession {
   // stores created readonly entities
   private Map<EntityId, ReadonlyTransientEntityImpl> createdReadonlyTransientEntities = new HashMapDecorator<EntityId, ReadonlyTransientEntityImpl>();
 
+  protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name) {
+    this(store, name, null);
+    this.id = System.identityHashCode(this);
+  }
+
   protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id) {
     super(store, name, id);
 
@@ -211,6 +216,20 @@ public class TransientSessionImpl extends AbstractTransientSession {
       default:
         throw new IllegalArgumentException("Can't abort in state " + state);
     }
+  }
+
+  public void abort(@NotNull Throwable e) {
+    abort();
+
+    if (e instanceof Error) {
+      throw (Error)e;
+    }
+
+    if (e instanceof RuntimeException) {
+      throw (RuntimeException)e;
+    }
+
+    throw new RuntimeException(e);
   }
 
   /*
