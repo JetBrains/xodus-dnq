@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -25,6 +26,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
   protected static final Log log = LogFactory.getLog(TransientSessionImpl.class);
   private static final String TEMP_FILE_NAME_SEQUENCE = "__TEMP_FILE_NAME_SEQUENCE__";
+  private static final AtomicLong UNIQUE_ID = new AtomicLong(0);
 
   enum State {
     Open("open"),
@@ -57,7 +59,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
   protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name) {
     this(store, name, null);
-    this.id = System.identityHashCode(this);
+    this.id = UNIQUE_ID.incrementAndGet();
   }
 
   protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id) {
