@@ -58,6 +58,11 @@ public class DirectedAssociationSemantics {
    */
   public static void createToMany(@NotNull Entity source, @NotNull String linkName, @NotNull Entity target) {
     source = TransientStoreUtil.reattach((TransientEntity)source);
+
+    if (source == null) {
+      return;
+    }
+
     target = TransientStoreUtil.reattach((TransientEntity)target);
 
     source.addLink(linkName, target);
@@ -94,6 +99,10 @@ public class DirectedAssociationSemantics {
    */
   public static void clearToMany(@NotNull Entity source, @NotNull String linkName) {
     source = TransientStoreUtil.reattach((TransientEntity)source);
+
+    if (source == null) {
+      return;
+    }
 
     for (Entity target : AssociationSemantics.getToManyList(source, linkName)) {
       source.deleteLink(linkName, target);
