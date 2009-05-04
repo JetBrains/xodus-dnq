@@ -13,100 +13,104 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DirectedAssociationSemantics {
 
-  /**
-   * user.role = role
-   * user.role = null
-   * 
-   * @param source
-   * @param linkName
-   * @param target
-   */
-  public static void setToOne(Entity source, @NotNull String linkName, @Nullable Entity target) {
-    source = TransientStoreUtil.reattach((TransientEntity)source);
+    /**
+     * user.role = role
+     * user.role = null
+     *
+     * @param source
+     * @param linkName
+     * @param target
+     */
+    public static void setToOne(Entity source, @NotNull String linkName, @Nullable Entity target) {
+        source = TransientStoreUtil.reattach((TransientEntity) source);
 
-    if (source == null) {
-      return;
+        if (source == null) {
+            return;
+        }
+
+        target = TransientStoreUtil.reattach((TransientEntity) target);
+
+        // find old target
+        Entity oldTarget = source.getLink(linkName);
+
+        // compare new and old targets
+        if (oldTarget == null && target == null) {
+            return;
+        }
+        if (oldTarget != null && oldTarget.equals(target)) {
+            return;
+        }
+
+        // set new target
+        if (target == null) {
+            source.deleteLinks(linkName);
+        } else {
+            ((TransientEntity) source).setLink(linkName, target);
+        }
     }
 
-    target = TransientStoreUtil.reattach((TransientEntity)target);
+    /**
+     * project.users.add(user)
+     *
+     * @param source
+     * @param linkName
+     * @param target
+     */
+    public static void createToMany(@NotNull Entity source, @NotNull String linkName, @NotNull Entity target) {
+        source = TransientStoreUtil.reattach((TransientEntity) source);
 
-    // find old target
-    Entity oldTarget = source.getLink(linkName);
+        if (source == null) {
+            return;
+        }
 
-    // compare new and old targets
-    if (oldTarget == null && target == null) {
-      return;
-    }
-    if (oldTarget != null && oldTarget.equals(target)) {
-      return;
-    }
+        target = TransientStoreUtil.reattach((TransientEntity) target);
 
-    // set new target
-    if (target == null) {
-      source.deleteLinks(linkName);
-    } else {
-      ((TransientEntity)source).setLink(linkName, target);
-    }
-  }
+        if (target == null) {
+            return;
+        }
 
-  /**
-   * project.users.add(user)
-   *
-   * @param source
-   * @param linkName
-   * @param target
-   */
-  public static void createToMany(@NotNull Entity source, @NotNull String linkName, @NotNull Entity target) {
-    source = TransientStoreUtil.reattach((TransientEntity)source);
-
-    if (source == null) {
-      return;
+        source.addLink(linkName, target);
     }
 
-    target = TransientStoreUtil.reattach((TransientEntity)target);
+    /**
+     * project.users.remove(user)
+     *
+     * @param source
+     * @param linkName
+     * @param target
+     */
+    public static void removeToMany(@NotNull Entity source, @NotNull String linkName, @NotNull Entity target) {
+        source = TransientStoreUtil.reattach((TransientEntity) source);
 
-    source.addLink(linkName, target);
-  }
+        if (source == null) {
+            return;
+        }
 
-  /**
-   * project.users.remove(user)
-   *
-   * @param source
-   * @param linkName
-   * @param target
-   */
-  public static void removeToMany(@NotNull Entity source, @NotNull String linkName, @NotNull Entity target) {
-    source = TransientStoreUtil.reattach((TransientEntity)source);
+        target = TransientStoreUtil.reattach((TransientEntity) target);
 
-    if (source == null) {
-      return;
+        if (target == null) {
+            return;
+        }
+
+        source.deleteLink(linkName, target);
     }
 
-    target = TransientStoreUtil.reattach((TransientEntity)target);
+    /**
+     * project.users.clear
+     *
+     * @param source
+     * @param linkName
+     */
+    public static void clearToMany(@NotNull Entity source, @NotNull String linkName) {
+        source = TransientStoreUtil.reattach((TransientEntity) source);
 
-    if (target == null) {
-      return;
+        if (source == null) {
+            return;
+        }
+
+        for (Entity target : AssociationSemantics.getToManyList(source, linkName)) {
+            source.deleteLink(linkName, target);
+        }
     }
-
-    source.deleteLink(linkName, target);
-  }
-
-  /**
-   * project.users.clear
-   *
-   * @param source
-   * @param linkName
-   */
-  public static void clearToMany(@NotNull Entity source, @NotNull String linkName) {
-    source = TransientStoreUtil.reattach((TransientEntity)source);
-
-    if (source == null) {
-      return;
-    }
-
-    for (Entity target : AssociationSemantics.getToManyList(source, linkName)) {
-      source.deleteLink(linkName, target);
-    }
-  }
 
 }
