@@ -147,7 +147,7 @@ public class PrimitiveAssociationSemantics {
           e.setProperty(propertyName, byteValue);
         }
       } else {
-        // boolean and string
+        // boolean, string and date
         if (!propertyValue.equals(oldPropertyValue)) {
           e.setProperty(propertyName, propertyValue);
         }
