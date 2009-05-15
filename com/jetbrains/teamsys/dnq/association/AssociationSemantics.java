@@ -40,7 +40,7 @@ public class AssociationSemantics {
   }
 
   @NotNull
-  public static EntityIterable getToMany(@NotNull Entity e, @NotNull String linkName) {
+  public static EntityIterable getToMany(@Nullable Entity e, @NotNull String linkName) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
     if (e == null) {
