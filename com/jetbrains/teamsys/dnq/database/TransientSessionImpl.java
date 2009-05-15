@@ -934,7 +934,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   private void updateCaches() {
-    // all new transient entities was saved or removed - clear cache
+    // all new transient entities were saved or removed - clear cache
     // FIX: do not clear cache of new entities to support old IDs for Webr
     // createdNewTransientEntities.clear();
     // reload version of changed persistent entities, remove removed and clear caches
