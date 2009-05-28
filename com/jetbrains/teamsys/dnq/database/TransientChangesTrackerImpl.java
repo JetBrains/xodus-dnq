@@ -227,8 +227,11 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target, final TransientEntity oldTarget) {
     entityChanged(source);
+    // don't set old target if the original old target was already set for current linkName 
+    Map<String, LinkChange> linkChangeMap = entityToChangedLinksDetailed.get(source);
+    boolean dontSetOldTarget = oldTarget == null || (linkChangeMap != null && linkChangeMap.get(linkName) != null);
     linkChangedDetailed(source, linkName, LinkChangeType.SET,
-            new NanoSet<TransientEntity>(target), oldTarget != null ? new NanoSet<TransientEntity>(oldTarget) : null);
+            new NanoSet<TransientEntity>(target), dontSetOldTarget ? null : new NanoSet<TransientEntity>(oldTarget));
 
     offerChange(new Runnable() {
       public void run() {
