@@ -716,75 +716,77 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     Object handle(@NotNull AbstractTransientEntity entity, @Nullable P1 param1, @Nullable P2 param2) {
-      if (entity.session.isAborted() || entity.session.isCommitted()) {
-        switch (entity.state) {
-          case New:
-            throw new IllegalStateException("Illegal comination of session and transient entity states (Commited or Aborted, New). Possible bug. " + entity);
-
-          case Saved:
-          case SavedNew:
-            return processClosedSaved(entity, param1, param2);
-
-          case RemovedNew:
-          case RemovedSaved:
-            return processClosedRemoved(entity, param1, param2);
-
-          case Temporary:
-            return processTemporary(entity, param1, param2);
-        }
-      } else if (entity.session.isOpened()) {
-        // check that entity is accessed in the same thread as session
-        final TransientStoreSession storeSession = (TransientStoreSession) entity.getStore().getThreadSession();
-        if (entity.session != storeSession) {
+      do {
+        if (entity.session.isAborted() || entity.session.isCommitted()) {
           switch (entity.state) {
             case New:
-              return processOpenFromAnotherSessionNew(entity, param1, param2);
+              throw new IllegalStateException("Illegal comination of session and transient entity states (Commited or Aborted, New). Possible bug. " + entity);
 
             case Saved:
             case SavedNew:
-              return processOpenFromAnotherSessionSaved(entity, param1, param2);
+              return processClosedSaved(entity, param1, param2);
 
             case RemovedNew:
             case RemovedSaved:
-              return processOpenFromAnotherSessionRemoved(entity, param1, param2);
+              return processClosedRemoved(entity, param1, param2);
+
+            case Temporary:
+              return processTemporary(entity, param1, param2);
+          }
+        } else if (entity.session.isOpened()) {
+          // check that entity is accessed in the same thread as session
+          final TransientStoreSession storeSession = (TransientStoreSession) entity.getStore().getThreadSession();
+          if (entity.session != storeSession) {
+            switch (entity.state) {
+              case New:
+                return processOpenFromAnotherSessionNew(entity, param1, param2);
+
+              case Saved:
+              case SavedNew:
+                return processOpenFromAnotherSessionSaved(entity, param1, param2);
+
+              case RemovedNew:
+              case RemovedSaved:
+                return processOpenFromAnotherSessionRemoved(entity, param1, param2);
+              case Temporary:
+                return processTemporary(entity, param1, param2);
+            }
+          }
+
+          switch (entity.state) {
+            case New:
+              return processOpenNew(entity, param1, param2);
+
+            case Saved:
+            case SavedNew:
+              return processOpenSaved(entity, param1, param2);
+
+            case RemovedNew:
+            case RemovedSaved:
+              return processOpenRemoved(entity, param1, param2);
+            case Temporary:
+              return processTemporary(entity, param1, param2);
+          }
+
+        } else if (entity.session.isSuspended()) {
+          switch (entity.state) {
+            case New:
+              throw new IllegalStateException("Can't access new transient entity while its session is suspended. " + entity);
+
+            case Saved:
+            case SavedNew:
+              return processSuspendedSaved(entity, param1, param2);
+
+            case RemovedNew:
+            case RemovedSaved:
+              return processSuspendedRemoved(entity, param1, param2);
             case Temporary:
               return processTemporary(entity, param1, param2);
           }
         }
 
-        switch (entity.state) {
-          case New:
-            return processOpenNew(entity, param1, param2);
-
-          case Saved:
-          case SavedNew:
-            return processOpenSaved(entity, param1, param2);
-
-          case RemovedNew:
-          case RemovedSaved:
-            return processOpenRemoved(entity, param1, param2);
-          case Temporary:
-            return processTemporary(entity, param1, param2);
-        }
-
-      } else if (entity.session.isSuspended()) {
-        switch (entity.state) {
-          case New:
-            throw new IllegalStateException("Can't access new transient entity while its session is suspended. " + entity);
-
-          case Saved:
-          case SavedNew:
-            return processSuspendedSaved(entity, param1, param2);
-
-          case RemovedNew:
-          case RemovedSaved:
-            return processSuspendedRemoved(entity, param1, param2);
-          case Temporary:
-            return processTemporary(entity, param1, param2);
-        }
-      }
-
-      throw new IllegalStateException("Unknown session state. " + entity);
+      } while (true);
+      //throw new IllegalStateException("Unknown session state. " + entity);
     }
 
     protected Object processClosedRemoved(AbstractTransientEntity entity, P1 paraP1, P2 param2) {
