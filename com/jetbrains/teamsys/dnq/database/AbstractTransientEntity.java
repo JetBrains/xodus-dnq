@@ -777,7 +777,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
             case SavedNew:
               return processSuspendedSaved(entity, param1, param2);
 
-            case RemovedNew:
+            case RemovedNew:        
             case RemovedSaved:
               return processSuspendedRemoved(entity, param1, param2);
             case Temporary:
