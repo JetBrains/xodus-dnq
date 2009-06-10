@@ -88,8 +88,8 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   }
 
   private void reinitAddedAndRemoved() {
-     added = new HashSet<TransientEntity>();
-     removed = new HashSet<TransientEntity>();
+     added = null;
+     removed = null;
   }
 
   private Set<TransientEntity> getLinksSet() {
@@ -223,6 +223,12 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
           case LinksNotLoaded:
             // all changes are saved into database after flush - clear local data about changes
             reinitAddedAndRemoved();
+            break;
+
+          case LinksLoaded:
+            state = State.LinksNotLoaded;
+            links.clear();
+            break;
         }
     }
   }
