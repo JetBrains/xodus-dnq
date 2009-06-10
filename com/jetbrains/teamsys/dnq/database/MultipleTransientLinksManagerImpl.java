@@ -227,7 +227,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
 
           case LinksLoaded:
             state = State.LinksNotLoaded;
-            links.clear();
+            if (links != null) links.clear();
             break;
         }
     }
