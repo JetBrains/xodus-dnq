@@ -8,6 +8,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  */
@@ -25,6 +27,7 @@ public class ModelMetaDataImpl implements ModelMetaData {
     }
 
     for (final EntityMetaData emd : entityMetaDatas) {
+      // add subtype
       final String superType = emd.getSuperType();
       if (superType != null) {
         final EntityMetaData superEmd = typeToEntityMetaDatas.get(superType);
@@ -33,6 +36,15 @@ public class ModelMetaDataImpl implements ModelMetaData {
         }
         superEmd.addSubType(emd.getType());
       }
+
+      // set supertypes
+      List<String> thisAndSuperTypes = new ArrayList<String>();
+      String t = emd.getType();
+      do {
+        thisAndSuperTypes.add(t);
+        t = typeToEntityMetaDatas.get(t).getSuperType();        
+      } while (t != null);
+      emd.setThisAndSuperTypes(thisAndSuperTypes);
     }
   }
 

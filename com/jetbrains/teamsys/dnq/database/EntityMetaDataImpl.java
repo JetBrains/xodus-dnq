@@ -9,9 +9,7 @@ import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class EntityMetaDataImpl implements EntityMetaData {
 
@@ -21,6 +19,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private InstanceRef<? extends BasePersistentClass> instanceRef = null;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
+  private List<String> thisAndSuperTypes = new ArrayList<String>();
   private Map<String, AssociationEndMetaData> associationEnds = null;
   private Set<AssociationEndMetaData> externalAssociationEnds = null;
   private Set<String> aggregationChildEnds = null;
@@ -38,6 +37,14 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
   public void setSuperType(String superType) {
     this.superType = superType;
+  }
+
+  public Iterable<String> getThisAndSuperTypes() {
+    return thisAndSuperTypes;
+  }
+
+  public void setThisAndSuperTypes(List<String> thisAndSuperTypes) {
+    this.thisAndSuperTypes = thisAndSuperTypes;
   }
 
   public boolean hasSubTypes() {
