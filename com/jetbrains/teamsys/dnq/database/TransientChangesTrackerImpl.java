@@ -98,10 +98,11 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     Set<TransientEntityChange> res = new HashSetDecorator<TransientEntityChange>();
 
     for (TransientEntity e : getChangedEntities()) {
-      if (!e.isTemporary()) {
-        res.add(new TransientEntityChange(e, getChangedPropertiesDetailed(e),
-                getChangedLinksDetailed(e), decodeState(e)));
-      }
+      // do not notify about temp and RemovedNew entities
+      if (e.isTemporary() || (e.isRemoved() && e.wasNew())) continue;
+      
+      res.add(new TransientEntityChange(e, getChangedPropertiesDetailed(e),
+              getChangedLinksDetailed(e), decodeState(e)));
     }
 
     return res;
