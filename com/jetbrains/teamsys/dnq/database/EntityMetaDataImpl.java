@@ -5,6 +5,7 @@ import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
+import com.jetbrains.teamsys.database.exceptions.ConstraintsValidationException;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -126,8 +127,8 @@ public class EntityMetaDataImpl implements EntityMetaData {
     return associationEnds.values();
   }
 
-  public boolean getInvariant(Entity e) {
-    return instanceRef.getInstance(e).evaluateInvariant(e);
+  public void executeBeforeFlushTrigger(Entity e) {
+    instanceRef.getInstance(e).executeBeforeFlushTrigger(e);
   }
 
   public boolean getHasHistory(Entity e) {
