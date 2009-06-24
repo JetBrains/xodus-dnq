@@ -50,7 +50,11 @@ public class ModelMetaDataImpl implements ModelMetaData {
 
   @Nullable
   public EntityMetaData getEntityMetaData(@NotNull String typeName) {
-    return typeToEntityMetaDatas.get(typeName);
+    EntityMetaData emd = typeToEntityMetaDatas.get(typeName);
+    if (emd == null) {
+      throw new IllegalArgumentException("Can't find metadata for entity [" + typeName +"]");
+    }
+    return emd;
   }
 
   @NotNull
