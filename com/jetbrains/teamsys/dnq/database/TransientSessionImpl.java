@@ -359,7 +359,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   @NotNull
-  public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @Nullable final Comparable value) {
+  public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable value) {
     switch (state) {
       case Open:
         return new PersistentEntityIterableWrapper(getPersistentSessionInternal().find(entityType, propertyName, value));
