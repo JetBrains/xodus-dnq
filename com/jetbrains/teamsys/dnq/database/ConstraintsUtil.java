@@ -49,15 +49,17 @@ class ConstraintsUtil {
     Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
 
     for (TransientEntity e : changesTracker.getChangedEntities()) {
-      EntityMetaData md = modelMetaData.getEntityMetaData(e.getType());
+      if (!e.isRemoved()) {
+        EntityMetaData md = modelMetaData.getEntityMetaData(e.getType());
 
-      // meta-data may be null for persistent enums
-      if (md != null) {
-        try {
-          md.executeBeforeFlushTrigger(e);
-        } catch (ConstraintsValidationException cve) {
-          for (DataIntegrityViolationException dive: cve.getCauses()) {
-            exceptions.add(dive);
+        // meta-data may be null for persistent enums
+        if (md != null) {
+          try {
+            md.executeBeforeFlushTrigger(e);
+          } catch (ConstraintsValidationException cve) {
+            for (DataIntegrityViolationException dive: cve.getCauses()) {
+              exceptions.add(dive);
+            }
           }
         }
       }
