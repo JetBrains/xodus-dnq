@@ -20,7 +20,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private InstanceRef<? extends BasePersistentClass> instanceRef = null;
   private boolean removeOrphan = true;
   private Set<String> subTypes = new HashSetDecorator<String>();
-  private List<String> thisAndSuperTypes = new ArrayList<String>();
+  private List<String> thisAndSuperTypes = Collections.emptyList();
   private Map<String, AssociationEndMetaData> associationEnds = null;
   private Set<AssociationEndMetaData> externalAssociationEnds = null;
   private Set<String> aggregationChildEnds = null;
