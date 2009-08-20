@@ -387,6 +387,14 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
   }
 
+  public void dumpSessions(StringBuilder sb) {
+    synchronized (sessions) {
+      for (TransientStoreSession s: sessions.values()) {
+        sb.append("\n").append(s.toString());
+      }
+    }
+  }
+
   interface ListenerVisitor {
     void visit(TransientStoreSessionListener listener);
   }
