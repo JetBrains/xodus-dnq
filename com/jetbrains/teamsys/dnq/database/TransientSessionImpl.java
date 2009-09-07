@@ -917,7 +917,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     private void checkDatabaseState() {
         if (store.getPersistentStore().isReadonly()) {
-            throw new DatabaseStateIsReadonlyException("Database backup is in progress. Please wait and then repeat your action.");
+            throw new DatabaseStateIsReadonlyException("maintenance is in progress. Please repeat your action later.");
         }
     }
 
