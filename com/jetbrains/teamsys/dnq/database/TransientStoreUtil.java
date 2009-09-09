@@ -87,17 +87,7 @@ public class TransientStoreUtil {
     }
   }
 
-  public static void resume(@Nullable TransientStoreSession s) {
-    if (s != null && s.isSuspended()) {
-      try {
-        s.resume();
-      } catch (Throwable e) {
-        abort(e, s);
-      }
-    }
-  }
-
-  public static void abort(@NotNull Throwable e, @Nullable TransientStoreSession s) {
+    public static void abort(@NotNull Throwable e, @Nullable TransientStoreSession s) {
     if (s != null && s.isOpened()) {
       s.abort();
     }
