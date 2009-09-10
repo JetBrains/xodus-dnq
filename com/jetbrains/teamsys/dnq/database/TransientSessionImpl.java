@@ -578,7 +578,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (log.isDebugEnabled()) {
             log.debug("Close persistent session for transient session " + this);
         }
-        getPersistentSessionInternal().close();
+      StoreSession persistentSession = getPersistentSessionInternal();
+      if (persistentSession != null) {
+        persistentSession.close();
+      }
     }
 
     protected void doResume() {
