@@ -7,6 +7,7 @@ import com.jetbrains.teamsys.core.execution.locks.Latch;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
+import com.sleepycat.je.DeadlockException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -578,10 +579,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (log.isDebugEnabled()) {
             log.debug("Close persistent session for transient session " + this);
         }
-      StoreSession persistentSession = getPersistentSessionInternal();
-      if (persistentSession != null) {
-        persistentSession.close();
-      }
+        StoreSession persistentSession = getPersistentSessionInternal();
+        if (persistentSession != null) {
+            persistentSession.close();
+        }
     }
 
     protected void doResume() {
@@ -904,6 +905,16 @@ public class TransientSessionImpl extends AbstractTransientSession {
         } catch (Throwable e) {
             // tracker make some changes in transient entities - rollback them
             try {
+                if (e instanceof DeadlockException) {
+                    final Map<Thread, StackTraceElement[]> stackTraces = Thread.getAllStackTraces();
+                    for (Thread t : stackTraces.keySet()) {
+                        log.info(t);
+                        final StackTraceElement[] traceElements = stackTraces.get(t);
+                        for (StackTraceElement traceElement : traceElements) {
+                            log.info(traceElement);
+                        }
+                    }
+                }
                 rollbackTransientTrackerChanges();
                 fixEntityIdsInDataIntegrityViolationException(e);
             } finally {
