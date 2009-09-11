@@ -905,7 +905,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         } catch (Throwable e) {
             // tracker make some changes in transient entities - rollback them
             try {
-                if (e instanceof DeadlockException) {
+                if (e.getCause() instanceof DeadlockException) {
                     final Map<Thread, StackTraceElement[]> stackTraces = Thread.getAllStackTraces();
                     for (Thread t : stackTraces.keySet()) {
                         log.info(t);
