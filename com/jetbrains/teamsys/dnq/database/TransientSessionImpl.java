@@ -908,10 +908,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 if (e.getCause() instanceof DeadlockException) {
                     final Map<Thread, StackTraceElement[]> stackTraces = Thread.getAllStackTraces();
                     for (Thread t : stackTraces.keySet()) {
-                        log.info(t);
+                        log.error(t);
                         final StackTraceElement[] traceElements = stackTraces.get(t);
                         for (StackTraceElement traceElement : traceElements) {
-                            log.info(traceElement);
+                            log.error(traceElement);
                         }
                     }
                 }
