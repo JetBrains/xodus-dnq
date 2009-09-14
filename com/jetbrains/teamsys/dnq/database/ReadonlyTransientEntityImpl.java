@@ -12,20 +12,13 @@ import java.util.Set;
 
 public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   private Boolean hasChanges = null;
-  private Map<String, Boolean> hasChangesForProperty;
   private Map<String, LinkChange> linksDetaled;
+  private Map<String, PropertyChange> propertiesDetaled;
 
   ReadonlyTransientEntityImpl(@NotNull TransientEntityChange change, @NotNull TransientStoreSession session) {
     super(((AbstractTransientEntity)change.getTransientEntity()).getPersistentEntityInternal(), session);
 
-    Map<String,PropertyChange> propertiesDetaled = change.getChangedPropertiesDetaled();
-
-    if (propertiesDetaled != null) {
-      for (String propertyName : propertiesDetaled.keySet()) {
-        propertiesCache.put(propertyName, propertiesDetaled.get(propertyName).getOldValue());
-      }
-    }
-
+    this.propertiesDetaled = change.getChangedPropertiesDetaled();
     this.linksDetaled = change.getChangedLinksDetaled();
   }
 
@@ -88,7 +81,16 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     throw createReadonlyException();
   }
 
-    @NotNull
+  @Override
+  public <T extends Comparable> T getProperty(@NotNull String propertyName) {
+    if (propertiesDetaled.containsKey(propertyName)) {
+      return (T) propertiesDetaled.get(propertyName).getOldValue();
+    } else {
+      return (T)super.getProperty(propertyName);
+    }
+  }
+
+  @NotNull
     @Override
     public EntityIterable getLinks(@NotNull String linkName) {
         LinkChange c = linksDetaled.get(linkName);
@@ -108,7 +110,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
     @Override
     public long getLinksSize(@NotNull String linkName) {
-        return super.getLinksSize(linkName);    //To change body of overridden methods use File | Settings | File Templates.
+        return super.getLinksSize(linkName);
     }
 
     @Override
@@ -122,7 +124,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
       return true;
     } else {
       // lazy hasChanges evaluation
-      if (hasChanges == null) evaluateHasChanges();
+      if (hasChanges == null) { evaluateHasChanges();}
       return hasChanges;
     }
   }
@@ -132,10 +134,12 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     if (super.hasChanges(property)) {
       return true;
     } else {
-      // lazy hasChanges evaluation
-      if (hasChangesForProperty == null) evaluateHasChangesForProperty();
-      Boolean hasChanges = hasChangesForProperty.get(property);
-      return hasChanges == null ? false : hasChanges;
+      if (linksDetaled.containsKey(property)) {
+        LinkChange change = linksDetaled.get(property);
+        return change.getAddedEntitiesSize() > 0 || change.getRemovedEntitiesSize() > 0;
+      }
+
+      return propertiesDetaled.containsKey(property);
     }
   }
 
@@ -188,49 +192,19 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         for (String linkName : linksDetaled.keySet()) {
             LinkChange linkChange = linksDetaled.get(linkName);
             if (linkChange != null) {
-                Set<TransientEntity> addedEntities = linkChange.getAddedEntities();
-                Set<TransientEntity> removedEntities = linkChange.getRemovedEntities();
-                if (addedEntities != null) {
-                    if (addedEntities.size() > 0) {
-                        hasChanges = true;
-                        break;
-                    }
-                }
-                if (removedEntities != null) {
-                    if (removedEntities.size() > 0) {
-                        hasChanges = true;
-                        break;
-                    }
+                if (linkChange.getAddedEntitiesSize() > 0 || linkChange.getRemovedEntitiesSize() > 0) {
+                  hasChanges = true;
+                  break;
                 }
             }
         }
       }
-      this.hasChanges = hasChanges;
-  }
 
-  private void evaluateHasChangesForProperty() {
-      hasChangesForProperty = new HashMap<String, Boolean>();
-      if (linksDetaled != null) {
-        for (String linkName : linksDetaled.keySet()) {
-            LinkChange linkChange = linksDetaled.get(linkName);
-            if (linkChange != null) {
-                Set<TransientEntity> addedEntities = linkChange.getAddedEntities();
-                Set<TransientEntity> removedEntities = linkChange.getRemovedEntities();
-                if (addedEntities != null) {
-                    if (addedEntities.size() > 0) {
-                        hasChangesForProperty.put(linkName, true);
-                        continue; // process next link name
-                    }
-                }
-                if (removedEntities != null) {
-                    if (removedEntities.size() > 0) {
-                        hasChangesForProperty.put(linkName, true);
-                        continue; // process next link name
-                    }
-                }
-            }
-        }
+      if (propertiesDetaled != null && propertiesDetaled.size() > 0) {
+        hasChanges = true;
       }
+
+      this.hasChanges = hasChanges;
   }
 
   private IllegalStateException createReadonlyException() {
