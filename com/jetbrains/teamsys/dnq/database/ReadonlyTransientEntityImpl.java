@@ -16,7 +16,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   private Map<String, PropertyChange> propertiesDetaled;
 
   ReadonlyTransientEntityImpl(@NotNull TransientEntityChange change, @NotNull TransientStoreSession session) {
-    super(((AbstractTransientEntity)change.getTransientEntity()).getPersistentEntityInternal(), session);
+    super(((AbstractTransientEntity) change.getTransientEntity()).getPersistentEntityInternal(), session);
 
     this.propertiesDetaled = change.getChangedPropertiesDetaled();
     this.linksDetaled = change.getChangedLinksDetaled();
@@ -83,37 +83,40 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
   @Override
   public <T extends Comparable> T getProperty(@NotNull String propertyName) {
-    if (propertiesDetaled.containsKey(propertyName)) {
+    if (propertiesDetaled != null && propertiesDetaled.containsKey(propertyName)) {
       return (T) propertiesDetaled.get(propertyName).getOldValue();
     } else {
-      return (T)super.getProperty(propertyName);
+      return (T) super.getProperty(propertyName);
     }
   }
 
   @NotNull
-    @Override
-    public EntityIterable getLinks(@NotNull String linkName) {
-        LinkChange c = linksDetaled.get(linkName);
-        EntityIterable result = super.getLinks(linkName);
-        if (c != null) {
-            Set<TransientEntity> addedEntities = c.getAddedEntities();
-            Set<TransientEntity> removedEntities = c.getRemovedEntities();
-            if (addedEntities != null) {
-                result = result.union(new TransientEntityIterable(addedEntities));
-            }
-            if (removedEntities != null) {
-                result = result.minus(new TransientEntityIterable(removedEntities));
-            }
+  @Override
+  public EntityIterable getLinks(@NotNull String linkName) {
+    EntityIterable result = super.getLinks(linkName);
+
+    if (linksDetaled != null) {
+      LinkChange c = linksDetaled.get(linkName);
+      if (c != null) {
+        Set<TransientEntity> addedEntities = c.getAddedEntities();
+        Set<TransientEntity> removedEntities = c.getRemovedEntities();
+        if (addedEntities != null) {
+          result = result.union(new TransientEntityIterable(addedEntities));
         }
-        return result;
+        if (removedEntities != null) {
+          result = result.minus(new TransientEntityIterable(removedEntities));
+        }
+      }
     }
+    return result;
+  }
 
-    @Override
-    public long getLinksSize(@NotNull String linkName) {
-        return super.getLinksSize(linkName);
-    }
+  @Override
+  public long getLinksSize(@NotNull String linkName) {
+    return super.getLinksSize(linkName);
+  }
 
-    @Override
+  @Override
   public void delete() {
     throw createReadonlyException();
   }
@@ -124,7 +127,9 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
       return true;
     } else {
       // lazy hasChanges evaluation
-      if (hasChanges == null) { evaluateHasChanges();}
+      if (hasChanges == null) {
+        evaluateHasChanges();
+      }
       return hasChanges;
     }
   }
@@ -134,77 +139,83 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     if (super.hasChanges(property)) {
       return true;
     } else {
-      if (linksDetaled.containsKey(property)) {
+      if (linksDetaled != null && linksDetaled.containsKey(property)) {
         LinkChange change = linksDetaled.get(property);
         return change.getAddedEntitiesSize() > 0 || change.getRemovedEntitiesSize() > 0;
       }
 
-      return propertiesDetaled.containsKey(property);
+      return propertiesDetaled != null && propertiesDetaled.containsKey(property);
     }
   }
 
-    @Override
-    public EntityIterable getAddedLinks(String name) {
-        final LinkChange c = linksDetaled.get(name);
-        if (c != null) {
-            Set<TransientEntity> added = c.getAddedEntities();
+  @Override
+  public EntityIterable getAddedLinks(String name) {
+    if (linksDetaled != null) {
+      final LinkChange c = linksDetaled.get(name);
+      if (c != null) {
+        Set<TransientEntity> added = c.getAddedEntities();
 
-            if (added != null) {
-                return new TransientEntityIterable(added) {
-                    @Override
-                    public long size() {
-                        return c.getAddedEntitiesSize();
-                    }
-                    @Override
-                    public long count() {
-                        return c.getAddedEntitiesSize();
-                    }
-                };
+        if (added != null) {
+          return new TransientEntityIterable(added) {
+            @Override
+            public long size() {
+              return c.getAddedEntitiesSize();
             }
-        }
-        return EntityIterableBase.EMPTY;
-    }
 
-    @Override
-    public EntityIterable getRemovedLinks(String name) {
-        final LinkChange c = linksDetaled.get(name);
-        if (c != null) {
-            Set<TransientEntity> removed = c.getRemovedEntities();
-            if (removed != null) {
-                return new TransientEntityIterable(removed) {
-                    @Override
-                    public long size() {
-                        return c.getRemovedEntitiesSize();
-                    }
-                    @Override
-                    public long count() {
-                        return c.getRemovedEntitiesSize();
-                    }
-                };
+            @Override
+            public long count() {
+              return c.getAddedEntitiesSize();
             }
-        }
-        return EntityIterableBase.EMPTY;
-    }
-
-    private void evaluateHasChanges() {
-      boolean hasChanges = false;
-      if (linksDetaled != null) {
-        for (String linkName : linksDetaled.keySet()) {
-            LinkChange linkChange = linksDetaled.get(linkName);
-            if (linkChange != null) {
-                if (linkChange.getAddedEntitiesSize() > 0 || linkChange.getRemovedEntitiesSize() > 0) {
-                  hasChanges = true;
-                  break;
-                }
-            }
+          };
         }
       }
+    }
+    return EntityIterableBase.EMPTY;
+  }
 
-      if (propertiesDetaled != null && propertiesDetaled.size() > 0) {
-        hasChanges = true;
+  @Override
+  public EntityIterable getRemovedLinks(String name) {
+    if (linksDetaled != null) {
+      final LinkChange c = linksDetaled.get(name);
+      if (c != null) {
+        Set<TransientEntity> removed = c.getRemovedEntities();
+        if (removed != null) {
+          return new TransientEntityIterable(removed) {
+            @Override
+            public long size() {
+              return c.getRemovedEntitiesSize();
+            }
+
+            @Override
+            public long count() {
+              return c.getRemovedEntitiesSize();
+            }
+          };
+        }
       }
+    }
+    return EntityIterableBase.EMPTY;
+  }
 
-      this.hasChanges = hasChanges;
+  private void evaluateHasChanges() {
+    boolean hasChanges = false;
+    if (linksDetaled != null) {
+      for (String linkName : linksDetaled.keySet()) {
+        LinkChange linkChange = linksDetaled.get(linkName);
+        if (linkChange != null) {
+          if (linkChange.getAddedEntitiesSize() > 0 || linkChange.getRemovedEntitiesSize() > 0) {
+            hasChanges = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (propertiesDetaled != null && propertiesDetaled.size() > 0) {
+      hasChanges = true;
+    }
+
+    this.hasChanges = hasChanges;
   }
 
   private IllegalStateException createReadonlyException() {
