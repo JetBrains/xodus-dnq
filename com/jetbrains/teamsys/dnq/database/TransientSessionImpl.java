@@ -905,18 +905,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
         } catch (Throwable e) {
             // tracker make some changes in transient entities - rollback them
             try {
-                if (e.getCause() instanceof DeadlockException) {
-                    final Map<Thread, StackTraceElement[]> stackTraces = Thread.getAllStackTraces();
-                    for (Thread t : stackTraces.keySet()) {
-                        log.error(t);
-                        final StackTraceElement[] traceElements = stackTraces.get(t);
-                        for (StackTraceElement traceElement : traceElements) {
-                            log.error(traceElement);
-                        }
-                    }
-                }
-                rollbackTransientTrackerChanges();
-                fixEntityIdsInDataIntegrityViolationException(e);
+              logThreadsDump(e);
+              rollbackTransientTrackerChanges();
+              fixEntityIdsInDataIntegrityViolationException(e);
             } finally {
                 TransientStoreUtil.abort(e, transaction);
             }
@@ -929,7 +920,22 @@ public class TransientSessionImpl extends AbstractTransientSession {
         return changesDescription;
     }
 
-    private void checkDatabaseState() {
+  private void logThreadsDump(Throwable e) {
+    if (log.isErrorEnabled()) {
+      if (e.getCause() instanceof DeadlockException) {
+          final Map<Thread, StackTraceElement[]> stackTraces = Thread.getAllStackTraces();
+          for (Thread t : stackTraces.keySet()) {
+              log.error(t);
+              final StackTraceElement[] traceElements = stackTraces.get(t);
+              for (StackTraceElement traceElement : traceElements) {
+                  log.error(traceElement);
+              }
+          }
+      }
+    }
+  }
+
+  private void checkDatabaseState() {
         if (store.getPersistentStore().isReadonly()) {
             throw new DatabaseStateIsReadonlyException("maintenance is in progress. Please repeat your action later.");
         }
