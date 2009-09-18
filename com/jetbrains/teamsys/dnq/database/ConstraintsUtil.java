@@ -333,11 +333,13 @@ class ConstraintsUtil {
         while (it.hasNext()) {
           Entity source = it.next();
           Map<String, LinkChange> changedLinks = changesTracker.getChangedLinksDetailed((TransientEntity) source);
-          if (changedLinks != null) {
+          if (changedLinks != null) { // changed links can be null
             LinkChange change = changedLinks.get(linkName);
-            LinkChangeType changeType = change.getChangeType();
-            if ((changeType == LinkChangeType.SET || changeType == LinkChangeType.ADD) && !(change.getAddedEntities().isEmpty())) {
-              continue;
+            if (change != null) { // change can be null if current link is not changed, but some was
+              LinkChangeType changeType = change.getChangeType();
+              if ((changeType == LinkChangeType.SET || changeType == LinkChangeType.ADD) && !(change.getAddedEntities().isEmpty())) {
+                continue;
+              }
             }
           }
           // System.out.println("opposite entity (instance of " + oppositeType + "): " + source + ", link name: " + linkName);
