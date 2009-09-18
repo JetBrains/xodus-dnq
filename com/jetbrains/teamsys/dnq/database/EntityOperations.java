@@ -32,7 +32,7 @@ public class EntityOperations {
         md.getEntityMetaData(e.getType()).executeDestructor(e);
 
         // remove associations and cascade delete 
-        ConstraintsUtil.processOnDeleteConstraints(store.getThreadSession(), e, emd, md);
+        ConstraintsUtil.processOnDeleteConstraints((TransientStoreSession) store.getThreadSession(), e, emd, md);
       }
     }
 

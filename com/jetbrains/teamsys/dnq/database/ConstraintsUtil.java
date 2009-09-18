@@ -167,7 +167,7 @@ class ConstraintsUtil {
     return exceptions;
   }
 
-  static void processOnDeleteConstraints(@NotNull StoreSession session, @NotNull Entity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md) {
+  static void processOnDeleteConstraints(@NotNull TransientStoreSession session, @NotNull Entity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md) {
     for (AssociationEndMetaData amd : emd.getAssociationEndsMetaData()) {
       if (amd.getCascadeDelete() || amd.getClearOnDelete()) {
 
@@ -322,15 +322,24 @@ class ConstraintsUtil {
         }
     }
 
-    private static void processOnTargetDeleteConstraints(Entity target, EntityMetaData emd, ModelMetaData md, String oppositeType, String linkName, StoreSession session) {
+    private static void processOnTargetDeleteConstraints(Entity target, EntityMetaData emd, ModelMetaData md, String oppositeType, String linkName, TransientStoreSession session) {
         EntityMetaData oppositeEmd = md.getEntityMetaData(oppositeType);
         if (oppositeEmd == null) {
             throw new RuntimeException("can't find metadata for entity type " + oppositeType + " as opposite to " + target.getType());
         }
         AssociationEndMetaData amd = oppositeEmd.getAssociationEndMetaData(linkName);
         final EntityIterator it = session.findLinks(oppositeType, target, linkName).iterator();
+        TransientChangesTracker changesTracker = session.getTransientChangesTracker();
         while (it.hasNext()) {
           Entity source = it.next();
+          Map<String, LinkChange> changedLinks = changesTracker.getChangedLinksDetailed((TransientEntity) source);
+          if (changedLinks != null) {
+            LinkChange change = changedLinks.get(linkName);
+            LinkChangeType changeType = change.getChangeType();
+            if ((changeType == LinkChangeType.SET || changeType == LinkChangeType.ADD) && !(change.getAddedEntities().isEmpty())) {
+              continue;
+            }
+          }
           // System.out.println("opposite entity (instance of " + oppositeType + "): " + source + ", link name: " + linkName);
           if (amd.getTargetCascadeDelete()) {
             if (log.isDebugEnabled()) {
