@@ -928,9 +928,13 @@ public class TransientSessionImpl extends AbstractTransientSession {
           for (Thread t : stackTraces.keySet()) {
               logForDumps.error(t);
               final StackTraceElement[] traceElements = stackTraces.get(t);
+              StringBuilder builder = new StringBuilder();
               for (StackTraceElement traceElement : traceElements) {
-                  logForDumps.error(traceElement);
+                  builder.append("    ");
+                  builder.append(traceElement);
+                  builder.append('\n');
               }
+              logForDumps.error(builder);
           }
       }
     }
