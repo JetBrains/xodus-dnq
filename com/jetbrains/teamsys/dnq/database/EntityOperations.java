@@ -22,6 +22,9 @@ public class EntityOperations {
     }
 
     e = TransientStoreUtil.reattach((TransientEntity) e);
+
+    if (e == null) return;
+
     TransientEntityStore store = (TransientEntityStore) e.getStore();
 
     ModelMetaData md = store.getModelMetaData();
