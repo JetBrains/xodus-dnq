@@ -333,11 +333,14 @@ class ConstraintsUtil {
         while (it.hasNext()) {
           Entity source = it.next();
           Map<String, LinkChange> changedLinks = changesTracker.getChangedLinksDetailed((TransientEntity) source);
+          boolean linkAlreadyRemoved = false;
           if (changedLinks != null) { // changed links can be null
             LinkChange change = changedLinks.get(linkName);
             if (change != null) { // change can be null if current link is not changed, but some was
               LinkChangeType changeType = change.getChangeType();
-              if ((changeType == LinkChangeType.SET || changeType == LinkChangeType.ADD) && !(change.getAddedEntities().isEmpty())) {
+              if (changeType == LinkChangeType.REMOVE) {
+                linkAlreadyRemoved = true;
+              } else if ((changeType == LinkChangeType.SET || changeType == LinkChangeType.ADD) && !(change.getAddedEntities().isEmpty())) {
                 continue;
               }
             }
@@ -348,7 +351,7 @@ class ConstraintsUtil {
               log.debug("cascade delete targets for link [" + source + "]." + linkName);
             }
             EntityOperations.remove(source);
-          } else if (amd.getTargetClearOnDelete()) {
+          } else if ((!linkAlreadyRemoved) && amd.getTargetClearOnDelete()) {
             if (log.isDebugEnabled()) {
               log.debug("clear associations with targets for link [" + source + "]." + linkName);
             }
