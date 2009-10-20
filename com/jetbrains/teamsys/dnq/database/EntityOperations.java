@@ -32,7 +32,7 @@ public class EntityOperations {
       // cascade delete
       EntityMetaData emd = md.getEntityMetaData(e.getType());
       if (emd != null) {
-        md.getEntityMetaData(e.getType()).executeDestructor(e);
+        md.getEntityMetaData(e.getType()).getInstance(e).destructor(e);
 
         // remove associations and cascade delete 
         ConstraintsUtil.processOnDeleteConstraints((TransientStoreSession) store.getThreadSession(), e, emd, md);

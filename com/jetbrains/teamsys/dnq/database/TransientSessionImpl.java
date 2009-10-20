@@ -1146,14 +1146,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
         for (final TransientEntity e : changedPersistentEntities) {
             if (!e.isNew() && !e.isRemovedOrTemporary()) {
                 final EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
-                if (emd != null && emd.getHasHistory(e) && emd.changesReflectHistory(e, changesTracker)) {
+                if (emd != null && emd.getInstance(e).evaluateSaveHistoryCondition(e) && emd.changesReflectHistory(e, changesTracker)) {
                     if (log.isDebugEnabled()) {
                         log.debug("Save history of: " + e);
                     }
                     e.newVersion();
 
                     // !!! should be called after e.newVersion();
-                    emd.executeSaveHistoryCallback(e);
+                    emd.getInstance(e).saveHistoryCallback(e);
                 }
             }
         }

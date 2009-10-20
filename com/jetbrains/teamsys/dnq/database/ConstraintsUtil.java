@@ -55,7 +55,7 @@ class ConstraintsUtil {
         // meta-data may be null for persistent enums
         if (md != null) {
           try {
-            md.executeBeforeFlushTrigger(e);
+            md.getInstance(e).executeBeforeFlushTrigger(e);
           } catch (ConstraintsValidationException cve) {
             for (DataIntegrityViolationException dive: cve.getCauses()) {
               exceptions.add(dive);

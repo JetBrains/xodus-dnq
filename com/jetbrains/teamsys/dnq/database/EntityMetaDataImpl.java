@@ -16,7 +16,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
     private String type = null;
     private String superType = null;
     private Runnable initializer = null;
-    private InstanceRef<? extends BasePersistentClass> instanceRef = null;
     private boolean removeOrphan = true;
     private Set<String> subTypes = new HashSetDecorator<String>();
     private List<String> thisAndSuperTypes = Collections.emptyList();
@@ -74,9 +73,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
         subTypes.add(type);
     }
 
-    public void setInstanceRef(InstanceRef instanceRef) {
-        this.instanceRef = instanceRef;
-    }
+    public void setInstanceRef(InstanceRef instanceRef) {}
 
     public void setInitializer(Runnable initializer) {
         this.initializer = initializer;
@@ -140,23 +137,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
         checkAssociationEndsCreated();
         return associationEnds.values();
     }
-
-    public void executeBeforeFlushTrigger(Entity e) {
-        instanceRef.getInstance(e).executeBeforeFlushTrigger(e);
-    }
-
-    public boolean getHasHistory(Entity e) {
-        return instanceRef.getInstance(e).evaluateSaveHistoryCondition(e);
-    }
-
-    public void executeSaveHistoryCallback(Entity e) {
-        instanceRef.getInstance(e).saveHistoryCallback(e);
-    }
-
-    public void executeDestructor(Entity e) {
-        instanceRef.getInstance(e).destructor(e);
-    }
-
+    
     public boolean getRemoveOrphan() {
         return removeOrphan;
     }
@@ -226,7 +207,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
     public Set<String> getRequiredIfProperties(Entity e) {
         Set<String> result = new HashSetDecorator<String>();
         for (String property : requiredIfProperties) {
-            if (instanceRef.getInstance(e).isPropertyRequired(property, e)) {
+            if (getInstance(e).isPropertyRequired(property, e)) {
                 result.add(property);
             }
         }
@@ -268,6 +249,10 @@ public class EntityMetaDataImpl implements EntityMetaData {
             return false;
         }
         return true;
+    }
+
+    public BasePersistentClass getInstance(Entity entity) {
+        return (BasePersistentClass)EntityInstanceRegistry.getEntityInstance(entity, type);
     }
 
     private boolean parentChanged(Map<String, LinkChange> changedLinks) {
