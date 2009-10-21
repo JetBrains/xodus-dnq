@@ -840,11 +840,35 @@ public class TransientSessionImpl extends AbstractTransientSession {
         exceptions.addAll(ConstraintsUtil.checkRequiredProperties(changesTracker, modelMetaData));
         exceptions.addAll(ConstraintsUtil.checkUniqueProperties(this, changesTracker, modelMetaData));
 
-        // 3. check invariants
-        exceptions.addAll(ConstraintsUtil.checkInvariants(changesTracker, modelMetaData));
-
         if (exceptions.size() != 0) {
             ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
+            e.fixEntityId();
+            throw e;
+        }
+    }
+
+    /**
+     * Checks custom flush constraints before save changes
+     */
+    private void checkCustomFlushConstraints() {
+        final ModelMetaData modelMetaData = store.getModelMetaData();
+
+        if (quietFlush || /* for tests only */ modelMetaData == null) {
+            if (log.isDebugEnabled()) {
+                log.warn("Quiet intermediate commit: skip custom flush constraints checking. " + this);
+            }
+            return;
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("Check custom flush constraints. " + this);
+        }
+
+        Set<DataIntegrityViolationException> triggerErrors = new HashSetDecorator<DataIntegrityViolationException>();
+        triggerErrors.addAll(ConstraintsUtil.checkCustomFlushConstraints(changesTracker, modelMetaData));
+
+        if (triggerErrors.size() != 0) {
+            ConstraintsValidationException e = new ConstraintsValidationException(triggerErrors);
             e.fixEntityId();
             throw e;
         }
@@ -868,6 +892,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         changesTracker.markState();
         notifyBeforeFlushListeners();
+        checkCustomFlushConstraints();
         if (changesTracker.wereChangesAfterMarkState()) {
             checkBeforeSaveChangesConstraints(removeOrphans());
         }
