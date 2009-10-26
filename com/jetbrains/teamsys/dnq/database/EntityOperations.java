@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 // TODO: move this class to the associations semantics package
 public class EntityOperations {
@@ -131,5 +132,49 @@ public class EntityOperations {
     e = TransientStoreUtil.reattach(e);
 
     return e == null ? false : e.hasChanges(property);
+  }
+
+  public static boolean hasChanges(@NotNull TransientEntity e, String[] properties) {
+    e = TransientStoreUtil.reattach(e);
+
+    if (e == null) {
+      return false;
+    } else {
+      for (String property: properties) {
+        // all properties have to be changed
+        if (!(e.hasChanges(property))) return false;
+      }
+      return true;
+    }
+  }
+
+  public static boolean hasChangesExcepting(@NotNull TransientEntity e, String[] properties) {
+    e = TransientStoreUtil.reattach(e);
+
+    if (e == null) {
+      return false;
+    } else {
+      Map<String, LinkChange> changesLinks = e.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(e);
+      Map<String, PropertyChange> changesProperties = e.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(e);
+
+      int found = 0;
+      int changed;
+      if (changesLinks == null && changesProperties == null) {
+        return false;
+      } else {
+        for (String property: properties) {
+          // all properties have to be changed
+          if (e.hasChanges(property)) found++;
+        }
+        if (changesLinks == null) {
+          changed = changesProperties.size();
+        } else if (changesProperties == null) {
+          changed = changesLinks.size();
+        } else {
+          changed = changesLinks.size() + changesProperties.size();
+        }
+        return changed - found > 0;
+      }
+    }
   }
 }
