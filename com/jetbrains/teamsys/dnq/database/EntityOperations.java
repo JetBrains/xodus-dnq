@@ -137,15 +137,12 @@ public class EntityOperations {
   public static boolean hasChanges(@NotNull TransientEntity e, String[] properties) {
     e = TransientStoreUtil.reattach(e);
 
-    if (e == null) {
-      return false;
-    } else {
-      for (String property: properties) {
-        // all properties have to be changed
-        if (!(e.hasChanges(property))) return false;
+    if (e != null) {
+     for (String property: properties) {
+        if (e.hasChanges(property)) return true;
       }
-      return true;
     }
+    return false;
   }
 
   public static boolean hasChangesExcepting(@NotNull TransientEntity e, String[] properties) {
