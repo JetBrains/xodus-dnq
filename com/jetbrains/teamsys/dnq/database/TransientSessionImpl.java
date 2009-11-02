@@ -886,16 +886,11 @@ public class TransientSessionImpl extends AbstractTransientSession {
             return null;
         }
 
+        notifyBeforeFlushListeners();
+        checkCustomFlushConstraints();
         checkDatabaseState();
         transformNewChildsOfTempoparyParents();
         checkBeforeSaveChangesConstraints(removeOrphans());
-
-        changesTracker.markState();
-        notifyBeforeFlushListeners();
-        checkCustomFlushConstraints();
-        if (changesTracker.wereChangesAfterMarkState()) {
-            checkBeforeSaveChangesConstraints(removeOrphans());
-        }
 
         StoreTransaction transaction = null;
         try {
