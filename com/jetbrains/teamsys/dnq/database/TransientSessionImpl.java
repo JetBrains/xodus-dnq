@@ -315,8 +315,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityId toEntityId(@NotNull final String representation) {
         switch (state) {
             case Open:
-                return toEntityIdImpl(representation);
-
+                // treat given id as id of transient entity first
+                try {
+                    return getPersistentSessionInternal().toEntityId(representation);
+                } catch (Exception e) {
+                    return TransientEntityIdImpl.fromString(representation);
+                }
             default:
                 throw new IllegalStateException("Can't convert to entity id in state [" + state + "]");
         }
@@ -554,7 +558,17 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public void clearHistory(@NotNull final String entityType) {
         switch (state) {
             case Open:
-                doClearHistory(entityType);
+                changesTracker.historyCleared(entityType);
+                break;
+            default:
+                throw new IllegalStateException("Can't execute in state [" + state + "]");
+        }
+    }
+
+    public void createUniqueKeyIndex(@NotNull final String entityType, final List<String> propertyNames) {
+        switch (state) {
+            case Open:
+                getPersistentSessionInternal().createUniqueKeyIndex(entityType, propertyNames);
                 break;
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -563,7 +577,20 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     @NotNull
     public File createBlobFile(boolean createNewFile) {
-        return doCreateBlobFile(createNewFile);
+        String fileName = id + "-" + getPersistentSessionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment() + ".dat";
+        File f = new File(store.getBlobsStore(), fileName);
+        if (createNewFile) {
+            try {
+                if (!f.createNewFile()) {
+                    throw new IllegalArgumentException("Can't create blob file [" + store.getBlobsStore().getAbsolutePath() + "/" + fileName + "]");
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Can't create blob file [" + store.getBlobsStore().getAbsolutePath() + "/" + fileName + "]", e);
+            }
+        }
+
+        createdBlobFiles.add(f);
+        return f;
     }
 
     public void quietIntermediateCommit() {
@@ -1299,40 +1326,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 return e;
             }
         }
-    }
-
-    @NotNull
-    protected EntityId toEntityIdImpl(@NotNull final String representation) {
-        // treat given id as id of transient entity first
-        try {
-            return getPersistentSessionInternal().toEntityId(representation);
-        } catch (Exception e) {
-            return TransientEntityIdImpl.fromString(representation);
-        }
-    }
-
-    protected void doClearHistory(@NotNull final String entityType) {
-        changesTracker.historyCleared(entityType);
-    }
-
-    @NotNull
-    protected File doCreateBlobFile(boolean createNewFile) {
-        String fileName = id + "-" + getPersistentSessionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment() + ".dat";
-        File f = new File(store.getBlobsStore(), fileName);
-
-        if (createNewFile) {
-            try {
-                if (!f.createNewFile()) {
-                    throw new IllegalArgumentException("Can't create blob file [" + store.getBlobsStore().getAbsolutePath() + "/" + fileName + "]");
-                }
-            } catch (IOException e) {
-                throw new RuntimeException("Can't create blob file [" + store.getBlobsStore().getAbsolutePath() + "/" + fileName + "]", e);
-            }
-        }
-
-        createdBlobFiles.add(f);
-
-        return f;
     }
 
 }
