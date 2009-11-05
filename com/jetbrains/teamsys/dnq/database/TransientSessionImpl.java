@@ -22,8 +22,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class TransientSessionImpl extends AbstractTransientSession {
 
-  protected static final Log log = LogFactory.getLog(TransientSessionImpl.class);
-  protected static final Log logForDumps = LogFactory.getLog("DNQDUMPS");
+    protected static final Log log = LogFactory.getLog(TransientSessionImpl.class);
+    protected static final Log logForDumps = LogFactory.getLog("DNQDUMPS");
     private static final String TEMP_FILE_NAME_SEQUENCE = "__TEMP_FILE_NAME_SEQUENCE__";
     private static final AtomicLong UNIQUE_ID = new AtomicLong(0);
 
@@ -565,10 +565,34 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    public void createUniqueKeyIndex(@NotNull final String entityType, final List<String> propertyNames) {
+    public void createUniqueKeyIndex(@NotNull final String entityType, @NotNull final List<String> propertyNames) {
         switch (state) {
             case Open:
                 getPersistentSessionInternal().createUniqueKeyIndex(entityType, propertyNames);
+                break;
+            default:
+                throw new IllegalStateException("Can't execute in state [" + state + "]");
+        }
+    }
+
+    public void insertUniqueKey(@NotNull final List<String> propNames,
+                                @NotNull final List<Comparable> propValues,
+                                @NotNull final Entity entity) {
+        switch (state) {
+            case Open:
+                getPersistentSessionInternal().insertUniqueKey(propNames, propValues, entity);
+                break;
+            default:
+                throw new IllegalStateException("Can't execute in state [" + state + "]");
+        }
+    }
+
+    public void deleteUniqueKey(@NotNull final List<String> propNames,
+                                @NotNull final List<Comparable> propValues,
+                                @NotNull final Entity entity) {
+        switch (state) {
+            case Open:
+                getPersistentSessionInternal().deleteUniqueKey(propNames, propValues, entity);
                 break;
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -953,9 +977,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
         } catch (Throwable e) {
             // tracker make some changes in transient entities - rollback them
             try {
-              logThreadsDump(e);
-              rollbackTransientTrackerChanges();
-              fixEntityIdsInDataIntegrityViolationException(e);
+                logThreadsDump(e);
+                rollbackTransientTrackerChanges();
+                fixEntityIdsInDataIntegrityViolationException(e);
             } finally {
                 TransientStoreUtil.abort(e, transaction);
             }
@@ -968,26 +992,26 @@ public class TransientSessionImpl extends AbstractTransientSession {
         return changesDescription;
     }
 
-  private void logThreadsDump(Throwable e) {
-    if (logForDumps.isErrorEnabled()) {
-      if (e.getCause() instanceof DeadlockException) {
-          final Map<Thread, StackTraceElement[]> stackTraces = Thread.getAllStackTraces();
-          for (Thread t : stackTraces.keySet()) {
-              logForDumps.error(t);
-              final StackTraceElement[] traceElements = stackTraces.get(t);
-              StringBuilder builder = new StringBuilder();
-              for (StackTraceElement traceElement : traceElements) {
-                  builder.append("    ");
-                  builder.append(traceElement);
-                  builder.append('\n');
-              }
-              logForDumps.error(builder);
-          }
-      }
+    private void logThreadsDump(Throwable e) {
+        if (logForDumps.isErrorEnabled()) {
+            if (e.getCause() instanceof DeadlockException) {
+                final Map<Thread, StackTraceElement[]> stackTraces = Thread.getAllStackTraces();
+                for (Thread t : stackTraces.keySet()) {
+                    logForDumps.error(t);
+                    final StackTraceElement[] traceElements = stackTraces.get(t);
+                    StringBuilder builder = new StringBuilder();
+                    for (StackTraceElement traceElement : traceElements) {
+                        builder.append("    ");
+                        builder.append(traceElement);
+                        builder.append('\n');
+                    }
+                    logForDumps.error(builder);
+                }
+            }
+        }
     }
-  }
 
-  private void checkDatabaseState() {
+    private void checkDatabaseState() {
         if (store.getPersistentStore().isReadonly()) {
             throw new DatabaseStateIsReadonlyException("maintenance is in progress. Please repeat your action later.");
         }
