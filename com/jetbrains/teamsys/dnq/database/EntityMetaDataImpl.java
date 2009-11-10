@@ -73,7 +73,9 @@ public class EntityMetaDataImpl implements EntityMetaData {
         subTypes.add(type);
     }
 
-    public void setInstanceRef(InstanceRef instanceRef) {}
+    public void setInstanceRef(InstanceRef instanceRef) {
+        // TODO: remove this method when no textual usages of '<property name="instanceRef">' in entityMetaDataConfiguration.xml left
+    }
 
     public void setInitializer(Runnable initializer) {
         this.initializer = initializer;
