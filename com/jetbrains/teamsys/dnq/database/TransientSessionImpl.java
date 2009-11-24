@@ -565,34 +565,34 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    public void createUniqueKeyIndex(@NotNull final String entityType, @NotNull final List<String> propertyNames) {
+    public void createUniqueKeyIndex(@NotNull final String entityType, @NotNull final Index index) {
         switch (state) {
             case Open:
-                getPersistentSessionInternal().createUniqueKeyIndex(entityType, propertyNames);
+                getPersistentSessionInternal().createUniqueKeyIndex(entityType, index);
                 break;
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
         }
     }
 
-    public void insertUniqueKey(@NotNull final List<String> propNames,
+    public void insertUniqueKey(@NotNull final Index index,
                                 @NotNull final List<Comparable> propValues,
                                 @NotNull final Entity entity) {
         switch (state) {
             case Open:
-                getPersistentSessionInternal().insertUniqueKey(propNames, propValues, entity);
+                getPersistentSessionInternal().insertUniqueKey(index, propValues, entity);
                 break;
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
         }
     }
 
-    public void deleteUniqueKey(@NotNull final List<String> propNames,
+    public void deleteUniqueKey(@NotNull final Index index,
                                 @NotNull final List<Comparable> propValues,
                                 @NotNull final Entity entity) {
         switch (state) {
             case Open:
-                getPersistentSessionInternal().deleteUniqueKey(propNames, propValues, entity);
+                getPersistentSessionInternal().deleteUniqueKey(index, propValues, entity);
                 break;
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
