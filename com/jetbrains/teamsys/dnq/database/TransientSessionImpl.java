@@ -565,10 +565,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    public void createUniqueKeyIndex(@NotNull final String entityType, @NotNull final Index index) {
+    public void updateUniqueKeyIndices(@NotNull final Set<Index> indices) {
         switch (state) {
             case Open:
-                getPersistentSessionInternal().createUniqueKeyIndex(entityType, index);
+                getPersistentSessionInternal().updateUniqueKeyIndices(indices);
                 break;
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
