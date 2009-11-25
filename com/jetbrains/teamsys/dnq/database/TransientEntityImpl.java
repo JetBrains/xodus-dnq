@@ -50,17 +50,11 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   private static final StandartEventHandler<String, Object> getPropertyEventHandler = new StandartEventHandler2<String, Object>() {
     Object processOpenSaved(AbstractTransientEntity entity, String propertyName, Object param2) {
-      if (!(_(entity).propertiesCache.containsKey(propertyName))) {
-        final Comparable v = entity.getPersistentEntityInternal().getProperty(propertyName);
-        _(entity).propertiesCache.put(propertyName, v);
-        return v;
-      } else {
-        return _(entity).propertiesCache.get(propertyName);
-      }
+      return _(entity).getPropertyInSavedStateInternal(propertyName);
     }
 
     Object processOpenNew(AbstractTransientEntity entity, String propertyName, Object param2) {
-      return _(entity).propertiesCache.get(propertyName);
+      return _(entity).getPropertyInNewStateInternal(propertyName);
     }
 
     Object processTemporary(AbstractTransientEntity entity, String propertyName, Object param2) {
@@ -73,6 +67,22 @@ class TransientEntityImpl extends AbstractTransientEntity {
   @Nullable
   public <T extends Comparable> T getProperty(@NotNull final String propertyName) {
     return (T) getPropertyEventHandler.handle(this, propertyName, null);
+  }
+
+  @Nullable
+  <T extends Comparable> T getPropertyInSavedStateInternal(@NotNull final String propertyName) {
+    if (!(this.propertiesCache.containsKey(propertyName))) {
+      final Comparable v = this.getPersistentEntityInternal().getProperty(propertyName);
+      this.propertiesCache.put(propertyName, v);
+      return (T)v;
+    } else {
+      return (T)this.propertiesCache.get(propertyName);
+    }
+  }
+
+  @Nullable
+  <T extends Comparable> T getPropertyInNewStateInternal(@NotNull final String propertyName) {
+    return (T)this.propertiesCache.get(propertyName);
   }
 
   private static final StandartEventHandler<String, Comparable> setPropertyEventHandler = new StandartEventHandler2<String, Comparable>() {
@@ -103,7 +113,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
   private static final StandartEventHandler<String, Object> deletePropertyEventHandler = new StandartEventHandler2<String, Object>() {
 
     Object processOpenSaved(AbstractTransientEntity entity, String propertyName, Object value) {
-      entity.getTransientStoreSession().getTransientChangesTracker().propertyDeleted(entity, propertyName);
+      entity.getTransientStoreSession().getTransientChangesTracker().propertyDeleted(entity, propertyName, entity.getProperty(propertyName));
       _(entity).propertiesCache.put(propertyName, null);
       return null;
     }
@@ -509,9 +519,13 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
   };
 
-
   public void delete() {
     deleteEventHandler.handle(this, null, null);
+  }
+
+  private EntityMetaData getEntityMetadata() {
+    final ModelMetaData md = ((TransientEntityStore) this.getStore()).getModelMetaData();
+    return md == null ? null : md.getEntityMetaData(this.getType());
   }
 
   /**

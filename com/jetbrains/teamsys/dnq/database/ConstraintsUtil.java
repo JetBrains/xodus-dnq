@@ -2,10 +2,7 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.impl.iterate.EntityIteratorBase;
 import com.jetbrains.teamsys.database.exceptions.*;
 import com.jetbrains.teamsys.dnq.association.*;
 import jetbrains.mps.internal.collections.runtime.ListSequence;
@@ -15,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
 
 class ConstraintsUtil {
 
@@ -22,26 +20,30 @@ class ConstraintsUtil {
 
   //TODO: performance tip: use getPersistentIterable.next instead of getLinksSize
   static boolean checkCardinality(TransientEntity e, AssociationEndMetaData md) {
+    return checkCardinality(e, md.getCardinality(), md.getName());
+  }
+
+  static boolean checkCardinality(TransientEntity e, AssociationEndCardinality cardinality, String associationName) {
     long size;
 
-    switch (md.getCardinality()) {
+    switch (cardinality) {
       case _0_1:
-        size = e.getLinksSize(md.getName());
+        size = e.getLinksSize(associationName);
         return size <= 1;
 
       case _0_n:
         return true;
 
       case _1:
-        size = e.getLinksSize(md.getName());
+        size = e.getLinksSize(associationName);
         return size == 1;
 
       case _1_n:
-        size = e.getLinksSize(md.getName());
+        size = e.getLinksSize(associationName);
         return size >= 1;
     }
 
-    throw new IllegalArgumentException("Unknown cardinality [" + md.getCardinality() + "]");
+    throw new IllegalArgumentException("Unknown cardinality [" + cardinality + "]");
   }
 
   @NotNull
@@ -542,61 +544,6 @@ class ConstraintsUtil {
     AggregationAssociationSemantics.setOneToOne(source, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
   }
 
-  @NotNull
-  static Set<DataIntegrityViolationException> checkUniqueProperties(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
-    Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
-    Map<String, Map<String, Set<Comparable>>> entityTypeToProperiesValues = new HashMap<String, Map<String, Set<Comparable>>>();
-
-    for (TransientEntity e : tracker.getChangedEntities()) {
-      if (!e.isRemoved()) {
-        final String entityType = e.getType();
-        EntityMetaData emd = md.getEntityMetaData(entityType);
-
-        if (emd != null) {
-          Set<String> uniqueProperties = emd.getUniqueProperties();
-          Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
-
-          if (uniqueProperties.size() > 0 && (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0))) {
-            for (String uniquePropertyName : uniqueProperties) {
-              if (e.isNewOrTemporary() || changedProperties.containsKey(uniquePropertyName)) {
-                Comparable uniquePropertyValue = e.getProperty(uniquePropertyName);
-
-                if (isEmptyProperty(uniquePropertyValue)) {
-                  errors.add(new NullPropertyException(e, uniquePropertyName));
-                } else {
-                  Map<String, Set<Comparable>> propertiesValues = entityTypeToProperiesValues.get(entityType);
-                  if (propertiesValues == null) {
-                    propertiesValues = new HashMap<String, Set<Comparable>>();
-                    entityTypeToProperiesValues.put(entityType, propertiesValues);
-                  }
-
-                  Set<Comparable> propertyValues = propertiesValues.get(uniquePropertyName);
-                  if (propertyValues == null) {
-                    propertyValues = new HashSet<Comparable>();
-                    propertiesValues.put(uniquePropertyName, propertyValues);
-                  }
-
-                  if (!propertyValues.add(uniquePropertyValue)) {
-                    errors.add(new UniqueConstraintViolationException(e, uniquePropertyName));
-                  } else {
-                    // find in database and if found - be sure we found another entity
-                    Entity _e = findInDatabase(session, emd, uniquePropertyName, uniquePropertyValue);
-                    if (!(_e == null || _e.getId().equals(e.getId()))) {
-                      //TODO: optimization hint: query database only once for every property type (property type = entity type + property name)
-                      errors.add(new UniqueConstraintViolationException(e, uniquePropertyName));
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return errors;
-  }
-
   private static Entity findInDatabase(TransientStoreSession session, EntityMetaData emd, String propertyName, Comparable propertyValue) {
     return ListSequence.fromIterable(session.find(emd.getType(), propertyName, propertyValue)).first();
   }
@@ -642,17 +589,55 @@ class ConstraintsUtil {
     return errors;
   }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, String propertyName) {
-        Comparable propertyValue = e.getProperty(propertyName);
-        if (isEmptyProperty(propertyValue)) {
-            errors.add(new NullPropertyException(e, propertyName));
+  /**
+   * Properties and associations, that are part of indexes, can't be empty
+   * @param tracker
+   * @param md
+   * @return
+   */
+  @NotNull
+  static Set<DataIntegrityViolationException> checkIndexFields(@NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
+    Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
+
+    for (TransientEntity e : tracker.getChangedEntities()) {
+      if (!e.isRemoved()) {
+
+        EntityMetaData emd = md.getEntityMetaData(e.getType());
+
+        if (emd != null) {
+          Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+          Set<Index> indexes = emd.getIndexes();
+
+          for (Index index : indexes) {
+            for (IndexField f : index.getFields()) {
+              if (f.isProperty()) {
+                checkProperty(errors, e, changedProperties, f.getName());
+              } else {
+                // link
+                if (!checkCardinality(e, AssociationEndCardinality._1, f.getName())) {
+                  errors.add(new CardinalityViolationException("Association can't be empty, bevause it's part of unique constraint.", e, f.getName()));
+                }
+              }
+            }
+          }
         }
+      }
     }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changhedProperties, String propertyName) {
-        if (e.isNewOrTemporary() || changhedProperties.containsKey(propertyName)) {
-            checkProperty(errors, e, propertyName);
-        }
-    }
+    return errors;
+  }
+
+  private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, String propertyName) {
+      Comparable propertyValue = e.getProperty(propertyName);
+      if (isEmptyProperty(propertyValue)) {
+          errors.add(new NullPropertyException(e, propertyName));
+      }
+  }
+
+  private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changhedProperties, String propertyName) {
+      if (e.isNewOrTemporary() || changhedProperties.containsKey(propertyName)) {
+          checkProperty(errors, e, propertyName);
+      }
+  }
 
 }

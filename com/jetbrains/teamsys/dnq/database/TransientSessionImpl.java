@@ -565,41 +565,24 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    public void updateUniqueKeyIndices(@NotNull final Set<Index> indices) {
-        switch (state) {
-            case Open:
-                getPersistentSessionInternal().updateUniqueKeyIndices(indices);
-                break;
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
-    }
+  public void updateUniqueKeyIndices(@NotNull Set<Index> indices) {
+    throw new UnsupportedOperationException();
+  }
 
-    public void insertUniqueKey(@NotNull final Index index,
-                                @NotNull final List<Comparable> propValues,
-                                @NotNull final Entity entity) {
-        switch (state) {
-            case Open:
-                getPersistentSessionInternal().insertUniqueKey(index, propValues, entity);
-                break;
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
-    }
 
-    public void deleteUniqueKey(@NotNull final Index index,
-                                @NotNull final List<Comparable> propValues,
-                                @NotNull final Entity entity) {
-        switch (state) {
-            case Open:
-                getPersistentSessionInternal().deleteUniqueKey(index, propValues, entity);
-                break;
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
-    }
+  public void insertUniqueKey(@NotNull final Index index,
+                              @NotNull final List<Comparable> propValues,
+                              @NotNull final Entity entity) {
+    throw new UnsupportedOperationException();
+  }
 
-    @NotNull
+  public void deleteUniqueKey(@NotNull final Index index,
+                              @NotNull final List<Comparable> propValues,
+                              @NotNull final Entity entity) {
+    throw new UnsupportedOperationException();
+  }
+
+  @NotNull
     public File createBlobFile(boolean createNewFile) {
         String fileName = id + "-" + getPersistentSessionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment() + ".dat";
         File f = new File(store.getBlobsStore(), fileName);
@@ -871,25 +854,27 @@ public class TransientSessionImpl extends AbstractTransientSession {
         final ModelMetaData modelMetaData = store.getModelMetaData();
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
-            if (log.isDebugEnabled()) {
+            if (log.isWarnEnabled()) {
                 log.warn("Quiet intermediate commit: skip before save changes constraints checking. " + this);
             }
             return;
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Check before save changes constraints. " + this);
+        if (log.isTraceEnabled()) {
+            log.trace("Check before save changes constraints. " + this);
         }
 
-        // 0. check incoming links
+        // 0. check incoming links for deleted entities
         exceptions.addAll(ConstraintsUtil.checkIncomingLinks(changesTracker, modelMetaData));
 
         // 1. check associations cardinality
         exceptions.addAll(ConstraintsUtil.checkAssociationsCardinality(changesTracker, modelMetaData));
 
-        // 2. check properties constraints
+        // 2. check required properties
         exceptions.addAll(ConstraintsUtil.checkRequiredProperties(changesTracker, modelMetaData));
-        exceptions.addAll(ConstraintsUtil.checkUniqueProperties(this, changesTracker, modelMetaData));
+
+        // 3. check index fields
+        exceptions.addAll(ConstraintsUtil.checkIndexFields(changesTracker, modelMetaData));
 
         if (exceptions.size() != 0) {
             ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
@@ -933,7 +918,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     @Nullable
     private Set<TransientEntityChange> flush() {
         if (!changesTracker.areThereChanges()) {
-            log.debug("Nothing to flush.");
+            log.trace("Nothing to flush.");
             return null;
         }
 
@@ -945,8 +930,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         StoreTransaction transaction = null;
         try {
-            if (log.isDebugEnabled()) {
-                log.debug("Open persistent transaction in transient session " + this);
+            if (log.isTraceEnabled()) {
+                log.trace("Open persistent transaction in transient session " + this);
             }
 
             transaction = getPersistentSessionInternal().beginTransaction();
@@ -966,8 +951,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 c.run();
             }
 
-            if (log.isDebugEnabled()) {
-                log.debug("Commit persistent transaction in transient session " + this);
+            if (log.isTraceEnabled()) {
+                log.trace("Commit persistent transaction in transient session " + this);
             }
 
             transaction.commit();

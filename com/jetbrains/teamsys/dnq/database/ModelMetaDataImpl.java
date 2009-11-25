@@ -5,6 +5,7 @@ import com.jetbrains.teamsys.database.EntityMetaData;
 import com.jetbrains.teamsys.database.ModelMetaData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.springframework.beans.factory.InitializingBean;
 
 import java.util.Map;
 import java.util.Set;
@@ -61,4 +62,5 @@ public class ModelMetaDataImpl implements ModelMetaData {
   public Iterable<EntityMetaData> getEntitiesMetaData() {
     return typeToEntityMetaDatas.values();
   }
+
 }

@@ -13,284 +13,308 @@ import java.util.*;
 
 public class EntityMetaDataImpl implements EntityMetaData {
 
-    private String type = null;
-    private String superType = null;
-    private Runnable initializer = null;
-    private boolean removeOrphan = true;
-    private Set<String> subTypes = new HashSetDecorator<String>();
-    private List<String> thisAndSuperTypes = Collections.emptyList();
-    private Map<String, AssociationEndMetaData> associationEnds = null;
-    private Set<AssociationEndMetaData> externalAssociationEnds = null;
-    private Set<String> aggregationChildEnds = null;
-    private Set<String> uniqueProperties = Collections.emptySet();
-    private Set<String> requiredProperties = Collections.emptySet();
-    private Set<String> requiredIfProperties = Collections.emptySet();
-    private Set<String> historyIgnoredFields = Collections.emptySet();
-    private Set<String> versionMismatchIgnored = Collections.emptySet();
-    private Map<String, Set<String>> incomingAssociations = null;
-    private boolean versionMismatchIgnoredForWholeClass = false;
+  private String type = null;
+  private String superType = null;
+  private Runnable initializer = null;
+  private boolean removeOrphan = true;
+  private Set<String> subTypes = new HashSetDecorator<String>();
+  private List<String> thisAndSuperTypes = Collections.emptyList();
+  private Map<String, AssociationEndMetaData> associationEnds = null;
+  private Set<AssociationEndMetaData> externalAssociationEnds = null;
+  private Set<String> aggregationChildEnds = null;
+  private Set<Index> indexes = Collections.emptySet();
+  private Map<String, Set<Index>> fieldToIndexes = Collections.emptyMap();
+  private Set<String> requiredProperties = Collections.emptySet();
+  private Set<String> requiredIfProperties = Collections.emptySet();
+  private Set<String> historyIgnoredFields = Collections.emptySet();
+  private Set<String> versionMismatchIgnored = Collections.emptySet();
+  private Map<String, Set<String>> incomingAssociations = null;
+  private boolean versionMismatchIgnoredForWholeClass = false;
 
-    public void setType(String type) {
-        this.type = type;
+  public void setType(String type) {
+    this.type = type;
+  }
+
+  public void setSuperType(String superType) {
+    this.superType = superType;
+  }
+
+  public Iterable<String> getThisAndSuperTypes() {
+    return thisAndSuperTypes;
+  }
+
+  public void setThisAndSuperTypes(List<String> thisAndSuperTypes) {
+    this.thisAndSuperTypes = thisAndSuperTypes;
+  }
+
+  public boolean hasSubTypes() {
+    return !subTypes.isEmpty();
+  }
+
+  public Iterable<String> getSubTypes() {
+    return subTypes;
+  }
+
+  public Iterable<String> getAllSubTypes(ModelMetaData mmd) {
+    if (!hasSubTypes()) return Collections.emptyList();
+    List<String> result = new ArrayList<String>(subTypes.size());
+    collectSubTypes(this, mmd, result);
+    return result;
+  }
+
+  private static void collectSubTypes(EntityMetaDataImpl emd, ModelMetaData mmd, List<String> result) {
+    final Set<String> subTypes = emd.subTypes;
+    result.addAll(subTypes);
+    for (final String subType : subTypes) {
+      collectSubTypes((EntityMetaDataImpl) mmd.getEntityMetaData(subType), mmd, result);
     }
+  }
 
-    public void setSuperType(String superType) {
-        this.superType = superType;
-    }
+  public void addSubType(@NotNull String type) {
+    subTypes.add(type);
+  }
 
-    public Iterable<String> getThisAndSuperTypes() {
-        return thisAndSuperTypes;
-    }
+  public void setInstanceRef(InstanceRef instanceRef) {
+    // TODO: remove this method when no textual usages of '<property name="instanceRef">' in entityMetaDataConfiguration.xml left
+  }
 
-    public void setThisAndSuperTypes(List<String> thisAndSuperTypes) {
-        this.thisAndSuperTypes = thisAndSuperTypes;
-    }
+  public void setInitializer(Runnable initializer) {
+    this.initializer = initializer;
+  }
 
-    public boolean hasSubTypes() {
-        return !subTypes.isEmpty();
-    }
+  public Runnable getInitializer() {
+    return initializer;
+  }
 
-    public Iterable<String> getSubTypes() {
-        return subTypes;
-    }
+  public void setHistoryIgnoredFields(Set<String> historyIgnoredFields) {
+    this.historyIgnoredFields = historyIgnoredFields;
+  }
 
-    public Iterable<String> getAllSubTypes(ModelMetaData mmd) {
-        if (!hasSubTypes()) return Collections.emptyList();
-        List<String> result = new ArrayList<String>(subTypes.size());
-        collectSubTypes(this, mmd, result);
-        return result;
-    }
-
-    private static void collectSubTypes(EntityMetaDataImpl emd, ModelMetaData mmd, List<String> result) {
-        final Set<String> subTypes = emd.subTypes;
-        result.addAll(subTypes);
-        for (final String subType : subTypes) {
-            collectSubTypes((EntityMetaDataImpl) mmd.getEntityMetaData(subType), mmd, result);
+  public boolean changesReflectHistory(TransientEntity e, TransientChangesTracker tracker) {
+    Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+    if (changedProperties != null) {
+      for (String field : changedProperties.keySet()) {
+        if (!historyIgnoredFields.contains(field)) {
+          return true;
         }
+      }
     }
 
-    public void addSubType(@NotNull String type) {
-        subTypes.add(type);
-    }
-
-    public void setInstanceRef(InstanceRef instanceRef) {
-        // TODO: remove this method when no textual usages of '<property name="instanceRef">' in entityMetaDataConfiguration.xml left
-    }
-
-    public void setInitializer(Runnable initializer) {
-        this.initializer = initializer;
-    }
-
-    public Runnable getInitializer() {
-        return initializer;
-    }
-
-    public void setHistoryIgnoredFields(Set<String> historyIgnoredFields) {
-        this.historyIgnoredFields = historyIgnoredFields;
-    }
-
-    public boolean changesReflectHistory(TransientEntity e, TransientChangesTracker tracker) {
-        Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
-        if (changedProperties != null) {
-            for (String field : changedProperties.keySet()) {
-                if (!historyIgnoredFields.contains(field)) {
-                    return true;
-                }
-            }
+    Map<String, LinkChange> changedLinks = tracker.getChangedLinksDetailed(e);
+    if (changedLinks != null) {
+      for (String field : changedLinks.keySet()) {
+        if (!historyIgnoredFields.contains(field)) {
+          return true;
         }
-
-        Map<String, LinkChange> changedLinks = tracker.getChangedLinksDetailed(e);
-        if (changedLinks != null) {
-            for (String field : changedLinks.keySet()) {
-                if (!historyIgnoredFields.contains(field)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+      }
     }
 
-    public void setRemoveOrphan(boolean removeOrphan) {
-        this.removeOrphan = removeOrphan;
-    }
+    return false;
+  }
 
-    public void setAssociationEnds(Set<AssociationEndMetaData> associationEnds) {
-        externalAssociationEnds = associationEnds;
-    }
+  public void setRemoveOrphan(boolean removeOrphan) {
+    this.removeOrphan = removeOrphan;
+  }
 
-    @NotNull
-    public String getType() {
-        return type;
-    }
+  public void setAssociationEnds(Set<AssociationEndMetaData> associationEnds) {
+    externalAssociationEnds = associationEnds;
+  }
 
-    @Nullable
-    public String getSuperType() {
-        return superType;
-    }
+  @NotNull
+  public String getType() {
+    return type;
+  }
 
-    public AssociationEndMetaData getAssociationEndMetaData(@NotNull String name) {
-        checkAssociationEndsCreated();
-        return associationEnds.get(name);
-    }
+  @Nullable
+  public String getSuperType() {
+    return superType;
+  }
 
-    @NotNull
-    public Iterable<AssociationEndMetaData> getAssociationEndsMetaData() {
-        checkAssociationEndsCreated();
-        return associationEnds.values();
-    }
-    
-    public boolean getRemoveOrphan() {
-        return removeOrphan;
-    }
+  public AssociationEndMetaData getAssociationEndMetaData(@NotNull String name) {
+    checkAssociationEndsCreated();
+    return associationEnds.get(name);
+  }
 
-    public boolean hasAggregationChildEnds() {
-        checkAssociationEndsCreated();
-        return !aggregationChildEnds.isEmpty();
-    }
+  @NotNull
+  public Iterable<AssociationEndMetaData> getAssociationEndsMetaData() {
+    checkAssociationEndsCreated();
+    return associationEnds.values();
+  }
 
-    public Set<String> getAggregationChildEnds() {
-        checkAssociationEndsCreated();
-        return aggregationChildEnds;
-    }
+  public boolean getRemoveOrphan() {
+    return removeOrphan;
+  }
 
-    @NotNull
-    public Map<String, Set<String>> getIncomingAssociations(final ModelMetaData mmd) {
+  public boolean hasAggregationChildEnds() {
+    checkAssociationEndsCreated();
+    return !aggregationChildEnds.isEmpty();
+  }
+
+  public Set<String> getAggregationChildEnds() {
+    checkAssociationEndsCreated();
+    return aggregationChildEnds;
+  }
+
+  @NotNull
+  public Map<String, Set<String>> getIncomingAssociations(final ModelMetaData mmd) {
+    if (incomingAssociations == null) {
+      synchronized (this) {
         if (incomingAssociations == null) {
-            synchronized (this) {
-                if (incomingAssociations == null) {
-                    incomingAssociations = new HashMapDecorator<String, Set<String>>();
-                    final Set<String> typeWithSubTypes = new HashSet<String>();
-                    typeWithSubTypes.add(type);
-                    for (final String subType : getSubTypes()) {
-                        typeWithSubTypes.add(subType);
-                    }
-                    for (final EntityMetaData emd : mmd.getEntitiesMetaData()) {
-                        for (final AssociationEndMetaData aemd : emd.getAssociationEndsMetaData()) {
-                            if (typeWithSubTypes.contains(aemd.getOppositeEntityMetaData().getType())) {
-                                final String associationName = aemd.getName();
-                                addIncomingAssociation(emd.getType(), associationName);
-                                for (final String subtype : emd.getSubTypes()) {
-                                    addIncomingAssociation(subtype, associationName);
-                                }
-                            }
-                        }
-                    }
+          incomingAssociations = new HashMapDecorator<String, Set<String>>();
+          final Set<String> typeWithSubTypes = new HashSet<String>();
+          typeWithSubTypes.add(type);
+          for (final String subType : getSubTypes()) {
+            typeWithSubTypes.add(subType);
+          }
+          for (final EntityMetaData emd : mmd.getEntitiesMetaData()) {
+            for (final AssociationEndMetaData aemd : emd.getAssociationEndsMetaData()) {
+              if (typeWithSubTypes.contains(aemd.getOppositeEntityMetaData().getType())) {
+                final String associationName = aemd.getName();
+                addIncomingAssociation(emd.getType(), associationName);
+                for (final String subtype : emd.getSubTypes()) {
+                  addIncomingAssociation(subtype, associationName);
                 }
+              }
             }
+          }
         }
-        return incomingAssociations;
+      }
     }
+    return incomingAssociations;
+  }
 
-    private void addIncomingAssociation(@NotNull final String type, @NotNull final String associationName) {
-        Set<String> links = incomingAssociations.get(type);
-        if (links == null) {
-            links = new HashSet<String>();
-            incomingAssociations.put(type, links);
+  private void addIncomingAssociation(@NotNull final String type, @NotNull final String associationName) {
+    Set<String> links = incomingAssociations.get(type);
+    if (links == null) {
+      links = new HashSet<String>();
+      incomingAssociations.put(type, links);
+    }
+    links.add(associationName);
+  }
+
+  @NotNull
+  public Set<Index> getIndexes() {
+    return indexes;
+  }
+
+  @NotNull
+  public void setIndexes(Set<Index> indexes) {
+    this.indexes = indexes;
+
+    fieldToIndexes = new HashMap<String, Set<Index>>();
+    // build prop to indexes map
+    for (Index index : indexes) {
+      for (IndexField f : index.getFields()) {
+        Set<Index> fieldIndexes = fieldToIndexes.get(f.getName());
+        if (fieldIndexes == null) {
+          fieldIndexes = new HashSet<Index>();
+          fieldToIndexes.put(f.getName(), fieldIndexes);
         }
-        links.add(associationName);
+        fieldIndexes.add(index);
+      }
     }
+  }
 
-    @NotNull
-    public Set<String> getUniqueProperties() {
-        return uniqueProperties;
+  public Set<Index> getIndexes(String field) {
+    return fieldToIndexes.get(field);
+  }
+
+  @NotNull
+  public Set<String> getRequiredProperties() {
+    return requiredProperties;
+  }
+
+  @NotNull
+  public Set<String> getRequiredIfProperties(Entity e) {
+    Set<String> result = new HashSetDecorator<String>();
+    for (String property : requiredIfProperties) {
+      if (getInstance(e).isPropertyRequired(property, e)) {
+        result.add(property);
+      }
     }
+    return result;
+  }
 
-    public void setUniqueProperties(@NotNull Set<String> uniqueProperties) {
-        this.uniqueProperties = uniqueProperties;
-    }
+  public boolean isVersionMismatchIgnoredForWholeClass() {
+    return versionMismatchIgnoredForWholeClass;
+  }
 
-    @NotNull
-    public Set<String> getRequiredProperties() {
-        return requiredProperties;
-    }
+  public void setVersionMismatchIgnoredForWholeClass(boolean versionMismatchIgnoredForWholeClass) {
+    this.versionMismatchIgnoredForWholeClass = versionMismatchIgnoredForWholeClass;
+  }
 
-    @NotNull
-    public Set<String> getRequiredIfProperties(Entity e) {
-        Set<String> result = new HashSetDecorator<String>();
-        for (String property : requiredIfProperties) {
-            if (getInstance(e).isPropertyRequired(property, e)) {
-                result.add(property);
-            }
+  public void setRequiredProperties(@NotNull Set<String> requiredProperties) {
+    this.requiredProperties = requiredProperties;
+  }
+
+  public void setRequiredIfProperties(@NotNull Set<String> requiredIfProperties) {
+    this.requiredIfProperties = requiredIfProperties;
+  }
+
+  public boolean isVersionMismatchIgnored(@NotNull String propertyName) {
+    return versionMismatchIgnored.contains(propertyName);
+  }
+
+  public void setVersionMismatchIgnored(@NotNull Set<String> versionMismatchIgnored) {
+    this.versionMismatchIgnored = versionMismatchIgnored;
+  }
+
+  public boolean hasParent(@NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
+    if (e.isNewOrTemporary() || parentChanged(tracker.getChangedLinksDetailed(e))) {
+      checkAssociationEndsCreated();
+      for (String childEnd : aggregationChildEnds) {
+        if (AssociationSemantics.getToOne(e, childEnd) != null) {
+          return true;
         }
-        return result;
+      }
+      return false;
     }
+    return true;
+  }
 
-    public boolean isVersionMismatchIgnoredForWholeClass() {
-        return versionMismatchIgnoredForWholeClass;
+  public BasePersistentClass getInstance(Entity entity) {
+    return (BasePersistentClass) EntityInstanceRegistry.getEntityInstance(entity, type);
+  }
+
+  private boolean parentChanged(Map<String, LinkChange> changedLinks) {
+    if (changedLinks == null) {
+      return false;
     }
-
-    public void setVersionMismatchIgnoredForWholeClass(boolean versionMismatchIgnoredForWholeClass) {
-        this.versionMismatchIgnoredForWholeClass = versionMismatchIgnoredForWholeClass;
-    }
-
-    public void setRequiredProperties(@NotNull Set<String> requiredProperties) {
-        this.requiredProperties = requiredProperties;
-    }
-
-    public void setRequiredIfProperties(@NotNull Set<String> requiredIfProperties) {
-        this.requiredIfProperties = requiredIfProperties;
-    }
-
-    public boolean isVersionMismatchIgnored(@NotNull String propertyName) {
-        return versionMismatchIgnored.contains(propertyName);
-    }
-
-    public void setVersionMismatchIgnored(@NotNull Set<String> versionMismatchIgnored) {
-        this.versionMismatchIgnored = versionMismatchIgnored;
-    }
-
-    public boolean hasParent(@NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
-        if (e.isNewOrTemporary() || parentChanged(tracker.getChangedLinksDetailed(e))) {
-            checkAssociationEndsCreated();
-            for (String childEnd : aggregationChildEnds) {
-                if (AssociationSemantics.getToOne(e, childEnd) != null) {
-                    return true;
-                }
-            }
-            return false;
-        }
+    checkAssociationEndsCreated();
+    for (String childEnd : aggregationChildEnds) {
+      if (changedLinks.containsKey(childEnd)) {
         return true;
+      }
     }
+    return false;
+  }
 
-    public BasePersistentClass getInstance(Entity entity) {
-        return (BasePersistentClass)EntityInstanceRegistry.getEntityInstance(entity, type);
-    }
-
-    private boolean parentChanged(Map<String, LinkChange> changedLinks) {
-        if (changedLinks == null) {
-            return false;
-        }
-        checkAssociationEndsCreated();
-        for (String childEnd : aggregationChildEnds) {
-            if (changedLinks.containsKey(childEnd)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void checkAssociationEndsCreated() {
+  private void checkAssociationEndsCreated() {
+    if (associationEnds == null) {
+      synchronized (this) {
         if (associationEnds == null) {
-            synchronized (this) {
-                if (associationEnds == null) {
-                    if (externalAssociationEnds == null) {
-                        associationEnds = Collections.emptyMap();
-                        aggregationChildEnds = Collections.emptySet();
-                    } else {
-                        associationEnds = new HashMap<String, AssociationEndMetaData>(externalAssociationEnds.size());
-                        aggregationChildEnds = new HashSetDecorator<String>();
-                        for (final AssociationEndMetaData aemd : externalAssociationEnds) {
-                            associationEnds.put(aemd.getName(), aemd);
-                            if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
-                                aggregationChildEnds.add(aemd.getName());
-                            }
-                        }
-                        externalAssociationEnds = null;
-                    }
-                }
+          if (externalAssociationEnds == null) {
+            associationEnds = Collections.emptyMap();
+            aggregationChildEnds = Collections.emptySet();
+          } else {
+            associationEnds = new HashMap<String, AssociationEndMetaData>(externalAssociationEnds.size());
+            aggregationChildEnds = new HashSetDecorator<String>();
+            for (final AssociationEndMetaData aemd : externalAssociationEnds) {
+              associationEnds.put(aemd.getName(), aemd);
+              if (AssociationEndType.ChildEnd.equals(aemd.getAssociationEndType())) {
+                aggregationChildEnds.add(aemd.getName());
+              }
             }
+            externalAssociationEnds = null;
+          }
         }
+      }
     }
+  }
+
+  @Deprecated
+  public void setUniqueProperties(@NotNull Set<String> uniqueProperties) {
+    //throw new UnsupportedOperationException("Regenerate your persistent models.");
+  }
 
 }
