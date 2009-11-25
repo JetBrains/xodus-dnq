@@ -611,11 +611,13 @@ class ConstraintsUtil {
           for (Index index : indexes) {
             for (IndexField f : index.getFields()) {
               if (f.isProperty()) {
-                checkProperty(errors, e, changedProperties, f.getName());
+                if (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)) {
+                  checkProperty(errors, e, changedProperties, f.getName());
+                }
               } else {
                 // link
                 if (!checkCardinality(e, AssociationEndCardinality._1, f.getName())) {
-                  errors.add(new CardinalityViolationException("Association can't be empty, bevause it's part of unique constraint.", e, f.getName()));
+                  errors.add(new CardinalityViolationException("Association [" + f.getName() +  "] can't be empty, because it's part of unique constraint.", e, f.getName()));
                 }
               }
             }
@@ -634,8 +636,8 @@ class ConstraintsUtil {
       }
   }
 
-  private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changhedProperties, String propertyName) {
-      if (e.isNewOrTemporary() || changhedProperties.containsKey(propertyName)) {
+  private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changedProperties, String propertyName) {
+      if (e.isNewOrTemporary() || changedProperties.containsKey(propertyName)) {
           checkProperty(errors, e, propertyName);
       }
   }

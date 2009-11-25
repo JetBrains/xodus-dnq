@@ -11,6 +11,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
+import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
+
 public class EntityMetaDataImpl implements EntityMetaData {
 
   private String type = null;
@@ -22,8 +24,9 @@ public class EntityMetaDataImpl implements EntityMetaData {
   private Map<String, AssociationEndMetaData> associationEnds = null;
   private Set<AssociationEndMetaData> externalAssociationEnds = null;
   private Set<String> aggregationChildEnds = null;
-  private Set<Index> indexes = Collections.emptySet();
-  private Map<String, Set<Index>> fieldToIndexes = Collections.emptyMap();
+  private Set<Index> ownIndexes = Collections.emptySet();
+  private Set<Index> indexes = null;
+  private Map<String, Set<Index>> fieldToIndexes = null;
   private Set<String> requiredProperties = Collections.emptySet();
   private Set<String> requiredIfProperties = Collections.emptySet();
   private Set<String> historyIgnoredFields = Collections.emptySet();
@@ -193,29 +196,58 @@ public class EntityMetaDataImpl implements EntityMetaData {
   }
 
   @NotNull
-  public Set<Index> getIndexes() {
-    return indexes;
+  public Set<Index> getOwnIndexes() {
+    return ownIndexes;  
   }
 
   @NotNull
-  public void setIndexes(Set<Index> indexes) {
-    this.indexes = indexes;
+  public Set<Index> getIndexes() {
+    if (indexes == null) {
+      indexes = new HashSet<Index>();
 
-    fieldToIndexes = new HashMap<String, Set<Index>>();
-    // build prop to indexes map
-    for (Index index : indexes) {
-      for (IndexField f : index.getFields()) {
-        Set<Index> fieldIndexes = fieldToIndexes.get(f.getName());
-        if (fieldIndexes == null) {
-          fieldIndexes = new HashSet<Index>();
-          fieldToIndexes.put(f.getName(), fieldIndexes);
+      // add indexes of super types
+      for (String t : getThisAndSuperTypes()) {
+        if (t.equals(type)) {
+          indexes.addAll(getOwnIndexes());
+        } else {
+          for (Index index : getEntityMetaData(t).getIndexes()) {
+            for (IndexField f : index.getFields()) {
+              for (String st : getEntityMetaData(f.getOwnerEnityType()).getThisAndSuperTypes()) {
+                indexes.addAll(getEntityMetaData(st).getOwnIndexes());
+              }
+            }
+          }
         }
-        fieldIndexes.add(index);
       }
+
     }
+    return indexes;
+  }
+
+  private EntityMetaData getEntityMetaData(String type) {
+    return DnqUtils.getModelMetaData().getEntityMetaData(type);
+  }
+
+  @NotNull
+  public void setOwnIndexes(Set<Index> ownIndexes) {
+    this.ownIndexes = ownIndexes;
   }
 
   public Set<Index> getIndexes(String field) {
+    if (fieldToIndexes == null) {
+      fieldToIndexes = new HashMap<String, Set<Index>>();
+      // build prop to ownIndexes map
+      for (Index index : getIndexes()) {
+        for (IndexField f : index.getFields()) {
+          Set<Index> fieldIndexes = fieldToIndexes.get(f.getName());
+          if (fieldIndexes == null) {
+            fieldIndexes = new HashSet<Index>();
+            fieldToIndexes.put(f.getName(), fieldIndexes);
+          }
+          fieldIndexes.add(index);
+        }
+      }
+    }
     return fieldToIndexes.get(field);
   }
 
