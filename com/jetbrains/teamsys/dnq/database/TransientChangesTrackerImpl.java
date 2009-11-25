@@ -473,8 +473,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
                           index, getIndexFieldsFinalValues(e, index), ((TransientEntityImpl) e).getPersistentEntityInternal());
                 } else if (e.isSaved() && !e.wasNew()) {
                   // update existing index
-                  getPersistentSession().deleteUniqueKey(
-                          index, getIndexFieldsOriginalValues(e, index), ((TransientEntityImpl) e).getPersistentEntityInternal());
+                  getPersistentSession().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
                   getPersistentSession().insertUniqueKey(
                           index, getIndexFieldsFinalValues(e, index), ((TransientEntityImpl) e).getPersistentEntityInternal());
                 }
@@ -513,7 +512,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     EntityMetaData emd = getEntityMetaData(e);
     if (emd != null) {
       for (Index index : emd.getIndexes()) {
-        getPersistentSession().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index),  e);
+        getPersistentSession().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
       }
     }
   }
@@ -522,7 +521,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     EntityMetaData emd = getEntityMetaData(e);
     if (emd != null) {
       for (Index index : emd.getIndexes(name)) {
-        getPersistentSession().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index),  e);
+        getPersistentSession().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
       }
     }
   }

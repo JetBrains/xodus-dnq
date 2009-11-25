@@ -577,8 +577,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
   }
 
   public void deleteUniqueKey(@NotNull final Index index,
-                              @NotNull final List<Comparable> propValues,
-                              @NotNull final Entity entity) {
+                              @NotNull final List<Comparable> propValues) {
     throw new UnsupportedOperationException();
   }
 
