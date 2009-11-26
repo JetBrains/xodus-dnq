@@ -207,14 +207,10 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
       // add indexes of super types
       for (String t : getThisAndSuperTypes()) {
-        if (t.equals(type)) {
-          indexes.addAll(getOwnIndexes());
-        } else {
-          for (Index index : getEntityMetaData(t).getIndexes()) {
-            for (IndexField f : index.getFields()) {
-              for (String st : getEntityMetaData(f.getOwnerEnityType()).getThisAndSuperTypes()) {
-                indexes.addAll(getEntityMetaData(st).getOwnIndexes());
-              }
+        for (Index index : getEntityMetaData(t).getOwnIndexes()) {
+          for (IndexField f : index.getFields()) {
+            for (String st : getEntityMetaData(f.getOwnerEnityType()).getThisAndSuperTypes()) {
+              indexes.addAll(getEntityMetaData(st).getOwnIndexes());
             }
           }
         }
@@ -233,6 +229,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
     this.ownIndexes = ownIndexes;
   }
 
+  @NotNull
   public Set<Index> getIndexes(String field) {
     if (fieldToIndexes == null) {
       fieldToIndexes = new HashMap<String, Set<Index>>();
@@ -248,7 +245,8 @@ public class EntityMetaDataImpl implements EntityMetaData {
         }
       }
     }
-    return fieldToIndexes.get(field);
+    Set<Index> res = fieldToIndexes.get(field);
+    return res == null ? Collections.<Index>emptySet() : res;
   }
 
   @NotNull
