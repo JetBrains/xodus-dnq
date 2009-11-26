@@ -37,4 +37,9 @@ public class IndexFieldImpl implements IndexField {
   public void setOwnerEnityType(String ownerEnityType) {
     this.ownerEnityType = ownerEnityType;
   }
+
+  @Override
+  public String toString() {
+    return ownerEnityType + "." + property;
+  }
 }

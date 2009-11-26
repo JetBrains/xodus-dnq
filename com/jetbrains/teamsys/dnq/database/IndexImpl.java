@@ -53,7 +53,7 @@ public class IndexImpl implements Index {
       } else {
         first = false;
       }
-      sb.append(f.getName());
+      sb.append(f.toString());
     }
 
     return sb.toString();
