@@ -215,22 +215,23 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     log.debug("Close transient store.");
 
     // check there's no opened sessions
-
+    ArrayList<TransientStoreSession> _sessions = null;
     synchronized (sessions) {
-      if (abortSessionsOnClose) {
-        log.debug("Abort opened transient sessions.");
+      _sessions = new ArrayList<TransientStoreSession>(sessions.values());
+    }
+    if (abortSessionsOnClose) {
+      log.debug("Abort opened transient sessions.");
 
-        for (TransientStoreSession s : new ArrayList<TransientStoreSession>(sessions.values())) {
-          try {
-            s.forceAbort();
-          } catch (Throwable e) {
-            log.error("Error while aborting session " + s, e);
-          }
+      for (TransientStoreSession s : _sessions) {
+        try {
+          s.forceAbort();
+        } catch (Throwable e) {
+          log.error("Error while aborting session " + s, e);
         }
-      } else {
-        if (sessions.size() != 0) {
-          throw new IllegalStateException("Can't close transient store, because there're opened transient sessions.");
-        }
+      }
+    } else {
+      if (sessions.size() != 0) {
+        throw new IllegalStateException("Can't close transient store, because there're opened transient sessions.");
       }
     }
   }
