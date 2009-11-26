@@ -83,6 +83,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
   @Override
   public <T extends Comparable> T getProperty(@NotNull String propertyName) {
+    // return old property value if it was changed
     if (propertiesDetaled != null && propertiesDetaled.containsKey(propertyName)) {
       return (T) propertiesDetaled.get(propertyName).getOldValue();
     } else {
@@ -90,6 +91,9 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
   }
 
+/*
+  This is very strange code: it adds added entities to the result from db, but db already returns actual data.
+  Moreover, logically, this method should return OLD links, not actual.
   @NotNull
   @Override
   public EntityIterable getLinks(@NotNull String linkName) {
@@ -110,6 +114,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
     return result;
   }
+*/
 
   @Override
   public long getLinksSize(@NotNull String linkName) {
