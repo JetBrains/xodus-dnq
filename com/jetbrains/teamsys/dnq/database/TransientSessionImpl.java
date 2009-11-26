@@ -241,15 +241,28 @@ public class TransientSessionImpl extends AbstractTransientSession {
             log.debug("Unconditional abort transient session " + this);
         }
 
-        switch (state) {
-            case Open:
-                abort();
-                break;
-            case Suspended:
-                deleteBlobsStore();
-                store.unregisterStoreSession(this);
-                state = State.Aborted;
-                break;
+        // wait for lock
+        try {
+          lock.acquire();
+        } catch (InterruptedException e) {
+        }
+
+        // after lock acquire, session may be in Suspend, Commited or Aborted states only!
+        try {
+          switch (state) {
+              case Suspended:
+                  deleteBlobsStore();
+                  store.unregisterStoreSession(this);
+                  state = State.Aborted;
+                  break;
+              case Committed:
+              case Aborted:
+                  break;
+              default:
+                  throw new IllegalStateException("Transient session can't be in this state after lock.acquire() [" + state + "]");
+          }
+        } finally {
+          lock.release();
         }
     }
 

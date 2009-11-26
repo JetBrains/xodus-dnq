@@ -30,6 +30,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
   private boolean trackEntityCreation = true;
   private boolean abortSessionsOnClose = false;
   private boolean resumeOnBeginIfExists = false;
+  private boolean closed = false;
   private boolean attachToCurrentOnBeginIfExists = false;
   private String blobsStorePath;
   private File blobsStore;

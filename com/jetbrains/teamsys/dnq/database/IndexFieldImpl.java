@@ -40,6 +40,6 @@ public class IndexFieldImpl implements IndexField {
 
   @Override
   public String toString() {
-    return ownerEnityType + "." + property;
+    return ownerEnityType + "." + name;
   }
 }
