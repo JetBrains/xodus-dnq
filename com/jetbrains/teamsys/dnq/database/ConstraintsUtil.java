@@ -340,9 +340,9 @@ class ConstraintsUtil {
             LinkChange change = changedLinks.get(linkName);
             if (change != null) { // change can be null if current link is not changed, but some was
               LinkChangeType changeType = change.getChangeType();
-              if (changeType == LinkChangeType.REMOVE) {
+              if (changeType == LinkChangeType.REMOVE && change.getRemovedEntities().contains(target)) {
                 linkAlreadyRemoved = true;
-              } else if ((changeType == LinkChangeType.SET || changeType == LinkChangeType.ADD) && !(change.getAddedEntities().isEmpty())) {
+              } else if ((changeType == LinkChangeType.SET || changeType == LinkChangeType.ADD) && change.getAddedEntities().contains(target)) {
                 continue;
               }
             }
