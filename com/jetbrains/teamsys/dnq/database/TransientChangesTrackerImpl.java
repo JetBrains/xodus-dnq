@@ -268,6 +268,17 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
       }
     };
 
+    /* Commented code below (PART I and PART II) helps to determine from where incorrect entity deletion
+       (when some incoming links to deleted entity are left in database) was made. */
+
+    // PART I
+    /* final Throwable cause;
+    try {
+      throw new RuntimeException();
+    } catch (Throwable t) {
+      cause = t;
+    } */
+
     final Runnable deleteEntity = new Runnable() {
       public void run() {
         // do not delete entity that was new in this session
@@ -275,6 +286,13 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
           if (log.isDebugEnabled()) {
             log.debug("Delete entity: " + e);
           }
+
+          // PART II
+          /* Map<String, EntityId> incomingLinks = e.getIncomingLinks();
+          for (String linkName: incomingLinks.keySet()) {
+            EntityId id = incomingLinks.get(linkName);
+            throw new IllegalStateException("Incoming link " + linkName + " from entity with id " + id + " to " + e.getType() + " with id " + e.getId(), cause);
+          } */
 
           // delete entity
           e.deleteInternal();
