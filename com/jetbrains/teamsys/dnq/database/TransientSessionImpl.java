@@ -1115,11 +1115,24 @@ public class TransientSessionImpl extends AbstractTransientSession {
             //Entity lastDatabaseCopy = ((TransientEntityImpl)localCopy).getLastVersionInternal();
             Entity lastDatabaseCopy = ((TransientEntityImpl) localCopy).getPersistentEntityInternal().getUpToDateVersion();
             if (lastDatabaseCopy == null) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Entity was removed from database:" + localCopy);
-                }
-
-                throw new EntityRemovedInDatabaseException(localCopy);
+                if (localCopy.isRemoved()) {
+                    Exception ex;
+                    try {
+                      throw new EntityRemovedInDatabaseException(localCopy);
+                    } catch (EntityRemovedInDatabaseException er) {
+                        ex = er;
+                    }
+                    if (log.isWarnEnabled()) {
+                        log.warn("Entity " + localCopy + " was removed from database, but is in removed state on transient level, hence flush is not terminated.", ex);
+                    }
+                    // dont't check version mismatch  
+                    continue;
+                } else {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Entity was removed from database:" + localCopy);
+                    }
+                    throw new EntityRemovedInDatabaseException(localCopy);
+                }  
             }
 
             int localCopyVersion = ((TransientEntityImpl) localCopy).getVersionInternal();
