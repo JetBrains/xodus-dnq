@@ -27,9 +27,12 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   private static final Log log = LogFactory.getLog(TransientEntityStoreImpl.class);
 
   private TransientStoreSession session;
+
   private Queue<Runnable> changes = new QueueDecorator<Runnable>();
-  private LinkedList<Runnable> deleted = null;
+  private Queue<Runnable> deleteIndexes = new QueueDecorator<Runnable>();
   private Queue<Runnable> rollbackChanges = new QueueDecorator<Runnable>();
+  private LinkedList<Runnable> deleted = null;
+
   private Set<TransientEntity> changedPersistentEntities = new HashSetDecorator<TransientEntity>();
   private Set<TransientEntity> changedEntities = new HashSetDecorator<TransientEntity>();
 
@@ -47,7 +50,8 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   @NotNull
   public Queue<Runnable> getChanges() {
-    Queue<Runnable> res = new LinkedList<Runnable>(changes);
+    Queue<Runnable> res = new LinkedList<Runnable>(deleteIndexes);
+    res.addAll(changes);
     if (deleted != null) {
       res.addAll(getDeleted());
     }
@@ -254,7 +258,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
         }
       }
     };
-    offerChange(deleteUniqueProperties);
+    deleteIndexes.offer(deleteUniqueProperties);
 
     final Runnable deleteOutgoingLinks = new Runnable() {
       public void run() {
@@ -312,7 +316,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
           ((TransientEntityImpl) e).rollbackDelete();
         }
         // discard delete change
-        changes.remove(deleteUniqueProperties);
+        deleteIndexes.remove(deleteUniqueProperties);
         getDeleted().remove(deleteEntity);
         getDeleted().remove(deleteOutgoingLinks);
       }
@@ -477,7 +481,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private void changeIndexes(final TransientEntity e, String propertyName) {
-    // update all indexes for thi property
+    // update all indexes for this property
     Set<Index> indexes = getMetadataIndexes(e, propertyName);
     if (indexes != null) {
       for (final Index index: indexes) {
@@ -581,6 +585,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private Comparable getOriginalLinkValue(TransientEntity e, String linkName) {
+/*
     // get from saved changes, if not - from db
     Map<String, LinkChange> linksDetailed = getChangedLinksDetailed(e);
     if (linksDetailed != null) {
@@ -594,6 +599,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
         }
       }
     }
+*/
     return ((TransientEntityImpl)e).getPersistentEntityInternal().getLink(linkName);
   }
 
