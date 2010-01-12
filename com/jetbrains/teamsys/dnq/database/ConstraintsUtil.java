@@ -47,10 +47,11 @@ class ConstraintsUtil {
   }
 
   @NotNull
-  static Set<DataIntegrityViolationException> checkCustomFlushConstraints(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
-    Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
+  static Set<DataIntegrityViolationException> executeBeforeFlushTriggers(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
+      Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
 
-    for (TransientEntity e : changesTracker.getChangedEntities()) {
+      Set<TransientEntity> changedEntities = changesTracker.getChangedEntities();
+      for (TransientEntity e : changedEntities.toArray(new TransientEntity[changedEntities.size()])) {
       if (!e.isRemoved()) {
         EntityMetaData md = modelMetaData.getEntityMetaData(e.getType());
 

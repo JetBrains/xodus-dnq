@@ -898,7 +898,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     /**
      * Checks custom flush constraints before save changes
      */
-    private void checkCustomFlushConstraints() {
+    private void executeBeforeFlushTriggers() {
         final ModelMetaData modelMetaData = store.getModelMetaData();
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
@@ -913,7 +913,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         Set<DataIntegrityViolationException> triggerErrors = new HashSetDecorator<DataIntegrityViolationException>();
-        triggerErrors.addAll(ConstraintsUtil.checkCustomFlushConstraints(changesTracker, modelMetaData));
+        triggerErrors.addAll(ConstraintsUtil.executeBeforeFlushTriggers(changesTracker, modelMetaData));
 
         if (triggerErrors.size() != 0) {
             ConstraintsValidationException e = new ConstraintsValidationException(triggerErrors);
@@ -935,7 +935,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         notifyBeforeFlushListeners();
-        checkCustomFlushConstraints();
+        executeBeforeFlushTriggers();
         checkDatabaseState();
         transformNewChildsOfTempoparyParents();
         checkBeforeSaveChangesConstraints(removeOrphans());
