@@ -912,8 +912,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
             log.debug("Check custom flush constraints. " + this);
         }
 
-        Set<DataIntegrityViolationException> triggerErrors = new HashSetDecorator<DataIntegrityViolationException>();
-        triggerErrors.addAll(ConstraintsUtil.executeBeforeFlushTriggers(changesTracker, modelMetaData));
+        final Set<DataIntegrityViolationException> triggerErrors = 
+                ConstraintsUtil.executeBeforeFlushTriggers(changesTracker, modelMetaData);
 
         if (triggerErrors.size() != 0) {
             ConstraintsValidationException e = new ConstraintsValidationException(triggerErrors);
