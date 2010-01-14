@@ -64,6 +64,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   public void clear() {
+    deleteIndexes.clear();
     changes.clear();
     if (deleted != null) {
       getDeleted().clear();
