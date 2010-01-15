@@ -566,10 +566,10 @@ class ConstraintsUtil {
 
                     if ((requiredProperties.size() + requiredIfProperties.size() > 0 && (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)))) {
                         for (String requiredPropertyName : requiredProperties) {
-                            checkProperty(errors, e, changedProperties, emd.getPropertyMetaData(requiredPropertyName));
+                            checkProperty(errors, e, changedProperties, emd, requiredPropertyName);
                         }
                         for (String requiredIfPropertyName : requiredIfProperties) {
-                            checkProperty(errors, e, emd.getPropertyMetaData(requiredIfPropertyName));
+                            checkProperty(errors, e, changedProperties, emd, requiredIfPropertyName);
                         }
                     }
                 }
@@ -603,7 +603,7 @@ class ConstraintsUtil {
                         for (IndexField f : index.getFields()) {
                             if (f.isProperty()) {
                                 if (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)) {
-                                    checkProperty(errors, e, changedProperties, emd.getPropertyMetaData(f.getName()));
+                                    checkProperty(errors, e, changedProperties, emd, f.getName());
                                 }
                             } else {
                                 // link
@@ -620,42 +620,44 @@ class ConstraintsUtil {
         return errors;
     }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changedProperties, PropertyMetaData md) {
-        if (e.isNewOrTemporary() || changedProperties.containsKey(md.getName())) {
-            checkProperty(errors, e, md);
-        }
-    }
-
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, PropertyMetaData md) {
+    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changedProperties, EntityMetaData emd, String name) {
+        PropertyMetaData pmd = emd.getPropertyMetaData(name);
         PropertyType type = null;
-        if (md == null) {
+        if (pmd == null) {
             log.warn("Can't determine property type. Try to get property value as if it of primitive type.");
             type = PropertyType.PRIMITIVE;
         } else {
-            type = md.getType();
+            type = pmd.getType();
         }
+
+        if (e.isNewOrTemporary() || changedProperties.containsKey(name)) {
+            checkProperty(errors, e, name, type);
+        }
+    }
+
+    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, String name, PropertyType type) {
 
         switch (type) {
             case PRIMITIVE:
-                if (isEmptyPrimitiveProperty(e.getProperty(md.getName()))) {
-                    errors.add(new NullPropertyException(e, md.getName()));
+                if (isEmptyPrimitiveProperty(e.getProperty(name))) {
+                    errors.add(new NullPropertyException(e, name));
                 }
                 break;
 
             case BLOB:
-                if (e.getBlob(md.getName()) == null) {
-                    errors.add(new NullPropertyException(e, md.getName()));
+                if (e.getBlob(name) == null) {
+                    errors.add(new NullPropertyException(e, name));
                 }
                 break;
 
             case TEXT:
-                if (e.getBlobString(md.getName()) == null) {
-                    errors.add(new NullPropertyException(e, md.getName()));
+                if (e.getBlobString(name) == null) {
+                    errors.add(new NullPropertyException(e, name));
                 }
                 break;
 
             default:
-                throw new IllegalArgumentException("Unknown property type: " + md.getType());
+                throw new IllegalArgumentException("Unknown property type: " + name);
         }
 
     }
