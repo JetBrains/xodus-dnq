@@ -116,6 +116,8 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 */
 
+
+
   @Override
   public long getLinksSize(@NotNull String linkName) {
     return super.getLinksSize(linkName);
