@@ -1224,7 +1224,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
 
-        for (final TransientEntity e : changedPersistentEntities) {
+        for (final TransientEntity e : changedPersistentEntities.toArray(new TransientEntity[changedPersistentEntities.size()])) {
             if (!e.isNew() && !e.isRemovedOrTemporary()) {
                 final EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
                 if (emd != null && emd.getInstance(e).evaluateSaveHistoryCondition(e) && emd.changesReflectHistory(e, changesTracker)) {
