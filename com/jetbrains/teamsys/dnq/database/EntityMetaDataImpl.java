@@ -21,6 +21,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
     private Set<String> subTypes = new HashSetDecorator<String>();
     private List<String> thisAndSuperTypes = Collections.emptyList();
     private Map<String, AssociationEndMetaData> associationEnds = null;
+    private Map<String, PropertyMetaData> properties = new HashMapDecorator<String, PropertyMetaData>();
     private Set<AssociationEndMetaData> externalAssociationEnds = null;
     private Set<String> aggregationChildEnds = null;
     private Set<Index> ownIndexes = Collections.emptySet();
@@ -147,6 +148,22 @@ public class EntityMetaDataImpl implements EntityMetaData {
     public Iterable<AssociationEndMetaData> getAssociationEndsMetaData() {
         checkAssociationEndsCreated();
         return associationEnds.values();
+    }
+
+    public PropertyMetaData getPropertyMetaData(String name) {
+        return properties.get(name);
+    }
+
+    @NotNull
+    public Iterable<PropertyMetaData> getPropertiesMetaData() {
+        return properties.values();
+    }
+
+    public void setPropertiesMetaData(Iterable<PropertyMetaData> properties) {
+        if (properties == null) return;
+        for (PropertyMetaData p: properties) {
+            this.properties.put(p.getName(), p);
+        }
     }
 
     public boolean getRemoveOrphan() {
