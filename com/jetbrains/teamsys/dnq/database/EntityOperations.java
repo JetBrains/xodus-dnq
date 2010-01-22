@@ -73,11 +73,11 @@ public class EntityOperations {
   }
 
   public static boolean equals(Entity e1, Object e2) {
-    if (e1 == null && e2 == null) {
+    if (e1 == e2) {
       return true;
     }
 
-    if (e1 == e2) {
+    if (e1 == null && e2 == null) {
       return true;
     }
 
@@ -85,7 +85,12 @@ public class EntityOperations {
       return false;
     }
 
-    //no need to reattach - it's ok to compare entities from different sessions, Entity.equals should handle this situation itself 
+    // null == removed || removed == null
+    if ((e1 == null && EntityOperations.isRemoved((TransientEntity)e2)) || (EntityOperations.isRemoved(e1) && e2 == null)) {
+      return true;        
+    }
+
+    //no need to reattach - it's ok to compare entities from different sessions, Entity.equals should handle this situation itself
     //e1 = TransientStoreUtil.reattach((TransientEntity) e1);
     //e2 = TransientStoreUtil.reattach((TransientEntity) e2);
 
