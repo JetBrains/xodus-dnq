@@ -243,26 +243,26 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         // wait for lock
         try {
-          lock.acquire();
+            lock.acquire();
         } catch (InterruptedException e) {
         }
 
         // after lock acquire, session may be in Suspend, Commited or Aborted states only!
         try {
-          switch (state) {
-              case Suspended:
-                  deleteBlobsStore();
-                  store.unregisterStoreSession(this);
-                  state = State.Aborted;
-                  break;
-              case Committed:
-              case Aborted:
-                  break;
-              default:
-                  throw new IllegalStateException("Transient session can't be in this state after lock.acquire() [" + state + "]");
-          }
+            switch (state) {
+                case Suspended:
+                    deleteBlobsStore();
+                    store.unregisterStoreSession(this);
+                    state = State.Aborted;
+                    break;
+                case Committed:
+                case Aborted:
+                    break;
+                default:
+                    throw new IllegalStateException("Transient session can't be in this state after lock.acquire() [" + state + "]");
+            }
         } finally {
-          lock.release();
+            lock.release();
         }
     }
 
@@ -578,23 +578,23 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-  public void updateUniqueKeyIndices(@NotNull Set<Index> indices) {
-    throw new UnsupportedOperationException();
-  }
+    public void updateUniqueKeyIndices(@NotNull Set<Index> indices) {
+        throw new UnsupportedOperationException();
+    }
 
 
-  public void insertUniqueKey(@NotNull final Index index,
-                              @NotNull final List<Comparable> propValues,
-                              @NotNull final Entity entity) {
-    throw new UnsupportedOperationException();
-  }
+    public void insertUniqueKey(@NotNull final Index index,
+                                @NotNull final List<Comparable> propValues,
+                                @NotNull final Entity entity) {
+        throw new UnsupportedOperationException();
+    }
 
-  public void deleteUniqueKey(@NotNull final Index index,
-                              @NotNull final List<Comparable> propValues) {
-    throw new UnsupportedOperationException();
-  }
+    public void deleteUniqueKey(@NotNull final Index index,
+                                @NotNull final List<Comparable> propValues) {
+        throw new UnsupportedOperationException();
+    }
 
-  @NotNull
+    @NotNull
     public File createBlobFile(boolean createNewFile) {
         String fileName = id + "-" + getPersistentSessionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment() + ".dat";
         File f = new File(store.getBlobsStore(), fileName);
@@ -912,7 +912,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             log.debug("Check custom flush constraints. " + this);
         }
 
-        final Set<DataIntegrityViolationException> triggerErrors = 
+        final Set<DataIntegrityViolationException> triggerErrors =
                 ConstraintsUtil.executeBeforeFlushTriggers(changesTracker, modelMetaData);
 
         if (triggerErrors.size() != 0) {
@@ -932,6 +932,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (!changesTracker.areThereChanges()) {
             log.trace("Nothing to flush.");
             return null;
+        }
+
+        if (log.isTraceEnabled()) {
+            log.trace("TransientSession.flush()", new Throwable());
         }
 
         notifyBeforeFlushListeners();
@@ -1118,7 +1122,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 if (localCopy.isRemoved()) {
                     Exception ex;
                     try {
-                      throw new EntityRemovedInDatabaseException(localCopy);
+                        throw new EntityRemovedInDatabaseException(localCopy);
                     } catch (EntityRemovedInDatabaseException er) {
                         ex = er;
                     }
@@ -1132,7 +1136,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         log.debug("Entity was removed from database:" + localCopy);
                     }
                     throw new EntityRemovedInDatabaseException(localCopy);
-                }  
+                }
             }
 
             int localCopyVersion = ((TransientEntityImpl) localCopy).getVersionInternal();
