@@ -13,8 +13,6 @@ import jetbrains.springframework.configuration.runtime.ServiceLocator;
  */
 class PersistentEntityIterableWrapper implements EntityIterable {
 
-  private static final Log log = LogFactory.getLog(PersistentEntityIterableWrapper.class);
-
   private EntityIterable wrappedIterable;
 
   PersistentEntityIterableWrapper(@NotNull EntityIterable wrappedIterable) {
@@ -89,10 +87,6 @@ class PersistentEntityIterableWrapper implements EntityIterable {
   }
 
   public EntityIterator iterator() {
-    if (log.isTraceEnabled()) {
-      log.trace("New iterator requested for persistent iterable wrapper " + this);
-    }
-
     return new PersistentEntityIteratorWrapper(wrappedIterable.iterator(),
            (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
   }
