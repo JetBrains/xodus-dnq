@@ -934,8 +934,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
             return null;
         }
 
-        if (log.isInfoEnabled()) {
-            log.info("TransientSession.flush()", new Throwable());
+        if (log.isDebugEnabled()) {
+            log.debug("TransientSession.flush()", new Throwable());
         }
 
         notifyBeforeFlushListeners();
