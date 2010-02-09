@@ -41,10 +41,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     private Map<String, TransientEntity> localEntities = new HashMapDecorator<String, TransientEntity>();
-    private State state;
+    protected State state;
     private boolean quietFlush = false;
     private Set<File> createdBlobFiles = new HashSetDecorator<File>();
-    private Latch lock = Latch.create();
+    protected Latch lock = Latch.create();
     private TransientChangesTracker changesTracker;
 
     // stores transient entities that were created for loaded persistent entities to avoid double loading
@@ -183,7 +183,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         notifyCommitedListeners(changes);
     }
 
-    private void dispose() {
+    protected final void dispose() {
         localEntities.clear();
         changesTracker.dispose();
         changesTracker = null;
@@ -928,7 +928,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
      * @return changed description excluding deleted entities
      */
     @Nullable
-    private Set<TransientEntityChange> flush() {
+    protected final Set<TransientEntityChange> flush() {
         if (!changesTracker.areThereChanges()) {
             log.trace("Nothing to flush.");
             return null;
@@ -1244,7 +1244,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    private void deleteBlobsStore() {
+    protected void deleteBlobsStore() {
         for (File f : createdBlobFiles) {
             if (f.exists() && !f.delete()) {
                 log.warn("Can't delete temp blob file [" + f.getAbsolutePath() + "]");
@@ -1256,7 +1256,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         createdBlobFiles.clear();
     }
 
-    private void notifyCommitedListeners(final Set<TransientEntityChange> changes) {
+    protected final void notifyCommitedListeners(final Set<TransientEntityChange> changes) {
         if (changes == null || changes.isEmpty()) {
             return;
         }

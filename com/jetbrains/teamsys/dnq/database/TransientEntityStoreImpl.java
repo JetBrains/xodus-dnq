@@ -109,7 +109,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public TransientStoreSession beginSession(@Nullable String name, Object id) {
-        return beginSession(name, id, TransientStoreSessionMode.readwrite);
+        return beginSession(name, id, TransientStoreSessionMode.inplace);
+    }
+
+    public TransientStoreSession beginDeferredSession(@Nullable String name, Object id) {
+        return beginSession(name, id, TransientStoreSessionMode.deferred);
     }
 
     protected TransientStoreSession beginSession(@Nullable String name, Object id, @NotNull TransientStoreSessionMode mode) {
@@ -118,7 +122,14 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("Begin new session [" + name + "] with id [" + id + "]");
+            StringBuilder logMessage = new StringBuilder(64);
+            logMessage.append("Begin new session [");
+            logMessage.append(name);
+            logMessage.append("] with id [");
+            logMessage.append(id);
+            logMessage.append("], mode = ");
+            logMessage.append(mode);
+            log.debug(logMessage.toString());
         }
 
         if (currentSession.get() != null) {
@@ -131,7 +142,15 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         }
 
         if (id == null) {
-            return registerStoreSession(new TransientSessionImpl(this, name));
+            final TransientStoreSession transientSession;
+            if (mode == TransientStoreSessionMode.inplace) {
+                transientSession = new TransientSessionImpl(this, name);
+            } else if (mode == TransientStoreSessionMode.deferred) {
+                transientSession = new TransientSessionDeferred(this, name);
+            } else {
+                throw new IllegalStateException("Unsupported session mode: " + mode);
+            }
+            return registerStoreSession(transientSession);
         } else {
             if (getStoreSession(id) != null) {
                 if (resumeOnBeginIfExists) {
@@ -141,7 +160,16 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
                 }
             }
         }
-        return registerStoreSession(new TransientSessionImpl(this, name, id));
+
+        final TransientStoreSession transientSession;
+        if (mode == TransientStoreSessionMode.inplace) {
+            transientSession = new TransientSessionImpl(this, name, id);
+        } else if (mode == TransientStoreSessionMode.deferred) {
+            transientSession = new TransientSessionDeferred(this, name, id);
+        } else {
+            throw new IllegalStateException("Unsupported session mode: " + mode);
+        }
+        return registerStoreSession(transientSession);
     }
 
     public boolean isSessionExists(@NotNull Object id) {
@@ -311,7 +339,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         });
     }
 
-    public void deleteLinkRefactoring(@NotNull final Entity entity,  @NotNull final String linkName, @NotNull final Entity link) {
+    public void deleteLinkRefactoring(@NotNull final Entity entity, @NotNull final String linkName, @NotNull final Entity link) {
         final TransientStoreSession s = (TransientStoreSession) getThreadSession();
 
         if (s == null) {
