@@ -609,7 +609,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
         }
 
         Object processOpenSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
-            return that.isSaved() && entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
+            return (that.isSaved() || (that.isRemoved() && !that.wasNew())) &&
+                    entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
         }
 
         Object processClosedSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
@@ -634,7 +635,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case RemovedNew:
                     return entity == that;
                 case RemovedSaved:
-                    return that.isRemoved() && !that.wasNew() && entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
+                    return (that.isSaved() || (that.isRemoved() && !that.wasNew())) && 
+                            entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
             }
 
             return false;
