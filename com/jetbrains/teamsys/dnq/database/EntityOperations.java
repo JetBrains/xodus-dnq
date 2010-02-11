@@ -17,31 +17,31 @@ public class EntityOperations {
   private EntityOperations() {
   }
 
-  public static void remove(Entity e) {
+  public static void remove(final Entity e) {
     if (e == null || ((TransientEntity) e).isRemoved()) {
       return;
     }
 
-    e = TransientStoreUtil.reattach((TransientEntity) e);
+    TransientEntity reattached = TransientStoreUtil.reattach((TransientEntity) e);
 
-    if (e == null) return;
+    if (reattached == null) return;
 
-    TransientEntityStore store = (TransientEntityStore) e.getStore();
+    TransientEntityStore store = (TransientEntityStore) reattached.getStore();
 
     ModelMetaData md = store.getModelMetaData();
     if (md != null) {
       // cascade delete
-      EntityMetaData emd = md.getEntityMetaData(e.getType());
+      EntityMetaData emd = md.getEntityMetaData(reattached.getType());
       if (emd != null) {
-        md.getEntityMetaData(e.getType()).getInstance(e).destructor(e);
+        md.getEntityMetaData(reattached.getType()).getInstance(reattached).destructor(reattached);
 
-        // remove associations and cascade delete 
-        ConstraintsUtil.processOnDeleteConstraints((TransientStoreSession) store.getThreadSession(), e, emd, md);
+        // remove associations and cascade delete
+        ConstraintsUtil.processOnDeleteConstraints((TransientStoreSession) store.getThreadSession(), reattached, emd, md);
       }
     }
 
     // delete itself; the check is performed, because onDelete constraints could already delete entity 'e'
-    if (!((TransientEntity) e).isRemoved()) e.delete();
+    if (!reattached.isRemoved()) reattached.delete();
   }
 
   public static List<Entity> getHistory(@NotNull Entity e) {
@@ -87,7 +87,7 @@ public class EntityOperations {
 
     // null == removed || removed == null
     if ((e1 == null && EntityOperations.isRemoved((TransientEntity)e2)) || (EntityOperations.isRemoved(e1) && e2 == null)) {
-      return true;        
+      return true;
     }
 
     //no need to reattach - it's ok to compare entities from different sessions, Entity.equals should handle this situation itself

@@ -20,6 +20,7 @@ class ConstraintsUtil {
 
 
     //TODO: performance tip: use getPersistentIterable.next instead of getLinksSize
+
     static boolean checkCardinality(TransientEntity e, AssociationEndMetaData md) {
         return checkCardinality(e, md.getCardinality(), md.getName());
     }
@@ -171,7 +172,7 @@ class ConstraintsUtil {
         return exceptions;
     }
 
-    static void processOnDeleteConstraints(@NotNull TransientStoreSession session, @NotNull Entity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md) {
+    static void processOnDeleteConstraints(@NotNull TransientStoreSession session, @NotNull TransientEntity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md) {
         for (AssociationEndMetaData amd : emd.getAssociationEndsMetaData()) {
             if (amd.getCascadeDelete() || amd.getClearOnDelete()) {
 
@@ -326,7 +327,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void processOnTargetDeleteConstraints(Entity target, EntityMetaData emd, ModelMetaData md, String oppositeType, String linkName, TransientStoreSession session) {
+    private static void processOnTargetDeleteConstraints(TransientEntity target, EntityMetaData emd, ModelMetaData md, String oppositeType, String linkName, TransientStoreSession session) {
         EntityMetaData oppositeEmd = md.getEntityMetaData(oppositeType);
         if (oppositeEmd == null) {
             throw new RuntimeException("can't find metadata for entity type " + oppositeType + " as opposite to " + target.getType());
@@ -337,29 +338,40 @@ class ConstraintsUtil {
         while (it.hasNext()) {
             Entity source = it.next();
             Map<String, LinkChange> changedLinks = changesTracker.getChangedLinksDetailed((TransientEntity) source);
-            boolean linkAlreadyRemoved = false;
+            boolean linkRemoved = false;
+            boolean linkRemains = true;
             if (changedLinks != null) { // changed links can be null
                 LinkChange change = changedLinks.get(linkName);
                 if (change != null) { // change can be null if current link is not changed, but some was
                     LinkChangeType changeType = change.getChangeType();
-                    if ((changeType == LinkChangeType.REMOVE || changeType == LinkChangeType.SET) && change.getRemovedEntities().contains(target)) {
-                        linkAlreadyRemoved = true;
-                    } else if ((changeType == LinkChangeType.ADD || changeType == LinkChangeType.SET) && change.getAddedEntities().contains(target)) {
-                        continue;
+                    switch (changeType) {
+                        case SET:
+                            linkRemoved = change.getRemovedEntities().contains(target);
+                            // fall-through
+                        case ADD:
+                            linkRemains = change.getAddedEntities().contains(target);
+                            break;
+                        case ADD_AND_REMOVE:
+                            linkRemains = change.getAddedEntities().contains(target);
+                            // fall-through
+                        case REMOVE:
+                            linkRemoved = change.getRemovedEntities().contains(target);
                     }
                 }
             }
             // System.out.println("opposite entity (instance of " + oppositeType + "): " + source + ", link name: " + linkName);
-            if (amd.getTargetCascadeDelete()) {
-                if (log.isDebugEnabled()) {
-                    log.debug("cascade delete targets for link [" + source + "]." + linkName);
+            if (linkRemains) {
+                if (amd.getTargetCascadeDelete()) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("cascade delete targets for link [" + source + "]." + linkName);
+                    }
+                    EntityOperations.remove(source);
+                } else if ((!linkRemoved) && amd.getTargetClearOnDelete()) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("clear associations with targets for link [" + source + "]." + linkName);
+                    }
+                    processOnTargetDeleteConstrainsSwitch(source, target, linkName, amd);
                 }
-                EntityOperations.remove(source);
-            } else if ((!linkAlreadyRemoved) && amd.getTargetClearOnDelete()) {
-                if (log.isDebugEnabled()) {
-                    log.debug("clear associations with targets for link [" + source + "]." + linkName);
-                }
-                processOnTargetDeleteConstrainsSwitch(source, target, linkName, amd);
             }
         }
     }
@@ -459,8 +471,8 @@ class ConstraintsUtil {
         for (Entity child : AssociationSemantics.getToManyList(e, amd.getName())) {
             try {
                 AggregationAssociationSemantics.removeOneToMany(
-                        e, amd.getName(),
-                        amd.getAssociationMetaData().getOppositeEnd(amd).getName(), child);
+                    e, amd.getName(),
+                    amd.getAssociationMetaData().getOppositeEnd(amd).getName(), child);
             } catch (EntityRemovedException ex) {
                 if (log.isDebugEnabled()) {
                     log.debug("Entity [" + child + "] already removed", ex);
