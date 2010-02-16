@@ -77,16 +77,9 @@ public class EntityOperations {
       return true;
     }
 
-    if (e1 == null && e2 == null) {
-      return true;
-    }
-
-    if (e1 == null || !(e2 instanceof Entity)) {
-      return false;
-    }
-
     // null == removed || removed == null
-    if ((e1 == null && EntityOperations.isRemoved((TransientEntity)e2)) || (EntityOperations.isRemoved(e1) && e2 == null)) {
+    if ((e1 == null && EntityOperations.isRemoved((TransientEntity)e2)) ||
+        (e1 != null && EntityOperations.isRemoved(e1) && e2 == null)) {
       return true;
     }
 
@@ -94,7 +87,7 @@ public class EntityOperations {
     //e1 = TransientStoreUtil.reattach((TransientEntity) e1);
     //e2 = TransientStoreUtil.reattach((TransientEntity) e2);
 
-    return e1.equals(e2);
+    return e1 == null ? false : e1.equals(e2);
   }
 
   /**
