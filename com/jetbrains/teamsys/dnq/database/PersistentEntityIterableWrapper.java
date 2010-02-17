@@ -90,4 +90,8 @@ class PersistentEntityIterableWrapper implements EntityIterable {
     return new PersistentEntityIteratorWrapper(wrappedIterable.iterator(),
            (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
   }
+
+    public boolean isEmpty() {
+        return wrappedIterable.isEmpty();
+    }
 }

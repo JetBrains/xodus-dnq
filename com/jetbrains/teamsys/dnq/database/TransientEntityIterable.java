@@ -106,4 +106,8 @@ public class TransientEntityIterable implements EntityIterable {
     }
     return new TransientEntityIterator(values.iterator());
   }
+
+    public boolean isEmpty() {
+        return size() == 0;
+    }
 }
