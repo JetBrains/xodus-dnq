@@ -482,6 +482,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private void changeIndexes(final TransientEntity e, String propertyName) {
+    if (TransientStoreUtil.isPostponeUniqueIndexes()) {
+        return;
+    }
     // update all indexes for this property
     Set<Index> indexes = getMetadataIndexes(e, propertyName);
     if (indexes != null) {
@@ -532,6 +535,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private void deleteIndexKeys(TransientEntity e) {
+    if (TransientStoreUtil.isPostponeUniqueIndexes()) {
+        return;
+    }
     EntityMetaData emd = getEntityMetaData(e);
     if (emd != null) {
       for (Index index : emd.getIndexes()) {
@@ -541,6 +547,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private void deleteIndexKeys(TransientEntity e, String name) {
+    if (TransientStoreUtil.isPostponeUniqueIndexes()) {
+        return;
+    }
     EntityMetaData emd = getEntityMetaData(e);
     if (emd != null) {
       for (Index index : emd.getIndexes(name)) {
