@@ -487,17 +487,19 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     }
     // update all indexes for this property
     Set<Index> indexes = getMetadataIndexes(e, propertyName);
+    final boolean isNew = e.isNew();
+    // remember original values
     if (indexes != null) {
       for (final Index index: indexes) {
         offerIndexChange(e, index, new Runnable(){
           public void run() {
             try {
               if (!e.isRemoved()) {
-                if (e.isSaved() && e.wasNew()) {
+                if (isNew) {
                   // create new index
                   getPersistentSession().insertUniqueKey(
                           index, getIndexFieldsFinalValues(e, index), ((TransientEntityImpl) e).getPersistentEntityInternal());
-                } else if (e.isSaved() && !e.wasNew()) {
+                } else {
                   // update existing index
                   getPersistentSession().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
                   getPersistentSession().insertUniqueKey(
@@ -595,21 +597,23 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private Comparable getOriginalLinkValue(TransientEntity e, String linkName) {
-/*
     // get from saved changes, if not - from db
     Map<String, LinkChange> linksDetailed = getChangedLinksDetailed(e);
     if (linksDetailed != null) {
       LinkChange change = linksDetailed.get(linkName);
       if (change != null) {
-        int size = change.getAddedEntitiesSize();
-        if (size > 1) {
-          throw new IllegalStateException("Multiple or empty association can't be a part of index.");
-        } if (size == 1) {
-          return ((TransientEntityImpl)change.getAddedEntities().iterator().next()).getPersistentEntityInternal();
+        switch (change.getChangeType()) {
+            case SET:
+            case REMOVE:
+                if (change.getRemovedEntitiesSize() != 1) {
+                    throw new IllegalStateException("Can't determine original link value: " + e.getType() + "." + linkName);
+                }
+                return change.getRemovedEntities().iterator().next();
+            default:
+                throw new IllegalStateException("Incorrect change type for link that is part of index: " + e.getType() + "." + linkName + ": " + change.getChangeType().getName());
         }
       }
     }
-*/
     return ((TransientEntityImpl)e).getPersistentEntityInternal().getLink(linkName);
   }
 
