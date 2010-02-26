@@ -663,7 +663,7 @@ class ConstraintsUtil {
                 break;
 
             case TEXT:
-                if (e.getBlobString(name) == null) {
+                if (isEmptyPrimitiveProperty(e.getBlobString(name))) {
                     errors.add(new NullPropertyException(e, name));
                 }
                 break;
