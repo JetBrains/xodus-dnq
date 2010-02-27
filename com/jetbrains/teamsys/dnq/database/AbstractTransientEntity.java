@@ -2,6 +2,7 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.EntityRemovedException;
+import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -579,7 +580,11 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return (Integer) compareToEventHandler.handle(this, e, null);
     }
 
-    public String toString() {
+    /**
+     * Called by BasePersistentClass by default
+     * @return
+     */
+    public String getDebugPresentation() {
         final Entity pe = getPersistentEntityInternal();
 
         final StringBuilder sb = new StringBuilder();
@@ -600,6 +605,11 @@ abstract class AbstractTransientEntity implements TransientEntity {
         sb.append(")");
 
         return sb.toString();
+    }
+
+    public String toString() {
+        // delegate to Persistent Class implementation
+        return ((BasePersistentClass)DnqUtils.getPersistentClassInstance(this, this.getType())).toString(this);
     }
 
     private static final StandartEventHandler<AbstractTransientEntity, Object> equalsEventHandler = new StandartEventHandler<AbstractTransientEntity, Object>() {
