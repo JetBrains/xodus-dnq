@@ -71,10 +71,10 @@ public class PrimitiveAssociationSemantics {
   @Nullable
   public static Object get(@Nullable Entity e, @NotNull String propertyName, @NotNull Class propertyType, @Nullable Object nullValue) {
     Object res = get(e, propertyName, nullValue);
-    return res == null ? getPropertyNullValue(propertyType) : res;
+    return res == null ? getPropertyNullValue(propertyType, nullValue) : res;
   }
 
-  private static Object getPropertyNullValue(Class clazz) {
+  private static Object getPropertyNullValue(Class clazz, Object nullValue) {
     if (Integer.class.equals(clazz)) {
       return 0;
     } else if (Long.class.equals(clazz)) {
@@ -91,7 +91,7 @@ public class PrimitiveAssociationSemantics {
       return false;
     }
 
-    return null;
+    return nullValue;
   }
 
   public static Comparable set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue) {
