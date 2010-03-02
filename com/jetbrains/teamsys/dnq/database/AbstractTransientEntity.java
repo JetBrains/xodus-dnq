@@ -609,7 +609,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     public String toString() {
         // delegate to Persistent Class implementation
-        return ((BasePersistentClass)DnqUtils.getPersistentClassInstance(this, this.getType())).toString(this);
+        BasePersistentClass pc = (BasePersistentClass) DnqUtils.getPersistentClassInstance(this, this.getType());
+        return pc == null ? getDebugPresentation() : pc.toString(this);
     }
 
     private static final StandartEventHandler<AbstractTransientEntity, Object> equalsEventHandler = new StandartEventHandler<AbstractTransientEntity, Object>() {
