@@ -24,7 +24,12 @@ public class TransientSessionDeferred extends TransientSessionImpl {
                 ((TransientEntityStoreImpl) getStore()).getPersistentStore().getLocation())) {
             protected void execute() throws Throwable {
                 ((TransientEntityStore)getStore()).resumeSession(TransientSessionDeferred.this);
-                TransientSessionDeferred.super.commit();
+                try {
+                    TransientSessionDeferred.super.commit();
+                } catch (Exception e) {
+                    TransientStoreUtil.abort(e, TransientSessionDeferred.this);
+                    throw e;
+                }
             }
         };
     }
