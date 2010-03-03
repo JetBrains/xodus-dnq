@@ -20,8 +20,10 @@ public class TransientSessionDeferred extends TransientSessionImpl {
 
     public void commit() {
         TransientStoreUtil.suspend(this);
+
         new Job(ThreadJobProcessorPool.getOrCreateJobProcessor("TransactionalDeferred " +
                 ((TransientEntityStoreImpl) getStore()).getPersistentStore().getLocation())) {
+
             protected void execute() throws Throwable {
                 ((TransientEntityStore)getStore()).resumeSession(TransientSessionDeferred.this);
                 try {
@@ -31,6 +33,7 @@ public class TransientSessionDeferred extends TransientSessionImpl {
                     throw e;
                 }
             }
+            
         };
     }
 
