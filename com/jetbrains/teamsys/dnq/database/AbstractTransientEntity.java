@@ -608,9 +608,14 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     public String toString() {
+        //rollback to original implementation due to stackoverflows
+        //TODO: implement smart toString for persistent enums
+        return getDebugPresentation();
+/*
         // delegate to Persistent Class implementation
         BasePersistentClass pc = (BasePersistentClass) DnqUtils.getPersistentClassInstance(this, this.getType());
         return pc == null ? getDebugPresentation() : pc.toString(this);
+*/
     }
 
     private static final StandartEventHandler<AbstractTransientEntity, Object> equalsEventHandler = new StandartEventHandler<AbstractTransientEntity, Object>() {
