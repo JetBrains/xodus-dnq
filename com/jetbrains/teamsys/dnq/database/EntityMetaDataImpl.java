@@ -60,11 +60,11 @@ public class EntityMetaDataImpl implements EntityMetaData {
         return !subTypes.isEmpty();
     }
 
-    public Iterable<String> getSubTypes() {
+    public Collection<String> getSubTypes() {
         return subTypes;
     }
 
-    public Iterable<String> getAllSubTypes(ModelMetaData mmd) {
+    public Collection<String> getAllSubTypes(ModelMetaData mmd) {
         if (!hasSubTypes()) return Collections.emptyList();
         List<String> result = new ArrayList<String>(subTypes.size());
         collectSubTypes(this, mmd, result);
@@ -369,4 +369,8 @@ public class EntityMetaDataImpl implements EntityMetaData {
         //throw new UnsupportedOperationException("Regenerate your persistent models.");
     }
 
+    @Override
+    public String toString() {
+        return getType();
+    }
 }
