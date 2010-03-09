@@ -29,7 +29,16 @@ abstract class AbstractTransientSession implements TransientStoreSession {
     throw new UnsupportedOperationException("Unsupported for transient session. Use abort or commit instead.");
   }
 
-  @NotNull
+    public void setQueryCancellingPolicy(QueryCancellingPolicy policy) {
+        getPersistentSessionInternal().setQueryCancellingPolicy(policy);
+    }
+
+    public QueryCancellingPolicy getQueryCancellingPolicy() {
+        return getPersistentSessionInternal().getQueryCancellingPolicy();
+    }
+
+
+    @NotNull
   public StoreTransaction beginTransaction() {
     throw new UnsupportedOperationException("Unsupported for transient session.");
   }
