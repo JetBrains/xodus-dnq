@@ -944,45 +944,56 @@ public class TransientSessionImpl extends AbstractTransientSession {
         transformNewChildsOfTempoparyParents();
         checkBeforeSaveChangesConstraints(removeOrphans());
 
-        StoreTransaction transaction = null;
-        try {
-            if (log.isTraceEnabled()) {
-                log.trace("Open persistent transaction in transient session " + this);
+        // check if nothing to persist
+        boolean onlyTemporary = true;
+        for (TransientEntity te : changesTracker.getChangedEntities()) {
+            if (!te.isTemporary()) {
+                onlyTemporary = false;
+                break;
             }
+        }
 
-            transaction = getPersistentSessionInternal().beginTransaction();
-
-            // lock entities to be updated by current transaction
-            // TODO: move to the first line of the method - before constraints check
-            lockForUpdate(transaction);
-
-            // check versions before commit changes
-            checkVersions();
-
-            // save history if meta data defined
-            saveHistory();
-
-            // commit changes
-            for (Runnable c : changesTracker.getChanges()) {
-                c.run();
-            }
-
-            if (log.isTraceEnabled()) {
-                log.trace("Commit persistent transaction in transient session " + this);
-            }
-
-            transaction.commit();
-
-            updateCaches();
-
-        } catch (Throwable e) {
-            // tracker make some changes in transient entities - rollback them
+        if (!onlyTemporary) {
+            StoreTransaction transaction = null;
             try {
-                logThreadsDump(e);
-                rollbackTransientTrackerChanges();
-                fixEntityIdsInDataIntegrityViolationException(e);
-            } finally {
-                TransientStoreUtil.abort(e, transaction);
+                if (log.isTraceEnabled()) {
+                    log.trace("Open persistent transaction in transient session " + this);
+                }
+
+                transaction = getPersistentSessionInternal().beginTransaction();
+
+                // lock entities to be updated by current transaction
+                // TODO: move to the first line of the method - before constraints check
+                lockForUpdate(transaction);
+
+                // check versions before commit changes
+                checkVersions();
+
+                // save history if meta data defined
+                saveHistory();
+
+                // commit changes
+                for (Runnable c : changesTracker.getChanges()) {
+                    c.run();
+                }
+
+                if (log.isTraceEnabled()) {
+                    log.trace("Commit persistent transaction in transient session " + this);
+                }
+
+                transaction.commit();
+
+                updateCaches();
+
+            } catch (Throwable e) {
+                // tracker make some changes in transient entities - rollback them
+                try {
+                    logThreadsDump(e);
+                    rollbackTransientTrackerChanges();
+                    fixEntityIdsInDataIntegrityViolationException(e);
+                } finally {
+                    TransientStoreUtil.abort(e, transaction);
+                }
             }
         }
 
