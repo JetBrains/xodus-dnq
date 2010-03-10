@@ -249,7 +249,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         // wait for lock
         try {
-            lock.acquire();
+            if (!lock.acquire(1000)) {
+                if (log.isWarnEnabled()) {
+                    log.debug("Can't acquire lock for transient session " + this);
+                }
+                return;
+            }
         } catch (InterruptedException e) {
         }
 
