@@ -201,7 +201,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         return s;
     }
 
-    public void resumeSession(TransientStoreSession session) {
+    public void resumeSession(TransientStoreSession session, int timeout) {
         if (session != null) {
             if (log.isDebugEnabled()) {
                 log.debug("Resume session [" + session.getName() + "] with id [" + session.getId() + "]");
@@ -214,9 +214,13 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
                 }
             }
 
-            session.resume();
+            session.resume(timeout);
             currentSession.set(session);
         }
+    }
+
+    public void resumeSession(TransientStoreSession session) {
+        resumeSession(session, 0);
     }
 
     public void setModelMetaData(final ModelMetaData modelMetaData) {

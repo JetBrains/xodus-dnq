@@ -161,8 +161,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     public void resume() {
+        resume(0);
+    }
+
+    public void resume(int timeout) {
         try {
-            lock.acquire();
+            if (!lock.acquire(timeout)) {
+                throw new IllegalStateException("Can't acquire transient session lock. Owner: " + lock.getOwnerName());
+            }
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
