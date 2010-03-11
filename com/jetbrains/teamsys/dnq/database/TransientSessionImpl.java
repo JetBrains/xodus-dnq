@@ -949,10 +949,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
             return null;
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("TransientSession.flush()", new Throwable());
-        }
-
         notifyBeforeFlushListeners();
         executeBeforeFlushTriggers();
         checkDatabaseState();
@@ -972,7 +968,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             StoreTransaction transaction = null;
             try {
                 if (log.isTraceEnabled()) {
-                    log.trace("Open persistent transaction in transient session " + this);
+                    log.trace("Open persistent transaction in transient session " + this, new Throwable());
                 }
 
                 transaction = getPersistentSessionInternal().beginTransaction();
