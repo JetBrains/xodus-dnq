@@ -145,6 +145,11 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (log.isDebugEnabled()) {
             log.debug("Suspend transient session " + this);
         }
+
+        if (store.getThreadSession() != this) {
+            throw new IllegalStateException("Can't suspend session from another thread.");
+        }
+
         switch (state) {
             case Open:
                 try {
@@ -156,7 +161,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 break;
 
             default:
-                throw new IllegalArgumentException("Can't suspend in state " + state);
+                throw new IllegalStateException("Can't suspend in state " + state);
         }
     }
 
@@ -189,6 +194,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     public void commit() {
+        if (store.getThreadSession() != this) {
+            throw new IllegalStateException("Can't suspend session from another thread.");
+        }
+
         final Set<TransientEntityChange> changes = commitReturnChanges();
         notifyCommitedListeners(changes);
     }
@@ -203,11 +212,19 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     public void intermediateCommit() {
+        if (store.getThreadSession() != this) {
+            throw new IllegalStateException("Can't suspend session from another thread.");
+        }
+
         final Set<TransientEntityChange> changes = intermediateCommitReturnChanges();
         notifyFlushedListeners(changes);
     }
 
     public void abort() {
+        if (store.getThreadSession() != this) {
+            throw new IllegalStateException("Can't suspend session from another thread.");
+        }
+
         if (log.isDebugEnabled()) {
             log.debug("Abort transient session " + this);
         }
