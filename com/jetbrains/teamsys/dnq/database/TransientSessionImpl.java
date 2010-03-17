@@ -195,7 +195,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     public void commit() {
         if (store.getThreadSession() != this) {
-            throw new IllegalStateException("Can't suspend session from another thread.");
+            throw new IllegalStateException("Can't commit session from another thread.");
         }
 
         final Set<TransientEntityChange> changes = commitReturnChanges();
@@ -213,7 +213,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     public void intermediateCommit() {
         if (store.getThreadSession() != this) {
-            throw new IllegalStateException("Can't suspend session from another thread.");
+            throw new IllegalStateException("Can't commit session from another thread.");
         }
 
         final Set<TransientEntityChange> changes = intermediateCommitReturnChanges();
@@ -222,7 +222,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     public void abort() {
         if (store.getThreadSession() != this) {
-            throw new IllegalStateException("Can't suspend session from another thread.");
+            throw new IllegalStateException("Can't abort session from another thread.");
         }
 
         if (log.isDebugEnabled()) {
