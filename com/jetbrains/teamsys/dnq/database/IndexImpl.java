@@ -37,7 +37,7 @@ public class IndexImpl implements Index {
     for (IndexField f: fields) {
       String enityType = f.getOwnerEnityType();
       res.add(enityType);
-      res.addAll(DnqUtils.getModelMetaData().getEntityMetaData(enityType).getAllSubTypes(DnqUtils.getModelMetaData()));
+      res.addAll(DnqUtils.getModelMetaData().getEntityMetaData(enityType).getAllSubTypes());
     }
     return res;
   }

@@ -14,15 +14,17 @@ import java.util.*;
 
 public class EntityMetaDataImpl implements EntityMetaData {
 
+    // original fields
+
+    private ModelMetaData modelMetaData = null;
     private String type = null;
     private String superType = null;
     private Runnable initializer = null;
     private boolean removeOrphan = true;
     private Set<String> subTypes = new HashSetDecorator<String>();
     private List<String> thisAndSuperTypes = Collections.emptyList();
-    private Map<String, AssociationEndMetaData> associationEnds = null;
-    private Map<String, PropertyMetaData> properties = new HashMapDecorator<String, PropertyMetaData>();
     private Set<AssociationEndMetaData> externalAssociationEnds = null;
+    private Map<String, PropertyMetaData> properties = new HashMapDecorator<String, PropertyMetaData>();
     private Set<String> aggregationChildEnds = null;
     private Set<Index> ownIndexes = Collections.emptySet();
     private Set<Index> indexes = null;
@@ -31,8 +33,26 @@ public class EntityMetaDataImpl implements EntityMetaData {
     private Set<String> requiredIfProperties = Collections.emptySet();
     private Set<String> historyIgnoredFields = Collections.emptySet();
     private Set<String> versionMismatchIgnored = Collections.emptySet();
-    private Map<String, Set<String>> incomingAssociations = null;
     private boolean versionMismatchIgnoredForWholeClass = false;
+    // calculated
+
+    private List<String> allSubTypes = null;
+    private Map<String, Set<String>> incomingAssociations = null;
+    private Map<String, AssociationEndMetaData> associationEnds = null;
+
+    void reset() {
+        allSubTypes = null;
+        associationEnds = null;
+        incomingAssociations = null;
+    }
+
+    public ModelMetaData getModelMetaData() {
+        return modelMetaData;
+    }
+
+    public void setModelMetaData(ModelMetaData modelMetaData) {
+        this.modelMetaData = modelMetaData;
+    }
 
     public void setType(String type) {
         if (type != null) {
@@ -46,6 +66,8 @@ public class EntityMetaDataImpl implements EntityMetaData {
             superType = superType.intern();
         }
         this.superType = superType;
+
+        reset();
     }
 
     public Iterable<String> getThisAndSuperTypes() {
@@ -54,6 +76,8 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
     public void setThisAndSuperTypes(List<String> thisAndSuperTypes) {
         this.thisAndSuperTypes = thisAndSuperTypes;
+
+        reset();
     }
 
     public boolean hasSubTypes() {
@@ -64,27 +88,47 @@ public class EntityMetaDataImpl implements EntityMetaData {
         return subTypes;
     }
 
+    /**
+     * Use #getAllSubTypes() instead
+     * @param mmd
+     * @return
+     * @deprecated
+     */
+    @Deprecated
     public Collection<String> getAllSubTypes(ModelMetaData mmd) {
-        if (!hasSubTypes()) return Collections.emptyList();
-        List<String> result = new ArrayList<String>(subTypes.size());
-        collectSubTypes(this, mmd, result);
-        return result;
+        return getAllSubTypes();
     }
 
-    private static void collectSubTypes(EntityMetaDataImpl emd, ModelMetaData mmd, List<String> result) {
-        final Set<String> subTypes = emd.subTypes;
-        result.addAll(subTypes);
-        for (final String subType : subTypes) {
-            collectSubTypes((EntityMetaDataImpl) mmd.getEntityMetaData(subType), mmd, result);
+    public Collection<String> getAllSubTypes() {
+        if (!hasSubTypes()) return Collections.emptyList();
+
+        updateAllSubTypes();
+
+        return allSubTypes;
+    }
+
+    private void updateAllSubTypes() {
+        if (allSubTypes == null) {
+            synchronized (this) {
+                if (allSubTypes == null) {
+                    allSubTypes = new ArrayList<String>(subTypes.size());
+                    collectSubTypes(this, allSubTypes);
+                }
+            }
         }
     }
 
-    public void addSubType(@NotNull String type) {
-        subTypes.add(type);
+    private void collectSubTypes(EntityMetaDataImpl emd, List<String> result) {
+        final Set<String> subTypes = emd.subTypes;
+        result.addAll(subTypes);
+        for (final String subType : subTypes) {
+            collectSubTypes((EntityMetaDataImpl) modelMetaData.getEntityMetaData(subType), result);
+        }
     }
 
-    public void setInstanceRef(InstanceRef instanceRef) {
-        // TODO: remove this method when no textual usages of '<property name="instanceRef">' in entityMetaDataConfiguration.xml left
+    // called by ModelMetadata.update
+    void addSubType(@NotNull String type) {
+        subTypes.add(type);
     }
 
     public void setInitializer(Runnable initializer) {
@@ -125,8 +169,18 @@ public class EntityMetaDataImpl implements EntityMetaData {
         this.removeOrphan = removeOrphan;
     }
 
-    public void setAssociationEnds(Set<AssociationEndMetaData> associationEnds) {
-        externalAssociationEnds = associationEnds;
+    public void setAssociationEndsMetaData(@NotNull Collection<AssociationEndMetaData> ends) {
+        externalAssociationEnds = new HashSet<AssociationEndMetaData>();
+        externalAssociationEnds.addAll(ends);        
+    }
+
+    public void setAssociationEnds(@NotNull Collection<AssociationEndMetaData> ends) {
+        externalAssociationEnds = new HashSet<AssociationEndMetaData>();
+        externalAssociationEnds.addAll(ends);
+    }
+
+    public void addAssociationEndMetaData(AssociationEndMetaData end) {
+        externalAssociationEnds.add(end);
     }
 
     @NotNull
@@ -140,13 +194,13 @@ public class EntityMetaDataImpl implements EntityMetaData {
     }
 
     public AssociationEndMetaData getAssociationEndMetaData(@NotNull String name) {
-        checkAssociationEndsCreated();
+        updateAssociationEnds();
         return associationEnds.get(name);
     }
 
     @NotNull
-    public Iterable<AssociationEndMetaData> getAssociationEndsMetaData() {
-        checkAssociationEndsCreated();
+    public Collection<AssociationEndMetaData> getAssociationEndsMetaData() {
+        updateAssociationEnds();
         return associationEnds.values();
     }
 
@@ -171,17 +225,22 @@ public class EntityMetaDataImpl implements EntityMetaData {
     }
 
     public boolean hasAggregationChildEnds() {
-        checkAssociationEndsCreated();
+        updateAssociationEnds();
         return !aggregationChildEnds.isEmpty();
     }
 
     public Set<String> getAggregationChildEnds() {
-        checkAssociationEndsCreated();
+        updateAssociationEnds();
         return aggregationChildEnds;
     }
 
     @NotNull
     public Map<String, Set<String>> getIncomingAssociations(final ModelMetaData mmd) {
+        updateIncommingAssociations(mmd);
+        return incomingAssociations;
+    }
+
+    private void updateIncommingAssociations(ModelMetaData mmd) {
         if (incomingAssociations == null) {
             synchronized (this) {
                 if (incomingAssociations == null) {
@@ -205,7 +264,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
                 }
             }
         }
-        return incomingAssociations;
     }
 
     private void addIncomingAssociation(@NotNull final String type, @NotNull final String associationName) {
@@ -313,7 +371,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
     public boolean hasParent(@NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
         if (e.isNewOrTemporary() || parentChanged(tracker.getChangedLinksDetailed(e))) {
-            checkAssociationEndsCreated();
+            updateAssociationEnds();
             for (String childEnd : aggregationChildEnds) {
                 if (AssociationSemantics.getToOne(e, childEnd) != null) {
                     return true;
@@ -332,7 +390,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
         if (changedLinks == null) {
             return false;
         }
-        checkAssociationEndsCreated();
+        updateAssociationEnds();
         for (String childEnd : aggregationChildEnds) {
             if (changedLinks.containsKey(childEnd)) {
                 return true;
@@ -341,7 +399,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
         return false;
     }
 
-    private void checkAssociationEndsCreated() {
+    private void updateAssociationEnds() {
         if (associationEnds == null) {
             synchronized (this) {
                 if (associationEnds == null) {
