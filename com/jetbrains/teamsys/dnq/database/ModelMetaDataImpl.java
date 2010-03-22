@@ -1,8 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
-import com.jetbrains.teamsys.database.EntityMetaData;
-import com.jetbrains.teamsys.database.ModelMetaData;
+import com.jetbrains.teamsys.database.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,12 +73,12 @@ public class ModelMetaDataImpl implements ModelMetaData {
                     thisAndSuperTypes.add(t);
                     t = typeToEntityMetaDatas.get(t).getSuperType();
                 } while (t != null);
-                emd.setThisAndSuperTypes(thisAndSuperTypes);
+                ((EntityMetaDataImpl)emd).setThisAndSuperTypes(thisAndSuperTypes);
             }
         }
     }
 
-    @Nullable
+    @NotNull
     public EntityMetaData getEntityMetaData(@NotNull String typeName) {
         update();
 
@@ -94,6 +93,48 @@ public class ModelMetaDataImpl implements ModelMetaData {
     public Iterable<EntityMetaData> getEntitiesMetaData() {
         update();
         return typeToEntityMetaDatas.values();
+    }
+
+    public AssociationMetaData addAssociation(String sourceEntityName, String targetEntityName,
+                               AssociationType type,
+                               String sourceName, AssociationEndCardinality sourceCardinality, AssociationEndType sourceType,
+                               boolean sourceCascadeDelete, boolean sourceClearOnDelete, boolean sourceTargetCascadeDelete, boolean sourceTargetClearOnDelete,
+                               String targetName, AssociationEndCardinality targetCardinality, AssociationEndType targetType,
+                               boolean targetCascadeDelete, boolean targetClearOnDelete, boolean targetTargetCascadeDelete, boolean targetTargetClearOnDelete  
+                               ) {
+
+        EntityMetaDataImpl source = (EntityMetaDataImpl) getEntityMetaData(sourceEntityName);
+        EntityMetaDataImpl target = (EntityMetaDataImpl) getEntityMetaData(targetEntityName);
+
+        AssociationMetaDataImpl amd = new AssociationMetaDataImpl();
+        amd.setType(type);
+
+        AssociationEndMetaDataImpl sourceEnd = new AssociationEndMetaDataImpl(
+                amd, sourceName, target, sourceCardinality, sourceType,
+                sourceCascadeDelete, sourceClearOnDelete, sourceTargetCascadeDelete, sourceTargetClearOnDelete);
+        source.addAssociationEndMetaData(sourceEnd);
+
+        if (type != AssociationType.Directed) {
+            AssociationEndMetaDataImpl targetEnd = new AssociationEndMetaDataImpl(
+                amd, targetName, source, targetCardinality, targetType,
+                targetCascadeDelete, targetClearOnDelete, targetTargetCascadeDelete, targetTargetClearOnDelete);
+            target.addAssociationEndMetaData(targetEnd);
+        }
+
+        return amd;
+    }
+
+    public void removeAssociation(String entityName, String associationName) {
+        EntityMetaDataImpl source = (EntityMetaDataImpl) getEntityMetaData(entityName);
+
+        // remove from source
+        AssociationEndMetaData aemd = source.removeAssociationEndMetaData(associationName);
+        AssociationMetaData amd = aemd.getAssociationMetaData();
+
+        // remove from target
+        if (amd.getType() != AssociationType.Directed) {
+            ((EntityMetaDataImpl)aemd.getOppositeEntityMetaData()).removeAssociationEndMetaData(amd.getOppositeEnd(aemd).getName());
+        }
     }
 
 }

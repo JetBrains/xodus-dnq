@@ -25,25 +25,38 @@ public class EntityMetaDataImpl implements EntityMetaData {
     private List<String> thisAndSuperTypes = Collections.emptyList();
     private Set<AssociationEndMetaData> externalAssociationEnds = null;
     private Map<String, PropertyMetaData> properties = new HashMapDecorator<String, PropertyMetaData>();
-    private Set<String> aggregationChildEnds = null;
     private Set<Index> ownIndexes = Collections.emptySet();
-    private Set<Index> indexes = null;
-    private Map<String, Set<Index>> fieldToIndexes = null;
     private Set<String> requiredProperties = Collections.emptySet();
     private Set<String> requiredIfProperties = Collections.emptySet();
     private Set<String> historyIgnoredFields = Collections.emptySet();
     private Set<String> versionMismatchIgnored = Collections.emptySet();
     private boolean versionMismatchIgnoredForWholeClass = false;
-    // calculated
 
+    // calculated
+    private Map<String, Set<Index>> fieldToIndexes = null;
+    private Set<Index> indexes = null;
+    private Set<String> aggregationChildEnds = null;
     private List<String> allSubTypes = null;
     private Map<String, Set<String>> incomingAssociations = null;
     private Map<String, AssociationEndMetaData> associationEnds = null;
 
     void reset() {
-        allSubTypes = null;
-        associationEnds = null;
-        incomingAssociations = null;
+        synchronized (this) {
+            allSubTypes = null;
+            associationEnds = null;
+            incomingAssociations = null;
+            indexes = null;
+            fieldToIndexes = null;
+            aggregationChildEnds = null;
+        }
+    }
+
+    void resetSelfAndSubtypes() {
+        reset();
+
+        for (String st: getSubTypes()) {
+            ((EntityMetaDataImpl)getEntityMetaData(st)).reset();
+        }
     }
 
     public ModelMetaData getModelMetaData() {
@@ -67,17 +80,16 @@ public class EntityMetaDataImpl implements EntityMetaData {
         }
         this.superType = superType;
 
-        reset();
+        resetSelfAndSubtypes();
     }
 
     public Iterable<String> getThisAndSuperTypes() {
         return thisAndSuperTypes;
     }
 
-    public void setThisAndSuperTypes(List<String> thisAndSuperTypes) {
+    // called by ModelMetadata.update after reset, so do not make reset itself
+    void setThisAndSuperTypes(List<String> thisAndSuperTypes) {
         this.thisAndSuperTypes = thisAndSuperTypes;
-
-        reset();
     }
 
     public boolean hasSubTypes() {
@@ -89,6 +101,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
     }
 
     /**
+     * For backward compatibility
      * Use #getAllSubTypes() instead
      * @param mmd
      * @return
@@ -126,7 +139,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
         }
     }
 
-    // called by ModelMetadata.update
+    // called by ModelMetadata.update after reset, so do not make reset itself
     void addSubType(@NotNull String type) {
         subTypes.add(type);
     }
@@ -171,16 +184,53 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
     public void setAssociationEndsMetaData(@NotNull Collection<AssociationEndMetaData> ends) {
         externalAssociationEnds = new HashSet<AssociationEndMetaData>();
-        externalAssociationEnds.addAll(ends);        
+        externalAssociationEnds.addAll(ends);
     }
 
+    /**
+     * For backward compatibility
+     * @param ends
+     */
     public void setAssociationEnds(@NotNull Collection<AssociationEndMetaData> ends) {
         externalAssociationEnds = new HashSet<AssociationEndMetaData>();
         externalAssociationEnds.addAll(ends);
     }
 
-    public void addAssociationEndMetaData(AssociationEndMetaData end) {
-        externalAssociationEnds.add(end);
+    void addAssociationEndMetaData(AssociationEndMetaData end) {
+        synchronized (this) {
+            AssociationEndMetaData a = findAssociationEndMetaData(end.getName());
+
+            if (a != null) {
+                throw new IllegalArgumentException("Aassociation already exists [" + end.getName() + "]");
+            }
+
+            resetSelfAndSubtypes();
+            externalAssociationEnds.add(end);
+        }
+    }
+
+    AssociationEndMetaData removeAssociationEndMetaData(String name) {
+        synchronized (this) {
+            AssociationEndMetaData a = findAssociationEndMetaData(name);
+
+            if (a == null) {
+                throw new IllegalArgumentException("Can't find association end with name [" + name + "]");
+            }
+
+            resetSelfAndSubtypes();
+            externalAssociationEnds.remove(a);
+
+            return a;
+        }
+    }
+
+    private AssociationEndMetaData findAssociationEndMetaData(String name) {
+        for (AssociationEndMetaData a: externalAssociationEnds) {
+            if (a.getName().equals(name)) {
+                return a;
+            }
+        }
+        return null;
     }
 
     @NotNull
@@ -282,51 +332,67 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
     @NotNull
     public Set<Index> getIndexes() {
-        if (indexes == null) {
-            indexes = new HashSet<Index>();
+        updateIndexes();
 
-            // add indexes of super types
-            for (String t : getThisAndSuperTypes()) {
-                for (Index index : getEntityMetaData(t).getOwnIndexes()) {
-                    for (IndexField f : index.getFields()) {
-                        for (String st : getEntityMetaData(f.getOwnerEnityType()).getThisAndSuperTypes()) {
-                            indexes.addAll(getEntityMetaData(st).getOwnIndexes());
+        return indexes;
+    }
+
+    @NotNull
+    public Set<Index> getIndexes(String field) {
+        updateIndexes();
+
+        Set<Index> res = fieldToIndexes.get(field);
+        return res == null ? Collections.<Index>emptySet() : res;
+    }
+
+    private void updateIndexes() {
+        if (indexes == null) {
+
+            synchronized (this) {
+              if (indexes == null) {
+                indexes = new HashSet<Index>();
+
+                // add indexes of super types
+                for (String t : getThisAndSuperTypes()) {
+                    for (Index index : getEntityMetaData(t).getOwnIndexes()) {
+                        for (IndexField f : index.getFields()) {
+                            for (String st : getEntityMetaData(f.getOwnerEnityType()).getThisAndSuperTypes()) {
+                                indexes.addAll(getEntityMetaData(st).getOwnIndexes());
+                            }
+                        }
+                    }
+                }
+              }
+            }
+        }
+
+        if (fieldToIndexes == null) {
+            synchronized (this) {
+                if (fieldToIndexes == null) {
+                    fieldToIndexes = new HashMap<String, Set<Index>>();
+                    // build prop to ownIndexes map
+                    for (Index index : getIndexes()) {
+                        for (IndexField f : index.getFields()) {
+                            Set<Index> fieldIndexes = fieldToIndexes.get(f.getName());
+                            if (fieldIndexes == null) {
+                                fieldIndexes = new HashSet<Index>();
+                                fieldToIndexes.put(f.getName(), fieldIndexes);
+                            }
+                            fieldIndexes.add(index);
                         }
                     }
                 }
             }
-
         }
-        return indexes;
     }
 
     private EntityMetaData getEntityMetaData(String type) {
-        return DnqUtils.getModelMetaData().getEntityMetaData(type);
+        return modelMetaData.getEntityMetaData(type);
     }
 
     @NotNull
     public void setOwnIndexes(Set<Index> ownIndexes) {
         this.ownIndexes = ownIndexes;
-    }
-
-    @NotNull
-    public Set<Index> getIndexes(String field) {
-        if (fieldToIndexes == null) {
-            fieldToIndexes = new HashMap<String, Set<Index>>();
-            // build prop to ownIndexes map
-            for (Index index : getIndexes()) {
-                for (IndexField f : index.getFields()) {
-                    Set<Index> fieldIndexes = fieldToIndexes.get(f.getName());
-                    if (fieldIndexes == null) {
-                        fieldIndexes = new HashSet<Index>();
-                        fieldToIndexes.put(f.getName(), fieldIndexes);
-                    }
-                    fieldIndexes.add(index);
-                }
-            }
-        }
-        Set<Index> res = fieldToIndexes.get(field);
-        return res == null ? Collections.<Index>emptySet() : res;
     }
 
     @NotNull

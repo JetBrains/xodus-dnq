@@ -5,17 +5,36 @@ import org.jetbrains.annotations.NotNull;
 
 public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
 
-  private String name;
-  private EntityMetaData emd;
-  private AssociationEndCardinality cardinality;
-  private AssociationMetaData associationMetaData;
-  private AssociationEndType type;
+  private String name = null;
+  private EntityMetaData emd = null;
+  private AssociationEndCardinality cardinality = null;
+  private AssociationMetaData associationMetaData = null;
+  private AssociationEndType type = null;
   private boolean cascadeDelete = false;
   private boolean clearOnDelete = false;
   private boolean targetCascadeDelete = false;
   private boolean targetClearOnDelete = false;
 
-  @NotNull
+    public AssociationEndMetaDataImpl() {
+    }
+
+    public AssociationEndMetaDataImpl(AssociationMetaData associationMetaData, String name,
+                                      EntityMetaData oppositeEndEntityType, AssociationEndCardinality cardinality, 
+                                      AssociationEndType type,
+                                      boolean cascadeDelete, boolean clearOnDelete,
+                                      boolean targetCascadeDelete, boolean targetClearOnDelete) {
+        this.name = name;
+        this.emd = oppositeEndEntityType;
+        this.cardinality = cardinality;
+        this.setAssociationMetaData(associationMetaData);
+        this.type = type;
+        this.cascadeDelete = cascadeDelete;
+        this.clearOnDelete = clearOnDelete;
+        this.targetCascadeDelete = targetCascadeDelete;
+        this.targetClearOnDelete = targetClearOnDelete;
+    }
+
+    @NotNull
   public String getName() {
     return name;
   }
@@ -56,7 +75,7 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
     return targetClearOnDelete;
   }
 
-    public void setName(@NotNull String name) {
+  public void setName(@NotNull String name) {
     this.name = name;
   }
 
@@ -70,7 +89,7 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
 
   public void setAssociationMetaData(@NotNull AssociationMetaData associationMetaData) {
     this.associationMetaData = associationMetaData;
-    associationMetaData.addEnd(this);
+    ((AssociationMetaDataImpl)this.associationMetaData).addEnd(this);
   }
 
   public void setAssociationEndType(@NotNull AssociationEndType type) {
