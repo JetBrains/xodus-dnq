@@ -97,17 +97,36 @@ public class ModelMetaDataImpl implements ModelMetaData {
 
     public AssociationMetaData addAssociation(String sourceEntityName, String targetEntityName,
                                AssociationType type,
-                               String sourceName, AssociationEndCardinality sourceCardinality, AssociationEndType sourceType,
+                               String sourceName, AssociationEndCardinality sourceCardinality,
                                boolean sourceCascadeDelete, boolean sourceClearOnDelete, boolean sourceTargetCascadeDelete, boolean sourceTargetClearOnDelete,
-                               String targetName, AssociationEndCardinality targetCardinality, AssociationEndType targetType,
+                               String targetName, AssociationEndCardinality targetCardinality, 
                                boolean targetCascadeDelete, boolean targetClearOnDelete, boolean targetTargetCascadeDelete, boolean targetTargetClearOnDelete  
                                ) {
 
         EntityMetaDataImpl source = (EntityMetaDataImpl) getEntityMetaData(sourceEntityName);
         EntityMetaDataImpl target = (EntityMetaDataImpl) getEntityMetaData(targetEntityName);
 
+        AssociationEndType sourceType = null;
+        AssociationEndType targetType = null;
+
         AssociationMetaDataImpl amd = new AssociationMetaDataImpl();
         amd.setType(type);
+
+        switch (type) {
+          case Directed:
+            sourceType = AssociationEndType.DirectedAssociationEnd;
+            break;
+
+          case Undirected:
+            sourceType = AssociationEndType.UndirectedAssociationEnd;
+            targetType = AssociationEndType.UndirectedAssociationEnd;
+            break;
+
+          case Aggregation:
+            sourceType = AssociationEndType.ParentEnd;
+            targetType = AssociationEndType.ChildEnd;
+            break;
+        }
 
         AssociationEndMetaDataImpl sourceEnd = new AssociationEndMetaDataImpl(
                 amd, sourceName, target, sourceCardinality, sourceType,
@@ -124,7 +143,7 @@ public class ModelMetaDataImpl implements ModelMetaData {
         return amd;
     }
 
-    public void removeAssociation(String entityName, String associationName) {
+    public AssociationMetaData removeAssociation(String entityName, String associationName) {
         EntityMetaDataImpl source = (EntityMetaDataImpl) getEntityMetaData(entityName);
 
         // remove from source
@@ -135,6 +154,8 @@ public class ModelMetaDataImpl implements ModelMetaData {
         if (amd.getType() != AssociationType.Directed) {
             ((EntityMetaDataImpl)aemd.getOppositeEntityMetaData()).removeAssociationEndMetaData(amd.getOppositeEnd(aemd).getName());
         }
+
+        return amd;
     }
 
 }

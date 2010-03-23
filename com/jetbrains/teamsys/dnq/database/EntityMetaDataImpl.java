@@ -198,6 +198,9 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
     void addAssociationEndMetaData(AssociationEndMetaData end) {
         synchronized (this) {
+            if (externalAssociationEnds == null) {
+                externalAssociationEnds = new HashSet<AssociationEndMetaData>();
+            }
             AssociationEndMetaData a = findAssociationEndMetaData(end.getName());
 
             if (a != null) {
@@ -225,9 +228,11 @@ public class EntityMetaDataImpl implements EntityMetaData {
     }
 
     private AssociationEndMetaData findAssociationEndMetaData(String name) {
-        for (AssociationEndMetaData a: externalAssociationEnds) {
-            if (a.getName().equals(name)) {
-                return a;
+        if (externalAssociationEnds != null) {
+            for (AssociationEndMetaData a: externalAssociationEnds) {
+                if (a.getName().equals(name)) {
+                    return a;
+                }
             }
         }
         return null;
@@ -481,7 +486,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
                                 aggregationChildEnds.add(aemd.getName());
                             }
                         }
-                        externalAssociationEnds = null;
                     }
                 }
             }
