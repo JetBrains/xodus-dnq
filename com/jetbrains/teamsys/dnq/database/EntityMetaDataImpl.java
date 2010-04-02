@@ -100,18 +100,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
         return subTypes;
     }
 
-    /**
-     * For backward compatibility
-     * Use #getAllSubTypes() instead
-     * @param mmd
-     * @return
-     * @deprecated
-     */
-    @Deprecated
-    public Collection<String> getAllSubTypes(ModelMetaData mmd) {
-        return getAllSubTypes();
-    }
-
     public Collection<String> getAllSubTypes() {
         if (!hasSubTypes()) return Collections.emptyList();
 
@@ -124,8 +112,9 @@ public class EntityMetaDataImpl implements EntityMetaData {
         if (allSubTypes == null) {
             synchronized (this) {
                 if (allSubTypes == null) {
-                    allSubTypes = new ArrayList<String>(subTypes.size());
-                    collectSubTypes(this, allSubTypes);
+                    List<String> _allSubTypes = new ArrayList<String>();
+                    collectSubTypes(this, _allSubTypes);
+                    allSubTypes = _allSubTypes;
                 }
             }
         }
