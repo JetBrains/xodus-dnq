@@ -483,6 +483,21 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     @NotNull
+    public EntityIterable findWithLinks(@NotNull String entityType,
+                                        @NotNull String linkName,
+                                        @NotNull String oppositeEntityType,
+                                        @NotNull String oppositeLinkName) {
+        switch (state) {
+            case Open:
+                return new PersistentEntityIterableWrapper(
+                        getPersistentSessionInternal().findWithLinks(entityType, linkName, oppositeEntityType, oppositeLinkName));
+
+            default:
+                throw new IllegalStateException("Can't execute in state [" + state + "]");
+        }
+    }
+
+    @NotNull
     public EntityIterable sort(@NotNull final String entityType,
                                @NotNull final String propertyName,
                                final boolean ascending) {
