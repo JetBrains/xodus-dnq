@@ -193,15 +193,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    public void commit() {
-        if (store.getThreadSession() != this) {
-            throw new IllegalStateException("Can't commit session from another thread.");
-        }
-
-        final Set<TransientEntityChange> changes = commitReturnChanges();
-        notifyCommitedListeners(changes);
-    }
-
     protected final void dispose() {
         localEntities.clear();
         changesTracker.dispose();
@@ -263,6 +254,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     /*
     * Aborts session in any state
     */
+
     public void forceAbort() {
         if (log.isDebugEnabled()) {
             log.debug("Unconditional abort transient session " + this);
@@ -518,7 +510,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         switch (state) {
             case Open:
                 return new PersistentEntityIterableWrapper(
-                        getPersistentSessionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
+                    getPersistentSessionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -699,7 +691,13 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    private Set<TransientEntityChange> commitReturnChanges() throws IllegalStateException {
+    public void commit() {
+        // this method is overridden in TransientSessionDeferred, but that's ok (changes are isomorphic)
+
+        if (store.getThreadSession() != this) {
+            throw new IllegalStateException("Can't commit session from another thread.");
+        }
+
         if (log.isDebugEnabled()) {
             log.debug("Commit transient session " + this);
         }
@@ -710,16 +708,20 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 Set<TransientEntityChange> changes = flush();
 
                 try {
-                    closePersistentSession();
+                    notifyCommitedListeners(changes);
                 } finally {
-                    deleteBlobsStore();
-                    store.unregisterStoreSession(this);
-                    state = State.Committed;
-                    dispose();
-                    lock.release();
+                    try {
+                        closePersistentSession();
+                    } finally {
+                        deleteBlobsStore();
+                        store.unregisterStoreSession(this);
+                        state = State.Committed;
+                        dispose();
+                        lock.release();
+                    }
                 }
-
-                return changes;
+                
+                break;
 
             default:
                 throw new IllegalArgumentException("Can't commit in state " + state);
@@ -960,7 +962,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         final Set<DataIntegrityViolationException> triggerErrors =
-                ConstraintsUtil.executeBeforeFlushTriggers(changesTracker, modelMetaData);
+            ConstraintsUtil.executeBeforeFlushTriggers(changesTracker, modelMetaData);
 
         if (triggerErrors.size() != 0) {
             ConstraintsValidationException e = new ConstraintsValidationException(triggerErrors);
@@ -1208,7 +1210,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 if (!areChangesCompatible(localCopy)) {
                     if (log.isDebugEnabled()) {
                         log.warn("Incompatible concurrent changes for " + localCopy + ". Changed properties [" + TransientStoreUtil.toString(changesTracker.getChangedPropertiesDetailed(localCopy)) +
-                                "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinksDetailed(localCopy)) + "]");
+                            "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinksDetailed(localCopy)) + "]");
                     }
                     throw new VersionMismatchException(localCopy, localCopyVersion, lastDatabaseCopyVersion);
                 }
