@@ -172,7 +172,8 @@ class ConstraintsUtil {
         return exceptions;
     }
 
-    static void processOnDeleteConstraints(@NotNull TransientStoreSession session, @NotNull TransientEntity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md) {
+    static void processOnDeleteConstraints(@NotNull TransientStoreSession session, @NotNull TransientEntity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
+        // outgoing associations
         for (AssociationEndMetaData amd : emd.getAssociationEndsMetaData()) {
             if (amd.getCascadeDelete() || amd.getClearOnDelete()) {
 
@@ -185,19 +186,20 @@ class ConstraintsUtil {
                         log.debug("Clear associations with targets for link [" + e + "]." + amd.getName());
                     }
                 }
-                processOnDeleteConstrainsSwitch(e, amd);
+                processOnDeleteConstrainsSwitch(e, amd, callDestructorsPhase, destructorCalled);
             }
         }
 
+        // incoming associations
         Map<String, Set<String>> incomingAssociations = emd.getIncomingAssociations(md);
         for (String key : incomingAssociations.keySet()) {
             for (String linkName : incomingAssociations.get(key)) {
-                processOnTargetDeleteConstraints(e, emd, md, key, linkName, session);
+                processOnTargetDeleteConstraints(e, emd, md, key, linkName, session, callDestructorsPhase, destructorCalled);
             }
         }
     }
 
-    private static void processOnDeleteConstrainsSwitch(Entity e, AssociationEndMetaData amd) {
+    private static void processOnDeleteConstrainsSwitch(Entity e, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
         // cascade delete depend association end type and cardinality
         switch (amd.getAssociationEndType()) {
             case ParentEnd:
@@ -205,12 +207,12 @@ class ConstraintsUtil {
 
                     case _0_1:
                     case _1:
-                        processOnDeleteConstraintForParentEndToSingleChild(e, amd);
+                        processOnDeleteConstraintForParentEndToSingleChild(e, amd, callDestructorsPhase, destructorCalled);
                         break;
 
                     case _0_n:
                     case _1_n:
-                        processOnDeleteConstraintForParentEndToMultipleChild(e, amd);
+                        processOnDeleteConstraintForParentEndToMultipleChild(e, amd, callDestructorsPhase, destructorCalled);
                         break;
                 }
                 break;
@@ -219,12 +221,12 @@ class ConstraintsUtil {
                 switch (amd.getAssociationMetaData().getOppositeEnd(amd).getCardinality()) {
                     case _0_1:
                     case _1:
-                        processOnDeleteConstraintsForSingleChildEnd(e, amd);
+                        processOnDeleteConstraintsForSingleChildEnd(e, amd, callDestructorsPhase);
                         break;
 
                     case _0_n:
                     case _1_n:
-                        processOnDeleteConstraintsForMultipleChildEnd(e, amd);
+                        processOnDeleteConstraintsForMultipleChildEnd(e, amd, callDestructorsPhase);
                         break;
                 }
                 break;
@@ -233,12 +235,12 @@ class ConstraintsUtil {
                 switch (amd.getCardinality()) {
                     case _0_1:
                     case _1:
-                        processOnDeleteConstraintForUndirectedAssociationEndToSingle(e, amd);
+                        processOnDeleteConstraintForUndirectedAssociationEndToSingle(e, amd, callDestructorsPhase, destructorCalled);
                         break;
 
                     case _0_n:
                     case _1_n:
-                        processOnDeleteConstraintForUndirectedAssociationEndToMultiple(e, amd);
+                        processOnDeleteConstraintForUndirectedAssociationEndToMultiple(e, amd, callDestructorsPhase, destructorCalled);
                         break;
                 }
                 break;
@@ -247,12 +249,12 @@ class ConstraintsUtil {
                 switch (amd.getCardinality()) {
                     case _0_1:
                     case _1:
-                        processOnDeleteConstraintForDirectedAssociationEndToSingle(e, amd);
+                        processOnDeleteConstraintForDirectedAssociationEndToSingle(e, amd, callDestructorsPhase, destructorCalled);
                         break;
 
                     case _0_n:
                     case _1_n:
-                        processOnDeleteConstraintForDirectedAssociationEndToMultiple(e, amd);
+                        processOnDeleteConstraintForDirectedAssociationEndToMultiple(e, amd, callDestructorsPhase, destructorCalled);
                         break;
                 }
                 break;
@@ -262,7 +264,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void processOnTargetDeleteConstrainsSwitch(Entity source, Entity target, String linkName, AssociationEndMetaData amd) {
+    private static void processOnTargetDeleteConstrainsSwitch(Entity source, Entity target, String linkName, AssociationEndMetaData amd, boolean callDestructorsPhase) {
         // cascade delete depend association end type and cardinality
         switch (amd.getAssociationEndType()) {
             case ParentEnd:
@@ -270,12 +272,12 @@ class ConstraintsUtil {
 
                     case _0_1:
                     case _1:
-                        processOnTargetDeleteConstraintForParentEndToSingleChild(source, linkName, amd);
+                        processOnTargetDeleteConstraintForParentEndToSingleChild(source, linkName, amd, callDestructorsPhase);
                         break;
 
                     case _0_n:
                     case _1_n:
-                        processOnTargetDeleteConstraintForParentEndToMultipleChild(source, target, linkName, amd);
+                        processOnTargetDeleteConstraintForParentEndToMultipleChild(source, target, linkName, amd, callDestructorsPhase);
                         break;
                 }
                 break;
@@ -284,12 +286,12 @@ class ConstraintsUtil {
                 switch (amd.getAssociationMetaData().getOppositeEnd(amd).getCardinality()) {
                     case _0_1:
                     case _1:
-                        processOnTargetDeleteConstraintsForSingleChildEnd(source, linkName, amd);
+                        processOnTargetDeleteConstraintsForSingleChildEnd(source, linkName, amd, callDestructorsPhase);
                         break;
 
                     case _0_n:
                     case _1_n:
-                        processOnTargetDeleteConstraintsForMultipleChildEnd(source, target, linkName, amd);
+                        processOnTargetDeleteConstraintsForMultipleChildEnd(source, target, linkName, amd, callDestructorsPhase);
                         break;
                 }
                 break;
@@ -298,12 +300,12 @@ class ConstraintsUtil {
                 switch (amd.getCardinality()) {
                     case _0_1:
                     case _1:
-                        processOnTargetDeleteConstraintForUndirectedAssociationEndToSingle(source, target, linkName, amd);
+                        processOnTargetDeleteConstraintForUndirectedAssociationEndToSingle(source, target, linkName, amd, callDestructorsPhase);
                         break;
 
                     case _0_n:
                     case _1_n:
-                        processOnTargetDeleteConstraintForUndirectedAssociationEndToMultiple(source, target, linkName, amd);
+                        processOnTargetDeleteConstraintForUndirectedAssociationEndToMultiple(source, target, linkName, amd, callDestructorsPhase);
                         break;
                 }
                 break;
@@ -312,12 +314,12 @@ class ConstraintsUtil {
                 switch (amd.getCardinality()) {
                     case _0_1:
                     case _1:
-                        processOnTargetDeleteConstraintForDirectedAssociationEndToSingle(source, linkName);
+                        processOnTargetDeleteConstraintForDirectedAssociationEndToSingle(source, linkName, callDestructorsPhase);
                         break;
 
                     case _0_n:
                     case _1_n:
-                        processOnTargetDeleteConstraintForDirectedAssociationEndToMultiple(source, target, linkName);
+                        processOnTargetDeleteConstraintForDirectedAssociationEndToMultiple(source, target, linkName, callDestructorsPhase);
                         break;
                 }
                 break;
@@ -327,7 +329,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void processOnTargetDeleteConstraints(TransientEntity target, EntityMetaData emd, ModelMetaData md, String oppositeType, String linkName, TransientStoreSession session) {
+    private static void processOnTargetDeleteConstraints(TransientEntity target, EntityMetaData emd, ModelMetaData md, String oppositeType, String linkName, TransientStoreSession session, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
         EntityMetaData oppositeEmd = md.getEntityMetaData(oppositeType);
         if (oppositeEmd == null) {
             throw new RuntimeException("can't find metadata for entity type " + oppositeType + " as opposite to " + target.getType());
@@ -365,74 +367,86 @@ class ConstraintsUtil {
                     if (log.isDebugEnabled()) {
                         log.debug("cascade delete targets for link [" + source + "]." + linkName);
                     }
-                    EntityOperations.remove(source);
+                    EntityOperations.remove(source, callDestructorsPhase, destructorCalled);
                 } else if ((!linkRemoved) && amd.getTargetClearOnDelete()) {
                     if (log.isDebugEnabled()) {
                         log.debug("clear associations with targets for link [" + source + "]." + linkName);
                     }
-                    processOnTargetDeleteConstrainsSwitch(source, target, linkName, amd);
+                    processOnTargetDeleteConstrainsSwitch(source, target, linkName, amd, callDestructorsPhase);
                 }
             }
         }
     }
 
 
-    private static void processOnDeleteConstraintsForSingleChildEnd(Entity child, AssociationEndMetaData amd) {
-        Entity parent = AssociationSemantics.getToOne(child, amd.getName());
+    private static void processOnDeleteConstraintsForSingleChildEnd(Entity child, AssociationEndMetaData amd, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
+            Entity parent = AssociationSemantics.getToOne(child, amd.getName());
 
-        if (parent != null) {
-            AggregationAssociationSemantics.setOneToOne(parent, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), amd.getName(), null);
-        }
-    }
-
-    private static void processOnDeleteConstraintsForMultipleChildEnd(Entity child, AssociationEndMetaData amd) {
-        Entity parent = AssociationSemantics.getToOne(child, amd.getName());
-
-        if (parent != null) {
-            AggregationAssociationSemantics.removeOneToMany(parent, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), amd.getName(), child);
-        }
-    }
-
-    static void processOnDeleteConstraintForDirectedAssociationEndToMultiple(Entity e, AssociationEndMetaData amd) {
-        for (Entity t : AssociationSemantics.getToManyList(e, amd.getName())) {
-            DirectedAssociationSemantics.removeToMany(e, amd.getName(), t);
-            if (amd.getCascadeDelete()) {
-                EntityOperations.remove(t);
+            if (parent != null) {
+                AggregationAssociationSemantics.setOneToOne(parent, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), amd.getName(), null);
             }
         }
     }
 
-    static void processOnDeleteConstraintForDirectedAssociationEndToSingle(Entity e, AssociationEndMetaData amd) {
+    private static void processOnDeleteConstraintsForMultipleChildEnd(Entity child, AssociationEndMetaData amd, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
+            Entity parent = AssociationSemantics.getToOne(child, amd.getName());
+
+            if (parent != null) {
+                AggregationAssociationSemantics.removeOneToMany(parent, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), amd.getName(), child);
+            }
+        }
+    }
+
+    static void processOnDeleteConstraintForDirectedAssociationEndToMultiple(Entity e, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
+        for (Entity t : AssociationSemantics.getToManyList(e, amd.getName())) {
+            if (!callDestructorsPhase) {
+                DirectedAssociationSemantics.removeToMany(e, amd.getName(), t);
+            }
+            if (amd.getCascadeDelete()) {
+                EntityOperations.remove(t, callDestructorsPhase, destructorCalled);
+            }
+        }
+    }
+
+    static void processOnDeleteConstraintForDirectedAssociationEndToSingle(Entity e, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
         Entity target;
         target = AssociationSemantics.getToOne(e, amd.getName());
         if (target != null) {
-            DirectedAssociationSemantics.setToOne(e, amd.getName(), null);
+            if (!callDestructorsPhase) {
+                DirectedAssociationSemantics.setToOne(e, amd.getName(), null);
+            }
             if (amd.getCascadeDelete()) {
-                EntityOperations.remove(target);
+                EntityOperations.remove(target, callDestructorsPhase, destructorCalled);
             }
         }
     }
 
-    static void processOnDeleteConstraintForUndirectedAssociationEndToSingle(Entity e, AssociationEndMetaData amd) {
+    static void processOnDeleteConstraintForUndirectedAssociationEndToSingle(Entity e, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
         Entity target;
         target = AssociationSemantics.getToOne(e, amd.getName());
         if (target != null) {
             switch (amd.getAssociationMetaData().getOppositeEnd(amd).getCardinality()) {
                 case _0_1:
                 case _1:
-                    // one to one
-                    UndirectedAssociationSemantics.setOneToOne(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
+                    if (!callDestructorsPhase) {
+                        // one to one
+                        UndirectedAssociationSemantics.setOneToOne(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
+                    }
                     if (amd.getCascadeDelete()) {
-                        EntityOperations.remove(target);
+                        EntityOperations.remove(target, callDestructorsPhase, destructorCalled);
                     }
                     break;
 
                 case _0_n:
                 case _1_n:
-                    // many to one
-                    UndirectedAssociationSemantics.removeOneToMany(target, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), amd.getName(), e);
+                    if (!callDestructorsPhase) {
+                        // many to one
+                        UndirectedAssociationSemantics.removeOneToMany(target, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), amd.getName(), e);
+                    }
                     if (amd.getCascadeDelete()) {
-                        EntityOperations.remove(target);
+                        EntityOperations.remove(target, callDestructorsPhase, destructorCalled);
                     }
                     break;
             }
@@ -440,15 +454,17 @@ class ConstraintsUtil {
         }
     }
 
-    static void processOnDeleteConstraintForUndirectedAssociationEndToMultiple(Entity e, AssociationEndMetaData amd) {
+    static void processOnDeleteConstraintForUndirectedAssociationEndToMultiple(Entity e, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
         switch (amd.getAssociationMetaData().getOppositeEnd(amd).getCardinality()) {
             case _0_1:
             case _1:
                 // one to many
                 for (Entity t : AssociationSemantics.getToManyList(e, amd.getName())) {
-                    UndirectedAssociationSemantics.removeOneToMany(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), t);
+                    if (!callDestructorsPhase) {
+                        UndirectedAssociationSemantics.removeOneToMany(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), t);
+                    }
                     if (amd.getCascadeDelete()) {
-                        EntityOperations.remove(t);
+                        EntityOperations.remove(t, callDestructorsPhase, destructorCalled);
                     }
                 }
                 break;
@@ -457,9 +473,11 @@ class ConstraintsUtil {
             case _1_n:
                 // many to many
                 for (Entity t : AssociationSemantics.getToManyList(e, amd.getName())) {
-                    UndirectedAssociationSemantics.removeManyToMany(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), t);
+                    if (!callDestructorsPhase) {
+                        UndirectedAssociationSemantics.removeManyToMany(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), t);
+                    }
                     if (amd.getCascadeDelete()) {
-                        EntityOperations.remove(t);
+                        EntityOperations.remove(t, callDestructorsPhase, destructorCalled);
                     }
                 }
                 break;
@@ -467,95 +485,114 @@ class ConstraintsUtil {
 
     }
 
-    static void processOnDeleteConstraintForParentEndToMultipleChild(Entity e, AssociationEndMetaData amd) {
+    static void processOnDeleteConstraintForParentEndToMultipleChild(Entity e, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
         for (Entity child : AssociationSemantics.getToManyList(e, amd.getName())) {
+            if (!callDestructorsPhase) {
+                try {
+                    AggregationAssociationSemantics.removeOneToMany(
+                        e, amd.getName(),
+                        amd.getAssociationMetaData().getOppositeEnd(amd).getName(), child);
+                } catch (EntityRemovedException ex) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Entity [" + child + "] already removed", ex);
+                    }
+                }
+            }
+            if (amd.getCascadeDelete()) {
+                EntityOperations.remove(child, callDestructorsPhase, destructorCalled);
+            }
+        }
+    }
+
+    static void processOnDeleteConstraintForParentEndToSingleChild(Entity e, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
+        Entity target;
+        target = AssociationSemantics.getToOne(e, amd.getName());
+        if (target != null) {
+            if (!callDestructorsPhase) {
+                AggregationAssociationSemantics.setOneToOne(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
+            }
+            if (amd.getCascadeDelete()) {
+                EntityOperations.remove(target, callDestructorsPhase, destructorCalled);
+            }
+        }
+    }
+
+    private static void processOnTargetDeleteConstraintsForSingleChildEnd(@NotNull Entity parent, @NotNull String linkName, AssociationEndMetaData amd, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
+            AggregationAssociationSemantics.setOneToOne(parent, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), linkName, null);
+        }
+    }
+
+    private static void processOnTargetDeleteConstraintsForMultipleChildEnd(@NotNull Entity parent, @NotNull Entity child, @NotNull String linkName, AssociationEndMetaData amd, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
+            AggregationAssociationSemantics.removeOneToMany(parent, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), linkName, child);
+        }
+    }
+
+    private static void processOnTargetDeleteConstraintForDirectedAssociationEndToMultiple(@NotNull Entity source, @NotNull Entity target, @NotNull String linkName, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
+            DirectedAssociationSemantics.removeToMany(source, linkName, target);
+        }
+    }
+
+    private static void processOnTargetDeleteConstraintForDirectedAssociationEndToSingle(@NotNull Entity source, @NotNull String linkName, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
+            DirectedAssociationSemantics.setToOne(source, linkName, null);
+        }
+    }
+
+    private static void processOnTargetDeleteConstraintForUndirectedAssociationEndToSingle(@NotNull Entity source, @NotNull Entity target, @NotNull String linkName, AssociationEndMetaData amd, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
+            switch (amd.getAssociationMetaData().getOppositeEnd(amd).getCardinality()) {
+                case _0_1:
+                case _1:
+                    // one to one
+                    UndirectedAssociationSemantics.setOneToOne(source, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
+                    break;
+
+                case _0_n:
+                case _1_n:
+                    // many to one
+                    UndirectedAssociationSemantics.removeOneToMany(source, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), linkName, target);
+                    break;
+            }
+        }
+    }
+
+    private static void processOnTargetDeleteConstraintForUndirectedAssociationEndToMultiple(@NotNull Entity source, @NotNull Entity target, @NotNull String linkName, AssociationEndMetaData amd, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
+            switch (amd.getAssociationMetaData().getOppositeEnd(amd).getCardinality()) {
+                case _0_1:
+                case _1:
+                    // one to many
+                    UndirectedAssociationSemantics.removeOneToMany(source, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), target);
+                    break;
+
+                case _0_n:
+                case _1_n:
+                    // many to many
+                    UndirectedAssociationSemantics.removeManyToMany(source, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), target);
+                    break;
+            }
+        }
+    }
+
+    private static void processOnTargetDeleteConstraintForParentEndToMultipleChild(@NotNull Entity parent, @NotNull Entity child, @NotNull String linkName, AssociationEndMetaData amd, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
             try {
-                AggregationAssociationSemantics.removeOneToMany(
-                    e, amd.getName(),
-                    amd.getAssociationMetaData().getOppositeEnd(amd).getName(), child);
+                AggregationAssociationSemantics.removeOneToMany(parent, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), child);
             } catch (EntityRemovedException ex) {
                 if (log.isDebugEnabled()) {
                     log.debug("Entity [" + child + "] already removed", ex);
                 }
             }
-            if (amd.getCascadeDelete()) {
-                EntityOperations.remove(child);
-            }
         }
     }
 
-    static void processOnDeleteConstraintForParentEndToSingleChild(Entity e, AssociationEndMetaData amd) {
-        Entity target;
-        target = AssociationSemantics.getToOne(e, amd.getName());
-        if (target != null) {
-            AggregationAssociationSemantics.setOneToOne(e, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
-            if (amd.getCascadeDelete()) {
-                EntityOperations.remove(target);
-            }
+    private static void processOnTargetDeleteConstraintForParentEndToSingleChild(@NotNull Entity source, @NotNull String linkName, AssociationEndMetaData amd, boolean callDestructorsPhase) {
+        if (!callDestructorsPhase) {
+            AggregationAssociationSemantics.setOneToOne(source, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
         }
-    }
-
-    private static void processOnTargetDeleteConstraintsForSingleChildEnd(@NotNull Entity parent, @NotNull String linkName, AssociationEndMetaData amd) {
-        AggregationAssociationSemantics.setOneToOne(parent, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), linkName, null);
-    }
-
-    private static void processOnTargetDeleteConstraintsForMultipleChildEnd(@NotNull Entity parent, @NotNull Entity child, @NotNull String linkName, AssociationEndMetaData amd) {
-        AggregationAssociationSemantics.removeOneToMany(parent, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), linkName, child);
-    }
-
-    private static void processOnTargetDeleteConstraintForDirectedAssociationEndToMultiple(@NotNull Entity source, @NotNull Entity target, @NotNull String linkName) {
-        DirectedAssociationSemantics.removeToMany(source, linkName, target);
-    }
-
-    private static void processOnTargetDeleteConstraintForDirectedAssociationEndToSingle(@NotNull Entity source, @NotNull String linkName) {
-        DirectedAssociationSemantics.setToOne(source, linkName, null);
-    }
-
-    private static void processOnTargetDeleteConstraintForUndirectedAssociationEndToSingle(@NotNull Entity source, @NotNull Entity target, @NotNull String linkName, AssociationEndMetaData amd) {
-        switch (amd.getAssociationMetaData().getOppositeEnd(amd).getCardinality()) {
-            case _0_1:
-            case _1:
-                // one to one
-                UndirectedAssociationSemantics.setOneToOne(source, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
-                break;
-
-            case _0_n:
-            case _1_n:
-                // many to one
-                UndirectedAssociationSemantics.removeOneToMany(source, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), linkName, target);
-                break;
-        }
-    }
-
-    private static void processOnTargetDeleteConstraintForUndirectedAssociationEndToMultiple(@NotNull Entity source, @NotNull Entity target, @NotNull String linkName, AssociationEndMetaData amd) {
-        switch (amd.getAssociationMetaData().getOppositeEnd(amd).getCardinality()) {
-            case _0_1:
-            case _1:
-                // one to many
-                UndirectedAssociationSemantics.removeOneToMany(source, amd.getName(), amd.getAssociationMetaData().getOppositeEnd(amd).getName(), target);
-                break;
-
-            case _0_n:
-            case _1_n:
-                // many to many
-                UndirectedAssociationSemantics.removeManyToMany(source, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), target);
-                break;
-        }
-
-    }
-
-    private static void processOnTargetDeleteConstraintForParentEndToMultipleChild(@NotNull Entity parent, @NotNull Entity child, @NotNull String linkName, AssociationEndMetaData amd) {
-        try {
-            AggregationAssociationSemantics.removeOneToMany(parent, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), child);
-        } catch (EntityRemovedException ex) {
-            if (log.isDebugEnabled()) {
-                log.debug("Entity [" + child + "] already removed", ex);
-            }
-        }
-    }
-
-    private static void processOnTargetDeleteConstraintForParentEndToSingleChild(@NotNull Entity source, @NotNull String linkName, AssociationEndMetaData amd) {
-        AggregationAssociationSemantics.setOneToOne(source, linkName, amd.getAssociationMetaData().getOppositeEnd(amd).getName(), null);
     }
 
     private static Entity findInDatabase(TransientStoreSession session, EntityMetaData emd, String propertyName, Comparable propertyValue) {
