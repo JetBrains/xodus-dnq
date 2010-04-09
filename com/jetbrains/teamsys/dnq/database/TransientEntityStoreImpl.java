@@ -437,6 +437,12 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         }
     }
 
+    public int sessionsCount() {
+        synchronized (sessions) {
+            return sessions.size();
+        }
+    }
+
     public void dumpSessions(StringBuilder sb) {
         synchronized (sessions) {
             for (TransientStoreSession s : sessions.values()) {
