@@ -987,6 +987,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         executeBeforeFlushTriggers();
         checkDatabaseState();
         transformNewChildsOfTempoparyParents();
+        // TODO: this method checks incomming links, but doesn't lock entities to remove after check, so new links may appear after this check but before low level remove 
         checkBeforeSaveChangesConstraints(removeOrphans());
 
         // check if nothing to persist
@@ -999,6 +1000,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         if (!onlyTemporary) {
+            notifyBeforeFlushAfterConstraintsCheckListeners();
+
             StoreTransaction transaction = null;
             try {
                 if (log.isTraceEnabled()) {
@@ -1359,9 +1362,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     private void notifyBeforeFlushListeners() {
         final Set<TransientEntityChange> changes = changesTracker.getChangesDescription();
 
-        if (changes == null || changes.isEmpty()) {
-            return;
-        }
+        if (changes == null || changes.isEmpty()) return;
 
         if (log.isDebugEnabled()) {
             log.debug("Notify before flush listeners " + this);
@@ -1378,6 +1379,34 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 }
             }
         });
+    }
+
+    private void notifyBeforeFlushAfterConstraintsCheckListeners() {
+        final Set<TransientEntityChange> changes = changesTracker.getChangesDescription();
+
+        if (changes == null || changes.isEmpty()) return;
+
+        if (log.isDebugEnabled()) {
+            log.debug("Notify before flush after constraints check listeners " + this);
+        }
+
+        // check side effects in listeners
+        changesTracker.markState();
+        store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
+            public void visit(TransientStoreSessionListener listener) {
+                try {
+                    listener.beforeFlushAfterConstraintsCheck(changes);
+                } catch (Exception e) {
+                    if (log.isErrorEnabled()) {
+                        log.error("Exception while inside listener [" + listener + "]", e);
+                    }
+                }
+            }
+        });
+
+        if (changesTracker.wereChangesAfterMarkState()) {
+            throw new EntityStoreException("It's not allowed to change database inside listener.beforeFlushAfterConstraintsCheck() method.");
+        }
     }
 
     protected void doSuspend() {

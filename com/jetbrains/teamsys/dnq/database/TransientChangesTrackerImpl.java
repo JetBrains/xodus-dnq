@@ -40,6 +40,8 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   private Map<TransientEntity, Map<String, PropertyChange>> entityToChangedPropertiesDetailed = new HashMapDecorator<TransientEntity, Map<String, PropertyChange>>();
   private Map<TransientEntity, Map<Index, Runnable>> entityToIndexChanges = new HashMapDecorator<TransientEntity, Map<Index, Runnable>>();
 
+  private boolean wereChangesAfterMark = false;
+
   public TransientChangesTrackerImpl(TransientStoreSession session) {
     this.session = session;
   }
@@ -48,7 +50,19 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     return !(changes.isEmpty() && (deleted == null || deleted.isEmpty()));
   }
 
-  @NotNull
+  public void markState() {
+    wereChangesAfterMark = false;
+  }
+
+  public boolean wereChangesAfterMarkState() {
+    return wereChangesAfterMark;
+  }
+
+  private void c() {
+    wereChangesAfterMark = true;
+  }
+
+    @NotNull
   public Queue<Runnable> getChanges() {
     Queue<Runnable> res = new LinkedList<Runnable>(deleteIndexes);
     res.addAll(changes);
@@ -140,6 +154,8 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private void linkChangedDetailed(TransientEntity e, String linkName, LinkChangeType changeType, Set<TransientEntity> addedEntities, Set<TransientEntity> removedEntities) {
+    c();
+
     Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(e);
     if (linksDetailed == null) {
       linksDetailed = new HashMap<String, LinkChange>();
@@ -162,6 +178,8 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private Runnable propertyChangedDetailed(TransientEntity e, String propertyName, Comparable origValue, PropertyChangeType changeType, Runnable change) {
+    c();  
+
     Map<String, PropertyChange> propertiesDetailed = entityToChangedPropertiesDetailed.get(e);
     if (propertiesDetailed == null) {
       propertiesDetailed = new HashMap<String, PropertyChange>();
@@ -217,8 +235,10 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private void entityChanged(TransientEntity source) {
+    c();
+
     if (source.isSaved()) {
-      changedPersistentEntities.add(source);
+        changedPersistentEntities.add(source);
     }
     changedEntities.add(source);
   }
@@ -397,6 +417,8 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   public void historyCleared(@NotNull final String entityType) {
+    c();
+
     offerChange(new Runnable() {
       public void run() {
         log.debug("Clear history of entities of type [" + entityType + "]");
@@ -449,14 +471,14 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     offerChange(deleteBlob, propertyChangedDetailed(e, blobName, null, PropertyChangeType.REMOVE, deleteBlob));
   }
 
-  public void offerChange(@NotNull final Runnable change, @Nullable Runnable changeToRemove) {
+  private void offerChange(@NotNull final Runnable change, @Nullable Runnable changeToRemove) {
     if (changeToRemove != null) {
       changes.remove(changeToRemove);
     }
     changes.offer(change);
   }
 
-  public void offerChange(@NotNull final Runnable change) {
+  void offerChange(@NotNull final Runnable change) {
     offerChange(change, null);
   }
 
