@@ -213,7 +213,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     public void abort() {
         if (store.getThreadSession() != this) {
-            throw new IllegalStateException("Can't abort session from another thread.");
+            throw new IllegalStateException("Can't abort session that is not current thread session. Current thread session is [" + store.getThreadSession() + "]");
         }
 
         if (log.isDebugEnabled()) {
