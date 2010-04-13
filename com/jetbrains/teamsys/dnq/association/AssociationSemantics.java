@@ -5,13 +5,14 @@ import com.jetbrains.teamsys.database.EntityIterable;
 import com.jetbrains.teamsys.database.TransientEntity;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
+import jetbrains.mps.internal.collections.runtime.Sequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  */
@@ -135,6 +136,19 @@ public class AssociationSemantics {
     e = TransientStoreUtil.reattach(e);
 
     return e.getRemovedLinks(name);
+  }
+
+
+  /**
+   * Returns previous link value
+   *
+   * @param e
+   * @param name
+   * @return previous link value
+   */
+  @Nullable
+  public static Entity getOldValue(@NotNull TransientEntity e, @NotNull String name) {
+    return Sequence.fromIterable(getRemovedLinks(e, name)).first();
   }
 
 }
