@@ -9,8 +9,7 @@ import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Manages link related methods of TransinetEntity.
@@ -27,6 +26,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   private Set<TransientEntity> removed;
   private Set<TransientEntity> added;
   private Set<TransientEntity> links;
+  private List<TransientEntity> temporaryLinks;
 
   MultipleTransientLinksManagerImpl(@NotNull String linkName, TransientEntityImpl owner) {
     this.state = State.LinksNotLoaded;
@@ -48,8 +48,9 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
       case New:
         getLinksSet().add(entity);
         break;
+
       case Temporary:
-        getLinksSet().add(entity);
+        getTemporaryLinksList().add(entity);
         return;
 
       case Saved:
@@ -100,18 +101,39 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     return links;
   }
 
+  private List<TransientEntity> getTemporaryLinksList() {
+    if (temporaryLinks == null) {
+      temporaryLinks = new LinkedList<TransientEntity>();
+    }
+
+    return temporaryLinks;
+  }
+
+  private void deleteLinkForTemporary(@NotNull final TransientEntity entity) {
+    if (temporaryLinks != null) {
+        for (Iterator<TransientEntity> i = temporaryLinks.iterator(); i.hasNext(); ) {
+            TransientEntity e = i.next();
+            if (EntityOperations.equals(e, entity)) {
+                i.remove();
+                return;
+            }
+        }
+    }
+    throw new IllegalArgumentException("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
+  }  
+
   public void deleteLink(@NotNull final TransientEntity entity) {
     final AbstractTransientEntity.State state = owner.getState();
     switch (state) {
       case New:
-      case Temporary:
         if (links == null || !links.remove(entity)) {
           throw new IllegalArgumentException("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
         }
-        if (state == AbstractTransientEntity.State.Temporary) {
-          return;
-        }
         break;
+
+      case Temporary:
+        deleteLinkForTemporary(entity);
+        return;
 
       case Saved:
       case SavedNew:
@@ -137,9 +159,15 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   public void deleteLinks() {
     switch (owner.getState()) {
       case New:
-      case Temporary:
         if (links != null) {
           links.clear();
+        }
+        //TODO: why return? write testcase: new, add link, delete links.
+        return;
+
+      case Temporary:
+        if (temporaryLinks != null) {
+          temporaryLinks.clear();
         }
         return;
 
@@ -168,8 +196,11 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   public EntityIterable getLinks() {
     switch (owner.getState()) {
       case New:
-      case Temporary:
         return new TransientEntityIterable(links == null ? EMPTY : links);
+
+      case Temporary:
+        return new TransientEntityIterable(temporaryLinks == null ? EMPTY : new java.util.HashSet<TransientEntity>(temporaryLinks));
+
 
       case Saved:
       case SavedNew:
@@ -195,8 +226,10 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   public long getLinksSize() {
     switch (owner.getState()) {
       case New:
+          return links == null ? 0 : links.size();
+
       case Temporary:
-        return links == null ? 0 : links.size();
+          return temporaryLinks == null ? 0 : temporaryLinks.size();
 
       case Saved:
       case SavedNew:

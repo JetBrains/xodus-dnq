@@ -832,9 +832,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
         abstract Object processOpenNew(AbstractTransientEntity entity, P1 param1, P2 param2);
 
-        Object processTemporary(AbstractTransientEntity entity, P1 param1, P2 param2) {
-            return processOpenSaved(entity, param1, param2);
-        }
+        abstract Object processTemporary(AbstractTransientEntity entity, P1 param1, P2 param2);
 
         Object processOpenRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new EntityRemovedException(entity);
