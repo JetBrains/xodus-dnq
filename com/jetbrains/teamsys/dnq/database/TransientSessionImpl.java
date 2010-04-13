@@ -1184,8 +1184,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     } catch (EntityRemovedInDatabaseException er) {
                         ex = er;
                     }
-                    if (log.isWarnEnabled()) {
-                        log.warn("Entity " + localCopy + " was removed from database, but is in removed state on transient level, hence flush is not terminated.", ex);
+                    if (log.isDebugEnabled()) {
+                        log.debug("Entity " + localCopy + " was removed from database, but is in removed state on transient level, hence flush is not terminated.", ex);
                     }
                     // dont't check version mismatch  
                     continue;
