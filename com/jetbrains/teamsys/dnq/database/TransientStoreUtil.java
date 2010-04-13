@@ -99,42 +99,14 @@ public class TransientStoreUtil {
         }
     }
 
-    public static void abort(@NotNull Throwable e, @Nullable TransientStoreSession s) {
-        if (s != null && s.isOpened()) {
-            s.abort();
-        }
-
-        if (e instanceof Error) {
-            throw (Error) e;
-        }
-
-        if (e instanceof RuntimeException) {
-            throw (RuntimeException) e;
-        }
-
-        throw new RuntimeException(e);
-    }
-
-    public static void abortIfOpened(TransientStoreSession session) {
+    public static void abort(TransientStoreSession session) {
         if (session != null && session.isOpened()) {
             session.abort();
         }
     }
 
-    public static void commitIfOpen(TransientStoreSession session) {
-        if (session != null && session.isOpened()) {
-            session.commit();
-        }
-    }
-
-    public static void abort(@NotNull Throwable e, @Nullable StoreTransaction t) {
-        if (log.isDebugEnabled()) {
-            log.error("Abort persistent transaction.", e);
-        }
-
-        if (t != null) {
-            t.abort();
-        }
+    public static void abort(@NotNull Throwable e, @Nullable TransientStoreSession s) {
+        abort(s);
 
         if (e instanceof Error) {
             throw (Error) e;
