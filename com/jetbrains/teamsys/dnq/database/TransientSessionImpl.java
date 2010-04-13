@@ -57,8 +57,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     private Map<EntityId, ReadonlyTransientEntityImpl> createdReadonlyTransientEntities = new HashMapDecorator<EntityId, ReadonlyTransientEntityImpl>();
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name) {
-        this(store, name, null);
-        this.id = UNIQUE_ID.incrementAndGet();
+        this(store, name, UNIQUE_ID.incrementAndGet());
     }
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id) {
