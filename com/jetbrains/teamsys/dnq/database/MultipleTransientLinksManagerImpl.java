@@ -29,9 +29,17 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   private List<TransientEntity> temporaryLinks;
 
   MultipleTransientLinksManagerImpl(@NotNull String linkName, TransientEntityImpl owner) {
-    this.state = State.LinksNotLoaded;
     this.linkName = linkName;
     this.owner = owner;
+
+    switch (owner.getState()) {
+        case Temporary:
+        case New:
+            this.state = State.LinksLoaded;
+            break;
+        default:
+            this.state = State.LinksNotLoaded;
+    }
   }
 
   public void setLink(@NotNull TransientEntity entity) {

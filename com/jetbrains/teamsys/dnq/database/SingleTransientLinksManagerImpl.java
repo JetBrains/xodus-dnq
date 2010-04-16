@@ -25,20 +25,26 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
   SingleTransientLinksManagerImpl(@NotNull String linkName, TransientEntityImpl owner) {
     this.linkName = linkName;
     this.owner = owner;
-    this.state = State.LinksNotLoaded;
+    switch (owner.getState()) {
+        case Temporary:
+        case New:
+            this.state = State.LinksLoaded;
+            break;
+        default:
+            this.state = State.LinksNotLoaded;
+
+    }
   }
 
   public void setLink(@NotNull TransientEntity target) {
     TransientEntity oldTarget = this.target;
 
     switch (owner.getState()) {
-      case New:
-        this.target = target;
-        break;
       case Temporary:
         this.target = target;
         return;
 
+      case New:
       case Saved:
       case SavedNew:
         switch (state) {
