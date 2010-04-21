@@ -620,6 +620,12 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     private static final StandartEventHandler<AbstractTransientEntity, Object> equalsEventHandler = new StandartEventHandler<AbstractTransientEntity, Object>() {
 
+        @Override
+        Object processClosedNew(AbstractTransientEntity entity, AbstractTransientEntity param1, Object param2) {
+            // entity from closed session in new state can't be equals with anything
+            return false;
+        }
+
         Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
             return processOpenSaved(entity, that, param2);
         }
@@ -789,7 +795,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 } else if (entity.session.isAborted() || entity.session.isCommitted()) {
                     switch (entity.state) {
                         case New:
-                            throw new IllegalStateException("Illegal comination of session and transient entity states (Commited or Aborted, New). Possible bug. " + entity);
+                            return processClosedNew(entity, param1, param2);
 
                         case Saved:
                         case SavedNew:
@@ -806,6 +812,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
             } while (true);
             //throw new IllegalStateException("Unknown session state. " + entity);
+        }
+
+        Object processClosedNew(AbstractTransientEntity entity, P1 param1, P2 param2) {
+            throw new IllegalStateException("Illegal comination of session and transient entity states (Commited or Aborted, New). Possible bug. " + entity);
         }
 
         protected Object processClosedRemoved(AbstractTransientEntity entity, P1 paraP1, P2 param2) {
