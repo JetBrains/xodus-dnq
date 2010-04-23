@@ -546,7 +546,8 @@ class TransientEntityImpl extends AbstractTransientEntity {
             for (final String linkName : entry.getValue()) {
               final EntityIteratorBase it = (EntityIteratorBase) persistentSession.findLinks(entityType, this, linkName).iterator();
               while (it.hasNext()) {
-                result.put(linkName, it.nextId());
+                  //TODO: BUG HERE!!!
+                  result.put(linkName, it.nextId());
               }
             }
           }

@@ -82,8 +82,6 @@ class ConstraintsUtil {
                 Map<String, EntityId> incomingLinks = e.getIncomingLinks();
 
                 if (incomingLinks.size() > 0) {
-                    String sourceType = e.getType();
-
                     Map<String, TransientEntity> _incomingLinks = new HashMapDecorator<String, TransientEntity>();
                     for (String key : incomingLinks.keySet()) {
                         TransientEntity entity = (TransientEntity) e.getStore().getThreadSession().getEntity(incomingLinks.get(key));

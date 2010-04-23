@@ -679,6 +679,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return obj == this || (Boolean) equalsEventHandler.handle(this, (AbstractTransientEntity) obj, null);
     }
 
+/*
     private static final StandartEventHandler hashCodeEventHandler = new StandartEventHandler() {
 
         Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2) {
@@ -725,11 +726,41 @@ abstract class AbstractTransientEntity implements TransientEntity {
         }
 
     };
-
+*/
 
     public int hashCode() {
-        return (Integer) hashCodeEventHandler.handle(this, null, null);
-    }
+        if (session == getStore().getThreadSession()) {
+            switch (state) {
+                // to sutisfy hashCode contract, return old hashCode for saved entities that was new, later, in this session
+                case SavedNew:
+                case New:
+                case Temporary:
+                case RemovedNew:
+                    return System.identityHashCode(this);
+
+                case RemovedSaved:
+                case Saved:
+                    return getPersistentEntityInternal().hashCode();
+            }
+        } else {
+            // access from another session
+            switch (state) {
+                case New:
+                case RemovedNew:
+                    throw new IllegalStateException("Can't access new transient entity from another session");
+
+                case Temporary:
+                    return System.identityHashCode(this);
+
+                case SavedNew:
+                case RemovedSaved:
+                case Saved:
+                    return getPersistentEntityInternal().hashCode();
+            }
+        }
+
+        throw new IllegalStateException("Illegal state [" + state + "]");
+    };
 
     private Object throwNoPersistentEntity() {
         throw new IllegalStateException("Transient entity has no associated persistent entity. " + this);
