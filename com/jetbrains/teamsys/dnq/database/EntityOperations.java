@@ -48,7 +48,11 @@ public class EntityOperations {
                 destructorCalled.add(reattached);
             }
             // remove associations and cascade delete
-            ConstraintsUtil.processOnDeleteConstraints((TransientStoreSession) store.getThreadSession(), reattached, emd, md, callDestructorPhase, destructorCalled);
+            TransientStoreSession storeSession = (TransientStoreSession) store.getThreadSession();
+            if (storeSession == null) {
+                throw new IllegalStateException("No current transient session!");
+            }
+            ConstraintsUtil.processOnDeleteConstraints(storeSession, reattached, emd, md, callDestructorPhase, destructorCalled);
         }
 
         if (!callDestructorPhase) {
@@ -59,31 +63,32 @@ public class EntityOperations {
 
 
     public static List<Entity> getHistory(@NotNull Entity e) {
-        e = TransientStoreUtil.reattach((TransientEntity) e);
+        final Entity entity = TransientStoreUtil.reattach((TransientEntity) e);
 
-        return e == null ? Collections.EMPTY_LIST : e.getHistory();
+        return entity == null ? Collections.<Entity>emptyList() : entity.getHistory();
     }
 
+    @SuppressWarnings({"ConstantConditions"})
     public static boolean isRemoved(@NotNull Entity e) {
         return e == null || ((TransientEntity) e).isRemoved() || TransientStoreUtil.reattach((TransientEntity) e) == null;
     }
 
     public static int getVersion(@NotNull Entity e) {
-        e = TransientStoreUtil.reattach((TransientEntity) e);
+        final Entity entity = TransientStoreUtil.reattach((TransientEntity) e);
 
-        return e == null ? -1 : e.getVersion();
+        return entity == null ? -1 : entity.getVersion();
     }
 
     public static Entity getPreviousVersion(@NotNull Entity e) {
-        e = TransientStoreUtil.reattach((TransientEntity) e);
+        final Entity entity = TransientStoreUtil.reattach((TransientEntity) e);
 
-        return e == null ? null : e.getPreviousVersion();
+        return entity == null ? null : entity.getPreviousVersion();
     }
 
     public static Entity getNextVersion(@NotNull Entity e) {
-        e = TransientStoreUtil.reattach((TransientEntity) e);
+        final Entity entity = TransientStoreUtil.reattach((TransientEntity) e);
 
-        return e == null ? null : e.getNextVersion();
+        return entity == null ? null : entity.getNextVersion();
     }
 
     public static boolean equals(Entity e1, Object e2) {
@@ -111,9 +116,9 @@ public class EntityOperations {
     /**
      * Slow method! Use with care.
      *
-     * @param entities
-     * @param i
-     * @return
+     * @param entities iterable to index
+     * @param i        queried element index
+     * @return element at position i in entities iterable
      * @deprecated slow method. for testcases only.
      */
     public static Entity getElement(@NotNull Iterable<Entity> entities, int i) {
@@ -139,36 +144,36 @@ public class EntityOperations {
     }
 
     public static boolean hasChanges(@NotNull TransientEntity e) {
-        e = TransientStoreUtil.reattach(e);
+        final TransientEntity entity = TransientStoreUtil.reattach(e);
 
-        return e == null ? false : e.hasChanges();
+        return entity != null && entity.hasChanges();
     }
 
     public static boolean hasChanges(@NotNull TransientEntity e, String property) {
-        e = TransientStoreUtil.reattach(e);
+        final TransientEntity entity = TransientStoreUtil.reattach(e);
 
-        return e == null ? false : e.hasChanges(property);
+        return entity != null && entity.hasChanges(property);
     }
 
     public static boolean hasChanges(@NotNull TransientEntity e, String[] properties) {
-        e = TransientStoreUtil.reattach(e);
+        final TransientEntity entity = TransientStoreUtil.reattach(e);
 
-        if (e != null) {
+        if (entity != null) {
             for (String property : properties) {
-                if (e.hasChanges(property)) return true;
+                if (entity.hasChanges(property)) return true;
             }
         }
         return false;
     }
 
     public static boolean hasChangesExcepting(@NotNull TransientEntity e, String[] properties) {
-        e = TransientStoreUtil.reattach(e);
+        final TransientEntity entity = TransientStoreUtil.reattach(e);
 
-        if (e == null) {
+        if (entity == null) {
             return false;
         } else {
-            Map<String, LinkChange> changesLinks = e.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(e);
-            Map<String, PropertyChange> changesProperties = e.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(e);
+            Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
+            Map<String, PropertyChange> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(entity);
 
             int found = 0;
             int changed;
@@ -177,7 +182,7 @@ public class EntityOperations {
             } else {
                 for (String property : properties) {
                     // all properties have to be changed
-                    if (e.hasChanges(property)) found++;
+                    if (entity.hasChanges(property)) found++;
                 }
                 if (changesLinks == null) {
                     changed = changesProperties.size();
