@@ -128,39 +128,37 @@ class ConstraintsUtil {
                 EntityMetaData md = modelMetaData.getEntityMetaData(e.getType());
 
                 // meta-data may be null for persistent enums
-                if (md != null) {
-                    if (e.isNewOrTemporary()) {
-                        // check all links of new entity
-                        for (AssociationEndMetaData aemd : md.getAssociationEndsMetaData()) {
-                            if (log.isTraceEnabled()) {
-                                log.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
-                            }
-
-                            if (!checkCardinality(e, aemd)) {
-                                exceptions.add(new CardinalityViolationException(e, aemd));
-                            }
+                if (e.isNewOrTemporary()) {
+                    // check all links of new entity
+                    for (AssociationEndMetaData aemd : md.getAssociationEndsMetaData()) {
+                        if (log.isTraceEnabled()) {
+                            log.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
                         }
-                    } else if (e.isSaved()) {
-                        // check only changed links of saved entity
-                        Map<String, LinkChange> changedLinks = changesTracker.getChangedLinksDetailed(e);
-                        if (changedLinks != null) {
-                            for (String changedLink : changedLinks.keySet()) {
-                                AssociationEndMetaData aemd = md.getAssociationEndMetaData(changedLink);
 
-                                if (aemd == null) {
-                                    log.error("aemd is null. Type: [" + e.getType() + "]. Changed link: " + changedLink);
-                                } else {
-                                    if (log.isTraceEnabled()) {
-                                        log.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
-                                    }
+                        if (!checkCardinality(e, aemd)) {
+                            exceptions.add(new CardinalityViolationException(e, aemd));
+                        }
+                    }
+                } else if (e.isSaved()) {
+                    // check only changed links of saved entity
+                    Map<String, LinkChange> changedLinks = changesTracker.getChangedLinksDetailed(e);
+                    if (changedLinks != null) {
+                        for (String changedLink : changedLinks.keySet()) {
+                            AssociationEndMetaData aemd = md.getAssociationEndMetaData(changedLink);
 
-                                    if (!checkCardinality(e, aemd)) {
-                                        exceptions.add(new CardinalityViolationException(e, aemd));
-                                    }
+                            if (aemd == null) {
+                                log.error("aemd is null. Type: [" + e.getType() + "]. Changed link: " + changedLink);
+                            } else {
+                                if (log.isTraceEnabled()) {
+                                    log.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
+                                }
 
+                                if (!checkCardinality(e, aemd)) {
+                                    exceptions.add(new CardinalityViolationException(e, aemd));
                                 }
 
                             }
+
                         }
                     }
                 }
