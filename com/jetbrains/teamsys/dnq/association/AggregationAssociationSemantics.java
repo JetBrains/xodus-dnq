@@ -22,10 +22,10 @@ public class AggregationAssociationSemantics {
    * 1. parent.parentToChild = child <==> child.childToParent = parent
    * 2. parent.parentToChild = null <==> child.childToParent = null
    *
-   * @param parent
-   * @param parentToChildLinkName
-   * @param childToParentLinkName
-   * @param child
+   * @param parent parent
+   * @param parentToChildLinkName parent to child link name
+   * @param childToParentLinkName child to parent link name
+   * @param child child
    */
   public static void setOneToOne(@Nullable Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @Nullable Entity child) {
     if (parent == null && child != null) {
@@ -52,7 +52,7 @@ public class AggregationAssociationSemantics {
       Entity oldChild = AssociationSemantics.getToOne(parent, parentToChildLinkName);
       child = TransientStoreUtil.reattach((TransientEntity) child);
 
-      if (!child.equals(oldChild)) {
+      if (child != null && !child.equals(oldChild)) {
         if (oldChild != null) {
           // remove old child from parent
           removeChildFromParent(oldChild);
@@ -92,10 +92,10 @@ public class AggregationAssociationSemantics {
     //parent was deleted?
     if (parent != null) {
       parent.deleteLink(parentToChildLinkName, child);
+      // remove link child->parent
+      child.deleteLink(childToParentLinkName, parent);
     }
 
-    // remove link child->parent
-    child.deleteLink(childToParentLinkName, parent);
 
     child.deleteProperty(PARENT_TO_CHILD_LINK_NAME);
     child.deleteProperty(CHILD_TO_PARENT_LINK_NAME);
@@ -104,10 +104,10 @@ public class AggregationAssociationSemantics {
   /**
    * parent.parentToChild.add(child)
    *
-   * @param parent
-   * @param parentToChildLinkName
-   * @param childToParentLinkName
-   * @param child
+   * @param parent parent
+   * @param parentToChildLinkName parent to child link name
+   * @param childToParentLinkName child to parent link name
+   * @param child child
    */
   public static void createOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
     // remove from current parent
@@ -122,23 +122,24 @@ public class AggregationAssociationSemantics {
   /**
    * parent.parentToChild.remove(child)
    *
-   * @param parent
-   * @param parentToChildLinkName
-   * @param childToParentLinkName
-   * @param child
+   * @param parent parent
+   * @param parentToChildLinkName parent to child link name
+   * @param childToParentLinkName child to parent link name
+   * @param child child
    */
+  @SuppressWarnings({"UnusedDeclaration"})
   public static void removeOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
-    child = TransientStoreUtil.reattach((TransientEntity) child);
+    final Entity entity = TransientStoreUtil.reattach((TransientEntity) child);
     
-    if (child == null) {
+    if (entity == null) {
       return;
     }
     
     //parent.parentToChild.remove(child)
-    String currentParentToChildLinkName = child.getProperty(PARENT_TO_CHILD_LINK_NAME);
+    String currentParentToChildLinkName = entity.getProperty(PARENT_TO_CHILD_LINK_NAME);
 
     if (parentToChildLinkName.equals(currentParentToChildLinkName)) {
-      removeChildFromParent(child);
+      removeChildFromParent(entity);
     } else {
       //throw new IllegalArgumentException("Can't remove child from parent because child is not belong to parent.");
     }
@@ -147,15 +148,17 @@ public class AggregationAssociationSemantics {
   /**
    * parent.parentToChild.clear
    *
-   * @param parent
-   * @param parentToChildLinkName
+   * @param parent parent
+   * @param parentToChildLinkName parent to child link name
    */
   public static void clearOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName) {
     //parent.parentToChild.clear
 
-    parent = TransientStoreUtil.reattach((TransientEntity) parent);
-    for (Entity child : AssociationSemantics.getToManyList(parent, parentToChildLinkName)) {
-      removeChildFromParent(child);
+    final Entity entity = TransientStoreUtil.reattach((TransientEntity) parent);
+    if (entity != null) {
+      for (Entity child : AssociationSemantics.getToManyList(entity, parentToChildLinkName)) {
+        removeChildFromParent(child);
+      }
     }
   }
 
@@ -163,37 +166,41 @@ public class AggregationAssociationSemantics {
    * child.childToParent = parent
    * child.childToParent = null
    *
-   * @param parent
-   * @param parentToChildLinkName
-   * @param childToParentLinkName
-   * @param child
+   * @param parent parent
+   * @param parentToChildLinkName parent to child link name
+   * @param childToParentLinkName child to parent link name
+   * @param child child
    */
   public static void setManyToOne(@Nullable Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
     parent = TransientStoreUtil.reattach((TransientEntity) parent);
-    child = TransientStoreUtil.reattach((TransientEntity) child);
+    final Entity entity = TransientStoreUtil.reattach((TransientEntity) child);
 
     if (parent == null) {
       // child.childToParent = null
-      parent = AssociationSemantics.getToOne(child, childToParentLinkName);
-      // parent == null means there was no link
+      parent = AssociationSemantics.getToOne(entity, childToParentLinkName);
+      // parent == null means there was no link or entity was null
       if (parent != null) {
-        removeChildFromParent(child);
+          //noinspection ConstantConditions
+          removeChildFromParent(entity);
       }
     } else {
       // child.childToParent = parent
 
       // check old parent
-      Entity oldParent = AssociationSemantics.getToOne(child, childToParentLinkName);
+      Entity oldParent = AssociationSemantics.getToOne(entity, childToParentLinkName);
 
       if (!parent.equals(oldParent)) {
 
-        // remove from current parent
-        removeChildFromParent(child);
+        if (entity != null) {
+          // remove from current parent
+          removeChildFromParent(entity);
 
-        UndirectedAssociationSemantics.createOneToMany(parent, parentToChildLinkName, childToParentLinkName, child);
+          UndirectedAssociationSemantics.createOneToMany(parent, parentToChildLinkName, childToParentLinkName, entity);
 
-        child.setProperty(PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName);
-        child.setProperty(CHILD_TO_PARENT_LINK_NAME, childToParentLinkName);
+          entity.setProperty(PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName);
+          entity.setProperty(CHILD_TO_PARENT_LINK_NAME, childToParentLinkName);
+        }
+
       }
     }
   }
