@@ -44,6 +44,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         return persistentStore;
     }
 
+    @SuppressWarnings({"UnusedDeclaration"})
     public void setBlobsStorePath(@NotNull String blobsStorePath) {
         this.blobsStorePath = blobsStorePath;
     }
@@ -57,6 +58,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
      *
      * @param persistentStore persistent entity store.
      */
+    @SuppressWarnings({"UnusedDeclaration"})
     public void setPersistentStore(EntityStore persistentStore) {
         this.persistentStore = persistentStore;
     }
@@ -66,6 +68,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
      *
      * @param abortSessionsOnClose true to abort.
      */
+    @SuppressWarnings({"UnusedDeclaration"})
     public void setAbortSessionsOnClose(boolean abortSessionsOnClose) {
         this.abortSessionsOnClose = abortSessionsOnClose;
     }
@@ -75,6 +78,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
      *
      * @param attachToCurrentOnBeginIfExists true to use existing current session.
      */
+    @SuppressWarnings({"UnusedDeclaration"})
     public void setAttachToCurrentOnBeginIfExists(boolean attachToCurrentOnBeginIfExists) {
         this.attachToCurrentOnBeginIfExists = attachToCurrentOnBeginIfExists;
     }
@@ -82,8 +86,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     /**
      * Resume session if {@link #beginSession(String,Object)} called, but session with given id already exists.
      *
-     * @param resumeOnBeginIfExists
+     * @param resumeOnBeginIfExists should resume if session exists
      */
+    @SuppressWarnings({"UnusedDeclaration"})
     public void setResumeOnBeginIfExists(boolean resumeOnBeginIfExists) {
         this.resumeOnBeginIfExists = resumeOnBeginIfExists;
     }
@@ -101,7 +106,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     /**
      * The same as {@link #getThreadSession()}
      *
-     * @return
+     * @return fake
      */
     @NotNull
     public StoreSession beginSession() {
@@ -235,7 +240,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     /**
      * It's guaranteed that current thread session is Open, if exists
      *
-     * @return
+     * @return current thread session
      */
     @Nullable
     public StoreSession getThreadSession() {
@@ -246,7 +251,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         log.debug("Close transient store.");
 
         // check there's no opened sessions
-        ArrayList<TransientStoreSession> _sessions = null;
+        final ArrayList<TransientStoreSession> _sessions;
         synchronized (sessions) {
             _sessions = new ArrayList<TransientStoreSession>(sessions.values());
         }
