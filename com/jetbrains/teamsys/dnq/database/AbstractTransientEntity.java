@@ -2,7 +2,6 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.EntityRemovedException;
-import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -59,7 +58,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return entityCreationPosition;
     }
 
-    private static final StandartEventHandler getPersistentEntityEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getPersistentEntityEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.persistentEntity;
         }
@@ -176,7 +175,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         this.type = type;
     }
 
-    private static final StandartEventHandler getIdEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getIdEventHandler = new StandardEventHandler() {
 
         Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return processOpenSaved(entity, param1, param2);
@@ -254,7 +253,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return (EntityId) getIdEventHandler.handle(this, null, null);
     }
 
-    private final static StandartEventHandler toIdStringEventHandler = new StandartEventHandler() {
+    private final static StandardEventHandler toIdStringEventHandler = new StandardEventHandler() {
 
         String processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return processOpenSaved(entity, param1, param2);
@@ -314,7 +313,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         this.id = id;
     }
 
-    private final static StandartEventHandler<Entity, Object> setPersistentEntityEventHandler = new StandartEventHandler<Entity, Object>() {
+    private final static StandardEventHandler<Entity, Object> setPersistentEntityEventHandler = new StandardEventHandler<Entity, Object>() {
 
         Object processOpenSaved(AbstractTransientEntity entity, Entity param1, Object param2) {
             throw new IllegalStateException("Transient entity already associated with persistent entity. " + entity);
@@ -340,7 +339,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         setPersistentEntityEventHandler.handle(this, persistentEntity, null);
     }
 
-    private final static StandartEventHandler clearPersistentEntityEventHandler = new StandartEventHandler() {
+    private final static StandardEventHandler clearPersistentEntityEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             entity.setPersistentEntityInternal(null);
             entity.state = State.New;
@@ -361,7 +360,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         clearPersistentEntityEventHandler.handle(this, null, null);
     }
 
-    private static final StandartEventHandler updateVersionEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler updateVersionEventHandler = new StandardEventHandler() {
 
         Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.throwNoPersistentEntity();
@@ -382,7 +381,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         updateVersionEventHandler.handle(this, null, null);
     }
 
-    private static final StandartEventHandler getPropertyNamesEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getPropertyNamesEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().getPropertyNames();
         }
@@ -402,7 +401,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return (List<String>) getPropertyNamesEventHandler.handle(this, null, null);
     }
 
-    private static final StandartEventHandler getBlobNamesEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getBlobNamesEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().getBlobNames();
         }
@@ -423,7 +422,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return (List<String>) getBlobNamesEventHandler.handle(this, null, null);
     }
 
-    private static final StandartEventHandler getLinkNamesEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getLinkNamesEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().getLinkNames();
         }
@@ -443,7 +442,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return (List<String>) getLinkNamesEventHandler.handle(this, null, null);
     }
 
-    private static final StandartEventHandler getVersionEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getVersionEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.version;
         }
@@ -466,7 +465,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return version;
     }
 
-    private static final StandartEventHandler getUpToDateVersionEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getUpToDateVersionEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             Entity e = entity.getPersistentEntityInternal().getUpToDateVersion();
             return e == null ? null : entity.session.newEntity(e);
@@ -491,7 +490,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return getPersistentEntity().isUpToDate();
     }
 
-    private static final StandartEventHandler getHistoryEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getHistoryEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             final List<Entity> history = entity.getPersistentEntityInternal().getHistory();
             final List<Entity> result = new ArrayList<Entity>(history.size());
@@ -520,7 +519,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return (List<Entity>) getHistoryEventHandler.handle(this, null, null);
     }
 
-    private static final StandartEventHandler getNextVersionEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getNextVersionEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             final Entity e = entity.getPersistentEntityInternal().getNextVersion();
             return e == null ? null : entity.session.newEntity(e);
@@ -541,7 +540,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return (Entity) getNextVersionEventHandler.handle(this, null, null);
     }
 
-    private static final StandartEventHandler getPreviousVersionEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler getPreviousVersionEventHandler = new StandardEventHandler() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             final Entity e = entity.getPersistentEntityInternal().getPreviousVersion();
             return e == null ? null : entity.session.newEntity(e);
@@ -561,7 +560,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return (Entity) getPreviousVersionEventHandler.handle(this, null, null);
     }
 
-    private static final StandartEventHandler<Entity, Object> compareToEventHandler = new StandartEventHandler<Entity, Object>() {
+    private static final StandardEventHandler<Entity, Object> compareToEventHandler = new StandardEventHandler<Entity, Object>() {
         Object processOpenSaved(AbstractTransientEntity entity, Entity e, Object param2) {
             return entity.getPersistentEntityInternal().compareTo(e);
         }
@@ -582,7 +581,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     /**
      * Called by BasePersistentClass by default
-     * @return
+     * @return debug presentation
      */
     public String getDebugPresentation() {
         final Entity pe = getPersistentEntityInternal();
@@ -618,7 +617,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 */
     }
 
-    private static final StandartEventHandler<AbstractTransientEntity, Object> equalsEventHandler = new StandartEventHandler<AbstractTransientEntity, Object>() {
+    private static final StandardEventHandler<AbstractTransientEntity, Object> equalsEventHandler = new StandardEventHandler<AbstractTransientEntity, Object>() {
 
         @Override
         Object processClosedNew(AbstractTransientEntity entity, AbstractTransientEntity param1, Object param2) {
@@ -671,6 +670,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     };
 
 
+    @SuppressWarnings({"SimplifiableIfStatement"})
     public boolean equals(Object obj) {
         if (!(obj instanceof AbstractTransientEntity)) {
             return false;
@@ -680,7 +680,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
 /*
-    private static final StandartEventHandler hashCodeEventHandler = new StandartEventHandler() {
+    private static final StandardEventHandler hashCodeEventHandler = new StandardEventHandler() {
 
         Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().hashCode();
@@ -760,15 +760,15 @@ abstract class AbstractTransientEntity implements TransientEntity {
         }
 
         throw new IllegalStateException("Illegal state [" + state + "]");
-    };
+    }
 
     private Object throwNoPersistentEntity() {
         throw new IllegalStateException("Transient entity has no associated persistent entity. " + this);
     }
 
-    protected static abstract class StandartEventHandler<P1, P2> {
+    protected static abstract class StandardEventHandler<P1, P2> {
 
-        protected StandartEventHandler() {
+        protected StandardEventHandler() {
         }
 
         Object handle(@NotNull AbstractTransientEntity entity, @Nullable P1 param1, @Nullable P2 param2) {
@@ -853,6 +853,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
             throw new EntityRemovedException(entity);
         }
 
+        @SuppressWarnings({"UnusedDeclaration"})
         Object processOpenFromAnotherSessionNew(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + entity);
         }

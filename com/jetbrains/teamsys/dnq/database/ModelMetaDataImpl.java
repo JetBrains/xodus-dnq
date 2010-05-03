@@ -3,12 +3,9 @@ package com.jetbrains.teamsys.dnq.database;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.database.*;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-/**
- */
 public class ModelMetaDataImpl implements ModelMetaData {
 
     private Set<EntityMetaData> entityMetaDatas = new HashSet<EntityMetaData>();    

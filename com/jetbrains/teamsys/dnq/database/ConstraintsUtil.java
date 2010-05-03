@@ -1,19 +1,21 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
+import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
-import com.jetbrains.teamsys.dnq.association.*;
-import jetbrains.mps.internal.collections.runtime.ListSequence;
+import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.List;
 
+@SuppressWarnings({"ThrowableInstanceNeverThrown"})
 class ConstraintsUtil {
 
     private static final Log log = LogFactory.getLog(ConstraintsUtil.class);
@@ -75,7 +77,7 @@ class ConstraintsUtil {
 
     @NotNull
     static Set<DataIntegrityViolationException> checkIncomingLinks(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
-        Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
+        final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
 
         for (TransientEntity e : changesTracker.getChangedEntities()) {
             if (e.isRemoved()) {
@@ -84,9 +86,15 @@ class ConstraintsUtil {
                 if (incomingLinks.size() > 0) {
                     Map<String, TransientEntity> _incomingLinks = new HashMapDecorator<String, TransientEntity>();
                     for (String key : incomingLinks.keySet()) {
-                        TransientEntity entity = (TransientEntity) e.getStore().getThreadSession().getEntity(incomingLinks.get(key));
+                        final StoreSession storeSession = e.getStore().getThreadSession();
 
-                        if (entity.isRemoved() || entity.getRemovedLinks(key).contains(e)) {
+                        if (storeSession == null) {
+                            throw new IllegalStateException("No current transient session!");
+                        }
+
+                        TransientEntity entity = (TransientEntity) storeSession.getEntity(incomingLinks.get(key));
+
+                        if (entity == null || entity.isRemoved() || entity.getRemovedLinks(key).contains(e)) {
                             continue;
                         }
 
@@ -190,7 +198,7 @@ class ConstraintsUtil {
         Map<String, Set<String>> incomingAssociations = emd.getIncomingAssociations(md);
         for (String key : incomingAssociations.keySet()) {
             for (String linkName : incomingAssociations.get(key)) {
-                processOnTargetDeleteConstraints(e, emd, md, key, linkName, session, callDestructorsPhase, destructorCalled);
+                processOnTargetDeleteConstraints(e, md, key, linkName, session, callDestructorsPhase, destructorCalled);
             }
         }
     }
@@ -325,7 +333,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void processOnTargetDeleteConstraints(TransientEntity target, EntityMetaData emd, ModelMetaData md, String oppositeType, String linkName, TransientStoreSession session, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
+    private static void processOnTargetDeleteConstraints(TransientEntity target, ModelMetaData md, String oppositeType, String linkName, TransientStoreSession session, boolean callDestructorsPhase, Set<Entity> destructorCalled) {
         EntityMetaData oppositeEmd = md.getEntityMetaData(oppositeType);
         if (oppositeEmd == null) {
             throw new RuntimeException("can't find metadata for entity type " + oppositeType + " as opposite to " + target.getType());
@@ -591,10 +599,6 @@ class ConstraintsUtil {
         }
     }
 
-    private static Entity findInDatabase(TransientStoreSession session, EntityMetaData emd, String propertyName, Comparable propertyValue) {
-        return ListSequence.fromIterable(session.find(emd.getType(), propertyName, propertyValue)).first();
-    }
-
     @NotNull
     static Set<DataIntegrityViolationException> checkRequiredProperties(@NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
         Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
@@ -604,18 +608,16 @@ class ConstraintsUtil {
 
                 EntityMetaData emd = md.getEntityMetaData(e.getType());
 
-                if (emd != null) {
-                    Set<String> requiredProperties = emd.getRequiredProperties();
-                    Set<String> requiredIfProperties = emd.getRequiredIfProperties(e);
-                    Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+                Set<String> requiredProperties = emd.getRequiredProperties();
+                Set<String> requiredIfProperties = emd.getRequiredIfProperties(e);
+                Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
 
-                    if ((requiredProperties.size() + requiredIfProperties.size() > 0 && (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)))) {
-                        for (String requiredPropertyName : requiredProperties) {
-                            checkProperty(errors, e, changedProperties, emd, requiredPropertyName);
-                        }
-                        for (String requiredIfPropertyName : requiredIfProperties) {
-                            checkProperty(errors, e, changedProperties, emd, requiredIfPropertyName);
-                        }
+                if ((requiredProperties.size() + requiredIfProperties.size() > 0 && (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)))) {
+                    for (String requiredPropertyName : requiredProperties) {
+                        checkProperty(errors, e, changedProperties, emd, requiredPropertyName);
+                    }
+                    for (String requiredIfPropertyName : requiredIfProperties) {
+                        checkProperty(errors, e, changedProperties, emd, requiredIfPropertyName);
                     }
                 }
             }
@@ -627,9 +629,9 @@ class ConstraintsUtil {
     /**
      * Properties and associations, that are part of indexes, can't be empty
      *
-     * @param tracker
-     * @param md
-     * @return
+     * @param tracker changes tracker
+     * @param md model metadata
+     * @return index fields errors set
      */
     @NotNull
     static Set<DataIntegrityViolationException> checkIndexFields(@NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
@@ -640,21 +642,19 @@ class ConstraintsUtil {
 
                 EntityMetaData emd = md.getEntityMetaData(e.getType());
 
-                if (emd != null) {
-                    Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
-                    Set<Index> indexes = emd.getIndexes();
+                Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+                Set<Index> indexes = emd.getIndexes();
 
-                    for (Index index : indexes) {
-                        for (IndexField f : index.getFields()) {
-                            if (f.isProperty()) {
-                                if (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)) {
-                                    checkProperty(errors, e, changedProperties, emd, f.getName());
-                                }
-                            } else {
-                                // link
-                                if (!checkCardinality(e, AssociationEndCardinality._1, f.getName())) {
-                                    errors.add(new CardinalityViolationException("Association [" + f.getName() + "] can't be empty, because it's part of unique constraint.", e, f.getName()));
-                                }
+                for (Index index : indexes) {
+                    for (IndexField f : index.getFields()) {
+                        if (f.isProperty()) {
+                            if (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)) {
+                                checkProperty(errors, e, changedProperties, emd, f.getName());
+                            }
+                        } else {
+                            // link
+                            if (!checkCardinality(e, AssociationEndCardinality._1, f.getName())) {
+                                errors.add(new CardinalityViolationException("Association [" + f.getName() + "] can't be empty, because it's part of unique constraint.", e, f.getName()));
                             }
                         }
                     }
@@ -666,8 +666,8 @@ class ConstraintsUtil {
     }
 
     private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changedProperties, EntityMetaData emd, String name) {
-        PropertyMetaData pmd = emd.getPropertyMetaData(name);
-        PropertyType type = null;
+        final PropertyMetaData pmd = emd.getPropertyMetaData(name);
+        final PropertyType type;
         if (pmd == null) {
             log.warn("Can't determine property type. Try to get property value as if it of primitive type.");
             type = PropertyType.PRIMITIVE;
@@ -708,15 +708,7 @@ class ConstraintsUtil {
     }
 
     private static boolean isEmptyPrimitiveProperty(Comparable propertyValue) {
-        if (propertyValue == null) {
-            return true;
-        }
-
-        if (propertyValue instanceof String && "".equals(propertyValue)) {
-            return true;
-        }
-
-        return false;
+        return propertyValue == null || "".equals(propertyValue);
     }
 
 }

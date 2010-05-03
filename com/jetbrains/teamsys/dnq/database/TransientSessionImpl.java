@@ -909,6 +909,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     /**
      * Checks constraints before save changes
+     * @param exceptions resulting errors set
      */
     private void checkBeforeSaveChangesConstraints(@NotNull Set<DataIntegrityViolationException> exceptions) {
         final ModelMetaData modelMetaData = store.getModelMetaData();
