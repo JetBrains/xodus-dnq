@@ -443,7 +443,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
     }
 
     public BasePersistentClass getInstance(Entity entity) {
-        return (BasePersistentClass) EntityInstanceRegistry.getEntityInstance(entity, type);
+        return EntityInstanceRegistry.getEntityInstance(entity, type);
     }
 
     private boolean parentChanged(Map<String, LinkChange> changedLinks) {
