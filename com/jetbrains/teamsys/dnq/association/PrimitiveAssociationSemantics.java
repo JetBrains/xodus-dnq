@@ -159,7 +159,7 @@ public class PrimitiveAssociationSemantics {
   public static void setHashed(@NotNull Entity e, @NotNull String propertyName, String value) {
     e = TransientStoreUtil.reattach((TransientEntity) e);
 
-    String oldPropertyValue = e.getProperty(propertyName);
+    String oldPropertyValue = (String) e.getProperty(propertyName);
 
     if (value == null && oldPropertyValue != null) {
       e.deleteProperty(propertyName);

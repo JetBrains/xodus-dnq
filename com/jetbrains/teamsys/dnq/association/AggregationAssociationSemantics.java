@@ -77,8 +77,8 @@ public class AggregationAssociationSemantics {
   }
 
   private static void removeChildFromParent(@NotNull Entity child) {
-    String childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME);
-    String parentToChildLinkName = child.getProperty(PARENT_TO_CHILD_LINK_NAME);
+    String childToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
+    String parentToChildLinkName = (String) child.getProperty(PARENT_TO_CHILD_LINK_NAME);
 
     if (parentToChildLinkName == null && childToParentLinkName == null) {
       // child has no parent yet
@@ -136,7 +136,7 @@ public class AggregationAssociationSemantics {
     }
     
     //parent.parentToChild.remove(child)
-    String currentParentToChildLinkName = entity.getProperty(PARENT_TO_CHILD_LINK_NAME);
+    String currentParentToChildLinkName = (String) entity.getProperty(PARENT_TO_CHILD_LINK_NAME);
 
     if (parentToChildLinkName.equals(currentParentToChildLinkName)) {
       removeChildFromParent(entity);
@@ -207,8 +207,8 @@ public class AggregationAssociationSemantics {
 
   @Nullable
   public static Entity getParent(@NotNull Entity child) {
-    String childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME);
-    String parentToChildLinkName = child.getProperty(PARENT_TO_CHILD_LINK_NAME);
+    String childToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
+    String parentToChildLinkName = (String) child.getProperty(PARENT_TO_CHILD_LINK_NAME);
 
     if (parentToChildLinkName == null && childToParentLinkName == null) {
       return null;
@@ -223,4 +223,3 @@ public class AggregationAssociationSemantics {
   }
 
 }
-

@@ -1,6 +1,5 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import org.jetbrains.annotations.NotNull;
@@ -27,7 +26,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
   @Override
-  public <T extends Comparable> void setProperty(@NotNull String propertyName, @NotNull T value) {
+  public void setProperty(@NotNull String propertyName, @NotNull Comparable value) {
     throw createReadonlyException();
   }
 
@@ -82,12 +81,12 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
   @Override
-  public <T extends Comparable> T getProperty(@NotNull String propertyName) {
+  public Comparable getProperty(@NotNull String propertyName) {
     // return old property value if it was changed
     if (propertiesDetaled != null && propertiesDetaled.containsKey(propertyName)) {
-      return (T) propertiesDetaled.get(propertyName).getOldValue();
+      return propertiesDetaled.get(propertyName).getOldValue();
     } else {
-      return (T) super.getProperty(propertyName);
+      return super.getProperty(propertyName);
     }
   }
 
@@ -230,5 +229,3 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
 }
-
-

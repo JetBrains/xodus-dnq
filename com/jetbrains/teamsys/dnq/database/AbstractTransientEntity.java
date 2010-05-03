@@ -53,16 +53,17 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return entityCreationPosition;
     }
 
-    private static final StandardEventHandler getPersistentEntityEventHandler = new StandardEventHandler() {
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+    private static final StandardEventHandler<Object, Object, Entity> getPersistentEntityEventHandler = new StandardEventHandler<Object, Object, Entity>() {
+        Entity processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.persistentEntity;
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        Entity processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+        Entity processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity; // there is no persistent entity for the temporary one
         }
     };
@@ -74,7 +75,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
      */
     @NotNull
     public Entity getPersistentEntity() {
-        return (Entity) getPersistentEntityEventHandler.handle(this, null, null);
+        return getPersistentEntityEventHandler.handle(this, null, null);
     }
 
     public void deleteInternal() {
@@ -170,19 +171,19 @@ abstract class AbstractTransientEntity implements TransientEntity {
         this.type = type;
     }
 
-    private static final StandardEventHandler getIdEventHandler = new StandardEventHandler() {
+    private static final StandardEventHandler<Object, Object, EntityId> getIdEventHandler = new StandardEventHandler<Object, Object, EntityId>() {
 
-        Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+        EntityId processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return processOpenSaved(entity, param1, param2);
         }
 
         @Override
-        Object processOpenFromAnotherSessionRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
+        EntityId processOpenFromAnotherSessionRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
             return processOpenRemoved(entity, param1, param2);
         }
 
         @Override
-        protected Object processClosedRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
+        protected EntityId processClosedRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
                     return super.processClosedRemoved(entity, param1, param2);
@@ -193,19 +194,19 @@ abstract class AbstractTransientEntity implements TransientEntity {
             throw new IllegalStateException();
         }
 
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+        EntityId processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().getId();
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+        EntityId processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.id;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+        EntityId processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.id;
         }
 
-        Object processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
+        EntityId processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
                     return entity.id;
@@ -216,7 +217,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
             throw new IllegalStateException();
         }
 
-        Object processSuspendedRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
+        EntityId processSuspendedRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
                     return super.processSuspendedRemoved(entity, param1, param2);
@@ -227,11 +228,11 @@ abstract class AbstractTransientEntity implements TransientEntity {
             throw new IllegalStateException();
         }
 
-        Object processClosedSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+        EntityId processClosedSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().getId();
         }
 
-        Object processSuspendedSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+        EntityId processSuspendedSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().getId();
         }
 
@@ -245,10 +246,10 @@ abstract class AbstractTransientEntity implements TransientEntity {
      */
     @NotNull
     public EntityId getId() {
-        return (EntityId) getIdEventHandler.handle(this, null, null);
+        return getIdEventHandler.handle(this, null, null);
     }
 
-    private final static StandardEventHandler toIdStringEventHandler = new StandardEventHandler() {
+    private final static StandardEventHandler<Object, Object, String> toIdStringEventHandler = new StandardEventHandler<Object, Object, String>() {
 
         String processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return processOpenSaved(entity, param1, param2);
@@ -262,7 +263,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return entity.id.toString();
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+        String processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.id.toString();
         }
 
@@ -301,14 +302,14 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     @NotNull
     public String toIdString() {
-        return (String) toIdStringEventHandler.handle(this, null, null);
+        return toIdStringEventHandler.handle(this, null, null);
     }
 
     protected void setId(TransientEntityIdImpl id) {
         this.id = id;
     }
 
-    private final static StandardEventHandler<Entity, Object> setPersistentEntityEventHandler = new StandardEventHandler<Entity, Object>() {
+    private final static StandardEventHandler<Entity, Object, Object> setPersistentEntityEventHandler = new StandardEventHandler<Entity, Object, Object>() {
 
         Object processOpenSaved(AbstractTransientEntity entity, Entity param1, Object param2) {
             throw new IllegalStateException("Transient entity already associated with persistent entity. " + entity);
@@ -334,7 +335,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         setPersistentEntityEventHandler.handle(this, persistentEntity, null);
     }
 
-    private final static StandardEventHandler clearPersistentEntityEventHandler = new StandardEventHandler() {
+    private final static StandardEventHandler<Object, Object, Object> clearPersistentEntityEventHandler = new StandardEventHandler<Object, Object, Object>() {
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             entity.setPersistentEntityInternal(null);
             entity.state = State.New;
@@ -342,11 +343,13 @@ abstract class AbstractTransientEntity implements TransientEntity {
         }
 
         Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
         Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+            entity.throwNoPersistentEntity();
+            return null;
         }
     };
 
@@ -355,14 +358,16 @@ abstract class AbstractTransientEntity implements TransientEntity {
         clearPersistentEntityEventHandler.handle(this, null, null);
     }
 
-    private static final StandardEventHandler updateVersionEventHandler = new StandardEventHandler() {
+    private static final StandardEventHandler<Object, Object, Object> updateVersionEventHandler = new StandardEventHandler<Object, Object, Object>() {
 
         Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
         Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
@@ -376,37 +381,41 @@ abstract class AbstractTransientEntity implements TransientEntity {
         updateVersionEventHandler.handle(this, null, null);
     }
 
-    private static final StandardEventHandler getPropertyNamesEventHandler = new StandardEventHandler() {
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+    private static final StandardEventHandler<Object, Object, List<String>> getPropertyNamesEventHandler = new StandardEventHandler<Object, Object, List<String>>() {
+        List<String> processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().getPropertyNames();
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        List<String> processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        List<String> processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
     };
 
     @NotNull
     public List<String> getPropertyNames() {
-        return (List<String>) getPropertyNamesEventHandler.handle(this, null, null);
+        return getPropertyNamesEventHandler.handle(this, null, null);
     }
 
-    private static final StandardEventHandler getBlobNamesEventHandler = new StandardEventHandler() {
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+    private static final StandardEventHandler<Object, Object, List<String>> getBlobNamesEventHandler = new StandardEventHandler<Object, Object, List<String>>() {
+        List<String> processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().getBlobNames();
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        List<String> processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        List<String> processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
     };
@@ -414,79 +423,85 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     @NotNull
     public List<String> getBlobNames() {
-        return (List<String>) getBlobNamesEventHandler.handle(this, null, null);
+        return getBlobNamesEventHandler.handle(this, null, null);
     }
 
-    private static final StandardEventHandler getLinkNamesEventHandler = new StandardEventHandler() {
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+    private static final StandardEventHandler<Object, Object, List<String>> getLinkNamesEventHandler = new StandardEventHandler<Object, Object, List<String>>() {
+        List<String> processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.getPersistentEntityInternal().getLinkNames();
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        List<String> processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        List<String> processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
     };
 
     @NotNull
     public List<String> getLinkNames() {
-        return (List<String>) getLinkNamesEventHandler.handle(this, null, null);
+        return getLinkNamesEventHandler.handle(this, null, null);
     }
 
-    private static final StandardEventHandler getVersionEventHandler = new StandardEventHandler() {
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+    private static final StandardEventHandler<Object, Object, Integer> getVersionEventHandler = new StandardEventHandler<Object, Object, Integer>() {
+        Integer processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             return entity.version;
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        Integer processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        Integer processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
     };
 
 
     public int getVersion() {
-        return (Integer) getVersionEventHandler.handle(this, null, null);
+        return getVersionEventHandler.handle(this, null, null);
     }
 
     int getVersionInternal() {
         return version;
     }
 
-    private static final StandardEventHandler getUpToDateVersionEventHandler = new StandardEventHandler() {
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+    private static final StandardEventHandler<Object, Object, Entity> getUpToDateVersionEventHandler = new StandardEventHandler<Object, Object, Entity>() {
+        Entity processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             Entity e = entity.getPersistentEntityInternal().getUpToDateVersion();
             return e == null ? null : entity.session.newEntity(e);
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        Entity processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.throwNoPersistentEntity();
+        Entity processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
     };
 
 
     @Nullable
     public Entity getUpToDateVersion() {
-        return (Entity) getUpToDateVersionEventHandler.handle(this, null, null);
+        return getUpToDateVersionEventHandler.handle(this, null, null);
     }
 
     public boolean isUpToDate() {
         return getPersistentEntity().isUpToDate();
     }
 
-    private static final StandardEventHandler getHistoryEventHandler = new StandardEventHandler() {
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+    private static final StandardEventHandler<Object, Object, List<Entity>> getHistoryEventHandler = new StandardEventHandler<Object, Object, List<Entity>>() {
+        List<Entity> processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             final List<Entity> history = entity.getPersistentEntityInternal().getHistory();
             final List<Entity> result = new ArrayList<Entity>(history.size());
             final TransientStoreSession session = entity.getTransientStoreSession();
@@ -496,14 +511,14 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return result;
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+        List<Entity> processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
             // new transient entity has no history
-            return Collections.EMPTY_LIST;
+            return Collections.emptyList();
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+        List<Entity> processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
             // temporary transient entity has no history
-            return Collections.EMPTY_LIST;
+            return Collections.emptyList();
         }
 
     };
@@ -511,20 +526,20 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     @NotNull
     public List<Entity> getHistory() {
-        return (List<Entity>) getHistoryEventHandler.handle(this, null, null);
+        return getHistoryEventHandler.handle(this, null, null);
     }
 
-    private static final StandardEventHandler getNextVersionEventHandler = new StandardEventHandler() {
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+    private static final StandardEventHandler<Object, Object, Entity> getNextVersionEventHandler = new StandardEventHandler<Object, Object, Entity>() {
+        Entity processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             final Entity e = entity.getPersistentEntityInternal().getNextVersion();
             return e == null ? null : entity.session.newEntity(e);
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+        Entity processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
             return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+        Entity processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
             return null;
         }
     };
@@ -532,46 +547,48 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     @Nullable
     public Entity getNextVersion() {
-        return (Entity) getNextVersionEventHandler.handle(this, null, null);
+        return getNextVersionEventHandler.handle(this, null, null);
     }
 
-    private static final StandardEventHandler getPreviousVersionEventHandler = new StandardEventHandler() {
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
+    private static final StandardEventHandler<Object, Object, Entity> getPreviousVersionEventHandler = new StandardEventHandler<Object, Object, Entity>() {
+        Entity processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             final Entity e = entity.getPersistentEntityInternal().getPreviousVersion();
             return e == null ? null : entity.session.newEntity(e);
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
+        Entity processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
             return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
+        Entity processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
             return null;
         }
     };
 
     @Nullable
     public Entity getPreviousVersion() {
-        return (Entity) getPreviousVersionEventHandler.handle(this, null, null);
+        return getPreviousVersionEventHandler.handle(this, null, null);
     }
 
-    private static final StandardEventHandler<Entity, Object> compareToEventHandler = new StandardEventHandler<Entity, Object>() {
-        Object processOpenSaved(AbstractTransientEntity entity, Entity e, Object param2) {
+    private static final StandardEventHandler<Entity, Object, Integer> compareToEventHandler = new StandardEventHandler<Entity, Object, Integer>() {
+        Integer processOpenSaved(AbstractTransientEntity entity, Entity e, Object param2) {
             return entity.getPersistentEntityInternal().compareTo(e);
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, Entity param, Object param2) {
-            return entity.throwNoPersistentEntity();
+        Integer processOpenNew(AbstractTransientEntity entity, Entity param, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Entity param, Object param2) {
-            return entity.throwNoPersistentEntity();
+        Integer processTemporary(AbstractTransientEntity entity, Entity param, Object param2) {
+            entity.throwNoPersistentEntity();
+            return null;
         }
     };
 
 
     public int compareTo(final Entity e) {
-        return (Integer) compareToEventHandler.handle(this, e, null);
+        return compareToEventHandler.handle(this, e, null);
     }
 
     /**
@@ -606,48 +623,48 @@ abstract class AbstractTransientEntity implements TransientEntity {
         //rollback to original implementation due to stackoverflows
         //TODO: implement smart toString for persistent enums
         return getDebugPresentation();
-/*
+    /*
         // delegate to Persistent Class implementation
         BasePersistentClass pc = (BasePersistentClass) DnqUtils.getPersistentClassInstance(this, this.getType());
         return pc == null ? getDebugPresentation() : pc.toString(this);
-*/
+    */
     }
 
-    private static final StandardEventHandler<AbstractTransientEntity, Object> equalsEventHandler = new StandardEventHandler<AbstractTransientEntity, Object>() {
+    private static final StandardEventHandler<AbstractTransientEntity, Object, Boolean> equalsEventHandler = new StandardEventHandler<AbstractTransientEntity, Object, Boolean>() {
 
         @Override
-        Object processClosedNew(AbstractTransientEntity entity, AbstractTransientEntity param1, Object param2) {
+        Boolean processClosedNew(AbstractTransientEntity entity, AbstractTransientEntity param1, Object param2) {
             // entity from closed session in new state can't be equals with anything
             return false;
         }
 
-        Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
             return processOpenSaved(entity, that, param2);
         }
 
-        Object processOpenSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processOpenSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
             return (that.isSaved() || (that.isRemoved() && !that.wasNew())) &&
                     entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
         }
 
-        Object processClosedSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processClosedSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
             return processOpenSaved(entity, that, param2);
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processOpenNew(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
             return entity == that;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processTemporary(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
             return entity == that;
         }
 
         @Override
-        protected Object processClosedRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        protected Boolean processClosedRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
             return processOpenRemoved(entity, that, param2);
         }
 
-        Object processOpenRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processOpenRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
                     return entity == that;
@@ -659,7 +676,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return false;
         }
 
-        Object processSuspendedSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processSuspendedSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
             return that.isSaved() && entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
         }
 
@@ -672,7 +689,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return false;
         }
 
-        return obj == this || (Boolean) equalsEventHandler.handle(this, (AbstractTransientEntity) obj, null);
+        return obj == this || equalsEventHandler.handle(this, (AbstractTransientEntity) obj, null);
     }
 
 /*
@@ -727,7 +744,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     public int hashCode() {
         if (session == getStore().getThreadSession()) {
             switch (state) {
-                // to sutisfy hashCode contract, return old hashCode for saved entities that was new, later, in this session
+                // to satisfy hashCode contract, return old hashCode for saved entities that was new, later, in this session
                 case SavedNew:
                 case New:
                 case Temporary:
@@ -758,16 +775,16 @@ abstract class AbstractTransientEntity implements TransientEntity {
         throw new IllegalStateException("Illegal state [" + state + "]");
     }
 
-    private Object throwNoPersistentEntity() {
+    private Object throwNoPersistentEntity() throws IllegalStateException {
         throw new IllegalStateException("Transient entity has no associated persistent entity. " + this);
     }
 
-    protected static abstract class StandardEventHandler<P1, P2> {
+    protected static abstract class StandardEventHandler<P1, P2, T> {
 
         protected StandardEventHandler() {
         }
 
-        Object handle(@NotNull AbstractTransientEntity entity, @Nullable P1 param1, @Nullable P2 param2) {
+        T handle(@NotNull AbstractTransientEntity entity, @Nullable P1 param1, @Nullable P2 param2) {
             do {
                 if (entity.session.isOpened()) {
                     // check that entity is accessed in the same thread as session
@@ -841,46 +858,46 @@ abstract class AbstractTransientEntity implements TransientEntity {
             //throw new IllegalStateException("Unknown session state. " + entity);
         }
 
-        Object processClosedNew(AbstractTransientEntity entity, P1 param1, P2 param2) {
+        T processClosedNew(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new IllegalStateException("Illegal comination of session and transient entity states (Commited or Aborted, New). Possible bug. " + entity);
         }
 
-        protected Object processClosedRemoved(AbstractTransientEntity entity, P1 paraP1, P2 param2) {
+        protected T processClosedRemoved(AbstractTransientEntity entity, P1 paraP1, P2 param2) {
             throw new EntityRemovedException(entity);
         }
 
         @SuppressWarnings({"UnusedDeclaration"})
-        Object processOpenFromAnotherSessionNew(AbstractTransientEntity entity, P1 param1, P2 param2) {
+        T processOpenFromAnotherSessionNew(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + entity);
         }
 
-        Object processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+        T processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + entity);
         }
 
-        Object processOpenFromAnotherSessionRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+        T processOpenFromAnotherSessionRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new IllegalStateException("It's not allowed to access entity from another thread while its session is open. " + entity);
         }
 
-        Object processSuspendedSaved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+        T processSuspendedSaved(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new IllegalStateException("Can't access transient saved entity while it's session is suspended. Only getId is permitted. " + entity);
         }
 
-        abstract Object processOpenSaved(AbstractTransientEntity entity, P1 param1, P2 param2);
+        abstract T processOpenSaved(AbstractTransientEntity entity, P1 param1, P2 param2);
 
-        abstract Object processOpenNew(AbstractTransientEntity entity, P1 param1, P2 param2);
+        abstract T processOpenNew(AbstractTransientEntity entity, P1 param1, P2 param2);
 
-        abstract Object processTemporary(AbstractTransientEntity entity, P1 param1, P2 param2);
+        abstract T processTemporary(AbstractTransientEntity entity, P1 param1, P2 param2);
 
-        Object processOpenRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+        T processOpenRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new EntityRemovedException(entity);
         }
 
-        Object processSuspendedRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+        T processSuspendedRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new EntityRemovedException(entity);
         }
 
-        Object processClosedSaved(AbstractTransientEntity entity, P1 param1, P2 param2) {
+        T processClosedSaved(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new IllegalStateException("Can't access committed saved entity. Only getId is permitted. " + entity);
         }
 
