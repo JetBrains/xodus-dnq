@@ -16,18 +16,12 @@ abstract class AbstractTransientEntity implements TransientEntity {
     protected static final Log log = LogFactory.getLog(TransientEntity.class);
 
     enum State {
-        New("new"),
-        Saved("saved"),
-        SavedNew("savedNew"),
-        RemovedSaved("removedSaved"),
-        RemovedNew("removedNew"),
-        Temporary("temporary");
-
-        private String name;
-
-        State(String name) {
-            this.name = name;
-        }
+        New,
+        Saved,
+        SavedNew,
+        RemovedSaved,
+        RemovedNew,
+        Temporary
     }
 
     private Entity persistentEntity;
@@ -38,6 +32,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     private TransientEntityIdImpl id;
     protected StackTraceElement entityCreationPosition = null;
 
+    @SuppressWarnings({"UnusedDeclaration"})
     protected void trackEntityCreation(TransientStoreSession session) {
         if (((TransientEntityStore) session.getStore()).isTrackEntityCreation()) {
             try {
@@ -75,7 +70,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     /**
      * It's allowed to get persistent entity in state Open-Removed.
      *
-     * @return
+     * @return underlying persistent entity
      */
     @NotNull
     public Entity getPersistentEntity() {
@@ -246,7 +241,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     /**
      * Allows getting id for Commited-Saved, Aborted-Saved and Open-Removed
      *
-     * @return
+     * @return entity id
      */
     @NotNull
     public EntityId getId() {
@@ -581,6 +576,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     /**
      * Called by BasePersistentClass by default
+     *
      * @return debug presentation
      */
     public String getDebugPresentation() {
@@ -656,7 +652,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case RemovedNew:
                     return entity == that;
                 case RemovedSaved:
-                    return (that.isSaved() || (that.isRemoved() && !that.wasNew())) && 
+                    return (that.isSaved() || (that.isRemoved() && !that.wasNew())) &&
                             entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
             }
 
@@ -774,7 +770,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         Object handle(@NotNull AbstractTransientEntity entity, @Nullable P1 param1, @Nullable P2 param2) {
             do {
                 if (entity.session.isOpened()) {
-// check that entity is accessed in the same thread as session
+                    // check that entity is accessed in the same thread as session
                     final TransientStoreSession storeSession = (TransientStoreSession) entity.getStore().getThreadSession();
                     if (entity.session != storeSession) {
                         switch (entity.state) {
