@@ -7,7 +7,7 @@ import com.jetbrains.teamsys.core.execution.locks.Latch;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
-import com.sleepycat.je.DeadlockException;
+import com.sleepycat.je.LockConflictException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -1054,7 +1054,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     private void logThreadsDump(Throwable e) {
         if (logForDumps.isErrorEnabled()) {
-            if (e.getCause() instanceof DeadlockException) {
+            if (e.getCause() instanceof LockConflictException) {
                 final Map<Thread, StackTraceElement[]> stackTraces = Thread.getAllStackTraces();
                 for (Thread t : stackTraces.keySet()) {
                     logForDumps.error(t);
