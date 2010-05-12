@@ -1,13 +1,15 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.hash.LinkedHashSet;
 import com.jetbrains.teamsys.database.*;
-import jetbrains.mps.internal.collections.runtime.ISequence;
-import jetbrains.mps.internal.collections.runtime.SetSequence;
+import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Set;
 
 /**
  * Date: 28.12.2006
@@ -83,31 +85,26 @@ public class TransientEntityIterable implements EntityIterable {
     }
 
     public EntityIterable skip(final int number) {
+        if (number == 0) return this;
         final Iterator<TransientEntity> it = values.iterator();
         final Set<TransientEntity> result = new LinkedHashSet<TransientEntity>();
-        int i = 0;
-        while (i++ < number && it.hasNext()) {
+        for (int i = 0; i < number && it.hasNext(); ++i) {
             it.next();
         }
         while (it.hasNext()) {
             result.add(it.next());
         }
         return new TransientEntityIterable(result);
-        // new: return new TransientEntityIterable(SetSequence.fromIterable(SetSequence.fromSet(values).skip(number)));
-        // TODO: WTF?
-        // old: return new TransientEntityIterable(SequenceOperations.toSet(SequenceOperations.skip(values, number)));
     }
 
-    public EntityIterable take(int number) {
+    public EntityIterable take(final int number) {
+        if (number == 0) return EntityIterableBase.EMPTY;
         final Iterator<TransientEntity> it = values.iterator();
         final Set<TransientEntity> result = new LinkedHashSet<TransientEntity>();
-        while (it.hasNext() && number-- > 0) {
+        for (int i = 0; i < number && it.hasNext(); ++i) {
             result.add(it.next());
         }
         return new TransientEntityIterable(result);
-        // new: return new TransientEntityIterable(SetSequence.fromIterable(SetSequence.fromSet(values).take(number)));
-        // TODO: WTF?
-        // old: return new TransientEntityIterable(SequenceOperations.toSet(SequenceOperations.take(values, number)));
     }
 
     public boolean isSortResult() {
