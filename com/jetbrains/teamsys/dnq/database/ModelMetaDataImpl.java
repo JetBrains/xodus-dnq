@@ -56,26 +56,37 @@ public class ModelMetaDataImpl implements ModelMetaData {
                 // add subtype
                 final String superType = emd.getSuperType();
                 if (superType != null) {
-                    final EntityMetaData superEmd = typeToEntityMetaDatas.get(superType);
-                    if (superEmd == null) {
-                        throw new IllegalArgumentException("No entity metadata for super type [" + superType + "]");
-                    }
-                    ((EntityMetaDataImpl)superEmd).addSubType(emd.getType());
+                  addSubTypeToMetaData(emd, superType);
+                }
+                // add interface types
+                for (String iFaceType : emd.getInterfaceTypes()) {
+                  addSubTypeToMetaData(emd, superType);
                 }
 
                 // set supertypes
                 List<String> thisAndSuperTypes = new ArrayList<String>();
-                String t = emd.getType();
+                EntityMetaData data = emd;
+                String t = data.getType();
                 do {
-                    thisAndSuperTypes.add(t);
-                    t = typeToEntityMetaDatas.get(t).getSuperType();
+                  thisAndSuperTypes.add(t);
+                  thisAndSuperTypes.addAll(data.getInterfaceTypes());
+                  data = typeToEntityMetaDatas.get(t);
+                  t = data.getSuperType();
                 } while (t != null);
                 ((EntityMetaDataImpl)emd).setThisAndSuperTypes(thisAndSuperTypes);
             }
         }
     }
 
-    @NotNull
+  private void addSubTypeToMetaData(EntityMetaData emd, String superType) {
+    final EntityMetaData superEmd = typeToEntityMetaDatas.get(superType);
+    if (superEmd == null) {
+        throw new IllegalArgumentException("No entity metadata for super type [" + superType + "]");
+    }
+    ((EntityMetaDataImpl)superEmd).addSubType(emd.getType());
+  }
+
+  @NotNull
     public EntityMetaData getEntityMetaData(@NotNull String typeName) {
         update();
 

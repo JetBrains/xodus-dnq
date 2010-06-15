@@ -19,6 +19,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
     private ModelMetaData modelMetaData = null;
     private String type = null;
     private String superType = null;
+    private Set<String> interfaces = new HashSetDecorator<String>();
     private Runnable initializer = null;
     private boolean removeOrphan = true;
     private Set<String> subTypes = new HashSetDecorator<String>();
@@ -183,6 +184,14 @@ public class EntityMetaDataImpl implements EntityMetaData {
     public void setAssociationEnds(@NotNull Collection<AssociationEndMetaData> ends) {
         externalAssociationEnds = new HashSet<AssociationEndMetaData>();
         externalAssociationEnds.addAll(ends);
+    }
+
+    public Collection<String> getInterfaceTypes() {
+        return interfaces;
+    }
+
+    public void setInterfaces(List<String> interfaces) {
+        this.interfaces.addAll(interfaces);
     }
 
     void addAssociationEndMetaData(AssociationEndMetaData end) {
