@@ -312,6 +312,21 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         });
     }
 
+    public void deleteEntityTypeRefactoring(@NotNull final String entityTypeName) {
+        final TransientStoreSession s = (TransientStoreSession) getThreadSession();
+
+        if (s == null) {
+            throw new IllegalStateException("No current thread session.");
+        }
+
+        final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
+        changesTracker.offerChange(new Runnable() {
+            public void run() {
+                ((BerkeleyDbEntityStore) s.getPersistentSession().getStore()).deleteEntityType(entityTypeName);
+            }
+        });
+    }
+
     public void deleteEntityRefactoring(@NotNull Entity entity) {
         final TransientStoreSession s = (TransientStoreSession) getThreadSession();
 
