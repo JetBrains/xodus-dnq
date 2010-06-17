@@ -323,11 +323,15 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final Entity persistentEntity =
                 (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
 
-        changesTracker.offerChange(new Runnable() {
-            public void run() {
-                persistentEntity.delete();
-            }
-        });
+        if (entity instanceof TransientEntity) {
+            changesTracker.entityDeleted((TransientEntity) entity);
+        } else {
+            changesTracker.offerChange(new Runnable() {
+                public void run() {
+                    persistentEntity.delete();
+                }
+            });
+        }
     }
 
     public void deleteLinksRefactoring(@NotNull final Entity entity, @NotNull final String linkName) {

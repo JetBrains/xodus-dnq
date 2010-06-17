@@ -534,15 +534,16 @@ class TransientEntityImpl extends AbstractTransientEntity {
         final ModelMetaData mmd = ((TransientEntityStore) session.getStore()).getModelMetaData();
         if (mmd != null) {
             final EntityMetaData emd = mmd.getEntityMetaData(getType());
-            // TODO: WTF does following comment mean? 
-            // EntityMetaData can be null during refactorings
-            for (final Map.Entry<String, Set<String>> entry : emd.getIncomingAssociations(mmd).entrySet()) {
-                final String entityType = entry.getKey();
-                for (final String linkName : entry.getValue()) {
-                    final EntityIteratorBase it = (EntityIteratorBase) persistentSession.findLinks(entityType, this, linkName).iterator();
-                    while (it.hasNext()) {
-                        //TODO: BUG HERE!!!
-                        result.put(linkName, it.nextId());
+            if (emd != null) {
+                // EntityMetaData can be null during refactorings
+                for (final Map.Entry<String, Set<String>> entry : emd.getIncomingAssociations(mmd).entrySet()) {
+                    final String entityType = entry.getKey();
+                    for (final String linkName : entry.getValue()) {
+                        final EntityIteratorBase it = (EntityIteratorBase) persistentSession.findLinks(entityType, this, linkName).iterator();
+                        while (it.hasNext()) {
+                            //TODO: BUG HERE!!!
+                            result.put(linkName, it.nextId());
+                        }
                     }
                 }
             }

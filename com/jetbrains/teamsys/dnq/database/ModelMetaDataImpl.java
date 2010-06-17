@@ -3,6 +3,7 @@ package com.jetbrains.teamsys.dnq.database;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.database.*;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -86,15 +87,10 @@ public class ModelMetaDataImpl implements ModelMetaData {
     ((EntityMetaDataImpl)superEmd).addSubType(emd.getType());
   }
 
-  @NotNull
+  @Nullable
     public EntityMetaData getEntityMetaData(@NotNull String typeName) {
         update();
-
-        EntityMetaData emd = typeToEntityMetaDatas.get(typeName);
-        if (emd == null) {
-            throw new IllegalArgumentException("Can't find metadata for entity [" + typeName + "]");
-        }
-        return emd;
+        return typeToEntityMetaDatas.get(typeName);
     }
 
     @NotNull

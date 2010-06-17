@@ -43,16 +43,18 @@ public class EntityOperations {
         if (md != null) {
             // cascade delete
             EntityMetaData emd = md.getEntityMetaData(reattached.getType());
-            if (callDestructorPhase) {
-                emd.getInstance(reattached).destructor(reattached);
-                destructorCalled.add(reattached);
+            if (emd != null) {
+                if (callDestructorPhase) {
+                    emd.getInstance(reattached).destructor(reattached);
+                    destructorCalled.add(reattached);
+                }
+                // remove associations and cascade delete
+                TransientStoreSession storeSession = (TransientStoreSession) store.getThreadSession();
+                if (storeSession == null) {
+                    throw new IllegalStateException("No current transient session!");
+                }
+                ConstraintsUtil.processOnDeleteConstraints(storeSession, reattached, emd, md, callDestructorPhase, destructorCalled);
             }
-            // remove associations and cascade delete
-            TransientStoreSession storeSession = (TransientStoreSession) store.getThreadSession();
-            if (storeSession == null) {
-                throw new IllegalStateException("No current transient session!");
-            }
-            ConstraintsUtil.processOnDeleteConstraints(storeSession, reattached, emd, md, callDestructorPhase, destructorCalled);
         }
 
         if (!callDestructorPhase) {
