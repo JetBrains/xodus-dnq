@@ -59,10 +59,6 @@ public class ModelMetaDataImpl implements ModelMetaData {
                 if (superType != null) {
                   addSubTypeToMetaData(emd, superType);
                 }
-                // add interface types
-                for (String iFaceType : emd.getInterfaceTypes()) {
-                  addSubTypeToMetaData(emd, superType);
-                }
 
                 // set supertypes
                 List<String> thisAndSuperTypes = new ArrayList<String>();
@@ -70,7 +66,6 @@ public class ModelMetaDataImpl implements ModelMetaData {
                 String t = data.getType();
                 do {
                   thisAndSuperTypes.add(t);
-                  thisAndSuperTypes.addAll(data.getInterfaceTypes());
                   data = typeToEntityMetaDatas.get(t);
                   t = data.getSuperType();
                 } while (t != null);
