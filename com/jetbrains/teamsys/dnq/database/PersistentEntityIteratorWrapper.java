@@ -43,8 +43,4 @@ class PersistentEntityIteratorWrapper implements EntityIterator {
     return source.skip(number);
   }
 
-    @Override
-    public boolean shouldBeDisposed() {
-        return source.shouldBeDisposed();  //TODO: revisit EntityIterator interface and remove these stub method
-    }
 }

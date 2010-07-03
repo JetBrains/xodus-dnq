@@ -363,7 +363,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     @NotNull
-        public List<String> getEntityTypes() {
+    public List<String> getEntityTypes() {
         switch (state) {
             case Open:
                 return getPersistentSessionInternal().getEntityTypes();
@@ -902,14 +902,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
             default:
                 throw new IllegalStateException("Can't create local copy in state [" + state + "]");
         }
-    }
-
-    public void registerEntityIterator(@NotNull EntityIterator iterator) {
-        //TODO: revisit StoreSession interface and remove these stub method
-    }
-
-    public void deregisterEntityIterator(@NotNull EntityIterator iterator) {
-        //TODO: revisit StoreSession interface and remove these stub method
     }
 
     /**

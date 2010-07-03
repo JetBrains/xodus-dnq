@@ -290,7 +290,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     public boolean entityTypeExists(@NotNull final String entityTypeName) {
         try {
-            return ((PersistentEntityStore) persistentStore).getEntityTypeId(entityTypeName, false) >= 0;
+            return ((BerkeleyDbEntityStore) persistentStore).getEntityTypeId(entityTypeName, false) >= 0;
         } catch (Exception e) {
             // ignore
         }
@@ -307,7 +307,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
         changesTracker.offerChange(new Runnable() {
             public void run() {
-                ((PersistentEntityStore) s.getPersistentSession().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
+                ((BerkeleyDbEntityStore) s.getPersistentSession().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
             }
         });
     }

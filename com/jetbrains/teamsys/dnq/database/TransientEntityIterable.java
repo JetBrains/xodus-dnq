@@ -2,7 +2,6 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.hash.LinkedHashSet;
 import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.impl.iterate.AbstractEntityIterable;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -131,23 +130,5 @@ public class TransientEntityIterable implements EntityIterable {
 
     public boolean isEmpty() {
         return size() == 0;
-    }
-
-    @Override
-    public boolean canBeCached() {
-        //TODO: revisit EntityIterable interface and remove these stub method
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    @Override
-    public boolean deferredCaching() {
-        //TODO: revisit EntityIterable interface and remove these stub method
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    @Override
-    public AbstractEntityIterable getCachedWrapper() {
-        //TODO: revisit EntityIterable interface and remove these stub method
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
     }
 }
