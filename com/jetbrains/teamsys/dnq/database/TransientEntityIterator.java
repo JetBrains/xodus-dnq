@@ -48,4 +48,8 @@ class TransientEntityIterator implements EntityIterator {
     return hasNext();
   }
 
+    @Override
+    public boolean shouldBeDisposed() {
+        return false; //TODO: revisit EntityIterator interface and remove these stub method
+    }
 }
