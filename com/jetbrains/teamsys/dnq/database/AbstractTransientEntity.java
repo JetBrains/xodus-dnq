@@ -775,6 +775,11 @@ abstract class AbstractTransientEntity implements TransientEntity {
         throw new IllegalStateException("Illegal state [" + state + "]");
     }
 
+    @Override
+    public void clearCaches() {
+        //TODO: revisit Entity interface and remove these stub method
+    }
+
     private Object throwNoPersistentEntity() throws IllegalStateException {
         throw new IllegalStateException("Transient entity has no associated persistent entity. " + this);
     }
