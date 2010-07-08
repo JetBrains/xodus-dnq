@@ -8,42 +8,41 @@ import org.jetbrains.annotations.NotNull;
 
 class PersistentEntityIteratorWrapper implements EntityIterator {
 
-  @NotNull
-  protected final EntityIterator source;
-  private TransientStoreSession session;
+    @NotNull
+    protected final EntityIterator source;
+    private TransientStoreSession session;
 
-  PersistentEntityIteratorWrapper(@NotNull final EntityIterator source, final TransientStoreSession session) {
-    this.source = source;
-    this.session = session;
-  }
+    PersistentEntityIteratorWrapper(@NotNull final EntityIterator source, final TransientStoreSession session) {
+        this.source = source;
+        this.session = session;
+    }
 
-  public boolean hasNext() {
-    return source.hasNext();
-  }
+    public boolean hasNext() {
+        return source.hasNext();
+    }
 
-  public Entity next() {
-    //TODO: do not save in session?
-    final Entity persistentEntity = source.next();
-    return (persistentEntity != null) ? session.newEntity(persistentEntity) : null;
-  }
+    public Entity next() {
+        //TODO: do not save in session?
+        final Entity persistentEntity = source.next();
+        return (persistentEntity != null) ? session.newEntity(persistentEntity) : null;
+    }
 
-  public void remove() {
-    source.remove();
-  }
+    public void remove() {
+        source.remove();
+    }
 
-  public EntityId nextId() {
-    return source.nextId();
-  }
+    public EntityId nextId() {
+        return source.nextId();
+    }
 
-  public boolean dispose() {
-    return source.dispose();
-  }
+    public boolean dispose() {
+        return source.dispose();
+    }
 
-  public boolean skip(int number) {
-    return source.skip(number);
-  }
+    public boolean skip(int number) {
+        return source.skip(number);
+    }
 
-    @Override
     public boolean shouldBeDisposed() {
         return source.shouldBeDisposed();  //TODO: revisit EntityIterator interface and remove these stub method
     }
