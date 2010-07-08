@@ -15,40 +15,39 @@ import java.util.Iterator;
  */
 class TransientEntityIterator implements EntityIterator {
 
-  private Iterator<TransientEntity> iter;
+    private Iterator<TransientEntity> iter;
 
-  TransientEntityIterator(Iterator<TransientEntity> iterator) {
-    this.iter = iterator;
-  }
-
-  public boolean hasNext() {
-    return iter.hasNext();
-  }
-
-  public Entity next() {
-    return iter.next();
-  }
-
-  public void remove() {
-    throw new UnsupportedOperationException("Remove from iterator is not supported by transient iterator");
-  }
-
-  public EntityId nextId() {
-    return iter.next().getId();
-  }
-
-  public boolean dispose() {
-    throw new UnsupportedOperationException("Transient iterator doesn't support disposing.");
-  }
-
-  public boolean skip(int number) {
-    while (number-- > 0 && hasNext()) {
-      next();
+    TransientEntityIterator(Iterator<TransientEntity> iterator) {
+        this.iter = iterator;
     }
-    return hasNext();
-  }
 
-    @Override
+    public boolean hasNext() {
+        return iter.hasNext();
+    }
+
+    public Entity next() {
+        return iter.next();
+    }
+
+    public void remove() {
+        throw new UnsupportedOperationException("Remove from iterator is not supported by transient iterator");
+    }
+
+    public EntityId nextId() {
+        return iter.next().getId();
+    }
+
+    public boolean dispose() {
+        throw new UnsupportedOperationException("Transient iterator doesn't support disposing.");
+    }
+
+    public boolean skip(int number) {
+        while (number-- > 0 && hasNext()) {
+            next();
+        }
+        return hasNext();
+    }
+
     public boolean shouldBeDisposed() {
         return false; //TODO: revisit EntityIterator interface and remove these stub method
     }
