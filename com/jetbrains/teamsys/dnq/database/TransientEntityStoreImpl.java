@@ -322,7 +322,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
         changesTracker.offerChange(new Runnable() {
             public void run() {
-                ((BerkeleyDbEntityStore) s.getPersistentSession().getStore()).deleteEntityType(entityTypeName);
+                ((PersistentEntityStoreImpl) s.getPersistentSession().getStore()).deleteEntityType(entityTypeName);
             }
         });
     }

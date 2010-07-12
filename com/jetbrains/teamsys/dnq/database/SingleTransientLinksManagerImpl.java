@@ -4,7 +4,6 @@ import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.EntityIterable;
 import com.jetbrains.teamsys.database.TransientEntity;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
-import com.sleepycat.je.utilint.TinyHashSet;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
