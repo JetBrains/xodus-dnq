@@ -288,7 +288,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
             log.debug("Delete outgoing links for entity: " + e);
           }
 
-          ((BerkeleyDbEntity) ((TransientEntityImpl) e).getPersistentEntityInternal()).deleteLinks();
+          ((PersistentEntity) ((TransientEntityImpl) e).getPersistentEntityInternal()).deleteLinks();
         }
       }
     };
