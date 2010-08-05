@@ -202,7 +202,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
             AssociationEndMetaData a = findAssociationEndMetaData(end.getName());
 
             if (a != null) {
-                throw new IllegalArgumentException("Aassociation already exists [" + end.getName() + "]");
+                throw new IllegalArgumentException("Association already exists [" + end.getName() + "]");
             }
 
             resetSelfAndSubtypes();
