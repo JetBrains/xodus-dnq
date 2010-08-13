@@ -580,8 +580,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public Entity getFirst(@NotNull final EntityIterable it) {
         switch (state) {
             case Open:
-                final Entity last = getPersistentSessionInternal().getFirst(it.getSource());
-                return (last == null) ? null : newEntityImpl(last);
+                final Entity first = getPersistentSessionInternal().getFirst(it.getSource());
+                return (first == null) ? null : newEntityImpl(first);
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -1164,6 +1164,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
      * race condition during checking version mismatches.
      */
     private void lockForUpdate(@NotNull final StoreTransaction txn) {
+        //TODO: remove this method if only one tran can be flushed concurrently
         final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
         final int changedEntitiesCount = changedPersistentEntities.size();
         if (changedEntitiesCount > 0) {
