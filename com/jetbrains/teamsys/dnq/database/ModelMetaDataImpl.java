@@ -108,7 +108,11 @@ public class ModelMetaDataImpl implements ModelMetaData {
                                ) {
 
         EntityMetaDataImpl source = (EntityMetaDataImpl) getEntityMetaData(sourceEntityName);
+        if (source == null) throw new IllegalArgumentException("Can't find entity " + sourceEntityName);
+
         EntityMetaDataImpl target = (EntityMetaDataImpl) getEntityMetaData(targetEntityName);
+        if (target == null) throw new IllegalArgumentException("Can't find entity " + targetEntityName);
+
 
         AssociationEndType sourceType = null;
         AssociationEndType targetType = null;
