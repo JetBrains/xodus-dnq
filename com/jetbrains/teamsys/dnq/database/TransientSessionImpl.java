@@ -1023,9 +1023,11 @@ public class TransientSessionImpl extends AbstractTransientSession {
             }
         }
 
+        // remember changes before commit changes, because all New entities become SavedNew after it
+        final Set<TransientEntityChange> changesDescription = changesTracker.getChangesDescription();
         if (!onlyTemporary) {
             notifyBeforeFlushAfterConstraintsCheckListeners();
-
+            
             StoreTransaction transaction = null;
             try {
                 if (log.isTraceEnabled()) {
@@ -1068,8 +1070,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 }
             }
         }
-
-        Set<TransientEntityChange> changesDescription = changesTracker.getChangesDescription();
 
         changesTracker.clear();
 

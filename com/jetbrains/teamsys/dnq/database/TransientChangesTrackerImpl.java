@@ -41,6 +41,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   private Map<TransientEntity, Map<Index, Runnable>> entityToIndexChanges = new HashMapDecorator<TransientEntity, Map<Index, Runnable>>();
 
   private boolean wereChangesAfterMark = false;
+  private Set<TransientEntityChange> changesDescription;
 
   public TransientChangesTrackerImpl(TransientStoreSession session) {
     this.session = session;
@@ -60,6 +61,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   private void c() {
     wereChangesAfterMark = true;
+    changesDescription = null;
   }
 
     @NotNull
@@ -102,29 +104,31 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   public Set<TransientEntityChange> getChangesDescription() {
     //TODO: optimization hint: do not rebuild set on every request - incrementaly build it 
-    Set<TransientEntityChange> res = new HashSetDecorator<TransientEntityChange>();
+    if (changesDescription == null) {
+       changesDescription = new HashSetDecorator<TransientEntityChange>();
 
-    for (TransientEntity e : getChangedEntities()) {
-      // do not notify about temp and RemovedNew entities
-      if (e.isTemporary() || (e.isRemoved() && e.wasNew())) continue;
-      
-      res.add(new TransientEntityChange(e, getChangedPropertiesDetailed(e),
-              getChangedLinksDetailed(e), decodeState(e)));
+       for (TransientEntity e : getChangedEntities()) {
+         // do not notify about temp and RemovedNew entities
+         if (e.isTemporary() || (e.isRemoved() && e.wasNew())) continue;
+
+         changesDescription.add(new TransientEntityChange(e, getChangedPropertiesDetailed(e),
+                 getChangedLinksDetailed(e), decodeState(e)));
+       }
     }
 
-    return res;
+    return changesDescription;
   }
 
   private EntityChangeType decodeState(TransientEntity e) {
     switch (((AbstractTransientEntity) e).getState()) {
       case New:
-      case SavedNew:
         return EntityChangeType.ADD;
 
       case RemovedSaved:
       case RemovedNew:
         return EntityChangeType.REMOVE;
 
+      case SavedNew:
       case Saved:
         return EntityChangeType.UPDATE;
 
