@@ -2,9 +2,9 @@ package com.jetbrains.teamsys.dnq.association;
 
 import com.jetbrains.teamsys.core.crypto.MessageDigestUtil;
 import com.jetbrains.teamsys.database.Entity;
+import com.jetbrains.teamsys.database.PropertyChange;
 import com.jetbrains.teamsys.database.TransientEntity;
 import com.jetbrains.teamsys.database.TransientStoreSession;
-import com.jetbrains.teamsys.database.PropertyChange;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -127,9 +127,9 @@ public class PrimitiveAssociationSemantics {
           e.setProperty(propertyName, longValue);
         }
       } else if (Double.class.equals(clazz)) {
-        final Double dobleValue = ((Number) propertyValue).doubleValue();
-        if (!dobleValue.equals(oldPropertyValue)) {
-          e.setProperty(propertyName, dobleValue);
+        final Double doubleValue = ((Number) propertyValue).doubleValue();
+        if (!doubleValue.equals(oldPropertyValue)) {
+          e.setProperty(propertyName, doubleValue);
         }
       } else if (Float.class.equals(clazz)) {
         final Float floatValue = ((Number) propertyValue).floatValue();
