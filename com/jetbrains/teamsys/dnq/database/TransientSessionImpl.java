@@ -1078,6 +1078,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         break;
                     }
 
+                    //TODO: catch jetbrains.LockException only and remove dependency to berkeley db
                     if (e instanceof com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException ||
                             e.getCause() instanceof com.sleepycat.je.LockConflictException ||
                             e instanceof com.sleepycat.je.LockConflictException ||
