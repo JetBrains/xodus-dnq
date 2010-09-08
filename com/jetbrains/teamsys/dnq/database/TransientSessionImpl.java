@@ -7,6 +7,7 @@ import com.jetbrains.teamsys.core.execution.locks.Latch;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
 import com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException;
+import com.jetbrains.teamsys.database.persistence.exceptions.PhysicalLayerException;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -26,6 +27,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     protected static final Log logForDumps = LogFactory.getLog("DNQDUMPS");
     private static final String TEMP_FILE_NAME_SEQUENCE = "__TEMP_FILE_NAME_SEQUENCE__";
     private static final AtomicLong UNIQUE_ID = new AtomicLong(0);
+    private static final int MAX_DEADLOCK_RETRIES = 31;
 
     enum State {
         Open("open"),
@@ -363,7 +365,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     @NotNull
-        public List<String> getEntityTypes() {
+    public List<String> getEntityTypes() {
         switch (state) {
             case Open:
                 return getPersistentSessionInternal().getEntityTypes();
@@ -580,8 +582,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public Entity getFirst(@NotNull final EntityIterable it) {
         switch (state) {
             case Open:
-                final Entity first = getPersistentSessionInternal().getFirst(it.getSource());
-                return (first == null) ? null : newEntityImpl(first);
+                final Entity last = getPersistentSessionInternal().getFirst(it.getSource());
+                return (last == null) ? null : newEntityImpl(last);
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -1027,55 +1029,87 @@ public class TransientSessionImpl extends AbstractTransientSession {
         final Set<TransientEntityChange> changesDescription = changesTracker.getChangesDescription();
         if (!onlyTemporary) {
             notifyBeforeFlushAfterConstraintsCheckListeners();
-            
-            StoreTransaction transaction = null;
-            try {
-                if (log.isTraceEnabled()) {
-                    log.trace("Open persistent transaction in transient session " + this, new Throwable());
-                }
 
-                transaction = getPersistentSessionInternal().beginTransaction();
+            int retry = 0;
+            Throwable lastEx = null;
 
-                // lock entities to be updated by current transaction
-                // TODO: move to the first line of the method - before constraints check
-                lockForUpdate(transaction);
+            while (retry++ < MAX_DEADLOCK_RETRIES) {
 
-                // check versions before commit changes
-                checkVersions();
-
-                // save history if meta data defined
-                saveHistory();
-
-                // commit changes
-                for (Runnable c : changesTracker.getChanges()) {
-                    c.run();
-                }
-
-                if (log.isTraceEnabled()) {
-                    log.trace("Commit persistent transaction in transient session " + this);
-                }
-
-                transaction.commit();
-
-                updateCaches();
-
-            } catch (Throwable e) {
-                // tracker make some changes in transient entities - rollback them
+                StoreTransaction persistentTransaction = null;
                 try {
-                    logThreadsDump(e);
-                    rollbackTransientTrackerChanges();
-                    fixEntityIdsInDataIntegrityViolationException(e);
-                } finally {
-                    abort(e, transaction);
+//                if (log.isTraceEnabled()) {
+//                    log.trace("Open persistent transaction in transient session " + this, new Throwable());
+//                }
+//
+                    persistentTransaction = getPersistentSessionInternal().beginTransaction();
+
+                    // lock entities to be updated by current transaction
+                    // TODO: move to the first line of the method - before constraints check
+                    //lockForUpdate(persistentTransaction);
+
+                    // check versions before commit changes
+                    checkVersions();
+
+                    // save history if meta data defined
+                    saveHistory();
+
+                    // commit changes
+                    for (Runnable c : changesTracker.getChanges()) {
+                        c.run();
+                    }
+
+                    if (log.isTraceEnabled()) {
+                        log.trace("Commit persistent transaction in transient session " + this);
+                    }
+
+                    persistentTransaction.commit();
+
+                    updateCaches();
+
+                    lastEx = null;
+                    break;
+                } catch (Throwable e) {
+                    log.info("Catch exception in flush: " + e.getMessage());
+
+                    try {
+                        persistentTransaction.abort();
+                    } catch (Throwable e1) {
+                        lastEx = e1;
+                        break;
+                    }
+
+                    if (e instanceof com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException ||
+                            e.getCause() instanceof com.sleepycat.je.LockConflictException ||
+                            e instanceof com.sleepycat.je.LockConflictException ||
+                            e.getCause() instanceof com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException) {
+                        log.info("Lock has occured inside flush. Retry " + retry);
+                        rollbackTransientTrackerChanges();
+                    } else {
+                        lastEx = e;
+                        break;
+                    }
                 }
             }
+
+            if (lastEx != null) {
+                // rollback
+                // tracker make some changes in transient entities - rollback them
+                try {
+//                    logThreadsDump(lastEx);
+                    rollbackTransientTrackerChanges();
+                    fixEntityIdsInDataIntegrityViolationException(lastEx);
+                } finally {
+                    abort(lastEx);
+                }
+            }
+
         }
 
         changesTracker.clear();
-
         return changesDescription;
     }
 
+/*
     private void logThreadsDump(Throwable e) {
         if (logForDumps.isErrorEnabled()) {
             if (e.getCause() instanceof LockConflictException) {
@@ -1094,6 +1128,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             }
         }
     }
+*/
 
     private void checkDatabaseState() {
         if (store.getPersistentStore().isReadonly()) {
@@ -1164,7 +1199,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
      * race condition during checking version mismatches.
      */
     private void lockForUpdate(@NotNull final StoreTransaction txn) {
-        //TODO: remove this method if only one tran can be flushed concurrently
         final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
         final int changedEntitiesCount = changedPersistentEntities.size();
         if (changedEntitiesCount > 0) {
