@@ -6,8 +6,6 @@ import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.execution.locks.Latch;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
-import com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException;
-import com.jetbrains.teamsys.database.persistence.exceptions.PhysicalLayerException;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -511,7 +509,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         switch (state) {
             case Open:
                 return new PersistentEntityIterableWrapper(
-                    getPersistentSessionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
+                        getPersistentSessionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -524,10 +522,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
                                     boolean isMultiple,
                                     @NotNull final String linkName,
                                     final @NotNull EntityIterable rightOrder) {
-         switch (state) {
+        switch (state) {
             case Open:
                 return new PersistentEntityIterableWrapper(
-                    getPersistentSessionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource()));
+                        getPersistentSessionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource()));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -737,7 +735,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         lock.release();
                     }
                 }
-                
+
                 break;
 
             default:
@@ -935,6 +933,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     /**
      * Checks constraints before save changes
+     *
      * @param exceptions resulting errors set
      */
     private void checkBeforeSaveChangesConstraints(@NotNull Set<DataIntegrityViolationException> exceptions) {
@@ -988,7 +987,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         final Set<DataIntegrityViolationException> triggerErrors =
-            ConstraintsUtil.executeBeforeFlushTriggers(changesTracker, modelMetaData);
+                ConstraintsUtil.executeBeforeFlushTriggers(changesTracker, modelMetaData);
 
         if (triggerErrors.size() != 0) {
             ConstraintsValidationException e = new ConstraintsValidationException(triggerErrors);
@@ -1078,11 +1077,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         break;
                     }
 
-                    //TODO: catch jetbrains.LockException only and remove dependency to berkeley db
-                    if (e instanceof com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException ||
-                            e.getCause() instanceof com.sleepycat.je.LockConflictException ||
-                            e instanceof com.sleepycat.je.LockConflictException ||
-                            e.getCause() instanceof com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException) {
+                    if (e instanceof com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException) {
                         log.info("Lock has occured inside flush. Retry " + retry);
                         rollbackTransientTrackerChanges();
                     } else {
@@ -1273,7 +1268,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 if (!areChangesCompatible(localCopy)) {
                     if (log.isDebugEnabled()) {
                         log.warn("Incompatible concurrent changes for " + localCopy + ". Changed properties [" + TransientStoreUtil.toString(changesTracker.getChangedPropertiesDetailed(localCopy)) +
-                            "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinksDetailed(localCopy)) + "]");
+                                "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinksDetailed(localCopy)) + "]");
                     }
                     throw new VersionMismatchException(localCopy, localCopyVersion, lastDatabaseCopyVersion);
                 }
