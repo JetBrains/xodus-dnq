@@ -1045,7 +1045,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
                     // lock entities to be updated by current transaction
                     // TODO: move to the first line of the method - before constraints check
-                    //lockForUpdate(persistentTransaction);
+                    lockForUpdate(persistentTransaction);
 
                     // check versions before commit changes
                     checkVersions();
