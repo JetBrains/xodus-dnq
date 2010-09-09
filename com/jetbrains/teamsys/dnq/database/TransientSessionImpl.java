@@ -6,6 +6,7 @@ import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.execution.locks.Latch;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
+import com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -1077,7 +1078,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         break;
                     }
 
-                    if (e instanceof com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException) {
+                    if (e instanceof LockConflictException) {
                         log.info("Lock has occured inside flush. Retry " + retry);
                         rollbackTransientTrackerChanges();
                     } else {
@@ -1091,11 +1092,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 // rollback
                 // tracker make some changes in transient entities - rollback them
                 try {
-//                    logThreadsDump(lastEx);
                     rollbackTransientTrackerChanges();
                     fixEntityIdsInDataIntegrityViolationException(lastEx);
                 } finally {
-                    abort(lastEx);
+                    decodeException(lastEx);
                 }
             }
 
@@ -1103,6 +1103,18 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         changesTracker.clear();
         return changesDescription;
+    }
+
+    private static void decodeException(@NotNull Throwable e) {
+        if (e instanceof Error) {
+            throw (Error) e;
+        }
+
+        if (e instanceof RuntimeException) {
+            throw (RuntimeException) e;
+        }
+
+        throw new RuntimeException(e);
     }
 
 /*
@@ -1243,7 +1255,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     if (log.isDebugEnabled()) {
                         log.debug("Entity " + localCopy + " was removed from database, but is in removed state on transient level, hence flush is not terminated.", ex);
                     }
-                    // dont't check version mismatch  
+                    // dont't check version mismatch
                     continue;
                 } else {
                     if (log.isDebugEnabled()) {
@@ -1504,26 +1516,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 return e;
             }
         }
-    }
-
-    private static void abort(@NotNull Throwable e, @Nullable StoreTransaction t) {
-        if (log.isDebugEnabled()) {
-            log.error("Abort persistent transaction.", e);
-        }
-
-        if (t != null) {
-            t.abort();
-        }
-
-        if (e instanceof Error) {
-            throw (Error) e;
-        }
-
-        if (e instanceof RuntimeException) {
-            throw (RuntimeException) e;
-        }
-
-        throw new RuntimeException(e);
     }
 
 }
