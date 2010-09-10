@@ -33,6 +33,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private boolean attachToCurrentOnBeginIfExists = false;
     private String blobsStorePath;
     private File blobsStore;
+    private int flushRetryOnLockConflict = 100;
 
     public TransientEntityStoreImpl() {
         if (log.isTraceEnabled()) {
@@ -51,6 +52,14 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     File getBlobsStore() {
         return blobsStore;
+    }
+
+    public int getFlushRetryOnLockConflict() {
+        return flushRetryOnLockConflict;
+    }
+
+    public void setFlushRetryOnLockConflict(int flushRetryOnLockConflict) {
+        this.flushRetryOnLockConflict = flushRetryOnLockConflict;
     }
 
     /**

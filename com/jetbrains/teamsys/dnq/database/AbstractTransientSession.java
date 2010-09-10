@@ -8,21 +8,18 @@ import java.util.List;
 import java.util.Comparator;
 
 /**
- * Created by IntelliJ IDEA.
- * User: vadim
- * Date: Nov 8, 2007
- * Time: 2:34:27 PM
- * To change this template use File | Settings | File Templates.
  */
 abstract class AbstractTransientSession implements TransientStoreSession {
   protected TransientEntityStoreImpl store;
   protected Object id;
   protected String name;
+  protected int flushRetryOnLockConflict;
 
-  AbstractTransientSession(final TransientEntityStoreImpl store, final String name, final Object id) {
+    AbstractTransientSession(final TransientEntityStoreImpl store, final String name, final Object id) {
     this.store = store;
     this.name = (name == null || name.length() == 0) ? "unnamed" : name;
     this.id = id;
+    this.flushRetryOnLockConflict = store.getFlushRetryOnLockConflict();
   }
 
   public void close() {

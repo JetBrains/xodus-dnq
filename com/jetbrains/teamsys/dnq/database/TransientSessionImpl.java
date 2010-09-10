@@ -26,7 +26,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
     protected static final Log logForDumps = LogFactory.getLog("DNQDUMPS");
     private static final String TEMP_FILE_NAME_SEQUENCE = "__TEMP_FILE_NAME_SEQUENCE__";
     private static final AtomicLong UNIQUE_ID = new AtomicLong(0);
-    private static final int MAX_DEADLOCK_RETRIES = 31;
 
     enum State {
         Open("open"),
@@ -1033,14 +1032,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
             int retry = 0;
             Throwable lastEx = null;
 
-            while (retry++ < MAX_DEADLOCK_RETRIES) {
-
+            while (retry++ < flushRetryOnLockConflict) {
                 StoreTransaction persistentTransaction = null;
                 try {
-//                if (log.isTraceEnabled()) {
-//                    log.trace("Open persistent transaction in transient session " + this, new Throwable());
-//                }
-//
                     persistentTransaction = getPersistentSessionInternal().beginTransaction();
 
                     // lock entities to be updated by current transaction
@@ -1116,27 +1110,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         throw new RuntimeException(e);
     }
-
-/*
-    private void logThreadsDump(Throwable e) {
-        if (logForDumps.isErrorEnabled()) {
-            if (e.getCause() instanceof LockConflictException) {
-                final Map<Thread, StackTraceElement[]> stackTraces = Thread.getAllStackTraces();
-                for (Thread t : stackTraces.keySet()) {
-                    logForDumps.error(t);
-                    final StackTraceElement[] traceElements = stackTraces.get(t);
-                    StringBuilder builder = new StringBuilder();
-                    for (StackTraceElement traceElement : traceElements) {
-                        builder.append("    ");
-                        builder.append(traceElement);
-                        builder.append('\n');
-                    }
-                    logForDumps.error(builder);
-                }
-            }
-        }
-    }
-*/
 
     private void checkDatabaseState() {
         if (store.getPersistentStore().isReadonly()) {
