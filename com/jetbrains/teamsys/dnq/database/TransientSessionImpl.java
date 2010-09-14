@@ -1063,6 +1063,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     lastEx = null;
                     break;
                 } catch (Throwable e) {
+                    lastEx = e;
                     log.info("Catch exception in flush: " + e.getMessage());
 
                     try {
@@ -1074,9 +1075,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
                     if (e instanceof LockConflictException) {
                         log.info("Lock has occured inside flush. Retry " + retry);
-                        rollbackTransientTrackerChanges();
+                        rollbackTransientTrackerChanges(false);
                     } else {
-                        lastEx = e;
                         break;
                     }
                 }
@@ -1086,7 +1086,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 // rollback
                 // tracker make some changes in transient entities - rollback them
                 try {
-                    rollbackTransientTrackerChanges();
+                    rollbackTransientTrackerChanges(true);
                     fixEntityIdsInDataIntegrityViolationException(lastEx);
                 } finally {
                     decodeException(lastEx);
@@ -1124,13 +1124,13 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    private void rollbackTransientTrackerChanges() {
+    private void rollbackTransientTrackerChanges(boolean isFinalRollback) {
         if (log.isDebugEnabled()) {
             log.debug("Rollback transient entities changes made by changes tracker." + this);
         }
-        for (Runnable r : changesTracker.getRollbackChanges()) {
+        for (TransientChangesTracker.Rollback r : changesTracker.getRollbackChanges(isFinalRollback)) {
             try {
-                r.run();
+                r.rollback(isFinalRollback);
             } catch (Exception e1) {
                 log.trace("Error while rollback changes made by changes tracker", e1);
             }

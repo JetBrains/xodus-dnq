@@ -30,7 +30,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   private Queue<Runnable> changes = new QueueDecorator<Runnable>();
   private Queue<Runnable> deleteIndexes = new QueueDecorator<Runnable>();
-  private Queue<Runnable> rollbackChanges = new QueueDecorator<Runnable>();
+  private Queue<Rollback> rollbackChanges = new QueueDecorator<Rollback>();
   private LinkedList<Runnable> deleted = null;
 
   private Set<TransientEntity> changedPersistentEntities = new HashSetDecorator<TransientEntity>();
@@ -75,7 +75,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   @NotNull
-  public Queue<Runnable> getRollbackChanges() {
+  public Queue<Rollback> getRollbackChanges(boolean isFinalRollback) {
     return rollbackChanges;
   }
 
@@ -103,7 +103,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   public Set<TransientEntityChange> getChangesDescription() {
-    //TODO: optimization hint: do not rebuild set on every request - incrementaly build it 
+    //TODO: optimization hint: do not rebuild set on every request - incrementaly build it
     if (changesDescription == null) {
        changesDescription = new HashSetDecorator<TransientEntityChange>();
 
@@ -182,7 +182,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   }
 
   private Runnable propertyChangedDetailed(TransientEntity e, String propertyName, Comparable origValue, PropertyChangeType changeType, Runnable change) {
-    c();  
+    c();
 
     Map<String, PropertyChange> propertiesDetailed = entityToChangedPropertiesDetailed.get(e);
     if (propertiesDetailed == null) {
@@ -212,15 +212,15 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
       }
     });
 
-    rollbackChanges.offer(new Runnable() {
-      public void run() {
-        // rollback only if entity was actually saved
-        if (e.isSaved()) {
-          log.debug("Rollback in-memory transient entity from saved state: " + e);
-          ((TransientEntityImpl) e).clearPersistentEntity();
-          assert e.isNew();
+    rollbackChanges.offer(new Rollback() {
+        public void rollback(boolean isFinalRollback) {
+            // rollback only if entity was actually saved
+            if (e.isSaved()) {
+              log.debug("Rollback in-memory transient entity from saved state: " + e);
+              ((TransientEntityImpl) e).clearPersistentEntity();
+              assert e.isNew();
+            }
         }
-      }
     });
   }
 
@@ -249,7 +249,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target, final TransientEntity oldTarget) {
     entityChanged(source);
-    // don't set old target if the original old target was already set for current linkName 
+    // don't set old target if the original old target was already set for current linkName
     Map<String, LinkChange> linkChangeMap = entityToChangedLinksDetailed.get(source);
     boolean dontSetOldTarget = oldTarget == null || (linkChangeMap != null && linkChangeMap.get(linkName) != null);
     linkChangedDetailed(source, linkName, LinkChangeType.SET,
@@ -334,17 +334,20 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     // all delete entities must go last
     getDeleted().addLast(deleteEntity);
 
-    rollbackChanges.offer(new Runnable() {
-      public void run() {
-        if (e.isRemoved()) {
-          // rollback entity state to New or Saved
-          ((TransientEntityImpl) e).rollbackDelete();
+    rollbackChanges.offer(new Rollback() {
+        public void rollback(boolean isFinalRollback) {
+            if (e.isRemoved()) {
+              // rollback entity state to New or Saved
+              ((TransientEntityImpl) e).rollbackDelete();
+            }
+
+            if (isFinalRollback) {
+                // discard delete change
+                deleteIndexes.remove(deleteUniqueProperties);
+                getDeleted().remove(deleteEntity);
+                getDeleted().remove(deleteOutgoingLinks);
+            }
         }
-        // discard delete change
-        deleteIndexes.remove(deleteUniqueProperties);
-        getDeleted().remove(deleteEntity);
-        getDeleted().remove(deleteOutgoingLinks);
-      }
     });
   }
 
