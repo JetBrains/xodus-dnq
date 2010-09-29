@@ -1057,6 +1057,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     }
 
                     persistentTransaction.commit();
+                    persistentTransaction = null;
 
                     updateCaches();
 
@@ -1067,7 +1068,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     log.info("Catch exception in flush: " + e.getMessage());
 
                     try {
-                        persistentTransaction.abort();
+                        if (persistentTransaction != null) persistentTransaction.abort();
                     } catch (Throwable e1) {
                         lastEx = e1;
                         break;
