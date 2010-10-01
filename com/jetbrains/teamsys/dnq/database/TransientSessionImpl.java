@@ -1076,6 +1076,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
                     if (e instanceof LockConflictException) {
                         log.info("Lock has occured inside flush. Retry " + retry);
+                        Thread.yield();
                         rollbackTransientTrackerChanges(false);
                     } else {
                         break;
