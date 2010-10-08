@@ -108,7 +108,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     });
   }
 
-  public void addListener(Entity e, IEntityListener listener) {
+  public void addListener(Entity e, final IEntityListener listener) {
     // typecast to disable generator hook
     if ((Object) e == null || listener == null) {
       if (log.isWarnEnabled()) {
@@ -120,20 +120,24 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       throw new IllegalStateException("Entity is not saved into database - you can't listern to it.");
     }
     final EntityId id = e.getId();
-    this.rwl.writeLock().lock();
-    try {
-      List<IEntityListener> listeners = this.instanceToListeners.get(id);
-      if (listeners == null) {
-        listeners = new ArrayList<IEntityListener>();
-        this.instanceToListeners.put(id, listeners);
+    this.executeAsNonTransactional(new _FunctionTypes._void_P0_E0() {
+      public void invoke() {
+        EventsMultiplexer.this.rwl.writeLock().lock();
+        try {
+          List<IEntityListener> listeners = EventsMultiplexer.this.instanceToListeners.get(id);
+          if (listeners == null) {
+            listeners = new ArrayList<IEntityListener>();
+            EventsMultiplexer.this.instanceToListeners.put(id, listeners);
+          }
+          listeners.add(listener);
+        } finally {
+          EventsMultiplexer.this.rwl.writeLock().unlock();
+        }
       }
-      listeners.add(listener);
-    } finally {
-      this.rwl.writeLock().unlock();
-    }
+    });
   }
 
-  public void removeListener(Entity e, IEntityListener listener) {
+  public void removeListener(Entity e, final IEntityListener listener) {
     // typecast to disable generator hook
     if ((Object) e == null || listener == null) {
       if (log.isWarnEnabled()) {
@@ -142,46 +146,73 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       return;
     }
     final EntityId id = e.getId();
-    this.rwl.writeLock().lock();
-    try {
-      final List<IEntityListener> listeners = this.instanceToListeners.get(id);
-      if (listeners != null) {
-        listeners.remove(listener);
-        if (listeners.size() == 0) {
-          this.instanceToListeners.remove(id);
+    this.executeAsNonTransactional(new _FunctionTypes._void_P0_E0() {
+      public void invoke() {
+        EventsMultiplexer.this.rwl.writeLock().lock();
+        try {
+          final List<IEntityListener> listeners = EventsMultiplexer.this.instanceToListeners.get(id);
+          if (listeners != null) {
+            listeners.remove(listener);
+            if (listeners.size() == 0) {
+              EventsMultiplexer.this.instanceToListeners.remove(id);
+            }
+          }
+        } finally {
+          EventsMultiplexer.this.rwl.writeLock().unlock();
         }
       }
-    } finally {
-      this.rwl.writeLock().unlock();
-    }
+    });
   }
 
-  public void addListener(String entityType, IEntityListener listener) {
-    this.rwl.writeLock().lock();
-    try {
-      List<IEntityListener> listeners = this.typeToListeners.get(entityType);
-      if (listeners == null) {
-        listeners = new ArrayList<IEntityListener>();
-        this.typeToListeners.put(entityType, listeners);
-      }
-      listeners.add(listener);
-    } finally {
-      this.rwl.writeLock().unlock();
-    }
-  }
-
-  public void removeListener(String entityType, IEntityListener listener) {
-    this.rwl.writeLock().lock();
-    try {
-      List<IEntityListener> listeners = this.typeToListeners.get(entityType);
-      if (listeners != null) {
-        listeners.remove(listener);
-        if (listeners.size() == 0) {
-          this.typeToListeners.remove(entityType);
+  public void addListener(final String entityType, final IEntityListener listener) {
+    //  ensure that this code will be executed outside of transaction 
+    this.executeAsNonTransactional(new _FunctionTypes._void_P0_E0() {
+      public void invoke() {
+        EventsMultiplexer.this.rwl.writeLock().lock();
+        try {
+          List<IEntityListener> listeners = EventsMultiplexer.this.typeToListeners.get(entityType);
+          if (listeners == null) {
+            listeners = new ArrayList<IEntityListener>();
+            EventsMultiplexer.this.typeToListeners.put(entityType, listeners);
+          }
+          listeners.add(listener);
+        } finally {
+          EventsMultiplexer.this.rwl.writeLock().unlock();
         }
       }
+    });
+  }
+
+  public void removeListener(final String entityType, final IEntityListener listener) {
+    this.executeAsNonTransactional(new _FunctionTypes._void_P0_E0() {
+      public void invoke() {
+        EventsMultiplexer.this.rwl.writeLock().lock();
+        try {
+          List<IEntityListener> listeners = EventsMultiplexer.this.typeToListeners.get(entityType);
+          if (listeners != null) {
+            listeners.remove(listener);
+            if (listeners.size() == 0) {
+              EventsMultiplexer.this.typeToListeners.remove(entityType);
+            }
+          }
+        } finally {
+          EventsMultiplexer.this.rwl.writeLock().unlock();
+        }
+      }
+    });
+  }
+
+  private void executeAsNonTransactional(_FunctionTypes._void_P0_E0 func) {
+    final TransientStoreSession currentSession = DnqUtils.getCurrentTransientSession();
+    if (currentSession != null) {
+      currentSession.suspend();
+    }
+    try {
+      func.invoke();
     } finally {
-      this.rwl.writeLock().unlock();
+      if (currentSession != null) {
+        DnqUtils.resumeTransientSession(currentSession);
+      }
     }
   }
 
