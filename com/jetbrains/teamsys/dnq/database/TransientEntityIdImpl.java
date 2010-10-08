@@ -5,6 +5,8 @@ import com.jetbrains.teamsys.database.TransientEntityId;
 import com.jetbrains.teamsys.dnq.database.TransientEntityImpl;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * Date: 05.02.2007
  * Time: 17:34:24
@@ -13,10 +15,12 @@ import org.jetbrains.annotations.NotNull;
  */
 class TransientEntityIdImpl implements TransientEntityId {
 
-  private int hashCode;
+  private static final AtomicInteger HASH_CODE_GENERATOR = new AtomicInteger(Integer.MIN_VALUE);
+
+  private final int hashCode;
 
   TransientEntityIdImpl(@NotNull TransientEntityImpl entity) {
-    this.hashCode = entity.hashCode();
+    this.hashCode = HASH_CODE_GENERATOR.getAndIncrement();
   }
 
   private TransientEntityIdImpl(int hashCode) {
