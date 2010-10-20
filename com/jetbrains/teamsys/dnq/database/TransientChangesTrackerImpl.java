@@ -8,6 +8,7 @@ import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.core.dataStructures.NanoSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
+import com.jetbrains.teamsys.database.impl.OperationFailureException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -205,7 +206,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
       public void run() {
         if (!e.isRemovedOrTemporary()) {
           assert e.isNew();
-          log.debug("Add new entity: " + e);
+          if (log.isDebugEnabled()) {
+            log.debug("Add new entity: " + e);
+          }
           ((TransientEntityImpl) e).setPersistentEntity(session.getPersistentSession().newEntity(e.getType()));
           assert e.isSaved();
         }
@@ -216,7 +219,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
         public void rollback(boolean isFinalRollback) {
             // rollback only if entity was actually saved
             if (e.isSaved()) {
-              log.debug("Rollback in-memory transient entity from saved state: " + e);
+              if (log.isDebugEnabled()) {
+                log.debug("Rollback in-memory transient entity from saved state: " + e);
+              }
               ((TransientEntityImpl) e).clearPersistentEntity();
               assert e.isNew();
             }
@@ -231,7 +236,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     offerChange(new Runnable() {
       public void run() {
         if (!source.isRemovedOrTemporary() && !target.isRemovedOrTemporary()) {
-          log.debug("Add link: " + source + "-[" + linkName + "]-> " + target);
+          if (log.isDebugEnabled()) {
+            log.debug("Add link: " + source + "-[" + linkName + "]-> " + target);
+          }
           source.getPersistentEntity().addLink(linkName, target.getPersistentEntity());
         }
       }
@@ -258,7 +265,9 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     offerChange(new Runnable() {
       public void run() {
         if (!source.isRemovedOrTemporary() && !target.isRemovedOrTemporary()) {
-          log.debug("Set link: " + source + "-[" + linkName + "]-> " + target);
+          if (log.isDebugEnabled()) {
+            log.debug("Set link: " + source + "-[" + linkName + "]-> " + target);
+          }
           source.getPersistentEntity().setLink(linkName, target.getPersistentEntity());
         }
       }
@@ -398,8 +407,17 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     Runnable changeProperty = new Runnable() {
       public void run() {
         if (!e.isRemovedOrTemporary()) {
-          log.debug("Set property: " + e + "." + propertyName + "=" + propertyNewValue);
-          e.getPersistentEntity().setProperty(propertyName, propertyNewValue);
+          if (log.isDebugEnabled()) {
+            log.debug("Set property: " + e + "." + propertyName + "=" + propertyNewValue);
+          }
+          try {
+            e.getPersistentEntity().setProperty(propertyName, propertyNewValue);
+          } catch (OperationFailureException ofe) {
+            if (log.isErrorEnabled()) {
+              log.error("Failed set property: " + e + "." + propertyName + "=" + propertyNewValue, ofe);
+            }
+            throw ofe;
+          }
         }
       }
     };
@@ -413,9 +431,18 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
     Runnable deleteProperty = new Runnable() {
       public void run() {
         if (!e.isRemovedOrTemporary()) {
-          log.debug("Delete property: " + e + "." + propertyName);
-          e.getPersistentEntity().deleteProperty(propertyName);
-          deleteIndexKeys(e, propertyName);
+          if (log.isDebugEnabled()) {
+            log.debug("Delete property: " + e + "." + propertyName);
+          }
+          try {
+            e.getPersistentEntity().deleteProperty(propertyName);
+            deleteIndexKeys(e, propertyName);
+          } catch (OperationFailureException ofe) {
+            if (log.isErrorEnabled()) {
+              log.error("Failed delete property: " + e + "." + propertyName, ofe);
+            }
+            throw ofe;
+          }
         }
       }
     };
