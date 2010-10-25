@@ -300,16 +300,15 @@ public class EntityMetaDataImpl implements EntityMetaData {
                     incomingAssociations = new HashMapDecorator<String, Set<String>>();
                     final Set<String> typeWithSubTypes = new HashSet<String>();
                     typeWithSubTypes.add(type);
-                    for (final String subType : getSubTypes()) {
-                        typeWithSubTypes.add(subType);
-                    }
                     for (final EntityMetaData emd : mmd.getEntitiesMetaData()) {
                         for (final AssociationEndMetaData aemd : emd.getAssociationEndsMetaData()) {
-                            if (typeWithSubTypes.contains(aemd.getOppositeEntityMetaData().getType())) {
-                                final String associationName = aemd.getName();
-                                addIncomingAssociation(emd.getType(), associationName);
-                                for (final String subtype : emd.getSubTypes()) {
-                                    addIncomingAssociation(subtype, associationName);
+                            if (type.equals(aemd.getOppositeEntityMetaData().getType())) {
+                                collectLink(emd, aemd);
+                            } else {
+                                // if there are references to super type
+                                Collection<String> associationEndSubtypes = aemd.getOppositeEntityMetaData().getAllSubTypes();
+                                if (associationEndSubtypes.contains(type)) {
+                                    collectLink(emd, aemd);
                                 }
                             }
                         }
@@ -317,6 +316,15 @@ public class EntityMetaDataImpl implements EntityMetaData {
                 }
             }
         }
+    }
+
+    private void collectLink(EntityMetaData emd, AssociationEndMetaData aemd) {
+        final String associationName = aemd.getName();
+        addIncomingAssociation(emd.getType(), associationName);
+        //seems like we'll add them after in any case
+//        for (final String subtype : emd.getSubTypes()) {
+//            addIncomingAssociation(subtype, associationName);
+//        }
     }
 
     private void addIncomingAssociation(@NotNull final String type, @NotNull final String associationName) {
