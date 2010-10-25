@@ -298,8 +298,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
             synchronized (this) {
                 if (incomingAssociations == null) {
                     incomingAssociations = new HashMapDecorator<String, Set<String>>();
-                    final Set<String> typeWithSubTypes = new HashSet<String>();
-                    typeWithSubTypes.add(type);
                     for (final EntityMetaData emd : mmd.getEntitiesMetaData()) {
                         for (final AssociationEndMetaData aemd : emd.getAssociationEndsMetaData()) {
                             if (type.equals(aemd.getOppositeEntityMetaData().getType())) {
