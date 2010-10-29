@@ -1056,8 +1056,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         log.trace("Commit persistent transaction in transient session " + this);
                     }
 
-                    persistentTransaction.commit();
+                    final StoreTransaction txn = persistentTransaction;
                     persistentTransaction = null;
+                    txn.commit();
 
                     updateCaches();
 
