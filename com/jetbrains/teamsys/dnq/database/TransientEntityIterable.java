@@ -138,11 +138,6 @@ public class TransientEntityIterable implements EntityIterable {
         throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
     }
 
-    public boolean deferredCaching() {
-        //TODO: revisit EntityIterable interface and remove these stub method
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
     public AbstractEntityIterable getCachedWrapper() {
         //TODO: revisit EntityIterable interface and remove these stub method
         throw new UnsupportedOperationException("Not supported by TransientEntityIterable");

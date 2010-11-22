@@ -102,10 +102,6 @@ class PersistentEntityIterableWrapper implements EntityIterable {
         return wrappedIterable.canBeCached(); //TODO: revisit EntityIterable interface and remove these stub method
     }
 
-    public boolean deferredCaching() {
-        return wrappedIterable.deferredCaching(); //TODO: revisit EntityIterable interface and remove these stub method
-    }
-
     public AbstractEntityIterable getCachedWrapper() {
         return wrappedIterable.getCachedWrapper(); //TODO: revisit EntityIterable interface and remove these stub method
     }
