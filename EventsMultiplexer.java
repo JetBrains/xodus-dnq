@@ -20,7 +20,6 @@ import com.jetbrains.teamsys.database.Entity;
 import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import com.jetbrains.teamsys.database.TransientEntity;
 import java.util.ArrayList;
-import com.jetbrains.teamsys.database.EntityChangeType;
 import com.jetbrains.teamsys.database.EntityMetaData;
 import com.jetbrains.teamsys.database.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
@@ -74,7 +73,6 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void beforeFlushAfterConstraintsCheck(@Nullable Set<TransientEntityChange> changes) {
-    // notify about removed only
     // sync notify
     this.fire(changes, true, true);
   }
@@ -222,8 +220,17 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       for (IEntityListener l : listeners) {
         try {
           if (beforeFlush) {
-            if (c.getChangeType() == EntityChangeType.REMOVE) {
-              l.removedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c));
+            switch (c.getChangeType()) {
+              case ADD:
+                l.addedSyncBeforeFlush(c.getTransientEntity());
+                break;
+              case UPDATE:
+                l.updatedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
+                break;
+              case REMOVE:
+                l.removedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c));
+                break;
+              default:
             }
           } else {
             if (sync) {
@@ -235,7 +242,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                   l.updatedSync(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
                   break;
                 case REMOVE:
-                  l.removedSync(c.getTransientEntity());
+                  l.removedSync(TransientStoreUtil.readonlyCopy(c));
                   break;
                 default:
               }
@@ -248,7 +255,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                   l.updatedAsync(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
                   break;
                 case REMOVE:
-                  l.removedAsync(c.getTransientEntity());
+                  l.removedAsync(TransientStoreUtil.readonlyCopy(c));
                   break;
                 default:
               }
@@ -272,8 +279,17 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
           for (IEntityListener l : listeners) {
             try {
               if (beforeFlush) {
-                if (c.getChangeType() == EntityChangeType.REMOVE) {
-                  l.removedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c));
+                switch (c.getChangeType()) {
+                  case ADD:
+                    l.addedSyncBeforeFlush(c.getTransientEntity());
+                    break;
+                  case UPDATE:
+                    l.updatedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
+                    break;
+                  case REMOVE:
+                    l.removedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c));
+                    break;
+                  default:
                 }
               } else {
                 if (sync) {
@@ -285,7 +301,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                       l.updatedSync(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
                       break;
                     case REMOVE:
-                      l.removedSync(c.getTransientEntity());
+                      l.removedSync(TransientStoreUtil.readonlyCopy(c));
                       break;
                     default:
                   }
@@ -298,7 +314,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                       l.updatedAsync(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
                       break;
                     case REMOVE:
-                      l.removedAsync(c.getTransientEntity());
+                      l.removedAsync(TransientStoreUtil.readonlyCopy(c));
                       break;
                     default:
                   }

@@ -5,24 +5,30 @@ package jetbrains.teamsys.dnq.runtime.events;
 import com.jetbrains.teamsys.database.Entity;
 
 public abstract class EntityAdapter<T extends Entity> implements IEntityListener<T> {
-  public void updatedSync(T old, T current) {
-  }
-
-  public void updatedAsync(T old, T current) {
+  public void addedAsync(T added) {
   }
 
   public void addedSync(T added) {
   }
 
-  public void addedAsync(T added) {
+  public void addedSyncBeforeFlush(T added) {
   }
 
-  public void removedSyncBeforeFlush(T removed) {
+  public void updatedAsync(T old, T current) {
+  }
+
+  public void updatedSync(T old, T current) {
+  }
+
+  public void updatedSyncBeforeFlush(T old, T current) {
+  }
+
+  public void removedAsync(T removed) {
   }
 
   public void removedSync(T removed) {
   }
 
-  public void removedAsync(T removed) {
+  public void removedSyncBeforeFlush(T removed) {
   }
 }
