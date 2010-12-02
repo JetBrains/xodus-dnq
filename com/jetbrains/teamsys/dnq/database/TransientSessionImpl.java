@@ -1396,6 +1396,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     if (log.isErrorEnabled()) {
                         log.error("Exception while inside listener [" + listener + "]", e);
                     }
+                    // do not rethrow exception
                 }
             }
         });
@@ -1418,6 +1419,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     if (log.isErrorEnabled()) {
                         log.error("Exception while inside listener [" + listener + "]", e);
                     }
+                    // rethrow exception, because we are before constraints check
+                    decodeException(e);
                 }
             }
         });
@@ -1442,6 +1445,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     if (log.isErrorEnabled()) {
                         log.error("Exception while inside listener [" + listener + "]", e);
                     }
+                    // do not rethrow exceptipon, because we are after constaints check
                 }
             }
         });
