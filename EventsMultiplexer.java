@@ -73,12 +73,12 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void beforeFlushAfterConstraintsCheck(@Nullable Set<TransientEntityChange> changes) {
-    // sync notify
-    this.fire(changes, true, true);
+    // empty
   }
 
   public void beforeFlush(@Nullable Set<TransientEntityChange> changes) {
-    // 
+    // sync notify
+    this.fire(changes, true, true);
   }
 
   private void asyncFire(final Set<TransientEntityChange> changes) {
@@ -323,6 +323,13 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
             } catch (Exception e) {
               if (log.isErrorEnabled()) {
                 log.error("Exception while notifying entity listener.", e);
+              }
+              // rethrow exception only for beforeFlush listeners 
+              if (beforeFlush) {
+                if (e instanceof RuntimeException) {
+                  throw (RuntimeException) e;
+                }
+                throw new RuntimeException(e);
               }
             }
           }
