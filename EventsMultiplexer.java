@@ -7,7 +7,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import java.util.Map;
 import com.jetbrains.teamsys.database.EntityId;
-import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import org.jetbrains.annotations.Nullable;
@@ -19,7 +19,7 @@ import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import com.jetbrains.teamsys.database.Entity;
 import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import com.jetbrains.teamsys.database.TransientEntity;
-import java.util.ArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import com.jetbrains.teamsys.database.EntityMetaData;
 import com.jetbrains.teamsys.database.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
@@ -30,8 +30,8 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   private static EventsMultiplexer instance = new EventsMultiplexer();
   protected static Log log = LogFactory.getLog(EventsMultiplexer.class);
 
-  private Map<EntityId, List<IEntityListener>> instanceToListeners;
-  private Map<String, List<IEntityListener>> typeToListeners;
+  private Map<EntityId, Queue<IEntityListener>> instanceToListeners;
+  private Map<String, Queue<IEntityListener>> typeToListeners;
   private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
 
   private EventsMultiplexer() {
@@ -39,8 +39,8 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void init() {
-    this.instanceToListeners = new HashMap<EntityId, List<IEntityListener>>();
-    this.typeToListeners = new HashMap<String, List<IEntityListener>>();
+    this.instanceToListeners = new HashMap<EntityId, Queue<IEntityListener>>();
+    this.typeToListeners = new HashMap<String, Queue<IEntityListener>>();
   }
 
   public void flushed(@Nullable Set<TransientEntityChange> changes) {
@@ -86,14 +86,9 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private void fire(Set<TransientEntityChange> changes, boolean beforeFlush, boolean sync) {
-    this.rwl.readLock().lock();
-    try {
-      for (TransientEntityChange c : changes) {
-        this.handlePerEntityChanges(c, beforeFlush, sync);
-        this.handlePerEntityTypeChanges(c, beforeFlush, sync);
-      }
-    } finally {
-      this.rwl.readLock().unlock();
+    for (TransientEntityChange c : changes) {
+      this.handlePerEntityChanges(c, beforeFlush, sync);
+      this.handlePerEntityTypeChanges(c, beforeFlush, sync);
     }
   }
 
@@ -106,7 +101,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     });
   }
 
-  public void addListener(Entity e, final IEntityListener listener) {
+  public void addListener(Entity e, IEntityListener listener) {
     // typecast to disable generator hook
     if ((Object) e == null || listener == null) {
       if (log.isWarnEnabled()) {
@@ -118,24 +113,20 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       throw new IllegalStateException("Entity is not saved into database - you can't listern to it.");
     }
     final EntityId id = e.getId();
-    this.executeAsNonTransactional(new _FunctionTypes._void_P0_E0() {
-      public void invoke() {
-        EventsMultiplexer.this.rwl.writeLock().lock();
-        try {
-          List<IEntityListener> listeners = EventsMultiplexer.this.instanceToListeners.get(id);
-          if (listeners == null) {
-            listeners = new ArrayList<IEntityListener>();
-            EventsMultiplexer.this.instanceToListeners.put(id, listeners);
-          }
-          listeners.add(listener);
-        } finally {
-          EventsMultiplexer.this.rwl.writeLock().unlock();
-        }
+    this.rwl.writeLock().lock();
+    try {
+      Queue<IEntityListener> listeners = this.instanceToListeners.get(id);
+      if (listeners == null) {
+        listeners = new ConcurrentLinkedQueue<IEntityListener>();
+        this.instanceToListeners.put(id, listeners);
       }
-    });
+      listeners.add(listener);
+    } finally {
+      this.rwl.writeLock().unlock();
+    }
   }
 
-  public void removeListener(Entity e, final IEntityListener listener) {
+  public void removeListener(Entity e, IEntityListener listener) {
     // typecast to disable generator hook
     if ((Object) e == null || listener == null) {
       if (log.isWarnEnabled()) {
@@ -144,78 +135,58 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       return;
     }
     final EntityId id = e.getId();
-    this.executeAsNonTransactional(new _FunctionTypes._void_P0_E0() {
-      public void invoke() {
-        EventsMultiplexer.this.rwl.writeLock().lock();
-        try {
-          final List<IEntityListener> listeners = EventsMultiplexer.this.instanceToListeners.get(id);
-          if (listeners != null) {
-            listeners.remove(listener);
-            if (listeners.size() == 0) {
-              EventsMultiplexer.this.instanceToListeners.remove(id);
-            }
-          }
-        } finally {
-          EventsMultiplexer.this.rwl.writeLock().unlock();
-        }
-      }
-    });
-  }
-
-  public void addListener(final String entityType, final IEntityListener listener) {
-    //  ensure that this code will be executed outside of transaction 
-    this.executeAsNonTransactional(new _FunctionTypes._void_P0_E0() {
-      public void invoke() {
-        EventsMultiplexer.this.rwl.writeLock().lock();
-        try {
-          List<IEntityListener> listeners = EventsMultiplexer.this.typeToListeners.get(entityType);
-          if (listeners == null) {
-            listeners = new ArrayList<IEntityListener>();
-            EventsMultiplexer.this.typeToListeners.put(entityType, listeners);
-          }
-          listeners.add(listener);
-        } finally {
-          EventsMultiplexer.this.rwl.writeLock().unlock();
-        }
-      }
-    });
-  }
-
-  public void removeListener(final String entityType, final IEntityListener listener) {
-    this.executeAsNonTransactional(new _FunctionTypes._void_P0_E0() {
-      public void invoke() {
-        EventsMultiplexer.this.rwl.writeLock().lock();
-        try {
-          List<IEntityListener> listeners = EventsMultiplexer.this.typeToListeners.get(entityType);
-          if (listeners != null) {
-            listeners.remove(listener);
-            if (listeners.size() == 0) {
-              EventsMultiplexer.this.typeToListeners.remove(entityType);
-            }
-          }
-        } finally {
-          EventsMultiplexer.this.rwl.writeLock().unlock();
-        }
-      }
-    });
-  }
-
-  private void executeAsNonTransactional(_FunctionTypes._void_P0_E0 func) {
-    final TransientStoreSession currentSession = DnqUtils.getCurrentTransientSession();
-    if (currentSession != null) {
-      currentSession.suspend();
-    }
+    this.rwl.writeLock().lock();
     try {
-      func.invoke();
-    } finally {
-      if (currentSession != null) {
-        DnqUtils.resumeTransientSession(currentSession);
+      final Queue<IEntityListener> listeners = this.instanceToListeners.get(id);
+      if (listeners != null) {
+        listeners.remove(listener);
+        if (listeners.size() == 0) {
+          this.instanceToListeners.remove(id);
+        }
       }
+    } finally {
+      this.rwl.writeLock().unlock();
+    }
+  }
+
+  public void addListener(String entityType, IEntityListener listener) {
+    //  ensure that this code will be executed outside of transaction 
+    this.rwl.writeLock().lock();
+    try {
+      Queue<IEntityListener> listeners = this.typeToListeners.get(entityType);
+      if (listeners == null) {
+        listeners = new ConcurrentLinkedQueue<IEntityListener>();
+        this.typeToListeners.put(entityType, listeners);
+      }
+      listeners.add(listener);
+    } finally {
+      this.rwl.writeLock().unlock();
+    }
+  }
+
+  public void removeListener(String entityType, IEntityListener listener) {
+    this.rwl.writeLock().lock();
+    try {
+      Queue<IEntityListener> listeners = this.typeToListeners.get(entityType);
+      if (listeners != null) {
+        listeners.remove(listener);
+        if (listeners.size() == 0) {
+          this.typeToListeners.remove(entityType);
+        }
+      }
+    } finally {
+      this.rwl.writeLock().unlock();
     }
   }
 
   private void handlePerEntityChanges(TransientEntityChange c, boolean beforeFlush, boolean sync) {
-    List<IEntityListener> listeners = this.instanceToListeners.get(c.getTransientEntity().getId());
+    Queue<IEntityListener> listeners;
+    this.rwl.readLock().lock();
+    try {
+      listeners = this.instanceToListeners.get(c.getTransientEntity().getId());
+    } finally {
+      this.rwl.readLock().unlock();
+    }
     if (listeners != null) {
       for (IEntityListener l : listeners) {
         try {
@@ -274,7 +245,13 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     EntityMetaData emd = ((ModelMetaData) ServiceLocator.getBean("modelMetaData")).getEntityMetaData(c.getTransientEntity().getType());
     if (emd != null) {
       for (String type : Sequence.fromIterable(emd.getThisAndSuperTypes())) {
-        List<IEntityListener> listeners = this.typeToListeners.get(type);
+        Queue<IEntityListener> listeners;
+        this.rwl.readLock().lock();
+        try {
+          listeners = this.typeToListeners.get(type);
+        } finally {
+          this.rwl.readLock().unlock();
+        }
         if (listeners != null) {
           for (IEntityListener l : listeners) {
             try {
