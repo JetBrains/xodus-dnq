@@ -5,6 +5,7 @@ import com.jetbrains.teamsys.database.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.List;
@@ -71,14 +72,20 @@ public class EntityOperations {
     }
 
     @SuppressWarnings({"ConstantConditions"})
-    public static boolean isRemoved(@NotNull Entity e) {
+    public static boolean isRemoved(@NotNull final Entity e) {
         return e == null || ((TransientEntity) e).isRemoved() || TransientStoreUtil.reattach((TransientEntity) e) == null;
     }
 
-    public static int getVersion(@NotNull Entity e) {
-        final Entity entity = TransientStoreUtil.reattach((TransientEntity) e);
+    public static boolean isNew(@Nullable Entity e) {
+        if (e == null) return false;
+        e = TransientStoreUtil.reattach((TransientEntity) e);
+        return e != null && ((TransientEntity) e).isNew();
+    }
 
-        return entity == null ? -1 : entity.getVersion();
+    public static int getVersion(@NotNull Entity e) {
+        e = TransientStoreUtil.reattach((TransientEntity) e);
+
+        return e == null ? -1 : e.getVersion();
     }
 
     public static Entity getPreviousVersion(@NotNull Entity e) {
