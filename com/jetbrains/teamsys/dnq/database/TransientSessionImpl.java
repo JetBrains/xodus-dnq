@@ -813,7 +813,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    public TransientEntity newReadonlyLocalCopy(TransientEntityChange change) {
+    public TransientEntity newReadonlyLocalCopy(final TransientEntityChange change) {
         switch (state) {
             case Open:
                 AbstractTransientEntity orig = (AbstractTransientEntity) change.getTransientEntity();
@@ -828,12 +828,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     case SavedNew:
                     case RemovedNew:
                     case RemovedSaved:
-                        EntityId entityId = orig.getPersistentEntityInternal().getId();
-                        ReadonlyTransientEntityImpl entity = createdReadonlyTransientEntities.get(entityId);
-                        if (entity == null) {
-                            entity = new ReadonlyTransientEntityImpl(change, this);
-                            createdReadonlyTransientEntities.put(entityId, entity);
-                        }
+                        final ReadonlyTransientEntityImpl entity = new ReadonlyTransientEntityImpl(change, this);
                         return entity;
 
                     default:
