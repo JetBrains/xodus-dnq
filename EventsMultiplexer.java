@@ -180,7 +180,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private void handlePerEntityChanges(TransientEntityChange c, boolean beforeFlush, boolean sync) {
-    Queue<IEntityListener> listeners;
+    Queue<IEntityListener> listeners = null;
     this.rwl.readLock().lock();
     try {
       listeners = this.instanceToListeners.get(c.getTransientEntity().getId());
@@ -245,7 +245,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     EntityMetaData emd = ((ModelMetaData) ServiceLocator.getBean("modelMetaData")).getEntityMetaData(c.getTransientEntity().getType());
     if (emd != null) {
       for (String type : Sequence.fromIterable(emd.getThisAndSuperTypes())) {
-        Queue<IEntityListener> listeners;
+        Queue<IEntityListener> listeners = null;
         this.rwl.readLock().lock();
         try {
           listeners = this.typeToListeners.get(type);
