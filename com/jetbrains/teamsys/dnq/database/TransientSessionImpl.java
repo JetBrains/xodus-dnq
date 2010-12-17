@@ -52,8 +52,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
     // stores new transient entities to support getEntity(EntityId) operation
     private Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new HashMapDecorator<TransientEntityId, TransientEntity>();
 
+/*
     // stores created readonly entities
     private Map<EntityId, ReadonlyTransientEntityImpl> createdReadonlyTransientEntities = new HashMapDecorator<EntityId, ReadonlyTransientEntityImpl>();
+*/
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name) {
         this(store, name, UNIQUE_ID.incrementAndGet());
