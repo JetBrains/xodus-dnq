@@ -44,7 +44,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void flushed(@Nullable Set<TransientEntityChange> changes) {
-    this.fire(changes, false, true);
+    this.fire(Where.SYNC_AFTER_FLUSH, changes);
     this.asyncFire(changes);
   }
 
@@ -53,7 +53,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       boolean $nt$_9klgcu_a0c = DnqUtils.getCurrentTransientSession() == null;
       final TransientStoreSession ts1_9klgcu_a0c = DnqUtils.beginTransientSession("commited_0");
       try {
-        this.fire(changes, false, true);
+        this.fire(Where.SYNC_AFTER_FLUSH, changes);
       } catch (Throwable _ex_) {
         if ($nt$_9klgcu_a0c) {
           TransientStoreUtil.abort(_ex_, ts1_9klgcu_a0c);
@@ -72,23 +72,22 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     this.asyncFire(changes);
   }
 
-  public void beforeFlushAfterConstraintsCheck(@Nullable Set<TransientEntityChange> changes) {
-    // empty
+  public void beforeFlush(@Nullable Set<TransientEntityChange> changes) {
+    this.fire(Where.SYNC_BEFORE_CONSTRAINTS, changes);
   }
 
-  public void beforeFlush(@Nullable Set<TransientEntityChange> changes) {
-    // sync notify
-    this.fire(changes, true, true);
+  public void beforeFlushAfterConstraintsCheck(@Nullable Set<TransientEntityChange> changes) {
+    this.fire(Where.SYNC_BEFORE_FLUSH, changes);
   }
 
   private void asyncFire(final Set<TransientEntityChange> changes) {
     EventsMultiplexerJobProcessor.getInstance().queue(new EventsMultiplexer.JobImpl(this, changes));
   }
 
-  private void fire(Set<TransientEntityChange> changes, boolean beforeFlush, boolean sync) {
+  private void fire(Where where, Set<TransientEntityChange> changes) {
     for (TransientEntityChange c : changes) {
-      this.handlePerEntityChanges(c, beforeFlush, sync);
-      this.handlePerEntityTypeChanges(c, beforeFlush, sync);
+      this.handlePerEntityChanges(where, c);
+      this.handlePerEntityTypeChanges(where, c);
     }
   }
 
@@ -179,7 +178,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     }
   }
 
-  private void handlePerEntityChanges(TransientEntityChange c, boolean beforeFlush, boolean sync) {
+  private void handlePerEntityChanges(Where where, TransientEntityChange c) {
     Queue<IEntityListener> listeners = null;
     this.rwl.readLock().lock();
     try {
@@ -187,24 +186,61 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     } finally {
       this.rwl.readLock().unlock();
     }
+    this.handleChange(where, c, listeners);
+  }
+
+  private void handlePerEntityTypeChanges(Where where, TransientEntityChange c) {
+    EntityMetaData emd = ((ModelMetaData) ServiceLocator.getBean("modelMetaData")).getEntityMetaData(c.getTransientEntity().getType());
+    if (emd != null) {
+      for (String type : Sequence.fromIterable(emd.getThisAndSuperTypes())) {
+        Queue<IEntityListener> listeners = null;
+        this.rwl.readLock().lock();
+        try {
+          listeners = this.typeToListeners.get(type);
+        } finally {
+          this.rwl.readLock().unlock();
+        }
+        this.handleChange(where, c, listeners);
+      }
+    }
+  }
+
+  private void handleChange(Where where, TransientEntityChange c, Queue<IEntityListener> listeners) {
     if (listeners != null) {
       for (IEntityListener l : listeners) {
         try {
-          if (beforeFlush) {
-            switch (c.getChangeType()) {
-              case ADD:
-                l.addedSyncBeforeFlush(c.getTransientEntity());
-                break;
-              case UPDATE:
-                l.updatedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
-                break;
-              case REMOVE:
-                l.removedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c));
-                break;
-              default:
-            }
-          } else {
-            if (sync) {
+          switch (where) {
+            case SYNC_BEFORE_CONSTRAINTS:
+              switch (c.getChangeType()) {
+                case ADD:
+                  l.addedSyncBeforeConstraints(c.getTransientEntity());
+                  break;
+                case UPDATE:
+                  l.updatedSyncBeforeConstraints(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
+                  break;
+                case REMOVE:
+                  l.removedSyncBeforeConstraints(TransientStoreUtil.readonlyCopy(c));
+                  break;
+                default:
+                  throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
+              }
+              break;
+            case SYNC_BEFORE_FLUSH:
+              switch (c.getChangeType()) {
+                case ADD:
+                  l.addedSyncBeforeFlush(c.getTransientEntity());
+                  break;
+                case UPDATE:
+                  l.updatedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
+                  break;
+                case REMOVE:
+                  l.removedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c));
+                  break;
+                default:
+                  throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
+              }
+              break;
+            case SYNC_AFTER_FLUSH:
               switch (c.getChangeType()) {
                 case ADD:
                   l.addedSync(c.getTransientEntity());
@@ -216,8 +252,10 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                   l.removedSync(TransientStoreUtil.readonlyCopy(c));
                   break;
                 default:
+                  throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
               }
-            } else {
+              break;
+            case ASYNC_AFTER_FLUSH:
               switch (c.getChangeType()) {
                 case ADD:
                   l.addedAsync(c.getTransientEntity());
@@ -229,86 +267,22 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                   l.removedAsync(TransientStoreUtil.readonlyCopy(c));
                   break;
                 default:
+                  throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
               }
-            }
+              break;
+            default:
+              throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
           }
         } catch (Exception e) {
           if (log.isErrorEnabled()) {
             log.error("Exception while notifying entity listener.", e);
           }
-        }
-      }
-    }
-  }
-
-  private void handlePerEntityTypeChanges(TransientEntityChange c, boolean beforeFlush, boolean sync) {
-    EntityMetaData emd = ((ModelMetaData) ServiceLocator.getBean("modelMetaData")).getEntityMetaData(c.getTransientEntity().getType());
-    if (emd != null) {
-      for (String type : Sequence.fromIterable(emd.getThisAndSuperTypes())) {
-        Queue<IEntityListener> listeners = null;
-        this.rwl.readLock().lock();
-        try {
-          listeners = this.typeToListeners.get(type);
-        } finally {
-          this.rwl.readLock().unlock();
-        }
-        if (listeners != null) {
-          for (IEntityListener l : listeners) {
-            try {
-              if (beforeFlush) {
-                switch (c.getChangeType()) {
-                  case ADD:
-                    l.addedSyncBeforeFlush(c.getTransientEntity());
-                    break;
-                  case UPDATE:
-                    l.updatedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
-                    break;
-                  case REMOVE:
-                    l.removedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c));
-                    break;
-                  default:
-                }
-              } else {
-                if (sync) {
-                  switch (c.getChangeType()) {
-                    case ADD:
-                      l.addedSync(c.getTransientEntity());
-                      break;
-                    case UPDATE:
-                      l.updatedSync(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
-                      break;
-                    case REMOVE:
-                      l.removedSync(TransientStoreUtil.readonlyCopy(c));
-                      break;
-                    default:
-                  }
-                } else {
-                  switch (c.getChangeType()) {
-                    case ADD:
-                      l.addedAsync(c.getTransientEntity());
-                      break;
-                    case UPDATE:
-                      l.updatedAsync(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
-                      break;
-                    case REMOVE:
-                      l.removedAsync(TransientStoreUtil.readonlyCopy(c));
-                      break;
-                    default:
-                  }
-                }
-              }
-            } catch (Exception e) {
-              if (log.isErrorEnabled()) {
-                log.error("Exception while notifying entity listener.", e);
-              }
-              // rethrow exception only for beforeFlush listeners 
-              if (beforeFlush) {
-                if (e instanceof RuntimeException) {
-                  throw (RuntimeException) e;
-                }
-                throw new RuntimeException(e);
-              }
+          // rethrow exception only for beforeFlush listeners 
+          if (where == Where.SYNC_BEFORE_CONSTRAINTS || where == Where.SYNC_BEFORE_FLUSH) {
+            if (e instanceof RuntimeException) {
+              throw (RuntimeException) e;
             }
+            throw new RuntimeException(e);
           }
         }
       }
@@ -333,7 +307,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
         boolean $nt$_9klgcu_a0a0 = DnqUtils.getCurrentTransientSession() == null;
         final TransientStoreSession ts1_9klgcu_a0a0 = DnqUtils.beginTransientSession("execute_0");
         try {
-          this.eventsMultiplexer.fire(this.changes, false, false);
+          this.eventsMultiplexer.fire(Where.ASYNC_AFTER_FLUSH, this.changes);
         } catch (Throwable _ex_) {
           if ($nt$_9klgcu_a0a0) {
             TransientStoreUtil.abort(_ex_, ts1_9klgcu_a0a0);

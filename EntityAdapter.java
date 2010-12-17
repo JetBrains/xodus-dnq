@@ -14,6 +14,9 @@ public abstract class EntityAdapter<T extends Entity> implements IEntityListener
   public void addedSyncBeforeFlush(T added) {
   }
 
+  public void addedSyncBeforeConstraints(T added) {
+  }
+
   public void updatedAsync(T old, T current) {
   }
 
@@ -23,6 +26,9 @@ public abstract class EntityAdapter<T extends Entity> implements IEntityListener
   public void updatedSyncBeforeFlush(T old, T current) {
   }
 
+  public void updatedSyncBeforeConstraints(T old, T current) {
+  }
+
   public void removedAsync(T removed) {
   }
 
@@ -30,5 +36,8 @@ public abstract class EntityAdapter<T extends Entity> implements IEntityListener
   }
 
   public void removedSyncBeforeFlush(T removed) {
+  }
+
+  public void removedSyncBeforeConstraints(T removed) {
   }
 }
