@@ -630,47 +630,45 @@ abstract class AbstractTransientEntity implements TransientEntity {
     */
     }
 
-    private static final StandardEventHandler<AbstractTransientEntity, Object, Boolean> equalsEventHandler = new StandardEventHandler<AbstractTransientEntity, Object, Boolean>() {
+    private static final StandardEventHandler<TransientEntity, Object, Boolean> equalsEventHandler = new StandardEventHandler<TransientEntity, Object, Boolean>() {
 
         @Override
-        Boolean processClosedNew(AbstractTransientEntity entity, AbstractTransientEntity param1, Object param2) {
+        Boolean processClosedNew(AbstractTransientEntity entity, TransientEntity param1, Object param2) {
             // entity from closed session in new state can't be equals with anything
             return false;
         }
 
-        Boolean processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processOpenFromAnotherSessionSaved(AbstractTransientEntity entity, TransientEntity that, Object param2) {
             return processOpenSaved(entity, that, param2);
         }
 
-        Boolean processOpenSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
-            return (that.isSaved() || (that.isRemoved() && !that.wasNew())) &&
-                    entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
+        Boolean processOpenSaved(AbstractTransientEntity entity, TransientEntity that, Object param2) {
+            return checkEquals(entity, that);
         }
 
-        Boolean processClosedSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processClosedSaved(AbstractTransientEntity entity, TransientEntity that, Object param2) {
             return processOpenSaved(entity, that, param2);
         }
 
-        Boolean processOpenNew(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processOpenNew(AbstractTransientEntity entity, TransientEntity that, Object param2) {
             return entity == that;
         }
 
-        Boolean processTemporary(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processTemporary(AbstractTransientEntity entity, TransientEntity that, Object param2) {
             return entity == that;
         }
 
         @Override
-        protected Boolean processClosedRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        protected Boolean processClosedRemoved(AbstractTransientEntity entity, TransientEntity that, Object param2) {
             return processOpenRemoved(entity, that, param2);
         }
 
-        Boolean processOpenRemoved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
+        Boolean processOpenRemoved(AbstractTransientEntity entity, TransientEntity that, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
                     return entity == that;
                 case RemovedSaved:
-                    return (that.isSaved() || (that.isRemoved() && !that.wasNew())) &&
-                            entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
+                    return checkEquals(entity, that);
             }
 
             return false;
@@ -682,14 +680,25 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     };
 
+    /*
+     * Internal check whether entities are eqaul or not.
+     * Check id's and stores.
+     * @return true if entities are equal
+     */
+    private static boolean checkEquals(@NotNull TransientEntity entity, @NotNull TransientEntity that) {
+        //Check stores & EntityIds
+        return (that.isSaved() || (that.isRemoved() && !that.wasNew())) &&
+                (entity.getId().equals(that.getId()) && entity.getStore().equals(that.getStore()));
+    }
+
 
     @SuppressWarnings({"SimplifiableIfStatement"})
     public boolean equals(Object obj) {
-        if (!(obj instanceof AbstractTransientEntity)) {
+        if (!(obj instanceof TransientEntity)) {
             return false;
         }
 
-        return obj == this || equalsEventHandler.handle(this, (AbstractTransientEntity) obj, null);
+        return obj == this || equalsEventHandler.handle(this, (TransientEntity) obj, null);
     }
 
 /*
