@@ -674,8 +674,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return false;
         }
 
-        Boolean processSuspendedSaved(AbstractTransientEntity entity, AbstractTransientEntity that, Object param2) {
-            return that.isSaved() && entity.getPersistentEntityInternal().equals(that.getPersistentEntityInternal());
+        Boolean processSuspendedSaved(AbstractTransientEntity entity, TransientEntity that, Object param2) {
+            return that.isSaved() && (entity.getId().equals(that.getId()) && entity.getStore().equals(that.getStore()));
         }
 
     };
