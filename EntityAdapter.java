@@ -5,6 +5,9 @@ package jetbrains.teamsys.dnq.runtime.events;
 import com.jetbrains.teamsys.database.Entity;
 
 public abstract class EntityAdapter<T extends Entity> implements IEntityListener<T> {
+  public EntityAdapter() {
+  }
+
   public void addedAsync(T added) {
   }
 
