@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.hash.LongHashSet;
 import com.jetbrains.teamsys.database.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -18,19 +19,33 @@ import java.util.Map;
 public class TransientStoreUtil {
 
     private static final Log log = LogFactory.getLog(TransientStoreUtil.class);
-    private static TransientEntityStore store = null;
-    private static boolean postponeUniqueIndexes = false;
+    private static final LongHashSet POSTPONE_UNIQUE_INDICES = new LongHashSet(10);
+    // private static TransientEntityStore store = null;
 
+    @Deprecated
     public static void setTransientEntityStore(@Nullable TransientEntityStore transientEntityStore) {
-        store = transientEntityStore;
+        // TODO: remove this method
+        // store = transientEntityStore;
     }
 
     public static boolean isPostponeUniqueIndexes() {
-        return postponeUniqueIndexes;
+        final long id = Thread.currentThread().getId();
+        synchronized (POSTPONE_UNIQUE_INDICES) {
+            return POSTPONE_UNIQUE_INDICES.contains(id);
+        }
     }
 
     public static void setPostponeUniqueIndexes(boolean postponeUniqueIndexes) {
-        TransientStoreUtil.postponeUniqueIndexes = postponeUniqueIndexes;
+        final long id = Thread.currentThread().getId();
+        if (postponeUniqueIndexes) {
+            synchronized (POSTPONE_UNIQUE_INDICES) {
+                POSTPONE_UNIQUE_INDICES.add(id);
+            }
+        } else {
+            synchronized (POSTPONE_UNIQUE_INDICES) {
+                POSTPONE_UNIQUE_INDICES.remove(id);
+            }
+        }
     }
 
     /**
@@ -45,11 +60,11 @@ public class TransientStoreUtil {
             return null;
         }
 
-        if (store == null) {
+        /*if (store == null) {
             throw new IllegalStateException("There's no current session entity store.");
-        }
+        }*/
 
-        TransientStoreSession s = (TransientStoreSession) store.getThreadSession();
+        TransientStoreSession s = (TransientStoreSession) entity.getStore().getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("There's no current session to attach transient entity to.");
@@ -65,11 +80,11 @@ public class TransientStoreUtil {
      * @return
      */
     public static TransientEntity readonlyCopy(@NotNull TransientEntityChange change) {
-        if (store == null) {
+        /*if (store == null) {
             throw new IllegalStateException("There's no current session entity store.");
-        }
+        }*/
 
-        TransientStoreSession s = (TransientStoreSession) store.getThreadSession();
+        TransientStoreSession s = (TransientStoreSession) change.getTransientEntity().getStore().getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("There's no current session to attach transient entity to.");
