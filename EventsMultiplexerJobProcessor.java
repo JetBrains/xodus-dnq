@@ -4,18 +4,25 @@ package jetbrains.teamsys.dnq.runtime.events;
 
 import com.jetbrains.teamsys.core.execution.DelegatingJobProcessor;
 import com.jetbrains.teamsys.core.execution.ThreadJobProcessor;
+import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import com.jetbrains.teamsys.core.execution.ThreadJobProcessorPool;
 
-public class EventsMultiplexerJobProcessor extends DelegatingJobProcessor<ThreadJobProcessor> {
-  private static EventsMultiplexerJobProcessor instance = new EventsMultiplexerJobProcessor();
+public class EventsMultiplexerJobProcessor {
+  private static DelegatingJobProcessor<ThreadJobProcessor> instance;
 
-  private EventsMultiplexerJobProcessor() {
-    super(ThreadJobProcessorPool.getOrCreateJobProcessor("EventsMultiplexerJobProcessor"));
-    this.setExceptionHandler(new ExceptionHandlerImpl());
-    this.start();
-  }
-
-  public static EventsMultiplexerJobProcessor getInstance() {
+  public static DelegatingJobProcessor<ThreadJobProcessor> getInstance() {
+    {
+      final Object result = (((DelegatingJobProcessor<ThreadJobProcessor>) ServiceLocator.getOptionalBean("eventsMultiplexerJobProcessor")));
+      if (result != null) {
+        return (DelegatingJobProcessor) result;
+      }
+    }
+    if (instance == null) {
+      final DelegatingJobProcessor<ThreadJobProcessor> result = new DelegatingJobProcessor<ThreadJobProcessor>(ThreadJobProcessorPool.getOrCreateJobProcessor("EventsMultiplexerJobProcessor"));
+      instance = result;
+      result.setExceptionHandler(new ExceptionHandlerImpl());
+      result.start();
+    }
     return instance;
   }
 }
