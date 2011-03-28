@@ -7,7 +7,9 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
 
   private String name = null;
   private EntityMetaData emd = null;
+  private String emdType = null;
   private AssociationEndCardinality cardinality = null;
+  private String associationMetaDataName = null;
   private AssociationMetaData associationMetaData = null;
   private AssociationEndType type = null;
   private boolean cascadeDelete = false;
@@ -15,26 +17,35 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
   private boolean targetCascadeDelete = false;
   private boolean targetClearOnDelete = false;
 
-    public AssociationEndMetaDataImpl() {
-    }
+  public AssociationEndMetaDataImpl() {
+  }
 
-    public AssociationEndMetaDataImpl(AssociationMetaData associationMetaData, String name,
+  public AssociationEndMetaDataImpl(AssociationMetaData associationMetaData, String name,
                                       EntityMetaData oppositeEndEntityType, AssociationEndCardinality cardinality, 
                                       AssociationEndType type,
                                       boolean cascadeDelete, boolean clearOnDelete,
                                       boolean targetCascadeDelete, boolean targetClearOnDelete) {
-        this.name = name;
-        this.emd = oppositeEndEntityType;
-        this.cardinality = cardinality;
-        this.setAssociationMetaData(associationMetaData);
-        this.type = type;
-        this.cascadeDelete = cascadeDelete;
-        this.clearOnDelete = clearOnDelete;
-        this.targetCascadeDelete = targetCascadeDelete;
-        this.targetClearOnDelete = targetClearOnDelete;
-    }
+    this.name = name;
+    this.emd = oppositeEndEntityType;
+    this.cardinality = cardinality;
+    this.setAssociationMetaDataInternal(associationMetaData);
+    this.type = type;
+    this.cascadeDelete = cascadeDelete;
+    this.clearOnDelete = clearOnDelete;
+    this.targetCascadeDelete = targetCascadeDelete;
+    this.targetClearOnDelete = targetClearOnDelete;
+  }
 
-    @NotNull
+  void resolve(final ModelMetaDataImpl modelMetaData, final AssociationMetaData amd) {
+      final EntityMetaData opposite = modelMetaData.getEntityMetaData(emdType);
+      if (opposite == null) {
+          throw new IllegalStateException("Can't find metadata for type: " + emdType + " from " + associationMetaDataName);
+      }
+      setOppositeEntityMetaDataInternal(opposite);
+      setAssociationMetaDataInternal(amd);
+  }
+
+  @NotNull
   public String getName() {
     return name;
   }
@@ -42,6 +53,16 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
   @NotNull
   public EntityMetaData getOppositeEntityMetaData() {
     return emd;
+  }
+
+  @NotNull
+  String getOppositeEntityMetaDataType() {
+    return emdType;
+  }
+
+  @NotNull
+  String getAssociationMetaDataName() {
+    return associationMetaDataName;
   }
 
   @NotNull
@@ -79,17 +100,16 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
     this.name = name;
   }
 
-  public void setOppositeEntityMetaData(@NotNull final EntityMetaData emd) {
-    this.emd = emd;
+  public void setOppositeEntityMetaDataType(@NotNull final String emdType) {
+    this.emdType = emdType;
   }
 
   public void setCardinality(@NotNull AssociationEndCardinality cardinality) {
     this.cardinality = cardinality;
   }
 
-  public void setAssociationMetaData(@NotNull AssociationMetaData associationMetaData) {
-    this.associationMetaData = associationMetaData;
-    ((AssociationMetaDataImpl)this.associationMetaData).addEnd(this);
+  public void setAssociationMetaDataName(@NotNull String associationMetaDataName) {
+    this.associationMetaDataName = associationMetaDataName;
   }
 
   public void setAssociationEndType(@NotNull AssociationEndType type) {
@@ -110,5 +130,14 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
 
   public void setTargetClearOnDelete(boolean clearOnDelete) {
     this.targetClearOnDelete = clearOnDelete;
+  }
+
+  private void setAssociationMetaDataInternal(@NotNull AssociationMetaData associationMetaData) {
+    this.associationMetaData = associationMetaData;
+    ((AssociationMetaDataImpl)this.associationMetaData).addEnd(this);
+  }
+
+  private void setOppositeEntityMetaDataInternal(@NotNull final EntityMetaData emd) {
+    this.emd = emd;
   }
 }

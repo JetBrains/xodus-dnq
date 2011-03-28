@@ -1,8 +1,11 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
+import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.core.dataStructures.hash.LinkedHashSet;
+import com.jetbrains.teamsys.core.execution.locks.Latch;
 import com.jetbrains.teamsys.database.*;
+import jetbrains.teamsys.dnq.runtime.queries.EnumConst;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -34,6 +37,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private String blobsStorePath;
     private File blobsStore;
     private int flushRetryOnLockConflict = 100;
+    private final Latch enumContainersLock = Latch.create();
+    private final Set<EnumConst.Container> initedContainers = new HashSet<EnumConst.Container>(10);
 
     public TransientEntityStoreImpl() {
         if (log.isTraceEnabled()) {
@@ -482,6 +487,22 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
                 sb.append("\n").append(s.toString());
             }
         }
+    }
+
+    public boolean isEnumContainerInited(EnumConst.Container container) {
+        return initedContainers.contains(container);
+    }
+
+    public void enumContainerInited(EnumConst.Container container) {
+        initedContainers.add(container);
+    }
+
+    public void enumContainerLock() throws InterruptedException {
+        enumContainersLock.acquire();
+    }
+
+    public void enumContainerUnLock() {
+        enumContainersLock.release();
     }
 
     interface ListenerVisitor {

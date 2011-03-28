@@ -4,19 +4,31 @@ import com.jetbrains.teamsys.database.AssociationMetaData;
 import com.jetbrains.teamsys.database.AssociationType;
 import com.jetbrains.teamsys.database.AssociationEndMetaData;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.BeanNameAware;
 
 import java.util.List;
 import java.util.ArrayList;
 
 /**
  */
-public class AssociationMetaDataImpl implements AssociationMetaData  {
+public class AssociationMetaDataImpl implements AssociationMetaData, BeanNameAware {
 
   private AssociationType type;
   private List<AssociationEndMetaData> ends = new ArrayList<AssociationEndMetaData>(2);
+  private String fullName;
+
+  public String getFullName() {
+    return fullName;
+  }
+
+  public void setBeanName(final String beanName) {
+    this.fullName = beanName;
+  }
 
   public void addEnd(@NotNull AssociationEndMetaData end) {
-    this.ends.add(end);
+    if (ends.isEmpty() || (ends.size() < 2 && ends.get(0) != end)) {
+      this.ends.add(end);
+    }
   }
 
   public void setType(@NotNull AssociationType type) {

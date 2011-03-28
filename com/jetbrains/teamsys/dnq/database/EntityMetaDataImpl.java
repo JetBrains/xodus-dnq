@@ -60,6 +60,10 @@ public class EntityMetaDataImpl implements EntityMetaData {
         }
     }
 
+    Set<AssociationEndMetaData> getExternalAssociationEnds() {
+        return externalAssociationEnds;
+    }
+
     public ModelMetaData getModelMetaData() {
         return modelMetaData;
     }
