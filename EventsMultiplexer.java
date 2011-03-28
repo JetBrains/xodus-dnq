@@ -6,10 +6,9 @@ import com.jetbrains.teamsys.database.TransientStoreSessionListener;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import java.util.Map;
-import com.jetbrains.teamsys.database.EntityId;
 import java.util.Queue;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 import com.jetbrains.teamsys.database.TransientEntityChange;
@@ -25,22 +24,18 @@ import com.jetbrains.teamsys.database.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import jetbrains.mps.internal.collections.runtime.Sequence;
 import com.jetbrains.teamsys.core.execution.Job;
+import com.jetbrains.teamsys.database.EntityStore;
+import com.jetbrains.teamsys.database.EntityId;
 
 public class EventsMultiplexer implements TransientStoreSessionListener {
   private static EventsMultiplexer instance = new EventsMultiplexer();
   protected static Log log = LogFactory.getLog(EventsMultiplexer.class);
 
-  private Map<EntityId, Queue<IEntityListener>> instanceToListeners;
-  private Map<String, Queue<IEntityListener>> typeToListeners;
+  private Map<EventsMultiplexer.FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<EventsMultiplexer.FullEntityId, Queue<IEntityListener>>();
+  private Map<String, Queue<IEntityListener>> typeToListeners = new HashMap<String, Queue<IEntityListener>>();
   private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
 
   private EventsMultiplexer() {
-    this.init();
-  }
-
-  public void init() {
-    this.instanceToListeners = new HashMap<EntityId, Queue<IEntityListener>>();
-    this.typeToListeners = new HashMap<String, Queue<IEntityListener>>();
   }
 
   public void flushed(@Nullable Set<TransientEntityChange> changes) {
@@ -50,13 +45,13 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
 
   public void commited(@Nullable Set<TransientEntityChange> changes) {
     {
-      boolean $nt$_9klgcu_a0c = DnqUtils.getCurrentTransientSession() == null;
-      final TransientStoreSession ts1_9klgcu_a0c = DnqUtils.beginTransientSession("commited_0");
+      boolean $nt$_9klgcu_a0b = DnqUtils.getCurrentTransientSession() == null;
+      final TransientStoreSession ts1_9klgcu_a0b = DnqUtils.beginTransientSession("commited_0");
       try {
         this.fire(Where.SYNC_AFTER_FLUSH, changes);
       } catch (Throwable _ex_) {
-        if ($nt$_9klgcu_a0c) {
-          TransientStoreUtil.abort(_ex_, ts1_9klgcu_a0c);
+        if ($nt$_9klgcu_a0b) {
+          TransientStoreUtil.abort(_ex_, ts1_9klgcu_a0b);
         }
         if (_ex_ instanceof RuntimeException) {
           throw (RuntimeException) _ex_;
@@ -64,8 +59,8 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
           throw new RuntimeException(_ex_);
         }
       } finally {
-        if ($nt$_9klgcu_a0c) {
-          TransientStoreUtil.commit(ts1_9klgcu_a0c);
+        if ($nt$_9klgcu_a0b) {
+          TransientStoreUtil.commit(ts1_9klgcu_a0b);
         }
       }
     }
@@ -111,7 +106,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     if (((TransientEntity) e).isNew()) {
       throw new IllegalStateException("Entity is not saved into database - you can't listern to it.");
     }
-    final EntityId id = e.getId();
+    final EventsMultiplexer.FullEntityId id = new EventsMultiplexer.FullEntityId(e.getStore(), e.getId());
     this.rwl.writeLock().lock();
     try {
       Queue<IEntityListener> listeners = this.instanceToListeners.get(id);
@@ -133,7 +128,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       }
       return;
     }
-    final EntityId id = e.getId();
+    final EventsMultiplexer.FullEntityId id = new EventsMultiplexer.FullEntityId(e.getStore(), e.getId());
     this.rwl.writeLock().lock();
     try {
       final Queue<IEntityListener> listeners = this.instanceToListeners.get(id);
@@ -180,9 +175,11 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
 
   private void handlePerEntityChanges(Where where, TransientEntityChange c) {
     Queue<IEntityListener> listeners = null;
+    final TransientEntity e = c.getTransientEntity();
+    final EventsMultiplexer.FullEntityId id = new EventsMultiplexer.FullEntityId(e.getStore(), e.getId());
     this.rwl.readLock().lock();
     try {
-      listeners = this.instanceToListeners.get(c.getTransientEntity().getId());
+      listeners = this.instanceToListeners.get(id);
     } finally {
       this.rwl.readLock().unlock();
     }
@@ -323,6 +320,44 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
           }
         }
       }
+    }
+  }
+
+  private class FullEntityId {
+    private final int storeHashCode;
+    private final int entityTypeId;
+    private final long entityLocalId;
+
+    private FullEntityId(final EntityStore store, final EntityId id) {
+      storeHashCode = System.identityHashCode(store);
+      entityTypeId = id.getTypeId();
+      entityLocalId = id.getLocalId();
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (this == object) {
+        return true;
+      }
+      EventsMultiplexer.FullEntityId that = (EventsMultiplexer.FullEntityId) object;
+      if (storeHashCode != that.storeHashCode) {
+        return false;
+      }
+      if (entityLocalId != that.entityLocalId) {
+        return false;
+      }
+      if (entityTypeId != that.entityTypeId) {
+        return false;
+      }
+      return true;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = storeHashCode;
+      result = 31 * result + entityTypeId;
+      result = 31 * result + (int) (entityLocalId ^ (entityLocalId >> 32));
+      return result;
     }
   }
 }
