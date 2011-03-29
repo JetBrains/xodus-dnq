@@ -142,6 +142,10 @@ public class ModelMetaDataImpl implements ModelMetaData {
         return typeToEntityMetaDatas.values();
     }
 
+    public boolean hasAssociation(String sourceEntityName, String targetEntityName, String sourceName) {
+        return associationMetaDatas.containsKey(getUniqueAssociationName(sourceEntityName, targetEntityName, sourceName));
+    }
+
     public AssociationMetaData addAssociation(String sourceEntityName, String targetEntityName,
                                               AssociationType type,
                                               String sourceName, AssociationEndCardinality sourceCardinality,
@@ -162,7 +166,7 @@ public class ModelMetaDataImpl implements ModelMetaData {
 
         AssociationMetaDataImpl amd = new AssociationMetaDataImpl();
         amd.setType(type);
-        String fullName = sourceEntityName + '.' + sourceName + '-' + targetEntityName;
+        String fullName = getUniqueAssociationName(sourceEntityName, targetEntityName, sourceName);
         amd.setBeanName(fullName);
         associationMetaDatas.put(fullName, amd);
 
@@ -210,6 +214,10 @@ public class ModelMetaDataImpl implements ModelMetaData {
         }
 
         return amd;
+    }
+
+    private String getUniqueAssociationName(String sourceEntityName, String targetEntityName, String sourceName) {
+        return sourceEntityName + '.' + sourceName + '-' + targetEntityName;
     }
 
 }
