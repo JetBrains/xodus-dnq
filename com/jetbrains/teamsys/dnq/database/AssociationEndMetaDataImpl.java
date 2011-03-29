@@ -27,8 +27,10 @@ public class AssociationEndMetaDataImpl implements AssociationEndMetaData {
                                       boolean targetCascadeDelete, boolean targetClearOnDelete) {
     this.name = name;
     this.emd = oppositeEndEntityType;
+    this.emdType = oppositeEndEntityType.getType();
     this.cardinality = cardinality;
     this.setAssociationMetaDataInternal(associationMetaData);
+    this.associationMetaDataName = ((AssociationMetaDataImpl) associationMetaData).getFullName();
     this.type = type;
     this.cascadeDelete = cascadeDelete;
     this.clearOnDelete = clearOnDelete;

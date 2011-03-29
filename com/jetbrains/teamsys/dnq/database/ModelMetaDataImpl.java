@@ -162,6 +162,9 @@ public class ModelMetaDataImpl implements ModelMetaData {
 
         AssociationMetaDataImpl amd = new AssociationMetaDataImpl();
         amd.setType(type);
+        String fullName = sourceEntityName + '.' + sourceName + '-' + targetEntityName;
+        amd.setBeanName(fullName);
+        associationMetaDatas.put(fullName, amd);
 
         switch (type) {
             case Directed:
