@@ -19,7 +19,7 @@ class TransientEntityIdImpl implements TransientEntityId {
 
   private final int hashCode;
 
-  TransientEntityIdImpl(@NotNull TransientEntityImpl entity) {
+  TransientEntityIdImpl() {
     this.hashCode = HASH_CODE_GENERATOR.getAndIncrement();
   }
 

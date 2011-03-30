@@ -30,7 +30,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
         setTransientStoreSession(session);
         setType(type);
         setState(State.New);
-        setId(new TransientEntityIdImpl(TransientEntityImpl.this));
+        setId(new TransientEntityIdImpl());
 
         session.getTransientChangesTracker().entityAdded(this);
 
@@ -39,9 +39,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
     TransientEntityImpl(@NotNull Entity persistentEntity, @NotNull TransientStoreSession session) {
         setTransientStoreSession(session);
-        setState(State.New);
-        setId(new TransientEntityIdImpl(TransientEntityImpl.this));
-
         setPersistentEntityInternal(persistentEntity);
         setState(State.Saved);
 
