@@ -42,6 +42,20 @@ public class PrimitiveAssociationSemantics {
 
   @Nullable
   public static Object getOldValue(@NotNull TransientEntity e, @NotNull String propertyName, @NotNull Class propertyType, @Nullable Object nullValue) {
+    Object res = getOldValue(e, propertyName, nullValue);
+    return res == null ? getPropertyNullValue(propertyType) : res;
+  }
+
+   /**
+   * Property old value getter, similar as #get.
+   * Supports nullable objects - returns "null value" if input entity is null
+   *
+   * @param e
+   * @param propertyName
+   * @return
+   */
+  @Nullable
+  public static Object getOldValue(@NotNull TransientEntity e, @NotNull String propertyName, @Nullable Object nullValue) {
     e = TransientStoreUtil.reattach(e);
 
     if (e == null) {
@@ -56,7 +70,7 @@ public class PrimitiveAssociationSemantics {
       }
     }
 
-    return get(e, propertyName, propertyType, nullValue);
+    return get(e, propertyName, nullValue);
   }
 
 
