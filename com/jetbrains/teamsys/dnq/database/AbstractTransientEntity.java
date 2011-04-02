@@ -25,7 +25,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     private Entity persistentEntity;
-    private int version;
+    private int version = -1;
     private String type;
     private State state;
     private TransientStoreSession session;
@@ -89,7 +89,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     protected void setPersistentEntityInternal(Entity persistentEntity) {
         this.persistentEntity = persistentEntity;
         if (persistentEntity != null) {
-            this.version = persistentEntity.getVersion();
+            //this.version = persistentEntity.getVersion();
             this.type = persistentEntity.getType();
         }
     }
@@ -358,7 +358,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         clearPersistentEntityEventHandler.handle(this, null, null);
     }
 
-    private static final StandardEventHandler<Object, Object, Object> updateVersionEventHandler = new StandardEventHandler<Object, Object, Object>() {
+    private static final StandardEventHandler<Object, Object, Object> invalidateVersionEventHandler = new StandardEventHandler<Object, Object, Object>() {
 
         Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
             entity.throwNoPersistentEntity();
@@ -371,14 +371,14 @@ abstract class AbstractTransientEntity implements TransientEntity {
         }
 
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.version = entity.getPersistentEntityInternal().getVersion();
+            entity.version = -1;
             return null;
         }
     };
 
 
-    void updateVersion() {
-        updateVersionEventHandler.handle(this, null, null);
+    void invalidateVersion() {
+        invalidateVersionEventHandler.handle(this, null, null);
     }
 
     private static final StandardEventHandler<Object, Object, List<String>> getPropertyNamesEventHandler = new StandardEventHandler<Object, Object, List<String>>() {
@@ -450,7 +450,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
     private static final StandardEventHandler<Object, Object, Integer> getVersionEventHandler = new StandardEventHandler<Object, Object, Integer>() {
         Integer processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.version;
+            return entity.getVersionInternal();
         }
 
         Integer processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
@@ -470,6 +470,9 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     int getVersionInternal() {
+        if(version < 0) {
+            version = persistentEntity.getVersion();
+        }
         return version;
     }
 
