@@ -90,14 +90,27 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
   }
 
-/*
-  This is very strange code: it adds added entities to the result from db, but db already returns actual data.
-  Moreover, logically, this method should return OLD links, not actual.
+  @Override
+  public Entity getLink(@NotNull String linkName) {
+    if (linksDetaled != null) {
+      LinkChange c = linksDetaled.get(linkName);
+      if (c != null) {
+        Set<TransientEntity> removedEntities = c.getRemovedEntities();
+        if (removedEntities != null) {
+          return removedEntities.iterator().next();
+        }
+      }
+    }
+    return super.getLink(linkName);
+  }
+
+/* TODO: implement it, but union and minus throw exception
   @NotNull
   @Override
   public EntityIterable getLinks(@NotNull String linkName) {
     EntityIterable result = super.getLinks(linkName);
 
+    // add added links to result and and remove removed links
     if (linksDetaled != null) {
       LinkChange c = linksDetaled.get(linkName);
       if (c != null) {
@@ -114,8 +127,6 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     return result;
   }
 */
-
-
 
   @Override
   public long getLinksSize(@NotNull String linkName) {
