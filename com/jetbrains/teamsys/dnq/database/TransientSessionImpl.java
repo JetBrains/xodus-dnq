@@ -1157,7 +1157,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     log.trace("Update version of cached persistent entity and clear blob cache " + e);
                 }
 
-                ((TransientEntityImpl) e).invalidateVersion();
+                ((TransientEntityImpl) e).updateVersion();
                 ((TransientEntityImpl) e).clearFileBlobsCache();
                 ((TransientEntityImpl) e).updateLinkManagers();
 
