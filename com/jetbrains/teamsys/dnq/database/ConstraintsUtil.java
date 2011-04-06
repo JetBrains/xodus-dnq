@@ -155,7 +155,7 @@ class ConstraintsUtil {
                             AssociationEndMetaData aemd = md.getAssociationEndMetaData(changedLink);
 
                             if (aemd == null) {
-                                log.warn("aemd is null. Type: [" + e.getType() + "]. Changed link: " + changedLink);
+                                log.debug("aemd is null. Type: [" + e.getType() + "]. Changed link: " + changedLink);
                             } else {
                                 if (log.isTraceEnabled()) {
                                     log.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
