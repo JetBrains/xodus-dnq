@@ -12,8 +12,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 import com.jetbrains.teamsys.database.TransientEntityChange;
-import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
 import com.jetbrains.teamsys.database.TransientStoreSession;
+import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import com.jetbrains.teamsys.database.Entity;
 import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
@@ -45,22 +45,23 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
 
   public void commited(@Nullable Set<TransientEntityChange> changes) {
     {
-      boolean $nt$_9klgcu_a0b = DnqUtils.getCurrentTransientSession() == null;
-      final TransientStoreSession ts1_9klgcu_a0b = DnqUtils.beginTransientSession("commited_0");
+      final TransientStoreSession superSession_9klgcu_a0b = DnqUtils.getCurrentTransientSession();
+      if (superSession_9klgcu_a0b != null) {
+        TransientStoreUtil.suspend(superSession_9klgcu_a0b);
+      }
       try {
-        this.fire(Where.SYNC_AFTER_FLUSH, changes);
-      } catch (Throwable _ex_) {
-        if ($nt$_9klgcu_a0b) {
+        final TransientStoreSession ts1_9klgcu_a0b = DnqUtils.beginTransientSession("commited_0", false);
+        try {
+          this.fire(Where.SYNC_AFTER_FLUSH, changes);
+        } catch (Throwable _ex_) {
           TransientStoreUtil.abort(_ex_, ts1_9klgcu_a0b);
-        }
-        if (_ex_ instanceof RuntimeException) {
-          throw (RuntimeException) _ex_;
-        } else {
-          throw new RuntimeException(_ex_);
+          throw new RuntimeException("Actual throws is inside about.");
+        } finally {
+          TransientStoreUtil.commit(ts1_9klgcu_a0b);
         }
       } finally {
-        if ($nt$_9klgcu_a0b) {
-          TransientStoreUtil.commit(ts1_9klgcu_a0b);
+        if (superSession_9klgcu_a0b != null) {
+          DnqUtils.resumeTransientSession(superSession_9klgcu_a0b);
         }
       }
     }
