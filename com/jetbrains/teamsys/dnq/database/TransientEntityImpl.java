@@ -210,7 +210,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
             out = new BufferedOutputStream(new FileOutputStream(outputFile));
             IOUtils.copy(blob, out);
         } catch (IOException e) {
-            throw new RuntimeException("Can't save blob to file [" + outputFile.getAbsolutePath() + "]");
+            throw new RuntimeException("Can't save blob to file [" + outputFile.getAbsolutePath() + "]", e);
         } finally {
             if (out != null) {
                 try {
