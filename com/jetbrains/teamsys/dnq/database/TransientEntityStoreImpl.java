@@ -39,6 +39,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private int flushRetryOnLockConflict = 100;
     private final Latch enumContainersLock = Latch.create();
     private final Set<EnumConst.Container> initedContainers = new HashSet<EnumConst.Container>(10);
+    private final Map<String, Entity> enumCache = new HashMap<String, Entity>();
 
     public TransientEntityStoreImpl() {
         if (log.isTraceEnabled()) {
@@ -88,7 +89,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     /**
-     * If true, in {@link #beginSession(String,Object)} will use existing current session if exists.
+     * If true, in {@link #beginSession(String, Object)} will use existing current session if exists.
      *
      * @param attachToCurrentOnBeginIfExists true to use existing current session.
      */
@@ -98,7 +99,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     /**
-     * Resume session if {@link #beginSession(String,Object)} called, but session with given id already exists.
+     * Resume session if {@link #beginSession(String, Object)} called, but session with given id already exists.
      *
      * @param resumeOnBeginIfExists should resume if session exists
      */
@@ -350,7 +351,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
         final Entity persistentEntity =
-                (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
+            (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
 
         if (entity instanceof TransientEntity) {
             changesTracker.entityDeleted((TransientEntity) entity);
@@ -373,7 +374,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
 
         final Entity persistentEntity =
-                (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
+            (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
         changesTracker.offerChange(new Runnable() {
             public void run() {
                 persistentEntity.deleteLinks(linkName);
@@ -391,9 +392,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
 
         final Entity persistentEntity =
-                (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
+            (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
         final Entity persistentLink =
-                (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
+            (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
         changesTracker.offerChange(new Runnable() {
             public void run() {
                 persistentEntity.deleteLink(linkName, persistentLink);
@@ -503,6 +504,29 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     public void enumContainerUnLock() {
         enumContainersLock.release();
+    }
+
+    public Entity getCachedEnumValue(@NotNull final String className, @NotNull final String propName) {
+        final String key = getEnumKey(className, propName);
+        synchronized (enumCache) {
+            return enumCache.get(key);
+        }
+    }
+
+    public void setCachedEnumValue(@NotNull final String className,
+                                   @NotNull final String propName, @NotNull final Entity entity) {
+        final String key = getEnumKey(className, propName);
+        synchronized (enumCache) {
+            enumCache.put(key, entity);
+        }
+    }
+
+    public static String getEnumKey(@NotNull final String className, @NotNull final String propName) {
+        final StringBuilder builder = new StringBuilder(24);
+        builder.append(propName);
+        builder.append('@');
+        builder.append(className);
+        return builder.toString();
     }
 
     interface ListenerVisitor {
