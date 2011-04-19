@@ -19,6 +19,7 @@ import com.jetbrains.teamsys.database.Entity;
 import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import com.jetbrains.teamsys.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import jetbrains.mps.internal.collections.runtime.QueueSequence;
 import com.jetbrains.teamsys.database.EntityMetaData;
 import com.jetbrains.teamsys.database.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
@@ -172,6 +173,33 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     } finally {
       this.rwl.writeLock().unlock();
     }
+  }
+
+  public void clearListeners() {
+    this.rwl.writeLock().lock();
+    try {
+      this.typeToListeners.clear();
+      for (final EventsMultiplexer.FullEntityId id : this.instanceToListeners.keySet()) {
+        if (log.isWarnEnabled()) {
+          log.warn(listenerToString(id, this.instanceToListeners.get(id)));
+        }
+      }
+      instanceToListeners.clear();
+    } finally {
+      this.rwl.writeLock().unlock();
+    }
+  }
+
+  public String listenerToString(final EventsMultiplexer.FullEntityId id, Queue<IEntityListener> listeners) {
+    final StringBuilder builder = new StringBuilder(40);
+    builder.append("Unregistered entity to listener class: ");
+    id.toString(builder);
+    builder.append(" ->");
+    for (IEntityListener listener : QueueSequence.fromQueue(listeners)) {
+      builder.append(' ');
+      builder.append(listener.getClass().getName());
+    }
+    return builder.toString();
   }
 
   private void handlePerEntityChanges(Where where, TransientEntityChange c) {
@@ -359,6 +387,21 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       result = 31 * result + entityTypeId;
       result = 31 * result + (int) (entityLocalId ^ (entityLocalId >> 32));
       return result;
+    }
+
+    @Override
+    public String toString() {
+      final StringBuilder builder = new StringBuilder(10);
+      toString(builder);
+      return builder.toString();
+    }
+
+    public void toString(final StringBuilder builder) {
+      builder.append(entityTypeId);
+      builder.append('-');
+      builder.append(entityLocalId);
+      builder.append('@');
+      builder.append(storeHashCode);
     }
   }
 }
