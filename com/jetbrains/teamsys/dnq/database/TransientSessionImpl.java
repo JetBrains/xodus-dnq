@@ -847,7 +847,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
      * @param entity
      * @return
      */
-    @NotNull
     public TransientEntity newLocalCopy(@NotNull final TransientEntity entity) {
         switch (state) {
             case Open:
@@ -876,26 +875,24 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         // local copy already created?
                         TransientEntity localCopy = createdTransientForPersistentEntities.get(id);
                         if (localCopy != null) {
-                            if (localCopy.isRemoved()) {
-                                log.warn("Local copy of entity [" + entity + "] was removed by you.");
-                                throw new EntityRemovedException(entity);
-                            }
-                            return localCopy;
+                            return localCopy.isRemoved() ? null : localCopy;
                         }
 
                         // load persistent entity from database by id
                         Entity databaseCopy = getPersistentSessionInternal().getEntity(id);
                         if (databaseCopy == null) {
                             // entity was removed - can't create local copy
-                            log.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
-                            throw new EntityRemovedInDatabaseException(entity);
+                            log.warn("Entity [" + entity + "] was removed in database, can't create local copy, return null.");
+                            return null;
+                            // throw new EntityRemovedInDatabaseException(entity);
                         }
 
                         return newEntity(databaseCopy);
                     }
                 } else if (entity.isRemoved()) {
-                    log.warn("Entity [" + entity + "] was removed by you.");
-                    throw new EntityRemovedException(entity);
+                    log.warn("Entity [" + entity + "] was by you, return null.");
+                    return null;
+                    //throw new EntityRemovedException(entity);
                 }
 
             default:
