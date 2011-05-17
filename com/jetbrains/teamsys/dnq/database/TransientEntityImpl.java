@@ -718,6 +718,46 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return hasChangesForPropertyEventHandler.handle(this, property, null);
     }
 
+    private static final StandardEventHandler<String[], Object, Boolean> hasChangesExceptingEventHandler = new StandardEventHandler2<String[], Object, Boolean>() {
+
+        Boolean processOpenNew(AbstractTransientEntity entity, String[] properties, Object param2) {
+            return processOpenSaved(entity, properties, param2);
+        }
+
+        Boolean processTemporary(AbstractTransientEntity entity, String[] properties, Object param2) {
+            return false;
+        }
+
+        Boolean processOpenSaved(AbstractTransientEntity entity, String[] properties, Object param2) {
+            Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
+            Map<String, PropertyChange> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(entity);
+
+            int found = 0;
+            int changed;
+            if (changesLinks == null && changesProperties == null) {
+                return false;
+            } else {
+                for (String property : properties) {
+                    // all properties have to be changed
+                    if (entity.hasChanges(property)) found++;
+                }
+                if (changesLinks == null) {
+                    changed = changesProperties.size();
+                } else if (changesProperties == null) {
+                    changed = changesLinks.size();
+                } else {
+                    changed = changesLinks.size() + changesProperties.size();
+                }
+                return changed > found;
+            }
+        }
+
+    };
+
+    public boolean hasChangesExcepting(String[] properties) {
+        return hasChangesExceptingEventHandler.handle(this, properties, null);
+    }
+
     private static final StandardEventHandler<String, Boolean, EntityIterable> addedRemovedLinksEventHandler = new StandardEventHandler2<String, Boolean, EntityIterable>() {
 
         @NotNull

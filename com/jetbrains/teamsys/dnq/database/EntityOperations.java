@@ -178,30 +178,6 @@ public class EntityOperations {
     public static boolean hasChangesExcepting(@NotNull TransientEntity e, String[] properties) {
         final TransientEntity entity = TransientStoreUtil.reattach(e);
 
-        if (entity == null) {
-            return false;
-        } else {
-            Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
-            Map<String, PropertyChange> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(entity);
-
-            int found = 0;
-            int changed;
-            if (changesLinks == null && changesProperties == null) {
-                return false;
-            } else {
-                for (String property : properties) {
-                    // all properties have to be changed
-                    if (entity.hasChanges(property)) found++;
-                }
-                if (changesLinks == null) {
-                    changed = changesProperties.size();
-                } else if (changesProperties == null) {
-                    changed = changesLinks.size();
-                } else {
-                    changed = changesLinks.size() + changesProperties.size();
-                }
-                return changed - found > 0;
-            }
-        }
+        return entity != null && entity.hasChangesExcepting(properties);
     }
 }

@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import org.jetbrains.annotations.NotNull;
@@ -162,6 +163,41 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
       }
 
       return propertiesDetaled != null && propertiesDetaled.containsKey(property);
+    }
+  }
+
+  @Override
+  public boolean hasChangesExcepting(String[] properties) {
+    if (super.hasChangesExcepting(properties)) {
+      return true;
+    } else {
+      if (linksDetaled != null) {
+        if (linksDetaled.size() > properties.length) {
+          // by Dirichlet principle, even if 'properties' param is malformed
+          return true;
+        }
+        final Set<String> linksDetaledCopy = new HashSet(linksDetaled.keySet());
+        for (String property : properties) {
+          linksDetaledCopy.remove(property);
+        }
+        if (!linksDetaledCopy.isEmpty()) {
+          return true;
+        }
+      }
+      if (propertiesDetaled != null) {
+        if (propertiesDetaled.size() > properties.length) {
+          // by Dirichlet principle, even if 'properties' param is malformed
+          return true;
+        }
+        final Set<String> propertiesDetailedCopy = new HashSet(propertiesDetaled.keySet());
+        for (String property : properties) {
+          propertiesDetailedCopy.remove(property);
+        }
+        if (!propertiesDetailedCopy.isEmpty()) {
+          return true;
+        }
+      }
+      return false;
     }
   }
 
