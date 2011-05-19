@@ -318,10 +318,10 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     // add added links
     if (added != null) {
       getLinksSet().addAll(added);
-      added.clear();
+      added = null;
     }
     if (removed != null) {
-      removed.clear();
+      removed = null;
     }
   }
 
