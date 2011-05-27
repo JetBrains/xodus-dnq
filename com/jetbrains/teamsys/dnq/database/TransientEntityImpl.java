@@ -89,7 +89,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
                     propertyName,
                     entity.isSaved() ? _(entity).getPersistentEntityInternal().getProperty(propertyName) : null,
                     value);
-            _(entity).propertiesCache.put(propertyName, value);
+            putValueInPropertiesCache(entity, propertyName, value);
             return null;
         }
 
@@ -98,12 +98,11 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Object processTemporary(AbstractTransientEntity entity, String propertyName, Comparable value) {
-            _(entity).propertiesCache.put(propertyName, value);
+            putValueInPropertiesCache(entity, propertyName, value);
             return null;
         }
 
     };
-
 
     public void setProperty(@NotNull final String propertyName, @NotNull final Comparable value) {
         setPropertyEventHandler.handle(this, propertyName, value);
@@ -117,7 +116,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
                     entity,
                     propertyName,
                     entity.isSaved() ? _(entity).getPersistentEntityInternal().getProperty(propertyName) : entity.getProperty(propertyName));
-            _(entity).propertiesCache.put(propertyName, null);
+            putValueInPropertiesCache(entity, propertyName, null);
             return null;
         }
 
@@ -127,7 +126,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
         @Override
         Object processTemporary(AbstractTransientEntity entity, String propertyName, Object value) {
-            _(entity).propertiesCache.put(propertyName, null);
+            putValueInPropertiesCache(entity, propertyName, null);
             return null;
         }
     };
@@ -312,7 +311,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
         String processOpenSaved(AbstractTransientEntity entity, String blobName, Object param2) {
             if (!_(entity).propertiesCache.containsKey(blobName)) {
                 final String value = entity.getPersistentEntityInternal().getBlobString(blobName);
-                _(entity).propertiesCache.put(blobName, value);
+                putValueInPropertiesCache(entity, blobName, value);
                 return value;
             }
             return (String) _(entity).propertiesCache.get(blobName);
@@ -337,7 +336,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
     private static final StandardEventHandler<String, String, Object> setBlobStringEventHandler = new StandardEventHandler2<String, String, Object>() {
         Object processOpenSaved(AbstractTransientEntity entity, String blobName, String blobString) {
             entity.getTransientStoreSession().getTransientChangesTracker().blobChanged(entity, blobName, blobString);
-            _(entity).propertiesCache.put(blobName, blobString);
+            putValueInPropertiesCache(entity, blobName, blobString);
             return null;
         }
 
@@ -346,7 +345,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Object processTemporary(AbstractTransientEntity entity, String blobName, String blobString) {
-            _(entity).propertiesCache.put(blobName, blobString);
+            putValueInPropertiesCache(entity, blobName, blobString);
             return null;
         }
 
@@ -359,7 +358,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
     private static final StandardEventHandler<String, Object, Object> deleteBlobStringEventHandler = new StandardEventHandler2<String, Object, Object>() {
         Object processOpenSaved(AbstractTransientEntity entity, String blobName, Object blobString) {
-            _(entity).propertiesCache.put(blobName, null);
+            putValueInPropertiesCache(entity, blobName, null);
             entity.getTransientStoreSession().getTransientChangesTracker().blobDeleted(entity, blobName);
             return null;
         }
@@ -369,7 +368,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Object processTemporary(AbstractTransientEntity entity, String blobName, Object blobString) {
-            _(entity).propertiesCache.put(blobName, null);
+            putValueInPropertiesCache(entity, blobName, null);
             return null;
         }
 
@@ -824,6 +823,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
         TransientEntityImpl _(AbstractTransientEntity entity) {
             return (TransientEntityImpl) entity;
         }
+
+    void putValueInPropertiesCache(AbstractTransientEntity entity, String propertyName, Comparable value) {
+        _(entity).propertiesCache.put(propertyName, value);
+    }
     }
 
 }
