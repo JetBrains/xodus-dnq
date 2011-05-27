@@ -23,7 +23,7 @@ import java.util.*;
  *
  * @author Vadim.Gurov
  */
-final class TransientChangesTrackerImpl implements TransientChangesTracker {
+public final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   private static final Log log = LogFactory.getLog(TransientEntityStoreImpl.class);
 
@@ -42,6 +42,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   private Map<TransientEntity, Map<Index, Runnable>> entityToIndexChanges = new HashMapDecorator<TransientEntity, Map<Index, Runnable>>();
 
   private boolean wereChangesAfterMark = false;
+  private int changesCount = 0;
   private Set<TransientEntityChange> changesDescription;
 
   public TransientChangesTrackerImpl(TransientStoreSession session) {
@@ -50,6 +51,10 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
   public boolean areThereChanges() {
     return !(changes.isEmpty() && (deleted == null || deleted.isEmpty()));
+  }
+
+  public int getChangesCount() {
+    return changesCount;
   }
 
   public void markState() {
@@ -63,6 +68,7 @@ final class TransientChangesTrackerImpl implements TransientChangesTracker {
   private void c() {
     wereChangesAfterMark = true;
     changesDescription = null;
+    changesCount++;
   }
 
     @NotNull
