@@ -22,9 +22,9 @@ import java.util.Set;
  */
 class TransientEntityImpl extends AbstractTransientEntity {
 
-    protected Map<String, TransientLinksManager> linksManagers = new HashMapDecorator<String, TransientLinksManager>();
-    protected Map<String, Comparable> propertiesCache = new HashMapDecorator<String, Comparable>();
-    private Map<String, File> fileBlobsCache = new HashMapDecorator<String, File>();
+    private final Map<String, TransientLinksManager> linksManagers = new HashMapDecorator<String, TransientLinksManager>();
+    private final Map<String, Comparable> propertiesCache = new HashMapDecorator<String, Comparable>();
+    private final Map<String, File> fileBlobsCache = new HashMapDecorator<String, File>();
 
     TransientEntityImpl(@NotNull String type, @NotNull TransientStoreSession session) {
         setTransientStoreSession(session);
