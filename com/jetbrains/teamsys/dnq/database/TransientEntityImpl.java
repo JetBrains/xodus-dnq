@@ -824,14 +824,9 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return (TransientEntityImpl) entity;
         }
 
-    void putValueInPropertiesCache(AbstractTransientEntity entity, String propertyName, Comparable value) {
-        if (value == null && "description".equals(propertyName)) {
-            if (log.isTraceEnabled()) {
-                log.trace("Unsetting 'description' property");
-            }
+        void putValueInPropertiesCache(AbstractTransientEntity entity, String propertyName, Comparable value) {
+            _(entity).propertiesCache.put(propertyName, value);
         }
-        _(entity).propertiesCache.put(propertyName, value);
-    }
     }
 
 }
