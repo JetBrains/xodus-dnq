@@ -175,12 +175,15 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     } else {
       LinkChange lc = linksDetailed.get(linkName);
       if (lc != null) {
-        lc.setChangeType(lc.getChangeType().getMerged(changeType));
         if (addedEntities != null) {
           lc.setAddedEntities(addedEntities);
-        }
-        if (removedEntities != null) {
+          if (removedEntities != null) {
+            lc.setRemovedEntities(removedEntities);
+          }
+          lc.setChangeType(lc.getChangeType().getMerged(changeType)); // set change type only if some links added or removed
+        } else if (removedEntities != null) {
           lc.setRemovedEntities(removedEntities);
+          lc.setChangeType(lc.getChangeType().getMerged(changeType)); // set change type only if some links removed
         }
       } else {
         linksDetailed.put(linkName, new LinkChange(linkName, changeType, addedEntities, removedEntities));
