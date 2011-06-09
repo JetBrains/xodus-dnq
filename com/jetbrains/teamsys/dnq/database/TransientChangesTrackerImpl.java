@@ -176,14 +176,31 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
       LinkChange lc = linksDetailed.get(linkName);
       if (lc != null) {
         if (addedEntities != null) {
+          annihilateSymmetricChanges(addedEntities, lc.getRemovedEntities());
           lc.setAddedEntities(addedEntities);
-          if (removedEntities != null) {
+          final boolean noRemoved;
+          if (removedEntities == null) {
+            noRemoved = lc.getRemovedEntitiesSize() == 0;
+          } else {
+            annihilateSymmetricChanges(removedEntities, lc.getAddedEntities());
             lc.setRemovedEntities(removedEntities);
+            noRemoved = removedEntities.isEmpty();
           }
-          lc.setChangeType(lc.getChangeType().getMerged(changeType)); // set change type only if some links added or removed
+          if (noRemoved && addedEntities.isEmpty()) {
+            linksDetailed.remove(linkName);
+          } else {
+            lc.setChangeType(lc.getChangeType().getMerged(changeType)); // set change type only if some links added or removed
+          }
         } else if (removedEntities != null) {
+          annihilateSymmetricChanges(removedEntities, lc.getAddedEntities());
           lc.setRemovedEntities(removedEntities);
-          lc.setChangeType(lc.getChangeType().getMerged(changeType)); // set change type only if some links removed
+          if (removedEntities.isEmpty()) {
+            if (lc.getAddedEntitiesSize() == 0) {
+              linksDetailed.remove(linkName);
+            }
+          } else {
+            lc.setChangeType(lc.getChangeType().getMerged(changeType)); // set change type only if some links removed
+          }
         }
       } else {
         linksDetailed.put(linkName, new LinkChange(linkName, changeType, addedEntities, removedEntities));
@@ -191,7 +208,18 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     }
   }
 
-  private Runnable propertyChangedDetailed(TransientEntity e, String propertyName, Comparable origValue, PropertyChangeType changeType, Runnable change) {
+    private void annihilateSymmetricChanges(final Set<TransientEntity> newSet, final Set<TransientEntity> oldSet) {
+        if (oldSet != null) {
+          Iterator<TransientEntity> addedItr = newSet.iterator();
+          while (addedItr.hasNext()) {
+            if (oldSet.remove(addedItr.next())) {
+              addedItr.remove();
+            }
+          }
+        }
+    }
+
+    private Runnable propertyChangedDetailed(TransientEntity e, String propertyName, Comparable origValue, PropertyChangeType changeType, Runnable change) {
     c();
 
     Map<String, PropertyChange> propertiesDetailed = entityToChangedPropertiesDetailed.get(e);

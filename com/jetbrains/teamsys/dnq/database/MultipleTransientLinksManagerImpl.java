@@ -71,7 +71,9 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
             break;
           case LinksLoaded:
             getLinksSet().add(entity);
-            getAdded().add(entity);
+            if (removed == null || !removed.remove(entity)) {
+              getAdded().add(entity);
+            }
             break;
         }
         break;
@@ -156,7 +158,9 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
             if (links == null || !links.remove(entity)) {
               throw new IllegalArgumentException("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
             }
-            getRemoved().add(entity);
+            if (added == null || !added.remove(entity)) {
+              getRemoved().add(entity);
+            }
             break;
         }
         break;
