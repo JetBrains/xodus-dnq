@@ -176,29 +176,41 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
       LinkChange lc = linksDetailed.get(linkName);
       if (lc != null) {
         if (addedEntities != null) {
-          annihilateSymmetricChanges(addedEntities, lc.getRemovedEntities());
-          lc.setAddedEntities(addedEntities);
-          final boolean noRemoved;
-          if (removedEntities == null) {
-            noRemoved = lc.getRemovedEntitiesSize() == 0;
+          final boolean addedGone;
+          if (addedGone = annihilateSymmetricChanges(addedEntities, lc.getRemovedEntities())) {
+            lc.setAddedEntities(null);
           } else {
-            annihilateSymmetricChanges(removedEntities, lc.getAddedEntities());
-            lc.setRemovedEntities(removedEntities);
-            noRemoved = removedEntities.isEmpty();
+            lc.setAddedEntities(addedEntities);
           }
-          if (noRemoved && addedEntities.isEmpty()) {
-            linksDetailed.remove(linkName);
+          final boolean removedGone;
+          if (removedEntities == null) {
+              removedGone = lc.getRemovedEntitiesSize() == 0;
           } else {
-            lc.setChangeType(lc.getChangeType().getMerged(changeType)); // set change type only if some links added or removed
+            if (removedGone = annihilateSymmetricChanges(removedEntities, lc.getAddedEntities())) {
+              lc.setRemovedEntities(null);
+            } else {
+              lc.setRemovedEntities(removedEntities);
+            }
+          }
+          if (addedGone && removedGone) {
+            linksDetailed.remove(linkName);
+          } else if (!addedGone && !removedGone) {
+            lc.setChangeType(LinkChangeType.ADD_AND_REMOVE); // set change type only if some links removed
+          } else {
+            if (changeType == LinkChangeType.ADD_AND_REMOVE) { // opposite type gone
+              lc.setChangeType(addedGone ? LinkChangeType.REMOVE : LinkChangeType.ADD);
+            }
           }
         } else if (removedEntities != null) {
-          annihilateSymmetricChanges(removedEntities, lc.getAddedEntities());
-          lc.setRemovedEntities(removedEntities);
-          if (removedEntities.isEmpty()) {
+          final boolean removedGone = annihilateSymmetricChanges(removedEntities, lc.getAddedEntities());
+          if (removedGone) {
             if (lc.getAddedEntitiesSize() == 0) {
               linksDetailed.remove(linkName);
+            } else if (changeType == LinkChangeType.ADD_AND_REMOVE) {
+                lc.setChangeType(LinkChangeType.ADD); // removed gone
             }
           } else {
+            lc.setRemovedEntities(removedEntities);
             lc.setChangeType(lc.getChangeType().getMerged(changeType)); // set change type only if some links removed
           }
         }
@@ -208,15 +220,20 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     }
   }
 
-    private void annihilateSymmetricChanges(final Set<TransientEntity> newSet, final Set<TransientEntity> oldSet) {
+    private final boolean annihilateSymmetricChanges(final Set<TransientEntity> newSet, final Set<TransientEntity> oldSet) {
         if (oldSet != null) {
           Iterator<TransientEntity> addedItr = newSet.iterator();
           while (addedItr.hasNext()) {
             if (oldSet.remove(addedItr.next())) {
+              if (newSet.size() == 1) {
+                  return true; // new set will be completely annihilated, hack for immutable NanoSet
+              }
               addedItr.remove();
             }
           }
+          return newSet.isEmpty() && oldSet.isEmpty();
         }
+        return newSet.isEmpty();
     }
 
     private Runnable propertyChangedDetailed(TransientEntity e, String propertyName, Comparable origValue, PropertyChangeType changeType, Runnable change) {
