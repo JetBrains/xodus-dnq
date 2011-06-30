@@ -258,7 +258,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
      * @return current thread session
      */
     @Nullable
-    public StoreSession getThreadSession() {
+    public TransientStoreSession getThreadSession() {
         return currentSession.get();
     }
 
@@ -305,7 +305,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void renameEntityTypeRefactoring(@NotNull final String oldEntityTypeName, @NotNull final String newEntityTypeName) {
-        final TransientStoreSession s = (TransientStoreSession) getThreadSession();
+        final TransientStoreSession s = getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
@@ -320,7 +320,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void deleteEntityTypeRefactoring(@NotNull final String entityTypeName) {
-        final TransientStoreSession s = (TransientStoreSession) getThreadSession();
+        final TransientStoreSession s = getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
@@ -335,7 +335,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void deleteEntityRefactoring(@NotNull Entity entity) {
-        final TransientStoreSession s = (TransientStoreSession) getThreadSession();
+        final TransientStoreSession s = getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
@@ -357,7 +357,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void deleteLinksRefactoring(@NotNull final Entity entity, @NotNull final String linkName) {
-        final TransientStoreSession s = (TransientStoreSession) getThreadSession();
+        final TransientStoreSession s = getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
@@ -375,7 +375,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void deleteLinkRefactoring(@NotNull final Entity entity, @NotNull final String linkName, @NotNull final Entity link) {
-        final TransientStoreSession s = (TransientStoreSession) getThreadSession();
+        final TransientStoreSession s = getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
@@ -394,7 +394,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         });
     }
 
-    private TransientStoreSession getStoreSession(Object id) {
+    public TransientStoreSession getStoreSession(Object id) {
         synchronized (sessions) {
             return sessions.get(id);
         }

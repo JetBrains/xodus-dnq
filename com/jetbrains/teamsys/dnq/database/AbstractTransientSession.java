@@ -50,7 +50,7 @@ abstract class AbstractTransientSession implements TransientStoreSession {
   }
 
   @NotNull
-  public EntityStore getStore() {
+  public TransientEntityStore getStore() {
     return store;
   }
 

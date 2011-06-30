@@ -84,7 +84,7 @@ class ConstraintsUtil {
                 Map<String, EntityId> incomingLinks = e.getIncomingLinks();
 
                 if (incomingLinks.size() > 0) {
-                    Map<String, TransientEntity> _incomingLinks = new HashMapDecorator<String, TransientEntity>();
+                    Map<String, Entity> _incomingLinks = new HashMapDecorator<String, Entity>();
                     for (String key : incomingLinks.keySet()) {
                         final StoreSession storeSession = e.getStore().getThreadSession();
 
@@ -117,7 +117,10 @@ class ConstraintsUtil {
 
                         _incomingLinks.put(key, entity);
                     }
-                    if (_incomingLinks.size() > 0) exceptions.add(new CantRemoveEntityException(e, _incomingLinks));
+                    if (_incomingLinks.size() > 0) {
+                        EntityMetaData metaData = modelMetaData.getEntityMetaData(e.getType());
+                        exceptions.add(metaData.getInstance(e).createIncomingLinksException(_incomingLinks, modelMetaData, e));
+                    }
                 }
             }
         }
@@ -494,8 +497,8 @@ class ConstraintsUtil {
             if (!callDestructorsPhase) {
                 try {
                     AggregationAssociationSemantics.removeOneToMany(
-                        e, amd.getName(),
-                        amd.getAssociationMetaData().getOppositeEnd(amd).getName(), child);
+                            e, amd.getName(),
+                            amd.getAssociationMetaData().getOppositeEnd(amd).getName(), child);
                 } catch (EntityRemovedException ex) {
                     if (log.isDebugEnabled()) {
                         log.debug("Entity [" + child + "] already removed", ex);
@@ -630,7 +633,7 @@ class ConstraintsUtil {
      * Properties and associations, that are part of indexes, can't be empty
      *
      * @param tracker changes tracker
-     * @param md model metadata
+     * @param md      model metadata
      * @return index fields errors set
      */
     @NotNull
