@@ -5,7 +5,6 @@ import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.core.dataStructures.hash.LinkedHashSet;
 import com.jetbrains.teamsys.core.execution.locks.Latch;
 import com.jetbrains.teamsys.database.*;
-import jetbrains.teamsys.dnq.runtime.queries.EnumConst;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -38,7 +37,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private File blobsStore;
     private int flushRetryOnLockConflict = 100;
     private final Latch enumContainersLock = Latch.create();
-    private final Set<EnumConst.Container> initedContainers = new HashSet<EnumConst.Container>(10);
+    private final Set<EnumContainer> initedContainers = new HashSet<EnumContainer>(10);
     private final Map<String, Entity> enumCache = new HashMap<String, Entity>();
 
     public TransientEntityStoreImpl() {
@@ -482,11 +481,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         }
     }
 
-    public boolean isEnumContainerInited(EnumConst.Container container) {
+    public boolean isEnumContainerInited(EnumContainer container) {
         return initedContainers.contains(container);
     }
 
-    public void enumContainerInited(EnumConst.Container container) {
+    public void enumContainerInited(EnumContainer container) {
         initedContainers.add(container);
     }
 

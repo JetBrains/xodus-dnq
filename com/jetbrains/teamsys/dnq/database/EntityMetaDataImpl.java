@@ -6,7 +6,6 @@ import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,6 +68,10 @@ public class EntityMetaDataImpl implements EntityMetaData {
     }
 
     public void setModelMetaData(ModelMetaData modelMetaData) {
+        for (Index index : this.ownIndexes) {
+            index.setModelMetaData(modelMetaData);
+        }
+
         this.modelMetaData = modelMetaData;
     }
 
