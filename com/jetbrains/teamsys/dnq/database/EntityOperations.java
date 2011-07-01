@@ -2,6 +2,7 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 import com.jetbrains.teamsys.database.*;
+import com.jetbrains.teamsys.database.exceptions.EntityRemovedException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -28,15 +29,14 @@ public class EntityOperations {
         */
 
         remove(e, true, new HashSet<Entity>());
-        remove(e, false, null);
+        remove(e, false, new HashSet<Entity>());
     }
 
-    static void remove(final Entity e, boolean callDestructorPhase, Set<Entity> destructorCalled) {
+    static void remove(final Entity e, boolean callDestructorPhase, Set<Entity> processed) {
         if (e == null || ((TransientEntity) e).isRemoved()) return;
         TransientEntity reattached = TransientStoreUtil.reattach((TransientEntity) e);
-        if (reattached == null) return;
 
-        if (callDestructorPhase && destructorCalled.contains(e)) return;
+        if (processed.contains(reattached)) return;
 
         TransientEntityStore store = (TransientEntityStore) reattached.getStore();
 
@@ -47,14 +47,14 @@ public class EntityOperations {
             if (emd != null) {
                 if (callDestructorPhase) {
                     emd.getInstance(reattached).destructor(reattached);
-                    destructorCalled.add(reattached);
                 }
+                processed.add(reattached);
                 // remove associations and cascade delete
                 TransientStoreSession storeSession = (TransientStoreSession) store.getThreadSession();
                 if (storeSession == null) {
                     throw new IllegalStateException("No current transient session!");
                 }
-                ConstraintsUtil.processOnDeleteConstraints(storeSession, reattached, emd, md, callDestructorPhase, destructorCalled);
+                ConstraintsUtil.processOnDeleteConstraints(storeSession, reattached, emd, md, callDestructorPhase, processed);
             }
         }
 
@@ -71,9 +71,24 @@ public class EntityOperations {
         return entity == null ? Collections.<Entity>emptyList() : entity.getHistory();
     }
 
+    /**
+     * Checks if entity e was removed in this transaction
+     *
+     * @param e entity to check
+     * @return true if e was removed in this transaction, false if it wasn't removed at all
+     * @exception EntityRemovedInDatabaseException if e was removed in another transaction
+     */
     @SuppressWarnings({"ConstantConditions"})
     public static boolean isRemoved(@NotNull final Entity e) {
-        return e == null || ((TransientEntity) e).isRemoved() || TransientStoreUtil.reattach((TransientEntity) e) == null;
+        if (e == null || ((TransientEntity) e).isRemoved()) {
+            return true;
+        }
+        try{
+            TransientStoreUtil.reattach((TransientEntity) e);
+        } catch (EntityRemovedException ex) {
+            return true;
+        }
+        return false;
     }
 
     public static boolean isNew(@Nullable Entity e) {

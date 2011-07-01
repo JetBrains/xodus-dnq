@@ -5,6 +5,7 @@ import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.PropertyChange;
 import com.jetbrains.teamsys.database.TransientEntity;
 import com.jetbrains.teamsys.database.TransientStoreSession;
+import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -12,6 +13,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.Set;
 
 /**
  */
@@ -56,6 +58,9 @@ public class PrimitiveAssociationSemantics {
    */
   @Nullable
   public static Object getOldValue(@NotNull TransientEntity e, @NotNull String propertyName, @Nullable Object nullValue) {
+    if (e != null && EntityOperations.isRemoved(e)) {
+      return e.getTransientStoreSession().getPersistentSession().getEntity(e.getId()).getProperty(propertyName);
+    }
     e = TransientStoreUtil.reattach(e);
 
     if (e == null) {

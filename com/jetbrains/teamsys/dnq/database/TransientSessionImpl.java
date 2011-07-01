@@ -847,6 +847,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
      * @param entity
      * @return
      */
+    @NotNull
     public TransientEntity newLocalCopy(@NotNull final TransientEntity entity) {
         switch (state) {
             case Open:
@@ -875,24 +876,33 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         // local copy already created?
                         TransientEntity localCopy = createdTransientForPersistentEntities.get(id);
                         if (localCopy != null) {
-                            return localCopy.isRemoved() ? null : localCopy;
+                            if (localCopy.isRemoved()) {
+                                EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
+                                log.warn("Local copy of entity [" + entity + "] was removed by you.");
+                                throw entityRemovedException;
+                            }
+                            return localCopy;
                         }
 
                         // load persistent entity from database by id
                         Entity databaseCopy = getPersistentSessionInternal().getEntity(id);
                         if (databaseCopy == null) {
                             // entity was removed - can't create local copy
-                            log.warn("Entity [" + entity + "] was removed in database, can't create local copy, return null.");
-                            return null;
-                            // throw new EntityRemovedInDatabaseException(entity);
+                            EntityRemovedInDatabaseException entityRemovedInDatabaseException = new EntityRemovedInDatabaseException(entity);
+                            log.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
+                            throw entityRemovedInDatabaseException;
                         }
 
                         return newEntity(databaseCopy);
                     }
                 } else if (entity.isRemoved()) {
-                    log.warn("Entity [" + entity + "] was by you, return null.");
-                    return null;
-                    //throw new EntityRemovedException(entity);
+                    EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
+                    log.warn("Entity [" + entity + "] was removed by you."
+
+
+
+                    );
+                    throw entityRemovedException;
                 }
 
             default:
@@ -1218,12 +1228,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             Entity lastDatabaseCopy = ((TransientEntityImpl) localCopy).getPersistentEntityInternal().getUpToDateVersion();
             if (lastDatabaseCopy == null) {
                 if (localCopy.isRemoved()) {
-                    Exception ex;
-                    try {
-                        throw new EntityRemovedInDatabaseException(localCopy);
-                    } catch (EntityRemovedInDatabaseException er) {
-                        ex = er;
-                    }
+                    Exception ex = new EntityRemovedInDatabaseException(localCopy);
                     if (log.isDebugEnabled()) {
                         log.debug("Entity " + localCopy + " was removed from database, but is in removed state on transient level, hence flush is not terminated.", ex);
                     }
