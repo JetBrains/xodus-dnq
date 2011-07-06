@@ -13,14 +13,12 @@ import java.util.List;
  */
 public abstract class BasePersistentClassImpl extends BasePersistentClass{
 
-    private static final int MAX = 10;
-
     protected List<String> createPerInstanceErrorMessage(MessageBuildser messageBuilder, EntityIterable linkedEntities){
         List<String> res = new ArrayList<String>();
-        for (Entity entity : linkedEntities.take(MAX)) {
+        for (Entity entity : linkedEntities.take(MAX_LINKED_ENTITIES_TO_SHOW)) {
             res.add(messageBuilder.build(null, entity));
         }
-        long leftMore = linkedEntities.size() - MAX;
+        long leftMore = linkedEntities.size() - MAX_LINKED_ENTITIES_TO_SHOW;
         if(leftMore > 0) res.add("And " + leftMore + " more...");
         return res;
     }
