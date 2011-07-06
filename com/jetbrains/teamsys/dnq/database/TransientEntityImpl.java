@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.Pair;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
@@ -9,6 +10,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -523,9 +526,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
     }
 
     @NotNull
-    public Map<String, EntityId> getIncomingLinks() {
-        final Map<String, EntityId> result = new HashMapDecorator<String, EntityId>();
+    public List<Pair<String, EntityIterable>> getIncomingLinks() {
+        final List<Pair<String, EntityIterable>> result = new ArrayList<Pair<String, EntityIterable>>();
         final TransientStoreSession session = getTransientStoreSession();
+        //Why persistent store is here instead of transient?
         final StoreSession persistentSession = session.getPersistentSession();
         final ModelMetaData mmd = ((TransientEntityStore) session.getStore()).getModelMetaData();
         if (mmd != null) {
@@ -534,12 +538,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
                 // EntityMetaData can be null during refactorings
                 for (final Map.Entry<String, Set<String>> entry : emd.getIncomingAssociations(mmd).entrySet()) {
                     final String entityType = entry.getKey();
+                    //Link name clash possible!!!!
                     for (final String linkName : entry.getValue()) {
-                        final EntityIteratorBase it = (EntityIteratorBase) persistentSession.findLinks(entityType, this, linkName).iterator();
-                        while (it.hasNext()) {
-                            //TODO: BUG HERE!!!
-                            result.put(linkName, it.nextId());
-                        }
+                        // Can value be list?
+                        result.add(new Pair<String, EntityIterable>(linkName, session.findLinks(entityType, this, linkName)));
                     }
                 }
             }

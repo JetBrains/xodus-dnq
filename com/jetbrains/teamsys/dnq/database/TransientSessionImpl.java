@@ -897,11 +897,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     }
                 } else if (entity.isRemoved()) {
                     EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
-                    log.warn("Entity [" + entity + "] was removed by you."
-
-
-
-                    );
+                    log.warn("Entity [" + entity + "] was removed by you.");
                     throw entityRemovedException;
                 }
 

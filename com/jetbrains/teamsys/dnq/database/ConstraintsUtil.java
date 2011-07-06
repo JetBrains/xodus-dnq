@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.core.dataStructures.Pair;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.database.*;
@@ -12,6 +13,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -81,27 +84,31 @@ class ConstraintsUtil {
 
         for (TransientEntity e : changesTracker.getChangedEntities()) {
             if (e.isRemoved()) {
-                Map<String, EntityId> incomingLinks = e.getIncomingLinks();
+                List<Pair<String, EntityIterable>> incomingLinks = e.getIncomingLinks();
 
                 if (incomingLinks.size() > 0) {
-                    Map<String, Entity> _incomingLinks = new HashMapDecorator<String, Entity>();
-                    for (String key : incomingLinks.keySet()) {
-                        final StoreSession storeSession = e.getStore().getThreadSession();
+                    List<Pair<String, EntityIterable>> _incomingLinks = new ArrayList<Pair<String, EntityIterable>>();
+                    for (Pair<String, EntityIterable> pair : incomingLinks) {
+                        final StoreSession storeSession = e.getTransientStoreSession();
 
                         if (storeSession == null) {
                             throw new IllegalStateException("No current transient session!");
                         }
 
-                        TransientEntity entity = (TransientEntity) storeSession.getEntity(incomingLinks.get(key));
+                        EntityIterable links = pair.getSecond();
 
-                        if (entity == null || entity.isRemoved() || entity.getRemovedLinks(key).contains(e)) {
+                        TransientEntity entity = (TransientEntity) storeSession.getFirst(links);
+
+                        if (entity == null || entity.isRemoved() || entity.getRemovedLinks(pair.getFirst()).contains(e)) {
+                            //maybe we should check all links, isntead of first???
+                            //Previously we checked last.
                             continue;
                         }
 
                         String type = entity.getType();
 
                         EntityMetaData metaData = modelMetaData.getEntityMetaData(type);
-                        AssociationEndMetaData end = metaData.getAssociationEndMetaData(key);
+                        AssociationEndMetaData end = metaData.getAssociationEndMetaData(pair.getFirst());
 
                         if (end.getTargetClearOnDelete() || end.getTargetCascadeDelete()) {
                             continue;
@@ -114,8 +121,7 @@ class ConstraintsUtil {
                                 continue;
                             }
                         }
-
-                        _incomingLinks.put(key, entity);
+                        _incomingLinks.add(pair);
                     }
                     if (_incomingLinks.size() > 0) {
                         EntityMetaData metaData = modelMetaData.getEntityMetaData(e.getType());
