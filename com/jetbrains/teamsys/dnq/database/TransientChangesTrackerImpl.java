@@ -1,7 +1,5 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.intellij.openapi.diff.impl.incrementalMerge.ChangeType;
-import com.intellij.ui.AddEditRemovePanel;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
