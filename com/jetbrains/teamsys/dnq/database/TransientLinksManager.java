@@ -6,6 +6,8 @@ import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.EntityIterable;
 import com.jetbrains.teamsys.database.TransientEntity;
 
+import java.util.Set;
+
 /**
  */
 public interface TransientLinksManager {
@@ -32,6 +34,10 @@ public interface TransientLinksManager {
   void deleteLink(@NotNull TransientEntity entity);
 
   void deleteLinks();
+
+  Set<TransientEntity> getAdded();
+
+  Set<TransientEntity> getRemoved();
 
   @NotNull
   EntityIterable getLinks();

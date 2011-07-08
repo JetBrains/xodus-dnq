@@ -1,5 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.intellij.openapi.diff.impl.incrementalMerge.ChangeType;
+import com.intellij.ui.AddEditRemovePanel;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
 import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
@@ -164,6 +166,51 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     return entityToChangedPropertiesDetailed.get(e);
   }
 
+  public void registerLinkChanges(@NotNull TransientEntity source,
+                                  @NotNull String linkName,
+                                  Set<TransientEntity> added,
+                                  Set<TransientEntity> removed) {
+    c();
+
+    final boolean noAdded = (added == null) || added.isEmpty();
+    final boolean noRemoved = (removed == null) || removed.isEmpty();
+
+    if (noAdded && noRemoved) {
+        Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(source);
+        if (linksDetailed != null)
+            linksDetailed.remove(linkName);
+        return;
+    }
+
+    LinkChangeType changeType;
+    if (!noAdded && !noRemoved) {
+        changeType = LinkChangeType.ADD_AND_REMOVE;
+    } else {
+        changeType = noAdded ? LinkChangeType.REMOVE : LinkChangeType.ADD;
+    }
+
+    Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(source);
+    if (linksDetailed == null) {
+      linksDetailed = new HashMap<String, LinkChange>();
+      entityToChangedLinksDetailed.put(source, linksDetailed);
+      linksDetailed.put(linkName, new LinkChange(linkName, changeType, added, removed));
+    } else {
+      LinkChange lc = linksDetailed.get(linkName);
+      if (lc != null) {
+        if (lc.getAddedEntities() != added) {
+            lc.setAddedEntities(added);
+        }
+        if (lc.getRemovedEntities() != removed) {
+            lc.setRemovedEntities(removed);
+        }
+        lc.setChangeType(changeType);
+      } else {
+        linksDetailed.put(linkName, new LinkChange(linkName, changeType, added, removed));
+      }
+    }
+  }
+
+  @Deprecated
   private void linkChangedDetailed(TransientEntity e, String linkName, LinkChangeType changeType, Set<TransientEntity> addedEntities, Set<TransientEntity> removedEntities) {
     c();
 
@@ -220,6 +267,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     }
   }
 
+    @Deprecated
     private final boolean annihilateSymmetricChanges(final Set<TransientEntity> newSet, final Set<TransientEntity> oldSet) {
         if (oldSet != null) {
           Iterator<TransientEntity> addedItr = newSet.iterator();
@@ -283,9 +331,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     });
   }
 
-  public void linkAdded(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target, Set<TransientEntity> added) {
+  public void linkAdded(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
     entityChanged(source);
-    linkChangedDetailed(source, linkName, LinkChangeType.ADD, added, null);
 
     offerChange(new Runnable() {
       public void run() {
@@ -308,13 +355,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     changedEntities.add(source);
   }
 
-  public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target, final TransientEntity oldTarget) {
+  public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
     entityChanged(source);
-    // don't set old target if the original old target was already set for current linkName
-    Map<String, LinkChange> linkChangeMap = entityToChangedLinksDetailed.get(source);
-    boolean dontSetOldTarget = oldTarget == null || (linkChangeMap != null && linkChangeMap.get(linkName) != null);
-    linkChangedDetailed(source, linkName, LinkChangeType.SET,
-            new NanoSet<TransientEntity>(target), dontSetOldTarget ? null : new NanoSet<TransientEntity>(oldTarget));
 
     offerChange(new Runnable() {
       public void run() {
@@ -423,7 +465,6 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
       removed = new HashSet<TransientEntity>();
       removed.add(target);
     }
-    linkChangedDetailed(source, linkName, LinkChangeType.REMOVE, null, removed);
 
     offerChange(new Runnable() {
       public void run() {
@@ -436,9 +477,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     });
   }
 
-  public void linksDeleted(@NotNull final TransientEntity source, @NotNull final String linkName, Set<TransientEntity> removed) {
+  public void linksDeleted(@NotNull final TransientEntity source, @NotNull final String linkName) {
     entityChanged(source);
-    linkChangedDetailed(source, linkName, LinkChangeType.REMOVE, null, removed);
 
     offerChange(new Runnable() {
       public void run() {
@@ -713,7 +753,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
       LinkChange change = linksDetailed.get(linkName);
       if (change != null) {
         switch (change.getChangeType()) {
-            case SET:
+            case ADD_AND_REMOVE:
             case REMOVE:
                 if (change.getRemovedEntitiesSize() != 1) {
                     throw new IllegalStateException("Can't determine original link value: " + e.getType() + "." + linkName);
