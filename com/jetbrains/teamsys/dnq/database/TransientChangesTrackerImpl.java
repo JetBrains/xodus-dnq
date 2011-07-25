@@ -642,7 +642,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         offerIndexChange(e, index, new Runnable(){
           public void run() {
             try {
-              if (!e.isRemoved()) {
+              if (!e.isRemovedOrTemporary()) {
                 if (isNew) {
                   // create new index
                   getPersistentSession().insertUniqueKey(
