@@ -116,7 +116,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
        for (TransientEntity e : getChangedEntities()) {
          // do not notify about temp and RemovedNew entities
-         if (e.isTemporary() || (e.isRemoved() && e.wasNew())) continue;
+         if (e.isTemporary() || (e.isRemoved() && !e.wasSaved())) continue;
 
          changesDescription.add(new TransientEntityChange(e, getChangedPropertiesDetailed(e),
                  getChangedLinksDetailed(e), decodeState(e)));
@@ -131,8 +131,9 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
       case New:
         return EntityChangeType.ADD;
 
-      case RemovedSaved:
       case RemovedNew:
+      case RemovedSaved:
+      case RemovedSavedNew:
         return EntityChangeType.REMOVE;
 
       case SavedNew:
@@ -318,7 +319,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     rollbackChanges.offer(new Rollback() {
         public void rollback(boolean isFinalRollback) {
             // rollback only if entity was actually saved
-            if (e.isSaved()) {
+            if (e.isSaved() && e.wasNew()) {
               if (log.isDebugEnabled()) {
                 log.debug("Rollback in-memory transient entity from saved state: " + e);
               }
@@ -358,11 +359,15 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     offerChange(new Runnable() {
       public void run() {
-        if (!source.isRemovedOrTemporary() && !target.isRemovedOrTemporary()) {
-          if (log.isDebugEnabled()) {
-            log.debug("Set link: " + source + "-[" + linkName + "]-> " + target);
-          }
-          source.getPersistentEntity().setLink(linkName, target.getPersistentEntity());
+        if (!source.isRemovedOrTemporary()) {
+            if (!target.isRemovedOrTemporary()) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Set link: " + source + "-[" + linkName + "]-> " + target);
+                }
+                source.getPersistentEntity().setLink(linkName, target.getPersistentEntity());
+            } else if (target.isRemoved()) {
+                source.getPersistentEntity().deleteLinks(linkName);
+            }
         }
       }
     });
@@ -377,7 +382,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     final Runnable deleteUniqueProperties = new Runnable() {
       public void run() {
-        if (!e.wasNew()) {
+        if (e.isSaved() || e.wasSaved()) {
           if (log.isDebugEnabled()) {
             log.debug("Delete unique properties for entity: " + e);
           }
@@ -390,7 +395,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     final Runnable deleteOutgoingLinks = new Runnable() {
       public void run() {
-        if (!e.wasNew()) {
+        if (e.isSaved() || e.wasSaved()) {
           if (log.isDebugEnabled()) {
             log.debug("Delete outgoing links for entity: " + e);
           }
@@ -413,8 +418,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     final Runnable deleteEntity = new Runnable() {
       public void run() {
-        // do not delete entity that was new in this session
-        if (!e.wasNew()) {
+        // do not delete entity that was not saved in this session
+        if (e.isSaved() || e.wasSaved()) {
           if (log.isDebugEnabled()) {
             log.debug("Delete entity: " + e);
           }
@@ -440,7 +445,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     rollbackChanges.offer(new Rollback() {
         public void rollback(boolean isFinalRollback) {
             if (e.isRemoved()) {
-              // rollback entity state to New or Saved
+              // rollback entity state to New or Saved or SavedNew
               ((TransientEntityImpl) e).rollbackDelete();
             }
 
@@ -457,12 +462,6 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
   public void linkDeleted(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
     // target is not changed - it has new incomming link
     entityChanged(source);
-
-    HashSet<TransientEntity> removed = null;
-    if (target != null) {
-      removed = new HashSet<TransientEntity>();
-      removed.add(target);
-    }
 
     offerChange(new Runnable() {
       public void run() {

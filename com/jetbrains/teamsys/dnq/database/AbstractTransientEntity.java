@@ -19,8 +19,9 @@ abstract class AbstractTransientEntity implements TransientEntity {
         New,
         Saved,
         SavedNew,
-        RemovedSaved,
         RemovedNew,
+        RemovedSaved,
+        RemovedSavedNew,
         Temporary
     }
 
@@ -121,7 +122,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     public boolean isRemoved() {
-        return state == State.RemovedNew || state == State.RemovedSaved;
+        return state == State.RemovedNew || state == State.RemovedSaved || state == State.RemovedSavedNew;
     }
 
     public boolean isRemovedOrTemporary() {
@@ -151,6 +152,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         switch (state) {
             case RemovedNew:
             case SavedNew:
+            case RemovedSavedNew:
                 return true;
 
             case RemovedSaved:
@@ -160,6 +162,15 @@ abstract class AbstractTransientEntity implements TransientEntity {
             default:
                 throw new IllegalStateException("Entity is not in removed or saved state.");
         }
+    }
+
+    public boolean wasSaved() {
+        switch (state) {
+            case RemovedSaved:
+            case RemovedSavedNew:
+                return true;
+        }
+        return false;
     }
 
     @NotNull
@@ -188,6 +199,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case RemovedNew:
                     return super.processClosedRemoved(entity, param1, param2);
                 case RemovedSaved:
+                case RemovedSavedNew:
                     return entity.getPersistentEntityInternal().getId();
             }
 
@@ -211,6 +223,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case RemovedNew:
                     return entity.id;
                 case RemovedSaved:
+                case RemovedSavedNew:
                     return entity.getPersistentEntityInternal().getId();
             }
 
@@ -222,6 +235,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case RemovedNew:
                     return super.processSuspendedRemoved(entity, param1, param2);
                 case RemovedSaved:
+                case RemovedSavedNew:
                     return entity.getPersistentEntityInternal().getId();
             }
 
@@ -272,6 +286,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case RemovedNew:
                     return entity.id.toString();
                 case RemovedSaved:
+                case RemovedSavedNew:
                     return entity.getPersistentEntityInternal().toIdString();
             }
 
@@ -283,6 +298,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case RemovedNew:
                     super.processSuspendedRemoved(entity, param1, param2);
                 case RemovedSaved:
+                case RemovedSavedNew:
                     return entity.getPersistentEntityInternal().toIdString();
             }
 
@@ -668,6 +684,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case RemovedNew:
                     return entity == that;
                 case RemovedSaved:
+                case RemovedSavedNew:
                     return checkEquals(entity, that);
             }
 
@@ -687,7 +704,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
      */
     private static boolean checkEquals(@NotNull TransientEntity entity, @NotNull TransientEntity that) {
         //Check stores & EntityIds
-        return (that.isSaved() || (that.isRemoved() && !that.wasNew())) &&
+        return (that.isSaved() || that.wasSaved()) &&
                 (entity.getId().equals(that.getId()) && entity.getStore().equals(that.getStore()));
     }
 
@@ -756,8 +773,9 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 // to satisfy hashCode contract, return old hashCode for saved entities that was new, later, in this session
                 case SavedNew:
                 case New:
-                case Temporary:
                 case RemovedNew:
+                case RemovedSavedNew:
+                case Temporary:
                     return System.identityHashCode(this);
 
                 case RemovedSaved:
@@ -776,6 +794,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
                 case SavedNew:
                 case RemovedSaved:
+                case RemovedSavedNew:
                 case Saved:
                     return getPersistentEntityInternal().hashCode();
             }
@@ -813,6 +832,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
                             case RemovedNew:
                             case RemovedSaved:
+                            case RemovedSavedNew:
                                 return processOpenFromAnotherSessionRemoved(entity, param1, param2);
                             case Temporary:
                                 return processTemporary(entity, param1, param2);
@@ -829,6 +849,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
                         case RemovedNew:
                         case RemovedSaved:
+                        case RemovedSavedNew:
                             return processOpenRemoved(entity, param1, param2);
                         case Temporary:
                             return processTemporary(entity, param1, param2);
@@ -845,6 +866,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
                         case RemovedNew:
                         case RemovedSaved:
+                        case RemovedSavedNew:
                             return processSuspendedRemoved(entity, param1, param2);
                         case Temporary:
                             return processTemporary(entity, param1, param2);
@@ -860,6 +882,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
                         case RemovedNew:
                         case RemovedSaved:
+                        case RemovedSavedNew:
                             return processClosedRemoved(entity, param1, param2);
 
                         case Temporary:

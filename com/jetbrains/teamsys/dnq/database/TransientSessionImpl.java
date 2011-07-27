@@ -830,6 +830,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     case SavedNew:
                     case RemovedNew:
                     case RemovedSaved:
+                    case RemovedSavedNew:
                         final ReadonlyTransientEntityImpl entity = new ReadonlyTransientEntityImpl(change, this);
                         return entity;
 

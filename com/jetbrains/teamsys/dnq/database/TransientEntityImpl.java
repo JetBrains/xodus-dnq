@@ -553,7 +553,14 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
         Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
             entity.getTransientStoreSession().getTransientChangesTracker().entityDeleted(entity);
-            entity.setState(State.RemovedSaved);
+            switch (entity.getState()) {
+                case Saved:
+                    entity.setState(State.RemovedSaved);
+                    break;
+                case SavedNew:
+                    entity.setState(State.RemovedSavedNew);
+                    break;
+            }
             return null;
         }
 
@@ -591,6 +598,10 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
             case RemovedSaved:
                 setState(State.Saved);
+                break;
+
+            case RemovedSavedNew:
+                setState(State.SavedNew);
                 break;
         }
     }
