@@ -54,31 +54,6 @@ class ConstraintsUtil {
     }
 
     @NotNull
-    static Set<DataIntegrityViolationException> executeBeforeFlushTriggers(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
-        Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
-
-        Set<TransientEntity> changedEntities = changesTracker.getChangedEntities();
-        for (TransientEntity e : changedEntities.toArray(new TransientEntity[changedEntities.size()])) {
-            if (!e.isRemoved()) {
-                EntityMetaData md = modelMetaData.getEntityMetaData(e.getType());
-
-                // meta-data may be null for persistent enums
-                if (md != null) {
-                    try {
-                        md.getInstance(e).executeBeforeFlushTrigger(e);
-                    } catch (ConstraintsValidationException cve) {
-                        for (DataIntegrityViolationException dive : cve.getCauses()) {
-                            exceptions.add(dive);
-                        }
-                    }
-                }
-            }
-        }
-
-        return exceptions;
-    }
-
-    @NotNull
     static Set<DataIntegrityViolationException> checkIncomingLinks(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
         final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
 

@@ -57,10 +57,12 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     return changesCount;
   }
 
+  @Deprecated
   public void markState() {
     wereChangesAfterMark = false;
   }
 
+  @Deprecated
   public boolean wereChangesAfterMarkState() {
     return wereChangesAfterMark;
   }

@@ -974,29 +974,58 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     /**
      * Checks custom flush constraints before save changes
+     * @return side effects
      */
-    private void executeBeforeFlushTriggers() {
+    @Nullable
+    private Set<TransientEntity> executeBeforeFlushTriggers(Set<TransientEntity> changedEntities, Set<TransientEntity> processedEntities) {
         final ModelMetaData modelMetaData = store.getModelMetaData();
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
             if (log.isDebugEnabled()) {
-                log.warn("Quiet intermediate commit: skip custom flush constraints checking. " + this);
+                log.warn("Quiet intermediate commit: skip before flush triggers. " + this);
             }
-            return;
+            return null;
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("Check custom flush constraints. " + this);
+            log.debug("Execute before flush triggers. " + this);
         }
 
-        final Set<DataIntegrityViolationException> triggerErrors =
-                ConstraintsUtil.executeBeforeFlushTriggers(changesTracker, modelMetaData);
+        final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
+        final int changesEntitiesCount = ((TransientChangesTrackerImpl)changesTracker).getChangedEntities().size();
+        for (TransientEntity entity : changedEntities) {
+            if (!entity.isRemoved()) {
+                EntityMetaData md = modelMetaData.getEntityMetaData(entity.getType());
 
-        if (triggerErrors.size() != 0) {
-            ConstraintsValidationException e = new ConstraintsValidationException(triggerErrors);
+                // meta-data may be null for persistent enums
+                if (md != null) {
+                    try {
+                        md.getInstance(entity).executeBeforeFlushTrigger(entity);
+                    } catch (ConstraintsValidationException cve) {
+                        for (DataIntegrityViolationException dive : cve.getCauses()) {
+                            exceptions.add(dive);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (exceptions.size() != 0) {
+            ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
             e.fixEntityId();
             throw e;
         }
+
+        if (changesEntitiesCount != ((TransientChangesTrackerImpl)changesTracker).getChangedEntities().size()) {
+            processedEntities.addAll(changedEntities);
+
+            HashSet<TransientEntity> sideEffect = new HashSet<TransientEntity>(changesTracker.getChangedEntities());
+            sideEffect.removeAll(processedEntities);
+
+            return sideEffect;
+        }
+
+        return null;
     }
 
     /**
@@ -1011,8 +1040,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
             return null;
         }
 
-        notifyBeforeFlushListeners();
-        executeBeforeFlushTriggers();
+        beforeFlush();
+
         checkDatabaseState();
         transformNewChildsOfTempoparyParents();
         // TODO: this method checks incomming links, but doesn't lock entities to remove after check, so new links may appear after this check but before low level remove 
@@ -1103,6 +1132,26 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         changesTracker.clear();
         return changesDescription;
+    }
+
+    private void beforeFlush() {
+        // notify listeners, execute before flush, if were side effects, do the same for side effects
+
+        Set<TransientEntityChange> changesDescription = changesTracker.getChangesDescription();
+        Set<TransientEntity> sideEffects = new HashSet<TransientEntity>(changesTracker.getChangedEntities());
+        Set<TransientEntity> processedEntities = new HashSetDecorator<TransientEntity>();
+
+        while (sideEffects != null && !sideEffects.isEmpty()) {
+            notifyBeforeFlushListeners(changesDescription);
+            sideEffects = executeBeforeFlushTriggers(sideEffects, processedEntities);
+
+            if (sideEffects != null && !sideEffects.isEmpty()) {
+                changesDescription = new HashSet<TransientEntityChange>();
+                for (TransientEntity sideEffectEntity : sideEffects) {
+                    changesDescription.add(changesTracker.getChangeDescription(sideEffectEntity));
+                }
+            }
+        }
     }
 
     private static void decodeException(@NotNull Throwable e) {
@@ -1401,9 +1450,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         });
     }
 
-    private void notifyBeforeFlushListeners() {
-        final Set<TransientEntityChange> changes = changesTracker.getChangesDescription();
-
+    private void notifyBeforeFlushListeners(final Set<TransientEntityChange> changes) {
         if (changes == null || changes.isEmpty()) return;
 
         if (log.isDebugEnabled()) {
@@ -1435,7 +1482,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         // check side effects in listeners
-        changesTracker.markState();
+        final int changesCount = ((TransientChangesTrackerImpl)changesTracker).getChangesCount();
         store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
             public void visit(TransientStoreSessionListener listener) {
                 try {
@@ -1449,7 +1496,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             }
         });
 
-        if (changesTracker.wereChangesAfterMarkState()) {
+        if (((TransientChangesTrackerImpl)changesTracker).getChangesCount() != changesCount) {
             throw new EntityStoreException("It's not allowed to change database inside listener.beforeFlushAfterConstraintsCheck() method.");
         }
     }
