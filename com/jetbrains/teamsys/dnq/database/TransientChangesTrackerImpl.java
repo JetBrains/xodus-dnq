@@ -285,7 +285,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return newSet.isEmpty();
     }
 
-    private Runnable propertyChangedDetailed(TransientEntity e, String propertyName, Comparable origValue, PropertyChangeType changeType, Runnable change) {
+  private Runnable propertyChangedDetailed(TransientEntity e, String propertyName, Comparable origValue, PropertyChangeType changeType, Runnable change) {
     c();
 
     Map<String, PropertyChange> propertiesDetailed = entityToChangedPropertiesDetailed.get(e);
@@ -297,6 +297,18 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     PropertyChange propertyChange = propertiesDetailed.get(propertyName);
     Runnable prevChange = propertyChange == null ? null : ((PropertyChangeInternal)propertyChange).getChange();
     propertiesDetailed.put(propertyName, new PropertyChangeInternal(propertyName, origValue, changeType, change));
+
+    return prevChange;
+  }
+
+  private Runnable rollbackPropertyChangedDetailed(TransientEntity e, String propertyName) {
+    Map<String, PropertyChange> propertiesDetailed = entityToChangedPropertiesDetailed.get(e);
+    assert propertiesDetailed != null;
+    PropertyChange propertyChange = propertiesDetailed.get(propertyName);
+    assert propertyChange != null;
+    Runnable prevChange = ((PropertyChangeInternal)propertyChange).getChange();
+    assert prevChange != null;
+    propertiesDetailed.remove(propertyName);
 
     return prevChange;
   }
@@ -495,52 +507,63 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
                               @NotNull final String propertyName,
                               @Nullable final Comparable propertyOldValue,
                               @NotNull final Comparable propertyNewValue) {
-    entityChanged(e);
+    if (propertyNewValue.equals(propertyOldValue)) {
+      // rollback property change
+      offerChange(null, rollbackPropertyChangedDetailed(e, propertyName));
+    } else {
+      entityChanged(e);
 
-    Runnable changeProperty = new Runnable() {
-      public void run() {
-        if (!e.isRemovedOrTemporary()) {
-          if (log.isDebugEnabled()) {
-            log.debug("Set property: " + e + "." + propertyName + "=" + propertyNewValue);
-          }
-          try {
-            e.getPersistentEntity().setProperty(propertyName, propertyNewValue);
-          } catch (OperationFailureException ofe) {
-            if (log.isErrorEnabled()) {
-              log.error("Failed set property: " + e + "." + propertyName + "=" + propertyNewValue, ofe);
+      Runnable changeProperty = new Runnable() {
+        public void run() {
+          if (!e.isRemovedOrTemporary()) {
+            if (log.isDebugEnabled()) {
+              log.debug("Set property: " + e + "." + propertyName + "=" + propertyNewValue);
             }
-            throw ofe;
+            try {
+              e.getPersistentEntity().setProperty(propertyName, propertyNewValue);
+            } catch (OperationFailureException ofe) {
+              if (log.isErrorEnabled()) {
+                log.error("Failed set property: " + e + "." + propertyName + "=" + propertyNewValue, ofe);
+              }
+              throw ofe;
+            }
           }
         }
-      }
-    };
+      };
 
-    offerChange(changeProperty, propertyChangedDetailed(e, propertyName, propertyOldValue, PropertyChangeType.UPDATE, changeProperty));
-    changeIndexes(e, propertyName);
+      offerChange(changeProperty, propertyChangedDetailed(e, propertyName, propertyOldValue, PropertyChangeType.UPDATE, changeProperty));
+      changeIndexes(e, propertyName);
+    }
   }
 
   public void propertyDeleted(@NotNull final TransientEntity e, @NotNull final String propertyName, @Nullable final Comparable propertyOldValue) {
-    entityChanged(e);
-    Runnable deleteProperty = new Runnable() {
-      public void run() {
-        if (!e.isRemovedOrTemporary()) {
-          if (log.isDebugEnabled()) {
-            log.debug("Delete property: " + e + "." + propertyName);
-          }
-          try {
-            e.getPersistentEntity().deleteProperty(propertyName);
-            deleteIndexKeys(e, propertyName);
-          } catch (OperationFailureException ofe) {
-            if (log.isErrorEnabled()) {
-              log.error("Failed delete property: " + e + "." + propertyName, ofe);
+    //
+    if (propertyOldValue == null) {
+      // rollback property change
+      offerChange(null, rollbackPropertyChangedDetailed(e, propertyName));
+    } else {
+      entityChanged(e);
+      Runnable deleteProperty = new Runnable() {
+        public void run() {
+          if (!e.isRemovedOrTemporary()) {
+            if (log.isDebugEnabled()) {
+              log.debug("Delete property: " + e + "." + propertyName);
             }
-            throw ofe;
+            try {
+              e.getPersistentEntity().deleteProperty(propertyName);
+              deleteIndexKeys(e, propertyName);
+            } catch (OperationFailureException ofe) {
+              if (log.isErrorEnabled()) {
+                log.error("Failed delete property: " + e + "." + propertyName, ofe);
+              }
+              throw ofe;
+            }
           }
         }
-      }
-    };
-    offerChange(deleteProperty, propertyChangedDetailed(e, propertyName, propertyOldValue, PropertyChangeType.REMOVE, deleteProperty));
-    // do not change indexes - empty link from index must be coutch during constraints phase
+      };
+      offerChange(deleteProperty, propertyChangedDetailed(e, propertyName, propertyOldValue, PropertyChangeType.REMOVE, deleteProperty));
+      // do not change indexes - empty link from index must be coutch during constraints phase
+    }
   }
 
   public void historyCleared(@NotNull final String entityType) {
@@ -572,37 +595,51 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
   public void blobChanged(@NotNull final TransientEntity e,
                           @NotNull final String blobName,
                           @NotNull final String newValue) {
-    entityChanged(e);
-    Runnable blobChanged = new Runnable() {
-      public void run() {
-        if (!e.isRemovedOrTemporary()) {
-          log.debug("Set blob property: " + e + "." + blobName + "=" + newValue);
-          e.getPersistentEntity().setBlobString(blobName, newValue);
+    String oldPropertyValue = e.isSaved() ? ((TransientEntityImpl)e).getPersistentEntityInternal().getBlobString(blobName) : null;
+    if (newValue.equals(oldPropertyValue)) {
+      // rollback property change
+      offerChange(null, rollbackPropertyChangedDetailed(e, blobName));
+    } else {
+      entityChanged(e);
+      Runnable blobChanged = new Runnable() {
+        public void run() {
+          if (!e.isRemovedOrTemporary()) {
+            log.debug("Set blob property: " + e + "." + blobName + "=" + newValue);
+            e.getPersistentEntity().setBlobString(blobName, newValue);
+          }
         }
-      }
-    };
-    offerChange(blobChanged, propertyChangedDetailed(e, blobName, null, PropertyChangeType.UPDATE, blobChanged));
+      };
+      offerChange(blobChanged, propertyChangedDetailed(e, blobName, null, PropertyChangeType.UPDATE, blobChanged));
+    }
   }
 
   public void blobDeleted(@NotNull final TransientEntity e, @NotNull final String blobName) {
-    entityChanged(e);
+    String oldPropertyValue = e.isSaved() ? ((TransientEntityImpl)e).getPersistentEntityInternal().getBlobString(blobName) : null;
+    if (oldPropertyValue == null) {
+      offerChange(null, rollbackPropertyChangedDetailed(e, blobName));
+    } else {
+      entityChanged(e);
 
-    Runnable deleteBlob = new Runnable() {
-      public void run() {
-        if (!e.isRemovedOrTemporary()) {
-          log.debug("Delete blob property: " + e + "." + blobName);
-          e.getPersistentEntity().deleteBlob(blobName);
+      Runnable deleteBlob = new Runnable() {
+        public void run() {
+          if (!e.isRemovedOrTemporary()) {
+            log.debug("Delete blob property: " + e + "." + blobName);
+            e.getPersistentEntity().deleteBlob(blobName);
+          }
         }
-      }
-    };
-    offerChange(deleteBlob, propertyChangedDetailed(e, blobName, null, PropertyChangeType.REMOVE, deleteBlob));
+      };
+      offerChange(deleteBlob, propertyChangedDetailed(e, blobName, null, PropertyChangeType.REMOVE, deleteBlob));
+    }
   }
 
-  private void offerChange(@NotNull final Runnable change, @Nullable Runnable changeToRemove) {
+  private void offerChange(final Runnable change, @Nullable Runnable changeToRemove) {
     if (changeToRemove != null) {
       changes.remove(changeToRemove);
     }
-    changes.offer(change);
+
+    if (change != null) {
+      changes.offer(change);
+    }
   }
 
   void offerChange(@NotNull final Runnable change) {
