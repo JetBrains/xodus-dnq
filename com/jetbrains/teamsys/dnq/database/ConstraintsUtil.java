@@ -72,15 +72,17 @@ class ConstraintsUtil {
 
                         EntityIterable links = pair.getSecond();
 
-                        TransientEntity entity = (TransientEntity) storeSession.getFirst(links);
+                        EntityIterator linksIterator = links.iterator();
+                        while (linksIterator.hasNext()){
 
-                        if (entity == null || entity.isRemoved() || entity.getRemovedLinks(pair.getFirst()).contains(e)) {
-                            //maybe we should check all links, isntead of first???
-                            //Previously we checked last.
-                            continue;
+                            TransientEntity entity = ((TransientEntity) linksIterator.next());
+
+                            if (entity == null || entity.isRemoved() || entity.getRemovedLinks(pair.getFirst()).contains(e)) {
+                                continue;
+                            }
+
+                            _incomingLinks.add(pair);
                         }
-
-                        _incomingLinks.add(pair);
                     }
                     if (_incomingLinks.size() > 0) {
                         EntityMetaData metaData = modelMetaData.getEntityMetaData(e.getType());
