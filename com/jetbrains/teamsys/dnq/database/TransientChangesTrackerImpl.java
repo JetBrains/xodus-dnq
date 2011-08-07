@@ -301,16 +301,21 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     return prevChange;
   }
 
+  @Nullable
   private Runnable rollbackPropertyChangedDetailed(TransientEntity e, String propertyName) {
     Map<String, PropertyChange> propertiesDetailed = entityToChangedPropertiesDetailed.get(e);
-    assert propertiesDetailed != null;
-    PropertyChange propertyChange = propertiesDetailed.get(propertyName);
-    assert propertyChange != null;
-    Runnable prevChange = ((PropertyChangeInternal)propertyChange).getChange();
-    assert prevChange != null;
-    propertiesDetailed.remove(propertyName);
+    if (propertiesDetailed != null) {
+        PropertyChange propertyChange = propertiesDetailed.get(propertyName);
 
-    return prevChange;
+        if (propertyChange != null) {
+            Runnable prevChange = ((PropertyChangeInternal)propertyChange).getChange();
+            propertiesDetailed.remove(propertyName);
+
+            return prevChange;
+        }
+    }
+
+    return null;
   }
 
   public void entityAdded(@NotNull final TransientEntity e) {
