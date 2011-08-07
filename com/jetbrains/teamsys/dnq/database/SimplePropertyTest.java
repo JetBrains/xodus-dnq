@@ -86,6 +86,33 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
     checkTextValue1Value2Value1MakesNoChanges("test", "test1");
   }
 
+  public void testChangeBooleanInTwoTransactions_JT_10878() {
+    // set boolean to true in one transaction, then do the same in another transaction
+      TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
+
+      TransientEntity e = null;
+      TransientStoreSession t = store.beginSession("t1", new Object());
+      e = (TransientEntity) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue");
+      t.commit();
+
+      // cache FlagOfSchepotiev null value in transient level
+      Object t1id = new Object();
+      TransientStoreSession t1 = store.beginSession("t1", t1id);
+      assertEquals(null, PrimitiveAssociationSemantics.get(e, "FlagOfSchepotiev", null));
+      t1.suspend();
+
+      // set flag to false and save to database
+      TransientStoreSession t2 = store.beginSession("t2", new Object());
+      assertEquals(null, PrimitiveAssociationSemantics.get(e, "FlagOfSchepotiev", null));
+      PrimitiveAssociationSemantics.set(e, "FlagOfSchepotiev", false, Boolean.class);
+      t2.commit();
+
+      // resume t1, set flag to false and save to database
+      t1 = store.resumeSession(t1id);
+      PrimitiveAssociationSemantics.set(e, "FlagOfSchepotiev", false, Boolean.class);
+      t1.commit();
+  }
+
   private void checkStringValue1Value2Value1MakesNoChanges(String value1, String value2) {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
     TransientStoreSession transientSession = store.beginSession("t1", new Object());
