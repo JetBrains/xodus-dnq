@@ -254,7 +254,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
 
 
     /**
-     * Allows getting id for Commited-Saved, Aborted-Saved and Open-Removed
+     * Allows getting id for Committed-Saved, Aborted-Saved and Open-Removed
      *
      * @return entity id
      */
@@ -895,7 +895,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         }
 
         T processClosedNew(AbstractTransientEntity entity, P1 param1, P2 param2) {
-            throw new IllegalStateException("Illegal comination of session and transient entity states (Commited or Aborted, New). Possible bug. " + entity);
+            throw new IllegalStateException("Illegal combination of session and transient entity states (Committed or Aborted, New). Possible bug. " + entity);
         }
 
         protected T processClosedRemoved(AbstractTransientEntity entity, P1 paraP1, P2 param2) {
