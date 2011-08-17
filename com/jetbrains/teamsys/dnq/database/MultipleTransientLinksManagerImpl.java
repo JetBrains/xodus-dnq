@@ -229,7 +229,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
         return new TransientEntityIterable(links == null ? EMPTY : links);
 
       case Temporary:
-        return new TransientEntityIterable(temporaryLinks == null ? EMPTY : new java.util.HashSet<TransientEntity>(temporaryLinks));
+        return new TransientEntityIterable(temporaryLinks == null ? EMPTY : new HashSet<TransientEntity>(temporaryLinks));
 
 
       case Saved:
@@ -265,7 +265,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
       case SavedNew:
         switch (state) {
           case LinksNotLoaded:
-            //TODO: error prone code, we don't know if 'removed' contains 'real' records 
+            //TODO: error prone code, we don't know if 'removed' contains 'real' records
             return
                     owner.getPersistentEntityInternal().getLinks(linkName).size() -
                             (removed == null ? 0 : removed.size()) +
