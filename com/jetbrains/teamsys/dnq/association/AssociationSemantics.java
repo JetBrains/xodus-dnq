@@ -4,6 +4,7 @@ import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.EntityIterable;
 import com.jetbrains.teamsys.database.TransientEntity;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
+import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import jetbrains.mps.internal.collections.runtime.Sequence;
 import org.apache.commons.logging.Log;
@@ -148,6 +149,9 @@ public class AssociationSemantics {
    */
   @Nullable
   public static Entity getOldValue(@NotNull TransientEntity e, @NotNull String name) {
+    if (EntityOperations.isRemoved(e)) {
+      return e.getTransientStoreSession().getPersistentSession().getEntity(e.getId()).getLink(name);
+    }
     return Sequence.fromIterable(getRemovedLinks(e, name)).first();
   }
 
