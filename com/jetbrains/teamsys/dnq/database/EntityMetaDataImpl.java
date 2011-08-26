@@ -465,7 +465,8 @@ public class EntityMetaDataImpl implements EntityMetaData {
     }
 
     public BasePersistentClass getInstance(Entity entity) {
-        return EntityInstanceRegistry.getEntityInstance(entity, type);
+        final String entityType = entity == null ? type : entity.getType();
+        return ((TransientEntityStoreImpl) entity.getStore()).getCachedPersistentClassInstance(entityType);
     }
 
     private boolean parentChanged(Map<String, LinkChange> changedLinks) {

@@ -39,6 +39,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private final Latch enumContainersLock = Latch.create();
     private final Set<EnumContainer> initedContainers = new HashSet<EnumContainer>(10);
     private final Map<String, Entity> enumCache = new HashMap<String, Entity>();
+    private final Map<String, BasePersistentClass> persistentClassInstanceCache = new HashMap<String, BasePersistentClass>();
 
     public TransientEntityStoreImpl() {
         if (log.isTraceEnabled()) {
@@ -509,6 +510,18 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final String key = getEnumKey(className, propName);
         synchronized (enumCache) {
             enumCache.put(key, entity);
+        }
+    }
+
+    public BasePersistentClass getCachedPersistentClassInstance(@NotNull final String entityType) {
+        synchronized (persistentClassInstanceCache) {
+            return persistentClassInstanceCache.get(entityType);
+        }
+    }
+
+    public void setCachedPersistentClassInstance(@NotNull final String entityType, @NotNull final BasePersistentClass clazz) {
+        synchronized (persistentClassInstanceCache) {
+            persistentClassInstanceCache.put(entityType, clazz);
         }
     }
 
