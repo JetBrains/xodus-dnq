@@ -2,17 +2,18 @@ package com.jetbrains.teamsys.dnq.association;
 
 import com.jetbrains.teamsys.database.Entity;
 import com.jetbrains.teamsys.database.EntityIterable;
+import com.jetbrains.teamsys.database.EntityIterator;
 import com.jetbrains.teamsys.database.TransientEntity;
 import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
 import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import jetbrains.mps.internal.collections.runtime.Sequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -152,7 +153,11 @@ public class AssociationSemantics {
     if (EntityOperations.isRemoved(e)) {
       return e.getTransientStoreSession().getPersistentSession().getEntity(e.getId()).getLink(name);
     }
-    return Sequence.fromIterable(getRemovedLinks(e, name)).first();
+    final EntityIterator itr = getRemovedLinks(e, name).iterator();
+    if (itr.hasNext()) {
+      return itr.next();
+    }
+    return null;
   }
 
 }
