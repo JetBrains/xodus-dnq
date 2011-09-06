@@ -9,6 +9,7 @@ import com.jetbrains.teamsys.core.dataStructures.NanoSet;
 import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.database.exceptions.*;
 import com.jetbrains.teamsys.database.impl.OperationFailureException;
+import com.jetbrains.teamsys.database.persistence.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -697,7 +698,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
                           index, getIndexFieldsFinalValues(e, index), ((TransientEntityImpl) e).getPersistentEntityInternal());
                 }
               }
-            } catch (EntityStoreException ex) {
+            } catch (PhysicalLayerException ex) {
               throwIndexUniquenessViolationException(e, index);
             }
           }
