@@ -4,7 +4,6 @@ import com.jetbrains.teamsys.database.*;
 import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
 
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Set;
 
 /**
