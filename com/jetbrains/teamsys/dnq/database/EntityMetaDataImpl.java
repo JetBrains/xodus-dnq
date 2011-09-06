@@ -69,7 +69,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
     public void setModelMetaData(ModelMetaData modelMetaData) {
         for (Index index : this.ownIndexes) {
-            index.setModelMetaData(modelMetaData);
+            ((IndexImpl)index).setModelMetaData(modelMetaData);
         }
 
         this.modelMetaData = modelMetaData;
