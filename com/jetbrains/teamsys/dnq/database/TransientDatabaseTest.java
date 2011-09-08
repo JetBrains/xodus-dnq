@@ -2,8 +2,8 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
 import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
-import com.jetbrains.teamsys.database.TransientEntityStore;
-import com.jetbrains.teamsys.database.TransientStoreSession;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.database.TransientStoreSession;
 
 /**
  * Date: 07.12.2006

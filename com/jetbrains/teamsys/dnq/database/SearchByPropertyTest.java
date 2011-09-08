@@ -2,10 +2,10 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
 import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
-import com.jetbrains.teamsys.database.Entity;
-import com.jetbrains.teamsys.database.StoreSession;
-import com.jetbrains.teamsys.database.TransientEntityStore;
-import com.jetbrains.teamsys.database.TransientStoreSession;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.StoreSession;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.database.TransientStoreSession;
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
 import jetbrains.mps.internal.collections.runtime.ListSequence;
 

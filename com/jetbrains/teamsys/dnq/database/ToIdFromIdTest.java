@@ -2,10 +2,10 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
 import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
-import com.jetbrains.teamsys.database.Entity;
-import com.jetbrains.teamsys.database.EntityIterable;
-import com.jetbrains.teamsys.database.TransientEntityStore;
-import com.jetbrains.teamsys.database.TransientStoreSession;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.EntityIterable;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.database.TransientStoreSession;
 
 public class ToIdFromIdTest extends AbstractEntityStoreAwareTestCase {
 
