@@ -1,8 +1,8 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.exceptions.EntityRemovedException;
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.exceptions.EntityRemovedException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -10,7 +10,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 // TODO: move this class to the associations semantics package

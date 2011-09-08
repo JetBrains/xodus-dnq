@@ -1,8 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.EntityId;
-import com.jetbrains.teamsys.database.TransientEntityId;
-import com.jetbrains.teamsys.dnq.database.TransientEntityImpl;
+import jetbrains.exodus.database.EntityId;
+import jetbrains.exodus.database.TransientEntityId;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.atomic.AtomicInteger;

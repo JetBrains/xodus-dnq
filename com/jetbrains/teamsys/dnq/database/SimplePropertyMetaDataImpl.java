@@ -1,8 +1,5 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.PropertyMetaData;
-import com.jetbrains.teamsys.database.PropertyType;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**

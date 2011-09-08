@@ -1,8 +1,8 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.AssociationMetaData;
-import com.jetbrains.teamsys.database.AssociationType;
-import com.jetbrains.teamsys.database.AssociationEndMetaData;
+import jetbrains.exodus.database.AssociationMetaData;
+import jetbrains.exodus.database.AssociationType;
+import jetbrains.exodus.database.AssociationEndMetaData;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.BeanNameAware;
 

@@ -1,10 +1,10 @@
 package com.jetbrains.teamsys.dnq.association;
 
-import com.jetbrains.teamsys.database.Entity;
-import com.jetbrains.teamsys.database.EntityIterable;
-import com.jetbrains.teamsys.database.EntityIterator;
-import com.jetbrains.teamsys.database.TransientEntity;
-import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.EntityIterable;
+import jetbrains.exodus.database.EntityIterator;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import org.apache.commons.logging.Log;
@@ -13,7 +13,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -54,7 +53,7 @@ public class AssociationSemantics {
   }
 
   /**
-   * Returns copy of {@link #getToMany(com.jetbrains.teamsys.database.Entity, String)} iterable
+   * Returns copy of {@link #getToMany(jetbrains.exodus.database.Entity, String)} iterable
    * @param e
    * @param linkName
    * @return

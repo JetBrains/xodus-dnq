@@ -1,9 +1,9 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.Entity;
-import com.jetbrains.teamsys.database.EntityId;
-import com.jetbrains.teamsys.database.EntityIterator;
-import com.jetbrains.teamsys.database.TransientStoreSession;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.EntityId;
+import jetbrains.exodus.database.EntityIterator;
+import jetbrains.exodus.database.TransientStoreSession;
 import org.jetbrains.annotations.NotNull;
 
 class PersistentEntityIteratorWrapper implements EntityIterator {

@@ -1,10 +1,10 @@
 package com.jetbrains.teamsys.dnq.association;
 
-import com.jetbrains.teamsys.core.crypto.MessageDigestUtil;
-import com.jetbrains.teamsys.database.Entity;
-import com.jetbrains.teamsys.database.PropertyChange;
-import com.jetbrains.teamsys.database.TransientEntity;
-import com.jetbrains.teamsys.database.TransientStoreSession;
+import jetbrains.exodus.core.crypto.MessageDigestUtil;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.PropertyChange;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientStoreSession;
 import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import org.jetbrains.annotations.NotNull;
@@ -13,7 +13,6 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Map;
-import java.util.Set;
 
 /**
  */

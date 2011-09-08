@@ -1,7 +1,7 @@
 package com.jetbrains.teamsys.dnq.database.refactorings;
 
-import com.jetbrains.teamsys.core.dataStructures.Pair;
-import com.jetbrains.teamsys.database.*;
+import jetbrains.exodus.core.dataStructures.Pair;
+import jetbrains.exodus.database.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;

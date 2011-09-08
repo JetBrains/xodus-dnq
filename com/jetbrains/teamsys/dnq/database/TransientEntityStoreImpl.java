@@ -1,10 +1,10 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
-import com.jetbrains.teamsys.core.dataStructures.hash.LinkedHashSet;
-import com.jetbrains.teamsys.core.execution.locks.Latch;
-import com.jetbrains.teamsys.database.*;
+import jetbrains.exodus.core.dataStructures.hash.HashMap;
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
+import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
+import jetbrains.exodus.core.execution.locks.Latch;
+import jetbrains.exodus.database.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;

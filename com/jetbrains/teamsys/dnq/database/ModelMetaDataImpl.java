@@ -1,7 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
-import com.jetbrains.teamsys.database.*;
+import jetbrains.exodus.core.dataStructures.hash.HashMap;
+import jetbrains.exodus.database.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

@@ -1,9 +1,9 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.Pair;
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.exceptions.*;
+import jetbrains.exodus.core.dataStructures.Pair;
+import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.exceptions.*;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;

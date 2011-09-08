@@ -1,10 +1,10 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
-import com.jetbrains.teamsys.database.*;
+import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
+import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
+import jetbrains.exodus.core.dataStructures.hash.HashMap;
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
+import jetbrains.exodus.database.*;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

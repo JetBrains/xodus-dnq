@@ -1,7 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
 
 import java.util.List;
 import java.util.Set;

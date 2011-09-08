@@ -1,6 +1,6 @@
 package com.jetbrains.teamsys.dnq.database.refactorings;
 
-import com.jetbrains.teamsys.database.*;
+import jetbrains.exodus.database.*;
 import org.jetbrains.annotations.NotNull;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;

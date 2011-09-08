@@ -1,10 +1,9 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.Pair;
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
-import com.jetbrains.teamsys.database.impl.iterate.EntityIteratorBase;
+import jetbrains.exodus.core.dataStructures.Pair;
+import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

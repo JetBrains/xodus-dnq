@@ -1,12 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.execution.Job;
-import com.jetbrains.teamsys.core.execution.ThreadJobProcessorPool;
-import com.jetbrains.teamsys.database.TransientEntityChange;
-import com.jetbrains.teamsys.database.TransientEntityStore;
-import com.jetbrains.teamsys.database.TransientStoreSession;
-
-import java.util.Set;
+import jetbrains.exodus.core.execution.Job;
+import jetbrains.exodus.core.execution.ThreadJobProcessorPool;
 
 public class TransientSessionDeferred extends TransientSessionImpl {
 

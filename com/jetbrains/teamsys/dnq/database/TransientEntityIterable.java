@@ -1,9 +1,9 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.hash.LinkedHashSet;
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.impl.iterate.AbstractEntityIterable;
-import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
+import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.impl.iterate.AbstractEntityIterable;
+import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;

@@ -2,9 +2,9 @@ package com.jetbrains.teamsys.dnq.database;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import com.jetbrains.teamsys.database.Entity;
-import com.jetbrains.teamsys.database.EntityIterable;
-import com.jetbrains.teamsys.database.TransientEntity;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.EntityIterable;
+import jetbrains.exodus.database.TransientEntity;
 
 import java.util.Set;
 

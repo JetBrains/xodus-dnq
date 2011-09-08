@@ -1,8 +1,8 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.impl.iterate.EntityIterableBase;
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;

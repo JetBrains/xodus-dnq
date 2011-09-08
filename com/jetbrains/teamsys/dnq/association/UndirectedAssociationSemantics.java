@@ -1,7 +1,7 @@
 package com.jetbrains.teamsys.dnq.association;
 
-import com.jetbrains.teamsys.database.Entity;
-import com.jetbrains.teamsys.database.TransientEntity;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.TransientEntity;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

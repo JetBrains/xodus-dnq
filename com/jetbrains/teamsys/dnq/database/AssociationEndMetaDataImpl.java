@@ -1,6 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.*;
+import jetbrains.exodus.database.*;
 import org.jetbrains.annotations.NotNull;
 
 public class AssociationEndMetaDataImpl implements AssociationEndMetaData {

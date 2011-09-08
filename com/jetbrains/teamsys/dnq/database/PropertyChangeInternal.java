@@ -1,7 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.PropertyChange;
-import com.jetbrains.teamsys.database.PropertyChangeType;
+import jetbrains.exodus.database.PropertyChange;
+import jetbrains.exodus.database.PropertyChangeType;
 
 /**
  * User: vadim

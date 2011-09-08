@@ -1,7 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.PropertyMetaData;
-import com.jetbrains.teamsys.database.PropertyType;
+import jetbrains.exodus.database.PropertyMetaData;
+import jetbrains.exodus.database.PropertyType;
 import org.jetbrains.annotations.NotNull;
 
 /**

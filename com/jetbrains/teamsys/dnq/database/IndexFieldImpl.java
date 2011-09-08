@@ -1,6 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.IndexField;
+import jetbrains.exodus.database.IndexField;
 
 /**
  * Date: Nov 19, 2009

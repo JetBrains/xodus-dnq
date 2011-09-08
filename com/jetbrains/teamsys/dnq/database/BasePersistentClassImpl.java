@@ -1,8 +1,8 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.BasePersistentClass;
-import com.jetbrains.teamsys.database.Entity;
-import com.jetbrains.teamsys.database.EntityIterable;
+import jetbrains.exodus.database.BasePersistentClass;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.EntityIterable;
 
 import java.util.ArrayList;
 import java.util.List;

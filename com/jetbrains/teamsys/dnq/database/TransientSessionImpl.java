@@ -1,13 +1,13 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashSet;
-import com.jetbrains.teamsys.core.execution.locks.Latch;
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.exceptions.*;
-import com.jetbrains.teamsys.database.persistence.exceptions.LockConflictException;
+import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
+import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
+import jetbrains.exodus.core.dataStructures.hash.HashMap;
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
+import jetbrains.exodus.core.execution.locks.Latch;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.exceptions.*;
+import jetbrains.exodus.database.persistence.exceptions.LockConflictException;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;

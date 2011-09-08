@@ -1,13 +1,13 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashMapDecorator;
-import com.jetbrains.teamsys.core.dataStructures.decorators.HashSetDecorator;
-import com.jetbrains.teamsys.core.dataStructures.decorators.QueueDecorator;
-import com.jetbrains.teamsys.core.dataStructures.hash.HashMap;
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.exceptions.*;
-import com.jetbrains.teamsys.database.impl.OperationFailureException;
-import com.jetbrains.teamsys.database.persistence.exceptions.PhysicalLayerException;
+import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
+import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
+import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
+import jetbrains.exodus.core.dataStructures.hash.HashMap;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.exceptions.*;
+import jetbrains.exodus.database.impl.OperationFailureException;
+import jetbrains.exodus.database.persistence.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;

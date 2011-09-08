@@ -1,7 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.database.*;
-import com.jetbrains.teamsys.database.exceptions.EntityRemovedException;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.exceptions.EntityRemovedException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
