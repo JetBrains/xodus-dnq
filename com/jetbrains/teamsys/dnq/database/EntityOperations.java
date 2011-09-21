@@ -119,21 +119,7 @@ public class EntityOperations {
             return true;
         }
 
-        if (e1 != null && e2 != null && !(e1 instanceof TransientEntity) && !(e2 instanceof TransientEntity)) {
-            return false;
-        }
-
-        // null == removed || removed == null
-        if ((e1 == null && EntityOperations.isRemoved((TransientEntity) e2)) ||
-                (e1 != null && EntityOperations.isRemoved(e1) && e2 == null)) {
-            return true;
-        }
-
-        //no need to reattach - it's ok to compare entities from different sessions, Entity.equals should handle this situation itself
-        //e1 = TransientStoreUtil.reattach((TransientEntity) e1);
-        //e2 = TransientStoreUtil.reattach((TransientEntity) e2);
-
-        return e1 != null && e1.equals(e2);
+        return e1 != null && e1 instanceof TransientEntity && e1.equals(e2);
     }
 
     /**
