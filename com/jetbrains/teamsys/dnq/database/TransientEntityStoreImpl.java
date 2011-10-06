@@ -15,6 +15,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Vadim.Gurov
@@ -38,8 +39,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private int flushRetryOnLockConflict = 100;
     private final Latch enumContainersLock = Latch.create();
     private final Set<EnumContainer> initedContainers = new HashSet<EnumContainer>(10);
-    private final Map<String, Entity> enumCache = new HashMap<String, Entity>();
-    private final Map<String, BasePersistentClass> persistentClassInstanceCache = new HashMap<String, BasePersistentClass>();
+    private final Map<String, Entity> enumCache = new ConcurrentHashMap<String, Entity>();
+    private final Map<String, BasePersistentClass> persistentClassInstanceCache = new ConcurrentHashMap<String, BasePersistentClass>();
 
     public TransientEntityStoreImpl() {
         if (log.isTraceEnabled()) {
@@ -499,30 +500,20 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public Entity getCachedEnumValue(@NotNull final String className, @NotNull final String propName) {
-        final String key = getEnumKey(className, propName);
-        synchronized (enumCache) {
-            return enumCache.get(key);
-        }
+        return enumCache.get(getEnumKey(className, propName));
     }
 
     public void setCachedEnumValue(@NotNull final String className,
                                    @NotNull final String propName, @NotNull final Entity entity) {
-        final String key = getEnumKey(className, propName);
-        synchronized (enumCache) {
-            enumCache.put(key, entity);
-        }
+        enumCache.put(getEnumKey(className, propName), entity);
     }
 
     public BasePersistentClass getCachedPersistentClassInstance(@NotNull final String entityType) {
-        synchronized (persistentClassInstanceCache) {
-            return persistentClassInstanceCache.get(entityType);
-        }
+        return persistentClassInstanceCache.get(entityType);
     }
 
     public void setCachedPersistentClassInstance(@NotNull final String entityType, @NotNull final BasePersistentClass clazz) {
-        synchronized (persistentClassInstanceCache) {
-            persistentClassInstanceCache.put(entityType, clazz);
-        }
+        persistentClassInstanceCache.put(entityType, clazz);
     }
 
     public static String getEnumKey(@NotNull final String className, @NotNull final String propName) {
