@@ -208,11 +208,13 @@ public class ModelMetaDataImpl implements ModelMetaData {
         AssociationEndMetaData aemd = source.removeAssociationEndMetaData(associationName);
         AssociationMetaData amd = aemd.getAssociationMetaData();
 
+        EntityMetaDataImpl oppositeEntityMetaData = (EntityMetaDataImpl) aemd.getOppositeEntityMetaData();
         // remove from target
         if (amd.getType() != AssociationType.Directed) {
-            ((EntityMetaDataImpl) aemd.getOppositeEntityMetaData()).removeAssociationEndMetaData(amd.getOppositeEnd(aemd).getName());
+            oppositeEntityMetaData.removeAssociationEndMetaData(amd.getOppositeEnd(aemd).getName());
         }
-
+        associationMetaDatas.remove(getUniqueAssociationName(entityName, oppositeEntityMetaData.getType(),
+                associationName));
         return amd;
     }
 
