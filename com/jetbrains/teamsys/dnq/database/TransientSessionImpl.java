@@ -869,12 +869,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         throw new IllegalStateException("Can't create local copy of transient entity in New state from another session. " + entity);
                     }
                 } else if (entity.isSaved()) {
-                    if (entity.getTransientStoreSession() == this && createdTransientForPersistentEntities.get(entity.getId()) == entity) {
+                    final EntityId id = entity.getId();
+                    if (entity.getTransientStoreSession() == this && createdTransientForPersistentEntities.get(id) == entity) {
                         // was created in this session and session wasn't reverted
                         return entity;
                     } else {
                         // saved entity from another session or from reverted session - load it from database by id
-                        EntityId id = entity.getId();
                         // local copy already created?
                         TransientEntity localCopy = createdTransientForPersistentEntities.get(id);
                         if (localCopy != null) {
