@@ -134,6 +134,16 @@ public class TransientStoreUtil {
         throw new RuntimeException(e);
     }
 
+    public static BasePersistentClassImpl getPersistentClassInstance(@Nullable final Entity entity, final String defaultType) {
+        final String entityType = entity == null ? defaultType : entity.getType();
+        return ((TransientEntityStoreImpl) entity.getStore()).getCachedPersistentClassInstance(entityType);
+    }
+
+    public static BasePersistentClassImpl getPersistentClassInstance(@Nullable final Entity entity, @NotNull final EntityMetaData entityMetaData) {
+        final String entityType = entity == null ? entityMetaData.getType() : entity.getType();
+        return ((TransientEntityStoreImpl) entity.getStore()).getCachedPersistentClassInstance(entityType);
+    }
+
     static String toString(Set<String> strings) {
         if (strings == null) {
             return "";

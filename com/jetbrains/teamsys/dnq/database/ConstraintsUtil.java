@@ -84,8 +84,7 @@ class ConstraintsUtil {
                         }
                     }
                     if (_incomingLinks.size() > 0) {
-                        EntityMetaData metaData = modelMetaData.getEntityMetaData(e.getType());
-                        exceptions.add(metaData.getInstance(e).createIncomingLinksException(_incomingLinks, modelMetaData, e));
+                        exceptions.add(TransientStoreUtil.getPersistentClassInstance(e, e.getType()).createIncomingLinksException(_incomingLinks, modelMetaData, e));
                     }
                 }
             }

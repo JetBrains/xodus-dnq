@@ -1001,7 +1001,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 // meta-data may be null for persistent enums
                 if (md != null) {
                     try {
-                        md.getInstance(entity).executeBeforeFlushTrigger(entity);
+                        TransientStoreUtil.getPersistentClassInstance(entity, md).executeBeforeFlushTrigger(entity);
                     } catch (ConstraintsValidationException cve) {
                         for (DataIntegrityViolationException dive : cve.getCauses()) {
                             exceptions.add(dive);
@@ -1381,14 +1381,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
         for (final TransientEntity e : changedPersistentEntities.toArray(new TransientEntity[changedPersistentEntities.size()])) {
             if (!e.isNew() && !e.isRemovedOrTemporary()) {
                 final EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
-                if (emd != null && emd.getInstance(e).evaluateSaveHistoryCondition(e) && emd.changesReflectHistory(e, changesTracker)) {
+                if (emd != null && TransientStoreUtil.getPersistentClassInstance(e, emd).evaluateSaveHistoryCondition(e) && emd.changesReflectHistory(e, changesTracker)) {
                     if (log.isDebugEnabled()) {
                         log.debug("Save history of: " + e);
                     }
                     e.newVersion();
 
                     // !!! should be called after e.newVersion();
-                    emd.getInstance(e).saveHistoryCallback(e);
+                    TransientStoreUtil.getPersistentClassInstance(e, emd).saveHistoryCallback(e);
                 }
             }
         }

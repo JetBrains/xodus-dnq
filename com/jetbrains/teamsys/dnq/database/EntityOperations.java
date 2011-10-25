@@ -45,7 +45,7 @@ public class EntityOperations {
             EntityMetaData emd = md.getEntityMetaData(reattached.getType());
             if (emd != null) {
                 if (callDestructorPhase) {
-                    emd.getInstance(reattached).destructor(reattached);
+                    TransientStoreUtil.getPersistentClassInstance(reattached, emd).destructor(reattached);
                 }
                 processed.add(reattached);
                 // remove associations and cascade delete

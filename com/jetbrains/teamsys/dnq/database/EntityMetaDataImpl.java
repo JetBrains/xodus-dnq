@@ -420,7 +420,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
     public Set<String> getRequiredIfProperties(Entity e) {
         Set<String> result = new HashSetDecorator<String>();
         for (String property : requiredIfProperties) {
-            if (getInstance(e).isPropertyRequired(property, e)) {
+            if (TransientStoreUtil.getPersistentClassInstance(e, this).isPropertyRequired(property, e)) {
                 result.add(property);
             }
         }
@@ -462,11 +462,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
             return false;
         }
         return true;
-    }
-
-    public BasePersistentClass getInstance(Entity entity) {
-        final String entityType = entity == null ? type : entity.getType();
-        return ((TransientEntityStoreImpl) entity.getStore()).getCachedPersistentClassInstance(entityType);
     }
 
     private boolean parentChanged(Map<String, LinkChange> changedLinks) {

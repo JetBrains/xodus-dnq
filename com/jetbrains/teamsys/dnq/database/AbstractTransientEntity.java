@@ -608,7 +608,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     /**
-     * Called by BasePersistentClass by default
+     * Called by BasePersistentClassImpl by default
      *
      * @return debug presentation
      */
@@ -641,7 +641,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return getDebugPresentation();
     /*
         // delegate to Persistent Class implementation
-        BasePersistentClass pc = (BasePersistentClass) DnqUtils.getPersistentClassInstance(this, this.getType());
+        BasePersistentClassImpl pc = (BasePersistentClassImpl) DnqUtils.getPersistentClassInstance(this, this.getType());
         return pc == null ? getDebugPresentation() : pc.toString(this);
     */
     }
