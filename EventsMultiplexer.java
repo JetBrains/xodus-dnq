@@ -29,7 +29,6 @@ import jetbrains.exodus.database.EntityStore;
 import jetbrains.exodus.database.EntityId;
 
 public class EventsMultiplexer implements TransientStoreSessionListener {
-  private static EventsMultiplexer instance = new EventsMultiplexer();
   protected static Log log = LogFactory.getLog(EventsMultiplexer.class);
 
   private Map<EventsMultiplexer.FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<EventsMultiplexer.FullEntityId, Queue<IEntityListener>>();
@@ -316,7 +315,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public static EventsMultiplexer getInstance() {
-    return instance;
+    return ((EventsMultiplexer) ServiceLocator.getBean("eventsMultiplexer"));
   }
 
   public static class JobImpl extends Job {
