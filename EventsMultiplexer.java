@@ -314,8 +314,40 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     }
   }
 
+  @Nullable
   public static EventsMultiplexer getInstance() {
-    return ((EventsMultiplexer) ServiceLocator.getBean("eventsMultiplexer"));
+    // this method may be called by global beans on global scope shutdown 
+    // as a result, eventsMultiplexer may be removed already 
+    try {
+      return ((EventsMultiplexer) ServiceLocator.getBean("eventsMultiplexer"));
+    } catch (IllegalStateException e) {
+      if (log.isWarnEnabled()) {
+        log.warn("EventMultiplexer already disposed: " + e.getMessage());
+      }
+      return null;
+    }
+  }
+
+  public static void removeListenerSafe(Entity e, IEntityListener listener) {
+    check_9klgcu_a0a1(getInstance(), e, listener);
+  }
+
+  public static void removeListenerSafe(String type, IEntityListener listener) {
+    check_9klgcu_a0a2(getInstance(), type, listener);
+  }
+
+  private static void check_9klgcu_a0a1(EventsMultiplexer checkedDotOperand, Entity e, IEntityListener listener) {
+    if (null != checkedDotOperand) {
+      checkedDotOperand.removeListener(e, listener);
+    }
+
+  }
+
+  private static void check_9klgcu_a0a2(EventsMultiplexer checkedDotOperand, String type, IEntityListener listener) {
+    if (null != checkedDotOperand) {
+      checkedDotOperand.removeListener(type, listener);
+    }
+
   }
 
   public static class JobImpl extends Job {
