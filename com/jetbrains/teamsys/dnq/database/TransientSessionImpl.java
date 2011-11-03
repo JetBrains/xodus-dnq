@@ -58,12 +58,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
     private Map<EntityId, ReadonlyTransientEntityImpl> createdReadonlyTransientEntities = new HashMapDecorator<EntityId, ReadonlyTransientEntityImpl>();
 */
 
-    protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name) {
-        this(store, name, UNIQUE_ID.incrementAndGet());
+    protected TransientSessionImpl(final TransientEntityStoreImpl store) {
+        this(store, UNIQUE_ID.incrementAndGet());
     }
 
-    protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id) {
-        super(store, name, id);
+    protected TransientSessionImpl(final TransientEntityStoreImpl store, final Object id) {
+        super(store, id);
 
         this.changesTracker = new TransientChangesTrackerImpl(this);
 
@@ -77,7 +77,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     public String toString() {
-        return "[" + name + "] id=[" + id + "] state=[" + state + "]";
+        return "id=[" + id + "] state=[" + state + "]";
     }
 
     public boolean isOpened() {

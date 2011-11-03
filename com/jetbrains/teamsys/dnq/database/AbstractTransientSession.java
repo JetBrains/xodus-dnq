@@ -9,12 +9,10 @@ import org.jetbrains.annotations.Nullable;
 abstract class AbstractTransientSession implements TransientStoreSession {
   protected TransientEntityStoreImpl store;
   protected Object id;
-  protected String name;
   protected int flushRetryOnLockConflict;
 
-    AbstractTransientSession(final TransientEntityStoreImpl store, final String name, final Object id) {
+  AbstractTransientSession(final TransientEntityStoreImpl store, final Object id) {
     this.store = store;
-    this.name = (name == null || name.length() == 0) ? "unnamed" : name;
     this.id = id;
     this.flushRetryOnLockConflict = store.getFlushRetryOnLockConflict();
   }
@@ -53,10 +51,6 @@ abstract class AbstractTransientSession implements TransientStoreSession {
 
   public Object getId() {
     return id;
-  }
-
-  public String getName() {
-    return name;
   }
 
   @Nullable

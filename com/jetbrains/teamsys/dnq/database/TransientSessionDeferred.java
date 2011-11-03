@@ -5,12 +5,12 @@ import jetbrains.exodus.core.execution.ThreadJobProcessorPool;
 
 public class TransientSessionDeferred extends TransientSessionImpl {
 
-    protected TransientSessionDeferred(final TransientEntityStoreImpl store, final String name) {
-        super(store, name);
+    protected TransientSessionDeferred(final TransientEntityStoreImpl store) {
+        super(store);
     }
 
-    protected TransientSessionDeferred(final TransientEntityStoreImpl store, final String name, final Object id) {
-        super(store, name, id);
+    protected TransientSessionDeferred(final TransientEntityStoreImpl store, final Object id) {
+        super(store, id);
     }
 
     public void commit() {

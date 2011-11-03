@@ -90,7 +90,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     /**
-     * If true, in {@link #beginSession(String, Object)} will use existing current session if exists.
+     * If true, in {@link #beginSession(Object)} will use existing current session if exists.
      *
      * @param attachToCurrentOnBeginIfExists true to use existing current session.
      */
@@ -100,7 +100,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     /**
-     * Resume session if {@link #beginSession(String, Object)} called, but session with given id already exists.
+     * Resume session if {@link #beginSession(Object)} called, but session with given id already exists.
      *
      * @param resumeOnBeginIfExists should resume if session exists
      */
@@ -129,24 +129,18 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         throw new UnsupportedOperationException("Not supported by transient store. Use beginSession(name, id) instead.");
     }
 
-    public TransientStoreSession beginSession(@Nullable String name, Object id) {
-        return beginSession(name, id, TransientStoreSessionMode.inplace);
+    public TransientStoreSession beginSession(Object id) {
+        return beginSession(id, TransientStoreSessionMode.inplace);
     }
 
-    public TransientStoreSession beginDeferredSession(@Nullable String name, Object id) {
-        return beginSession(name, id, TransientStoreSessionMode.deferred);
+    public TransientStoreSession beginDeferredSession(Object id) {
+        return beginSession(id, TransientStoreSessionMode.deferred);
     }
 
-    protected TransientStoreSession beginSession(@Nullable String name, Object id, @NotNull TransientStoreSessionMode mode) {
-        if (name == null) {
-            name = "anonymous";
-        }
-
+    protected TransientStoreSession beginSession(Object id, @NotNull TransientStoreSessionMode mode) {
         if (log.isDebugEnabled()) {
             StringBuilder logMessage = new StringBuilder(64);
-            logMessage.append("Begin new session [");
-            logMessage.append(name);
-            logMessage.append("] with id [");
+            logMessage.append("Begin new session with id [");
             logMessage.append(id);
             logMessage.append("], mode = ");
             logMessage.append(mode);
@@ -165,9 +159,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         if (id == null) {
             final TransientStoreSession transientSession;
             if (mode == TransientStoreSessionMode.inplace) {
-                transientSession = new TransientSessionImpl(this, name);
+                transientSession = new TransientSessionImpl(this);
             } else if (mode == TransientStoreSessionMode.deferred) {
-                transientSession = new TransientSessionDeferred(this, name);
+                transientSession = new TransientSessionDeferred(this);
             } else {
                 throw new IllegalStateException("Unsupported session mode: " + mode);
             }
@@ -184,9 +178,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
         final TransientStoreSession transientSession;
         if (mode == TransientStoreSessionMode.inplace) {
-            transientSession = new TransientSessionImpl(this, name, id);
+            transientSession = new TransientSessionImpl(this, id);
         } else if (mode == TransientStoreSessionMode.deferred) {
-            transientSession = new TransientSessionDeferred(this, name, id);
+            transientSession = new TransientSessionDeferred(this, id);
         } else {
             throw new IllegalStateException("Unsupported session mode: " + mode);
         }
@@ -225,7 +219,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     public void resumeSession(TransientStoreSession session, int timeout) {
         if (session != null) {
             if (log.isDebugEnabled()) {
-                log.debug("Resume session [" + session.getName() + "] with id [" + session.getId() + "]");
+                log.debug("Resume session with id [" + session.getId() + "]");
             }
 
             TransientStoreSession current = currentSession.get();
