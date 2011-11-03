@@ -10,7 +10,7 @@ import java.util.List;
 
 public class IncomingLinkViolation {
 
-    private static final int MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW = 8;
+    private static final int MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW = 10;
 
     private String linkName;
     private List<Entity> entitiesCausedViolation;
