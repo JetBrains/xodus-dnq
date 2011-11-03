@@ -22,7 +22,7 @@ public class SearchByPropertyTest extends AbstractEntityStoreAwareTestCase {
 
   public void createGuest() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession("createData", new Object());
+    TransientStoreSession transientSession = store.beginSession(new Object());
     try {
       StoreSession storeSession = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
       assert storeSession != null;
@@ -42,7 +42,7 @@ public class SearchByPropertyTest extends AbstractEntityStoreAwareTestCase {
 
   public boolean guestExists() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession("createData", new Object());
+    TransientStoreSession transientSession = store.beginSession(new Object());
     try {
       StoreSession session = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
       assert session != null;
@@ -57,7 +57,7 @@ public class SearchByPropertyTest extends AbstractEntityStoreAwareTestCase {
 
   public long numberOfGuests() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession("createData", new Object());
+    TransientStoreSession transientSession = store.beginSession(new Object());
     try {
       StoreSession session = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
       assert session != null;

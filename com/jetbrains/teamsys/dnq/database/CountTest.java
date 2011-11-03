@@ -20,7 +20,7 @@ public class CountTest extends AbstractEntityStoreAwareTestCase {
   }
   public void createData() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession("createData", new Object());
+    TransientStoreSession transientSession = store.beginSession(new Object());
     try {
       Entity p = ((TransientStoreSession) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().getCurrentTransaction()).addSessionLocalEntity("p", (TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Project")));
 
@@ -45,7 +45,7 @@ public class CountTest extends AbstractEntityStoreAwareTestCase {
   }
   public void checkCount2() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession("checkCount2", new Object());
+    TransientStoreSession transientSession = store.beginSession(new Object());
     try {
       Assert.assertEquals(2, AssociationSemantics.getToManySize(ListSequence.fromIterable(TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().getAll("Project")).first(), "issue"));
     } catch (Throwable e) {
@@ -57,7 +57,7 @@ public class CountTest extends AbstractEntityStoreAwareTestCase {
   }
   public void checkCount1() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession("checkCount1", new Object());
+    TransientStoreSession transientSession = store.beginSession(new Object());
     try {
       int i = 0;
       for (Object o : Sequence.fromIterable(AssociationSemantics.getToMany(Sequence.fromIterable(TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().getAll("Project")).first(), "issue"))) {

@@ -34,7 +34,7 @@ public class DisposeCursorTest extends AbstractEntityStoreAwareTestCase {
 
   public int _login_LoginForm_handler() {
     TransientEntityStore store = getTransientEntityStore();
-    TransientStoreSession session = store.beginSession("_login", 1);
+    TransientStoreSession session = store.beginSession(1);
     try {
 
       Entity user = ((TransientStoreSession) getTransientEntityStore().getThreadSession().getCurrentTransaction()).addSessionLocalEntity(
@@ -52,7 +52,7 @@ public class DisposeCursorTest extends AbstractEntityStoreAwareTestCase {
 
   public void createUsers() {
     TransientEntityStore store = getTransientEntityStore();
-    TransientStoreSession session = store.beginSession("_login", 1);
+    TransientStoreSession session = store.beginSession(1);
     try {
 
       if(ListSequence.fromIterable(getTransientEntityStore().getThreadSession().getAll("User")).size() > 0) {
@@ -76,7 +76,7 @@ public class DisposeCursorTest extends AbstractEntityStoreAwareTestCase {
 
   public static void findUser(String username, String password) {
     TransientEntityStore store = getTransientEntityStore();
-    TransientStoreSession session = store.beginSession("_login", 1);
+    TransientStoreSession session = store.beginSession(1);
     try {
 
       Iterable<Entity> users = getTransientEntityStore().getThreadSession().find("User", "login", username).intersect(getTransientEntityStore().getThreadSession().find("User", "password", password));

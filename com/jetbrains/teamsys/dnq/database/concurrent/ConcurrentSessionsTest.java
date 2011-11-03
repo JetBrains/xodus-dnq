@@ -63,7 +63,7 @@ public class ConcurrentSessionsTest extends AbstractEntityStoreAwareTestCase {
 
     public void startEditIssue() {
       TransientEntityStore store = ((TransientEntityStore)ServiceLocator.getBean("transientEntityStore"));
-      TransientStoreSession transientSession = store.beginSession("startEditIssue", getName());
+      TransientStoreSession transientSession = store.beginSession(getName());
       try {
         Entity i = ((TransientStoreSession)((TransientEntityStore)ServiceLocator.getBean("transientEntityStore")).getThreadSession()).addSessionLocalEntity("i", (MyIssueImpl.constructor("s1")));
       } catch (Throwable e) {

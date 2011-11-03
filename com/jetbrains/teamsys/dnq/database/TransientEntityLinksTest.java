@@ -25,7 +25,7 @@ public class TransientEntityLinksTest extends AbstractEntityStoreAwareTestCase {
 
   private void createData() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientStoreSession = store.beginSession("", new Object());
+    TransientStoreSession transientStoreSession = store.beginSession(new Object());
 
     try {
 
@@ -48,7 +48,7 @@ public class TransientEntityLinksTest extends AbstractEntityStoreAwareTestCase {
 
   private void checkTransientGetLinks() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientStoreSession = store.beginSession("", new Object());
+    TransientStoreSession transientStoreSession = store.beginSession(new Object());
 
     try {
       Entity user = getFirst(transientStoreSession.find("User", "login", "user"));
@@ -71,7 +71,7 @@ public class TransientEntityLinksTest extends AbstractEntityStoreAwareTestCase {
 
   private void checkTransientGetLinks2() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientStoreSession = store.beginSession("", new Object());
+    TransientStoreSession transientStoreSession = store.beginSession(new Object());
 
     try {
       Entity user1 = getFirst(transientStoreSession.find("User", "login", "user1"));

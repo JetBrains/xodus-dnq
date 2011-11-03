@@ -15,7 +15,7 @@ public class TransientDatabaseTest extends AbstractEntityStoreAwareTestCase {
 
   public void transacationA_part1_start() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession session = store.beginSession(null, 1);
+    TransientStoreSession session = store.beginSession(1);
     try {
 
       System.out.println("A1");
