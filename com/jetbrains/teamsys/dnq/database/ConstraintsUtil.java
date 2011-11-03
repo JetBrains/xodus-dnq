@@ -61,7 +61,8 @@ class ConstraintsUtil {
                 List<Pair<String, EntityIterable>> incomingLinks = e.getIncomingLinks();
 
                 if (incomingLinks.size() > 0) {
-                    List<Pair<String, EntityIterable>> _incomingLinks = new ArrayList<Pair<String, EntityIterable>>();
+
+                    List<IncomingLinkViolation> badIncomingLinks = new ArrayList<IncomingLinkViolation>();
                     for (Pair<String, EntityIterable> pair : incomingLinks) {
                         final StoreSession storeSession = e.getTransientStoreSession();
 
@@ -69,22 +70,26 @@ class ConstraintsUtil {
                             throw new IllegalStateException("No current transient session!");
                         }
 
-                        EntityIterable links = pair.getSecond();
-
-                        EntityIterator linksIterator = links.iterator();
+                        IncomingLinkViolation violation = null;
+                        EntityIterator linksIterator = pair.getSecond().iterator();
                         while (linksIterator.hasNext()){
-
                             TransientEntity entity = ((TransientEntity) linksIterator.next());
-
                             if (entity == null || entity.isRemoved() || entity.getRemovedLinks(pair.getFirst()).contains(e)) {
                                 continue;
                             }
+                            if (violation == null) {
+                                BasePersistentClassImpl impl = TransientStoreUtil.getPersistentClassInstance(entity, entity.getType());
+                                violation = impl.createIncomingLinkViolation(pair.getFirst());
+                            }
+                            if (!violation.tryAddCause(entity)) break;
+                        }
 
-                            _incomingLinks.add(pair);
+                        if (violation != null) {
+                            badIncomingLinks.add(violation);
                         }
                     }
-                    if (_incomingLinks.size() > 0) {
-                        exceptions.add(TransientStoreUtil.getPersistentClassInstance(e, e.getType()).createIncomingLinksException(_incomingLinks, modelMetaData, e));
+                    if (badIncomingLinks.size() > 0) {
+                        exceptions.add(TransientStoreUtil.getPersistentClassInstance(e, e.getType()).createIncomingLinksException(badIncomingLinks, e));
                     }
                 }
             }
