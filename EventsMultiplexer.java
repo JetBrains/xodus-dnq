@@ -12,11 +12,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 import jetbrains.exodus.database.TransientEntityChange;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import jetbrains.exodus.database.Entity;
+import jetbrains.teamsys.dnq.runtime.txn._Txn;
 import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
+import jetbrains.exodus.database.Entity;
 import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
@@ -24,6 +22,7 @@ import jetbrains.exodus.database.EntityMetaData;
 import jetbrains.exodus.database.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import jetbrains.mps.internal.collections.runtime.Sequence;
+import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import jetbrains.exodus.core.execution.Job;
 import jetbrains.exodus.database.EntityStore;
 import jetbrains.exodus.database.EntityId;
@@ -43,28 +42,12 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     this.asyncFire(changes);
   }
 
-  public void commited(@Nullable Set<TransientEntityChange> changes) {
-    {
-      final TransientStoreSession superSession_9klgcu_a0b = DnqUtils.getCurrentTransientSession();
-      if (superSession_9klgcu_a0b != null) {
-        TransientStoreUtil.suspend(superSession_9klgcu_a0b);
+  public void commited(@Nullable final Set<TransientEntityChange> changes) {
+    _Txn.run(new _FunctionTypes._void_P0_E0() {
+      public void invoke() {
+        EventsMultiplexer.this.fire(Where.SYNC_AFTER_FLUSH, changes);
       }
-      try {
-        final TransientStoreSession ts1_9klgcu_a0b = DnqUtils.beginTransientSession("commited_0", false);
-        try {
-          this.fire(Where.SYNC_AFTER_FLUSH, changes);
-        } catch (Throwable _ex_) {
-          TransientStoreUtil.abort(_ex_, ts1_9klgcu_a0b);
-          throw new RuntimeException("Actual throws is inside about.");
-        } finally {
-          TransientStoreUtil.commit(ts1_9klgcu_a0b);
-        }
-      } finally {
-        if (superSession_9klgcu_a0b != null) {
-          DnqUtils.resumeTransientSession(superSession_9klgcu_a0b);
-        }
-      }
-    }
+    }, false);
     this.asyncFire(changes);
   }
 
@@ -360,26 +343,11 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     }
 
     public void execute() throws Throwable {
-      {
-        boolean $nt$_9klgcu_a0a0 = DnqUtils.getCurrentTransientSession() == null;
-        final TransientStoreSession ts1_9klgcu_a0a0 = DnqUtils.beginTransientSession("execute_0");
-        try {
-          this.eventsMultiplexer.fire(Where.ASYNC_AFTER_FLUSH, this.changes);
-        } catch (Throwable _ex_) {
-          if ($nt$_9klgcu_a0a0) {
-            TransientStoreUtil.abort(_ex_, ts1_9klgcu_a0a0);
-          }
-          if (_ex_ instanceof RuntimeException) {
-            throw (RuntimeException) _ex_;
-          } else {
-            throw new RuntimeException(_ex_);
-          }
-        } finally {
-          if ($nt$_9klgcu_a0a0) {
-            TransientStoreUtil.commit(ts1_9klgcu_a0a0);
-          }
+      _Txn.run(new _FunctionTypes._void_P0_E0() {
+        public void invoke() {
+          JobImpl.this.eventsMultiplexer.fire(Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes);
         }
-      }
+      });
     }
   }
 
