@@ -46,6 +46,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     _Txn.run(new _FunctionTypes._void_P0_E0() {
       public void invoke() {
         EventsMultiplexer.this.fire(Where.SYNC_AFTER_FLUSH, changes);
+        return;
       }
     }, false);
     this.asyncFire(changes);
@@ -346,6 +347,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       _Txn.run(new _FunctionTypes._void_P0_E0() {
         public void invoke() {
           JobImpl.this.eventsMultiplexer.fire(Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes);
+          return;
         }
       });
     }
