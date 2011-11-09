@@ -120,7 +120,7 @@
     <nodeInfo nodeId="5101215682825274324" fileName="EventsMultiplexer.java" startLine="318" startPosition="49" endLine="319" endPosition="74" conceptFqName="jetbrains.mps.baseLanguage.structure.SingleLineComment" />
     <nodeInfo nodeId="5101215682825274329" fileName="EventsMultiplexer.java" startLine="319" startPosition="74" endLine="320" endPosition="61" conceptFqName="jetbrains.mps.baseLanguage.structure.SingleLineComment" />
     <nodeInfo nodeId="1213191260704" fileName="EventsMultiplexer.java" startLine="321" startPosition="9" endLine="322" endPosition="79" conceptFqName="jetbrains.mps.baseLanguage.structure.ReturnStatement" />
-    <nodeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="324" startPosition="32" endLine="325" endPosition="73" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
+    <nodeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="324" startPosition="32" endLine="325" endPosition="103" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="5101215682825280496" fileName="EventsMultiplexer.java" startLine="326" startPosition="7" endLine="327" endPosition="18" conceptFqName="jetbrains.mps.baseLanguage.structure.ReturnStatement" />
     <nodeInfo nodeId="5101215682825274616" fileName="EventsMultiplexer.java" startLine="331" startPosition="77" endLine="332" endPosition="50" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="5101215682825280524" fileName="EventsMultiplexer.java" startLine="335" startPosition="80" endLine="336" endPosition="53" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
@@ -179,8 +179,8 @@
     <nodeInfo nodeId="7738287727767486361" fileName="EventsMultiplexer.java" startLine="301" startPosition="31" endLine="304" endPosition="11" conceptFqName="jetbrains.mps.baseLanguage.structure.BlockStatement" />
     <nodeInfo nodeId="7738287727767486361" fileName="EventsMultiplexer.java" startLine="301" startPosition="31" endLine="304" endPosition="11" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
     <nodeInfo nodeId="7738287727767486368" fileName="EventsMultiplexer.java" startLine="306" startPosition="91" endLine="309" endPosition="13" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
-    <nodeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="323" startPosition="39" endLine="326" endPosition="7" conceptFqName="jetbrains.mps.baseLanguage.structure.BlockStatement" />
-    <nodeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="323" startPosition="39" endLine="326" endPosition="7" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
+    <nodeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="323" startPosition="27" endLine="326" endPosition="7" conceptFqName="jetbrains.mps.baseLanguage.structure.BlockStatement" />
+    <nodeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="323" startPosition="27" endLine="326" endPosition="7" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
     <nodeInfo nodeId="1213186991663" fileName="EventsMultiplexer.java" startLine="339" startPosition="114" endLine="342" endPosition="5" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
     <nodeInfo nodeId="1213186991663" fileName="EventsMultiplexer.java" startLine="346" startPosition="117" endLine="349" endPosition="5" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
     <nodeInfo nodeId="1213713182579" fileName="EventsMultiplexer.java" startLine="368" startPosition="34" endLine="371" endPosition="11" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
@@ -285,7 +285,7 @@
     <scopeInfo nodeId="7738287727767486361" fileName="EventsMultiplexer.java" startLine="302" startPosition="37" endLine="303" endPosition="71" />
     <scopeInfo nodeId="7738287727767486369" fileName="EventsMultiplexer.java" startLine="307" startPosition="48" endLine="308" endPosition="41" />
     <scopeInfo nodeId="5101215682825280489" fileName="EventsMultiplexer.java" startLine="321" startPosition="9" endLine="322" endPosition="79" />
-    <scopeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="324" startPosition="32" endLine="325" endPosition="73" />
+    <scopeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="324" startPosition="32" endLine="325" endPosition="103" />
     <scopeInfo nodeId="5101215682825274610" fileName="EventsMultiplexer.java" startLine="331" startPosition="77" endLine="332" endPosition="50" />
     <scopeInfo nodeId="5101215682825280523" fileName="EventsMultiplexer.java" startLine="335" startPosition="80" endLine="336" endPosition="53" />
     <scopeInfo nodeId="1213186991663" fileName="EventsMultiplexer.java" startLine="340" startPosition="36" endLine="341" endPosition="52" />
@@ -326,7 +326,7 @@
     <scopeInfo nodeId="4243294330904078657" fileName="EventsMultiplexer.java" startLine="181" startPosition="89" endLine="184" endPosition="9" />
     <scopeInfo nodeId="4243294330904085798" fileName="EventsMultiplexer.java" startLine="181" startPosition="89" endLine="184" endPosition="9" />
     <scopeInfo nodeId="7738287727767486361" fileName="EventsMultiplexer.java" startLine="301" startPosition="31" endLine="304" endPosition="11" />
-    <scopeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="323" startPosition="39" endLine="326" endPosition="7" />
+    <scopeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="323" startPosition="27" endLine="326" endPosition="7" />
     <scopeInfo nodeId="1213713182579" fileName="EventsMultiplexer.java" startLine="377" startPosition="19" endLine="380" endPosition="11" />
     <scopeInfo nodeId="3750850504740996324" fileName="EventsMultiplexer.java" startLine="391" startPosition="70" endLine="394" endPosition="38" />
     <scopeInfo nodeId="4243294330904078558" fileName="EventsMultiplexer.java" startLine="424" startPosition="30" endLine="427" endPosition="32">
@@ -358,7 +358,7 @@
     <scopeInfo nodeId="5101215682825280491" fileName="EventsMultiplexer.java" startLine="323" startPosition="0" endLine="327" endPosition="18">
       <varInfo nodeId="5101215682825280492" varName="e" />
     </scopeInfo>
-    <scopeInfo nodeId="5101215682825280494" fileName="EventsMultiplexer.java" startLine="323" startPosition="39" endLine="327" endPosition="18" />
+    <scopeInfo nodeId="5101215682825280494" fileName="EventsMultiplexer.java" startLine="323" startPosition="27" endLine="327" endPosition="18" />
     <scopeInfo nodeId="5101215682825274607" fileName="EventsMultiplexer.java" startLine="330" startPosition="0" endLine="334" endPosition="0">
       <varInfo nodeId="5101215682825274612" varName="e" />
       <varInfo nodeId="5101215682825274614" varName="listener" />

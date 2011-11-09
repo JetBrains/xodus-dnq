@@ -320,9 +320,9 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     // as a result, eventsMultiplexer may be removed already 
     try {
       return ((EventsMultiplexer) ServiceLocator.getBean("eventsMultiplexer"));
-    } catch (IllegalStateException e) {
+    } catch (Exception e) {
       if (log.isWarnEnabled()) {
-        log.warn("EventMultiplexer already disposed: " + e.getMessage());
+        log.warn("Can't access events multiplexer: " + e.getClass().getName() + ": " + e.getMessage());
       }
       return null;
     }
