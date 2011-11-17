@@ -50,10 +50,10 @@ public class ConcurrentSessionsTest extends AbstractEntityStoreAwareTestCase {
 
         log.debug(getName() + " cycle " + i + " start");
 
-        this.startEditIssue();
-        this.continueEditIssue1();
-        this.continueEditIssue2();
-        this.continueEditIssue3();
+        long id = this.startEditIssue();
+        this.continueEditIssue1(id);
+        this.continueEditIssue2(id);
+        this.continueEditIssue3(id);
 
         log.debug(getName() + " cycle " + i + " end");
 
@@ -61,11 +61,12 @@ public class ConcurrentSessionsTest extends AbstractEntityStoreAwareTestCase {
       log.debug(getName() + " end");
     }
 
-    public void startEditIssue() {
+    public long startEditIssue() {
       TransientEntityStore store = ((TransientEntityStore)ServiceLocator.getBean("transientEntityStore"));
-      TransientStoreSession transientSession = store.beginSession("startEditIssue", getName());
+      TransientStoreSession transientSession = store.beginSession("startEditIssue");
       try {
         Entity i = ((TransientStoreSession)((TransientEntityStore)ServiceLocator.getBean("transientEntityStore")).getThreadSession()).addSessionLocalEntity("i", (MyIssueImpl.constructor("s1")));
+        return transientSession.getId();
       } catch (Throwable e) {
         TransientStoreUtil.abort(e, transientSession);
         throw new RuntimeException("Should never be thrown.");
@@ -73,9 +74,10 @@ public class ConcurrentSessionsTest extends AbstractEntityStoreAwareTestCase {
         TransientStoreUtil.suspend(transientSession);
       }
     }
-    public void continueEditIssue1() {
+
+    public void continueEditIssue1(long id) {
       TransientEntityStore store = ((TransientEntityStore)ServiceLocator.getBean("transientEntityStore"));
-      TransientStoreSession transientSession = store.resumeSession(getName());
+      TransientStoreSession transientSession = store.resumeSession(id);
       Entity i = transientSession.getSessionLocalEntity("i");
       try {
         PrimitiveAssociationSemantics.set(i, "summary", "s2");
@@ -86,9 +88,10 @@ public class ConcurrentSessionsTest extends AbstractEntityStoreAwareTestCase {
         TransientStoreUtil.suspend(transientSession);
       }
     }
-    public void continueEditIssue2() {
+
+    public void continueEditIssue2(long id) {
       TransientEntityStore store = ((TransientEntityStore)ServiceLocator.getBean("transientEntityStore"));
-      TransientStoreSession transientSession = store.resumeSession(getName());
+      TransientStoreSession transientSession = store.resumeSession(id);
       Entity i = transientSession.getSessionLocalEntity("i");
       try {
         PrimitiveAssociationSemantics.set(i, "summary", "s3");
@@ -99,9 +102,10 @@ public class ConcurrentSessionsTest extends AbstractEntityStoreAwareTestCase {
         TransientStoreUtil.suspend(transientSession);
       }
     }
-    public void continueEditIssue3() {
+
+    public void continueEditIssue3(long id) {
       TransientEntityStore store = ((TransientEntityStore)ServiceLocator.getBean("transientEntityStore"));
-      TransientStoreSession transientSession = store.resumeSession(getName());
+      TransientStoreSession transientSession = store.resumeSession(id);
       Entity i = transientSession.getSessionLocalEntity("i");
       try {
         PrimitiveAssociationSemantics.set(i, "summary", "s4");

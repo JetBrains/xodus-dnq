@@ -91,18 +91,19 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
       TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
 
       TransientEntity e = null;
-      TransientStoreSession t = store.beginSession("t1", new Object());
+      TransientStoreSession t = store.beginSession("t1");
       e = (TransientEntity) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue");
       t.commit();
 
       // cache FlagOfSchepotiev null value in transient level
-      Object t1id = new Object();
-      TransientStoreSession t1 = store.beginSession("t1", t1id);
+      long t1id;
+      TransientStoreSession t1 = store.beginSession("t1");
       assertEquals(null, PrimitiveAssociationSemantics.get(e, "FlagOfSchepotiev", null));
+      t1id = t1.getId();
       t1.suspend();
 
       // set flag to false and save to database
-      TransientStoreSession t2 = store.beginSession("t2", new Object());
+      TransientStoreSession t2 = store.beginSession("t2");
       assertEquals(null, PrimitiveAssociationSemantics.get(e, "FlagOfSchepotiev", null));
       PrimitiveAssociationSemantics.set(e, "FlagOfSchepotiev", false, Boolean.class);
       t2.commit();
@@ -115,7 +116,7 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
 
   private void checkStringValue1Value2Value1MakesNoChanges(String value1, String value2) {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession("t1", new Object());
+    TransientStoreSession transientSession = store.beginSession("t1");
     TransientEntity e = null;
     try {
       e = (TransientEntity) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue");
@@ -144,7 +145,7 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
 
   private void checkTextValue1Value2Value1MakesNoChanges(String value1, String value2) {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession("t1", new Object());
+    TransientStoreSession transientSession = store.beginSession("t1");
     TransientEntity e = null;
     try {
       e = (TransientEntity) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue");

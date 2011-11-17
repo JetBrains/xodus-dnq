@@ -23,7 +23,7 @@ public class ToIdFromIdTest extends AbstractEntityStoreAwareTestCase {
 
   private void findByIncorrectId(String id) {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientStoreSession = store.beginSession("", new Object());
+    TransientStoreSession transientStoreSession = store.beginSession("");
 
     try {
 
@@ -41,7 +41,7 @@ public class ToIdFromIdTest extends AbstractEntityStoreAwareTestCase {
 
   private void tryToRestoreById(String id) {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientStoreSession = store.beginSession("", new Object());
+    TransientStoreSession transientStoreSession = store.beginSession("");
 
     try {
                              
@@ -59,7 +59,7 @@ public class ToIdFromIdTest extends AbstractEntityStoreAwareTestCase {
 
   private String getSomeEntityId() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientStoreSession = store.beginSession("", new Object());
+    TransientStoreSession transientStoreSession = store.beginSession("");
 
     try {
 
@@ -83,7 +83,7 @@ public class ToIdFromIdTest extends AbstractEntityStoreAwareTestCase {
 
   private void createData() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientStoreSession = store.beginSession("", new Object());
+    TransientStoreSession transientStoreSession = store.beginSession("");
 
     try {
 
