@@ -62,7 +62,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         this(store, name, UNIQUE_ID.incrementAndGet());
     }
 
-    protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final Object id) {
+    protected TransientSessionImpl(final TransientEntityStoreImpl store, final String name, final long id) {
         super(store, name, id);
 
         this.changesTracker = new TransientChangesTrackerImpl(this);

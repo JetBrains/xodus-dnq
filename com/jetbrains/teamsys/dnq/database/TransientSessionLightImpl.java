@@ -6,7 +6,7 @@ package com.jetbrains.teamsys.dnq.database;
  */
 public class TransientSessionLightImpl extends TransientSessionImpl {
 
-  public TransientSessionLightImpl(TransientEntityStoreImpl store, String name, Object id) {
+  public TransientSessionLightImpl(TransientEntityStoreImpl store, String name, long id) {
     super(store, name, id);
   }
   

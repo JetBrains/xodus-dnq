@@ -9,7 +9,7 @@ public class TransientSessionDeferred extends TransientSessionImpl {
         super(store, name);
     }
 
-    protected TransientSessionDeferred(final TransientEntityStoreImpl store, final String name, final Object id) {
+    protected TransientSessionDeferred(final TransientEntityStoreImpl store, final String name, final long id) {
         super(store, name, id);
     }
 

@@ -30,7 +30,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     private String type;
     private State state;
     private TransientEntityStore store;
-    private Object sessionId;
+    private long sessionId;
     private int id;
     protected StackTraceElement entityCreationPosition = null;
 
@@ -101,7 +101,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return store;
     }
 
-    public Object getSessionId() {
+    public long getSessionId() {
         return sessionId;
     }
 
@@ -818,7 +818,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     private Object throwNoPersistentEntity() throws IllegalStateException {
-        throw new IllegalStateException("Transient entity has no associated persistent entity. " + this);
+        throw new IllegalStateException("Transient Objectentity has no associated persistent entity. " + this);
     }
 
     protected static abstract class StandardEventHandler<P1, P2, T> {

@@ -8,11 +8,11 @@ import org.jetbrains.annotations.Nullable;
  */
 abstract class AbstractTransientSession implements TransientStoreSession {
   protected TransientEntityStoreImpl store;
-  protected Object id;
+  protected long id;
   protected String name;
   protected int flushRetryOnLockConflict;
 
-    AbstractTransientSession(final TransientEntityStoreImpl store, final String name, final Object id) {
+  AbstractTransientSession(final TransientEntityStoreImpl store, final String name, final long id) {
     this.store = store;
     this.name = (name == null || name.length() == 0) ? "unnamed" : name;
     this.id = id;
@@ -51,7 +51,7 @@ abstract class AbstractTransientSession implements TransientStoreSession {
     return store;
   }
 
-  public Object getId() {
+  public long getId() {
     return id;
   }
 
