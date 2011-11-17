@@ -30,7 +30,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     private String type;
     private State state;
     private TransientStoreSession session;
-    private TransientEntityIdImpl id;
+    private int id;
     protected StackTraceElement entityCreationPosition = null;
 
     @SuppressWarnings({"UnusedDeclaration"})
@@ -211,17 +211,17 @@ abstract class AbstractTransientEntity implements TransientEntity {
         }
 
         EntityId processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.id;
+            return new TransientEntityIdImpl(entity.id);
         }
 
         EntityId processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.id;
+            return new TransientEntityIdImpl(entity.id);
         }
 
         EntityId processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
-                    return entity.id;
+                    return new TransientEntityIdImpl(entity.id);
                 case RemovedSaved:
                 case RemovedSavedNew:
                     return entity.getPersistentEntityInternal().getId();
@@ -274,17 +274,17 @@ abstract class AbstractTransientEntity implements TransientEntity {
         }
 
         String processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.id.toString();
+            return Integer.toString(entity.id);
         }
 
         String processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity.id.toString();
+            return Integer.toString(entity.id);
         }
 
         String processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
-                    return entity.id.toString();
+                    return Integer.toString(entity.id);
                 case RemovedSaved:
                 case RemovedSavedNew:
                     return entity.getPersistentEntityInternal().toIdString();
@@ -322,7 +322,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     protected void setId(TransientEntityIdImpl id) {
-        this.id = id;
+        this.id = id.hashCode();
     }
 
     private final static StandardEventHandler<Entity, Object, Object> setPersistentEntityEventHandler = new StandardEventHandler<Entity, Object, Object>() {
@@ -639,11 +639,11 @@ abstract class AbstractTransientEntity implements TransientEntity {
         //rollback to original implementation due to stackoverflows
         //TODO: implement smart toString for persistent enums
         return getDebugPresentation();
-    /*
-        // delegate to Persistent Class implementation
-        BasePersistentClassImpl pc = (BasePersistentClassImpl) DnqUtils.getPersistentClassInstance(this, this.getType());
-        return pc == null ? getDebugPresentation() : pc.toString(this);
-    */
+        /*
+            // delegate to Persistent Class implementation
+            BasePersistentClassImpl pc = (BasePersistentClassImpl) DnqUtils.getPersistentClassInstance(this, this.getType());
+            return pc == null ? getDebugPresentation() : pc.toString(this);
+        */
     }
 
     private static final StandardEventHandler<TransientEntity, Object, Boolean> equalsEventHandler = new StandardEventHandler<TransientEntity, Object, Boolean>() {
