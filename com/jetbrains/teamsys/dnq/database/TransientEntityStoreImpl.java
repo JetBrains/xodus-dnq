@@ -153,10 +153,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
             log.debug(logMessage.toString());
         }
 
-        if (currentSession.get() != null) {
+        final TransientStoreSession currentSession = this.currentSession.get();
+        if (currentSession != null) {
             if (attachToCurrentOnBeginIfExists) {
-                log.debug("Return session already associated with the current thread " + currentSession.get());
-                return currentSession.get();
+                log.debug("Return session already associated with the current thread " + currentSession);
+                return currentSession;
             } else {
                 throw new IllegalStateException("Open session already presents for current thread.");
             }
@@ -344,7 +345,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
         final Entity persistentEntity =
-            (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
+                (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
 
         if (entity instanceof TransientEntity) {
             changesTracker.entityDeleted((TransientEntity) entity);
@@ -367,7 +368,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
 
         final Entity persistentEntity =
-            (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
+                (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
         changesTracker.offerChange(new Runnable() {
             public void run() {
                 persistentEntity.deleteLinks(linkName);
@@ -385,9 +386,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
 
         final Entity persistentEntity =
-            (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
+                (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
         final Entity persistentLink =
-            (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
+                (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
         changesTracker.offerChange(new Runnable() {
             public void run() {
                 persistentEntity.deleteLink(linkName, persistentLink);
