@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
@@ -8,7 +9,6 @@ import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.persistence.exceptions.LockConflictException;
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -856,7 +856,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 if (entity.isTemporary() || entity.isReadonly()) {
                     return entity;
                 } else if (entity.isNew()) {
-                    if (((TransientEntityImpl) entity).getTransientStoreSession() == this) {
+                    if (((TransientEntityImpl) entity).getSessionId() == id) {
                         // this is transient entity that was created in this session
                         // check session wasn't reverted
                         if (this.createdNewTransientEntities.get(entity.getId()) == entity) {
@@ -870,7 +870,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     }
                 } else if (entity.isSaved()) {
                     final EntityId id = entity.getId();
-                    if (entity.getTransientStoreSession() == this && createdTransientForPersistentEntities.get(id) == entity) {
+                    if (((TransientEntityImpl) entity).getSessionId() == this.id && createdTransientForPersistentEntities.get(id) == entity) {
                         // was created in this session and session wasn't reverted
                         return entity;
                     } else {

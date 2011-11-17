@@ -317,8 +317,9 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     int i = 0;
     boolean warnReported = false;
     boolean errorReported = false;
+    final TransientStoreSession session = owner.getTransientStoreSession();
     for (final Entity persistent : owner.getPersistentEntityInternal().getLinks(linkName)) {
-      TransientEntity te = owner.getTransientStoreSession().newEntity(persistent);
+      TransientEntity te = session.newEntity(persistent);
 
       if (removed == null || !removed.contains(te)) {
         getLinksSet().add(te);

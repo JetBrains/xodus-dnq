@@ -688,8 +688,9 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Boolean processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-            Map<String, PropertyChange> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(entity);
-            Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
+            final TransientStoreSession session = entity.getTransientStoreSession();
+            Map<String, PropertyChange> changesProperties = session.getTransientChangesTracker().getChangedPropertiesDetailed(entity);
+            Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(entity);
 
             return (changesLinks != null && !changesLinks.isEmpty()) || (changesProperties != null && !changesProperties.isEmpty());
         }
@@ -716,8 +717,9 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Boolean processOpenSaved(AbstractTransientEntity entity, String property, Object param2) {
-            Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
-            Map<String, PropertyChange> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(entity);
+            final TransientStoreSession session = entity.getTransientStoreSession();
+            Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(entity);
+            Map<String, PropertyChange> changesProperties = session.getTransientChangesTracker().getChangedPropertiesDetailed(entity);
 
             return (changesLinks != null && changesLinks.containsKey(property)) ||
                     (changesProperties != null && changesProperties.containsKey(property));
@@ -740,8 +742,9 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Boolean processOpenSaved(AbstractTransientEntity entity, String[] properties, Object param2) {
-            Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
-            Map<String, PropertyChange> changesProperties = entity.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(entity);
+            final TransientStoreSession session = entity.getTransientStoreSession();
+            Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(entity);
+            Map<String, PropertyChange> changesProperties = session.getTransientChangesTracker().getChangedPropertiesDetailed(entity);
 
             int found = 0;
             int changed;
