@@ -856,7 +856,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 if (entity.isTemporary() || entity.isReadonly()) {
                     return entity;
                 } else if (entity.isNew()) {
-                    if (((TransientEntityImpl) entity).getSessionId() == id) {
+                    if (entity.getSessionId() == id) {
                         // this is transient entity that was created in this session
                         // check session wasn't reverted
                         if (this.createdNewTransientEntities.get(entity.getId()) == entity) {
@@ -869,14 +869,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         throw new IllegalStateException("Can't create local copy of transient entity in New state from another session. " + entity);
                     }
                 } else if (entity.isSaved()) {
-                    final EntityId id = entity.getId();
-                    if (((TransientEntityImpl) entity).getSessionId() == this.id && createdTransientForPersistentEntities.get(id) == entity) {
+                    final EntityId entityId = entity.getId();
+                    if (entity.getSessionId() == id && createdTransientForPersistentEntities.get(entityId) == entity) {
                         // was created in this session and session wasn't reverted
                         return entity;
                     } else {
-                        // saved entity from another session or from reverted session - load it from database by id
+                        // saved entity from another session or from reverted session - load it from database by entityId
                         // local copy already created?
-                        TransientEntity localCopy = createdTransientForPersistentEntities.get(id);
+                        TransientEntity localCopy = createdTransientForPersistentEntities.get(entityId);
                         if (localCopy != null) {
                             if (localCopy.isRemoved()) {
                                 EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
@@ -886,8 +886,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
                             return localCopy;
                         }
 
-                        // load persistent entity from database by id
-                        Entity databaseCopy = getPersistentSessionInternal().getEntity(id);
+                        // load persistent entity from database by entityId
+                        Entity databaseCopy = getPersistentSessionInternal().getEntity(entityId);
                         if (databaseCopy == null) {
                             // entity was removed - can't create local copy
                             EntityRemovedInDatabaseException entityRemovedInDatabaseException = new EntityRemovedInDatabaseException(entity);
