@@ -71,23 +71,17 @@ public class EntityOperations {
     }
 
     /**
-     * Checks if entity e was removed in this transaction
+     * Checks if entity e was removed
      *
      * @param e entity to check
-     * @return true if e was removed in this transaction, false if it wasn't removed at all
-     * @exception EntityRemovedInDatabaseException if e was removed in another transaction
+     * @return true if e was removed, false if it wasn't removed at all
      */
     @SuppressWarnings({"ConstantConditions"})
     public static boolean isRemoved(@NotNull final Entity e) {
-        if (e == null || ((TransientEntity) e).isRemoved()) {
+        if (e == null) {
             return true;
         }
-        try{
-            TransientStoreUtil.reattach((TransientEntity) e);
-        } catch (EntityRemovedException ex) {
-            return true;
-        }
-        return false;
+        return TransientStoreUtil.isRemoved(e);
     }
 
     public static boolean isNew(@Nullable Entity e) {
