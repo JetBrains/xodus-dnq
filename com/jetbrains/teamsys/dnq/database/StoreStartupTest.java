@@ -36,7 +36,7 @@ public class StoreStartupTest extends AbstractEntityStoreAwareTestCase {
 
   public void createUsers() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession session = store.beginSession(1);
+    TransientStoreSession session = store.beginSession();
     try {
 
       if(ListSequence.fromIterable(TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().getAll("User")).size() > 0) {

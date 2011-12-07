@@ -13,12 +13,13 @@ import jetbrains.exodus.database.TransientStoreSession;
  */
 public class TransientDatabaseTest extends AbstractEntityStoreAwareTestCase {
 
-  public void transacationA_part1_start() {
+  public long transacationA_part1_start() {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession session = store.beginSession(1);
+    TransientStoreSession session = store.beginSession();
     try {
 
       System.out.println("A1");
+      return session.getId();
 
     } catch (Throwable e) {
       TransientStoreUtil.abort(e, session);
@@ -28,9 +29,9 @@ public class TransientDatabaseTest extends AbstractEntityStoreAwareTestCase {
     }
   }
 
-  public void transacationA_part2_middle() {
+  public void transacationA_part2_middle(long id) {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession session = store.resumeSession(1);
+    TransientStoreSession session = store.resumeSession(id);
     try {
 
       System.out.println("A2");
@@ -43,9 +44,9 @@ public class TransientDatabaseTest extends AbstractEntityStoreAwareTestCase {
     }
   }
 
-  public void transacationA_part3_end() {
+  public void transacationA_part3_end(long id) {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession session = store.resumeSession(1);
+    TransientStoreSession session = store.resumeSession(id);
     try {
 
       System.out.println("A3");
@@ -60,9 +61,9 @@ public class TransientDatabaseTest extends AbstractEntityStoreAwareTestCase {
 
   public void testLongTransaction() throws Exception {
     try {
-      transacationA_part1_start();
-      transacationA_part2_middle();
-      transacationA_part3_end();
+      long id = transacationA_part1_start();
+      transacationA_part2_middle(id);
+      transacationA_part3_end(id);
     } catch (Exception e) {
       e.printStackTrace();
       throw e;
