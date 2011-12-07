@@ -33,14 +33,21 @@ public class TransientEntityIterable implements EntityIterable {
 
     public long size() {
         if (log.isWarnEnabled()) {
-            log.warn("Size is requested from TransientEntityIterable!");
+            log.warn("size() is requested from TransientEntityIterable!");
         }
         return values.size();
     }
 
     public long count() {
         if (log.isWarnEnabled()) {
-            log.warn("Count is requested from TransientEntityIterable!");
+            log.warn("count() is requested from TransientEntityIterable!");
+        }
+        return values.size();
+    }
+
+    public long getRoughCount() {
+        if (log.isWarnEnabled()) {
+            log.warn("getRoughCount() is requested from TransientEntityIterable!");
         }
         return values.size();
     }

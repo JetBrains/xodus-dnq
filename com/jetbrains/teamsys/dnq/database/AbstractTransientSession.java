@@ -8,10 +8,10 @@ import org.jetbrains.annotations.Nullable;
  */
 abstract class AbstractTransientSession implements TransientStoreSession {
   protected TransientEntityStoreImpl store;
-  protected Object id;
+  protected long id;
   protected int flushRetryOnLockConflict;
 
-  AbstractTransientSession(final TransientEntityStoreImpl store, final Object id) {
+  AbstractTransientSession(final TransientEntityStoreImpl store, final long id) {
     this.store = store;
     this.id = id;
     this.flushRetryOnLockConflict = store.getFlushRetryOnLockConflict();
@@ -49,7 +49,7 @@ abstract class AbstractTransientSession implements TransientStoreSession {
     return store;
   }
 
-  public Object getId() {
+  public long getId() {
     return id;
   }
 

@@ -1,13 +1,15 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.exceptions.*;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
+import jetbrains.exodus.core.dataStructures.Pair;
+import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.exceptions.CardinalityViolationException;
+import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
+import jetbrains.exodus.database.exceptions.NullPropertyException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -65,11 +67,6 @@ class ConstraintsUtil {
                     List<IncomingLinkViolation> badIncomingLinks = new ArrayList<IncomingLinkViolation>();
                     for (Pair<String, EntityIterable> pair : incomingLinks) {
                         final StoreSession storeSession = e.getTransientStoreSession();
-
-                        if (storeSession == null) {
-                            throw new IllegalStateException("No current transient session!");
-                        }
-
                         IncomingLinkViolation violation = null;
                         EntityIterator linksIterator = pair.getSecond().iterator();
                         while (linksIterator.hasNext()){

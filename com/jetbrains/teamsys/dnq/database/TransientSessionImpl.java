@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
@@ -8,7 +9,6 @@ import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.persistence.exceptions.LockConflictException;
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -62,7 +62,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         this(store, UNIQUE_ID.incrementAndGet());
     }
 
-    protected TransientSessionImpl(final TransientEntityStoreImpl store, final Object id) {
+    protected TransientSessionImpl(final TransientEntityStoreImpl store, final long id) {
         super(store, id);
 
         this.changesTracker = new TransientChangesTrackerImpl(this);
@@ -856,7 +856,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 if (entity.isTemporary() || entity.isReadonly()) {
                     return entity;
                 } else if (entity.isNew()) {
-                    if (((TransientEntityImpl) entity).getTransientStoreSession() == this) {
+                    if (entity.getSessionId() == id) {
                         // this is transient entity that was created in this session
                         // check session wasn't reverted
                         if (this.createdNewTransientEntities.get(entity.getId()) == entity) {
@@ -869,14 +869,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         throw new IllegalStateException("Can't create local copy of transient entity in New state from another session. " + entity);
                     }
                 } else if (entity.isSaved()) {
-                    final EntityId id = entity.getId();
-                    if (entity.getTransientStoreSession() == this && createdTransientForPersistentEntities.get(id) == entity) {
+                    final EntityId entityId = entity.getId();
+                    if (entity.getSessionId() == id && createdTransientForPersistentEntities.get(entityId) == entity) {
                         // was created in this session and session wasn't reverted
                         return entity;
                     } else {
-                        // saved entity from another session or from reverted session - load it from database by id
+                        // saved entity from another session or from reverted session - load it from database by entityId
                         // local copy already created?
-                        TransientEntity localCopy = createdTransientForPersistentEntities.get(id);
+                        TransientEntity localCopy = createdTransientForPersistentEntities.get(entityId);
                         if (localCopy != null) {
                             if (localCopy.isRemoved()) {
                                 EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
@@ -886,8 +886,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
                             return localCopy;
                         }
 
-                        // load persistent entity from database by id
-                        Entity databaseCopy = getPersistentSessionInternal().getEntity(id);
+                        // load persistent entity from database by entityId
+                        Entity databaseCopy = getPersistentSessionInternal().getEntity(entityId);
                         if (databaseCopy == null) {
                             // entity was removed - can't create local copy
                             EntityRemovedInDatabaseException entityRemovedInDatabaseException = new EntityRemovedInDatabaseException(entity);
