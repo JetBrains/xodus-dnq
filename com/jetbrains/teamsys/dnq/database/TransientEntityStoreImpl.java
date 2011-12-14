@@ -1,6 +1,5 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
 import jetbrains.exodus.core.dataStructures.hash.LongHashMap;
@@ -114,11 +113,21 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public TransientStoreSession beginSession() {
-        return beginSession(TransientStoreSessionMode.inplace);
-    }
+        if (log.isDebugEnabled()) {
+            log.debug("Begin new session");
+        }
 
-    public TransientStoreSession beginDeferredSession() {
-        return beginSession(TransientStoreSessionMode.deferred);
+        TransientStoreSession currentSession = this.currentSession.get();
+        if (currentSession != null) {
+            if (attachToCurrentOnBeginIfExists) {
+                log.debug("Return session already associated with the current thread " + currentSession);
+                return currentSession;
+            } else {
+                throw new IllegalStateException("Open session already presents for current thread.");
+            }
+        }
+
+        return registerStoreSession(new TransientSessionImpl(this));
     }
 
     @Deprecated
@@ -127,8 +136,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
             StringBuilder logMessage = new StringBuilder(64);
             logMessage.append("Begin new session with id [");
             logMessage.append(id);
-            logMessage.append("], mode = ");
-            logMessage.append(TransientStoreSessionMode.inplace);
+            logMessage.append(']');
             log.debug(logMessage.toString());
         }
         TransientStoreSession currentSession = this.currentSession.get();
@@ -145,35 +153,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
             throw new IllegalArgumentException("Transient session with id [" + id + "] already exists.");
         }
         return registerStoreSession(new TransientSessionImpl(this, id));
-    }
-
-    protected TransientStoreSession beginSession(@NotNull TransientStoreSessionMode mode) {
-        if (log.isDebugEnabled()) {
-            StringBuilder logMessage = new StringBuilder(64);
-            logMessage.append("Begin new session, mode = ");
-            logMessage.append(mode);
-            log.debug(logMessage.toString());
-        }
-
-        TransientStoreSession currentSession = this.currentSession.get();
-        if (currentSession != null) {
-            if (attachToCurrentOnBeginIfExists) {
-                log.debug("Return session already associated with the current thread " + currentSession);
-                return currentSession;
-            } else {
-                throw new IllegalStateException("Open session already presents for current thread.");
-            }
-        }
-
-        final TransientStoreSession transientSession;
-        if (mode == TransientStoreSessionMode.inplace) {
-            transientSession = new TransientSessionImpl(this);
-        } else if (mode == TransientStoreSessionMode.deferred) {
-            transientSession = new TransientSessionDeferred(this);
-        } else {
-            throw new IllegalStateException("Unsupported session mode: " + mode);
-        }
-        return registerStoreSession(transientSession);
     }
 
     public boolean isSessionExists(@NotNull long id) {

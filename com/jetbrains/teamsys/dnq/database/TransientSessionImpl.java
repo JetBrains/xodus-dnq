@@ -709,8 +709,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     public void commit() {
-        // this method is overridden in TransientSessionDeferred, but that's ok (changes are isomorphic)
-
         if (store.getThreadSession() != this) {
             throw new IllegalStateException("Can't commit session from another thread.");
         }

@@ -1,7 +1,8 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import jetbrains.exodus.core.dataStructures.Priority;
 import jetbrains.exodus.core.execution.Job;
-import jetbrains.exodus.core.execution.ThreadJobProcessorPool;
+import jetbrains.exodus.database.async.EntityStoreSharedAsyncProcessor;
 
 public class TransientSessionDeferred extends TransientSessionImpl {
 
@@ -15,10 +16,8 @@ public class TransientSessionDeferred extends TransientSessionImpl {
 
     public void commit() {
         TransientStoreUtil.suspend(this);
-
-        new Job(ThreadJobProcessorPool.getOrCreateJobProcessor("TransactionalDeferred " +
-                getStore().getPersistentStore().getLocation())) {
-
+        EntityStoreSharedAsyncProcessor.getInstance().queue(new Job() {
+            @Override
             protected void execute() throws Throwable {
                 getStore().resumeSession(TransientSessionDeferred.this);
                 try {
@@ -28,8 +27,7 @@ public class TransientSessionDeferred extends TransientSessionImpl {
                     throw e;
                 }
             }
-            
-        };
+        }, Priority.below_normal);
     }
 
     public void intermediateCommit() {
