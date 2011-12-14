@@ -48,7 +48,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
         EventsMultiplexer.this.fire(Where.SYNC_AFTER_FLUSH, changes);
         return;
       }
-    }, false);
+    });
     this.asyncFire(changes);
   }
 
