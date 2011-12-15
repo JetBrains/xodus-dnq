@@ -48,7 +48,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
         EventsMultiplexer.this.fire(Where.SYNC_AFTER_FLUSH, changes);
         return;
       }
-    });
+    }, true);
     this.asyncFire(changes);
   }
 
@@ -349,7 +349,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
           JobImpl.this.eventsMultiplexer.fire(Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes);
           return;
         }
-      });
+      }, false);
     }
   }
 
