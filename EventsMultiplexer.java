@@ -43,12 +43,12 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void commited(@Nullable final Set<TransientEntityChange> changes) {
-    _Txn.run(new _FunctionTypes._void_P0_E0() {
+    _Txn.runNew(new _FunctionTypes._void_P0_E0() {
       public void invoke() {
         EventsMultiplexer.this.fire(Where.SYNC_AFTER_FLUSH, changes);
         return;
       }
-    }, true);
+    });
     this.asyncFire(changes);
   }
 
@@ -349,7 +349,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
           JobImpl.this.eventsMultiplexer.fire(Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes);
           return;
         }
-      }, false);
+      });
     }
   }
 

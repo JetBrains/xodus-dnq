@@ -9,7 +9,7 @@
     <nodeInfo nodeId="1213197809288" fileName="EventsMultiplexer.java" startLine="41" startPosition="47" endLine="42" endPosition="28" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="5314063069303365215" fileName="EventsMultiplexer.java" startLine="47" startPosition="28" endLine="48" endPosition="69" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="5314063069304772240" fileName="EventsMultiplexer.java" startLine="48" startPosition="69" endLine="49" endPosition="15" conceptFqName="jetbrains.mps.baseLanguage.structure.ReturnStatement" />
-    <nodeInfo nodeId="1213191174216" fileName="EventsMultiplexer.java" startLine="51" startPosition="13" endLine="52" endPosition="28" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
+    <nodeInfo nodeId="1213191174216" fileName="EventsMultiplexer.java" startLine="51" startPosition="7" endLine="52" endPosition="28" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="5314063069303365098" fileName="EventsMultiplexer.java" startLine="55" startPosition="73" endLine="56" endPosition="54" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="7738287727767472983" fileName="EventsMultiplexer.java" startLine="59" startPosition="94" endLine="60" endPosition="48" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="1213712859750" fileName="EventsMultiplexer.java" startLine="63" startPosition="68" endLine="64" endPosition="100" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
@@ -185,20 +185,20 @@
     <nodeInfo nodeId="5101215682825280516" fileName="EventsMultiplexer.java" startLine="318" startPosition="0" endLine="322" endPosition="0" conceptFqName="jetbrains.mps.baseLanguage.structure.StaticMethodDeclaration" propertyString="removeListenerSafe#(Ljava/lang/String;Ljetbrains/teamsys/dnq/runtime/events/IEntityListener;)V" />
     <nodeInfo nodeId="1213713157757" fileName="EventsMultiplexer.java" startLine="340" startPosition="0" endLine="344" endPosition="5" conceptFqName="jetbrains.mps.baseLanguage.structure.ConstructorDeclaration" propertyString="JobImpl#(Ljetbrains/teamsys/dnq/runtime/events/EventsMultiplexer;Ljava/util/Set;)V" />
     <nodeInfo nodeId="1213187092148" fileName="EventsMultiplexer.java" startLine="39" startPosition="0" endLine="44" endPosition="0" conceptFqName="jetbrains.mps.baseLanguage.structure.InstanceMethodDeclaration" propertyString="flushed#(Ljava/util/Set;)V" />
-    <nodeInfo nodeId="5314063069304772240" fileName="EventsMultiplexer.java" startLine="46" startPosition="47" endLine="51" endPosition="0" conceptFqName="jetbrains.mps.baseLanguage.structure.InstanceMethodDeclaration" propertyString="invoke#()V" />
+    <nodeInfo nodeId="5314063069304772240" fileName="EventsMultiplexer.java" startLine="46" startPosition="50" endLine="51" endPosition="0" conceptFqName="jetbrains.mps.baseLanguage.structure.InstanceMethodDeclaration" propertyString="invoke#()V" />
     <nodeInfo nodeId="1142959524945580969" fileName="EventsMultiplexer.java" startLine="75" startPosition="33" endLine="80" endPosition="7" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="4243294330904078655" fileName="EventsMultiplexer.java" startLine="164" startPosition="35" endLine="169" endPosition="7" conceptFqName="jetbrains.mps.baseLanguage.structure.ForeachStatement" />
     <nodeInfo nodeId="7873363520110790356" fileName="EventsMultiplexer.java" startLine="192" startPosition="31" endLine="197" endPosition="5" conceptFqName="jetbrains.mps.baseLanguage.structure.TryStatement" />
     <nodeInfo nodeId="7873363520110790399" fileName="EventsMultiplexer.java" startLine="206" startPosition="35" endLine="211" endPosition="9" conceptFqName="jetbrains.mps.baseLanguage.structure.TryStatement" />
     <nodeInfo nodeId="1213713182579" fileName="EventsMultiplexer.java" startLine="347" startPosition="49" endLine="352" endPosition="0" conceptFqName="jetbrains.mps.baseLanguage.structure.InstanceMethodDeclaration" propertyString="invoke#()V" />
     <nodeInfo nodeId="3750850504740996321" fileName="EventsMultiplexer.java" startLine="360" startPosition="0" endLine="365" endPosition="5" conceptFqName="jetbrains.mps.baseLanguage.structure.ConstructorDeclaration" propertyString="FullEntityId#(Ljetbrains/exodus/database/EntityStore;Ljetbrains/exodus/database/EntityId;)V" />
-    <nodeInfo nodeId="5314063069304772240" fileName="EventsMultiplexer.java" startLine="45" startPosition="76" endLine="51" endPosition="13" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
+    <nodeInfo nodeId="5314063069304772240" fileName="EventsMultiplexer.java" startLine="45" startPosition="76" endLine="51" endPosition="7" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="8179181843315112390" fileName="EventsMultiplexer.java" startLine="84" startPosition="41" endLine="90" endPosition="5" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
     <nodeInfo nodeId="8179181843315112371" fileName="EventsMultiplexer.java" startLine="109" startPosition="41" endLine="115" endPosition="5" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
     <nodeInfo nodeId="6896393918841918223" fileName="EventsMultiplexer.java" startLine="119" startPosition="80" endLine="125" endPosition="7" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
     <nodeInfo nodeId="6896393918841918446" fileName="EventsMultiplexer.java" startLine="149" startPosition="78" endLine="155" endPosition="7" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
     <nodeInfo nodeId="7738287727767486366" fileName="EventsMultiplexer.java" startLine="289" startPosition="62" endLine="295" endPosition="11" conceptFqName="jetbrains.mps.baseLanguage.structure.IfStatement" />
-    <nodeInfo nodeId="1213713182579" fileName="EventsMultiplexer.java" startLine="346" startPosition="44" endLine="352" endPosition="16" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
+    <nodeInfo nodeId="1213713182579" fileName="EventsMultiplexer.java" startLine="346" startPosition="44" endLine="352" endPosition="9" conceptFqName="jetbrains.mps.baseLanguage.structure.ExpressionStatement" />
     <nodeInfo nodeId="1213191155416" fileName="EventsMultiplexer.java" startLine="66" startPosition="0" endLine="73" endPosition="0" conceptFqName="jetbrains.mps.baseLanguage.structure.InstanceMethodDeclaration" propertyString="fire#(Ljetbrains/teamsys/dnq/runtime/events/Where;Ljava/util/Set;)V" />
     <nodeInfo nodeId="1213186991663" fileName="EventsMultiplexer.java" startLine="322" startPosition="0" endLine="329" endPosition="0" conceptFqName="jetbrains.mps.baseLanguage.structure.StaticMethodDeclaration" propertyString="check_9klgcu_a0a1#(Ljetbrains/teamsys/dnq/runtime/events/EventsMultiplexer;Ljetbrains/exodus/database/Entity;Ljetbrains/teamsys/dnq/runtime/events/IEntityListener;)V" />
     <nodeInfo nodeId="1213186991663" fileName="EventsMultiplexer.java" startLine="329" startPosition="0" endLine="336" endPosition="0" conceptFqName="jetbrains.mps.baseLanguage.structure.StaticMethodDeclaration" propertyString="check_9klgcu_a0a2#(Ljetbrains/teamsys/dnq/runtime/events/EventsMultiplexer;Ljava/lang/String;Ljetbrains/teamsys/dnq/runtime/events/IEntityListener;)V" />
@@ -350,7 +350,7 @@
     <scopeInfo nodeId="1213187092148" fileName="EventsMultiplexer.java" startLine="39" startPosition="0" endLine="44" endPosition="0">
       <varInfo nodeId="1213187092151" varName="changes" />
     </scopeInfo>
-    <scopeInfo nodeId="5314063069304772240" fileName="EventsMultiplexer.java" startLine="46" startPosition="47" endLine="51" endPosition="0" />
+    <scopeInfo nodeId="5314063069304772240" fileName="EventsMultiplexer.java" startLine="46" startPosition="50" endLine="51" endPosition="0" />
     <scopeInfo nodeId="4243294330904078655" fileName="EventsMultiplexer.java" startLine="164" startPosition="35" endLine="169" endPosition="7">
       <varInfo nodeId="4243294330904078656" varName="id" />
     </scopeInfo>
@@ -367,7 +367,7 @@
     <scopeInfo nodeId="6896393918841918372" fileName="EventsMultiplexer.java" startLine="134" startPosition="9" endLine="140" endPosition="30">
       <varInfo nodeId="6896393918841918374" varName="listeners" />
     </scopeInfo>
-    <scopeInfo nodeId="1213713173630" fileName="EventsMultiplexer.java" startLine="346" startPosition="44" endLine="352" endPosition="16" />
+    <scopeInfo nodeId="1213713173630" fileName="EventsMultiplexer.java" startLine="346" startPosition="44" endLine="352" endPosition="9" />
     <scopeInfo nodeId="1213187092163" fileName="EventsMultiplexer.java" startLine="45" startPosition="76" endLine="52" endPosition="28" />
     <scopeInfo nodeId="1213191155416" fileName="EventsMultiplexer.java" startLine="66" startPosition="0" endLine="73" endPosition="0">
       <varInfo nodeId="7738287727767472974" varName="where" />
@@ -478,7 +478,7 @@
       <varInfo nodeId="7738287727767471049" varName="where" />
     </scopeInfo>
     <unitInfo nodeId="1142959524945580978" fileName="EventsMultiplexer.java" startLine="76" startPosition="28" endLine="80" endPosition="5" unitName="jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer$2" />
-    <unitInfo nodeId="5314063069304772240" fileName="EventsMultiplexer.java" startLine="46" startPosition="17" endLine="51" endPosition="5" unitName="jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer$1" />
+    <unitInfo nodeId="5314063069304772240" fileName="EventsMultiplexer.java" startLine="46" startPosition="20" endLine="51" endPosition="5" unitName="jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer$1" />
     <unitInfo nodeId="1213713182579" fileName="EventsMultiplexer.java" startLine="347" startPosition="19" endLine="352" endPosition="7" unitName="jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer$1" />
     <unitInfo nodeId="1213713157755" fileName="EventsMultiplexer.java" startLine="337" startPosition="0" endLine="355" endPosition="0" unitName="jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer$JobImpl" />
     <unitInfo nodeId="3750850504740996319" fileName="EventsMultiplexer.java" startLine="356" startPosition="0" endLine="408" endPosition="0" unitName="jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer$FullEntityId" />
