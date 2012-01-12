@@ -535,6 +535,24 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     @NotNull
+    public EntityIterable sortLinks(@NotNull final String entityType,
+                                    @NotNull final EntityIterable sortedLinks,
+                                    boolean isMultiple,
+                                    @NotNull final String linkName,
+                                    final @NotNull EntityIterable rightOrder,
+                                    @NotNull final String oppositeEntityType,
+                                    @NotNull final String oppositeLinkName) {
+        switch (state) {
+            case Open:
+                return new PersistentEntityIterableWrapper(
+                        getPersistentSessionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource(), oppositeEntityType, oppositeLinkName));
+
+            default:
+                throw new IllegalStateException("Can't execute in state [" + state + "]");
+        }
+    }
+
+    @NotNull
     public EntityIterable mergeSorted(@NotNull List<EntityIterable> sorted, @NotNull Comparator<Entity> comparator) {
         switch (state) {
             case Open:
