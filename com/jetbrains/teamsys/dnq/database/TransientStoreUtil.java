@@ -75,6 +75,22 @@ public class TransientStoreUtil {
     }
 
     /**
+     * Checks if entity entity was removed
+     *
+     * @param entity
+     * @return true if e was removed, false if it wasn't removed at all
+     */
+    public static boolean isRemoved(@NotNull Entity entity) {
+      TransientStoreSession s = (TransientStoreSession) entity.getStore().getThreadSession();
+
+      if (s == null) {
+          throw new IllegalStateException("There's no current session to attach transient entity to.");
+      }
+
+      return s.isRemoved(entity);
+    }
+
+    /**
      * Attach entity to current session if possible.
      *
      * @return
