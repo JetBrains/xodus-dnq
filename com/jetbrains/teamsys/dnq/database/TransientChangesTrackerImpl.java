@@ -618,8 +618,14 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
   }
 
   public void blobDeleted(@NotNull final TransientEntity e, @NotNull final String blobName) {
-    String oldPropertyValue = e.isSaved() ? ((TransientEntityImpl)e).getPersistentEntityInternal().getBlobString(blobName) : null;
-    if (oldPropertyValue == null) {
+    final boolean hasOldValue;
+    if (e.isSaved()) {
+        PersistentEntity persistentEntity = (PersistentEntity) ((TransientEntityImpl) e).getPersistentEntityInternal();
+        hasOldValue = persistentEntity.hasBlob(blobName);
+    } else {
+        hasOldValue = false;
+    }
+    if (!hasOldValue) {
       offerChange(null, rollbackPropertyChangedDetailed(e, blobName));
     } else {
       entityChanged(e);
