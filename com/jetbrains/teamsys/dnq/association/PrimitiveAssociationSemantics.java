@@ -60,7 +60,7 @@ public class PrimitiveAssociationSemantics {
         e = TransientStoreUtil.reattach(e);
 
         if (e == null) {
-            return null;
+            return nullValue;
         }
 
         Map<String, PropertyChange> propertiesDetailed = e.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(e);
