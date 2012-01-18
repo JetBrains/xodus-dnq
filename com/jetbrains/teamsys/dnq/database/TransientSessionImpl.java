@@ -926,6 +926,43 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
+    /**
+     * Checks if entity entity was removed in this transaction or in database
+     *
+     * @param entity
+     * @return true if e was removed, false if it wasn't removed at all
+     */
+    public boolean isRemoved(@NotNull final Entity entity) {
+        EntityId id = null;
+        if (entity instanceof TransientEntity && state == State.Open) {
+            final TransientEntity transientEntity = (TransientEntity) entity;
+            if (transientEntity.isRemoved()) {
+                return true;
+            } else if (transientEntity.isSaved()) {
+                // saved entity from another session or from reverted session
+                id = entity.getId();
+                if (createdTransientForPersistentEntities.get(id) != transientEntity) {
+                    // local copy already created?
+                    TransientEntity localCopy = createdTransientForPersistentEntities.get(id);
+                    if (localCopy != null && localCopy.isRemoved()) {
+                        return true;
+                    }
+                }
+            } else if (transientEntity.isTemporary() || transientEntity.isReadonly() || transientEntity.isNew()) {
+                return false;
+            }
+        }
+        // load persistent entity from database by id
+        if (id == null) {
+            id = entity.getId();
+        }
+        Entity databaseCopy = getPersistentSessionInternal().getEntity(id);
+        if (databaseCopy == null) {
+            return true;
+        }
+        return false;
+    }
+
     public void registerEntityIterator(@NotNull EntityIterator iterator) {
         //TODO: revisit StoreSession interface and remove these stub method
     }

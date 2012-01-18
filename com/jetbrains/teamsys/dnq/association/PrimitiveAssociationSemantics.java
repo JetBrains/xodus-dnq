@@ -55,12 +55,12 @@ public class PrimitiveAssociationSemantics {
     @Nullable
     public static Object getOldValue(@NotNull TransientEntity e, @NotNull String propertyName, @Nullable Object nullValue) {
         if (e != null && EntityOperations.isRemoved(e)) {
-            return ((PersistentEntityStore) e.getTransientStoreSession().getPersistentSession().getStore()).getEntity(e.getId()).getProperty(propertyName);
+            return ((PersistentEntityStore) ((TransientEntityStore) e.getStore()).getPersistentStore()).getEntity(e.getId()).getProperty(propertyName);
         }
         e = TransientStoreUtil.reattach(e);
 
         if (e == null) {
-            return null;
+            return nullValue;
         }
 
         Map<String, PropertyChange> propertiesDetailed = e.getTransientStoreSession().getTransientChangesTracker().getChangedPropertiesDetailed(e);

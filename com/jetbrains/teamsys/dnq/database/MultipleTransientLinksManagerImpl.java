@@ -113,7 +113,9 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
         }
       }
     }
-    throw new IllegalArgumentException("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
+    if (log.isWarnEnabled()) {
+        log.warn("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
+    }
   }
 
   public void addLink(@NotNull final TransientEntity entity) {
@@ -150,10 +152,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     final AbstractTransientEntity.State state = owner.getState();
     switch (state) {
       case New:
-        if (links == null || !links.remove(entity)) {
-          throw new IllegalArgumentException("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
-        }
-        setAsRemoved(entity);
+        if (!tryToRemove(entity)) return;
         break;
 
       case Temporary:
@@ -167,10 +166,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
             setAsRemoved(entity);
             break;
           case LinksLoaded:
-            if (links == null || !links.remove(entity)) {
-              throw new IllegalArgumentException("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
-            }
-            setAsRemoved(entity);
+            if (!tryToRemove(entity)) return;
             break;
         }
         break;
@@ -179,6 +175,23 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     TransientChangesTracker tracker = owner.getTransientStoreSession().getTransientChangesTracker();
     tracker.linkDeleted(owner, linkName, entity);
     tracker.registerLinkChanges(owner, linkName, added, removed);
+  }
+
+  private boolean tryToRemove(final TransientEntity entity) {
+    if(removed != null && removed.contains(entity)) {
+        if (log.isWarnEnabled()) {
+            log.warn("Can't remove [" + linkName + "] from [" + owner + "] to [" + entity + "] twice.");
+        }
+        return false;
+    }
+    if (links == null || !links.remove(entity)) {
+        if (log.isWarnEnabled()) {
+            log.warn("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
+        }
+        return false;
+    }
+    setAsRemoved(entity);
+    return true;
   }
 
   public void deleteLinks() {
