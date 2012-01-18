@@ -66,7 +66,6 @@ class ConstraintsUtil {
 
                     List<IncomingLinkViolation> badIncomingLinks = new ArrayList<IncomingLinkViolation>();
                     for (Pair<String, EntityIterable> pair : incomingLinks) {
-                        final StoreSession storeSession = e.getTransientStoreSession();
                         IncomingLinkViolation violation = null;
                         EntityIterator linksIterator = pair.getSecond().iterator();
                         while (linksIterator.hasNext()){
