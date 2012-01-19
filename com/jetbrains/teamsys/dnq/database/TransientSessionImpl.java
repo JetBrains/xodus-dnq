@@ -933,14 +933,15 @@ public class TransientSessionImpl extends AbstractTransientSession {
      * @return true if e was removed, false if it wasn't removed at all
      */
     public boolean isRemoved(@NotNull final Entity entity) {
-        EntityId id = entity.getId();
+        EntityId id = null;
         if (entity instanceof TransientEntity && state == State.Open) {
             final TransientEntity transientEntity = (TransientEntity) entity;
             if (transientEntity.isRemoved()) {
                 return true;
             } else if (transientEntity.isSaved()) {
-                // saved entity from another session or from reverted session - load it from database by id
-                if (transientEntity.getTransientStoreSession() != this || createdTransientForPersistentEntities.get(id) != transientEntity) {
+                // saved entity from another session or from reverted session
+                id = entity.getId();
+                if (createdTransientForPersistentEntities.get(id) != transientEntity) {
                     // local copy already created?
                     TransientEntity localCopy = createdTransientForPersistentEntities.get(id);
                     if (localCopy != null && localCopy.isRemoved()) {
@@ -952,6 +953,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
             }
         }
         // load persistent entity from database by id
+        if (id == null) {
+            id = entity.getId();
+        }
         Entity databaseCopy = getPersistentSessionInternal().getEntity(id);
         if (databaseCopy == null) {
             return true;
