@@ -287,7 +287,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
             log.error("Exception while notifying entity listener.", e);
           }
           // rethrow exception only for beforeFlush listeners 
-          if (where == Where.SYNC_BEFORE_CONSTRAINTS || where == Where.SYNC_BEFORE_FLUSH) {
+          if (where == Where.SYNC_BEFORE_CONSTRAINTS) {
             if (e instanceof RuntimeException) {
               throw (RuntimeException) e;
             }
