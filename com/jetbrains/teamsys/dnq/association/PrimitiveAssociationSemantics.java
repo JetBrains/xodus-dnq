@@ -39,7 +39,7 @@ public class PrimitiveAssociationSemantics {
     }
 
     @Nullable
-    public static Object getOldValue(@NotNull TransientEntity e, @NotNull String propertyName, @NotNull Class propertyType, @Nullable Object nullValue) {
+    public static Object getOldValue(@Nullable TransientEntity e, @NotNull String propertyName, @NotNull Class propertyType, @Nullable Object nullValue) {
         Object res = getOldValue(e, propertyName, nullValue);
         return res == null ? getPropertyNullValue(propertyType) : res;
     }
@@ -53,7 +53,7 @@ public class PrimitiveAssociationSemantics {
      * @return
      */
     @Nullable
-    public static Object getOldValue(@NotNull TransientEntity e, @NotNull String propertyName, @Nullable Object nullValue) {
+    public static Object getOldValue(@Nullable TransientEntity e, @NotNull String propertyName, @Nullable Object nullValue) {
         if (e != null && EntityOperations.isRemoved(e)) {
             return ((PersistentEntityStore) ((TransientEntityStore) e.getStore()).getPersistentStore()).getEntity(e.getId()).getProperty(propertyName);
         }
