@@ -149,7 +149,13 @@ public class AssociationSemantics {
     @Nullable
     public static Entity getOldValue(@NotNull TransientEntity e, @NotNull String name) {
         if (EntityOperations.isRemoved(e)) {
-            return ((PersistentEntityStore) ((TransientEntityStore) e.getStore()).getPersistentStore()).getEntity(e.getId()).getLink(name);
+            final TransientEntityStore transientStore = (TransientEntityStore) e.getStore();
+            final Entity result = ((PersistentEntityStore) transientStore.getPersistentStore()).getEntity(e.getId()).getLink(name);
+            if (result == null) {
+                return null;
+            }
+            final TransientStoreSession session = transientStore.getThreadSession();
+            return session.newEntity(result);
         }
         final EntityIterator itr = getRemovedLinks(e, name).iterator();
         if (itr.hasNext()) {
