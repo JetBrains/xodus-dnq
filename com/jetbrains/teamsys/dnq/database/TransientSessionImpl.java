@@ -441,6 +441,16 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
         }
     }
+    @NotNull
+    public EntityIterable findWithBlob(@NotNull final String entityType, @NotNull final String propertyName) {
+        switch (state) {
+            case Open:
+                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findWithBlob(entityType, propertyName));
+
+            default:
+                throw new IllegalStateException("Can't execute in state [" + state + "]");
+        }
+    }
 
     @NotNull
     public EntityIterable findLinks(@NotNull final String entityType, @NotNull final Entity entity, @NotNull final String linkName) {
