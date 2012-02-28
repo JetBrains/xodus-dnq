@@ -6,6 +6,8 @@ import jetbrains.exodus.database.Entity;
 import jetbrains.exodus.database.EntityIterable;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.database.exceptions.EntityRemovedInDatabaseException;
+import org.junit.Assert;
 
 public class ToIdFromIdTest extends AbstractEntityStoreAwareTestCase {
 
@@ -29,9 +31,11 @@ public class ToIdFromIdTest extends AbstractEntityStoreAwareTestCase {
 
       Entity user = transientStoreSession.getEntity(transientStoreSession.toEntityId(id));
 
-      assertNull(user);
+      fail();
 
-   } catch (Throwable e) {
+    } catch (EntityRemovedInDatabaseException e) {
+
+    } catch (Throwable e) {
       TransientStoreUtil.abort(e, transientStoreSession);
       throw new RuntimeException("Should never be thrown.");
     } finally {
