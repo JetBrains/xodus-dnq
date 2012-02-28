@@ -940,16 +940,17 @@ public class TransientSessionImpl extends AbstractTransientSession {
      * @return true if e was removed, false if it wasn't removed at all
      */
     public boolean isRemoved(@NotNull final Entity entity) {
-        EntityId id = entity.getId();
+        EntityId entityId = null;
         if (entity instanceof TransientEntity && state == State.Open) {
             final TransientEntity transientEntity = (TransientEntity) entity;
             if (transientEntity.isRemoved()) {
                 return true;
             } else if (transientEntity.isSaved()) {
-                // saved entity from another session or from reverted session - load it from database by id
-                if (transientEntity.getTransientStoreSession() != this || createdTransientForPersistentEntities.get(id) != transientEntity) {
+                // saved entity from another session or from reverted session
+                entityId = entity.getId();
+                if (createdTransientForPersistentEntities.get(entityId) != transientEntity) {
                     // local copy already created?
-                    TransientEntity localCopy = createdTransientForPersistentEntities.get(id);
+                    TransientEntity localCopy = createdTransientForPersistentEntities.get(entityId);
                     if (localCopy != null && localCopy.isRemoved()) {
                         return true;
                     }
@@ -959,11 +960,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
             }
         }
         // load persistent entity from database by id
-        Entity databaseCopy = getPersistentSessionInternal().getEntity(id);
-        if (databaseCopy == null) {
-            return true;
+        if (entityId == null) {
+            entityId = entity.getId();
         }
-        return false;
+        return ((PersistentEntityStore) getPersistentSessionInternal().getStore()).getLastVersion(entityId) < 0;
     }
 
     public void registerEntityIterator(@NotNull EntityIterator iterator) {
