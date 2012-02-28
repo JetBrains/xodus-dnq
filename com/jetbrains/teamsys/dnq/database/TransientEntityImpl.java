@@ -9,10 +9,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Date: 05.02.2007
@@ -503,6 +500,27 @@ class TransientEntityImpl extends AbstractTransientEntity {
     @Nullable
     public Entity getLink(@NotNull final String linkName) {
         return getLinkEventHandler.handle(this, linkName, null);
+    }
+
+    private static final StandardEventHandler<Collection<String>, Object, EntityIterable> getLinksFromSetEventHandler = new StandardEventHandler2<Collection<String>, Object, EntityIterable>() {
+        EntityIterable processOpenSaved(AbstractTransientEntity entity, Collection<String> linkNames, Object param2) {
+            //TODO: use link managers? implement own link manager?
+            return _(entity).getPersistentEntityInternal().getLinks(linkNames);
+        }
+
+        EntityIterable processOpenNew(AbstractTransientEntity entity, Collection<String> linkNames, Object param2) {
+            return processOpenSaved(entity, linkNames, param2);
+        }
+
+        EntityIterable processTemporary(AbstractTransientEntity entity, Collection<String> linkNames, Object param2) {
+            return processOpenSaved(entity, linkNames, param2);
+        }
+
+    };
+
+    @Nullable
+    public EntityIterable getLinks(@NotNull final Collection<String> linkNames) {
+        return getLinksFromSetEventHandler.handle(this, linkNames, null);
     }
 
     private static final StandardEventHandler<String, Object, Long> getLinksSizeEventHandler = new StandardEventHandler2<String, Object, Long>() {
