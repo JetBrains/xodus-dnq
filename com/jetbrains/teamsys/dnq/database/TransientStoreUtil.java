@@ -2,13 +2,13 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.LongHashSet;
 import jetbrains.exodus.database.*;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.Set;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Date: 18.12.2006
@@ -81,13 +81,17 @@ public class TransientStoreUtil {
      * @return true if e was removed, false if it wasn't removed at all
      */
     public static boolean isRemoved(@NotNull Entity entity) {
-      TransientStoreSession s = (TransientStoreSession) entity.getStore().getThreadSession();
+        if (entity instanceof PersistentEntity) {
+            return ((PersistentEntityStore) entity.getStore()).getLastVersion(entity.getId()) < 0;
+        }
 
-      if (s == null) {
-          throw new IllegalStateException("There's no current session to attach transient entity to.");
-      }
+        TransientStoreSession s = (TransientStoreSession) entity.getStore().getThreadSession();
 
-      return s.isRemoved(entity);
+        if (s == null) {
+            throw new IllegalStateException("There's no current session to attach transient entity to.");
+        }
+
+        return s.isRemoved(entity);
     }
 
     /**
