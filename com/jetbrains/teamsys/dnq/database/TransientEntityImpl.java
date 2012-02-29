@@ -4,6 +4,8 @@ import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
+import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
+import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -504,8 +506,13 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
     private static final StandardEventHandler<Collection<String>, Object, EntityIterable> getLinksFromSetEventHandler = new StandardEventHandler2<Collection<String>, Object, EntityIterable>() {
         EntityIterable processOpenSaved(AbstractTransientEntity entity, Collection<String> linkNames, Object param2) {
-            //TODO: use link managers? implement own link manager?
-            return _(entity).getPersistentEntityInternal().getLinks(linkNames);
+            return new PersistentEntityIterableWrapper(_(entity).getPersistentEntityInternal().getLinks(linkNames)) {
+                @Override
+                public EntityIterator iterator() {
+                    return new PersistentEntityIteratorWithPropIdWrapper((EntityIteratorWithPropId) wrappedIterable.iterator(),
+                            (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
+                }
+            };
         }
 
         EntityIterable processOpenNew(AbstractTransientEntity entity, Collection<String> linkNames, Object param2) {
@@ -850,6 +857,136 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
     public EntityIterable getRemovedLinks(final String name) {
         return addedRemovedLinksEventHandler.handle(this, name, true);
+    }
+
+    private static final StandardEventHandler<Set<String>, Boolean, EntityIterable> addedRemovedFromSetLinksEventHandler = new StandardEventHandler2<Set<String>, Boolean, EntityIterable>() {
+
+        @NotNull
+        EntityIterable processOpenNew(AbstractTransientEntity entity, Set<String> linkNames, Boolean removed) {
+            return UniversalEmptyEntityIterable.INSTANCE;
+        }
+
+        @NotNull
+        EntityIterable processOpenSaved(AbstractTransientEntity entity, final Set<String> linkNames, final Boolean removed) {
+            final Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
+            if (changesLinks == null) {
+                return UniversalEmptyEntityIterable.INSTANCE;
+            }
+            final Set<TransientEntity> result = new HashSet<TransientEntity>();
+            if (removed) {
+                for (final String linkName : linkNames) {
+                    final LinkChange linkChange = changesLinks.get(linkName);
+                    if (linkChange != null) {
+                        result.addAll(linkChange.getRemovedEntities());
+                    }
+                }
+            } else {
+                for (final String linkName : linkNames) {
+                    final LinkChange linkChange = changesLinks.get(linkName);
+                    if (linkChange != null) {
+                        result.addAll(linkChange.getAddedEntities());
+                    }
+                }
+            }
+            if (result.isEmpty()) {
+                return UniversalEmptyEntityIterable.INSTANCE;
+            }
+            return new TransientEntityIterable(result) {
+                @Override
+                public EntityIterator iterator() {
+                    final Iterator<String> it = linkNames.iterator();
+                    return new EntityIteratorWithPropId() {
+                        private String currentLinkName;
+                        private Iterator<TransientEntity> currentItr;
+
+                        public String currentLinkName() {
+                            return currentLinkName;
+                        }
+
+                        public boolean hasNext() {
+                            if (currentItr != null && currentItr.hasNext()) {
+                                return true;
+                            }
+                            while (it.hasNext()) {
+                                final String linkName = it.next();
+                                final LinkChange linkChange = changesLinks.get(linkName);
+                                if (linkChange != null) {
+                                    final Set<TransientEntity> current = removed ?
+                                            linkChange.getRemovedEntities() :
+                                            linkChange.getAddedEntities();
+                                    final Iterator<TransientEntity> itr = current.iterator();
+                                    if (itr.hasNext()) {
+                                        currentLinkName = linkName;
+                                        currentItr = itr;
+                                        return true;
+                                    }
+                                }
+                            }
+                            return false;
+                        }
+
+                        public Entity next() {
+                            if (hasNext()) {
+                                return currentItr.next();
+                            }
+                            return null;
+                        }
+
+                        public EntityId nextId() {
+                            return next().getId();
+                        }
+
+                        public boolean skip(int number) {
+                            while (number > 0) {
+                                if (hasNext()) {
+                                    next();
+                                    --number;
+                                } else {
+                                    return false;
+                                }
+                            }
+                            return true;
+                        }
+
+                        public boolean shouldBeDisposed() {
+                            return false;
+                        }
+
+                        public boolean dispose() {
+                            throw new UnsupportedOperationException("Transient iterator doesn't support disposing.");
+                        }
+
+                        public void remove() {
+                            throw new UnsupportedOperationException("Remove from iterator is not supported by transient iterator");
+                        }
+                    };
+                }
+
+                @Override
+                public long size() {
+                    return result.size();
+                }
+
+                @Override
+                public long count() {
+                    return result.size();
+                }
+            };
+        }
+
+        @NotNull
+        EntityIterable processTemporary(AbstractTransientEntity entity, Set<String> linkNames, Boolean removed) {
+            return UniversalEmptyEntityIterable.INSTANCE;
+        }
+
+    };
+
+    public EntityIterable getAddedLinks(final Set<String> linkNames) {
+        return addedRemovedFromSetLinksEventHandler.handle(this, linkNames, false);
+    }
+
+    public EntityIterable getRemovedLinks(final Set<String> linkNames) {
+        return addedRemovedFromSetLinksEventHandler.handle(this, linkNames, true);
     }
 
     private static abstract class StandardEventHandler2<P1, P2, T> extends StandardEventHandler<P1, P2, T> {
