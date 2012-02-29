@@ -12,7 +12,7 @@ import org.jetbrains.annotations.NotNull;
  */
 class PersistentEntityIterableWrapper implements EntityIterable {
 
-    private EntityIterable wrappedIterable;
+    protected final EntityIterable wrappedIterable;
 
     PersistentEntityIterableWrapper(@NotNull EntityIterable wrappedIterable) {
         if (wrappedIterable instanceof PersistentEntityIterableWrapper) {

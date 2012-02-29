@@ -10,7 +10,7 @@ class PersistentEntityIteratorWrapper implements EntityIterator {
 
     @NotNull
     protected final EntityIterator source;
-    private TransientStoreSession session;
+    private final TransientStoreSession session;
 
     PersistentEntityIteratorWrapper(@NotNull final EntityIterator source, final TransientStoreSession session) {
         this.source = source;
