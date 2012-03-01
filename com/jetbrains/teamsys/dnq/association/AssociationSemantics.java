@@ -1,9 +1,9 @@
 package com.jetbrains.teamsys.dnq.association;
 
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
+import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -11,6 +11,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  */
@@ -47,6 +48,17 @@ public class AssociationSemantics {
         }
 
         return e.getLinks(linkName);
+    }
+
+    @NotNull
+    public static EntityIterable getToMany(@Nullable Entity e, @NotNull Set<String> linkNames) {
+        e = TransientStoreUtil.reattach((TransientEntity) e);
+
+        if (e == null) {
+            return EntityIterableBase.EMPTY;
+        }
+
+        return e.getLinks(linkNames);
     }
 
     /**
@@ -138,6 +150,17 @@ public class AssociationSemantics {
         return e.getRemovedLinks(name);
     }
 
+    public static EntityIterable getAddedLinks(@NotNull TransientEntity e, Set<String> linkNames) {
+        e = TransientStoreUtil.reattach(e);
+
+        return e.getAddedLinks(linkNames);
+    }
+
+    public static EntityIterable getRemovedLinks(@NotNull TransientEntity e, Set<String> linkNames) {
+        e = TransientStoreUtil.reattach(e);
+
+        return e.getRemovedLinks(linkNames);
+    }
 
     /**
      * Returns previous link value

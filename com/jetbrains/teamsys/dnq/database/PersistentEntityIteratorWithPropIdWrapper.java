@@ -4,15 +4,16 @@ import jetbrains.exodus.database.Entity;
 import jetbrains.exodus.database.EntityId;
 import jetbrains.exodus.database.EntityIterator;
 import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
 import org.jetbrains.annotations.NotNull;
 
-class PersistentEntityIteratorWrapper implements EntityIterator {
+class PersistentEntityIteratorWithPropIdWrapper implements EntityIteratorWithPropId {
 
     @NotNull
-    protected final EntityIterator source;
+    protected final EntityIteratorWithPropId source;
     private final TransientStoreSession session;
 
-    PersistentEntityIteratorWrapper(@NotNull final EntityIterator source, final TransientStoreSession session) {
+    PersistentEntityIteratorWithPropIdWrapper(@NotNull final EntityIteratorWithPropId source, final TransientStoreSession session) {
         this.source = source;
         this.session = session;
     }
@@ -25,6 +26,10 @@ class PersistentEntityIteratorWrapper implements EntityIterator {
         //TODO: do not save in session?
         final Entity persistentEntity = source.next();
         return (persistentEntity != null) ? session.newEntity(persistentEntity) : null;
+    }
+
+    public String currentLinkName() {
+        return source.currentLinkName();
     }
 
     public void remove() {
