@@ -45,6 +45,8 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
 
             check_i1((EntityIteratorWithPropId) AssociationSemantics.getAddedLinks(i1, names).iterator(), i2, i3, i4);
             check_i2((EntityIteratorWithPropId) AssociationSemantics.getAddedLinks(i2, names).iterator(), i3);
+            assertFalse(AssociationSemantics.getRemovedLinks(i1, names).iterator().hasNext());
+            assertFalse(AssociationSemantics.getRemovedLinks(i2, names).iterator().hasNext());
         } catch (Throwable e) {
             TransientStoreUtil.abort(e, transientStoreSession);
             throw new RuntimeException("Should never be thrown.");
@@ -72,9 +74,11 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
 
             check_i1((EntityIteratorWithPropId) AssociationSemantics.getRemovedLinks(i1, names).iterator(), i2, i3, i4);
             check_i2((EntityIteratorWithPropId) AssociationSemantics.getRemovedLinks(i2, names).iterator(), i3);
+            assertFalse(AssociationSemantics.getAddedLinks(i1, names).iterator().hasNext());
+            assertFalse(AssociationSemantics.getAddedLinks(i2, names).iterator().hasNext());
         } catch (Throwable e) {
             TransientStoreUtil.abort(e, transientStoreSession);
-            throw new RuntimeException("Should never be thrown.");
+            throw new RuntimeException("Should never be thrown.", e);
         } finally {
             TransientStoreUtil.commit(transientStoreSession);
         }
