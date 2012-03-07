@@ -876,14 +876,14 @@ class TransientEntityImpl extends AbstractTransientEntity {
             if (removed) {
                 for (final String linkName : linkNames) {
                     final LinkChange linkChange = changesLinks.get(linkName);
-                    if (linkChange != null) {
+                    if (linkChange != null && linkChange.getRemovedEntities() != null) {
                         result.addAll(linkChange.getRemovedEntities());
                     }
                 }
             } else {
                 for (final String linkName : linkNames) {
                     final LinkChange linkChange = changesLinks.get(linkName);
-                    if (linkChange != null) {
+                    if (linkChange != null && linkChange.getAddedEntities() != null) {
                         result.addAll(linkChange.getAddedEntities());
                     }
                 }
