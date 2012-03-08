@@ -914,11 +914,13 @@ class TransientEntityImpl extends AbstractTransientEntity {
                                     final Set<TransientEntity> current = removed ?
                                             linkChange.getRemovedEntities() :
                                             linkChange.getAddedEntities();
-                                    final Iterator<TransientEntity> itr = current.iterator();
-                                    if (itr.hasNext()) {
-                                        currentLinkName = linkName;
-                                        currentItr = itr;
-                                        return true;
+                                    if (current != null) {
+                                        final Iterator<TransientEntity> itr = current.iterator();
+                                        if (itr.hasNext()) {
+                                            currentLinkName = linkName;
+                                            currentItr = itr;
+                                            return true;
+                                        }
                                     }
                                 }
                             }
