@@ -250,7 +250,23 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     return EntityIterableBase.EMPTY;
   }
 
-  private void evaluateHasChanges() {
+    @Override
+    public EntityIterable getAddedLinks(Set<String> linkNames) {
+      if (linksDetaled != null) {
+        return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, false);
+      }
+      return UniversalEmptyEntityIterable.INSTANCE;
+    }
+
+    @Override
+    public EntityIterable getRemovedLinks(Set<String> linkNames) {
+      if (linksDetaled != null) {
+        return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, true);
+      }
+      return UniversalEmptyEntityIterable.INSTANCE;
+    }
+
+    private void evaluateHasChanges() {
     boolean hasChanges = false;
     if (linksDetaled != null) {
       for (String linkName : linksDetaled.keySet()) {
