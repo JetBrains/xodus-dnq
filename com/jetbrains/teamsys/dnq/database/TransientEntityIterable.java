@@ -22,7 +22,7 @@ public class TransientEntityIterable implements EntityIterable {
 
     private static final Log log = LogFactory.getLog(TransientEntityIterable.class);
 
-    private Set<TransientEntity> values;
+    protected final Set<TransientEntity> values;
     //@NotNull private final EntityIterable source;
 
     public TransientEntityIterable(@NotNull Set<TransientEntity> values
