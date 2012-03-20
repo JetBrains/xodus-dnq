@@ -3,14 +3,22 @@ package com.jetbrains.teamsys.dnq.database;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.AbstractEntityIterable;
 import jetbrains.exodus.database.impl.iterate.ConstantEntityIterableHandle;
+import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-public class UniversalEmptyEntityIterable implements EntityIterable {
+public class UniversalEmptyEntityIterable extends EntityIterableBase {
 
     public static final UniversalEmptyEntityIterable INSTANCE = new UniversalEmptyEntityIterable();
 
-    public EntityIterator iterator() {
+    public UniversalEmptyEntityIterable() {
+        super(null);
+    }
+
+    @NotNull
+    @Override
+    protected EntityIterator getIteratorImpl() {
         return Iterator.INSTANCE;
     }
 
@@ -30,73 +38,29 @@ public class UniversalEmptyEntityIterable implements EntityIterable {
         return 0;
     }
 
-    public int indexOf(@NotNull Entity entity) {
-        return -1;
-    }
-
     public boolean contains(@NotNull Entity entity) {
         return false;
     }
 
     @NotNull
-    public EntityIterableHandle getHandle() {
-        //noinspection EmptyClass
+    @Override
+    protected EntityIterableHandle getHandleImpl() {
         return new ConstantEntityIterableHandle(null, EntityIterableType.EMPTY) {
         };
     }
 
-    @NotNull
-    public EntityIterable intersect(@NotNull EntityIterable right) {
-        return this;
+    @Override
+    public int indexOf(@NotNull Entity entity) {
+        return -1;
     }
 
-    @NotNull
-    public EntityIterable intersectSavingOrder(@NotNull EntityIterable right) {
-        return this;
-    }
-
-    @NotNull
-    public EntityIterable union(@NotNull EntityIterable right) {
-        return right;
-    }
-
-    @NotNull
-    public EntityIterable minus(@NotNull EntityIterable right) {
-        return this;
-    }
-
-    @NotNull
-    public EntityIterable concat(@NotNull EntityIterable right) {
-        return right;
-    }
-
-    public EntityIterable skip(int number) {
-        return this;
-    }
-
-    public EntityIterable take(int number) {
-        return this;
-    }
-
-    public boolean isSortResult() {
-        return true;
-    }
-
-    public EntityIterable asSortResult() {
-        return this;
-    }
-
-    @NotNull
-    public EntityIterable getSource() {
-        return this;
+    @Override
+    protected long countImpl() {
+        return 0;
     }
 
     public boolean canBeCached() {
         return false;
-    }
-
-    public AbstractEntityIterable getCachedWrapper() {
-        throw new UnsupportedOperationException("Cached wrapper is not supported");
     }
 
     public static class Iterator implements EntityIteratorWithPropId {

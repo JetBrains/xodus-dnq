@@ -2,6 +2,7 @@ package com.jetbrains.teamsys.dnq.association;
 
 import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
+import com.jetbrains.teamsys.dnq.database.UniversalEmptyEntityIterable;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.logging.Log;
@@ -55,7 +56,7 @@ public class AssociationSemantics {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
         if (e == null) {
-            return EntityIterableBase.EMPTY;
+            return UniversalEmptyEntityIterable.INSTANCE;
         }
 
         return e.getLinks(linkNames);
