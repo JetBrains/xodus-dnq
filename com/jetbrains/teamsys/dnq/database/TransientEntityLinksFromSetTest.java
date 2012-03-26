@@ -6,7 +6,7 @@ import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
 import jetbrains.exodus.core.dataStructures.NanoSet;
-import jetbrains.exodus.core.dataStructures.hash.cuckoo.HashSet;
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.async.EntityStoreSharedAsyncProcessor;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
