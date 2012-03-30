@@ -1,7 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.AbstractEntityIterable;
 import jetbrains.exodus.database.impl.iterate.ConstantEntityIterableHandle;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;

@@ -2,7 +2,6 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.AbstractEntityIterable;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -140,13 +139,4 @@ public class TransientEntityIterable implements EntityIterable {
         return size() == 0;
     }
 
-    public boolean canBeCached() {
-        //TODO: revisit EntityIterable interface and remove these stub method
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    public AbstractEntityIterable getCachedWrapper() {
-        //TODO: revisit EntityIterable interface and remove these stub method
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
 }
