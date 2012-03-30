@@ -1,7 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.AbstractEntityIterable;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.jetbrains.annotations.NotNull;
 
@@ -102,11 +101,4 @@ class PersistentEntityIterableWrapper implements EntityIterable {
         return wrappedIterable.isEmpty();
     }
 
-    public boolean canBeCached() {
-        return wrappedIterable.canBeCached(); //TODO: revisit EntityIterable interface and remove these stub method
-    }
-
-    public AbstractEntityIterable getCachedWrapper() {
-        return wrappedIterable.getCachedWrapper(); //TODO: revisit EntityIterable interface and remove these stub method
-    }
 }

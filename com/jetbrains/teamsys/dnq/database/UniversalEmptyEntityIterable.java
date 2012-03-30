@@ -1,7 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.AbstractEntityIterable;
 import jetbrains.exodus.database.impl.iterate.ConstantEntityIterableHandle;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
 import org.jetbrains.annotations.NotNull;
@@ -89,14 +88,6 @@ public class UniversalEmptyEntityIterable implements EntityIterable {
     @NotNull
     public EntityIterable getSource() {
         return this;
-    }
-
-    public boolean canBeCached() {
-        return false;
-    }
-
-    public AbstractEntityIterable getCachedWrapper() {
-        throw new UnsupportedOperationException("Cached wrapper is not supported");
     }
 
     public static class Iterator implements EntityIteratorWithPropId {
