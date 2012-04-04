@@ -1594,9 +1594,11 @@ public class TransientSessionImpl extends AbstractTransientSession {
         } else {
             TransientEntity e = createdTransientForPersistentEntities.get(id);
             if (e == null) {
-                Entity _e = getPersistentSessionInternal().getEntity(id);
-
-                return _e == null ? null : newEntity(_e);
+                PersistentEntityStoreImpl persistentEntityStore = (PersistentEntityStoreImpl) store.getPersistentStore();
+                if (persistentEntityStore.getLastVersion(id) < 0) {
+                    return null;
+                }
+                return persistentEntityStore.getEntity(id);
             } else {
                 return e;
             }
