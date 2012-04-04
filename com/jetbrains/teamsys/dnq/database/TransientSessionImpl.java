@@ -1598,7 +1598,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 if (persistentEntityStore.getLastVersion(id) < 0) {
                     return null;
                 }
-                return persistentEntityStore.getEntity(id);
+                return newEntity(persistentEntityStore.getEntity(id));
             } else {
                 return e;
             }
