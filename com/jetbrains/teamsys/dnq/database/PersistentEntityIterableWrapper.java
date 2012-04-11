@@ -9,11 +9,11 @@ import org.jetbrains.annotations.NotNull;
  *
  * @author Vadim.Gurov
  */
-class PersistentEntityIterableWrapper implements EntityIterable {
+public class PersistentEntityIterableWrapper implements EntityIterable {
 
     protected final EntityIterable wrappedIterable;
 
-    PersistentEntityIterableWrapper(@NotNull EntityIterable wrappedIterable) {
+    public PersistentEntityIterableWrapper(@NotNull EntityIterable wrappedIterable) {
         if (wrappedIterable instanceof PersistentEntityIterableWrapper) {
             throw new IllegalArgumentException("Can't wrap transient entity iterable with another transient entity iterable.");
         }

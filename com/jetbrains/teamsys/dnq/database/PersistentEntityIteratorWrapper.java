@@ -6,13 +6,13 @@ import jetbrains.exodus.database.EntityIterator;
 import jetbrains.exodus.database.TransientStoreSession;
 import org.jetbrains.annotations.NotNull;
 
-class PersistentEntityIteratorWrapper implements EntityIterator {
+public class PersistentEntityIteratorWrapper implements EntityIterator {
 
     @NotNull
     protected final EntityIterator source;
     private final TransientStoreSession session;
 
-    PersistentEntityIteratorWrapper(@NotNull final EntityIterator source, final TransientStoreSession session) {
+    public PersistentEntityIteratorWrapper(@NotNull final EntityIterator source, final TransientStoreSession session) {
         this.source = source;
         this.session = session;
     }
