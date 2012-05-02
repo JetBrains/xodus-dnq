@@ -17,7 +17,7 @@ import java.util.Set;
  *
  * @author Vadim.Gurov
  */
-public class TransientEntityIterable implements EntityIterable {
+public class TransientEntityIterable implements EntityIterableWrapper {
 
     private static final Log log = LogFactory.getLog(TransientEntityIterable.class);
 

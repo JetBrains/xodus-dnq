@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
  *
  * @author Vadim.Gurov
  */
-public class PersistentEntityIterableWrapper implements EntityIterable {
+public class PersistentEntityIterableWrapper implements EntityIterableWrapper {
 
     protected final EntityIterable wrappedIterable;
 
