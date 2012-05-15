@@ -89,11 +89,25 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     protected void setPersistentEntityInternal(Entity persistentEntity) {
-        this.persistentEntity = persistentEntity;
-        if (persistentEntity != null) {
-            this.version = persistentEntity.getVersion();
-            this.type = persistentEntity.getType();
+        if (persistentEntity == null) {
+            this.persistentEntity = null;
+            return;
         }
+        setPersistentEntityInternal(persistentEntity, persistentEntity.getVersion(), persistentEntity.getType());
+    }
+
+    protected void setPersistentEntityInternal(Entity persistentEntity, int version) {
+        if (persistentEntity == null) {
+            this.persistentEntity = null;
+            return;
+        }
+        setPersistentEntityInternal(persistentEntity, version, persistentEntity.getType());
+    }
+
+    protected void setPersistentEntityInternal(Entity persistentEntity, int version, String type) {
+        this.persistentEntity = persistentEntity;
+        this.version = version;
+        this.type = type;
     }
 
     @NotNull

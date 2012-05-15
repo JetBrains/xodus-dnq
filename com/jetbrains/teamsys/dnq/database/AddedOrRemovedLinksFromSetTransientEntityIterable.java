@@ -86,6 +86,11 @@ class AddedOrRemovedLinksFromSetTransientEntityIterable extends TransientEntityI
                 return false;
             }
 
+            @Override
+            public int getCurrentVersion() {
+                return PersistentEntityId.ACTUAL_VERSION;
+            }
+
             public boolean dispose() {
                 throw new UnsupportedOperationException("Transient iterator doesn't support disposing.");
             }

@@ -46,6 +46,14 @@ class TransientEntityImpl extends AbstractTransientEntity {
         //trackEntityCreation(session);
     }
 
+    TransientEntityImpl(@NotNull Entity persistentEntity, @NotNull TransientStoreSession session, int version) {
+        setTransientStoreSession(session);
+        setPersistentEntityInternal(persistentEntity, version);
+        setState(State.Saved);
+
+        //trackEntityCreation(session);
+    }
+
     private static final StandardEventHandler<String, Object, Comparable> getPropertyEventHandler = new StandardEventHandler2<String, Object, Comparable>() {
         Comparable processOpenSaved(AbstractTransientEntity entity, String propertyName, Object param2) {
             return _(entity).getPropertyInSavedStateInternal(propertyName);

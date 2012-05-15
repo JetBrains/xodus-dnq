@@ -81,6 +81,11 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
             return false;
         }
 
+        @Override
+        public int getCurrentVersion() {
+            return PersistentEntityId.ACTUAL_VERSION;
+        }
+
         public boolean shouldBeDisposed() {
             return false;
         }

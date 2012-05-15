@@ -338,6 +338,27 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
+    /**
+     * Creates transient wrapper for existing persistent entity with specified version
+     *
+     * @param persistent
+     * @return
+     */
+    @NotNull
+    public TransientEntity newEntity(@NotNull Entity persistent, final int version) {
+        if (persistent instanceof TransientEntity) {
+            throw new IllegalArgumentException("Can't create transient entity wrapper for another transient entity.");
+        }
+
+        switch (state) {
+            case Open:
+                return newEntityImpl(persistent);
+
+            default:
+                throw new IllegalStateException("Can't create entity in state [" + state + "]");
+        }
+    }
+
     @Nullable
     public Entity getEntity(@NotNull final EntityId id) {
         switch (state) {
@@ -1577,11 +1598,21 @@ public class TransientSessionImpl extends AbstractTransientSession {
         changesTracker = new TransientChangesTrackerImpl(this);
     }
 
-    protected TransientEntity newEntityImpl(Entity persistent) {
+    protected TransientEntity newEntityImpl(final Entity persistent) {
         final EntityId entityId = persistent.getId();
         TransientEntity e = createdTransientForPersistentEntities.get(entityId);
         if (e == null) {
             e = new TransientEntityImpl(persistent, this);
+            createdTransientForPersistentEntities.put(entityId, e);
+        }
+        return e;
+    }
+
+    protected TransientEntity newEntityImpl(final Entity persistent, final int version) {
+        final EntityId entityId = persistent.getId();
+        TransientEntity e = createdTransientForPersistentEntities.get(entityId);
+        if (e == null) {
+            e = new TransientEntityImpl(persistent, this, version);
             createdTransientForPersistentEntities.put(entityId, e);
         }
         return e;

@@ -24,7 +24,11 @@ public class PersistentEntityIteratorWrapper implements EntityIterator {
     public Entity next() {
         //TODO: do not save in session?
         final Entity persistentEntity = source.next();
-        return (persistentEntity != null) ? session.newEntity(persistentEntity) : null;
+        if (persistentEntity == null) {
+            return null;
+        }
+        final int version = source.getCurrentVersion();
+        return version < 0 ? session.newEntity(persistentEntity) : session.newEntity(persistentEntity, version);
     }
 
     public void remove() {
@@ -37,6 +41,11 @@ public class PersistentEntityIteratorWrapper implements EntityIterator {
 
     public boolean dispose() {
         return source.dispose();
+    }
+
+    @Override
+    public int getCurrentVersion() {
+        return source.getCurrentVersion();
     }
 
     public boolean skip(int number) {

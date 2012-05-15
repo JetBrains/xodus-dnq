@@ -25,7 +25,11 @@ class PersistentEntityIteratorWithPropIdWrapper implements EntityIteratorWithPro
     public Entity next() {
         //TODO: do not save in session?
         final Entity persistentEntity = source.next();
-        return (persistentEntity != null) ? session.newEntity(persistentEntity) : null;
+        if (persistentEntity == null) {
+            return null;
+        }
+        final int version = source.getCurrentVersion();
+        return version < 0 ? session.newEntity(persistentEntity) : session.newEntity(persistentEntity, version);
     }
 
     public String currentLinkName() {
@@ -42,6 +46,11 @@ class PersistentEntityIteratorWithPropIdWrapper implements EntityIteratorWithPro
 
     public boolean dispose() {
         return source.dispose();
+    }
+
+    @Override
+    public int getCurrentVersion() {
+        return source.getCurrentVersion();
     }
 
     public boolean skip(int number) {
