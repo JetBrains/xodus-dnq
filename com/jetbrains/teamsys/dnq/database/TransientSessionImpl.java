@@ -352,7 +352,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         switch (state) {
             case Open:
-                return newEntityImpl(persistent);
+                return newEntityImpl(persistent, version);
 
             default:
                 throw new IllegalStateException("Can't create entity in state [" + state + "]");
