@@ -9,6 +9,7 @@ import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.persistence.exceptions.LockConflictException;
+import jetbrains.exodus.database.persistence.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -701,20 +702,31 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     @NotNull
     public File createBlobFile(boolean createNewFile) {
-        String fileName = id + "-" + getPersistentSessionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment() + ".dat";
-        File f = new File(store.getBlobsStore(), fileName);
+        final File blobsStore = store.getBlobsStore();
+        String fileName = generateBlobFileName();
+        File f = new File(blobsStore, fileName);
         if (createNewFile) {
             try {
-                if (!f.createNewFile()) {
-                    throw new IllegalArgumentException("Can't create blob file [" + store.getBlobsStore().getAbsolutePath() + "/" + fileName + "]");
+                while(!f.createNewFile()) {
+                    fileName = generateBlobFileName();
+                    f = new File(blobsStore, fileName);
                 }
             } catch (IOException e) {
-                throw new RuntimeException("Can't create blob file [" + store.getBlobsStore().getAbsolutePath() + "/" + fileName + "]", e);
+                throw new PhysicalLayerException("Can't create blob file [" + blobsStore.getAbsolutePath() + "/" + fileName + "]", e);
             }
         }
 
         createdBlobFiles.add(f);
         return f;
+    }
+
+    private String generateBlobFileName() {
+        final StringBuilder nameBuilder = new StringBuilder();
+        nameBuilder.append(id);
+        nameBuilder.append('-');
+        nameBuilder.append(getPersistentSessionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment());
+        nameBuilder.append(".dat");
+        return nameBuilder.toString();
     }
 
     public void quietIntermediateCommit() {
