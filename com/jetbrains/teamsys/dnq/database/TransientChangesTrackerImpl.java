@@ -350,6 +350,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
   public void linkAdded(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
     entityChanged(source);
+    persistentEntityChanged(target);
 
     offerChange(new Runnable() {
       public void run() {
@@ -364,16 +365,20 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
   }
 
   private void entityChanged(TransientEntity source) {
-    c();
-
-    if (source.isSaved()) {
-        changedPersistentEntities.add(source);
-    }
+    persistentEntityChanged(source);
     changedEntities.add(source);
+  }
+
+  private void persistentEntityChanged(TransientEntity entity) {
+    c();
+    if (entity.isSaved()) {
+      changedPersistentEntities.add(entity);
+    }
   }
 
   public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
     entityChanged(source);
+    persistentEntityChanged(target);
 
     offerChange(new Runnable() {
       public void run() {
