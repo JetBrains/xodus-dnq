@@ -665,7 +665,6 @@
     <unitInfo nodeId="1226409155171" fileName="EntityAdapter.java" startLine="7" startPosition="0" endLine="47" endPosition="0" unitName="jetbrains.teamsys.dnq.runtime.events.EntityAdapter" />
   </root>
   <root nodeId="6539376331916803616">
-    <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="0" endLine="1" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GIndent" />
     <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="0" endLine="1" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
     <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="0" endLine="1" endPosition="6" conceptFqName="jetbrains.mps.gtext.structure.GText" />
     <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="6" endLine="1" endPosition="7" conceptFqName="jetbrains.mps.gtext.structure.GText" />
@@ -695,14 +694,14 @@
     <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="7" endLine="2" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GNewLine" />
     <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="2" startPosition="0" endLine="3" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GIndentBlock" />
     <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="2" startPosition="0" endLine="3" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
-    <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="2" startPosition="0" endLine="3" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
     <nodeInfo nodeId="6539376331916803617" fileName="eventsMultiplexerConfiguration.xml" startLine="2" startPosition="0" endLine="3" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
     <nodeInfo nodeId="6539376331916803617" fileName="eventsMultiplexerConfiguration.xml" startLine="2" startPosition="133" endLine="3" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GNewLine" />
-    <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="3" startPosition="8" endLine="4" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GNewLine" />
+    <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="0" endLine="3" endPosition="8" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
+    <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="0" endLine="3" endPosition="8" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
     <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="6" endLine="3" endPosition="8" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
-    <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="0" endLine="4" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
-    <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="0" endLine="4" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
-    <unitInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="0" endLine="4" endPosition="0" unitName="eventsMultiplexerConfiguration.xml" />
+    <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="7" endLine="3" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
+    <nodeInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="7" endLine="3" endPosition="0" conceptFqName="jetbrains.mps.gtext.structure.GItemList" />
+    <unitInfo nodeId="6539376331916803616" fileName="eventsMultiplexerConfiguration.xml" startLine="1" startPosition="0" endLine="3" endPosition="8" unitName="eventsMultiplexerConfiguration.xml" />
   </root>
   <root nodeId="7738287727767470941">
     <nodeInfo nodeId="7738287727767470947" fileName="Where.java" startLine="11" startPosition="0" endLine="13" endPosition="3" conceptFqName="jetbrains.mps.baseLanguage.structure.ConstructorDeclaration" propertyString="Where#()V" />
