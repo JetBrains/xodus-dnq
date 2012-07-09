@@ -97,7 +97,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
         return session.newReadonlyLocalCopy(session.getTransientChangesTracker().getChangeDescription(i1));
     }
 
-    private void check_i2(EntityIterable iterable, TransientEntity i3) {
+    private void check_i2(Iterable<Entity> iterable, TransientEntity i3) {
         final EntityIteratorWithPropId it = (EntityIteratorWithPropId)iterable.iterator();
         assertTrue(it.hasNext());
         assertEquals(i3, it.next());
@@ -105,7 +105,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
         assertFalse(it.hasNext());
     }
 
-    private void check_i1(EntityIterable iterable, TransientEntity i2, TransientEntity i3, TransientEntity i4) {
+    private void check_i1(Iterable<Entity> iterable, TransientEntity i2, TransientEntity i3, TransientEntity i4) {
         final EntityIteratorWithPropId it = (EntityIteratorWithPropId)iterable.iterator();
         assertTrue(it.hasNext());
         assertEquals(i2, it.next());
