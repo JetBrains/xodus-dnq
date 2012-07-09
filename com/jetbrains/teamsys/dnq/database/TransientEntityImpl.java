@@ -471,23 +471,23 @@ class TransientEntityImpl extends AbstractTransientEntity {
         deleteLinksEventHandler.handle(this, linkName, null);
     }
 
-    private static final StandardEventHandler<String, Object, EntityIterable> getLinksEventHandler = new StandardEventHandler2<String, Object, EntityIterable>() {
-        EntityIterable processOpenSaved(AbstractTransientEntity entity, String linkName, Object param2) {
+    private static final StandardEventHandler<String, Object, Iterable<Entity>> getLinksEventHandler = new StandardEventHandler2<String, Object, Iterable<Entity>>() {
+        Iterable<Entity> processOpenSaved(AbstractTransientEntity entity, String linkName, Object param2) {
             return _(entity).getLinksManager(linkName).getLinks();
         }
 
-        EntityIterable processOpenNew(AbstractTransientEntity entity, String linkName, Object param2) {
+        Iterable<Entity> processOpenNew(AbstractTransientEntity entity, String linkName, Object param2) {
             return processOpenSaved(entity, linkName, param2);
         }
 
-        EntityIterable processTemporary(AbstractTransientEntity entity, String linkName, Object param2) {
+        Iterable<Entity> processTemporary(AbstractTransientEntity entity, String linkName, Object param2) {
             return processOpenSaved(entity, linkName, param2);
         }
 
     };
 
     @NotNull
-    public EntityIterable getLinks(@NotNull final String linkName) {
+    public Iterable<Entity> getLinks(@NotNull final String linkName) {
         return getLinksEventHandler.handle(this, linkName, null);
     }
 
@@ -687,7 +687,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
                     case _0_n:
                     case _1_n:
-                        m = new MultipleTransientLinksManagerImpl(linkName, this);
+                        m = new MultipleTransientLinksManagerImpl(linkName, this, aemd.getOppositeEntityMetaData().getType());
                         break;
                 }
             }

@@ -7,6 +7,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Iterator;
 import java.util.Set;
 
 /**
@@ -51,7 +52,7 @@ public class ValidationUtil {
 
     static boolean checkCardinality(Entity entity, AssociationEndCardinality cardinality, String associationName) {
         int size = 0;
-        for (EntityIterator it = entity.getLinks(associationName).iterator(); it.hasNext(); ++size) {
+        for (Iterator<Entity> it = entity.getLinks(associationName).iterator(); it.hasNext(); ++size) {
             Entity e = it.next();
             if (e == null) {
                 fakeEntityLink(e, associationName);

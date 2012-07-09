@@ -5,6 +5,7 @@ import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import com.jetbrains.teamsys.dnq.database.UniversalEmptyEntityIterable;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
+import jetbrains.teamsys.dnq.runtime.queries.QueryOperations;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -41,7 +42,7 @@ public class AssociationSemantics {
     }
 
     @NotNull
-    public static EntityIterable getToMany(@Nullable Entity e, @NotNull String linkName) {
+    public static Iterable<Entity> getToMany(@Nullable Entity e, @NotNull String linkName) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
         if (e == null) {
@@ -52,7 +53,7 @@ public class AssociationSemantics {
     }
 
     @NotNull
-    public static EntityIterable getToMany(@Nullable Entity e, @NotNull Set<String> linkNames) {
+    public static Iterable<Entity> getToMany(@Nullable Entity e, @NotNull Set<String> linkNames) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
         if (e == null) {
@@ -88,7 +89,7 @@ public class AssociationSemantics {
      * @return
      */
     @NotNull
-    public static EntityIterable getToManyPersistentIterable(@NotNull Entity e, @NotNull String linkName) {
+    public static Iterable<Entity> getToManyPersistentIterable(@NotNull Entity e, @NotNull String linkName) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
         if (e == null) {
@@ -122,7 +123,7 @@ public class AssociationSemantics {
             return ((TransientEntity) e).getLinksSize(linkName);
         }
 
-        return e == null ? 0 : e.getLinks(linkName).size();
+        return e == null ? 0 : QueryOperations.getSize(e.getLinks(linkName));
     }
 
     /**

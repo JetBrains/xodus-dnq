@@ -40,7 +40,7 @@ public interface TransientLinksManager {
   Set<TransientEntity> getRemoved();
 
   @NotNull
-  EntityIterable getLinks();
+  Iterable<Entity> getLinks();
 
   long getLinksSize();
 

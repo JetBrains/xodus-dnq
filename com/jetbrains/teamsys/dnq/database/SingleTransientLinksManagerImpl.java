@@ -111,7 +111,7 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
     }
 
     @NotNull
-    public EntityIterable getLinks() {
+    public Iterable<Entity> getLinks() {
         throw new IllegalStateException("getLinks is not supported for single link");
     }
 

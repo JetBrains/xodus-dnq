@@ -15,7 +15,7 @@ import java.util.Iterator;
 class UnifiedTransientLinksManagerImpl extends MultipleTransientLinksManagerImpl {
 
   UnifiedTransientLinksManagerImpl(@NotNull String linkName, TransientEntityImpl owner) {
-    super(linkName, owner);
+    super(linkName, owner, null);
   }
 
   public void setLink(@NotNull TransientEntity target) {

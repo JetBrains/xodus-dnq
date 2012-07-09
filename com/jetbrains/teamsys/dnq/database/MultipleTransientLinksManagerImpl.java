@@ -2,6 +2,8 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
+import jetbrains.teamsys.dnq.runtime.queries.GetLinks;
+import jetbrains.teamsys.dnq.runtime.queries.QueryOperations;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -20,15 +22,17 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
 
   protected State state;
   protected final String linkName;
+  protected final String oppositeType;
   protected final TransientEntityImpl owner;
   private Set<TransientEntity> removed;
   private Set<TransientEntity> added;
   private Set<TransientEntity> links;
   private List<TransientEntity> temporaryLinks;
 
-  MultipleTransientLinksManagerImpl(@NotNull String linkName, TransientEntityImpl owner) {
+  MultipleTransientLinksManagerImpl(@NotNull String linkName, TransientEntityImpl owner, String oppositeType) {
     this.linkName = linkName;
     this.owner = owner;
+    this.oppositeType = oppositeType;
 
     switch (owner.getState()) {
         case Temporary:
@@ -236,7 +240,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   }
 
   @NotNull
-  public EntityIterable getLinks() {
+  public Iterable<Entity> getLinks() {
     switch (owner.getState()) {
       case New:
         return new TransientEntityIterable(links == null ? EMPTY : links);
@@ -251,7 +255,12 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
           case LinksNotLoaded:
             // if there were no changes for this link - query underlying database
             if ((added == null || added.size() == 0) && (removed == null || removed.size() == 0)) {
-              return new PersistentEntityIterableWrapper(owner.getPersistentEntityInternal().getLinks(linkName));
+              if (oppositeType == null) {
+                return new PersistentEntityIterableWrapper(owner.getPersistentEntityInternal().getLinks(linkName));
+              } else {
+                return QueryOperations.query(null, oppositeType,
+                        new GetLinks(owner.getPersistentEntityInternal().getId(), linkName));
+              }
             } else {
               loadLinksAndMerge();
               state = State.LinksLoaded;

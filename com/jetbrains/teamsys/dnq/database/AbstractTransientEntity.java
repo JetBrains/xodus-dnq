@@ -25,7 +25,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         Temporary
     }
 
-    private Entity persistentEntity;
+    private PersistentEntity persistentEntity;
     private int version;
     private String type;
     private State state;
@@ -84,7 +84,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
         persistentEntity.delete();
     }
 
-    Entity getPersistentEntityInternal() {
+    PersistentEntity getPersistentEntityInternal() {
         return persistentEntity;
     }
 
@@ -105,7 +105,7 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     protected void setPersistentEntityInternal(Entity persistentEntity, int version, String type) {
-        this.persistentEntity = persistentEntity;
+        this.persistentEntity = (PersistentEntity) persistentEntity;
         this.version = version;
         this.type = type;
     }
