@@ -4,6 +4,7 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.teamsys.dnq.runtime.queries.GetLinks;
 import jetbrains.teamsys.dnq.runtime.queries.QueryOperations;
+import jetbrains.teamsys.dnq.runtime.queries.StaticTypedIterableDecorator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -264,11 +265,13 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
             } else {
               loadLinksAndMerge();
               state = State.LinksLoaded;
-              return new TransientEntityIterable(links == null ? EMPTY : links/*, owner.getPersistentEntityInternal().getLinks(linkName)*/);
+              final Iterable<Entity> l = new TransientEntityIterable(links == null ? EMPTY : links);
+              return oppositeType == null ? l : new StaticTypedIterableDecorator(oppositeType, l);
             }
 
           case LinksLoaded:
-            return new TransientEntityIterable(links == null ? EMPTY : links/*, owner.getPersistentEntityInternal().getLinks(linkName)*/);
+            final TransientEntityIterable l = new TransientEntityIterable(links == null ? EMPTY : links);
+            return oppositeType == null ? l : new StaticTypedIterableDecorator(oppositeType, l);
         }
     }
 
