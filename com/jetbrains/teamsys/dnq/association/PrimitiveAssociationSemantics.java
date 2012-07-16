@@ -39,9 +39,9 @@ public class PrimitiveAssociationSemantics {
     }
 
     @Nullable
-    public static Object getOldValue(@Nullable TransientEntity e, @NotNull String propertyName, @NotNull Class propertyType, @Nullable Object nullValue) {
+    public static<T> T getOldValue(@Nullable TransientEntity e, @NotNull String propertyName, @NotNull Class<T> propertyType, @Nullable Object nullValue) {
         Object res = getOldValue(e, propertyName, nullValue);
-        return res == null ? getPropertyNullValue(propertyType) : res;
+        return (T) (res == null ? getPropertyNullValue(propertyType) : res);
     }
 
     /**
@@ -84,9 +84,9 @@ public class PrimitiveAssociationSemantics {
      * @return
      */
     @Nullable
-    public static Object get(@Nullable Entity e, @NotNull String propertyName, @NotNull Class propertyType, @Nullable Object nullValue) {
-        Object res = get(e, propertyName, nullValue);
-        return res == null ? getPropertyNullValue(propertyType) : res;
+    public static<T> T get(@Nullable Entity e, @NotNull String propertyName, @NotNull Class<T> propertyType, @Nullable Object nullValue) {
+        final Object res = get(e, propertyName, nullValue);
+        return (T) (res == null ? getPropertyNullValue(propertyType) : res);
     }
 
     private static Object getPropertyNullValue(Class clazz) {
