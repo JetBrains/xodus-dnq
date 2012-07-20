@@ -18,6 +18,7 @@ import jetbrains.exodus.database.Entity;
 import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
+import jetbrains.exodus.database.EntityChangeType;
 import jetbrains.exodus.database.EntityMetaData;
 import jetbrains.exodus.database.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
@@ -72,7 +73,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void addListener(final Entity e, final _FunctionTypes._void_P1_E0<? super Entity> l) {
-    // for backward compatibility
+    // for backward compatibility 
     this.addListener(e, new EntityAdapter() {
       public void updatedSync(Entity old, Entity current) {
         l.invoke(e);
@@ -81,7 +82,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void addListener(Entity e, IEntityListener listener) {
-    // typecast to disable generator hook
+    // typecast to disable generator hook 
     if ((Object) e == null || listener == null) {
       if (log.isWarnEnabled()) {
         log.warn("Can't add null listener to null entity");
@@ -106,7 +107,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void removeListener(Entity e, IEntityListener listener) {
-    // typecast to disable generator hook
+    // typecast to disable generator hook 
     if ((Object) e == null || listener == null) {
       if (log.isWarnEnabled()) {
         log.warn("Can't remove null listener from null entity");
@@ -173,6 +174,15 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     }
   }
 
+  public boolean hasEntityListeners() {
+    this.rwl.readLock().lock();
+    try {
+      return !(instanceToListeners.isEmpty());
+    } finally {
+      this.rwl.readLock().unlock();
+    }
+  }
+
   public String listenerToString(final EventsMultiplexer.FullEntityId id, Queue<IEntityListener> listeners) {
     final StringBuilder builder = new StringBuilder(40);
     builder.append("Unregistered entity to listener class: ");
@@ -186,14 +196,24 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private void handlePerEntityChanges(Where where, TransientEntityChange c) {
-    Queue<IEntityListener> listeners = null;
+    final Queue<IEntityListener> listeners;
     final TransientEntity e = c.getTransientEntity();
     final EventsMultiplexer.FullEntityId id = new EventsMultiplexer.FullEntityId(e.getStore(), e.getId());
-    this.rwl.readLock().lock();
-    try {
-      listeners = this.instanceToListeners.get(id);
-    } finally {
-      this.rwl.readLock().unlock();
+    if (where == Where.ASYNC_AFTER_FLUSH && c.getChangeType() == EntityChangeType.REMOVE) {
+      // unsubscribe all entity listeners, but fire them anyway 
+      this.rwl.writeLock().lock();
+      try {
+        listeners = this.instanceToListeners.remove(id);
+      } finally {
+        this.rwl.writeLock().unlock();
+      }
+    } else {
+      this.rwl.readLock().lock();
+      try {
+        listeners = this.instanceToListeners.get(id);
+      } finally {
+        this.rwl.readLock().unlock();
+      }
     }
     this.handleChange(where, c, listeners);
   }
