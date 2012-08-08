@@ -153,26 +153,9 @@ public class EntityMetaDataImpl implements EntityMetaData {
         this.historyIgnoredFields = historyIgnoredFields;
     }
 
-    public boolean changesReflectHistory(TransientEntity e, TransientChangesTracker tracker) {
-        Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
-        if (changedProperties != null) {
-            for (String field : changedProperties.keySet()) {
-                if (!historyIgnoredFields.contains(field)) {
-                    return true;
-                }
-            }
-        }
-
-        Map<String, LinkChange> changedLinks = tracker.getChangedLinksDetailed(e);
-        if (changedLinks != null) {
-            for (String field : changedLinks.keySet()) {
-                if (!historyIgnoredFields.contains(field)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+    @Override
+    public boolean isHistoryIgnored(String propertyName) {
+        return historyIgnoredFields.contains(propertyName);
     }
 
     public void setRemoveOrphan(boolean removeOrphan) {
@@ -451,32 +434,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
         this.versionMismatchIgnored = versionMismatchIgnored;
     }
 
-    public boolean hasParent(@NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
-        if (e.isNewOrTemporary() || parentChanged(tracker.getChangedLinksDetailed(e))) {
-            updateAssociationEnds();
-            for (String childEnd : aggregationChildEnds) {
-                if (AssociationSemantics.getToOne(e, childEnd) != null) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        return true;
-    }
-
-    private boolean parentChanged(Map<String, LinkChange> changedLinks) {
-        if (changedLinks == null) {
-            return false;
-        }
-        updateAssociationEnds();
-        for (String childEnd : aggregationChildEnds) {
-            if (changedLinks.containsKey(childEnd)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void updateAssociationEnds() {
         if (associationEnds == null) {
             synchronized (this) {
@@ -507,5 +464,52 @@ public class EntityMetaDataImpl implements EntityMetaData {
     @Override
     public String toString() {
         return getType();
+    }
+
+    static boolean changesReflectHistory(EntityMetaData emd, TransientEntity e, TransientChangesTracker tracker) {
+        Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+        if (changedProperties != null) {
+            for (String field : changedProperties.keySet()) {
+                if (!emd.isHistoryIgnored(field)) {
+                    return true;
+                }
+            }
+        }
+
+        Map<String, LinkChange> changedLinks = tracker.getChangedLinksDetailed(e);
+        if (changedLinks != null) {
+            for (String field : changedLinks.keySet()) {
+                if (!emd.isHistoryIgnored(field)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    static boolean hasParent(@NotNull EntityMetaData emd, @NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
+        final Set<String> aggregationChildEnds = emd.getAggregationChildEnds();
+        if (e.isNewOrTemporary() || parentChanged(aggregationChildEnds, tracker.getChangedLinksDetailed(e))) {
+            for (String childEnd : aggregationChildEnds) {
+                if (AssociationSemantics.getToOne(e, childEnd) != null) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean parentChanged(Set<String> aggregationChildEnds, Map<String, LinkChange> changedLinks) {
+        if (changedLinks == null) {
+            return false;
+        }
+        for (String childEnd : aggregationChildEnds) {
+            if (changedLinks.containsKey(childEnd)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -21,7 +21,7 @@ public class ModelMetaDataImpl implements ModelMetaData {
     public void setEntityMetaDatas(@NotNull Set<EntityMetaData> entityMetaDatas) {
         this.entityMetaDatas = entityMetaDatas;
         for (EntityMetaData emd : entityMetaDatas) {
-            emd.setModelMetaData(this);
+            ((EntityMetaDataImpl)emd).setModelMetaData(this);
         }
         // init();
     }
@@ -34,7 +34,7 @@ public class ModelMetaDataImpl implements ModelMetaData {
 
     public void addEntityMetaData(@NotNull EntityMetaData emd) {
         entityMetaDatas.add(emd);
-        emd.setModelMetaData(this);
+        ((EntityMetaDataImpl) emd).setModelMetaData(this);
         reset();
     }
 

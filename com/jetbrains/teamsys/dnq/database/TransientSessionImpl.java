@@ -1,6 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
@@ -839,7 +840,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             if (!e.isRemovedOrTemporary()) {
                 EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
 
-                if (emd != null && emd.hasAggregationChildEnds() && !emd.hasParent(e, changesTracker)) {
+                if (emd != null && emd.hasAggregationChildEnds() && !EntityMetaDataImpl.hasParent(emd, e, changesTracker)) {
                     if (emd.getRemoveOrphan()) {
                         // has no parent - remove
                         if (log.isDebugEnabled()) {
@@ -1473,7 +1474,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
         for (final TransientEntity e : changedPersistentEntities.toArray(new TransientEntity[changedPersistentEntities.size()])) {
             if (!e.isNew() && !e.isRemovedOrTemporary()) {
                 final EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
-                if (emd != null && TransientStoreUtil.getPersistentClassInstance(e, emd).evaluateSaveHistoryCondition(e) && emd.changesReflectHistory(e, changesTracker)) {
+                if (emd != null && TransientStoreUtil.getPersistentClassInstance(e, emd).evaluateSaveHistoryCondition(e)
+                        && EntityMetaDataImpl.changesReflectHistory(emd, e, changesTracker)) {
                     if (log.isDebugEnabled()) {
                         log.debug("Save history of: " + e);
                     }
