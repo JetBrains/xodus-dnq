@@ -5,6 +5,7 @@ import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
 import jetbrains.exodus.core.dataStructures.hash.LongHashMap;
 import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
+import jetbrains.teamsys.dnq.runtime.queries.QueryEngine;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -25,6 +26,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private static final Log log = LogFactory.getLog(TransientEntityStoreImpl.class);
 
     private EntityStore persistentStore;
+    private QueryEngine queryEngine;
     private ModelMetaData modelMetaData;
     private final LongHashMap<TransientStoreSession> sessions = new LongHashMap<TransientStoreSession>();
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
@@ -49,6 +51,10 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     public EntityStore getPersistentStore() {
         return persistentStore;
+    }
+
+    public QueryEngine getQueryEngine() {
+        return queryEngine;
     }
 
     @SuppressWarnings({"UnusedDeclaration"})
@@ -76,6 +82,16 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     @SuppressWarnings({"UnusedDeclaration"})
     public void setPersistentStore(EntityStore persistentStore) {
         this.persistentStore = persistentStore;
+    }
+
+    /**
+     * Service locator {@link jetbrains.springframework.configuration.runtime.ServiceLocator} is responsible to set query engine
+     *
+     * @param persistentStore persistent entity store.
+     */
+    @SuppressWarnings({"UnusedDeclaration"})
+    public void setQueryEngine(QueryEngine queryEngine) {
+        this.queryEngine = queryEngine;
     }
 
     /**

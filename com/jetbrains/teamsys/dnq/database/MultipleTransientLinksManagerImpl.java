@@ -266,12 +266,12 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
               loadLinksAndMerge();
               state = State.LinksLoaded;
               final Iterable<Entity> l = new TransientEntityIterable(links == null ? EMPTY : links);
-              return oppositeType == null ? l : new StaticTypedIterableDecorator(oppositeType, l);
+              return oppositeType == null ? l : new StaticTypedIterableDecorator(oppositeType, l, owner.getStore().getQueryEngine());
             }
 
           case LinksLoaded:
             final TransientEntityIterable l = new TransientEntityIterable(links == null ? EMPTY : links);
-            return oppositeType == null ? l : new StaticTypedIterableDecorator(oppositeType, l);
+            return oppositeType == null ? l : new StaticTypedIterableDecorator(oppositeType, l, owner.getStore().getQueryEngine());
         }
     }
 
