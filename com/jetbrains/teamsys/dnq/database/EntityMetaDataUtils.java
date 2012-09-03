@@ -1,6 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
+import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.database.*;
 import org.jetbrains.annotations.NotNull;
 
@@ -8,6 +9,17 @@ import java.util.Map;
 import java.util.Set;
 
 public class EntityMetaDataUtils {
+
+    @NotNull
+    static Set<String> getRequiredIfProperties(EntityMetaData emd, Entity e) {
+        Set<String> result = new HashSetDecorator<String>();
+        for (String property : emd.getRequiredIfProperties(e)) {
+            if (TransientStoreUtil.getPersistentClassInstance(e, emd).isPropertyRequired(property, e)) {
+                result.add(property);
+            }
+        }
+        return result;
+    }
 
     static boolean changesReflectHistory(EntityMetaData emd, TransientEntity e, TransientChangesTracker tracker) {
         Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);

@@ -401,13 +401,7 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
     @NotNull
     public Set<String> getRequiredIfProperties(Entity e) {
-        Set<String> result = new HashSetDecorator<String>();
-        for (String property : requiredIfProperties) {
-            if (TransientStoreUtil.getPersistentClassInstance(e, this).isPropertyRequired(property, e)) {
-                result.add(property);
-            }
-        }
-        return result;
+        return requiredIfProperties;
     }
 
     public boolean isVersionMismatchIgnoredForWholeClass() {

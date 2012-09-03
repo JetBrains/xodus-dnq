@@ -370,7 +370,7 @@ class ConstraintsUtil {
                 EntityMetaData emd = md.getEntityMetaData(e.getType());
 
                 Set<String> requiredProperties = emd.getRequiredProperties();
-                Set<String> requiredIfProperties = emd.getRequiredIfProperties(e);
+                Set<String> requiredIfProperties = EntityMetaDataUtils.getRequiredIfProperties(emd, e);
                 Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
 
                 if ((requiredProperties.size() + requiredIfProperties.size() > 0 && (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)))) {

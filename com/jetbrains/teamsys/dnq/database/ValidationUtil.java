@@ -84,7 +84,7 @@ public class ValidationUtil {
         EntityMetaData emd = mmd.getEntityMetaData(entity.getType());
 
         Set<String> required = emd.getRequiredProperties();
-        Set<String> requiredIf = emd.getRequiredIfProperties(entity);
+        Set<String> requiredIf = EntityMetaDataUtils.getRequiredIfProperties(emd, entity);
 
         for (String property: required) {
             checkProperty(entity, emd, property);
