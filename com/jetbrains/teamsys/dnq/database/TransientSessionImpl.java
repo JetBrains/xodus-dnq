@@ -1016,7 +1016,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
         for (final TransientEntity e : changesTracker.getChangedEntities()) {
             if (e.isNew()) {
                 TransientEntity parent = (TransientEntity) AggregationAssociationSemantics.getParent(e);
+                HashSet<TransientEntity> lookedParents = new HashSet<TransientEntity>();
                 while (parent != null && parent.isNewOrTemporary()) {
+                    if (!(lookedParents.add(parent))){
+                        log.warn("Found parent cycle: " + parent.toString());
+                        break;
+                    }
                     if (parent.isTemporary()) {
                         e.markAsTemporary();
                         break;
