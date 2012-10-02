@@ -311,7 +311,7 @@
     <scopeInfo nodeId="1213713182579" fileName="EventsMultiplexer.java" startLine="368" startPosition="30" endLine="370" endPosition="17" />
     <scopeInfo nodeId="8179181843315112408" fileName="EventsMultiplexer.java" startLine="86" startPosition="49" endLine="89" endPosition="7" />
     <scopeInfo nodeId="8179181843315112413" fileName="EventsMultiplexer.java" startLine="111" startPosition="49" endLine="114" endPosition="7" />
-    <scopeInfo nodeId="4243294330904085798" fileName="EventsMultiplexer.java" startLine="166" startPosition="89" endLine="169" endPosition="9" />
+    <scopeInfo nodeId="4243294330904078657" fileName="EventsMultiplexer.java" startLine="166" startPosition="89" endLine="169" endPosition="9" />
     <scopeInfo nodeId="7738287727767486361" fileName="EventsMultiplexer.java" startLine="305" startPosition="31" endLine="308" endPosition="11" />
     <scopeInfo nodeId="5101215682825280500" fileName="EventsMultiplexer.java" startLine="327" startPosition="27" endLine="330" endPosition="7" />
     <scopeInfo nodeId="3750850504740996324" fileName="EventsMultiplexer.java" startLine="381" startPosition="70" endLine="384" endPosition="38" />
@@ -327,7 +327,9 @@
     <scopeInfo nodeId="1213197776762" fileName="EventsMultiplexer.java" startLine="63" startPosition="0" endLine="67" endPosition="0">
       <varInfo nodeId="1213197797588" varName="changes" />
     </scopeInfo>
-    <scopeInfo nodeId="1213191155417" fileName="EventsMultiplexer.java" startLine="68" startPosition="70" endLine="72" endPosition="5" />
+    <scopeInfo nodeId="1213191155424" fileName="EventsMultiplexer.java" startLine="68" startPosition="70" endLine="72" endPosition="5">
+      <varInfo nodeId="1213191155426" varName="c" />
+    </scopeInfo>
     <scopeInfo nodeId="1142959524945580980" fileName="EventsMultiplexer.java" startLine="77" startPosition="45" endLine="81" endPosition="0">
       <varInfo nodeId="1142959524945580984" varName="current" />
       <varInfo nodeId="1142959524945580983" varName="old" />
@@ -427,7 +429,9 @@
     <scopeInfo nodeId="1213187092156" fileName="EventsMultiplexer.java" startLine="45" startPosition="0" endLine="55" endPosition="0">
       <varInfo nodeId="1213187092159" varName="changes" />
     </scopeInfo>
-    <scopeInfo nodeId="8008861190793760100" fileName="EventsMultiplexer.java" startLine="223" startPosition="22" endLine="233" endPosition="7" />
+    <scopeInfo nodeId="2124087212265168395" fileName="EventsMultiplexer.java" startLine="223" startPosition="22" endLine="233" endPosition="7">
+      <varInfo nodeId="2124087212265168395" varName="type" />
+    </scopeInfo>
     <scopeInfo nodeId="7738287727767486357" fileName="EventsMultiplexer.java" startLine="305" startPosition="0" endLine="315" endPosition="11">
       <varInfo nodeId="7738287727767486358" varName="e" />
     </scopeInfo>
@@ -540,7 +544,7 @@
     <scopeInfo nodeId="1213712742580" fileName="ExceptionHandlerImpl.java" startLine="14" startPosition="33" endLine="14" endPosition="33" />
     <scopeInfo nodeId="1217954960129" fileName="ExceptionHandlerImpl.java" startLine="18" startPosition="31" endLine="19" endPosition="97" />
     <scopeInfo nodeId="1213712742577" fileName="ExceptionHandlerImpl.java" startLine="13" startPosition="0" endLine="15" endPosition="3" />
-    <scopeInfo nodeId="1213712742591" fileName="ExceptionHandlerImpl.java" startLine="17" startPosition="58" endLine="20" endPosition="5" />
+    <scopeInfo nodeId="1217954960129" fileName="ExceptionHandlerImpl.java" startLine="17" startPosition="58" endLine="20" endPosition="5" />
     <scopeInfo nodeId="1213712742582" fileName="ExceptionHandlerImpl.java" startLine="16" startPosition="0" endLine="22" endPosition="0">
       <varInfo nodeId="1213712742589" varName="e" />
       <varInfo nodeId="1213712742587" varName="j" />
