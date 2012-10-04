@@ -327,9 +327,7 @@
     <scopeInfo nodeId="1213197776762" fileName="EventsMultiplexer.java" startLine="63" startPosition="0" endLine="67" endPosition="0">
       <varInfo nodeId="1213197797588" varName="changes" />
     </scopeInfo>
-    <scopeInfo nodeId="1213191155424" fileName="EventsMultiplexer.java" startLine="68" startPosition="70" endLine="72" endPosition="5">
-      <varInfo nodeId="1213191155426" varName="c" />
-    </scopeInfo>
+    <scopeInfo nodeId="1213191155417" fileName="EventsMultiplexer.java" startLine="68" startPosition="70" endLine="72" endPosition="5" />
     <scopeInfo nodeId="1142959524945580980" fileName="EventsMultiplexer.java" startLine="77" startPosition="45" endLine="81" endPosition="0">
       <varInfo nodeId="1142959524945580984" varName="current" />
       <varInfo nodeId="1142959524945580983" varName="old" />
