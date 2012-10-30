@@ -9,11 +9,20 @@ import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
  */
 public abstract class PropertyConstraint<T> {
 
-    public abstract SimplePropertyValidationException check(TransientEntity e, PropertyMetaData pmd, T value);
+    public SimplePropertyValidationException check(TransientEntity e, PropertyMetaData pmd, T value) {
+        SimplePropertyValidationException exception = null;
+        if (!isValid(value)) {
+            String propertyName = pmd.getName();
+            exception = new SimplePropertyValidationException(getExceptionMessage(propertyName, value), getDisplayMessage(propertyName, value), e, propertyName);
+        }
+        return exception;
+    }
 
-    protected SimplePropertyValidationException error(String messageFormat, String displayMessageFormat, TransientEntity e, PropertyMetaData pmd, T value) {
-        String message = String.format(messageFormat, pmd.getName(), value);
-        String displayMessage = String.format(displayMessageFormat, pmd.getName(), value);
-        return new SimplePropertyValidationException(message, displayMessage, e, pmd.getName());
+    protected abstract boolean isValid(T value);
+
+    protected abstract String getExceptionMessage(String propertyName, T propertyValue);
+
+    protected String getDisplayMessage(String propertyName, T propertyValue) {
+        return getExceptionMessage(propertyName, propertyValue);
     }
 }
