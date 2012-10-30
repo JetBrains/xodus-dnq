@@ -10,14 +10,13 @@ import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.CardinalityViolationException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.exodus.database.exceptions.NullPropertyException;
+import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @SuppressWarnings({"ThrowableInstanceNeverThrown"})
 class ConstraintsUtil {
@@ -387,6 +386,56 @@ class ConstraintsUtil {
         return errors;
     }
 
+    @NotNull
+    static Set<DataIntegrityViolationException> checkOtherPropertyConstraints(@NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
+        Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
+
+        for (TransientEntity e : tracker.getChangedEntities()) {
+            if (!e.isRemoved()) {
+
+                EntityMetaData emd = md.getEntityMetaData(e.getType());
+
+                Map<String, PropertyConstraint> propertyConstraints = EntityMetaDataUtils.getPropertyConstraints(emd, e);
+                Iterable<String> suspectedProperties = getChangedPropertiesWithConstraints(tracker, e, propertyConstraints.keySet());
+                for (String propertyName: suspectedProperties) {
+                    PropertyMetaData propertyMetaData = emd.getPropertyMetaData(propertyName);
+                    final PropertyType type = getPropertyType(propertyMetaData);
+                    Object propertyValue = getPropertyValue(e, propertyName, type);
+                    PropertyConstraint constraint = propertyConstraints.get(propertyName);
+                    SimplePropertyValidationException exception = constraint.check(e, propertyMetaData, propertyValue);
+                    if (exception != null) {
+                        errors.add(exception);
+                    }
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    @NotNull
+    private static Iterable<String> getChangedPropertiesWithConstraints(TransientChangesTracker tracker, TransientEntity e, Set<String> constraintedProperties) {
+        Iterable<String> propertyNames = Collections.emptySet();
+        if (constraintedProperties != null && !constraintedProperties.isEmpty()) {
+            // Any property has constraints
+            Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+            if (e.isNewOrTemporary()) {
+                // All properties with constriants
+                propertyNames = constraintedProperties;
+            } else if (changedProperties != null && !changedProperties.isEmpty()) {
+                // Changed properties with constraints
+                Set<String> intersection = new HashSet<String>(changedProperties.size());
+                for (String changedProperty: changedProperties.keySet()) {
+                    if (constraintedProperties.contains(changedProperty)) {
+                        intersection.add(changedProperty);
+                    }
+                }
+                propertyNames = intersection;
+            }
+        }
+        return propertyNames;
+    }
+
     /**
      * Properties and associations, that are part of indexes, can't be empty
      *
@@ -427,7 +476,16 @@ class ConstraintsUtil {
     }
 
     private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changedProperties, EntityMetaData emd, String name) {
-        final PropertyMetaData pmd = emd.getPropertyMetaData(name);
+        final PropertyType type = getPropertyType(emd.getPropertyMetaData(name));
+
+        if (e.isNewOrTemporary() || changedProperties.containsKey(name)) {
+            checkProperty(errors, e, name, type);
+        }
+    }
+
+    @NotNull
+    private static PropertyType getPropertyType(PropertyMetaData propertyMetaData) {
+        final PropertyMetaData pmd = propertyMetaData;
         final PropertyType type;
         if (pmd == null) {
             log.warn("Can't determine property type. Try to get property value as if it of primitive type.");
@@ -435,10 +493,7 @@ class ConstraintsUtil {
         } else {
             type = pmd.getType();
         }
-
-        if (e.isNewOrTemporary() || changedProperties.containsKey(name)) {
-            checkProperty(errors, e, name, type);
-        }
+        return type;
     }
 
     private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, String name, PropertyType type) {
@@ -462,6 +517,20 @@ class ConstraintsUtil {
                 }
                 break;
 
+            default:
+                throw new IllegalArgumentException("Unknown property type: " + name);
+        }
+
+    }
+
+    private static Object getPropertyValue(TransientEntity e, String name, PropertyType type) {
+        switch (type) {
+            case PRIMITIVE:
+                return e.getProperty(name);
+            case BLOB:
+                return e.getBlob(name);
+            case TEXT:
+                return e.getBlobString(name);
             default:
                 throw new IllegalArgumentException("Unknown property type: " + name);
         }

@@ -1060,7 +1060,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
         // 2. check required properties
         exceptions.addAll(ConstraintsUtil.checkRequiredProperties(changesTracker, modelMetaData));
 
-        // 3. check index fields
+        // 3. check other property constraints
+        exceptions.addAll(ConstraintsUtil.checkOtherPropertyConstraints(changesTracker, modelMetaData));
+
+        // 4. check index fields
         exceptions.addAll(ConstraintsUtil.checkIndexFields(changesTracker, modelMetaData));
 
         if (exceptions.size() != 0) {

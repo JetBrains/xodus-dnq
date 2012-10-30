@@ -4,10 +4,12 @@ import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.CantRemoveEntityException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 public abstract class BasePersistentClassImpl implements Runnable {
 
@@ -20,6 +22,11 @@ public abstract class BasePersistentClassImpl implements Runnable {
 
     public boolean isPropertyRequired(String name, Entity entity) {
         return false;
+    }
+
+    @Nullable
+    public Map<String, PropertyConstraint> getPropertyConstraints() {
+        return null;
     }
 
     public void destructor(Entity entity) {
