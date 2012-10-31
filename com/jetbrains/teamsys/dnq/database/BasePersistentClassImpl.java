@@ -1,15 +1,15 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.database.exceptions.CantRemoveEntityException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public abstract class BasePersistentClassImpl implements Runnable {
 
@@ -24,9 +24,9 @@ public abstract class BasePersistentClassImpl implements Runnable {
         return false;
     }
 
-    @Nullable
+    @NotNull
     public Map<String, Iterable<PropertyConstraint>> getPropertyConstraints() {
-        return null;
+        return Collections.emptyMap();
     }
 
     public void destructor(Entity entity) {

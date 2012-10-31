@@ -4,7 +4,6 @@ import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.database.*;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.Set;
@@ -22,7 +21,7 @@ public class EntityMetaDataUtils {
         return result;
     }
 
-    @Nullable
+    @NotNull
     static Map<String, Iterable<PropertyConstraint>> getPropertyConstraints(EntityMetaData emd, Entity e) {
         BasePersistentClassImpl persistentClass = TransientStoreUtil.getPersistentClassInstance(e, emd);
         return persistentClass.getPropertyConstraints();
