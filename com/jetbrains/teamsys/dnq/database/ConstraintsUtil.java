@@ -395,16 +395,17 @@ class ConstraintsUtil {
 
                 EntityMetaData emd = md.getEntityMetaData(e.getType());
 
-                Map<String, PropertyConstraint> propertyConstraints = EntityMetaDataUtils.getPropertyConstraints(emd, e);
+                Map<String, Iterable<PropertyConstraint>> propertyConstraints = EntityMetaDataUtils.getPropertyConstraints(emd, e);
                 Iterable<String> suspectedProperties = getChangedPropertiesWithConstraints(tracker, e, propertyConstraints.keySet());
                 for (String propertyName: suspectedProperties) {
                     PropertyMetaData propertyMetaData = emd.getPropertyMetaData(propertyName);
                     final PropertyType type = getPropertyType(propertyMetaData);
                     Object propertyValue = getPropertyValue(e, propertyName, type);
-                    PropertyConstraint constraint = propertyConstraints.get(propertyName);
-                    SimplePropertyValidationException exception = constraint.check(e, propertyMetaData, propertyValue);
-                    if (exception != null) {
-                        errors.add(exception);
+                    for (PropertyConstraint constraint : propertyConstraints.get(propertyName)) {
+                        SimplePropertyValidationException exception = constraint.check(e, propertyMetaData, propertyValue);
+                        if (exception != null) {
+                            errors.add(exception);
+                        }
                     }
                 }
             }

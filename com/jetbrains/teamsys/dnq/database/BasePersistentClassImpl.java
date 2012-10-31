@@ -25,7 +25,7 @@ public abstract class BasePersistentClassImpl implements Runnable {
     }
 
     @Nullable
-    public Map<String, PropertyConstraint> getPropertyConstraints() {
+    public Map<String, Iterable<PropertyConstraint>> getPropertyConstraints() {
         return null;
     }
 

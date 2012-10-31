@@ -23,7 +23,7 @@ public class EntityMetaDataUtils {
     }
 
     @Nullable
-    static Map<String, PropertyConstraint> getPropertyConstraints(EntityMetaData emd, Entity e) {
+    static Map<String, Iterable<PropertyConstraint>> getPropertyConstraints(EntityMetaData emd, Entity e) {
         BasePersistentClassImpl persistentClass = TransientStoreUtil.getPersistentClassInstance(e, emd);
         return persistentClass.getPropertyConstraints();
     }
