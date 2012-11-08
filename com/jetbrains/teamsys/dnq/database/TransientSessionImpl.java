@@ -1199,7 +1199,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     break;
                 } catch (Throwable e) {
                     lastEx = e;
-                    log.info("Catch exception in flush: " + e.getMessage());
+                    log.error("Catch exception in flush: " + e.getMessage());
 
                     try {
                         if (persistentTransaction != null) persistentTransaction.abort();
