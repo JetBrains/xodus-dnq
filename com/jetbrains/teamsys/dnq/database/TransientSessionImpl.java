@@ -1037,7 +1037,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
      *
      * @param exceptions resulting errors set
      */
-    private void checkBeforeSaveChangesConstraints(@NotNull Set<DataIntegrityViolationException> exceptions) {
+    private void checkBeforeSaveChangesConstraints(@NotNull final Set<DataIntegrityViolationException> exceptions) {
         final ModelMetaData modelMetaData = store.getModelMetaData();
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
@@ -1069,6 +1069,18 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (exceptions.size() != 0) {
             ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
             e.fixEntityId();
+            store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
+                public void visit(TransientStoreSessionListener listener) {
+                    try {
+                        listener.afterConstraintsFail(exceptions);
+                    } catch (Exception e) {
+                        if (log.isErrorEnabled()) {
+                            log.error("Exception while inside listener [" + listener + "]", e);
+                        }
+                        // do not rethrow exception, because we are after constaints fail
+                    }
+                }
+            });
             throw e;
         }
     }
