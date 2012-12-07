@@ -409,15 +409,15 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         currentSession.remove();
     }
 
-    public void addListener(TransientStoreSessionListener listener) {
+    public void addListener(@NotNull TransientStoreSessionListener listener) {
         listeners.add(listener);
     }
 
-    public void removeListener(TransientStoreSessionListener listener) {
+    public void removeListener(@NotNull TransientStoreSessionListener listener) {
         listeners.remove(listener);
     }
 
-    void forAllListeners(ListenerVisitor v) {
+    void forAllListeners(@NotNull ListenerVisitor v) {
         for (TransientStoreSessionListener l : listeners) {
             v.visit(l);
         }
