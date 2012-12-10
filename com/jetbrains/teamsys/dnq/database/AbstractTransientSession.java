@@ -9,12 +9,12 @@ import org.jetbrains.annotations.Nullable;
 abstract class AbstractTransientSession implements TransientStoreSession {
   protected TransientEntityStoreImpl store;
   protected long id;
-  protected int flushRetryOnLockConflict;
+  protected int flushRetryOnVersionMismatch;
 
   AbstractTransientSession(final TransientEntityStoreImpl store, final long id) {
     this.store = store;
     this.id = id;
-    this.flushRetryOnLockConflict = store.getFlushRetryOnLockConflict();
+    this.flushRetryOnVersionMismatch = store.getFlushRetryOnLockConflict();
   }
 
   public void close() {

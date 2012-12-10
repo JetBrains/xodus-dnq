@@ -1,15 +1,15 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.exceptions.VersionMismatchException;
+import jetbrains.exodus.exceptions.*;
 import jetbrains.exodus.database.exceptions.*;
-import jetbrains.exodus.database.persistence.exceptions.LockConflictException;
 import jetbrains.exodus.database.persistence.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -1157,7 +1157,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         checkDatabaseState();
         transformNewChildsOfTempoparyParents();
-        // TODO: this method checks incomming links, but doesn't lock entities to remove after check, so new links may appear after this check but before low level remove 
+        // TODO: this method checks incomming links, but doesn't lock entities to remove after check, so new links may appear after this check but before low level remove
         checkBeforeSaveChangesConstraints(removeOrphans());
 
         // check if nothing to persist
@@ -1177,10 +1177,15 @@ public class TransientSessionImpl extends AbstractTransientSession {
             int retry = 0;
             Throwable lastEx = null;
 
-            while (retry++ < flushRetryOnLockConflict) {
+            while (retry++ < flushRetryOnVersionMismatch) {
                 StoreTransaction persistentTransaction = null;
                 try {
-                    persistentTransaction = getPersistentSessionInternal().beginTransaction();
+                    try {
+                        persistentTransaction = getPersistentSessionInternal().beginTransaction();
+                    } catch (jetbrains.exodus.exceptions.VersionMismatchException e) {
+                        Thread.yield();
+                        continue;
+                    }
 
                     // lock entities to be updated by current transaction
                     // TODO: move to the first line of the method - before constraints check
@@ -1220,8 +1225,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         break;
                     }
 
-                    if (e instanceof LockConflictException) {
-                        log.info("Lock has occured inside flush. Retry " + retry);
+                    if (e instanceof jetbrains.exodus.exceptions.VersionMismatchException) {
+                        // check versions before commit changes
+                        checkVersions();
                         Thread.yield();
                         rollbackTransientTrackerChanges(false);
                     } else {
