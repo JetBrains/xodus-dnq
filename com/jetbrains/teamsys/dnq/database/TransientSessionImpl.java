@@ -1154,7 +1154,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         beforeFlush();
 
-        checkDatabaseState();
         transformNewChildsOfTempoparyParents();
         // TODO: this method checks incomming links, but doesn't lock entities to remove after check, so new links may appear after this check but before low level remove
         checkBeforeSaveChangesConstraints(removeOrphans());
@@ -1282,12 +1281,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         throw new RuntimeException(e);
-    }
-
-    private void checkDatabaseState() {
-        if (store.getPersistentStore().isReadonly()) {
-            throw new DatabaseStateIsReadonlyException("maintenance is in progress. Please repeat your action later.");
-        }
     }
 
     private void fixEntityIdsInDataIntegrityViolationException(Throwable e) {

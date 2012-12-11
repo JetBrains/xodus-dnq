@@ -266,14 +266,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         }
     }
 
-    public void setReadonly(boolean readonly) {
-        persistentStore.setReadonly(readonly);
-    }
-
-    public boolean isReadonly() {
-        return persistentStore.isReadonly();
-    }
-
     public boolean entityTypeExists(@NotNull final String entityTypeName) {
         try {
             return ((PersistentEntityStore) persistentStore).getEntityTypeId(entityTypeName, false) >= 0;
