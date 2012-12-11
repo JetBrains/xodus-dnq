@@ -7,8 +7,6 @@ import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.exceptions.VersionMismatchException;
-import jetbrains.exodus.exceptions.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.persistence.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
@@ -157,8 +155,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             case Open:
                 try {
                     doSuspend();
-                }
-                finally {
+                } finally {
                     store.suspendThreadSession();
                 }
                 break;
@@ -464,6 +461,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
         }
     }
+
     @NotNull
     public EntityIterable findWithBlob(@NotNull final String entityType, @NotNull final String propertyName) {
         switch (state) {
@@ -708,7 +706,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         File f = new File(blobsStore, fileName);
         if (createNewFile) {
             try {
-                while(!f.createNewFile()) {
+                while (!f.createNewFile()) {
                     fileName = generateBlobFileName();
                     f = new File(blobsStore, fileName);
                 }
@@ -1018,7 +1016,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 TransientEntity parent = (TransientEntity) AggregationAssociationSemantics.getParent(e);
                 HashSet<TransientEntity> lookedParents = new HashSet<TransientEntity>();
                 while (parent != null && parent.isNewOrTemporary()) {
-                    if (!(lookedParents.add(parent))){
+                    if (!(lookedParents.add(parent))) {
                         log.warn("Found parent cycle: " + parent.toString());
                         break;
                     }
@@ -1087,6 +1085,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     /**
      * Checks custom flush constraints before save changes
+     *
      * @return side effects
      */
     @Nullable
@@ -1105,7 +1104,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
-        final int changesEntitiesCount = ((TransientChangesTrackerImpl)changesTracker).getChangedEntities().size();
+        final int changesEntitiesCount = ((TransientChangesTrackerImpl) changesTracker).getChangedEntities().size();
         for (TransientEntity entity : changedEntities) {
             if (!entity.isRemoved()) {
                 EntityMetaData md = modelMetaData.getEntityMetaData(entity.getType());
@@ -1129,7 +1128,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             throw e;
         }
 
-        if (changesEntitiesCount != ((TransientChangesTrackerImpl)changesTracker).getChangedEntities().size()) {
+        if (changesEntitiesCount != ((TransientChangesTrackerImpl) changesTracker).getChangedEntities().size()) {
             processedEntities.addAll(changedEntities);
 
             HashSet<TransientEntity> sideEffect = new HashSet<TransientEntity>(changesTracker.getChangedEntities());
@@ -1383,36 +1382,35 @@ public class TransientSessionImpl extends AbstractTransientSession {
         // check versions of changed persistent entities
         Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
 
-        for (TransientEntity localCopy : changedPersistentEntities) {
+        final PersistentEntityStore persistentStore = (PersistentEntityStore) getStore().getPersistentStore();
+
+        for (TransientEntity entity : changedPersistentEntities) {
             if (log.isDebugEnabled()) {
-                log.debug("Check version of: " + localCopy);
+                log.debug("Check version of: " + entity);
             }
 
-            // use internal getter, because local copy entity may be removed
-            //Entity lastDatabaseCopy = ((TransientEntityImpl)localCopy).getLastVersionInternal();
-            Entity lastDatabaseCopy;
-            try{
-                lastDatabaseCopy = ((TransientEntityImpl) localCopy).getPersistentEntityInternal().getUpToDateVersion();
-            } catch (EntityRemovedInDatabaseException ex) {
-                if (localCopy.isRemoved()) {
+            final TransientEntityImpl localCopy = (TransientEntityImpl) entity;
+            final PersistentEntityId id = localCopy.getPersistentEntityInternal().getId();
+            int lastDatabaseCopyVersion = persistentStore.getLastVersion(id);
+            if (lastDatabaseCopyVersion < 0) {
+                if (entity.isRemoved()) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Entity " + localCopy + " was removed from database, but is in removed state on transient level, hence flush is not terminated.", ex);
+                        log.debug("Entity " + entity + " was removed from database, but is in removed state on transient level, hence flush is not terminated.");
                     }
                     // dont't check version mismatch
                     continue;
                 } else {
                     if (log.isDebugEnabled()) {
-                        log.debug("Entity was removed from database:" + localCopy);
+                        log.debug("Entity was removed from database:" + entity);
                     }
-                    throw ex;
+                    throw new EntityRemovedInDatabaseException(id, persistentStore);
                 }
             }
 
-            int localCopyVersion = ((TransientEntityImpl) localCopy).getVersionInternal();
-            int lastDatabaseCopyVersion = lastDatabaseCopy.getVersion();
+            int localCopyVersion = localCopy.getVersionInternal();
 
             if (log.isDebugEnabled()) {
-                log.debug("Entity [" + localCopy + "] localVersion=" + localCopyVersion + " databaseVersion=" + lastDatabaseCopyVersion);
+                log.debug("Entity [" + entity + "] localVersion=" + localCopyVersion + " databaseVersion=" + lastDatabaseCopyVersion);
             }
 
             if (localCopyVersion != lastDatabaseCopyVersion) {
@@ -1420,12 +1418,12 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 // i.e. check if new changes may be added to existing without conflicts and,
                 // if can, load
                 //TODO: delegate to MergeHandler. This handler should be generated or handcoded for concrete problem domain.
-                if (!areChangesCompatible(localCopy)) {
+                if (!areChangesCompatible(entity)) {
                     if (log.isDebugEnabled()) {
-                        log.warn("Incompatible concurrent changes for " + localCopy + ". Changed properties [" + TransientStoreUtil.toString(changesTracker.getChangedPropertiesDetailed(localCopy)) +
-                                "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinksDetailed(localCopy)) + "]");
+                        log.warn("Incompatible concurrent changes for " + entity + ". Changed properties [" + TransientStoreUtil.toString(changesTracker.getChangedPropertiesDetailed(entity)) +
+                                "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinksDetailed(entity)) + "]");
                     }
-                    throw new VersionMismatchException(localCopy, localCopyVersion, lastDatabaseCopyVersion);
+                    throw new VersionMismatchException(entity, localCopyVersion, lastDatabaseCopyVersion);
                 }
             }
         }
@@ -1603,7 +1601,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         // check side effects in listeners
-        final int changesCount = ((TransientChangesTrackerImpl)changesTracker).getChangesCount();
+        final int changesCount = ((TransientChangesTrackerImpl) changesTracker).getChangesCount();
         store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
             public void visit(TransientStoreSessionListener listener) {
                 try {
@@ -1617,7 +1615,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             }
         });
 
-        if (((TransientChangesTrackerImpl)changesTracker).getChangesCount() != changesCount) {
+        if (((TransientChangesTrackerImpl) changesTracker).getChangesCount() != changesCount) {
             throw new EntityStoreException("It's not allowed to change database inside listener.beforeFlushAfterConstraintsCheck() method.");
         }
     }

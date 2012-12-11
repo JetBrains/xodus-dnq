@@ -513,29 +513,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return version;
     }
 
-    private static final StandardEventHandler<Object, Object, Entity> getUpToDateVersionEventHandler = new StandardEventHandler<Object, Object, Entity>() {
-        Entity processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-            Entity e = entity.getPersistentEntityInternal().getUpToDateVersion();
-            return e == null ? null : entity.getTransientStoreSession().newEntity(e);
-        }
-
-        Entity processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.throwNoPersistentEntity();
-            return null;
-        }
-
-        Entity processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.throwNoPersistentEntity();
-            return null;
-        }
-    };
-
-
-    @Nullable
-    public Entity getUpToDateVersion() {
-        return getUpToDateVersionEventHandler.handle(this, null, null);
-    }
-
     public boolean isUpToDate() {
         return getPersistentEntity().isUpToDate();
     }
