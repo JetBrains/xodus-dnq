@@ -3,7 +3,6 @@ package com.jetbrains.teamsys.dnq.database;
 import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
 import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
 import jetbrains.exodus.database.Entity;
-import jetbrains.exodus.database.StoreSession;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
@@ -24,12 +23,9 @@ public class SearchByPropertyTest extends AbstractEntityStoreAwareTestCase {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
     TransientStoreSession transientSession = store.beginSession();
     try {
-      StoreSession storeSession = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
-      assert storeSession != null;
-      TransientStoreSession session = ((TransientStoreSession) storeSession.getCurrentTransaction());
-      storeSession = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
-      assert session != null && storeSession != null;
-      Entity u = session.addSessionLocalEntity("u", (storeSession.newEntity("User")));
+      TransientStoreSession session = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
+      assert session != null;
+      Entity u = session.addSessionLocalEntity("u", (session.newEntity("User")));
       PrimitiveAssociationSemantics.set(u, "login", "guest");
       PrimitiveAssociationSemantics.set(u, "password", "guest");
     } catch (Throwable e) {
@@ -44,7 +40,7 @@ public class SearchByPropertyTest extends AbstractEntityStoreAwareTestCase {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
     TransientStoreSession transientSession = store.beginSession();
     try {
-      StoreSession session = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
+        TransientStoreSession session = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
       assert session != null;
       return !ListSequence.fromIterable(session.find("User", "login", "guest")).isEmpty();
     } catch (Throwable e) {
@@ -59,7 +55,7 @@ public class SearchByPropertyTest extends AbstractEntityStoreAwareTestCase {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
     TransientStoreSession transientSession = store.beginSession();
     try {
-      StoreSession session = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
+        TransientStoreSession session = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
       assert session != null;
       return session.getAll("User").size();
     } catch (Throwable e) {

@@ -22,9 +22,9 @@ public class CountTest extends AbstractEntityStoreAwareTestCase {
     TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
     TransientStoreSession transientSession = store.beginSession();
     try {
-      Entity p = ((TransientStoreSession) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().getCurrentTransaction()).addSessionLocalEntity("p", (TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Project")));
+      Entity p = ((TransientStoreSession) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession()).addSessionLocalEntity("p", (TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Project")));
 
-      Entity i = ((TransientStoreSession) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().getCurrentTransaction()).addSessionLocalEntity("i", (TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue")));
+      Entity i = ((TransientStoreSession) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession()).addSessionLocalEntity("i", (TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue")));
 
       AggregationAssociationSemantics.createOneToMany(p, "issue", "project", i);
 

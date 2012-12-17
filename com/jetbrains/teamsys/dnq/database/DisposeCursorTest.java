@@ -37,7 +37,7 @@ public class DisposeCursorTest extends AbstractEntityStoreAwareTestCase {
     TransientStoreSession session = store.beginSession();
     try {
 
-      Entity user = ((TransientStoreSession) getTransientEntityStore().getThreadSession().getCurrentTransaction()).addSessionLocalEntity(
+      Entity user = ((TransientStoreSession) getTransientEntityStore().getThreadSession()).addSessionLocalEntity(
               "user", (TransientEntity)(TestUserService.findUser("vadim", "vadim")));
 
       return 1;
