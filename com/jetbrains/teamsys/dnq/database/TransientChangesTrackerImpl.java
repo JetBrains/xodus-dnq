@@ -7,7 +7,7 @@ import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.impl.OperationFailureException;
-import jetbrains.exodus.database.persistence.exceptions.PhysicalLayerException;
+import jetbrains.exodus.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -328,7 +328,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
           if (log.isDebugEnabled()) {
             log.debug("Add new entity: " + e);
           }
-          ((TransientEntityImpl) e).setPersistentEntity(session.getPersistentSession().newEntity(e.getType()));
+          ((TransientEntityImpl) e).setPersistentEntity(session.getPersistentTransaction().newEntity(e.getType()));
           assert e.isSaved();
         }
       }
@@ -581,7 +581,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     offerChange(new Runnable() {
       public void run() {
         log.debug("Clear history of entities of type [" + entityType + "]");
-        session.getPersistentSession().clearHistory(entityType);
+        session.getPersistentTransaction().clearHistory(entityType);
       }
     });
   }
@@ -818,8 +818,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     return ((TransientEntityImpl)e).getPersistentEntityInternal().getLink(linkName);
   }
 
-  private StoreSession getPersistentSession() {
-    return session.getPersistentSession();
+  private StoreTransaction getPersistentSession() {
+    return session.getPersistentTransaction();
   }
 
   private void throwIndexUniquenessViolationException(TransientEntity e, Index index) {

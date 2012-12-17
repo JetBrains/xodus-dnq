@@ -22,11 +22,11 @@ abstract class AbstractTransientSession implements TransientStoreSession {
   }
 
     public void setQueryCancellingPolicy(QueryCancellingPolicy policy) {
-        getPersistentSessionInternal().setQueryCancellingPolicy(policy);
+        getPersistentTransactionInternal().setQueryCancellingPolicy(policy);
     }
 
     public QueryCancellingPolicy getQueryCancellingPolicy() {
-        return getPersistentSessionInternal().getQueryCancellingPolicy();
+        return getPersistentTransactionInternal().getQueryCancellingPolicy();
     }
 
 
@@ -53,12 +53,7 @@ abstract class AbstractTransientSession implements TransientStoreSession {
     return id;
   }
 
-  @Nullable
-  public StoreTransaction getCurrentTransaction() {
-    return this;
-  }
-
-  protected StoreSession getPersistentSessionInternal() {
-    return store.getPersistentStore().getThreadSession();
+    protected StoreTransaction getPersistentTransactionInternal() {
+    return store.getPersistentStore().getCurrentTransaction();
   }
 }

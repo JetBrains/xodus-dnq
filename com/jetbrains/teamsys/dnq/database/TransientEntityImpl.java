@@ -562,7 +562,7 @@ class TransientEntityImpl extends AbstractTransientEntity {
         final List<Pair<String, EntityIterable>> result = new ArrayList<Pair<String, EntityIterable>>();
         final TransientStoreSession session = getTransientStoreSession();
         //Why persistent store is here instead of transient?
-        final StoreSession persistentSession = session.getPersistentSession();
+        final StoreTransaction persistentTxn = session.getPersistentTransaction();
         final ModelMetaData mmd = ((TransientEntityStore) session.getStore()).getModelMetaData();
         if (mmd != null) {
             final EntityMetaData emd = mmd.getEntityMetaData(getType());

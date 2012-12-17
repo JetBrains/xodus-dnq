@@ -8,7 +8,7 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
-import jetbrains.exodus.database.persistence.exceptions.PhysicalLayerException;
+import jetbrains.exodus.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -211,6 +211,16 @@ public class TransientSessionImpl extends AbstractTransientSession {
         notifyFlushedListeners(changes);
     }
 
+    @Override
+    public void revert() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void flush() {
+        throw new UnsupportedOperationException();
+    }
+
     public void abort() {
         if (store.getThreadSession() != this) {
             throw new IllegalStateException("Can't abort session that is not current thread session. Current thread session is [" + store.getThreadSession() + "]");
@@ -306,10 +316,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     @NotNull
-    public StoreSession getPersistentSession() {
+    public StoreTransaction getPersistentTransaction() {
         switch (state) {
             case Open:
-                return getPersistentSessionInternal();
+                return getPersistentTransactionInternal();
 
             default:
                 throw new IllegalStateException("Can't access persistent session in state [" + state + "]");
@@ -375,7 +385,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             case Open:
                 // treat given id as id of transient entity first
                 try {
-                    return getPersistentSessionInternal().toEntityId(representation);
+                    return getPersistentTransactionInternal().toEntityId(representation);
                 } catch (Exception e) {
                     return TransientEntityIdImpl.fromString(representation);
                 }
@@ -388,7 +398,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public List<String> getEntityTypes() {
         switch (state) {
             case Open:
-                return getPersistentSessionInternal().getEntityTypes();
+                return getPersistentTransactionInternal().getEntityTypes();
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -399,7 +409,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable getAll(@NotNull final String entityType) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().getAll(entityType));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getAll(entityType));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -411,7 +421,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable getSingletonIterable(@NotNull final Entity entity) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().getSingletonIterable(((AbstractTransientEntity) entity).getPersistentEntityInternal()));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getSingletonIterable(((AbstractTransientEntity) entity).getPersistentEntityInternal()));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -423,7 +433,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable value) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().find(entityType, propertyName, value));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().find(entityType, propertyName, value));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -434,7 +444,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable minValue, @NotNull final Comparable maxValue) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().find(entityType, propertyName, minValue, maxValue));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().find(entityType, propertyName, minValue, maxValue));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -444,7 +454,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable findWithProp(@NotNull final String entityType, @NotNull final String propertyName) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findWithProp(entityType, propertyName));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithProp(entityType, propertyName));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -455,7 +465,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable startsWith(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final String value) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().startsWith(entityType, propertyName, value));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().startsWith(entityType, propertyName, value));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -466,7 +476,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable findWithBlob(@NotNull final String entityType, @NotNull final String propertyName) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findWithBlob(entityType, propertyName));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithBlob(entityType, propertyName));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -477,7 +487,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable findLinks(@NotNull final String entityType, @NotNull final Entity entity, @NotNull final String linkName) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findLinks(entityType, entity, linkName));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findLinks(entityType, entity, linkName));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -488,7 +498,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable findLinks(@NotNull String entityType, @NotNull EntityIterable entities, @NotNull String linkName) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findLinks(entityType, entities.getSource(), linkName));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findLinks(entityType, entities.getSource(), linkName));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -499,7 +509,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable findWithLinks(@NotNull String entityType, @NotNull String linkName) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().findWithLinks(entityType, linkName));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithLinks(entityType, linkName));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -514,7 +524,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         switch (state) {
             case Open:
                 return new PersistentEntityIterableWrapper(
-                        getPersistentSessionInternal().findWithLinks(entityType, linkName, oppositeEntityType, oppositeLinkName));
+                        getPersistentTransactionInternal().findWithLinks(entityType, linkName, oppositeEntityType, oppositeLinkName));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -527,7 +537,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                                final boolean ascending) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().sort(entityType, propertyName, ascending));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().sort(entityType, propertyName, ascending));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -542,7 +552,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         switch (state) {
             case Open:
                 return new PersistentEntityIterableWrapper(
-                        getPersistentSessionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
+                        getPersistentTransactionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -558,7 +568,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         switch (state) {
             case Open:
                 return new PersistentEntityIterableWrapper(
-                        getPersistentSessionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource()));
+                        getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource()));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -576,7 +586,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         switch (state) {
             case Open:
                 return new PersistentEntityIterableWrapper(
-                        getPersistentSessionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource(), oppositeEntityType, oppositeLinkName));
+                        getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource(), oppositeEntityType, oppositeLinkName));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -587,7 +597,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable mergeSorted(@NotNull List<EntityIterable> sorted, @NotNull Comparator<Entity> comparator) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().mergeSorted(sorted, comparator));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().mergeSorted(sorted, comparator));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -598,7 +608,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable distinct(@NotNull final EntityIterable source) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().distinct(source.getSource()));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().distinct(source.getSource()));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -609,7 +619,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable selectDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().selectDistinct(source.getSource(), linkName));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().selectDistinct(source.getSource(), linkName));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -620,7 +630,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable selectManyDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().selectManyDistinct(source.getSource(), linkName));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().selectManyDistinct(source.getSource(), linkName));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -631,7 +641,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public Entity getFirst(@NotNull final EntityIterable it) {
         switch (state) {
             case Open:
-                final Entity last = getPersistentSessionInternal().getFirst(it.getSource());
+                final Entity last = getPersistentTransactionInternal().getFirst(it.getSource());
                 return (last == null) ? null : newEntityImpl(last);
 
             default:
@@ -643,7 +653,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public Entity getLast(@NotNull final EntityIterable it) {
         switch (state) {
             case Open:
-                final Entity last = getPersistentSessionInternal().getLast(it.getSource());
+                final Entity last = getPersistentTransactionInternal().getLast(it.getSource());
                 return (last == null) ? null : newEntityImpl(last);
 
             default:
@@ -655,7 +665,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public EntityIterable reverse(@NotNull final EntityIterable source) {
         switch (state) {
             case Open:
-                return new PersistentEntityIterableWrapper(getPersistentSessionInternal().reverse(source.getSource()));
+                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().reverse(source.getSource()));
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -666,7 +676,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public Sequence getSequence(@NotNull final String sequenceName) {
         switch (state) {
             case Open:
-                return getPersistentSessionInternal().getSequence(sequenceName);
+                return getPersistentTransactionInternal().getSequence(sequenceName);
 
             default:
                 throw new IllegalStateException("Can't execute in state [" + state + "]");
@@ -723,7 +733,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         final StringBuilder nameBuilder = new StringBuilder();
         nameBuilder.append(id);
         nameBuilder.append('-');
-        nameBuilder.append(getPersistentSessionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment());
+        nameBuilder.append(getPersistentTransactionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment());
         nameBuilder.append(".dat");
         return nameBuilder.toString();
     }
@@ -742,9 +752,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (log.isDebugEnabled()) {
             log.debug("Close persistent session for transient session " + this);
         }
-        StoreSession persistentSession = getPersistentSessionInternal();
-        if (persistentSession != null) {
-            persistentSession.close();
+        StoreTransaction persistentTxn = getPersistentTransactionInternal();
+        if (persistentTxn != null) {
+            persistentTxn.abort();
         }
     }
 
@@ -752,7 +762,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (log.isDebugEnabled()) {
             log.debug("Open persistent session for transient session " + this);
         }
-        store.getPersistentStore().beginSession();
+        store.getPersistentStore().beginTransaction();
         state = State.Open;
     }
 
@@ -769,8 +779,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
     }
 
     public void commit() {
-        // this method is overridden in TransientSessionDeferred, but that's ok (changes are isomorphic)
-
         if (store.getThreadSession() != this) {
             throw new IllegalStateException("Can't commit session from another thread.");
         }
@@ -782,7 +790,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         switch (state) {
             case Open:
                 // flush may produce runtime exceptions. if so - session stays open
-                Set<TransientEntityChange> changes = flush();
+                Set<TransientEntityChange> changes = flushChanges();
 
                 try {
                     notifyCommitedListeners(changes);
@@ -813,7 +821,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         switch (state) {
             case Open:
                 // flush may produce runtime exceptions. if so - session stays open
-                Set<TransientEntityChange> changes = flush();
+                Set<TransientEntityChange> changes = flushChanges();
                 return changes;
 
             default:
@@ -948,7 +956,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
                         try {
                             // load persistent entity from database by id
-                            return newEntity(getPersistentSessionInternal().getEntity(entityId));
+                            return newEntity(getPersistentTransactionInternal().getEntity(entityId));
                         } catch (EntityRemovedInDatabaseException e) {
                             log.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
                             throw e;
@@ -995,7 +1003,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (entityId == null) {
             entityId = entity.getId();
         }
-        return ((PersistentEntityStore) getPersistentSessionInternal().getStore()).getLastVersion(entityId) < 0;
+        return ((PersistentEntityStore) getPersistentTransactionInternal().getStore()).getLastVersion(entityId) < 0;
     }
 
     public void registerEntityIterator(@NotNull EntityIterator iterator) {
@@ -1146,7 +1154,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
      * @return changed description excluding deleted entities
      */
     @Nullable
-    protected final Set<TransientEntityChange> flush() {
+    private final Set<TransientEntityChange> flushChanges() {
         if (!changesTracker.areThereChanges()) {
             log.trace("Nothing to flush.");
             return null;
@@ -1174,21 +1182,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
             int retry = 0;
             Throwable lastEx = null;
+            final StoreTransaction txn = getPersistentTransactionInternal();
 
             while (retry++ < flushRetryOnVersionMismatch) {
-                StoreTransaction persistentTransaction = null;
                 try {
-                    try {
-                        persistentTransaction = getPersistentSessionInternal().beginTransaction();
-                    } catch (jetbrains.exodus.exceptions.VersionMismatchException e) {
-                        Thread.yield();
-                        continue;
-                    }
-
-                    // lock entities to be updated by current transaction
-                    // TODO: move to the first line of the method - before constraints check
-                    lockForUpdate(persistentTransaction);
-
                     // check versions before commit changes
                     checkVersions();
 
@@ -1204,9 +1201,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         log.trace("Commit persistent transaction in transient session " + this);
                     }
 
-                    final StoreTransaction txn = persistentTransaction;
-                    persistentTransaction = null;
-                    txn.commit();
+                    txn.flush();
 
                     updateCaches();
 
@@ -1215,13 +1210,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 } catch (Throwable e) {
                     lastEx = e;
                     log.error("Catch exception in flush: " + e.getMessage());
-
-                    try {
-                        if (persistentTransaction != null) persistentTransaction.abort();
-                    } catch (Throwable e1) {
-                        lastEx = e1;
-                        break;
-                    }
 
                     if (e instanceof jetbrains.exodus.exceptions.VersionMismatchException) {
                         // check versions before commit changes
@@ -1339,25 +1327,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         // do not clear this cache to have ability to request entities using old TransientEntityIdImpl
         //createdNewTransientEntities.clear();
-    }
-
-    /**
-     * locks exclusively all entities affected by the transaction in order to prevent
-     * race condition during checking version mismatches.
-     */
-    private void lockForUpdate(@NotNull final StoreTransaction txn) {
-        final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
-        final int changedEntitiesCount = changedPersistentEntities.size();
-        if (changedEntitiesCount > 0) {
-            final List<Entity> affected = new ArrayList<Entity>(changedEntitiesCount);
-            for (final TransientEntity localCopy : changedPersistentEntities) {
-                //if (/*!localCopy.isNew() && */!localCopy.isRemoved()) {
-                Entity e = ((TransientEntityImpl) localCopy).getPersistentEntityInternal();
-                affected.add(e);
-                //}
-            }
-            txn.lockForUpdate(affected);
-        }
     }
 
     private void checkVersions() {

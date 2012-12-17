@@ -64,7 +64,7 @@ public class TransientStoreUtil {
             throw new IllegalStateException("There's no current session entity store.");
         }*/
 
-        TransientStoreSession s = (TransientStoreSession) entity.getStore().getThreadSession();
+        TransientStoreSession s = (TransientStoreSession) ((TransientEntityStore)entity.getStore()).getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("There's no current session to attach transient entity to.");
@@ -85,7 +85,7 @@ public class TransientStoreUtil {
             return ((PersistentEntityStore) entity.getStore()).getLastVersion(entity.getId()) < 0;
         }
 
-        TransientStoreSession s = (TransientStoreSession) entity.getStore().getThreadSession();
+        TransientStoreSession s = (TransientStoreSession) ((TransientEntityStore)entity.getStore()).getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("There's no current session to attach transient entity to.");
@@ -104,7 +104,7 @@ public class TransientStoreUtil {
             throw new IllegalStateException("There's no current session entity store.");
         }*/
 
-        TransientStoreSession s = (TransientStoreSession) change.getTransientEntity().getStore().getThreadSession();
+        TransientStoreSession s = (TransientStoreSession) ((TransientEntityStore)change.getTransientEntity().getStore()).getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("There's no current session to attach transient entity to.");

@@ -128,6 +128,18 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         throw new UnsupportedOperationException("Not supported by transient store.");
     }
 
+    @NotNull
+    @Override
+    public StoreTransaction beginTransaction() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Nullable
+    @Override
+    public StoreTransaction getCurrentTransaction() {
+        throw new UnsupportedOperationException();
+    }
+
     public TransientStoreSession beginSession() {
         if (log.isDebugEnabled()) {
             log.debug("Begin new session");
@@ -285,7 +297,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
         changesTracker.offerChange(new Runnable() {
             public void run() {
-                ((PersistentEntityStore) s.getPersistentSession().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
+                ((PersistentEntityStore) s.getPersistentTransaction().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
             }
         });
     }
@@ -300,7 +312,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
         changesTracker.offerChange(new Runnable() {
             public void run() {
-                ((PersistentEntityStoreImpl) s.getPersistentSession().getStore()).deleteEntityType(entityTypeName);
+                ((PersistentEntityStoreImpl) s.getPersistentTransaction().getStore()).deleteEntityType(entityTypeName);
             }
         });
     }
