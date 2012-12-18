@@ -1224,6 +1224,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
             if (lastEx != null) {
                 // rollback
+                txn.revert();
                 // tracker make some changes in transient entities - rollback them
                 try {
                     rollbackTransientTrackerChanges(true);
