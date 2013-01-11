@@ -1395,10 +1395,11 @@ public class TransientSessionImpl extends AbstractTransientSession {
         ModelMetaData md = store.getModelMetaData();
         EntityMetaData emd = md == null ? null : md.getEntityMetaData(entity.getType());
         if (emd == null) {
-            if (log.isWarnEnabled()) {
+            return true;
+            /*if (log.isWarnEnabled()) {
                 log.warn("Metadata for " + entity + " is not found. Can't merge changes. " + this);
             }
-            return false;
+            return false;*/
         }
 
         // ignore version mismatch
