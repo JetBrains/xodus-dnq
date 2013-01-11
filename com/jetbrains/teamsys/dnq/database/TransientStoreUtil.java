@@ -20,13 +20,6 @@ public class TransientStoreUtil {
 
     private static final Log log = LogFactory.getLog(TransientStoreUtil.class);
     private static final LongHashSet POSTPONE_UNIQUE_INDICES = new LongHashSet(10);
-    // private static TransientEntityStore store = null;
-
-    @Deprecated
-    public static void setTransientEntityStore(@Nullable TransientEntityStore transientEntityStore) {
-        // TODO: remove this method
-        // store = transientEntityStore;
-    }
 
     public static boolean isPostponeUniqueIndexes() {
         final long id = Thread.currentThread().getId();
