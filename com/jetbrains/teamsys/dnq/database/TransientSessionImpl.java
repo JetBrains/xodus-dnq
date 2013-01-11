@@ -72,8 +72,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-
-        doResume();
+        this.store.getPersistentStore().beginTransaction();
+        state = State.Open;
     }
 
     public String toString() {
@@ -154,7 +154,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
         switch (state) {
             case Open:
                 try {
-                    doSuspend();
+                    state = State.Suspended;
+                    lock.release();
                 } finally {
                     store.suspendThreadSession();
                 }
@@ -184,7 +185,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         switch (state) {
             case Suspended:
-                doResume();
+                state = State.Open;
                 break;
 
             default:
@@ -756,14 +757,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (persistentTxn != null) {
             persistentTxn.abort();
         }
-    }
-
-    protected void doResume() {
-        if (log.isDebugEnabled()) {
-            log.debug("Open persistent session for transient session " + this);
-        }
-        store.getPersistentStore().beginTransaction();
-        state = State.Open;
     }
 
 
@@ -1580,15 +1573,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
         if (((TransientChangesTrackerImpl) changesTracker).getChangesCount() != changesCount) {
             throw new EntityStoreException("It's not allowed to change database inside listener.beforeFlushAfterConstraintsCheck() method.");
-        }
-    }
-
-    protected void doSuspend() {
-        try {
-            closePersistentSession();
-        } finally {
-            state = State.Suspended;
-            lock.release();
         }
     }
 
