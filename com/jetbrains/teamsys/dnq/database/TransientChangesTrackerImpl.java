@@ -116,8 +116,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
        changesDescription = new HashSetDecorator<TransientEntityChange>();
 
        for (TransientEntity e : getChangedEntities()) {
-         // do not notify about temp and RemovedNew entities
-         if (e.isTemporary() || (e.isRemoved() && !e.wasSaved())) continue;
+         // do not notify about RemovedNew entities
+         if (e.isRemoved() && !e.wasSaved()) continue;
 
          changesDescription.add(new TransientEntityChange(e, getChangedPropertiesDetailed(e),
                  getChangedLinksDetailed(e), decodeState(e)));
@@ -323,7 +323,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     offerChange(new Runnable() {
       public void run() {
-        if (!e.isRemovedOrTemporary()) {
+        if (!e.isRemoved()) {
           assert e.isNew();
           if (log.isDebugEnabled()) {
             log.debug("Add new entity: " + e);
@@ -354,7 +354,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     offerChange(new Runnable() {
       public void run() {
-        if (!source.isRemovedOrTemporary() && !target.isRemovedOrTemporary()) {
+        if (!source.isRemoved() && !target.isRemoved()) {
           if (log.isDebugEnabled()) {
             log.debug("Add link: " + source + "-[" + linkName + "]-> " + target);
           }
@@ -382,8 +382,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     offerChange(new Runnable() {
       public void run() {
-        if (!source.isRemovedOrTemporary()) {
-            if (!target.isRemovedOrTemporary()) {
+        if (!source.isRemoved()) {
+            if (!target.isRemoved()) {
                 if (log.isDebugEnabled()) {
                     log.debug("Set link: " + source + "-[" + linkName + "]-> " + target);
                 }
@@ -488,8 +488,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     offerChange(new Runnable() {
       public void run() {
-        //do not remove link if source or target removed, wasn't saved and was new, or source or target is temporary
-        if (!(((source.isRemoved() && !source.wasSaved()) || source.isTemporary()) || ((target.isRemoved() && !target.wasSaved()) || target.isTemporary()))) {
+        // do not remove link if source or target removed or wasn't saved and was new
+        if (!((source.isRemoved() && !source.wasSaved()) || (target.isRemoved() && !target.wasSaved()))) {
           log.debug("Delete link: " + source + "-[" + linkName + "]-> " + target);
           ((TransientEntityImpl) source).getPersistentEntityInternal().deleteLink(linkName, ((TransientEntityImpl) target).getPersistentEntityInternal());
         }
@@ -503,7 +503,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     offerChange(new Runnable() {
       public void run() {
         // remove link if source is not removed or source is removed and was not new
-        if (!source.isRemovedOrTemporary() || (source.isRemoved() && !source.wasNew())) {
+        if (!source.isRemoved() || (source.isRemoved() && !source.wasNew())) {
           log.debug("Delete links: " + source + "-[" + linkName + "]-> *");
           ((TransientEntityImpl) source).getPersistentEntityInternal().deleteLinks(linkName);
         }
@@ -524,7 +524,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
       Runnable changeProperty = new Runnable() {
         public void run() {
-          if (!e.isRemovedOrTemporary()) {
+          if (!e.isRemoved()) {
             if (log.isDebugEnabled()) {
               log.debug("Set property: " + e + "." + propertyName + "=" + propertyNewValue);
             }
@@ -554,7 +554,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
       entityChanged(e);
       Runnable deleteProperty = new Runnable() {
         public void run() {
-          if (!e.isRemovedOrTemporary()) {
+          if (!e.isRemoved()) {
             if (log.isDebugEnabled()) {
               log.debug("Delete property: " + e + "." + propertyName);
             }
@@ -592,7 +592,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     entityChanged(e);
     Runnable blobChanged = new Runnable() {
       public void run() {
-        if (!e.isRemovedOrTemporary()) {
+        if (!e.isRemoved()) {
           log.debug("Set blob property: " + e + "." + blobName + "=" + file);
           e.getPersistentEntity().setBlob(blobName, file);
         }
@@ -612,7 +612,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
       entityChanged(e);
       Runnable blobChanged = new Runnable() {
         public void run() {
-          if (!e.isRemovedOrTemporary()) {
+          if (!e.isRemoved()) {
             log.debug("Set blob property: " + e + "." + blobName + "=" + newValue);
             e.getPersistentEntity().setBlobString(blobName, newValue);
           }
@@ -637,7 +637,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
       Runnable deleteBlob = new Runnable() {
         public void run() {
-          if (!e.isRemovedOrTemporary()) {
+          if (!e.isRemoved()) {
             log.debug("Delete blob property: " + e + "." + blobName);
             e.getPersistentEntity().deleteBlob(blobName);
           }
@@ -695,7 +695,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         offerIndexChange(e, index, new Runnable(){
           public void run() {
             try {
-              if (!e.isRemovedOrTemporary()) {
+              if (!e.isRemoved()) {
                 if (isNew) {
                   // create new index
                   getPersistentSession().insertUniqueKey(

@@ -28,7 +28,6 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
         this.linkName = linkName;
         this.owner = owner;
         switch (owner.getState()) {
-            case Temporary:
             case New:
                 this.state = State.LinksLoaded;
                 break;
@@ -51,8 +50,6 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
             addedTarget = null;
         }
 
-        if (owner.getState() == AbstractTransientEntity.State.Temporary) return;
-
         TransientChangesTracker tracker = owner.getTransientStoreSession().getTransientChangesTracker();
         tracker.linkSet(owner, linkName, target);
         tracker.registerLinkChanges(owner, linkName, getAdded(), getRemoved());
@@ -70,7 +67,6 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
     public Entity getLink() {
         switch (owner.getState()) {
             case New:
-            case Temporary:
             case Saved:
             case SavedNew:
                 if (state == State.LinksNotLoaded) loadLink();
@@ -90,8 +86,6 @@ class SingleTransientLinksManagerImpl implements TransientLinksManager {
         removedTarget = loadedTarget;
         addedTarget = null;
         currentTarget = null;
-
-        if (owner.getState() == AbstractTransientEntity.State.Temporary) return;
 
         TransientChangesTracker tracker = owner.getTransientStoreSession().getTransientChangesTracker();
         tracker.linksDeleted(owner, linkName);

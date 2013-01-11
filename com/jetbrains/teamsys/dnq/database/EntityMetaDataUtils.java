@@ -51,7 +51,7 @@ public class EntityMetaDataUtils {
 
     static boolean hasParent(@NotNull EntityMetaData emd, @NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
         final Set<String> aggregationChildEnds = emd.getAggregationChildEnds();
-        if (e.isNewOrTemporary() || parentChanged(aggregationChildEnds, tracker.getChangedLinksDetailed(e))) {
+        if (e.isNew() || parentChanged(aggregationChildEnds, tracker.getChangedLinksDetailed(e))) {
             for (String childEnd : aggregationChildEnds) {
                 if (AssociationSemantics.getToOne(e, childEnd) != null) {
                     return true;
