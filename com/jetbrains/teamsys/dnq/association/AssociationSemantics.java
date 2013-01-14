@@ -97,7 +97,7 @@ public class AssociationSemantics {
         }
 
         // can't return persistent iterable for new transient entity
-        if (((TransientEntity) e).isNewOrTemporary()) {
+        if (((TransientEntity) e).isNew()) {
             //throw new IllegalStateException("1111");
             return e.getLinks(linkName);
         }

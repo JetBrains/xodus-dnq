@@ -28,7 +28,6 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   private Set<TransientEntity> removed;
   private Set<TransientEntity> added;
   private Set<TransientEntity> links;
-  private List<TransientEntity> temporaryLinks;
 
   MultipleTransientLinksManagerImpl(@NotNull String linkName, TransientEntityImpl owner, String oppositeType) {
     this.linkName = linkName;
@@ -36,7 +35,6 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     this.oppositeType = oppositeType;
 
     switch (owner.getState()) {
-        case Temporary:
         case New:
             this.state = State.LinksLoaded;
             break;
@@ -100,39 +98,12 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     return links;
   }
 
-  private List<TransientEntity> getTemporaryLinksList() {
-    if (temporaryLinks == null) {
-      temporaryLinks = new LinkedList<TransientEntity>();
-    }
-
-    return temporaryLinks;
-  }
-
-  private void deleteLinkForTemporary(@NotNull final TransientEntity entity) {
-    if (temporaryLinks != null) {
-      for (Iterator<TransientEntity> i = temporaryLinks.iterator(); i.hasNext(); ) {
-        TransientEntity e = i.next();
-        if (EntityOperations.equals(e, entity)) {
-          i.remove();
-          return;
-        }
-      }
-    }
-    if (log.isWarnEnabled()) {
-        log.warn("Can't find link [" + linkName + "] from [" + owner + "] to [" + entity + "] to remove.");
-    }
-  }
-
   public void addLink(@NotNull final TransientEntity entity) {
     switch (owner.getState()) {
       case New:
         getLinksSet().add(entity);
         setAsAdded(entity);
         break;
-
-      case Temporary:
-        getTemporaryLinksList().add(entity);
-        return;
 
       case Saved:
       case SavedNew:
@@ -159,10 +130,6 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
       case New:
         if (!tryToRemove(entity)) return;
         break;
-
-      case Temporary:
-        deleteLinkForTemporary(entity);
-        return;
 
       case Saved:
       case SavedNew:
@@ -212,12 +179,6 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
         }
         return;
 
-      case Temporary:
-        if (temporaryLinks != null) {
-          temporaryLinks.clear();
-        }
-        return;
-
       case Saved:
       case SavedNew:
         if (added != null) {
@@ -245,10 +206,6 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     switch (owner.getState()) {
       case New:
         return new TransientEntityIterable(links == null ? EMPTY : links);
-
-      case Temporary:
-        return new TransientEntityIterable(temporaryLinks == null ? EMPTY : new HashSet<TransientEntity>(temporaryLinks));
-
 
       case Saved:
       case SavedNew:
@@ -282,9 +239,6 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
     switch (owner.getState()) {
       case New:
           return links == null ? 0 : links.size();
-
-      case Temporary:
-          return temporaryLinks == null ? 0 : temporaryLinks.size();
 
       case Saved:
       case SavedNew:

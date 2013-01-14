@@ -22,7 +22,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
         RemovedNew,
         RemovedSaved,
         RemovedSavedNew,
-        Temporary
     }
 
     private PersistentEntity persistentEntity;
@@ -63,10 +62,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
         Entity processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
             entity.throwNoPersistentEntity();
             return null;
-        }
-
-        Entity processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return entity; // there is no persistent entity for the temporary one
         }
     };
 
@@ -137,24 +132,12 @@ abstract class AbstractTransientEntity implements TransientEntity {
         return state == State.New;
     }
 
-    public boolean isNewOrTemporary() {
-        return isNew() || isTemporary();
-    }
-
     public boolean isSaved() {
         return state == State.Saved || state == State.SavedNew;
     }
 
     public boolean isRemoved() {
         return state == State.RemovedNew || state == State.RemovedSaved || state == State.RemovedSavedNew;
-    }
-
-    public boolean isRemovedOrTemporary() {
-        return isRemoved() || isTemporary();
-    }
-
-    public boolean isTemporary() {
-        return state == State.Temporary;
     }
 
     public boolean isReadonly() {
@@ -166,9 +149,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
     }
 
     protected void setState(State state) {
-        if (this.state == State.Temporary && state != State.Temporary) {
-            throw new IllegalStateException("Can't change Temporary state of entity.");
-        }
         this.state = state;
     }
 
@@ -238,10 +218,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return new TransientEntityIdImpl(entity.id);
         }
 
-        EntityId processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return new TransientEntityIdImpl(entity.id);
-        }
-
         EntityId processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
@@ -301,10 +277,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return Integer.toString(entity.id);
         }
 
-        String processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return Integer.toString(entity.id);
-        }
-
         String processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
@@ -361,10 +333,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Entity param1, Object param2) {
-            throw new IllegalStateException("Can't set persistent entity for a temporary transient one. " + entity);
-        }
-
     };
 
     void setPersistentEntity(@NotNull final Entity persistentEntity) {
@@ -387,10 +355,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.throwNoPersistentEntity();
-            return null;
-        }
     };
 
 
@@ -401,11 +365,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
     private static final StandardEventHandler<Object, Object, Object> updateVersionEventHandler = new StandardEventHandler<Object, Object, Object>() {
 
         Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.throwNoPersistentEntity();
-            return null;
-        }
-
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
             entity.throwNoPersistentEntity();
             return null;
         }
@@ -431,11 +390,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return null;
         }
 
-        List<String> processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.throwNoPersistentEntity();
-            return null;
-        }
-
     };
 
     @NotNull
@@ -449,11 +403,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
         }
 
         List<String> processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.throwNoPersistentEntity();
-            return null;
-        }
-
-        List<String> processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
             entity.throwNoPersistentEntity();
             return null;
         }
@@ -476,11 +425,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return null;
         }
 
-        List<String> processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.throwNoPersistentEntity();
-            return null;
-        }
-
     };
 
     @NotNull
@@ -498,10 +442,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return null;
         }
 
-        Integer processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.throwNoPersistentEntity();
-            return null;
-        }
     };
 
 
@@ -533,11 +473,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return Collections.emptyList();
         }
 
-        List<Entity> processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            // temporary transient entity has no history
-            return Collections.emptyList();
-        }
-
     };
 
 
@@ -556,9 +491,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return null;
         }
 
-        Entity processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return null;
-        }
     };
 
 
@@ -577,9 +509,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return null;
         }
 
-        Entity processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return null;
-        }
     };
 
     @Nullable
@@ -597,10 +526,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return null;
         }
 
-        Integer processTemporary(AbstractTransientEntity entity, Entity param, Object param2) {
-            entity.throwNoPersistentEntity();
-            return null;
-        }
     };
 
 
@@ -671,10 +596,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return entity == that;
         }
 
-        Boolean processTemporary(AbstractTransientEntity entity, TransientEntity that, Object param2) {
-            return entity == that;
-        }
-
         @Override
         protected Boolean processClosedRemoved(AbstractTransientEntity entity, TransientEntity that, Object param2) {
             return processOpenRemoved(entity, that, param2);
@@ -742,10 +663,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
             return System.identityHashCode(entity);
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return System.identityHashCode(entity);
-        }
-
         Object processOpenRemoved(AbstractTransientEntity entity, Object param1, Object param2) {
             switch (entity.state) {
                 case RemovedNew:
@@ -776,7 +693,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case New:
                 case RemovedNew:
                 case RemovedSavedNew:
-                case Temporary:
                     return System.identityHashCode(this);
 
                 case RemovedSaved:
@@ -789,9 +705,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case New:
                 case RemovedNew:
                     throw new IllegalStateException("Can't access new transient entity from another session");
-
-                case Temporary:
-                    return System.identityHashCode(this);
 
                 case SavedNew:
                 case RemovedSaved:
@@ -833,9 +746,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
                         case RemovedSaved:
                         case RemovedSavedNew:
                             return processClosedRemoved(entity, param1, param2);
-
-                        case Temporary:
-                            return processTemporary(entity, param1, param2);
                     }
                 } else if (session.isOpened()) {
                     // check that entity is accessed in the same thread as session
@@ -853,8 +763,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
                             case RemovedSaved:
                             case RemovedSavedNew:
                                 return processOpenFromAnotherSessionRemoved(entity, param1, param2);
-                            case Temporary:
-                                return processTemporary(entity, param1, param2);
                         }
                     }
                     switch (entity.state) {
@@ -869,8 +777,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
                         case RemovedSaved:
                         case RemovedSavedNew:
                             return processOpenRemoved(entity, param1, param2);
-                        case Temporary:
-                            return processTemporary(entity, param1, param2);
                     }
 
                 } else if (session.isSuspended()) {
@@ -886,8 +792,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
                         case RemovedSaved:
                         case RemovedSavedNew:
                             return processSuspendedRemoved(entity, param1, param2);
-                        case Temporary:
-                            return processTemporary(entity, param1, param2);
                     }
                 }
             } while (true);
@@ -922,8 +826,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
         abstract T processOpenSaved(AbstractTransientEntity entity, P1 param1, P2 param2);
 
         abstract T processOpenNew(AbstractTransientEntity entity, P1 param1, P2 param2);
-
-        abstract T processTemporary(AbstractTransientEntity entity, P1 param1, P2 param2);
 
         T processOpenRemoved(AbstractTransientEntity entity, P1 param1, P2 param2) {
             throw new EntityRemovedException(entity);

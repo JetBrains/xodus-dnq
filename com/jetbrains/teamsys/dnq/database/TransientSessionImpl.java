@@ -836,7 +836,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         for (TransientEntity e : new ArrayList<TransientEntity>(changesTracker.getChangedEntities())) {
-            if (!e.isRemovedOrTemporary()) {
+            if (!e.isRemoved()) {
                 EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
 
                 if (emd != null && emd.hasAggregationChildEnds() && !EntityMetaDataUtils.hasParent(emd, e, changesTracker)) {
@@ -885,9 +885,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
                     case New:
                         throw new IllegalStateException("Can't create readonly local copy of entity in new state.");
 
-                    case Temporary:
-                        return orig;
-
                     case Saved:
                     case SavedNew:
                     case RemovedNew:
@@ -914,7 +911,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
     public TransientEntity newLocalCopy(@NotNull final TransientEntity entity) {
         switch (state) {
             case Open:
-                if (entity.isTemporary() || entity.isReadonly()) {
+                if (entity.isReadonly()) {
                     return entity;
                 } else if (entity.isNew()) {
                     if (entity.getSessionId() == id) {
@@ -988,7 +985,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
                         return true;
                     }
                 }
-            } else if (transientEntity.isTemporary() || transientEntity.isReadonly() || transientEntity.isNew()) {
+            } else if (transientEntity.isReadonly() || transientEntity.isNew()) {
                 return false;
             }
         }
@@ -1005,30 +1002,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     public void deregisterEntityIterator(@NotNull EntityIterator iterator) {
         //TODO: revisit StoreSession interface and remove these stub method
-    }
-
-    /**
-     * Entities created as new ones (using the "new" operator, not "new transient") which are
-     * the childs of temporary parents (created using the "new transient" operator, or by induction)
-     */
-    private void transformNewChildsOfTempoparyParents() {
-        for (final TransientEntity e : changesTracker.getChangedEntities()) {
-            if (e.isNew()) {
-                TransientEntity parent = (TransientEntity) AggregationAssociationSemantics.getParent(e);
-                HashSet<TransientEntity> lookedParents = new HashSet<TransientEntity>();
-                while (parent != null && parent.isNewOrTemporary()) {
-                    if (!(lookedParents.add(parent))) {
-                        log.warn("Found parent cycle: " + parent.toString());
-                        break;
-                    }
-                    if (parent.isTemporary()) {
-                        e.markAsTemporary();
-                        break;
-                    }
-                    parent = (TransientEntity) AggregationAssociationSemantics.getParent(parent);
-                }
-            }
-        }
     }
 
     /**
@@ -1154,23 +1127,13 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         beforeFlush();
-
-        transformNewChildsOfTempoparyParents();
         // TODO: this method checks incomming links, but doesn't lock entities to remove after check, so new links may appear after this check but before low level remove
         checkBeforeSaveChangesConstraints(removeOrphans());
 
-        // check if nothing to persist
-        boolean onlyTemporary = true;
-        for (TransientEntity te : changesTracker.getChangedEntities()) {
-            if (!te.isTemporary()) {
-                onlyTemporary = false;
-                break;
-            }
-        }
-
         // remember changes before commit changes, because all New entities become SavedNew after it
         final Set<TransientEntityChange> changesDescription = changesTracker.getChangesDescription();
-        if (!onlyTemporary) {
+        // no changes is considered to be possible here (if they were reverted)
+        if (!changesTracker.getChangedEntities().isEmpty()) {
             notifyBeforeFlushAfterConstraintsCheckListeners();
 
             int retry = 0;
@@ -1295,7 +1258,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
             if (e.isNew()) {
                 throw new IllegalStateException("Bug! New transient entity after commit!");
 
-            } else if (e.isRemovedOrTemporary()) {
+            } else if (e.isRemoved()) {
 
                 //createdTransientForPersistentEntities.remove(e.getId());
                 //createdNewTransientEntities.remove(e.getId());
@@ -1453,7 +1416,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
 
         for (final TransientEntity e : changedPersistentEntities.toArray(new TransientEntity[changedPersistentEntities.size()])) {
-            if (!e.isNew() && !e.isRemovedOrTemporary()) {
+            if (!e.isNew() && !e.isRemoved()) {
                 final EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
                 if (emd != null && TransientStoreUtil.getPersistentClassInstance(e, emd).evaluateSaveHistoryCondition(e)
                         && EntityMetaDataUtils.changesReflectHistory(emd, e, changesTracker)) {

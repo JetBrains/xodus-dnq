@@ -63,10 +63,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return _(entity).getPropertyInNewStateInternal(propertyName);
         }
 
-        Comparable processTemporary(AbstractTransientEntity entity, String propertyName, Object param2) {
-            return processOpenNew(entity, propertyName, param2);
-        }
-
     };
 
 
@@ -106,11 +102,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return processOpenSaved(entity, propertyName, value);
         }
 
-        Object processTemporary(AbstractTransientEntity entity, String propertyName, Comparable value) {
-            putValueInPropertiesCache(entity, propertyName, value);
-            return null;
-        }
-
     };
 
     public void setProperty(@NotNull final String propertyName, @NotNull final Comparable value) {
@@ -133,11 +124,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return processOpenSaved(entity, propertyName, value);
         }
 
-        @Override
-        Object processTemporary(AbstractTransientEntity entity, String propertyName, Object value) {
-            putValueInPropertiesCache(entity, propertyName, null);
-            return null;
-        }
     };
 
 
@@ -172,10 +158,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             }
         }
 
-        InputStream processTemporary(AbstractTransientEntity entity, String blobName, Object value) {
-            return processOpenNew(entity, blobName, value);
-        }
-
     };
 
 
@@ -195,12 +177,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
         Object processOpenNew(AbstractTransientEntity entity, String blobName, InputStream blob) {
             return processOpenSaved(entity, blobName, blob);
-        }
-
-        Object processTemporary(AbstractTransientEntity entity, String blobName, InputStream blob) {
-            File f = _(entity).createFile(blob);
-            _(entity).fileBlobsCache.put(blobName, f);
-            return null;
         }
 
     };
@@ -244,11 +220,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return processOpenSaved(entity, blobName, file);
         }
 
-        @Override
-        Object processTemporary(AbstractTransientEntity entity, String blobName, File file) {
-            _(entity).fileBlobsCache.put(blobName, file);
-            return null;
-        }
     };
 
 
@@ -303,11 +274,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return processOpenSaved(entity, blobName, param2);
         }
 
-        Object processTemporary(AbstractTransientEntity entity, String blobName, Object param2) {
-            _(entity).fileBlobsCache.put(blobName, null);
-            return null;
-        }
-
     };
 
 
@@ -330,10 +296,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return (String) _(entity).propertiesCache.get(blobName);
         }
 
-        String processTemporary(AbstractTransientEntity entity, String blobName, Object param2) {
-            return processOpenNew(entity, blobName, param2);
-        }
-
     };
 
 
@@ -351,11 +313,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
         Object processOpenNew(AbstractTransientEntity entity, String blobName, String blobString) {
             return processOpenSaved(entity, blobName, blobString);
-        }
-
-        Object processTemporary(AbstractTransientEntity entity, String blobName, String blobString) {
-            putValueInPropertiesCache(entity, blobName, blobString);
-            return null;
         }
 
     };
@@ -376,11 +333,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return processOpenSaved(entity, blobName, blobString);
         }
 
-        Object processTemporary(AbstractTransientEntity entity, String blobName, Object blobString) {
-            putValueInPropertiesCache(entity, blobName, null);
-            return null;
-        }
-
     };
 
 
@@ -399,10 +351,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return processOpenSaved(entity, linkName, target);
         }
 
-        Object processTemporary(AbstractTransientEntity entity, String linkName, Entity target) {
-            return processOpenSaved(entity, linkName, target);
-        }
-
     };
 
     public void addLink(@NotNull final String linkName, @NotNull final Entity target) {
@@ -416,10 +364,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Object processOpenNew(AbstractTransientEntity entity, String linkName, Entity target) {
-            return processOpenSaved(entity, linkName, target);
-        }
-
-        Object processTemporary(AbstractTransientEntity entity, String linkName, Entity target) {
             return processOpenSaved(entity, linkName, target);
         }
 
@@ -441,9 +385,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return processOpenSaved(entity, linkName, target);
         }
 
-        Object processTemporary(AbstractTransientEntity entity, String linkName, Entity target) {
-            return processOpenSaved(entity, linkName, target);
-        }
     };
 
 
@@ -458,10 +399,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Object processOpenNew(AbstractTransientEntity entity, String linkName, Object param2) {
-            return processOpenSaved(entity, linkName, param2);
-        }
-
-        Object processTemporary(AbstractTransientEntity entity, String linkName, Object param2) {
             return processOpenSaved(entity, linkName, param2);
         }
 
@@ -480,10 +417,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return processOpenSaved(entity, linkName, param2);
         }
 
-        Iterable<Entity> processTemporary(AbstractTransientEntity entity, String linkName, Object param2) {
-            return processOpenSaved(entity, linkName, param2);
-        }
-
     };
 
     @NotNull
@@ -498,10 +431,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Entity processOpenNew(AbstractTransientEntity entity, String linkName, Object param2) {
-            return processOpenSaved(entity, linkName, param2);
-        }
-
-        Entity processTemporary(AbstractTransientEntity entity, String linkName, Object param2) {
             return processOpenSaved(entity, linkName, param2);
         }
 
@@ -527,10 +456,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return processOpenSaved(entity, linkNames, param2);
         }
 
-        EntityIterable processTemporary(AbstractTransientEntity entity, Collection<String> linkNames, Object param2) {
-            return processOpenSaved(entity, linkNames, param2);
-        }
-
     };
 
     @Nullable
@@ -544,10 +469,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
         }
 
         Long processOpenNew(AbstractTransientEntity entity, String linkName, Object param2) {
-            return processOpenSaved(entity, linkName, param2);
-        }
-
-        Long processTemporary(AbstractTransientEntity entity, String linkName, Object param2) {
             return processOpenSaved(entity, linkName, param2);
         }
 
@@ -602,10 +523,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return null;
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            throw new IllegalStateException("Can't delete temporary entity. " + entity);
-        }
-
     };
 
     public void delete() {
@@ -649,9 +566,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             throw new UnsupportedOperationException("Not supported by transient entity in the current state. " + entity);
         }
 
-        Object processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return processOpenNew(entity, param1, param2);
-        }
     };
 
 
@@ -659,11 +573,9 @@ class TransientEntityImpl extends AbstractTransientEntity {
         newVersionEventHandler.handle(this, null, null);
     }
 
+    @Deprecated
     public void markAsTemporary() {
-        if (!isNew()) {
-            throw new IllegalStateException("An entity in the New state only can be marked as temporary.");
-        }
-        setState(State.Temporary);
+        //TODO: remove
     }
 
     private TransientLinksManager getLinksManager(@NotNull String linkName) {
@@ -728,10 +640,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return (changesLinks != null && !changesLinks.isEmpty()) || (changesProperties != null && !changesProperties.isEmpty());
         }
 
-        @Override
-        Boolean processTemporary(AbstractTransientEntity entity, Object param1, Object param2) {
-            return true;
-        }
     };
 
 
@@ -743,10 +651,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
         Boolean processOpenNew(AbstractTransientEntity entity, String property, Object param2) {
             return processOpenSaved(entity, property, param2);
-        }
-
-        Boolean processTemporary(AbstractTransientEntity entity, String property, Object param2) {
-            return false;
         }
 
         Boolean processOpenSaved(AbstractTransientEntity entity, String property, Object param2) {
@@ -768,10 +672,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
 
         Boolean processOpenNew(AbstractTransientEntity entity, String[] properties, Object param2) {
             return processOpenSaved(entity, properties, param2);
-        }
-
-        Boolean processTemporary(AbstractTransientEntity entity, String[] properties, Object param2) {
-            return false;
         }
 
         Boolean processOpenSaved(AbstractTransientEntity entity, String[] properties, Object param2) {
@@ -852,11 +752,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
             return EntityIterableBase.EMPTY;
         }
 
-        @NotNull
-        EntityIterable processTemporary(AbstractTransientEntity entity, String name, Boolean removed) {
-            return EntityIterableBase.EMPTY;
-        }
-
     };
 
     public EntityIterable getAddedLinks(final String name) {
@@ -880,11 +775,6 @@ class TransientEntityImpl extends AbstractTransientEntity {
                     entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity),
                     linkNames, removed
             );
-        }
-
-        @NotNull
-        EntityIterable processTemporary(AbstractTransientEntity entity, Set<String> linkNames, Boolean removed) {
-            return UniversalEmptyEntityIterable.INSTANCE;
         }
 
     };

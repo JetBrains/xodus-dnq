@@ -104,7 +104,7 @@ class ConstraintsUtil {
                 EntityMetaData md = modelMetaData.getEntityMetaData(e.getType());
 
                 // meta-data may be null for persistent enums
-                if (e.isNewOrTemporary()) {
+                if (e.isNew()) {
                     // check all links of new entity
                     for (AssociationEndMetaData aemd : md.getAssociationEndsMetaData()) {
                         if (log.isTraceEnabled()) {
@@ -372,7 +372,7 @@ class ConstraintsUtil {
                 Set<String> requiredIfProperties = EntityMetaDataUtils.getRequiredIfProperties(emd, e);
                 Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
 
-                if ((requiredProperties.size() + requiredIfProperties.size() > 0 && (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)))) {
+                if ((requiredProperties.size() + requiredIfProperties.size() > 0 && (e.isNew() || (changedProperties != null && changedProperties.size() > 0)))) {
                     for (String requiredPropertyName : requiredProperties) {
                         checkProperty(errors, e, changedProperties, emd, requiredPropertyName);
                     }
@@ -420,7 +420,7 @@ class ConstraintsUtil {
         if (constraintedProperties != null && !constraintedProperties.isEmpty()) {
             // Any property has constraints
             Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
-            if (e.isNewOrTemporary()) {
+            if (e.isNew()) {
                 // All properties with constriants
                 propertyNames = constraintedProperties;
             } else if (changedProperties != null && !changedProperties.isEmpty()) {
@@ -459,7 +459,7 @@ class ConstraintsUtil {
                 for (Index index : indexes) {
                     for (IndexField f : index.getFields()) {
                         if (f.isProperty()) {
-                            if (e.isNewOrTemporary() || (changedProperties != null && changedProperties.size() > 0)) {
+                            if (e.isNew() || (changedProperties != null && changedProperties.size() > 0)) {
                                 checkProperty(errors, e, changedProperties, emd, f.getName());
                             }
                         } else {
@@ -479,7 +479,7 @@ class ConstraintsUtil {
     private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changedProperties, EntityMetaData emd, String name) {
         final PropertyType type = getPropertyType(emd.getPropertyMetaData(name));
 
-        if (e.isNewOrTemporary() || changedProperties.containsKey(name)) {
+        if (e.isNew() || changedProperties.containsKey(name)) {
             checkProperty(errors, e, name, type);
         }
     }
