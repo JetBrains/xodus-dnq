@@ -712,6 +712,8 @@ abstract class AbstractTransientEntity implements TransientEntity {
                 case New:
                 case RemovedNew:
                 case RemovedSavedNew:
+                    return System.identityHashCode(this);
+
                 case RemovedSaved:
                 case Saved:
                     return getPersistentEntityInternal().hashCode();
