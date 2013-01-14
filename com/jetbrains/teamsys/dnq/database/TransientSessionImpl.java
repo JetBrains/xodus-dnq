@@ -100,45 +100,37 @@ public class TransientSessionImpl extends AbstractTransientSession {
         return state;
     }
 
+    void assertOpen(final String action) {
+        if (state != State.Open) {
+            throw new IllegalStateException("Can't " + action + " in state [" + state + "]");
+        }
+    }
+
     @NotNull
     public EntityIterable createPersistentEntityIterableWrapper(@NotNull EntityIterable wrappedIterable) {
-        switch (state) {
-            case Open:
-                // do not wrap twice
-                if (wrappedIterable instanceof PersistentEntityIterableWrapper) {
-                    return wrappedIterable;
-                } else {
-                    return new PersistentEntityIterableWrapper(wrappedIterable);
-                }
-
-            default:
-                throw new IllegalStateException("Can't create wrapper in state [" + state + "]");
+        assertOpen("create wrapper");
+        // do not wrap twice
+        if (wrappedIterable instanceof PersistentEntityIterableWrapper) {
+            return wrappedIterable;
+        } else {
+            return new PersistentEntityIterableWrapper(wrappedIterable);
         }
     }
 
     @Nullable
     public Entity addSessionLocalEntity(@NotNull String localName, @Nullable Entity e) throws IllegalStateException {
-        switch (state) {
-            case Open:
-                synchronized (this) {
-                    localEntities.put(localName, (TransientEntity) e);
-                }
-                return e;
-
-            default:
-                throw new IllegalStateException("Can't add session local entity in state [" + state + "]");
+        assertOpen("add session local entity");
+        synchronized (this) {
+            localEntities.put(localName, (TransientEntity) e);
         }
+        return e;
     }
 
     @Nullable
     public TransientEntity getSessionLocalEntity(@NotNull String localName) throws IllegalStateException, IllegalArgumentException {
-        switch (state) {
-            case Open:
-                synchronized (this) {
-                    return localEntities.get(localName);
-                }
-            default:
-                throw new IllegalStateException("Can't get session local entity in state [" + state + "]");
+        assertOpen("get session local entity");
+        synchronized (this) {
+            return localEntities.get(localName);
         }
     }
 
@@ -146,23 +138,15 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (log.isDebugEnabled()) {
             log.debug("Suspend transient session " + this);
         }
-
         if (store.getThreadSession() != this) {
             throw new IllegalStateException("Can't suspend session from another thread.");
         }
-
-        switch (state) {
-            case Open:
-                try {
-                    state = State.Suspended;
-                    lock.release();
-                } finally {
-                    store.suspendThreadSession();
-                }
-                break;
-
-            default:
-                throw new IllegalStateException("Can't suspend in state " + state);
+        assertOpen("suspend");
+        try {
+            state = State.Suspended;
+            lock.release();
+        } finally {
+            store.suspendThreadSession();
         }
     }
 
@@ -230,21 +214,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (log.isDebugEnabled()) {
             log.debug("Abort transient session " + this);
         }
-
-        switch (state) {
-            case Open:
-                try {
-                    closePersistentSession();
-                } finally {
-                    deleteBlobsStore();
-                    store.unregisterStoreSession(this);
-                    state = State.Aborted;
-                    lock.release();
-                }
-                break;
-
-            default:
-                throw new IllegalArgumentException("Can't abort in state " + state);
+        assertOpen("abort");
+        try {
+            closePersistentSession();
+        } finally {
+            deleteBlobsStore();
+            store.unregisterStoreSession(this);
+            state = State.Aborted;
+            lock.release();
         }
     }
 
@@ -305,26 +282,14 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (log.isDebugEnabled()) {
             log.debug("Revert transient session " + this);
         }
-
-        switch (state) {
-            case Open:
-                doIntermediateAbort();
-                break;
-
-            default:
-                throw new IllegalArgumentException("Can't revert in state " + state);
-        }
+        assertOpen("revert");
+        doIntermediateAbort();
     }
 
     @NotNull
     public StoreTransaction getPersistentTransaction() {
-        switch (state) {
-            case Open:
-                return getPersistentTransactionInternal();
-
-            default:
-                throw new IllegalStateException("Can't access persistent session in state [" + state + "]");
-        }
+        assertOpen("get persistent transaction");
+        return getPersistentTransactionInternal();
     }
 
     /**
@@ -338,14 +303,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (persistent instanceof TransientEntity) {
             throw new IllegalArgumentException("Can't create transient entity wrapper for another transient entity.");
         }
-
-        switch (state) {
-            case Open:
-                return newEntityImpl(persistent);
-
-            default:
-                throw new IllegalStateException("Can't create entity in state [" + state + "]");
-        }
+        assertOpen("create entity");
+        return newEntityImpl(persistent);
     }
 
     /**
@@ -359,162 +318,90 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (persistent instanceof TransientEntity) {
             throw new IllegalArgumentException("Can't create transient entity wrapper for another transient entity.");
         }
-
-        switch (state) {
-            case Open:
-                return newEntityImpl(persistent, version);
-
-            default:
-                throw new IllegalStateException("Can't create entity in state [" + state + "]");
-        }
+        assertOpen("create entity");
+        return newEntityImpl(persistent, version);
     }
 
     @Nullable
     public Entity getEntity(@NotNull final EntityId id) {
-        switch (state) {
-            case Open:
-                return getEntityImpl(id);
-
-            default:
-                throw new IllegalStateException("Can't get entity in state [" + state + "]");
-        }
+        assertOpen("get entity");
+        return getEntityImpl(id);
     }
 
     @NotNull
     public EntityId toEntityId(@NotNull final String representation) {
-        switch (state) {
-            case Open:
-                // treat given id as id of transient entity first
-                try {
-                    return getPersistentTransactionInternal().toEntityId(representation);
-                } catch (Exception e) {
-                    return TransientEntityIdImpl.fromString(representation);
-                }
-            default:
-                throw new IllegalStateException("Can't convert to entity id in state [" + state + "]");
+        assertOpen("convert to entity id");
+        // treat given id as id of transient entity first
+        try {
+            return getPersistentTransactionInternal().toEntityId(representation);
+        } catch (Exception e) {
+            return TransientEntityIdImpl.fromString(representation);
         }
     }
 
     @NotNull
     public List<String> getEntityTypes() {
-        switch (state) {
-            case Open:
-                return getPersistentTransactionInternal().getEntityTypes();
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("get entity types");
+        return getPersistentTransactionInternal().getEntityTypes();
     }
 
     @NotNull
     public EntityIterable getAll(@NotNull final String entityType) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getAll(entityType));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-
-        }
+        assertOpen("getAll");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getAll(entityType));
     }
 
     @NotNull
     public EntityIterable getSingletonIterable(@NotNull final Entity entity) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getSingletonIterable(((AbstractTransientEntity) entity).getPersistentEntityInternal()));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-
-        }
+        assertOpen("getSingletonIterable");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getSingletonIterable(((AbstractTransientEntity) entity).getPersistentEntityInternal()));
     }
 
     @NotNull
     public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable value) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().find(entityType, propertyName, value));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("find");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().find(entityType, propertyName, value));
     }
 
     @NotNull
     public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable minValue, @NotNull final Comparable maxValue) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().find(entityType, propertyName, minValue, maxValue));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("find");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().find(entityType, propertyName, minValue, maxValue));
     }
 
     public EntityIterable findWithProp(@NotNull final String entityType, @NotNull final String propertyName) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithProp(entityType, propertyName));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("findWithProp");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithProp(entityType, propertyName));
     }
 
     @NotNull
     public EntityIterable startsWith(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final String value) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().startsWith(entityType, propertyName, value));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("startsWith");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().startsWith(entityType, propertyName, value));
     }
 
     @NotNull
     public EntityIterable findWithBlob(@NotNull final String entityType, @NotNull final String propertyName) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithBlob(entityType, propertyName));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("findWithBlob");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithBlob(entityType, propertyName));
     }
 
     @NotNull
     public EntityIterable findLinks(@NotNull final String entityType, @NotNull final Entity entity, @NotNull final String linkName) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findLinks(entityType, entity, linkName));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("findLinks");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findLinks(entityType, entity, linkName));
     }
 
     @NotNull
     public EntityIterable findLinks(@NotNull String entityType, @NotNull EntityIterable entities, @NotNull String linkName) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findLinks(entityType, entities.getSource(), linkName));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("findLinks");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findLinks(entityType, entities.getSource(), linkName));
     }
 
     @NotNull
     public EntityIterable findWithLinks(@NotNull String entityType, @NotNull String linkName) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithLinks(entityType, linkName));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("findWithLinks");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithLinks(entityType, linkName));
     }
 
     @NotNull
@@ -522,27 +409,17 @@ public class TransientSessionImpl extends AbstractTransientSession {
                                         @NotNull String linkName,
                                         @NotNull String oppositeEntityType,
                                         @NotNull String oppositeLinkName) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(
-                        getPersistentTransactionInternal().findWithLinks(entityType, linkName, oppositeEntityType, oppositeLinkName));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("findWithLinks");
+        return new PersistentEntityIterableWrapper(
+                getPersistentTransactionInternal().findWithLinks(entityType, linkName, oppositeEntityType, oppositeLinkName));
     }
 
     @NotNull
     public EntityIterable sort(@NotNull final String entityType,
                                @NotNull final String propertyName,
                                final boolean ascending) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().sort(entityType, propertyName, ascending));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("sort");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().sort(entityType, propertyName, ascending));
     }
 
     @NotNull
@@ -550,14 +427,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
                                @NotNull final String propertyName,
                                @NotNull final EntityIterable rightOrder,
                                final boolean ascending) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(
-                        getPersistentTransactionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("sort");
+        return new PersistentEntityIterableWrapper(
+                getPersistentTransactionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
     }
 
     @NotNull
@@ -566,14 +438,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
                                     boolean isMultiple,
                                     @NotNull final String linkName,
                                     final @NotNull EntityIterable rightOrder) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(
-                        getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource()));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("sortLinks");
+        return new PersistentEntityIterableWrapper(
+                getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource()));
     }
 
     @NotNull
@@ -584,114 +451,64 @@ public class TransientSessionImpl extends AbstractTransientSession {
                                     final @NotNull EntityIterable rightOrder,
                                     @NotNull final String oppositeEntityType,
                                     @NotNull final String oppositeLinkName) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(
-                        getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource(), oppositeEntityType, oppositeLinkName));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("sortLinks");
+        return new PersistentEntityIterableWrapper(
+                getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource(), oppositeEntityType, oppositeLinkName));
     }
 
     @NotNull
     public EntityIterable mergeSorted(@NotNull List<EntityIterable> sorted, @NotNull Comparator<Entity> comparator) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().mergeSorted(sorted, comparator));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("mergeSorted");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().mergeSorted(sorted, comparator));
     }
 
     @NotNull
     public EntityIterable distinct(@NotNull final EntityIterable source) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().distinct(source.getSource()));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("distinct");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().distinct(source.getSource()));
     }
 
     @NotNull
     public EntityIterable selectDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().selectDistinct(source.getSource(), linkName));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("selectDistinct");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().selectDistinct(source.getSource(), linkName));
     }
 
     @NotNull
     public EntityIterable selectManyDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().selectManyDistinct(source.getSource(), linkName));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("selectManyDistinct");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().selectManyDistinct(source.getSource(), linkName));
     }
 
     @Nullable
     public Entity getFirst(@NotNull final EntityIterable it) {
-        switch (state) {
-            case Open:
-                final Entity last = getPersistentTransactionInternal().getFirst(it.getSource());
-                return (last == null) ? null : newEntityImpl(last);
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("getFirst");
+        final Entity last = getPersistentTransactionInternal().getFirst(it.getSource());
+        return (last == null) ? null : newEntityImpl(last);
     }
 
     @Nullable
     public Entity getLast(@NotNull final EntityIterable it) {
-        switch (state) {
-            case Open:
-                final Entity last = getPersistentTransactionInternal().getLast(it.getSource());
-                return (last == null) ? null : newEntityImpl(last);
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("getLast");
+        final Entity last = getPersistentTransactionInternal().getLast(it.getSource());
+        return (last == null) ? null : newEntityImpl(last);
     }
 
     @NotNull
     public EntityIterable reverse(@NotNull final EntityIterable source) {
-        switch (state) {
-            case Open:
-                return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().reverse(source.getSource()));
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("reverse");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().reverse(source.getSource()));
     }
 
     @NotNull
     public Sequence getSequence(@NotNull final String sequenceName) {
-        switch (state) {
-            case Open:
-                return getPersistentTransactionInternal().getSequence(sequenceName);
-
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("get sequence");
+        return getPersistentTransactionInternal().getSequence(sequenceName);
     }
 
     public void clearHistory(@NotNull final String entityType) {
-        switch (state) {
-            case Open:
-                changesTracker.historyCleared(entityType);
-                break;
-            default:
-                throw new IllegalStateException("Can't execute in state [" + state + "]");
-        }
+        assertOpen("clear history");
+        changesTracker.historyCleared(entityType);
     }
 
     public void updateUniqueKeyIndices(@NotNull Set<Index> indices) {
@@ -762,13 +579,8 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     @NotNull
     public TransientChangesTracker getTransientChangesTracker() throws IllegalStateException {
-        switch (state) {
-            case Open:
-                return changesTracker;
-
-            default:
-                throw new IllegalStateException("Can't access changes tracker in state [" + state + "]");
-        }
+        assertOpen("get changes tracker");
+        return changesTracker;
     }
 
     public void commit() {
@@ -780,29 +592,23 @@ public class TransientSessionImpl extends AbstractTransientSession {
             log.debug("Commit transient session " + this);
         }
 
-        switch (state) {
-            case Open:
-                // flush may produce runtime exceptions. if so - session stays open
-                Set<TransientEntityChange> changes = flushChanges();
+        assertOpen("commit");
 
-                try {
-                    notifyCommitedListeners(changes);
-                } finally {
-                    try {
-                        closePersistentSession();
-                    } finally {
-                        deleteBlobsStore();
-                        store.unregisterStoreSession(this);
-                        state = State.Committed;
-                        dispose();
-                        lock.release();
-                    }
-                }
+        // flush may produce runtime exceptions. if so - session stays open
+        Set<TransientEntityChange> changes = flushChanges();
 
-                break;
-
-            default:
-                throw new IllegalArgumentException("Can't commit in state " + state);
+        try {
+            notifyCommitedListeners(changes);
+        } finally {
+            try {
+                closePersistentSession();
+            } finally {
+                deleteBlobsStore();
+                store.unregisterStoreSession(this);
+                state = State.Committed;
+                dispose();
+                lock.release();
+            }
         }
     }
 
@@ -810,17 +616,10 @@ public class TransientSessionImpl extends AbstractTransientSession {
         if (log.isDebugEnabled()) {
             log.debug("Intermidiate commit transient session " + this);
         }
-
-        switch (state) {
-            case Open:
-                // flush may produce runtime exceptions. if so - session stays open
-                Set<TransientEntityChange> changes = flushChanges();
-                return changes;
-
-            default:
-                throw new IllegalArgumentException("Can't commit in state " + state);
-        }
-
+        assertOpen("commit");
+        // flush may produce runtime exceptions. if so - session stays open
+        Set<TransientEntityChange> changes = flushChanges();
+        return changes;
     }
 
     /**
@@ -866,38 +665,29 @@ public class TransientSessionImpl extends AbstractTransientSession {
      */
     @NotNull
     public Entity newEntity(@NotNull final String entityType) {
-        switch (state) {
-            case Open:
-                TransientEntity e = new TransientEntityImpl(entityType, this);
-                createdNewTransientEntities.put((TransientEntityId) e.getId(), e);
-                return e;
-
-            default:
-                throw new IllegalStateException("Can't create entity in state [" + state + "]");
-        }
+        assertOpen("create entity");
+        TransientEntity e = new TransientEntityImpl(entityType, this);
+        createdNewTransientEntities.put((TransientEntityId) e.getId(), e);
+        return e;
     }
 
     public TransientEntity newReadonlyLocalCopy(final TransientEntityChange change) {
-        switch (state) {
-            case Open:
-                AbstractTransientEntity orig = (AbstractTransientEntity) change.getTransientEntity();
-                switch (orig.getState()) {
-                    case New:
-                        throw new IllegalStateException("Can't create readonly local copy of entity in new state.");
+        assertOpen("create readonly local copy");
+        AbstractTransientEntity orig = (AbstractTransientEntity) change.getTransientEntity();
+        switch (orig.getState()) {
+            case New:
+                throw new IllegalStateException("Can't create readonly local copy of entity in new state.");
 
-                    case Saved:
-                    case SavedNew:
-                    case RemovedNew:
-                    case RemovedSaved:
-                    case RemovedSavedNew:
-                        final ReadonlyTransientEntityImpl entity = new ReadonlyTransientEntityImpl(change, this);
-                        return entity;
+            case Saved:
+            case SavedNew:
+            case RemovedNew:
+            case RemovedSaved:
+            case RemovedSavedNew:
+                final ReadonlyTransientEntityImpl entity = new ReadonlyTransientEntityImpl(change, this);
+                return entity;
 
-                    default:
-                        throw new IllegalStateException("Can't create readonly local copy in state [" + orig.getState() + "]");
-                }
             default:
-                throw new IllegalStateException("Can't create readonly local copy in state [" + state + "]");
+                throw new IllegalStateException("Can't create readonly local copy in state [" + orig.getState() + "]");
         }
     }
 
@@ -909,57 +699,54 @@ public class TransientSessionImpl extends AbstractTransientSession {
      */
     @NotNull
     public TransientEntity newLocalCopy(@NotNull final TransientEntity entity) {
-        switch (state) {
-            case Open:
-                if (entity.isReadonly()) {
+        assertOpen("create local copy");
+        if (entity.isReadonly()) {
+            return entity;
+        } else if (entity.isNew()) {
+            if (entity.getSessionId() == id) {
+                // this is transient entity that was created in this session
+                // check session wasn't reverted
+                if (this.createdNewTransientEntities.get(entity.getId()) == entity) {
                     return entity;
-                } else if (entity.isNew()) {
-                    if (entity.getSessionId() == id) {
-                        // this is transient entity that was created in this session
-                        // check session wasn't reverted
-                        if (this.createdNewTransientEntities.get(entity.getId()) == entity) {
-                            return entity;
-                        } else {
-                            throw new IllegalStateException("Can't create local copy of transient entity in New state from reverted session." + entity);
-                            //return null;
-                        }
-                    } else {
-                        throw new IllegalStateException("Can't create local copy of transient entity in New state from another session. " + entity);
+                } else {
+                    throw new IllegalStateException("Can't create local copy of transient entity in New state from reverted session." + entity);
+                    //return null;
+                }
+            } else {
+                throw new IllegalStateException("Can't create local copy of transient entity in New state from another session. " + entity);
+            }
+        } else if (entity.isSaved()) {
+            final EntityId entityId = entity.getId();
+            if (entity.getSessionId() == id && createdTransientForPersistentEntities.get(entityId) == entity) {
+                // was created in this session and session wasn't reverted
+                return entity;
+            } else {
+                // saved entity from another session or from reverted session - load it from database by id
+                // local copy already created?
+                TransientEntity localCopy = createdTransientForPersistentEntities.get(entityId);
+                if (localCopy != null) {
+                    if (localCopy.isRemoved()) {
+                        EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
+                        log.warn("Local copy of entity [" + entity + "] was removed by you.");
+                        throw entityRemovedException;
                     }
-                } else if (entity.isSaved()) {
-                    final EntityId entityId = entity.getId();
-                    if (entity.getSessionId() == id && createdTransientForPersistentEntities.get(entityId) == entity) {
-                        // was created in this session and session wasn't reverted
-                        return entity;
-                    } else {
-                        // saved entity from another session or from reverted session - load it from database by id
-                        // local copy already created?
-                        TransientEntity localCopy = createdTransientForPersistentEntities.get(entityId);
-                        if (localCopy != null) {
-                            if (localCopy.isRemoved()) {
-                                EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
-                                log.warn("Local copy of entity [" + entity + "] was removed by you.");
-                                throw entityRemovedException;
-                            }
-                            return localCopy;
-                        }
-
-                        try {
-                            // load persistent entity from database by id
-                            return newEntity(getPersistentTransactionInternal().getEntity(entityId));
-                        } catch (EntityRemovedInDatabaseException e) {
-                            log.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
-                            throw e;
-                        }
-                    }
-                } else if (entity.isRemoved()) {
-                    EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
-                    log.warn("Entity [" + entity + "] was removed by you.");
-                    throw entityRemovedException;
+                    return localCopy;
                 }
 
-            default:
-                throw new IllegalStateException("Can't create local copy in state [" + state + "]");
+                try {
+                    // load persistent entity from database by id
+                    return newEntity(getPersistentTransactionInternal().getEntity(entityId));
+                } catch (EntityRemovedInDatabaseException e) {
+                    log.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
+                    throw e;
+                }
+            }
+        } else if (entity.isRemoved()) {
+            EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
+            log.warn("Entity [" + entity + "] was removed by you.");
+            throw entityRemovedException;
+        } else {
+            throw new IllegalStateException("Can't create local copy of entity (unexpected state) [" + entity + "]");
         }
     }
 
