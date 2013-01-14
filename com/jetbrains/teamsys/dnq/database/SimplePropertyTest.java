@@ -2,10 +2,13 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
 import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
+import com.jetbrains.mps.dnq.concurrency.transactions.SomethingImpl;
+import com.jetbrains.mps.dnq.concurrency.transactions.Util;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
+import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import junit.framework.Assert;
 
 public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
@@ -88,7 +91,7 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
 
   public void testChangeBooleanInTwoTransactions_JT_10878() {
     // set boolean to true in one transaction, then do the same in another transaction
-      TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
+      final TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
 
       TransientEntity e = null;
       TransientStoreSession t = store.beginSession();
@@ -96,20 +99,22 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
       t.commit();
 
       // cache FlagOfSchepotiev null value in transient level
-      long t1id;
       TransientStoreSession t1 = store.beginSession();
       assertEquals(null, PrimitiveAssociationSemantics.get(e, "FlagOfSchepotiev", null));
-      t1id = t1.getId();
-      t1.suspend();
+      t1.getId();
 
-      // set flag to false and save to database
-      TransientStoreSession t2 = store.beginSession();
-      assertEquals(null, PrimitiveAssociationSemantics.get(e, "FlagOfSchepotiev", null));
-      PrimitiveAssociationSemantics.set(e, "FlagOfSchepotiev", false, Boolean.class);
-      t2.commit();
+      final TransientEntity _e = e;
+      Util.runTranAsyncAndJoin(new _FunctionTypes._void_P0_E0() {
+          public void invoke() {
+              // set flag to false and save to database
+              TransientStoreSession t2 = store.beginSession();
+              assertEquals(null, PrimitiveAssociationSemantics.get(_e, "FlagOfSchepotiev", null));
+              PrimitiveAssociationSemantics.set(_e, "FlagOfSchepotiev", false, Boolean.class);
+              t2.commit();
+          }
+      });
 
-      // resume t1, set flag to false and save to database
-      t1 = store.resumeSession(t1id);
+
       PrimitiveAssociationSemantics.set(e, "FlagOfSchepotiev", false, Boolean.class);
       t1.commit();
   }
