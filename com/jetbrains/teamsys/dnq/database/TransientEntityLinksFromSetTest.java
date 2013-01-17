@@ -16,7 +16,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
     public void testAll() {
         TransientEntity i1, i2, i3, i4;
         TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-        TransientStoreSession session = store.beginSession(1);
+        TransientStoreSession session = store.beginSession();
         try {
             i1 = createIssue(session);
             i2 = createIssue(session);
@@ -33,7 +33,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
         names.add("dup");
         names.add("hup");
 
-        session = store.beginSession(2);
+        session = store.beginSession();
         try {
             DirectedAssociationSemantics.createToMany(i1, "dup", i2);
             DirectedAssociationSemantics.createToMany(i1, "hup", i3);
@@ -55,7 +55,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
             TransientStoreUtil.commit(session);
         }
 
-        session = store.beginSession(3);
+        session = store.beginSession();
         try {
             check_i1(AssociationSemantics.getToMany(i1, names), i2, i3, i4);
             check_i2(AssociationSemantics.getToMany(i2, names), i3);
@@ -66,7 +66,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
             TransientStoreUtil.commit(session);
         }
 
-        session = store.beginSession(4);
+        session = store.beginSession();
         try {
             DirectedAssociationSemantics.removeToMany(i1, "dup", i2);
             DirectedAssociationSemantics.removeToMany(i1, "hup", i3);

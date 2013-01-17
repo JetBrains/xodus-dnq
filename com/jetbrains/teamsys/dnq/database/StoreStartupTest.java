@@ -43,10 +43,10 @@ public class StoreStartupTest extends AbstractEntityStoreAwareTestCase {
         return;
       }
 
-      Entity u = ((TransientStoreSession) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession()).addSessionLocalEntity("u", TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("User"));
+      Entity u = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("User");
       PrimitiveAssociationSemantics.set(u, "username", (Comparable)"vadim");
       PrimitiveAssociationSemantics.set(u, "password", (Comparable)"vadim");
-      Entity i = ((TransientStoreSession) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession()).addSessionLocalEntity("i", TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue"));
+      Entity i = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue");
       DirectedAssociationSemantics.setToOne(i, "reporter", (Entity)u);
       PrimitiveAssociationSemantics.set(i, "summary", (Comparable)"test issue");
 

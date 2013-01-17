@@ -25,7 +25,7 @@ public class SearchByPropertyTest extends AbstractEntityStoreAwareTestCase {
     try {
       TransientStoreSession session = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession();
       assert session != null;
-      Entity u = session.addSessionLocalEntity("u", (session.newEntity("User")));
+      Entity u = (session.newEntity("User"));
       PrimitiveAssociationSemantics.set(u, "login", "guest");
       PrimitiveAssociationSemantics.set(u, "password", "guest");
     } catch (Throwable e) {

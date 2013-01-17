@@ -37,8 +37,7 @@ public class DisposeCursorTest extends AbstractEntityStoreAwareTestCase {
     TransientStoreSession session = store.beginSession();
     try {
 
-      Entity user = ((TransientStoreSession) getTransientEntityStore().getThreadSession()).addSessionLocalEntity(
-              "user", (TransientEntity)(TestUserService.findUser("vadim", "vadim")));
+      Entity user = (TransientEntity)(TestUserService.findUser("vadim", "vadim"));
 
       return 1;
 
@@ -59,10 +58,10 @@ public class DisposeCursorTest extends AbstractEntityStoreAwareTestCase {
         return;
       }
 
-      Entity u = ((TransientStoreSession) getTransientEntityStore().getThreadSession()).addSessionLocalEntity("u", getTransientEntityStore().getThreadSession().newEntity("User"));
+      Entity u = getTransientEntityStore().getThreadSession().newEntity("User");
       PrimitiveAssociationSemantics.set(u, "username", (Comparable)"vadim");
       PrimitiveAssociationSemantics.set(u, "password", (Comparable)"vadim");
-      Entity i = ((TransientStoreSession) getTransientEntityStore().getThreadSession()).addSessionLocalEntity("i", getTransientEntityStore().getThreadSession().newEntity("Issue"));
+      Entity i = getTransientEntityStore().getThreadSession().newEntity("Issue");
       DirectedAssociationSemantics.setToOne(i, "reporter", (Entity)u);
       PrimitiveAssociationSemantics.set(i, "summary", (Comparable)"test issue");
 
