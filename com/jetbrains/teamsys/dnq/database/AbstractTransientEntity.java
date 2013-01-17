@@ -778,21 +778,6 @@ abstract class AbstractTransientEntity implements TransientEntity {
                         case RemovedSavedNew:
                             return processOpenRemoved(entity, param1, param2);
                     }
-
-                } else if (session.isSuspended()) {
-                    switch (entity.state) {
-                        case New:
-                            throw new IllegalStateException("Can't access new transient entity while its session is suspended. " + entity);
-
-                        case Saved:
-                        case SavedNew:
-                            return processSuspendedSaved(entity, param1, param2);
-
-                        case RemovedNew:
-                        case RemovedSaved:
-                        case RemovedSavedNew:
-                            return processSuspendedRemoved(entity, param1, param2);
-                    }
                 }
             } while (true);
             //throw new IllegalStateException("Unknown session state. " + entity);

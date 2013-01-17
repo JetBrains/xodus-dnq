@@ -1,6 +1,5 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
@@ -29,7 +28,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
     enum State {
         Open("open"),
-        Suspended("suspended"),
         Committed("committed"),
         Aborted("aborted");
 
@@ -40,7 +38,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    private Map<String, TransientEntity> localEntities = new HashMapDecorator<String, TransientEntity>();
     protected State state;
     private boolean quietFlush = false;
     private Set<File> createdBlobFiles = new HashSetDecorator<File>();
@@ -88,10 +85,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
         return state == State.Committed;
     }
 
-    public boolean isSuspended() {
-        return state == State.Suspended;
-    }
-
     public boolean isAborted() {
         return state == State.Aborted;
     }
@@ -117,69 +110,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
-    @Nullable
-    public Entity addSessionLocalEntity(@NotNull String localName, @Nullable Entity e) throws IllegalStateException {
-        assertOpen("add session local entity");
-        synchronized (this) {
-            localEntities.put(localName, (TransientEntity) e);
-        }
-        return e;
-    }
-
-    @Nullable
-    public TransientEntity getSessionLocalEntity(@NotNull String localName) throws IllegalStateException, IllegalArgumentException {
-        assertOpen("get session local entity");
-        synchronized (this) {
-            return localEntities.get(localName);
-        }
-    }
-
-    public void suspend() {
-        if (log.isDebugEnabled()) {
-            log.debug("Suspend transient session " + this);
-        }
-        if (store.getThreadSession() != this) {
-            throw new IllegalStateException("Can't suspend session from another thread.");
-        }
-        assertOpen("suspend");
-        try {
-            state = State.Suspended;
-            lock.release();
-        } finally {
-            store.suspendThreadSession();
-        }
-    }
-
-    public void resume() {
-        resume(0);
-    }
-
-    public void resume(int timeout) {
-        try {
-            if (timeout == 0) {
-                lock.acquire();
-            } else {
-                if (!lock.acquire(timeout)) {
-                    throw new IllegalStateException("Can't acquire transient session lock. Owner: " + lock.getOwnerName());
-                }
-            }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        switch (state) {
-            case Suspended:
-                state = State.Open;
-                break;
-
-            default:
-                lock.release();
-                throw new IllegalStateException("Can't resume transient session in state [" + state + "]");
-        }
-    }
-
     protected final void dispose() {
-        localEntities.clear();
         changesTracker.dispose();
         changesTracker = null;
         createdBlobFiles.clear();
@@ -242,7 +173,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
     /*
     * Aborts session in any state
     */
-
     public void forceAbort() {
         if (log.isDebugEnabled()) {
             log.debug("Unconditional abort transient session " + this);
@@ -259,14 +189,9 @@ public class TransientSessionImpl extends AbstractTransientSession {
         } catch (InterruptedException e) {
         }
 
-        // after lock acquire, session may be in Suspend, Commited or Aborted states only!
+        // after lock acquire, session may be in Commited or Aborted states only!
         try {
             switch (state) {
-                case Suspended:
-                    deleteBlobsStore();
-                    store.unregisterStoreSession(this);
-                    state = State.Aborted;
-                    break;
                 case Committed:
                 case Aborted:
                     break;

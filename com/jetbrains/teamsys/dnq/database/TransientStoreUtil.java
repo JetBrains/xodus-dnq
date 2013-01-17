@@ -117,14 +117,9 @@ public class TransientStoreUtil {
         }
     }
 
+    //remove me!!!
     public static void suspend(@Nullable TransientStoreSession s) {
-        if (s != null && s.isOpened()) {
-            try {
-                s.suspend();
-            } catch (Throwable e) {
-                abort(e, s);
-            }
-        }
+
     }
 
     public static void abort(TransientStoreSession session) {

@@ -158,61 +158,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         return registerStoreSession(new TransientSessionImpl(this));
     }
 
-    @Deprecated
-    public TransientStoreSession beginSession(long id) {
-        if (log.isDebugEnabled()) {
-            StringBuilder logMessage = new StringBuilder(64);
-            logMessage.append("Begin new session with id [");
-            logMessage.append(id);
-            logMessage.append(']');
-            log.debug(logMessage.toString());
-        }
-        TransientStoreSession currentSession = this.currentSession.get();
-        if (currentSession != null) {
-            if (attachToCurrentOnBeginIfExists) {
-                TransientStoreSession transientStoreSession = currentSession;
-                log.debug("Return session already associated with the current thread " + transientStoreSession);
-                return currentSession;
-            } else {
-                throw new IllegalStateException("Open session already presents for current thread.");
-            }
-        }
-        if (getStoreSession(id) != null) {
-            throw new IllegalArgumentException("Transient session with id [" + id + "] already exists.");
-        }
-        return registerStoreSession(new TransientSessionImpl(this, id));
-    }
-
-    public boolean isSessionExists(@NotNull long id) {
-        return getStoreSession(id) != null;
-    }
-
     public boolean isTrackEntityCreation() {
         return trackEntityCreation;
     }
 
-    public TransientStoreSession resumeSession(@NotNull long id) {
-        if (log.isDebugEnabled()) {
-            log.debug("Resume session with id [" + id + "]");
-        }
-
-        if (currentSession.get() != null) {
-            throw new IllegalStateException("Open transient session already associated with current thread.");
-        }
-
-        TransientStoreSession s = getStoreSession(id);
-
-        if (s == null) {
-            throw new IllegalArgumentException("Transient session with id [" + id + "] is not found.");
-        }
-
-        s.resume();
-        currentSession.set(s);
-
-        return s;
-    }
-
-    public void resumeSession(TransientStoreSession session, int timeout) {
+    public void resumeSession(TransientStoreSession session) {
         if (session != null) {
             if (log.isDebugEnabled()) {
                 log.debug("Resume session with id [" + session.getId() + "]");
@@ -225,13 +175,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
                 }
             }
 
-            session.resume(timeout);
             currentSession.set(session);
         }
-    }
-
-    public void resumeSession(TransientStoreSession session) {
-        resumeSession(session, 0);
     }
 
     public void setModelMetaData(final ModelMetaData modelMetaData) {
@@ -407,10 +352,14 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         currentSession.remove();
     }
 
-    void suspendThreadSession() {
-        assert currentSession.get() != null;
+    @Nullable
+    public TransientStoreSession suspendThreadSession() {
+        final TransientStoreSession current = getThreadSession();
+        if (current != null) {
+            currentSession.remove();
+        }
 
-        currentSession.remove();
+        return current;
     }
 
     public void addListener(@NotNull TransientStoreSessionListener listener) {
