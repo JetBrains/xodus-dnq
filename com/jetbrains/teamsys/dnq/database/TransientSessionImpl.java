@@ -111,23 +111,23 @@ public class TransientSessionImpl extends AbstractTransientSession {
         createdTransientForPersistentEntities = null;
     }
 
-    public void intermediateCommit() {
+    @Override
+    public void revert() {
+        if (log.isDebugEnabled()) {
+            log.debug("Revert transient session " + this);
+        }
+        assertOpen("revert");
+        doIntermediateAbort();
+    }
+
+    @Override
+    public void flush() {
         if (store.getThreadSession() != this) {
             throw new IllegalStateException("Can't commit session from another thread.");
         }
 
         final Set<TransientEntityChange> changes = intermediateCommitReturnChanges();
         notifyFlushedListeners(changes);
-    }
-
-    @Override
-    public void revert() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void flush() {
-        throw new UnsupportedOperationException();
     }
 
     public void abort() {
@@ -160,14 +160,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         throw new RuntimeException(e);
-    }
-
-    public void intermediateAbort() {
-        if (log.isDebugEnabled()) {
-            log.debug("Revert transient session " + this);
-        }
-        assertOpen("revert");
-        doIntermediateAbort();
     }
 
     @NotNull
@@ -444,7 +436,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
         final boolean qf = quietFlush;
         try {
             this.quietFlush = true;
-            intermediateCommit();
+            flush();
         } finally {
             this.quietFlush = qf;
         }
@@ -797,7 +789,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         beforeFlush();
-        // TODO: this method checks incomming links, but doesn't lock entities to remove after check, so new links may appear after this check but before low level remove
         checkBeforeSaveChangesConstraints(removeOrphans());
 
         // remember changes before commit changes, because all New entities become SavedNew after it
