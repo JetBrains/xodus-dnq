@@ -126,7 +126,7 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
     try {
       e = (TransientEntity) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue");
       PrimitiveAssociationSemantics.set(e, "summary", value1, String.class);
-      transientSession.intermediateCommit();
+      transientSession.flush();
 
       Assert.assertEquals(value1, PrimitiveAssociationSemantics.get(e, "summary", String.class, null));
 
@@ -139,7 +139,7 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
       Assert.assertEquals(false, EntityOperations.hasChanges((TransientEntity) e));
       Assert.assertEquals(false, EntityOperations.hasChanges((TransientEntity) e, "summary"));
 
-      transientSession.intermediateCommit();
+      transientSession.flush();
       Assert.assertEquals(value1, PrimitiveAssociationSemantics.get(e, "summary", String.class, null));
     } catch (Throwable ex) {
       TransientStoreUtil.abort(ex, transientSession);
@@ -155,7 +155,7 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
     try {
       e = (TransientEntity) TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue");
       PrimitiveAssociationSemantics.setBlob(e, "description", value1);
-      transientSession.intermediateCommit();
+      transientSession.flush();
 
       Assert.assertEquals(value1, PrimitiveAssociationSemantics.getBlobAsString(e, "description"));
 
@@ -168,7 +168,7 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
       Assert.assertEquals(false, EntityOperations.hasChanges((TransientEntity) e));
       Assert.assertEquals(false, EntityOperations.hasChanges((TransientEntity) e, "description"));
 
-      transientSession.intermediateCommit();
+      transientSession.flush();
       Assert.assertEquals(value1, PrimitiveAssociationSemantics.getBlobAsString(e, "description"));
     } catch (Throwable ex) {
       TransientStoreUtil.abort(ex, transientSession);
