@@ -41,7 +41,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
     protected State state;
     private boolean quietFlush = false;
     private Set<File> createdBlobFiles = new HashSetDecorator<File>();
-    protected Latch lock = Latch.create();
     private TransientChangesTracker changesTracker;
 
     // stores transient entities that were created for loaded persistent entities to avoid double loading
@@ -63,12 +62,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
         super(store, id);
 
         this.changesTracker = new TransientChangesTrackerImpl(this);
-
-        try {
-            lock.acquire();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
         this.store.getPersistentStore().beginTransaction();
         state = State.Open;
     }
@@ -152,7 +145,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
             deleteBlobsStore();
             store.unregisterStoreSession(this);
             state = State.Aborted;
-            lock.release();
         }
     }
 
@@ -168,39 +160,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
 
         throw new RuntimeException(e);
-    }
-
-    /*
-    * Aborts session in any state
-    */
-    public void forceAbort() {
-        if (log.isDebugEnabled()) {
-            log.debug("Unconditional abort transient session " + this);
-        }
-
-        // wait for lock
-        try {
-            if (!lock.acquire(1000)) {
-                if (log.isWarnEnabled()) {
-                    log.debug("Can't acquire lock for transient session " + this);
-                }
-                return;
-            }
-        } catch (InterruptedException e) {
-        }
-
-        // after lock acquire, session may be in Commited or Aborted states only!
-        try {
-            switch (state) {
-                case Committed:
-                case Aborted:
-                    break;
-                default:
-                    throw new IllegalStateException("Transient session can't be in this state after lock.acquire() [" + state + "]");
-            }
-        } finally {
-            lock.release();
-        }
     }
 
     public void intermediateAbort() {
@@ -532,7 +491,6 @@ public class TransientSessionImpl extends AbstractTransientSession {
                 store.unregisterStoreSession(this);
                 state = State.Committed;
                 dispose();
-                lock.release();
             }
         }
     }
@@ -881,6 +839,7 @@ public class TransientSessionImpl extends AbstractTransientSession {
 
                     if (e instanceof jetbrains.exodus.exceptions.VersionMismatchException) {
                         // check versions before commit changes
+                        //TODO: hmm... remove it?
                         checkVersions();
                         Thread.yield();
                         rollbackTransientTrackerChanges(false);

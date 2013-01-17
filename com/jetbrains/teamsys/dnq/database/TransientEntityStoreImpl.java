@@ -33,8 +33,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private final Set<TransientStoreSessionListener> listeners = new LinkedHashSet<TransientStoreSessionListener>();
 
     private boolean trackEntityCreation = true;
-    private boolean abortSessionsOnClose = false;
-    private boolean attachToCurrentOnBeginIfExists = false;
+    private boolean open = true;
     private String blobsStorePath;
     private File blobsStore;
     private int flushRetryOnLockConflict = 100;
@@ -94,30 +93,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         this.queryEngine = queryEngine;
     }
 
-    /**
-     * If true, on store close all opened sessions will be aborted.
-     *
-     * @param abortSessionsOnClose true to abort.
-     */
-    @SuppressWarnings({"UnusedDeclaration"})
-    public void setAbortSessionsOnClose(boolean abortSessionsOnClose) {
-        this.abortSessionsOnClose = abortSessionsOnClose;
-    }
-
-    /**
-     * If true, in {@link #beginSession(String, Object)} will use existing current session if exists.
-     *
-     * @param attachToCurrentOnBeginIfExists true to use existing current session.
-     */
-    @SuppressWarnings({"UnusedDeclaration"})
-    public void setAttachToCurrentOnBeginIfExists(boolean attachToCurrentOnBeginIfExists) {
-        this.attachToCurrentOnBeginIfExists = attachToCurrentOnBeginIfExists;
-    }
-
-    @Deprecated
-    public void setResumeOnBeginIfExists(boolean resumeOnBeginIfExists) {
-    }
-
     @NotNull
     public String getName() {
         return "transient store";
@@ -141,18 +116,16 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public TransientStoreSession beginSession() {
+        assertOpen();
+
         if (log.isDebugEnabled()) {
             log.debug("Begin new session");
         }
 
         TransientStoreSession currentSession = this.currentSession.get();
         if (currentSession != null) {
-            if (attachToCurrentOnBeginIfExists) {
-                log.debug("Return session already associated with the current thread " + currentSession);
-                return currentSession;
-            } else {
-                throw new IllegalStateException("Open session already presents for current thread.");
-            }
+            log.debug("Return session already associated with the current thread " + currentSession);
+            return currentSession;
         }
 
         return registerStoreSession(new TransientSessionImpl(this));
@@ -163,6 +136,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void resumeSession(TransientStoreSession session) {
+        assertOpen();
+
         if (session != null) {
             if (log.isDebugEnabled()) {
                 log.debug("Resume session with id [" + session.getId() + "]");
@@ -200,26 +175,10 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     public void close() {
         log.debug("Close transient store.");
+        open = false;
 
-        // check there's no opened sessions
-        final ArrayList<TransientStoreSession> _sessions;
-        synchronized (sessions) {
-            _sessions = new ArrayList<TransientStoreSession>(sessions.values());
-        }
-        if (abortSessionsOnClose) {
-            log.debug("Abort opened transient sessions.");
-
-            for (TransientStoreSession s : _sessions) {
-                try {
-                    s.forceAbort();
-                } catch (Throwable e) {
-                    log.error("Error while aborting session " + s, e);
-                }
-            }
-        } else {
-            if (sessions.size() != 0) {
-                throw new IllegalStateException("Can't close transient store, because there're opened transient sessions.");
-            }
+        if (sessions.size() != 0) {
+            log.warn("There're " + sessions.size() + " open transient sessions.");
         }
     }
 
@@ -354,6 +313,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     @Nullable
     public TransientStoreSession suspendThreadSession() {
+        assertOpen();
+
         final TransientStoreSession current = getThreadSession();
         if (current != null) {
             currentSession.remove();
@@ -445,6 +406,10 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     public void setCachedPersistentClassInstance(@NotNull final String entityType, @NotNull final BasePersistentClassImpl clazz) {
         persistentClassInstanceCache.put(entityType, clazz);
+    }
+
+    private void assertOpen() {
+        if (!open) throw new IllegalStateException("Transient store is closed.");
     }
 
     public static String getEnumKey(@NotNull final String className, @NotNull final String propName) {
