@@ -40,6 +40,7 @@ class TransientEntityImpl implements TransientEntity {
     protected final Map<String, TransientLinksManager> linksManagers = new HashMapDecorator<String, TransientLinksManager>();
     protected final Map<String, Comparable> propertiesCache = new HashMapDecorator<String, Comparable>();
     protected final Map<String, File> fileBlobsCache = new HashMapDecorator<String, File>();
+
     protected PersistentEntity persistentEntity;
     protected int version;
     protected String type;
@@ -47,7 +48,6 @@ class TransientEntityImpl implements TransientEntity {
     protected TransientEntityStore store;
     protected long sessionId;
     protected int id;
-    protected StackTraceElement entityCreationPosition = null;
 
     TransientEntityImpl(@NotNull String type, @NotNull TransientStoreSession session) {
         setTransientStoreSession(session);
@@ -56,45 +56,18 @@ class TransientEntityImpl implements TransientEntity {
         setId(new TransientEntityIdImpl());
 
         session.getTransientChangesTracker().entityAdded(this);
-
-        //trackEntityCreation(session);
     }
 
     TransientEntityImpl(@NotNull Entity persistentEntity, @NotNull TransientStoreSession session) {
         setTransientStoreSession(session);
         setPersistentEntityInternal(persistentEntity);
         setState(State.Saved);
-
-        //trackEntityCreation(session);
     }
 
     TransientEntityImpl(@NotNull Entity persistentEntity, @NotNull TransientStoreSession session, int version) {
         setTransientStoreSession(session);
         setPersistentEntityInternal(persistentEntity, version);
         setState(State.Saved);
-
-        //trackEntityCreation(session);
-    }
-
-    @SuppressWarnings({"UnusedDeclaration"})
-    protected void trackEntityCreation(TransientStoreSession session) {
-        if (((TransientEntityStore) session.getStore()).isTrackEntityCreation()) {
-            try {
-                throw new Exception();
-            } catch (Exception e) {
-                for (StackTraceElement ste : e.getStackTrace()) {
-                    //TODO: change prefix after refactoring
-                    if (!ste.getClassName().startsWith("com.jetbrains.teamsys") && !ste.getMethodName().equals("constructor")) {
-                        entityCreationPosition = ste;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    public StackTraceElement getEntityCreationPosition() {
-        return entityCreationPosition;
     }
 
     private static final StandardEventHandler<Object, Object, Entity> getPersistentEntityEventHandler = new StandardEventHandler<Object, Object, Entity>() {
@@ -593,11 +566,6 @@ class TransientEntityImpl implements TransientEntity {
 
         sb.append(" (");
         sb.append(state);
-
-        if (entityCreationPosition != null) {
-            sb.append(": ").append(entityCreationPosition.getClassName()).append(".").
-                    append(entityCreationPosition.getMethodName()).append(":").append(entityCreationPosition.getLineNumber());
-        }
 
         sb.append(")");
 
