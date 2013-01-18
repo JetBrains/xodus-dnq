@@ -160,20 +160,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    public void abort(@NotNull Throwable e) {
-        abort();
-
-        if (e instanceof Error) {
-            throw (Error) e;
-        }
-
-        if (e instanceof RuntimeException) {
-            throw (RuntimeException) e;
-        }
-
-        throw new RuntimeException(e);
-    }
-
     @NotNull
     public StoreTransaction getPersistentTransaction() {
         assertOpen("get persistent transaction");
