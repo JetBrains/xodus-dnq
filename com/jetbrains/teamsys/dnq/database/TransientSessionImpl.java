@@ -4,7 +4,6 @@ import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.exceptions.PhysicalLayerException;
@@ -20,11 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
-public class TransientSessionImpl extends AbstractTransientSession {
-
-    protected static final Log log = LogFactory.getLog(TransientSessionImpl.class);
-    private static final String TEMP_FILE_NAME_SEQUENCE = "__TEMP_FILE_NAME_SEQUENCE__";
-    private static final AtomicLong UNIQUE_ID = new AtomicLong(0);
+public class TransientSessionImpl implements TransientStoreSession {
 
     enum State {
         Open("open"),
@@ -38,32 +33,49 @@ public class TransientSessionImpl extends AbstractTransientSession {
         }
     }
 
+    protected static final Log log = LogFactory.getLog(TransientSessionImpl.class);
+    protected static final String TEMP_FILE_NAME_SEQUENCE = "__TEMP_FILE_NAME_SEQUENCE__";
+    protected static final AtomicLong UNIQUE_ID = new AtomicLong(0);
+    protected TransientEntityStoreImpl store;
+    protected long id;
+    protected int flushRetryOnVersionMismatch;
     protected State state;
-    private boolean quietFlush = false;
-    private Set<File> createdBlobFiles = new HashSetDecorator<File>();
-    private TransientChangesTracker changesTracker;
-
+    protected boolean quietFlush = false;
+    protected Set<File> createdBlobFiles = new HashSetDecorator<File>();
+    protected TransientChangesTracker changesTracker;
     // stores transient entities that were created for loaded persistent entities to avoid double loading
-    private Map<EntityId, TransientEntity> createdTransientForPersistentEntities = new HashMap<EntityId, TransientEntity>(100, 1.5f);
-
+    protected Map<EntityId, TransientEntity> createdTransientForPersistentEntities = new HashMap<EntityId, TransientEntity>(100, 1.5f);
     // stores new transient entities to support getEntity(EntityId) operation
-    private Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new HashMapDecorator<TransientEntityId, TransientEntity>();
-
-/*
-    // stores created readonly entities
-    private Map<EntityId, ReadonlyTransientEntityImpl> createdReadonlyTransientEntities = new HashMapDecorator<EntityId, ReadonlyTransientEntityImpl>();
-*/
+    protected Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new HashMapDecorator<TransientEntityId, TransientEntity>();
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store) {
-        this(store, UNIQUE_ID.incrementAndGet());
-    }
-
-    protected TransientSessionImpl(final TransientEntityStoreImpl store, final long id) {
-        super(store, id);
-
+        this.store = store;
+        this.id = UNIQUE_ID.incrementAndGet();
+        this.flushRetryOnVersionMismatch = store.getFlushRetryOnLockConflict();
         this.changesTracker = new TransientChangesTrackerImpl(this);
         this.store.getPersistentStore().beginTransaction();
-        state = State.Open;
+        this.state = State.Open;
+    }
+
+    public void setQueryCancellingPolicy(QueryCancellingPolicy policy) {
+        getPersistentTransactionInternal().setQueryCancellingPolicy(policy);
+    }
+
+    public QueryCancellingPolicy getQueryCancellingPolicy() {
+        return getPersistentTransactionInternal().getQueryCancellingPolicy();
+    }
+
+    @NotNull
+    public TransientEntityStore getStore() {
+        return store;
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    protected StoreTransaction getPersistentTransactionInternal() {
+        return store.getPersistentStore().getCurrentTransaction();
     }
 
     public String toString() {
