@@ -128,7 +128,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
   }
 
   private EntityChangeType decodeState(TransientEntity e) {
-    switch (((AbstractTransientEntity) e).getState()) {
+    switch (((TransientEntityImpl) e).getState()) {
       case New:
         return EntityChangeType.ADD;
 
@@ -142,7 +142,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return EntityChangeType.UPDATE;
 
       default:
-        throw new IllegalStateException("Can't decode change for state [" + ((AbstractTransientEntity) e).getState() + "]");
+        throw new IllegalStateException("Can't decode change for state [" + ((TransientEntityImpl) e).getState() + "]");
     }
   }
 

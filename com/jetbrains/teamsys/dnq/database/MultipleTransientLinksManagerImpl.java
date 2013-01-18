@@ -125,7 +125,7 @@ class MultipleTransientLinksManagerImpl implements TransientLinksManager {
   }
 
   public void deleteLink(@NotNull final TransientEntity entity) {
-    final AbstractTransientEntity.State state = owner.getState();
+    final TransientEntityImpl.State state = owner.getState();
     switch (state) {
       case New:
         if (!tryToRemove(entity)) return;

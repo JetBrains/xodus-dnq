@@ -228,7 +228,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public EntityIterable getSingletonIterable(@NotNull final Entity entity) {
         assertOpen("getSingletonIterable");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getSingletonIterable(((AbstractTransientEntity) entity).getPersistentEntityInternal()));
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getSingletonIterable(((TransientEntityImpl) entity).getPersistentEntityInternal()));
     }
 
     @NotNull
@@ -546,7 +546,7 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     public TransientEntity newReadonlyLocalCopy(final TransientEntityChange change) {
         assertOpen("create readonly local copy");
-        AbstractTransientEntity orig = (AbstractTransientEntity) change.getTransientEntity();
+        TransientEntityImpl orig = (TransientEntityImpl) change.getTransientEntity();
         switch (orig.getState()) {
             case New:
                 throw new IllegalStateException("Can't create readonly local copy of entity in new state.");
