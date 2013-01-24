@@ -1,19 +1,15 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
-import jetbrains.exodus.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -34,19 +30,15 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     protected static final Log log = LogFactory.getLog(TransientSessionImpl.class);
-    protected static final String TEMP_FILE_NAME_SEQUENCE = "__TEMP_FILE_NAME_SEQUENCE__";
     protected static final AtomicLong UNIQUE_ID = new AtomicLong(0);
     protected TransientEntityStoreImpl store;
     protected long id;
     protected int flushRetryOnVersionMismatch;
     protected State state;
     protected boolean quietFlush = false;
-    protected Set<File> createdBlobFiles = new HashSetDecorator<File>();
     protected TransientChangesTracker changesTracker;
     // stores transient entities that were created for loaded persistent entities to avoid double loading
-    protected Map<EntityId, TransientEntity> createdTransientForPersistentEntities = new HashMap<EntityId, TransientEntity>(100, 1.5f);
-    // stores new transient entities to support getEntity(EntityId) operation
-    protected Map<TransientEntityId, TransientEntity> createdNewTransientEntities = new HashMapDecorator<TransientEntityId, TransientEntity>();
+    protected Map<EntityId, TransientEntity> managedEntities = new HashMap<EntityId, TransientEntity>(100, 1.5f);
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store) {
         this.store = store;
@@ -94,10 +86,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         return state == State.Aborted;
     }
 
-    State getState() {
-        return state;
-    }
-
     void assertOpen(final String action) {
         if (state != State.Open) {
             throw new IllegalStateException("Can't " + action + " in state [" + state + "]");
@@ -118,9 +106,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected final void dispose() {
         changesTracker.dispose();
         changesTracker = null;
-        createdBlobFiles.clear();
-        createdNewTransientEntities = null;
-        createdTransientForPersistentEntities = null;
+        managedEntities = null;
     }
 
     @Override
@@ -154,7 +140,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         try {
             closePersistentSession();
         } finally {
-            deleteBlobsStore();
             store.unregisterStoreSession(this);
             state = State.Aborted;
         }
@@ -181,20 +166,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         return newEntityImpl(persistent);
     }
 
-    /**
-     * Creates transient wrapper for existing persistent entity with specified version
-     *
-     * @param persistent
-     * @return
-     */
-    @NotNull
-    public TransientEntity newEntity(@NotNull Entity persistent, final int version) {
-        if (persistent instanceof TransientEntity) {
-            throw new IllegalArgumentException("Can't create transient entity wrapper for another transient entity.");
-        }
-        assertOpen("create entity");
-        return newEntityImpl(persistent, version);
-    }
 
     @Nullable
     public Entity getEntity(@NotNull final EntityId id) {
@@ -205,12 +176,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public EntityId toEntityId(@NotNull final String representation) {
         assertOpen("convert to entity id");
-        // treat given id as id of transient entity first
-        try {
-            return getPersistentTransactionInternal().toEntityId(representation);
-        } catch (Exception e) {
-            return TransientEntityIdImpl.fromString(representation);
-        }
+        return getPersistentTransactionInternal().toEntityId(representation);
     }
 
     @NotNull
@@ -228,7 +194,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public EntityIterable getSingletonIterable(@NotNull final Entity entity) {
         assertOpen("getSingletonIterable");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getSingletonIterable(((TransientEntityImpl) entity).getPersistentEntityInternal()));
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getSingletonIterable(((TransientEntityImpl) entity).getPersistentEntity()));
     }
 
     @NotNull
@@ -385,51 +351,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         changesTracker.historyCleared(entityType);
     }
 
-    public void updateUniqueKeyIndices(@NotNull Set<Index> indices) {
-        throw new UnsupportedOperationException();
-    }
-
-
-    public void insertUniqueKey(@NotNull final Index index,
-                                @NotNull final List<Comparable> propValues,
-                                @NotNull final Entity entity) {
-        throw new UnsupportedOperationException();
-    }
-
-    public void deleteUniqueKey(@NotNull final Index index,
-                                @NotNull final List<Comparable> propValues) {
-        throw new UnsupportedOperationException();
-    }
-
-    @NotNull
-    public File createBlobFile(boolean createNewFile) {
-        final File blobsStore = store.getBlobsStore();
-        String fileName = generateBlobFileName();
-        File f = new File(blobsStore, fileName);
-        if (createNewFile) {
-            try {
-                while (!f.createNewFile()) {
-                    fileName = generateBlobFileName();
-                    f = new File(blobsStore, fileName);
-                }
-            } catch (IOException e) {
-                throw new PhysicalLayerException("Can't create blob file [" + blobsStore.getAbsolutePath() + "/" + fileName + "]", e);
-            }
-        }
-
-        createdBlobFiles.add(f);
-        return f;
-    }
-
-    private String generateBlobFileName() {
-        final StringBuilder nameBuilder = new StringBuilder();
-        nameBuilder.append(id);
-        nameBuilder.append('-');
-        nameBuilder.append(getPersistentTransactionInternal().getSequence(TEMP_FILE_NAME_SEQUENCE).increment());
-        nameBuilder.append(".dat");
-        return nameBuilder.toString();
-    }
-
     public void quietIntermediateCommit() {
         final boolean qf = quietFlush;
         try {
@@ -477,7 +398,6 @@ public class TransientSessionImpl implements TransientStoreSession {
             try {
                 closePersistentSession();
             } finally {
-                deleteBlobsStore();
                 store.unregisterStoreSession(this);
                 state = State.Committed;
                 dispose();
@@ -539,8 +459,8 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public Entity newEntity(@NotNull final String entityType) {
         assertOpen("create entity");
-        TransientEntity e = new TransientEntityImpl(entityType, this);
-        createdNewTransientEntities.put((TransientEntityId) e.getId(), e);
+        final TransientEntity e = new TransientEntityImpl(entityType, this);
+        managedEntities.put(e.getId(), e);
         return e;
     }
 
@@ -575,28 +495,19 @@ public class TransientSessionImpl implements TransientStoreSession {
         assertOpen("create local copy");
         if (entity.isReadonly()) {
             return entity;
-        } else if (entity.isNew()) {
-            if (entity.getSessionId() == id) {
-                // this is transient entity that was created in this session
-                // check session wasn't reverted
-                if (this.createdNewTransientEntities.get(entity.getId()) == entity) {
-                    return entity;
-                } else {
-                    throw new IllegalStateException("Can't create local copy of transient entity in New state from reverted session." + entity);
-                    //return null;
-                }
-            } else {
-                throw new IllegalStateException("Can't create local copy of transient entity in New state from another session. " + entity);
-            }
+        } else if (entity.isRemoved()) {
+            EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
+            log.warn("Entity [" + entity + "] was removed by you.");
+            throw entityRemovedException;
         } else if (entity.isSaved()) {
             final EntityId entityId = entity.getId();
-            if (entity.getSessionId() == id && createdTransientForPersistentEntities.get(entityId) == entity) {
+            if (managedEntities.get(entityId) == entity) {
                 // was created in this session and session wasn't reverted
                 return entity;
             } else {
                 // saved entity from another session or from reverted session - load it from database by id
                 // local copy already created?
-                TransientEntity localCopy = createdTransientForPersistentEntities.get(entityId);
+                TransientEntity localCopy = managedEntities.get(entityId);
                 if (localCopy != null) {
                     if (localCopy.isRemoved()) {
                         EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
@@ -614,10 +525,6 @@ public class TransientSessionImpl implements TransientStoreSession {
                     throw e;
                 }
             }
-        } else if (entity.isRemoved()) {
-            EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
-            log.warn("Entity [" + entity + "] was removed by you.");
-            throw entityRemovedException;
         } else {
             throw new IllegalStateException("Can't create local copy of entity (unexpected state) [" + entity + "]");
         }
@@ -638,9 +545,9 @@ public class TransientSessionImpl implements TransientStoreSession {
             } else if (transientEntity.isSaved()) {
                 // saved entity from another session or from reverted session
                 entityId = entity.getId();
-                if (createdTransientForPersistentEntities.get(entityId) != transientEntity) {
+                if (managedEntities.get(entityId) != transientEntity) {
                     // local copy already created?
-                    TransientEntity localCopy = createdTransientForPersistentEntities.get(entityId);
+                    TransientEntity localCopy = managedEntities.get(entityId);
                     if (localCopy != null && localCopy.isRemoved()) {
                         return true;
                     }
@@ -654,14 +561,6 @@ public class TransientSessionImpl implements TransientStoreSession {
             entityId = entity.getId();
         }
         return ((PersistentEntityStore) getPersistentTransactionInternal().getStore()).getLastVersion(entityId) < 0;
-    }
-
-    public void registerEntityIterator(@NotNull EntityIterator iterator) {
-        //TODO: revisit StoreSession interface and remove these stub method
-    }
-
-    public void deregisterEntityIterator(@NotNull EntityIterator iterator) {
-        //TODO: revisit StoreSession interface and remove these stub method
     }
 
     /**
@@ -684,7 +583,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
 
         // 0. check incoming links for deleted entities
-        exceptions.addAll(ConstraintsUtil.checkIncomingLinks(changesTracker, modelMetaData));
+        exceptions.addAll(ConstraintsUtil.checkIncomingLinks(changesTracker));
 
         // 1. check associations cardinality
         exceptions.addAll(ConstraintsUtil.checkAssociationsCardinality(changesTracker, modelMetaData));
@@ -700,7 +599,6 @@ public class TransientSessionImpl implements TransientStoreSession {
 
         if (exceptions.size() != 0) {
             ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
-            e.fixEntityId();
             store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
                 public void visit(TransientStoreSessionListener listener) {
                     try {
@@ -758,7 +656,6 @@ public class TransientSessionImpl implements TransientStoreSession {
 
         if (exceptions.size() != 0) {
             ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
-            e.fixEntityId();
             throw e;
         }
 
@@ -798,28 +695,24 @@ public class TransientSessionImpl implements TransientStoreSession {
             int retry = 0;
             Throwable lastEx = null;
             final StoreTransaction txn = getPersistentTransactionInternal();
+            Queue<Runnable> changes = null;
 
             while (retry++ < flushRetryOnVersionMismatch) {
                 try {
                     // check versions before commit changes
                     checkVersions();
 
-                    // save history if meta data defined
                     saveHistory();
+                    flushIndexes();
 
-                    // commit changes
-                    for (Runnable c : changesTracker.getChanges()) {
-                        c.run();
-                    }
+                    executeChanges(changes);
 
                     if (log.isTraceEnabled()) {
-                        log.trace("Commit persistent transaction in transient session " + this);
+                        log.trace("Flush persistent transaction in transient session " + this);
                     }
 
                     txn.flush();
-
-                    updateCaches();
-
+                    setSavedState();
                     lastEx = null;
                     break;
                 } catch (Throwable e) {
@@ -828,10 +721,15 @@ public class TransientSessionImpl implements TransientStoreSession {
 
                     if (e instanceof jetbrains.exodus.exceptions.VersionMismatchException) {
                         // check versions before commit changes
-                        //TODO: hmm... remove it?
+                        //TODO: remove it and check tests
                         checkVersions();
+                        //
+
+                        //recheck constraints against new database root
+                        checkBeforeSaveChangesConstraints(removeOrphans());
                         Thread.yield();
-                        rollbackTransientTrackerChanges(false);
+                        // changes to replay
+                        changes = changesTracker.getChanges();
                     } else {
                         break;
                     }
@@ -839,21 +737,135 @@ public class TransientSessionImpl implements TransientStoreSession {
             }
 
             if (lastEx != null) {
-                // rollback
                 txn.revert();
-                // tracker make some changes in transient entities - rollback them
-                try {
-                    rollbackTransientTrackerChanges(true);
-                    fixEntityIdsInDataIntegrityViolationException(lastEx);
-                } finally {
-                    decodeException(lastEx);
-                }
+                // we have to execute changes against new database root
+                //TODO: there're none recovarable exceptions, for which can skip executeChanges
+                executeChanges(changes);
+                decodeException(lastEx);
             }
-
         }
 
         changesTracker.clear();
         return changesDescription;
+    }
+
+    private void executeChanges(@Nullable Queue<Runnable> changes) {
+        if (changes != null) {
+            for (Runnable c : changes) {
+                c.run();
+            }
+        }
+    }
+
+    private void flushIndexes() {
+        if (TransientStoreUtil.isPostponeUniqueIndexes()) {
+            return;
+        }
+
+        for (TransientEntity e: changesTracker.getChangedEntities()) {
+            if (e.isRemoved()) {
+                // delete indexes
+                if (!e.wasNew()) {
+                    final EntityMetaData emd = getEntityMetaData(e);
+                    if (emd != null) {
+                        for (Index index: emd.getIndexes()) {
+                            getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
+                        }
+                    }
+                }
+            } else {
+                // create/update
+                Set<Index> dirtyIndeces = new HashSetDecorator<Index>();
+                for (String propertyName: changesTracker.getChangedPropertiesDetailed(e).keySet()) {
+                    final Set<Index> indices = getMetadataIndexes(e, propertyName);
+                    if (indices != null) {
+                        dirtyIndeces.addAll(indices);
+                    }
+                }
+                for (String propertyName: changesTracker.getChangedLinksDetailed(e).keySet()) {
+                    final Set<Index> indices = getMetadataIndexes(e, propertyName);
+                    if (indices != null) {
+                        dirtyIndeces.addAll(indices);
+                    }
+                }
+
+                for (Index index: dirtyIndeces) {
+                    if (!e.isNew()) {
+                        getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
+                    }
+                    getPersistentTransaction().insertUniqueKey(index, getIndexFieldsFinalValues(e, index), e);
+                }
+            }
+        }
+    }
+
+    private List<Comparable> getIndexFieldsOriginalValues(TransientEntity e, Index index) {
+        List<Comparable> res = new ArrayList<Comparable>(index.getFields().size());
+        for (IndexField f: index.getFields()) {
+            if (f.isProperty()) {
+                res.add(getOriginalPropertyValue(e, f.getName()));
+            } else {
+                res.add(getOriginalLinkValue(e, f.getName()));
+            }
+        }
+        return res;
+    }
+
+    private Comparable getOriginalPropertyValue(TransientEntity e, String propertyName) {
+        // get from saved changes, if not - from db
+        Map<String, PropertyChange> propertiesDetailed = changesTracker.getChangedPropertiesDetailed(e);
+        if (propertiesDetailed != null) {
+            PropertyChange propertyChange = propertiesDetailed.get(propertyName);
+            if (propertyChange != null) {
+                return propertyChange.getOldValue();
+            }
+        }
+        return ((TransientEntityImpl)e).getPersistentEntity().getProperty(propertyName);
+    }
+
+    private Comparable getOriginalLinkValue(TransientEntity e, String linkName) {
+        // get from saved changes, if not - from db
+        Map<String, LinkChange> linksDetailed = changesTracker.getChangedLinksDetailed(e);
+        if (linksDetailed != null) {
+            LinkChange change = linksDetailed.get(linkName);
+            if (change != null) {
+                switch (change.getChangeType()) {
+                    case ADD_AND_REMOVE:
+                    case REMOVE:
+                        if (change.getRemovedEntitiesSize() != 1) {
+                            throw new IllegalStateException("Can't determine original link value: " + e.getType() + "." + linkName);
+                        }
+                        return change.getRemovedEntities().iterator().next();
+                    default:
+                        throw new IllegalStateException("Incorrect change type for link that is part of index: " + e.getType() + "." + linkName + ": " + change.getChangeType().getName());
+                }
+            }
+        }
+        return ((TransientEntityImpl)e).getPersistentEntity().getLink(linkName);
+    }
+
+    private List<Comparable> getIndexFieldsFinalValues(TransientEntity e, Index index) {
+        List<Comparable> res = new ArrayList<Comparable>(index.getFields().size());
+        for (IndexField f: index.getFields()) {
+            if (f.isProperty()) {
+                res.add(e.getProperty(f.getName()));
+            } else {
+                res.add(e.getLink(f.getName()));
+            }
+        }
+        return res;
+    }
+
+    @Nullable
+    private Set<Index> getMetadataIndexes(TransientEntity e, String field) {
+        EntityMetaData md = getEntityMetaData(e);
+        return md == null ? null : md.getIndexes();
+    }
+
+    @Nullable
+    private EntityMetaData getEntityMetaData(TransientEntity e) {
+        ModelMetaData mdd = store.getModelMetaData();
+        return mdd == null ? null : mdd.getEntityMetaData(e.getType());
     }
 
     private void beforeFlush() {
@@ -888,62 +900,12 @@ public class TransientSessionImpl implements TransientStoreSession {
         throw new RuntimeException(e);
     }
 
-    private void fixEntityIdsInDataIntegrityViolationException(Throwable e) {
-        // fix entity ids - we can do it after rollback tracker changes
-        if (e instanceof DataIntegrityViolationException) {
-            ((DataIntegrityViolationException) e).fixEntityId();
-        }
-    }
-
-    private void rollbackTransientTrackerChanges(boolean isFinalRollback) {
-        if (log.isDebugEnabled()) {
-            log.debug("Rollback transient entities changes made by changes tracker." + this);
-        }
-        for (TransientChangesTracker.Rollback r : changesTracker.getRollbackChanges(isFinalRollback)) {
-            try {
-                r.rollback(isFinalRollback);
-            } catch (Exception e1) {
-                log.trace("Error while rollback changes made by changes tracker", e1);
-            }
-        }
-    }
-
-    private void updateCaches() {
-        // all new transient entities were saved or removed - clear cache
-        // FIX: do not clear cache of new entities to support old IDs for Webr
-        // createdNewTransientEntities.clear();
-        // reload version of changed persistent entities, remove removed and clear caches
-
+    private void setSavedState() {
         for (TransientEntity e : changesTracker.getChangedEntities()) {
             if (e.isNew()) {
-                throw new IllegalStateException("Bug! New transient entity after commit!");
-
-            } else if (e.isRemoved()) {
-
-                //createdTransientForPersistentEntities.remove(e.getId());
-                //createdNewTransientEntities.remove(e.getId());
-
-            } else if (e.isSaved()) {
-
-                if (log.isTraceEnabled()) {
-                    log.trace("Update version of cached persistent entity and clear blob cache " + e);
-                }
-
-                ((TransientEntityImpl) e).updateVersion();
-                ((TransientEntityImpl) e).clearFileBlobsCache();
-                ((TransientEntityImpl) e).updateLinkManagers();
-
-                if (e.wasNew()) {
-                    // add to persistent
-                    createdTransientForPersistentEntities.put(e.getId(), e);
-
-                    // leave it in createdNewTransientEntities for getting  it by old TransientEntityIdImpl
-                }
+                ((TransientEntityImpl)e).setState(TransientEntityImpl.State.SavedNew);
             }
         }
-
-        // do not clear this cache to have ability to request entities using old TransientEntityIdImpl
-        //createdNewTransientEntities.clear();
     }
 
     private void checkVersions() {
@@ -969,7 +931,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             }
 
             final TransientEntityImpl localCopy = (TransientEntityImpl) entity;
-            final PersistentEntityId id = localCopy.getPersistentEntityInternal().getId();
+            final PersistentEntityId id = localCopy.getPersistentEntity().getId();
             int lastDatabaseCopyVersion = persistentStore.getLastVersion(id);
             if (lastDatabaseCopyVersion < 0) {
                 if (entity.isRemoved()) {
@@ -986,7 +948,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
             }
 
-            int localCopyVersion = localCopy.getVersionInternal();
+            int localCopyVersion = localCopy.getVersion();
 
             if (log.isDebugEnabled()) {
                 log.debug("Entity [" + entity + "] localVersion=" + localCopyVersion + " databaseVersion=" + lastDatabaseCopyVersion);
@@ -1092,18 +1054,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    protected void deleteBlobsStore() {
-        for (File f : createdBlobFiles) {
-            if (f.exists() && !f.delete()) {
-                log.warn("Can't delete temp blob file [" + f.getAbsolutePath() + "]");
-                f.deleteOnExit();
-                //TODO: start background threads that periodically tries to delete file. FileCleaner can't be used.
-            }
-        }
-
-        createdBlobFiles.clear();
-    }
-
     protected final void notifyCommitedListeners(final Set<TransientEntityChange> changes) {
         if (changes == null || changes.isEmpty()) {
             return;
@@ -1171,6 +1121,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         });
     }
 
+    @Deprecated
     private void notifyBeforeFlushAfterConstraintsCheckListeners() {
         final Set<TransientEntityChange> changes = changesTracker.getChangesDescription();
 
@@ -1201,48 +1152,54 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     protected void doIntermediateAbort() {
-        deleteBlobsStore();
-        createdTransientForPersistentEntities.clear();
-        createdNewTransientEntities.clear();
+        managedEntities.clear();
         changesTracker = new TransientChangesTrackerImpl(this);
     }
 
     protected TransientEntity newEntityImpl(final Entity persistent) {
         final EntityId entityId = persistent.getId();
-        TransientEntity e = createdTransientForPersistentEntities.get(entityId);
+        TransientEntity e = managedEntities.get(entityId);
         if (e == null) {
-            e = new TransientEntityImpl(persistent, this);
-            createdTransientForPersistentEntities.put(entityId, e);
-        }
-        return e;
-    }
-
-    protected TransientEntity newEntityImpl(final Entity persistent, final int version) {
-        final EntityId entityId = persistent.getId();
-        TransientEntity e = createdTransientForPersistentEntities.get(entityId);
-        if (e == null) {
-            e = new TransientEntityImpl(persistent, this, version);
-            createdTransientForPersistentEntities.put(entityId, e);
+            e = new TransientEntityImpl((PersistentEntity)persistent, this);
+            managedEntities.put(entityId, e);
         }
         return e;
     }
 
     @Nullable
     protected Entity getEntityImpl(@NotNull final EntityId id) {
-        if (id instanceof TransientEntityId) {
-            return createdNewTransientEntities.get(id);
-        } else {
-            TransientEntity e = createdTransientForPersistentEntities.get(id);
-            if (e == null) {
-                PersistentEntityStoreImpl persistentEntityStore = (PersistentEntityStoreImpl) store.getPersistentStore();
-                if (persistentEntityStore.getLastVersion(id) < 0) {
-                    return null;
-                }
-                return newEntity(persistentEntityStore.getEntity(id));
-            } else {
-                return e;
+        TransientEntity e = managedEntities.get(id);
+        if (e == null) {
+            PersistentEntityStoreImpl persistentEntityStore = (PersistentEntityStoreImpl) store.getPersistentStore();
+            if (persistentEntityStore.getLastVersion(id) < 0) {
+                return null;
             }
+            return newEntity(persistentEntityStore.getEntity(id));
+        } else {
+            return e;
         }
+    }
+
+    public void registerEntityIterator(@NotNull EntityIterator iterator) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void deregisterEntityIterator(@NotNull EntityIterator iterator) {
+        throw new UnsupportedOperationException();
+    }
+    public void insertUniqueKey(@NotNull final Index index,
+                                @NotNull final List<Comparable> propValues,
+                                @NotNull final Entity entity) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void deleteUniqueKey(@NotNull final Index index,
+                                @NotNull final List<Comparable> propValues) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void updateUniqueKeyIndices(@NotNull Set<Index> indices) {
+        throw new UnsupportedOperationException();
     }
 
 }

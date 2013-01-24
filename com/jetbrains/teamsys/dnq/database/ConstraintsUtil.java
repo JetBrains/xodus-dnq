@@ -23,38 +23,33 @@ class ConstraintsUtil {
 
     private static final Log log = LogFactory.getLog(ConstraintsUtil.class);
 
-
-    //TODO: performance tip: use getPersistentIterable.next instead of getLinksSize
-
     static boolean checkCardinality(TransientEntity e, AssociationEndMetaData md) {
-        return checkCardinality(e, md.getCardinality(), md.getName());
-    }
+        final AssociationEndCardinality cardinality = md.getCardinality();
+        if (cardinality == AssociationEndCardinality._0_n) return true;
 
-    static boolean checkCardinality(TransientEntity e, AssociationEndCardinality cardinality, String associationName) {
-        long size;
+        final TransientStoreSession session = ((TransientEntityStore)e.getStore()).getThreadSession();
+        final EntityIterable links = session.findLinks(md.getOppositeEntityMetaData().getType(), e, md.getName());
+        final EntityIterator iter = links.iterator();
+
+        int size = 0;
+        while (size < 2 && iter.hasNext()) size++;
 
         switch (cardinality) {
-            case _0_1:
-                size = e.getLinksSize(associationName);
-                return size <= 1;
+        case _0_1:
+            return size <= 1;
 
-            case _0_n:
-                return true;
+        case _1:
+            return size == 1;
 
-            case _1:
-                size = e.getLinksSize(associationName);
-                return size == 1;
-
-            case _1_n:
-                size = e.getLinksSize(associationName);
-                return size >= 1;
+        case _1_n:
+            return size >= 1;
         }
 
         throw new IllegalArgumentException("Unknown cardinality [" + cardinality + "]");
     }
 
     @NotNull
-    static Set<DataIntegrityViolationException> checkIncomingLinks(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
+    static Set<DataIntegrityViolationException> checkIncomingLinks(@NotNull TransientChangesTracker changesTracker) {
         final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
 
         for (TransientEntity e : changesTracker.getChangedEntities()) {
@@ -62,7 +57,6 @@ class ConstraintsUtil {
                 List<Pair<String, EntityIterable>> incomingLinks = e.getIncomingLinks();
 
                 if (incomingLinks.size() > 0) {
-
                     List<IncomingLinkViolation> badIncomingLinks = new ArrayList<IncomingLinkViolation>();
                     for (Pair<String, EntityIterable> pair : incomingLinks) {
                         IncomingLinkViolation violation = null;
@@ -464,7 +458,7 @@ class ConstraintsUtil {
                             }
                         } else {
                             // link
-                            if (!checkCardinality(e, AssociationEndCardinality._1, f.getName())) {
+                            if (!checkCardinality(e, emd.getAssociationEndMetaData(f.getName()))) {
                                 errors.add(new CardinalityViolationException("Association [" + f.getName() + "] can't be empty, because it's part of unique constraint.", e, f.getName()));
                             }
                         }

@@ -16,7 +16,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   private Map<String, PropertyChange> propertiesDetaled;
 
   ReadonlyTransientEntityImpl(@NotNull TransientEntityChange change, @NotNull TransientStoreSession session) {
-    super(((TransientEntityImpl) change.getTransientEntity()).getPersistentEntityInternal(), session);
+    super(((TransientEntityImpl) change.getTransientEntity()).getPersistentEntity(), session);
 
     this.propertiesDetaled = change.getChangedPropertiesDetaled();
     this.linksDetaled = change.getChangedLinksDetaled();
