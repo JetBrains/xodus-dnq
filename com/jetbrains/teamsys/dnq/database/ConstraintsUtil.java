@@ -28,7 +28,7 @@ class ConstraintsUtil {
         if (cardinality == AssociationEndCardinality._0_n) return true;
 
         final TransientStoreSession session = ((TransientEntityStore)e.getStore()).getThreadSession();
-        final EntityIterable links = session.findLinks(md.getOppositeEntityMetaData().getType(), e, md.getName());
+        final EntityIterable links = e.getPersistentEntity().getLinks(md.getName());
         final EntityIterator iter = links.iterator();
 
         int size = 0;
