@@ -499,6 +499,13 @@ public class TransientSessionImpl implements TransientStoreSession {
             EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
             log.warn("Entity [" + entity + "] was removed by you.");
             throw entityRemovedException;
+        } else if (entity.isNew()) {
+            final EntityId entityId = entity.getId();
+            if (managedEntities.get(entityId) == entity) {
+                // was created in this session and session wasn't reverted
+                return entity;
+            }
+            throw new IllegalStateException("Entity in state New was not created in this session. " + entity);
         } else if (entity.isSaved()) {
             final EntityId entityId = entity.getId();
             if (managedEntities.get(entityId) == entity) {
@@ -776,16 +783,23 @@ public class TransientSessionImpl implements TransientStoreSession {
             } else {
                 // create/update
                 Set<Index> dirtyIndeces = new HashSetDecorator<Index>();
-                for (String propertyName: changesTracker.getChangedPropertiesDetailed(e).keySet()) {
-                    final Set<Index> indices = getMetadataIndexes(e, propertyName);
-                    if (indices != null) {
-                        dirtyIndeces.addAll(indices);
+                final Map<String, PropertyChange> changedPropertiesDetailed = changesTracker.getChangedPropertiesDetailed(e);
+                if (changedPropertiesDetailed != null) {
+                    for (String propertyName: changedPropertiesDetailed.keySet()) {
+                        final Set<Index> indices = getMetadataIndexes(e, propertyName);
+                        if (indices != null) {
+                            dirtyIndeces.addAll(indices);
+                        }
                     }
                 }
-                for (String propertyName: changesTracker.getChangedLinksDetailed(e).keySet()) {
-                    final Set<Index> indices = getMetadataIndexes(e, propertyName);
-                    if (indices != null) {
-                        dirtyIndeces.addAll(indices);
+
+                final Map<String, LinkChange> changedLinksDetailed = changesTracker.getChangedLinksDetailed(e);
+                if (changedLinksDetailed != null) {
+                    for (String propertyName: changedLinksDetailed.keySet()) {
+                        final Set<Index> indices = getMetadataIndexes(e, propertyName);
+                        if (indices != null) {
+                            dirtyIndeces.addAll(indices);
+                        }
                     }
                 }
 
@@ -1180,26 +1194,36 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
+    @Override
     public void registerEntityIterator(@NotNull EntityIterator iterator) {
         throw new UnsupportedOperationException();
     }
 
+    @Override
     public void deregisterEntityIterator(@NotNull EntityIterator iterator) {
         throw new UnsupportedOperationException();
     }
+
+    @Override
     public void insertUniqueKey(@NotNull final Index index,
                                 @NotNull final List<Comparable> propValues,
                                 @NotNull final Entity entity) {
         throw new UnsupportedOperationException();
     }
 
+    @Override
     public void deleteUniqueKey(@NotNull final Index index,
                                 @NotNull final List<Comparable> propValues) {
         throw new UnsupportedOperationException();
     }
 
+    @Override
     public void updateUniqueKeyIndices(@NotNull Set<Index> indices) {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void saveEntity(@NotNull Entity entity) {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -1,13 +1,10 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.exceptions.EntityRemovedException;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -279,10 +276,11 @@ class TransientEntityImpl implements TransientEntity {
 
     @Nullable
     public Entity getLink(@NotNull final String linkName) {
-        return getThreadStoreSession().newEntity(persistentEntity.getLink(linkName));
+        final Entity link = persistentEntity.getLink(linkName);
+        return link == null ? null : getThreadStoreSession().newEntity(link);
     }
 
-    @Nullable
+    @NotNull
     public EntityIterable getLinks(@NotNull final Collection<String> linkNames) {
         return new PersistentEntityIterableWrapper(persistentEntity.getLinks(linkNames)) {
             @Override
@@ -432,8 +430,9 @@ class TransientEntityImpl implements TransientEntity {
     private EntityIterable getAddedRemovedLinks(final Set<String> linkNames, boolean removed) {
         if (isNew()) return UniversalEmptyEntityIterable.INSTANCE;
 
-        return AddedOrRemovedLinksFromSetTransientEntityIterable.get(
-                getThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this),
+        final Map<String, LinkChange> changedLinksDetailed = getThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this);
+        return changedLinksDetailed == null ? UniversalEmptyEntityIterable.INSTANCE : AddedOrRemovedLinksFromSetTransientEntityIterable.get(
+                changedLinksDetailed,
                 linkNames, removed
         );
     }

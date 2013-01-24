@@ -159,7 +159,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
         LinkChange lc = linksDetailed.get(linkName);
         if (lc == null) {
-            linksDetailed.put(linkName, new LinkChange(linkName));
+            lc = new LinkChange(linkName);
+            linksDetailed.put(linkName, lc);
         }
 
         if (add) lc.addAdded(target); else lc.addRemoved(target);
@@ -190,13 +191,12 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     }
 
     public void entityAdded(@NotNull final TransientEntity e) {
-        entityChanged(e);
-
         ((TransientEntityImpl) e).setPersistentEntity((PersistentEntity) session.getPersistentTransaction().newEntity(e.getType()));
+
+        entityChanged(e);
         offerChange(new Runnable() {
             public void run() {
-                //TODO: use old id!!!
-                ((TransientEntityImpl) e).setPersistentEntity((PersistentEntity) session.getPersistentTransaction().newEntity(e.getType()));
+                session.getPersistentTransaction().saveEntity(e);
             }
         });
     }
