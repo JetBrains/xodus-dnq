@@ -32,7 +32,7 @@ class ConstraintsUtil {
         final EntityIterator iter = links.iterator();
 
         int size = 0;
-        while (size < 2 && iter.hasNext()) size++;
+        for (; size < 2 && iter.hasNext(); iter.next(), size++);
 
         switch (cardinality) {
         case _0_1:
