@@ -2,6 +2,7 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
+import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.database.*;
@@ -32,7 +33,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     private Queue<Runnable> changes = new QueueDecorator<Runnable>();
 
     private Set<TransientEntity> changedPersistentEntities = new HashSetDecorator<TransientEntity>();
-    private Set<TransientEntity> changedEntities = new HashSetDecorator<TransientEntity>();
+    private Set<TransientEntity> changedEntities = new LinkedHashSetDecorator<TransientEntity>();
 
     private Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
     private Map<TransientEntity, Map<String, PropertyChange>> entityToChangedPropertiesDetailed = new HashMapDecorator<TransientEntity, Map<String, PropertyChange>>();
@@ -291,6 +292,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
                     log.debug("Delete entity: " + e);
                 }
                 // delete entity
+                ((TransientSessionImpl)session).deleteIndexes(e);
                 e.getPersistentEntity().delete();
             }
         };

@@ -765,32 +765,13 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-
-    private void throwIndexUniquenessViolationException(TransientEntity e, Index index) {
-
-    }
-
     private void flushIndexes() {
         if (TransientStoreUtil.isPostponeUniqueIndexes()) {
             return;
         }
 
         for (TransientEntity e: changesTracker.getChangedEntities()) {
-                if (e.isRemoved()) {
-                    // delete indexes
-                    if (!e.wasNew()) {
-                        final EntityMetaData emd = getEntityMetaData(e);
-                        if (emd != null) {
-                            for (Index index: emd.getIndexes()) {
-                                try {
-                                    getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
-                                } catch (PhysicalLayerException ex) {
-                                    throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
-                                }
-                            }
-                        }
-                    }
-                } else {
+                if (!e.isRemoved()) {
                     // create/update
                     Set<Index> dirtyIndeces = new HashSetDecorator<Index>();
                     final Map<String, PropertyChange> changedPropertiesDetailed = changesTracker.getChangedPropertiesDetailed(e);
@@ -824,6 +805,23 @@ public class TransientSessionImpl implements TransientStoreSession {
                         }
                     }
                 }
+        }
+    }
+
+    void deleteIndexes(TransientEntity e) {
+        // delete indexes
+        final TransientEntityImpl.State state = ((TransientEntityImpl) e).getState();
+        if (state != TransientEntityImpl.State.RemovedNew) {
+            final EntityMetaData emd = getEntityMetaData(e);
+            if (emd != null) {
+                for (Index index: emd.getIndexes()) {
+                    try {
+                        getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
+                    } catch (PhysicalLayerException ex) {
+                        throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
+                    }
+                }
+            }
         }
     }
 
