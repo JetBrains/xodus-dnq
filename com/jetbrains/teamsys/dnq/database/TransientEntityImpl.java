@@ -201,7 +201,9 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean equals(Object obj) {
-        return persistentEntity.equals(obj);
+        if (obj == this) return true;
+        if (!(obj instanceof TransientEntity)) return false;
+        return persistentEntity.equals(((TransientEntity)obj).getPersistentEntity());
     }
 
     public int hashCode() {

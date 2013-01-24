@@ -5,6 +5,7 @@ import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
+import jetbrains.exodus.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -764,52 +765,65 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
+
+    private void throwIndexUniquenessViolationException(TransientEntity e, Index index) {
+
+    }
+
     private void flushIndexes() {
         if (TransientStoreUtil.isPostponeUniqueIndexes()) {
             return;
         }
 
         for (TransientEntity e: changesTracker.getChangedEntities()) {
-            if (e.isRemoved()) {
-                // delete indexes
-                if (!e.wasNew()) {
-                    final EntityMetaData emd = getEntityMetaData(e);
-                    if (emd != null) {
-                        for (Index index: emd.getIndexes()) {
-                            getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
+                if (e.isRemoved()) {
+                    // delete indexes
+                    if (!e.wasNew()) {
+                        final EntityMetaData emd = getEntityMetaData(e);
+                        if (emd != null) {
+                            for (Index index: emd.getIndexes()) {
+                                try {
+                                    getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
+                                } catch (PhysicalLayerException ex) {
+                                    throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
+                                }
+                            }
                         }
                     }
-                }
-            } else {
-                // create/update
-                Set<Index> dirtyIndeces = new HashSetDecorator<Index>();
-                final Map<String, PropertyChange> changedPropertiesDetailed = changesTracker.getChangedPropertiesDetailed(e);
-                if (changedPropertiesDetailed != null) {
-                    for (String propertyName: changedPropertiesDetailed.keySet()) {
-                        final Set<Index> indices = getMetadataIndexes(e, propertyName);
-                        if (indices != null) {
-                            dirtyIndeces.addAll(indices);
+                } else {
+                    // create/update
+                    Set<Index> dirtyIndeces = new HashSetDecorator<Index>();
+                    final Map<String, PropertyChange> changedPropertiesDetailed = changesTracker.getChangedPropertiesDetailed(e);
+                    if (changedPropertiesDetailed != null) {
+                        for (String propertyName: changedPropertiesDetailed.keySet()) {
+                            final Set<Index> indices = getMetadataIndexes(e, propertyName);
+                            if (indices != null) {
+                                dirtyIndeces.addAll(indices);
+                            }
                         }
                     }
-                }
 
-                final Map<String, LinkChange> changedLinksDetailed = changesTracker.getChangedLinksDetailed(e);
-                if (changedLinksDetailed != null) {
-                    for (String propertyName: changedLinksDetailed.keySet()) {
-                        final Set<Index> indices = getMetadataIndexes(e, propertyName);
-                        if (indices != null) {
-                            dirtyIndeces.addAll(indices);
+                    final Map<String, LinkChange> changedLinksDetailed = changesTracker.getChangedLinksDetailed(e);
+                    if (changedLinksDetailed != null) {
+                        for (String propertyName: changedLinksDetailed.keySet()) {
+                            final Set<Index> indices = getMetadataIndexes(e, propertyName);
+                            if (indices != null) {
+                                dirtyIndeces.addAll(indices);
+                            }
+                        }
+                    }
+
+                    for (Index index: dirtyIndeces) {
+                        try {
+                            if (!e.isNew()) {
+                                getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
+                            }
+                            getPersistentTransaction().insertUniqueKey(index, getIndexFieldsFinalValues(e, index), e);
+                        } catch (PhysicalLayerException ex) {
+                            throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
                         }
                     }
                 }
-
-                for (Index index: dirtyIndeces) {
-                    if (!e.isNew()) {
-                        getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
-                    }
-                    getPersistentTransaction().insertUniqueKey(index, getIndexFieldsFinalValues(e, index), e);
-                }
-            }
         }
     }
 
