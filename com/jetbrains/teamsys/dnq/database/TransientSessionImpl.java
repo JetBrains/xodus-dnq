@@ -811,7 +811,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     void deleteIndexes(TransientEntity e) {
         // delete indexes
         final TransientEntityImpl.State state = ((TransientEntityImpl) e).getState();
-        if (state != TransientEntityImpl.State.RemovedNew) {
+        if (state != TransientEntityImpl.State.RemovedNew && state != TransientEntityImpl.State.New) {
             final EntityMetaData emd = getEntityMetaData(e);
             if (emd != null) {
                 for (Index index: emd.getIndexes()) {
