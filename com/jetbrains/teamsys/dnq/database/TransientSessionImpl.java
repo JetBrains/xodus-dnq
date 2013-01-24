@@ -748,7 +748,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                 txn.revert();
                 // we have to execute changes against new database root
                 //TODO: there're none recovarable exceptions, for which can skip executeChanges
-                executeChanges(changes);
+                executeChanges(changesTracker.getChanges());
                 decodeException(lastEx);
             }
         }
