@@ -43,7 +43,7 @@ public class DirectedAssociationSemantics {
 
         // set new target
         if (target == null) {
-            source.deleteLinks(linkName);
+            source.deleteLink(linkName, oldTarget);
         } else {
             ((TransientEntity) source).setLink(linkName, target);
         }

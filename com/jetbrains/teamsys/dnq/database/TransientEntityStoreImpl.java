@@ -13,7 +13,6 @@ import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.InitializingBean;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -199,7 +198,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         }
 
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
-        changesTracker.offerChange(new Runnable() {
+        changesTracker.addChange(new Runnable() {
             public void run() {
                 ((PersistentEntityStore) s.getPersistentTransaction().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
             }
@@ -214,7 +213,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         }
 
         final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
-        changesTracker.offerChange(new Runnable() {
+        changesTracker.addChange(new Runnable() {
             public void run() {
                 ((PersistentEntityStoreImpl) s.getPersistentTransaction().getStore()).deleteEntityType(entityTypeName);
             }
@@ -235,7 +234,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         if (entity instanceof TransientEntity) {
             changesTracker.entityDeleted((TransientEntity) entity);
         } else {
-            changesTracker.offerChange(new Runnable() {
+            changesTracker.addChange(new Runnable() {
                 public void run() {
                     persistentEntity.delete();
                 }
@@ -254,7 +253,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
         final Entity persistentEntity =
                 (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
-        changesTracker.offerChange(new Runnable() {
+        changesTracker.addChange(new Runnable() {
             public void run() {
                 persistentEntity.deleteLinks(linkName);
             }
@@ -274,7 +273,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
                 (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
         final Entity persistentLink =
                 (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
-        changesTracker.offerChange(new Runnable() {
+        changesTracker.addChange(new Runnable() {
             public void run() {
                 persistentEntity.deleteLink(linkName, persistentLink);
             }

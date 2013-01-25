@@ -7,8 +7,6 @@ import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
-import jetbrains.exodus.database.impl.OperationFailureException;
-import jetbrains.exodus.exceptions.PhysicalLayerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -149,7 +147,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return entityToChangedPropertiesDetailed.get(e);
     }
 
-    private void registerLinkChange(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, boolean add) {
+    private void registerLinkChange(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add) {
         c();
 
         Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(source);
@@ -164,7 +162,14 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
             linksDetailed.put(linkName, lc);
         }
 
-        if (add) lc.addAdded(target); else lc.addRemoved(target);
+        if (add) {
+            if (oldTarget != null) {
+                lc.addRemoved(oldTarget);
+            }
+            lc.addAdded(target);
+        } else {
+            lc.addRemoved(target);
+        }
 
         if (lc.getAddedEntitiesSize() == 0 && lc.getRemovedEntitiesSize() == 0) {
             linksDetailed.remove(linkName);
@@ -195,7 +200,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         ((TransientEntityImpl) e).setPersistentEntity((PersistentEntity) session.getPersistentTransaction().newEntity(e.getType()));
 
         entityChanged(e);
-        offerChange(new Runnable() {
+        addChange(new Runnable() {
             public void run() {
                 session.getPersistentTransaction().saveEntity(e);
             }
@@ -216,8 +221,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         };
 
         change.run();
-        offerChange(change);
-        registerLinkChange(source, linkName, target, true);
+        addChange(change);
+        registerLinkChange(source, linkName, target, null, true);
     }
 
     public void linkSet(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
@@ -233,9 +238,9 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
             }
         };
 
+        registerLinkChange(source, linkName, target, (TransientEntity) source.getLink(linkName),  true);
         change.run();
-        offerChange(change);
-        registerLinkChange(source, linkName, target, true);
+        addChange(change);
     }
 
     public void linkDeleted(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
@@ -250,9 +255,9 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
             }
         };
 
+        registerLinkChange(source, linkName, target, null, false);
         change.run();
-        offerChange(change);
-        registerLinkChange(source, linkName, target, false);
+        addChange(change);
     }
 
     public void linksDeleted(@NotNull final TransientEntity source, @NotNull final String linkName) {
@@ -268,7 +273,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         };
 
         change.run();
-        offerChange(change);
+        addChange(change);
     }
 
     private void entityChanged(TransientEntity source) {
@@ -298,7 +303,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         };
 
         deleteEntity.run();
-        offerChange(deleteEntity);
+        addChange(deleteEntity);
     }
 
     public void propertyChanged(@NotNull final TransientEntity e,
@@ -317,7 +322,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         };
 
         changeProperty.run();
-        offerChange(changeProperty);
+        addChange(changeProperty);
         propertyChangedDetailed(e, propertyName, propertyOldValue, PropertyChangeType.UPDATE);
     }
 
@@ -334,14 +339,14 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         };
 
         deleteProperty.run();
-        offerChange(deleteProperty);
+        addChange(deleteProperty);
         propertyChangedDetailed(e, propertyName, propertyOldValue, PropertyChangeType.REMOVE);
     }
 
     public void historyCleared(@NotNull final String entityType) {
         c();
 
-        offerChange(new Runnable() {
+        addChange(new Runnable() {
             public void run() {
                 if (log.isDebugEnabled()) {
                     log.debug("Clear history of entities of type [" + entityType + "]");
@@ -366,7 +371,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
         blobChanged.run();
         propertyChangedDetailed(e, blobName, null, PropertyChangeType.UPDATE);
-        offerChange(blobChanged);
+        addChange(blobChanged);
     }
 
     public void blobChanged(@NotNull final TransientEntity e,
@@ -384,7 +389,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
         blobChanged.run();
         propertyChangedDetailed(e, blobName, null, PropertyChangeType.UPDATE);
-        offerChange(blobChanged);
+        addChange(blobChanged);
     }
 
     public void blobChanged(@NotNull final TransientEntity e,
@@ -403,7 +408,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         blobChanged.run();
         final String oldPropertyValue = e.getPersistentEntity().getBlobString(blobName);
         propertyChangedDetailed(e, blobName, oldPropertyValue, PropertyChangeType.UPDATE);
-        offerChange(blobChanged);
+        addChange(blobChanged);
     }
 
     public void blobDeleted(@NotNull final TransientEntity e, @NotNull final String blobName) {
@@ -420,10 +425,10 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
         deleteBlob.run();
         propertyChangedDetailed(e, blobName, null, PropertyChangeType.REMOVE);
-        offerChange(deleteBlob);
+        addChange(deleteBlob);
     }
 
-    void offerChange(@NotNull final Runnable change) {
+    void addChange(@NotNull final Runnable change) {
         changes.offer(change);
     }
 
