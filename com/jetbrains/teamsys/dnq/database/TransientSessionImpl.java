@@ -3,6 +3,7 @@ package com.jetbrains.teamsys.dnq.database;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
+import jetbrains.exodus.core.dataStructures.hash.LongHashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.exceptions.PhysicalLayerException;
@@ -703,17 +704,11 @@ public class TransientSessionImpl implements TransientStoreSession {
             int retry = 0;
             Throwable lastEx = null;
             final StoreTransaction txn = getPersistentTransactionInternal();
-            Queue<Runnable> changes = null;
 
             while (retry++ < flushRetryOnVersionMismatch) {
                 try {
-                    // check versions before commit changes
-                    checkVersions();
-
                     saveHistory();
                     flushIndexes();
-
-                    executeChanges(changes);
 
                     if (log.isTraceEnabled()) {
                         log.trace("Flush persistent transaction in transient session " + this);
@@ -728,16 +723,11 @@ public class TransientSessionImpl implements TransientStoreSession {
                     log.error("Catch exception in flush: " + e.getMessage());
 
                     if (e instanceof jetbrains.exodus.exceptions.VersionMismatchException) {
-                        // check versions before commit changes
-                        //TODO: remove it and check tests
-                        checkVersions();
-                        //
-
+                        Thread.yield();
+                        // replay changes
+                        executeChanges(changesTracker.getChanges());
                         //recheck constraints against new database root
                         checkBeforeSaveChangesConstraints(removeOrphans());
-                        Thread.yield();
-                        // changes to replay
-                        changes = changesTracker.getChanges();
                     } else {
                         break;
                     }
@@ -932,119 +922,6 @@ public class TransientSessionImpl implements TransientStoreSession {
                 ((TransientEntityImpl)e).setState(TransientEntityImpl.State.SavedNew);
             }
         }
-    }
-
-    private void checkVersions() {
-        if (quietFlush) {
-            if (log.isWarnEnabled()) {
-                log.warn("Quiet intermediate commit: skip versions checking. " + this);
-            }
-
-            return;
-        }
-
-        if (log.isDebugEnabled()) {
-            log.debug("Check versions of changed entities. " + this);
-        }
-        // check versions of changed persistent entities
-        Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
-
-        final PersistentEntityStore persistentStore = (PersistentEntityStore) getStore().getPersistentStore();
-
-        for (TransientEntity entity : changedPersistentEntities) {
-            if (log.isDebugEnabled()) {
-                log.debug("Check version of: " + entity);
-            }
-
-            final TransientEntityImpl localCopy = (TransientEntityImpl) entity;
-            final PersistentEntityId id = localCopy.getPersistentEntity().getId();
-            int lastDatabaseCopyVersion = persistentStore.getLastVersion(id);
-            if (lastDatabaseCopyVersion < 0) {
-                if (entity.isRemoved()) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Entity " + entity + " was removed from database, but is in removed state on transient level, hence flush is not terminated.");
-                    }
-                    // dont't check version mismatch
-                    continue;
-                } else {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Entity was removed from database:" + entity);
-                    }
-                    throw new EntityRemovedInDatabaseException(id, persistentStore);
-                }
-            }
-
-            int localCopyVersion = localCopy.getVersion();
-
-            if (log.isDebugEnabled()) {
-                log.debug("Entity [" + entity + "] localVersion=" + localCopyVersion + " databaseVersion=" + lastDatabaseCopyVersion);
-            }
-
-            if (localCopyVersion != lastDatabaseCopyVersion) {
-                // TODO: try to merge changes,
-                // i.e. check if new changes may be added to existing without conflicts and,
-                // if can, load
-                //TODO: delegate to MergeHandler. This handler should be generated or handcoded for concrete problem domain.
-                if (!areChangesCompatible(entity)) {
-                    if (log.isDebugEnabled()) {
-                        log.warn("Incompatible concurrent changes for " + entity + ". Changed properties [" + TransientStoreUtil.toString(changesTracker.getChangedPropertiesDetailed(entity)) +
-                                "] changed links [" + TransientStoreUtil.toString(changesTracker.getChangedLinksDetailed(entity)) + "]");
-                    }
-                    throw new VersionMismatchException(entity, localCopyVersion, lastDatabaseCopyVersion);
-                }
-            }
-        }
-    }
-
-    /**
-     * Analize changes for given entity and return true if changes may be saved into database without conflicts
-     *
-     * @param entity
-     * @return
-     */
-    private boolean areChangesCompatible(TransientEntity entity) {
-        ModelMetaData md = store.getModelMetaData();
-        EntityMetaData emd = md == null ? null : md.getEntityMetaData(entity.getType());
-        if (emd == null) {
-            return true;
-            /*if (log.isWarnEnabled()) {
-                log.warn("Metadata for " + entity + " is not found. Can't merge changes. " + this);
-            }
-            return false;*/
-        }
-
-        // ignore version mismatch
-        if (emd.isVersionMismatchIgnoredForWholeClass()) {
-            return true;
-        }
-
-        // compatible changes:
-        // 1. add association (for multiple associations)
-        // 2. changed links is marked as versionMismatchResolution: ignore
-
-        TransientEntityChange tec = changesTracker.getChangeDescription(entity);
-
-        Map<String, LinkChange> changedLinks = tec.getChangedLinksDetaled();
-        if (changedLinks != null) {
-            for (LinkChange lc : changedLinks.values()) {
-                final String linkName = lc.getLinkName();
-                if (!((emd.isVersionMismatchIgnored(linkName)) || (lc.getChangeType() == LinkChangeType.ADD && emd.getAssociationEndMetaData(linkName).getCardinality().isMultiple()))) {
-                    return false;
-                }
-            }
-        }
-
-        // 3. changed property is marked as versionMismatchResolution: ignore
-        Map<String, PropertyChange> changedProps = tec.getChangedPropertiesDetaled();
-        if (changedProps != null) {
-            for (String p : changedProps.keySet()) {
-                if (!emd.isVersionMismatchIgnored(p)) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 
     private void saveHistory() {
