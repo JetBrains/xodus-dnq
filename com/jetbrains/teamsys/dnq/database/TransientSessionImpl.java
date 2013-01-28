@@ -117,7 +117,11 @@ public class TransientSessionImpl implements TransientStoreSession {
             log.debug("Revert transient session " + this);
         }
         assertOpen("revert");
-        doIntermediateAbort();
+
+        managedEntities.clear();
+        changesTracker = new TransientChangesTrackerImpl(this);
+
+        getPersistentTransactionInternal().revert();
     }
 
     @Override
@@ -1052,11 +1056,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         if (((TransientChangesTrackerImpl) changesTracker).getChangesCount() != changesCount) {
             throw new EntityStoreException("It's not allowed to change database inside listener.beforeFlushAfterConstraintsCheck() method.");
         }
-    }
-
-    protected void doIntermediateAbort() {
-        managedEntities.clear();
-        changesTracker = new TransientChangesTrackerImpl(this);
     }
 
     protected TransientEntity newEntityImpl(final Entity persistent) {
