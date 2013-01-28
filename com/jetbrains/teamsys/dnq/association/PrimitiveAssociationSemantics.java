@@ -112,11 +112,9 @@ public class PrimitiveAssociationSemantics {
     public static Comparable set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
-        Comparable oldPropertyValue = e.getProperty(propertyName);
-
-        if (propertyValue == null && oldPropertyValue != null) {
+        if (propertyValue == null) {
             e.deleteProperty(propertyName);
-        } else if (propertyValue != null && !propertyValue.equals(oldPropertyValue)) {
+        } else {
             e.setProperty(propertyName, propertyValue);
         }
         return propertyValue;
@@ -125,47 +123,31 @@ public class PrimitiveAssociationSemantics {
     public static Comparable set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue, Class clazz) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
-        Comparable oldPropertyValue = e.getProperty(propertyName);
-
-        if (propertyValue == null && oldPropertyValue != null) {
+        if (propertyValue == null) {
             e.deleteProperty(propertyName);
-        } else if (propertyValue != null) {
+        } else {
             // strict casting
             if (Integer.class.equals(clazz)) {
                 final Integer intValue = ((Number) propertyValue).intValue();
-                if (!intValue.equals(oldPropertyValue)) {
-                    e.setProperty(propertyName, intValue);
-                }
+                e.setProperty(propertyName, intValue);
             } else if (Long.class.equals(clazz)) {
                 final Long longValue = ((Number) propertyValue).longValue();
-                if (!longValue.equals(oldPropertyValue)) {
-                    e.setProperty(propertyName, longValue);
-                }
+                e.setProperty(propertyName, longValue);
             } else if (Double.class.equals(clazz)) {
                 final Double doubleValue = ((Number) propertyValue).doubleValue();
-                if (!doubleValue.equals(oldPropertyValue)) {
-                    e.setProperty(propertyName, doubleValue);
-                }
+                e.setProperty(propertyName, doubleValue);
             } else if (Float.class.equals(clazz)) {
                 final Float floatValue = ((Number) propertyValue).floatValue();
-                if (!floatValue.equals(oldPropertyValue)) {
-                    e.setProperty(propertyName, floatValue);
-                }
+                e.setProperty(propertyName, floatValue);
             } else if (Short.class.equals(clazz)) {
                 final Short shortValue = ((Number) propertyValue).shortValue();
-                if (!shortValue.equals(oldPropertyValue)) {
-                    e.setProperty(propertyName, shortValue);
-                }
+                e.setProperty(propertyName, shortValue);
             } else if (Byte.class.equals(clazz)) {
                 final Byte byteValue = ((Number) propertyValue).byteValue();
-                if (!byteValue.equals(oldPropertyValue)) {
-                    e.setProperty(propertyName, byteValue);
-                }
+                e.setProperty(propertyName, byteValue);
             } else {
                 // boolean, string and date
-                if (!propertyValue.equals(oldPropertyValue)) {
-                    e.setProperty(propertyName, propertyValue);
-                }
+                e.setProperty(propertyName, propertyValue);
             }
         }
         return propertyValue;
@@ -174,15 +156,11 @@ public class PrimitiveAssociationSemantics {
     public static void setHashed(@NotNull Entity e, @NotNull String propertyName, String value) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
-        String oldPropertyValue = (String) e.getProperty(propertyName);
-
-        if (value == null && oldPropertyValue != null) {
+        if (value == null) {
             e.deleteProperty(propertyName);
         } else if (value != null) {
             value = MessageDigestUtil.sha256(value);
-            if (oldPropertyValue == null || !value.equals(oldPropertyValue)) {
-                e.setProperty(propertyName, value);
-            }
+            e.setProperty(propertyName, value);
         }
     }
 
@@ -209,11 +187,9 @@ public class PrimitiveAssociationSemantics {
     public static Comparable setBlob(@NotNull Entity e, @NotNull String blobName, @Nullable String blobString) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
-        String oldPropertyValue = e.getBlobString(blobName);
-
-        if (blobString == null && oldPropertyValue != null) {
+        if (blobString == null) {
             ((TransientEntity) e).deleteBlobString(blobName);
-        } else if (blobString != null && !blobString.equals(oldPropertyValue)) {
+        } else {
             e.setBlobString(blobName, blobString);
         }
         return blobString;
@@ -222,16 +198,12 @@ public class PrimitiveAssociationSemantics {
     public static Comparable setBlobWithFixedNewlines(@NotNull Entity e, @NotNull String blobName, @Nullable String blobString) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
-        String oldPropertyValue = e.getBlobString(blobName);
-
-        if (blobString == null && oldPropertyValue != null) {
+        if (blobString == null) {
             ((TransientEntity) e).deleteBlobString(blobName);
-        } else if (blobString != null) {
+        } else {
             final String fixed = (blobString.indexOf('\r') >= 0) ? blobString.replace("\r", "") : blobString;
-            if (!fixed.equals(oldPropertyValue)) {
-                e.setBlobString(blobName, fixed);
-                return fixed;
-            }
+            e.setBlobString(blobName, fixed);
+            return fixed;
         }
         return blobString;
     }
