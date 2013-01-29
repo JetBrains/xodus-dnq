@@ -30,20 +30,12 @@ public class DirectedAssociationSemantics {
 
         target = TransientStoreUtil.reattach((TransientEntity) target);
 
-        // find old target
-        Entity oldTarget = source.getLink(linkName);
-
-        // compare new and old targets
-        if (oldTarget == null && target == null) {
-            return;
-        }
-        if (oldTarget != null && oldTarget.equals(target)) {
-            return;
-        }
-
         // set new target
         if (target == null) {
-            source.deleteLink(linkName, oldTarget);
+            Entity oldTarget = source.getLink(linkName);
+            if (oldTarget != null) {
+                source.deleteLink(linkName, oldTarget);
+            }
         } else {
             ((TransientEntity) source).setLink(linkName, target);
         }
