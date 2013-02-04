@@ -12,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 
 public abstract class BasePersistentClassImpl implements Runnable {
+    protected Map<String, Iterable<PropertyConstraint>> propertyConstraints;
 
     protected BasePersistentClassImpl() {
     }
@@ -26,7 +27,7 @@ public abstract class BasePersistentClassImpl implements Runnable {
 
     @NotNull
     public Map<String, Iterable<PropertyConstraint>> getPropertyConstraints() {
-        return Collections.emptyMap();
+        return propertyConstraints != null ? propertyConstraints : Collections.<String, Iterable<PropertyConstraint>>emptyMap();
     }
 
     public void destructor(Entity entity) {
