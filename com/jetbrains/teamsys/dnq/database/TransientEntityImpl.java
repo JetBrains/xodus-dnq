@@ -4,6 +4,7 @@ import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
+import jetbrains.exodus.database.persistence.Transaction;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -447,4 +448,9 @@ class TransientEntityImpl implements TransientEntity {
         return getAddedRemovedLinks(linkNames, true);
     }
 
+    @NotNull
+    @Override
+    public Transaction getTxn() {
+        throw new UnsupportedOperationException();
+    }
 }

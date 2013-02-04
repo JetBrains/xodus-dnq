@@ -4,8 +4,8 @@ import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.ConstantEntityIterableHandle;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
+import jetbrains.exodus.database.persistence.Transaction;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public class UniversalEmptyEntityIterable extends EntityIterableBase {
 
@@ -17,7 +17,7 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
 
     @NotNull
     @Override
-    protected EntityIterator getIteratorImpl() {
+    public EntityIterator getIteratorImpl(@NotNull final Transaction txn) {
         return Iterator.INSTANCE;
     }
 
@@ -54,7 +54,7 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
     }
 
     @Override
-    protected long countImpl() {
+    protected long countImpl(@NotNull final Transaction txn) {
         return 0;
     }
 
