@@ -691,7 +691,7 @@ public class TransientSessionImpl implements TransientStoreSession {
      */
     @Nullable
     private final Set<TransientEntityChange> flushChanges() {
-        if (!changesTracker.getChanges().isEmpty()) {
+        if (changesTracker.getChanges().isEmpty()) {
             log.trace("Nothing to flush.");
             return null;
         }
@@ -942,9 +942,9 @@ public class TransientSessionImpl implements TransientStoreSession {
             log.debug("Save history of changed entities. " + this);
         }
 
-        final Set<TransientEntity> changedPersistentEntities = changesTracker.getChangedPersistentEntities();
+        final Set<TransientEntity> changedEntities = changesTracker.getChangedEntities();
 
-        for (final TransientEntity e : changedPersistentEntities.toArray(new TransientEntity[changedPersistentEntities.size()])) {
+        for (final TransientEntity e : changedEntities.toArray(new TransientEntity[changedEntities.size()])) {
             if (!e.isNew() && !e.isRemoved()) {
                 final EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
                 if (emd != null && TransientStoreUtil.getPersistentClassInstance(e, emd).evaluateSaveHistoryCondition(e)
