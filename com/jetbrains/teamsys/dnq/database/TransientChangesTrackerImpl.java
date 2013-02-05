@@ -30,7 +30,6 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     private Queue<Runnable> changes = new QueueDecorator<Runnable>();
 
-    private Set<TransientEntity> changedPersistentEntities = new HashSetDecorator<TransientEntity>();
     private Set<TransientEntity> changedEntities = new LinkedHashSetDecorator<TransientEntity>();
 
     private Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
@@ -59,15 +58,9 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     public void clear() {
         changes.clear();
-        changedPersistentEntities.clear();
         changedEntities.clear();
         entityToChangedLinksDetailed.clear();
         entityToChangedPropertiesDetailed.clear();
-    }
-
-    @NotNull
-    public Set<TransientEntity> getChangedPersistentEntities() {
-        return changedPersistentEntities;
     }
 
     @NotNull
@@ -261,15 +254,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     }
 
     private void entityChanged(TransientEntity source) {
-        persistentEntityChanged(source);
-        changedEntities.add(source);
-    }
-
-    private void persistentEntityChanged(TransientEntity entity) {
         c();
-        if (entity.isSaved()) {
-            changedPersistentEntities.add(entity);
-        }
+        changedEntities.add(source);
     }
 
     public void entityDeleted(@NotNull final TransientEntity e) {
