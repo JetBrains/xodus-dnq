@@ -36,7 +36,6 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     private Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
     private Map<TransientEntity, Map<String, PropertyChange>> entityToChangedPropertiesDetailed = new HashMapDecorator<TransientEntity, Map<String, PropertyChange>>();
 
-    private boolean wereChangesAfterMark = false;
     private int changesCount = 0;
     private Set<TransientEntityChange> changesDescription;
 
@@ -44,26 +43,11 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         this.session = session;
     }
 
-    public boolean areThereChanges() {
-        return !(changes.isEmpty());
-    }
-
     public int getChangesCount() {
         return changesCount;
     }
 
-    @Deprecated
-    public void markState() {
-        wereChangesAfterMark = false;
-    }
-
-    @Deprecated
-    public boolean wereChangesAfterMarkState() {
-        return wereChangesAfterMark;
-    }
-
     private void c() {
-        wereChangesAfterMark = true;
         changesDescription = null;
         changesCount++;
     }

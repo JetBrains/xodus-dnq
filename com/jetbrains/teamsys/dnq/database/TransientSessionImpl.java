@@ -691,7 +691,7 @@ public class TransientSessionImpl implements TransientStoreSession {
      */
     @Nullable
     private final Set<TransientEntityChange> flushChanges() {
-        if (!changesTracker.areThereChanges()) {
+        if (!changesTracker.getChanges().isEmpty()) {
             log.trace("Nothing to flush.");
             return null;
         }
