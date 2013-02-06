@@ -27,7 +27,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
   @Override
-  public void setProperty(@NotNull String propertyName, @NotNull Comparable value) {
+  public boolean setProperty(@NotNull String propertyName, @NotNull Comparable value) {
     throw createReadonlyException();
   }
 
@@ -42,32 +42,32 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
   @Override
-  public void setBlobString(@NotNull String blobName, @NotNull String blobString) {
+  public boolean setBlobString(@NotNull String blobName, @NotNull String blobString) {
     throw createReadonlyException();
   }
 
   @Override
-  public void setLink(@NotNull String linkName, @NotNull Entity target) {
+  public boolean setLink(@NotNull String linkName, @NotNull Entity target) {
     throw createReadonlyException();
   }
 
   @Override
-  public void addLink(@NotNull String linkName, @NotNull Entity target) {
+  public boolean addLink(@NotNull String linkName, @NotNull Entity target) {
     throw createReadonlyException();
   }
 
   @Override
-  public void deleteProperty(@NotNull String propertyName) {
+  public boolean deleteProperty(@NotNull String propertyName) {
     throw createReadonlyException();
   }
 
   @Override
-  public void deleteBlob(@NotNull String blobName) {
+  public boolean deleteBlob(@NotNull String blobName) {
     throw createReadonlyException();
   }
 
   @Override
-  public void deleteLink(@NotNull String linkName, @NotNull Entity target) {
+  public boolean deleteLink(@NotNull String linkName, @NotNull Entity target) {
     throw createReadonlyException();
   }
 
@@ -135,7 +135,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
   @Override
-  public void delete() {
+  public boolean delete() {
     throw createReadonlyException();
   }
 

@@ -216,14 +216,16 @@ class TransientEntityImpl implements TransientEntity {
         return persistentEntity.getProperty(propertyName);
     }
 
-    public void setProperty(@NotNull final String propertyName, @NotNull final Comparable value) {
+    public boolean setProperty(@NotNull final String propertyName, @NotNull final Comparable value) {
         getThreadStoreSession().getTransientChangesTracker().propertyChanged(
                 this, propertyName, this.getPersistentEntity().getProperty(propertyName), value);
+        return true;
     }
 
-    public void deleteProperty(@NotNull final String propertyName) {
+    public boolean deleteProperty(@NotNull final String propertyName) {
         getThreadStoreSession().getTransientChangesTracker().propertyDeleted(
                 this, propertyName, this.getPersistentEntity().getProperty(propertyName));
+        return true;
     }
 
     @Nullable
@@ -239,12 +241,14 @@ class TransientEntityImpl implements TransientEntity {
         getThreadStoreSession().getTransientChangesTracker().blobChanged(this, blobName, file);
     }
 
-    public void setBlobString(@NotNull final String blobName, @NotNull final String blobString) {
+    public boolean setBlobString(@NotNull final String blobName, @NotNull final String blobString) {
         getThreadStoreSession().getTransientChangesTracker().blobChanged(this, blobName, blobString);
+        return true;
     }
 
-    public void deleteBlob(@NotNull final String blobName) {
+    public boolean deleteBlob(@NotNull final String blobName) {
         getThreadStoreSession().getTransientChangesTracker().blobDeleted(this, blobName);
+        return true;
     }
 
     @Nullable
@@ -256,16 +260,19 @@ class TransientEntityImpl implements TransientEntity {
         getThreadStoreSession().getTransientChangesTracker().blobDeleted(this, blobName);
     }
 
-    public void addLink(@NotNull final String linkName, @NotNull final Entity target) {
+    public boolean addLink(@NotNull final String linkName, @NotNull final Entity target) {
         getThreadStoreSession().getTransientChangesTracker().linkAdded(this, linkName, (TransientEntity) target);
+        return true;
     }
 
-    public void setLink(@NotNull final String linkName, @NotNull final Entity target) {
+    public boolean setLink(@NotNull final String linkName, @NotNull final Entity target) {
         getThreadStoreSession().getTransientChangesTracker().linkSet(this, linkName, (TransientEntity) target);
+        return true;
     }
 
-    public void deleteLink(@NotNull final String linkName, @NotNull final Entity target) {
+    public boolean deleteLink(@NotNull final String linkName, @NotNull final Entity target) {
         getThreadStoreSession().getTransientChangesTracker().linkDeleted(this, linkName, (TransientEntity) target);
+        return true;
     }
 
     public void deleteLinks(@NotNull final String linkName) {
@@ -321,7 +328,7 @@ class TransientEntityImpl implements TransientEntity {
         return result;
     }
 
-    public void delete() {
+    public boolean delete() {
         getThreadStoreSession().getTransientChangesTracker().entityDeleted(this);
         switch (state) {
             case New:
@@ -331,6 +338,7 @@ class TransientEntityImpl implements TransientEntity {
             case SavedNew:
                 state = State.RemovedSavedNew;
         }
+        return true;
     }
 
     public void newVersion() {
