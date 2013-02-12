@@ -419,7 +419,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                 getPersistentTransaction().clearHistory(entityType);
                 return true;
             }
-        });
+        }).run();
     }
 
     @NotNull
