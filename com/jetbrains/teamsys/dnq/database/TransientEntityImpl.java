@@ -262,7 +262,8 @@ class TransientEntityImpl implements TransientEntity {
     @Nullable
     public Entity getLink(@NotNull final String linkName) {
         final Entity link = persistentEntity.getLink(linkName);
-        return link == null ? null : getThreadStoreSession().newEntity(link);
+        //TODO: remove (link.getVersion() < 0) together with history support removing
+        return link == null || link.getVersion() < 0 ? null : getThreadStoreSession().newEntity(link);
     }
 
     @NotNull
