@@ -45,20 +45,11 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     this.asyncFire(changes);
   }
 
-  public void commited(@Nullable final Set<TransientEntityChange> changes) {
-    _Txn.runNew(new _FunctionTypes._void_P0_E0() {
-      public void invoke() {
-        EventsMultiplexer.this.fire(Where.SYNC_AFTER_FLUSH, changes);
-        return;
-      }
-    });
-    this.asyncFire(changes);
-  }
-
   public void beforeFlush(@Nullable Set<TransientEntityChange> changes) {
     this.fire(Where.SYNC_BEFORE_CONSTRAINTS, changes);
   }
 
+    @Deprecated
   public void beforeFlushAfterConstraintsCheck(@Nullable Set<TransientEntityChange> changes) {
     this.fire(Where.SYNC_BEFORE_FLUSH, changes);
   }
@@ -250,10 +241,10 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                   l.addedSyncBeforeConstraints(c.getTransientEntity());
                   break;
                 case UPDATE:
-                  l.updatedSyncBeforeConstraints(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
+                  l.updatedSyncBeforeConstraints(c.getSnaphotEntity(), c.getTransientEntity());
                   break;
                 case REMOVE:
-                  l.removedSyncBeforeConstraints(TransientStoreUtil.readonlyCopy(c));
+                  l.removedSyncBeforeConstraints(c.getSnaphotEntity());
                   break;
                 default:
                   throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
@@ -265,10 +256,10 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                   l.addedSyncBeforeFlush(c.getTransientEntity());
                   break;
                 case UPDATE:
-                  l.updatedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
+                  l.updatedSyncBeforeFlush(c.getSnaphotEntity(), c.getTransientEntity());
                   break;
                 case REMOVE:
-                  l.removedSyncBeforeFlush(TransientStoreUtil.readonlyCopy(c));
+                  l.removedSyncBeforeFlush(c.getSnaphotEntity());
                   break;
                 default:
                   throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
@@ -280,10 +271,10 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                   l.addedSync(c.getTransientEntity());
                   break;
                 case UPDATE:
-                  l.updatedSync(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
+                  l.updatedSync(c.getSnaphotEntity(), c.getTransientEntity());
                   break;
                 case REMOVE:
-                  l.removedSync(TransientStoreUtil.readonlyCopy(c));
+                  l.removedSync(c.getSnaphotEntity());
                   break;
                 default:
                   throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
@@ -295,10 +286,10 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
                   l.addedAsync(c.getTransientEntity());
                   break;
                 case UPDATE:
-                  l.updatedAsync(TransientStoreUtil.readonlyCopy(c), c.getTransientEntity());
+                  l.updatedAsync(c.getSnaphotEntity(), c.getTransientEntity());
                   break;
                 case REMOVE:
-                  l.removedAsync(TransientStoreUtil.readonlyCopy(c));
+                  l.removedAsync(c.getSnaphotEntity());
                   break;
                 default:
                   throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
