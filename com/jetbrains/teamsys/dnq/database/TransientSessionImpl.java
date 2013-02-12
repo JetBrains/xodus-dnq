@@ -694,51 +694,48 @@ public class TransientSessionImpl implements TransientStoreSession {
         beforeFlush();
         checkBeforeSaveChangesConstraints(removeOrphans());
 
-        // no changes is considered to be possible here (if they were reverted)
-        if (!changesTracker.getChangedEntities().isEmpty()) {
-            notifyBeforeFlushAfterConstraintsCheckListeners();
+        notifyBeforeFlushAfterConstraintsCheckListeners();
 
-            int retry = 0;
-            Throwable lastEx = null;
-            final StoreTransaction txn = getPersistentTransactionInternal();
+        int retry = 0;
+        Throwable lastEx = null;
+        final StoreTransaction txn = getPersistentTransactionInternal();
 
-            while (retry++ < flushRetryOnVersionMismatch) {
-                try {
-                    saveHistory();
-                    flushIndexes();
+        while (retry++ < flushRetryOnVersionMismatch) {
+            try {
+                saveHistory();
+                flushIndexes();
 
-                    if (log.isTraceEnabled()) {
-                        log.trace("Flush persistent transaction in transient session " + this);
-                    }
+                if (log.isTraceEnabled()) {
+                    log.trace("Flush persistent transaction in transient session " + this);
+                }
 
-                    txn.flush();
-                    setSavedState();
-                    lastEx = null;
+                txn.flush();
+                setSavedState();
+                lastEx = null;
+                break;
+            } catch (Throwable e) {
+                lastEx = e;
+                log.error("Catch exception in flush: " + e.getMessage());
+
+                if (e instanceof jetbrains.exodus.exceptions.VersionMismatchException) {
+                    Thread.yield();
+                    // replay changes
+                    replayChanges();
+                    //recheck constraints against new database root
+                    checkBeforeSaveChangesConstraints(removeOrphans());
+                } else {
                     break;
-                } catch (Throwable e) {
-                    lastEx = e;
-                    log.error("Catch exception in flush: " + e.getMessage());
-
-                    if (e instanceof jetbrains.exodus.exceptions.VersionMismatchException) {
-                        Thread.yield();
-                        // replay changes
-                        replayChanges();
-                        //recheck constraints against new database root
-                        checkBeforeSaveChangesConstraints(removeOrphans());
-                    } else {
-                        break;
-                    }
                 }
             }
+        }
 
-            if (lastEx != null) {
-                txn.revert();
-                // we have to execute changes against new database root
-                //TODO: there're none recovarable exceptions, for which can skip executeChanges
-                replayChanges();
-                decodeException(lastEx);
-                throw new IllegalStateException("should never be thrown");
-            }
+        if (lastEx != null) {
+            txn.revert();
+            // we have to execute changes against new database root
+            //TODO: there're none recovarable exceptions, for which can skip executeChanges
+            replayChanges();
+            decodeException(lastEx);
+            throw new IllegalStateException("should never be thrown");
         }
     }
 
