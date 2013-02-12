@@ -1118,8 +1118,9 @@ public class TransientSessionImpl implements TransientStoreSession {
     boolean setLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
         return addChange(new MyRunnable() {
             public boolean run() {
+                final TransientEntity oldTarget = (TransientEntity) source.getLink(linkName);
                 if (source.getPersistentEntity().setLink(linkName, target.getPersistentEntity())) {
-                    changesTracker.linkChanged(source, linkName, target, (TransientEntity) source.getLink(linkName), true);
+                    changesTracker.linkChanged(source, linkName, target, oldTarget, true);
                     return true;
                 }
 
@@ -1132,7 +1133,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         return addChange(new MyRunnable() {
             public boolean run() {
                 if (source.getPersistentEntity().addLink(linkName, target.getPersistentEntity())) {
-                    changesTracker.linkChanged(source, linkName, target, (TransientEntity) source.getLink(linkName), true);
+                    changesTracker.linkChanged(source, linkName, target, null, true);
                     return true;
                 }
 
@@ -1145,7 +1146,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         return addChange(new MyRunnable() {
             public boolean run() {
                 if (source.getPersistentEntity().deleteLink(linkName, target.getPersistentEntity())) {
-                    changesTracker.linkChanged(source, linkName, target, (TransientEntity) source.getLink(linkName), false);
+                    changesTracker.linkChanged(source, linkName, target, null, false);
                     return true;
                 }
 

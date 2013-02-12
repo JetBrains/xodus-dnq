@@ -79,6 +79,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     }
 
     void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add) {
+        entityChanged(source);
+
         Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(source);
         if (linksDetailed == null) {
             linksDetailed = new HashMap<String, LinkChange>();
