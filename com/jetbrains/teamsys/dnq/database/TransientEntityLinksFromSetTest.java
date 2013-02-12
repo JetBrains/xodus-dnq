@@ -94,7 +94,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
     }
 
     private static TransientEntity ro(TransientEntity i1, TransientStoreSession session) {
-        return session.newReadonlyLocalCopy(session.getTransientChangesTracker().getChangeDescription(i1));
+        return session.getTransientChangesTracker().getSnapshotEntity(i1);
     }
 
     private void check_i2(Iterable<Entity> iterable, TransientEntity i3) {

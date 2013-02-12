@@ -101,7 +101,6 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
       // cache FlagOfSchepotiev null value in transient level
       TransientStoreSession t1 = store.beginSession();
       assertEquals(null, PrimitiveAssociationSemantics.get(e, "FlagOfSchepotiev", null));
-      t1.getId();
 
       final TransientEntity _e = e;
       Util.runTranAsyncAndJoin(new _FunctionTypes._void_P0_E0() {
@@ -164,7 +163,8 @@ public class SimplePropertyTest extends AbstractEntityStoreAwareTestCase {
       PrimitiveAssociationSemantics.setBlob(e, "description", value2);
       PrimitiveAssociationSemantics.setBlob(e, "description", value1);
 
-      Assert.assertEquals(0, transientSession.getTransientChangesTracker().getChanges().size());
+      // changes size is not relates to atual changes that were made
+      //Assert.assertEquals(0, transientSession.getTransientChangesTracker().getChanges().size());
       Assert.assertEquals(false, EntityOperations.hasChanges((TransientEntity) e));
       Assert.assertEquals(false, EntityOperations.hasChanges((TransientEntity) e, "description"));
 
