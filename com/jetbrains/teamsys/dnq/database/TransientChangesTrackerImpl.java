@@ -5,7 +5,6 @@ import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.exceptions.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -53,25 +52,20 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
           // do not notify about RemovedNew entities - such entities was created and removed during same transaction
           if (e.isRemoved() && !e.wasSaved()) continue;
 
-          changesDescription.add(new TransientEntityChange(this, e, getChangedProperties(e), getChangedLinksDetailed(e), decodeState(e)));
+          changesDescription.add(new TransientEntityChange(this, e, getChangedProperties(e), getChangedLinksDetailed(e), getEntityChangeType(e)));
       }
 
       return changesDescription;
     }
 
-    private EntityChangeType decodeState(TransientEntity e) {
+    private EntityChangeType getEntityChangeType(TransientEntity e) {
         if (addedEntities.contains(e)) return EntityChangeType.ADD;
         if (removedEntities.contains(e)) return EntityChangeType.REMOVE;
         return EntityChangeType.UPDATE;
     }
 
     public TransientEntityChange getChangeDescription(TransientEntity e) {
-        if (!e.isRemoved()) {
-            return new TransientEntityChange(this, e, getChangedProperties(e),
-                    getChangedLinksDetailed(e), e.isNew() ? EntityChangeType.ADD : EntityChangeType.UPDATE);
-        } else {
-            throw new EntityRemovedException(e);
-        }
+        return new TransientEntityChange(this, e, getChangedProperties(e), getChangedLinksDetailed(e), getEntityChangeType(e));
     }
 
     @Nullable
