@@ -143,18 +143,11 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     public void commit() {
-        if (store.getThreadSession() != this) {
-            throw new IllegalStateException("Can't commit session from another thread.");
-        }
+        // flush until no side-effects from listeners
+        do {
+            flush();
+        } while (!changes.isEmpty());
 
-        if (log.isDebugEnabled()) {
-            log.debug("Commit transient session " + this);
-        }
-
-        assertOpen("commit");
-        // exception is ok here - just stay open
-        flushChanges();
-        notifyFlushedListeners(changesTracker.getChangesDescription());
         try {
             changesTracker.dispose();
         } finally {
