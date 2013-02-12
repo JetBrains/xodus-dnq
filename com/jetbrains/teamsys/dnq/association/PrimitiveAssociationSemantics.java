@@ -54,26 +54,9 @@ public class PrimitiveAssociationSemantics {
      */
     @Nullable
     public static Object getOldValue(@Nullable TransientEntity e, @NotNull String propertyName, @Nullable Object nullValue) {
-        if (e != null && EntityOperations.isRemoved(e)) {
-            return ((PersistentEntityStore) ((TransientEntityStore) e.getStore()).getPersistentStore()).getEntity(e.getId()).getProperty(propertyName);
-        }
-        e = TransientStoreUtil.reattach(e);
-
-        if (e == null) {
-            return nullValue;
-        }
-
-        Map<String, PropertyChange> propertiesDetailed = ((TransientEntityStore)e.getStore()).getThreadSession().getTransientChangesTracker().getChangedPropertiesDetailed(e);
-        if (propertiesDetailed != null) {
-            PropertyChange pc = propertiesDetailed.get(propertyName);
-            if (pc != null) {
-                return pc.getOldValue();
-            }
-        }
-
-        return get(e, propertyName, nullValue);
+        if (e == null) return nullValue;
+        return e.getPropertyOldValue(propertyName);
     }
-
 
     /**
      * Simple property getter.
@@ -188,7 +171,7 @@ public class PrimitiveAssociationSemantics {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
         if (blobString == null) {
-            ((TransientEntity) e).deleteBlobString(blobName);
+            ((TransientEntity) e).deleteBlob(blobName);
         } else {
             e.setBlobString(blobName, blobString);
         }
@@ -199,7 +182,7 @@ public class PrimitiveAssociationSemantics {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
         if (blobString == null) {
-            ((TransientEntity) e).deleteBlobString(blobName);
+            ((TransientEntity) e).deleteBlob(blobName);
         } else {
             final String fixed = (blobString.indexOf('\r') >= 0) ? blobString.replace("\r", "") : blobString;
             e.setBlobString(blobName, fixed);

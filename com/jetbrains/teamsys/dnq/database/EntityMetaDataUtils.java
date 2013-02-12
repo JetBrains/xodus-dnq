@@ -28,9 +28,9 @@ public class EntityMetaDataUtils {
     }
 
     static boolean changesReflectHistory(EntityMetaData emd, TransientEntity e, TransientChangesTracker tracker) {
-        Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+        Set<String> changedProperties = tracker.getChangedProperties(e);
         if (changedProperties != null) {
-            for (String field : changedProperties.keySet()) {
+            for (String field : changedProperties) {
                 if (!emd.isHistoryIgnored(field)) {
                     return true;
                 }

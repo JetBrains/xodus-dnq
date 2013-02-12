@@ -87,26 +87,6 @@ public class TransientStoreUtil {
         return s.isRemoved(entity);
     }
 
-    /**
-     * Attach entity to current session if possible.
-     *
-     * @return
-     */
-    public static TransientEntity readonlyCopy(@NotNull TransientEntityChange change) {
-        /*if (store == null) {
-            throw new IllegalStateException("There's no current session entity store.");
-        }*/
-
-        TransientStoreSession s = (TransientStoreSession) ((TransientEntityStore)change.getTransientEntity().getStore()).getThreadSession();
-
-        if (s == null) {
-            throw new IllegalStateException("There's no current session to attach transient entity to.");
-        }
-
-
-        return s.newReadonlyLocalCopy(change);
-    }
-
     public static void commit(@Nullable TransientStoreSession s) {
         if (s != null && s.isOpened()) {
             try {

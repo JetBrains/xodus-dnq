@@ -4,14 +4,14 @@ import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
+import jetbrains.exodus.database.persistence.Transaction;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
 
 /**
@@ -24,10 +24,8 @@ class TransientEntityImpl implements TransientEntity {
     enum State {
         New,
         Saved,
-        SavedNew,
         RemovedNew,
         RemovedSaved,
-        RemovedSavedNew,
     }
 
     protected String type;
@@ -36,15 +34,15 @@ class TransientEntityImpl implements TransientEntity {
     @NotNull
     protected PersistentEntity persistentEntity;
 
-    TransientEntityImpl(@NotNull String type, @NotNull TransientStoreSession session) {
-        this.store = session.getStore();
+    TransientEntityImpl(@NotNull String type, @NotNull TransientEntityStore store) {
+        this.store = store;
         this.type = type;
         setState(State.New);
-        session.getTransientChangesTracker().entityAdded(this);
+        getThreadStoreSession().createEntity(this);
     }
 
-    TransientEntityImpl(@NotNull PersistentEntity persistentEntity, @NotNull TransientStoreSession session) {
-        this.store = session.getStore();
+    TransientEntityImpl(@NotNull PersistentEntity persistentEntity, @NotNull TransientEntityStore store) {
+        this.store = store;
         setState(State.Saved);
         setPersistentEntity(persistentEntity);
     }
@@ -64,8 +62,8 @@ class TransientEntityImpl implements TransientEntity {
         return store;
     }
 
-    public TransientStoreSession getThreadStoreSession() {
-        return store.getThreadSession();
+    TransientSessionImpl getThreadStoreSession() {
+        return (TransientSessionImpl) store.getThreadSession();
     }
 
     public boolean isNew() {
@@ -73,11 +71,11 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean isSaved() {
-        return state == State.Saved || state == State.SavedNew;
+        return state == State.Saved;
     }
 
     public boolean isRemoved() {
-        return state == State.RemovedNew || state == State.RemovedSaved || state == State.RemovedSavedNew;
+        return state == State.RemovedNew || state == State.RemovedSaved;
     }
 
     public boolean isReadonly() {
@@ -92,26 +90,9 @@ class TransientEntityImpl implements TransientEntity {
         this.state = state;
     }
 
-    public boolean wasNew() {
-        switch (state) {
-            case RemovedNew:
-            case SavedNew:
-            case RemovedSavedNew:
-                return true;
-
-            case RemovedSaved:
-            case Saved:
-                return false;
-
-            default:
-                throw new IllegalStateException("Entity is not in removed or saved state.");
-        }
-    }
-
     public boolean wasSaved() {
         switch (state) {
             case RemovedSaved:
-            case RemovedSavedNew:
                 return true;
         }
         return false;
@@ -204,7 +185,7 @@ class TransientEntityImpl implements TransientEntity {
     public boolean equals(Object obj) {
         if (obj == this) return true;
         if (!(obj instanceof TransientEntity)) return false;
-        return persistentEntity.equals(((TransientEntity)obj).getPersistentEntity());
+        return persistentEntity.equals(((TransientEntity) obj).getPersistentEntity());
     }
 
     public int hashCode() {
@@ -216,16 +197,19 @@ class TransientEntityImpl implements TransientEntity {
         return persistentEntity.getProperty(propertyName);
     }
 
+    @Nullable
+    public Comparable getPropertyOldValue(@NotNull final String propertyName) {
+        final PersistentStoreTransaction snapshot = getThreadStoreSession().getTransientChangesTracker().getSnapshot();
+        return persistentEntity.getSnapshot(snapshot).getProperty(propertyName);
+    }
+
+
     public boolean setProperty(@NotNull final String propertyName, @NotNull final Comparable value) {
-        getThreadStoreSession().getTransientChangesTracker().propertyChanged(
-                this, propertyName, this.getPersistentEntity().getProperty(propertyName), value);
-        return true;
+        return getThreadStoreSession().setProperty(this, propertyName, value);
     }
 
     public boolean deleteProperty(@NotNull final String propertyName) {
-        getThreadStoreSession().getTransientChangesTracker().propertyDeleted(
-                this, propertyName, this.getPersistentEntity().getProperty(propertyName));
-        return true;
+        return getThreadStoreSession().deleteProperty(this, propertyName);
     }
 
     @Nullable
@@ -234,21 +218,19 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public void setBlob(@NotNull final String blobName, @NotNull final InputStream blob) {
-        getThreadStoreSession().getTransientChangesTracker().blobChanged(this, blobName, blob);
+        getThreadStoreSession().setBlob(this, blobName, blob);
     }
 
     public void setBlob(@NotNull final String blobName, @NotNull final File file) {
-        getThreadStoreSession().getTransientChangesTracker().blobChanged(this, blobName, file);
+        getThreadStoreSession().setBlob(this, blobName, file);
     }
 
     public boolean setBlobString(@NotNull final String blobName, @NotNull final String blobString) {
-        getThreadStoreSession().getTransientChangesTracker().blobChanged(this, blobName, blobString);
-        return true;
+        return getThreadStoreSession().setBlobString(this, blobName, blobString);
     }
 
     public boolean deleteBlob(@NotNull final String blobName) {
-        getThreadStoreSession().getTransientChangesTracker().blobDeleted(this, blobName);
-        return true;
+        return getThreadStoreSession().deleteBlob(this, blobName);
     }
 
     @Nullable
@@ -256,27 +238,20 @@ class TransientEntityImpl implements TransientEntity {
         return persistentEntity.getBlobString(blobName);
     }
 
-    public void deleteBlobString(@NotNull final String blobName) {
-        getThreadStoreSession().getTransientChangesTracker().blobDeleted(this, blobName);
+    public boolean setLink(@NotNull final String linkName, @NotNull final Entity target) {
+        return getThreadStoreSession().setLink(this, linkName, (TransientEntity) target);
     }
 
     public boolean addLink(@NotNull final String linkName, @NotNull final Entity target) {
-        getThreadStoreSession().getTransientChangesTracker().linkAdded(this, linkName, (TransientEntity) target);
-        return true;
-    }
-
-    public boolean setLink(@NotNull final String linkName, @NotNull final Entity target) {
-        getThreadStoreSession().getTransientChangesTracker().linkSet(this, linkName, (TransientEntity) target);
-        return true;
+        return getThreadStoreSession().addLink(this, linkName, (TransientEntity) target);
     }
 
     public boolean deleteLink(@NotNull final String linkName, @NotNull final Entity target) {
-        getThreadStoreSession().getTransientChangesTracker().linkDeleted(this, linkName, (TransientEntity) target);
-        return true;
+        return getThreadStoreSession().deleteLink(this, linkName, (TransientEntity) target);
     }
 
     public void deleteLinks(@NotNull final String linkName) {
-        getThreadStoreSession().getTransientChangesTracker().linksDeleted(this, linkName);
+        getThreadStoreSession().deleteLinks(this, linkName);
     }
 
     @NotNull
@@ -329,14 +304,12 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean delete() {
-        getThreadStoreSession().getTransientChangesTracker().entityDeleted(this);
+        getThreadStoreSession().deleteEntity(this);
         switch (state) {
             case New:
                 state = State.RemovedNew;
             case Saved:
                 state = State.RemovedSaved;
-            case SavedNew:
-                state = State.RemovedSavedNew;
         }
         return true;
     }
@@ -345,7 +318,7 @@ class TransientEntityImpl implements TransientEntity {
         if (isNew()) return true;
 
         final TransientStoreSession session = getThreadStoreSession();
-        Map<String, PropertyChange> changesProperties = session.getTransientChangesTracker().getChangedPropertiesDetailed(this);
+        Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
         Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
 
         return (changesLinks != null && !changesLinks.isEmpty()) || (changesProperties != null && !changesProperties.isEmpty());
@@ -354,15 +327,15 @@ class TransientEntityImpl implements TransientEntity {
     public boolean hasChanges(final String property) {
         final TransientStoreSession session = getThreadStoreSession();
         Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
-        Map<String, PropertyChange> changesProperties = session.getTransientChangesTracker().getChangedPropertiesDetailed(this);
+        Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
 
-        return (changesLinks != null && changesLinks.containsKey(property)) || (changesProperties != null && changesProperties.containsKey(property));
+        return (changesLinks != null && changesLinks.containsKey(property)) || (changesProperties != null && changesProperties.contains(property));
     }
 
     public boolean hasChangesExcepting(String[] properties) {
         final TransientStoreSession session = getThreadStoreSession();
         Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
-        Map<String, PropertyChange> changesProperties = session.getTransientChangesTracker().getChangedPropertiesDetailed(this);
+        Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
 
         int found = 0;
         int changed;

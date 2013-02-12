@@ -363,7 +363,7 @@ class ConstraintsUtil {
 
                 Set<String> requiredProperties = emd.getRequiredProperties();
                 Set<String> requiredIfProperties = EntityMetaDataUtils.getRequiredIfProperties(emd, e);
-                Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+                Set<String> changedProperties = tracker.getChangedProperties(e);
 
                 if ((requiredProperties.size() + requiredIfProperties.size() > 0 && (e.isNew() || (changedProperties != null && changedProperties.size() > 0)))) {
                     for (String requiredPropertyName : requiredProperties) {
@@ -412,14 +412,14 @@ class ConstraintsUtil {
         Iterable<String> propertyNames = Collections.emptySet();
         if (constraintedProperties != null && !constraintedProperties.isEmpty()) {
             // Any property has constraints
-            Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+            Set<String> changedProperties = tracker.getChangedProperties(e);
             if (e.isNew()) {
                 // All properties with constriants
                 propertyNames = constraintedProperties;
             } else if (changedProperties != null && !changedProperties.isEmpty()) {
                 // Changed properties with constraints
                 Set<String> intersection = new HashSet<String>(changedProperties.size());
-                for (String changedProperty: changedProperties.keySet()) {
+                for (String changedProperty: changedProperties) {
                     if (constraintedProperties.contains(changedProperty)) {
                         intersection.add(changedProperty);
                     }
@@ -446,7 +446,7 @@ class ConstraintsUtil {
 
                 EntityMetaData emd = md.getEntityMetaData(e.getType());
 
-                Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+                Set<String> changedProperties = tracker.getChangedProperties(e);
                 Set<Index> indexes = emd.getIndexes();
 
                 for (Index index : indexes) {
@@ -469,10 +469,10 @@ class ConstraintsUtil {
         return errors;
     }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changedProperties, EntityMetaData emd, String name) {
+    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Set<String> changedProperties, EntityMetaData emd, String name) {
         final PropertyType type = getPropertyType(emd.getPropertyMetaData(name));
 
-        if (e.isNew() || changedProperties.containsKey(name)) {
+        if (e.isNew() || changedProperties.contains(name)) {
             checkProperty(errors, e, name, type);
         }
     }
