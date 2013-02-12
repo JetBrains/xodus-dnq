@@ -371,8 +371,8 @@ public class TransientSessionImpl implements TransientStoreSession {
     @Nullable
     public Entity getFirst(@NotNull final EntityIterable it) {
         assertOpen("getFirst");
-        final Entity last = getPersistentTransactionInternal().getFirst(it.getSource());
-        return (last == null) ? null : newEntityImpl(last);
+        final Entity first = getPersistentTransactionInternal().getFirst(it.getSource());
+        return (first == null) ? null : newEntityImpl(first);
     }
 
     @Nullable
@@ -1034,11 +1034,12 @@ public class TransientSessionImpl implements TransientStoreSession {
     void createEntity(@NotNull final TransientEntityImpl e) {
         final PersistentEntity persistentEntity = (PersistentEntity) getPersistentTransaction().newEntity(e.getType());
         e.setPersistentEntity(persistentEntity);
+        changesTracker.entityAdded(e);
 
         addChange(new MyRunnable() {
             public boolean run() {
-                changesTracker.entityAdded(e);
                 getPersistentTransaction().saveEntity(persistentEntity);
+                changesTracker.entityAdded(e);
                 return true;
             }
         });
