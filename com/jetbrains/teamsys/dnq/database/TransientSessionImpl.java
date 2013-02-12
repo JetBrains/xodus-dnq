@@ -41,9 +41,12 @@ public class TransientSessionImpl implements TransientStoreSession {
         initChangesTracker();
     }
 
-    private void initChangesTracker() {
+    private TransientChangesTrackerImpl initChangesTracker() {
         if (this.changesTracker != null) changesTracker.dispose();
+        TransientChangesTrackerImpl oldChangesTracker = changesTracker;
         this.changesTracker = new TransientChangesTrackerImpl(getSnapshot());
+
+        return oldChangesTracker;
     }
 
     public void setQueryCancellingPolicy(QueryCancellingPolicy policy) {
@@ -117,7 +120,8 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
         assertOpen("revert");
 
-        this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
+        managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
+        changes = new QueueDecorator<MyRunnable>();
         getPersistentTransactionInternal().revert();
         initChangesTracker();
     }
@@ -134,8 +138,8 @@ public class TransientSessionImpl implements TransientStoreSession {
 
         assertOpen("flush");
         flushChanges();
-        notifyFlushedListeners(changesTracker.getChangesDescription());
-        initChangesTracker();
+        changes = new QueueDecorator<MyRunnable>();
+        notifyFlushedListeners(initChangesTracker().getChangesDescription());
     }
 
     public void commit() {
