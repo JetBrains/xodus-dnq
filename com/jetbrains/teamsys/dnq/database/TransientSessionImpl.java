@@ -1220,11 +1220,6 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Override
-    public void updateUniqueKeyIndices(@NotNull Set<Index> indices) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void saveEntity(@NotNull Entity entity) {
         throw new UnsupportedOperationException();
     }
