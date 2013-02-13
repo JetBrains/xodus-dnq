@@ -1,8 +1,11 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
+import jetbrains.exodus.core.dataStructures.hash.*;
+import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
@@ -786,21 +789,36 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    void deleteIndexes(TransientEntity e) {
-        // delete indexes
+    @Nullable
+    Set<Pair<Index, List<Comparable>>> getIndexesValues(TransientEntity e) {
         final TransientEntityImpl.State state = ((TransientEntityImpl) e).getState();
-        if (state != TransientEntityImpl.State.RemovedNew && state != TransientEntityImpl.State.New) {
-            final EntityMetaData emd = getEntityMetaData(e);
-            if (emd != null) {
-                for (Index index: emd.getIndexes()) {
-                    try {
-                        getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
-                    } catch (PhysicalLayerException ex) {
-                        throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
-                    }
-                }
+        if (state == TransientEntityImpl.State.RemovedNew || state == TransientEntityImpl.State.New) return null;
+
+        Set<Pair<Index, List<Comparable>>> res = null;
+        final EntityMetaData emd = getEntityMetaData(e);
+        if (emd != null) {
+            for (Index index: emd.getIndexes()) {
+                if (res == null) res = new HashSet<Pair<Index, List<Comparable>>>();
+                res.add(new Pair<Index, List<Comparable>>(index, getIndexFieldsOriginalValues(e, index)));
             }
         }
+
+        return res;
+    }
+
+    void deleteIndexes(TransientEntity e, @Nullable Set<Pair<Index, List<Comparable>>> indexes) {
+        if (indexes == null) return;
+
+        for (Pair<Index, List<Comparable>> index : indexes) {
+            try {
+                getPersistentTransaction().deleteUniqueKey(index.getFirst(), index.getSecond());
+            } catch (PhysicalLayerException ex) {
+                throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index.getFirst()));
+            }
+        }
+    }
+
+    void deleteIndexes(TransientEntity e) {
     }
 
     private List<Comparable> getIndexFieldsOriginalValues(TransientEntity e, Index index) {
@@ -1163,8 +1181,10 @@ public class TransientSessionImpl implements TransientStoreSession {
     boolean deleteEntity(@NotNull final TransientEntity e) {
         return addChange(new MyRunnable() {
             public boolean run() {
+                // remember index values first
+                final Set<Pair<Index, List<Comparable>>> indexes = getIndexesValues(e);
                 if (e.getPersistentEntity().delete()) {
-                    deleteIndexes(e);
+                    deleteIndexes(e, indexes);
                     changesTracker.entityRemoved(e);
                 }
                 return true;
