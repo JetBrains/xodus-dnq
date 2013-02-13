@@ -12,11 +12,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 import jetbrains.exodus.database.TransientEntityChange;
-import jetbrains.teamsys.dnq.runtime.txn._Txn;
-import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.database.TransientChangesTracker;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.exodus.database.Entity;
+import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
@@ -25,8 +25,8 @@ import jetbrains.exodus.database.EntityMetaData;
 import jetbrains.exodus.database.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import jetbrains.mps.internal.collections.runtime.Sequence;
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import jetbrains.exodus.core.execution.Job;
+import jetbrains.teamsys.dnq.runtime.txn._Txn;
 import jetbrains.exodus.database.EntityStore;
 import jetbrains.exodus.database.EntityId;
 
@@ -41,15 +41,23 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void flushed(@Nullable Set<TransientEntityChange> changes) {
+    // do nothing. actual job is in flushed(changesTracker) 
+  }
+
+  /**
+   * Called directly by transient session
+   * 
+   * @param changesTracker changes tracker to dispose after async job
+   */
+  public void flushed(@NotNull TransientChangesTracker changesTracker, @Nullable Set<TransientEntityChange> changes) {
     this.fire(Where.SYNC_AFTER_FLUSH, changes);
-    this.asyncFire(changes);
+    this.asyncFire(changes, changesTracker);
   }
 
   public void beforeFlush(@Nullable Set<TransientEntityChange> changes) {
     this.fire(Where.SYNC_BEFORE_CONSTRAINTS, changes);
   }
 
-    @Deprecated
   public void beforeFlushAfterConstraintsCheck(@Nullable Set<TransientEntityChange> changes) {
     this.fire(Where.SYNC_BEFORE_FLUSH, changes);
   }
@@ -57,8 +65,8 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   public void afterConstraintsFail(@NotNull Set<DataIntegrityViolationException> exceptions) {
   }
 
-  private void asyncFire(final Set<TransientEntityChange> changes) {
-    EventsMultiplexerJobProcessor.getInstance().queue(new EventsMultiplexer.JobImpl(this, changes));
+  private void asyncFire(final Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
+    EventsMultiplexerJobProcessor.getInstance().queue(new EventsMultiplexer.JobImpl(this, changes, changesTracker));
   }
 
   private void fire(Where where, Set<TransientEntityChange> changes) {
@@ -352,20 +360,26 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
 
   public static class JobImpl extends Job {
     private Set<TransientEntityChange> changes;
+    private TransientChangesTracker changesTracker;
     private EventsMultiplexer eventsMultiplexer;
 
-    public JobImpl(EventsMultiplexer eventsMultiplexer, Set<TransientEntityChange> changes) {
+    public JobImpl(EventsMultiplexer eventsMultiplexer, Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
       this.eventsMultiplexer = eventsMultiplexer;
       this.changes = changes;
+      this.changesTracker = changesTracker;
     }
 
     public void execute() throws Throwable {
-      _Txn.run(new _FunctionTypes._void_P0_E0() {
-        public void invoke() {
-          JobImpl.this.eventsMultiplexer.fire(Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes);
-          return;
-        }
-      });
+      try {
+        _Txn.run(new _FunctionTypes._void_P0_E0() {
+          public void invoke() {
+            JobImpl.this.eventsMultiplexer.fire(Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes);
+            return;
+          }
+        });
+      } finally {
+        changesTracker.dispose();
+      }
     }
   }
 

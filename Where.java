@@ -4,8 +4,6 @@ package jetbrains.teamsys.dnq.runtime.events;
 
 
 /*package*/ enum Where {
-
-  @Deprecated
   SYNC_BEFORE_FLUSH(),
   SYNC_BEFORE_CONSTRAINTS(),
   SYNC_AFTER_FLUSH(),
