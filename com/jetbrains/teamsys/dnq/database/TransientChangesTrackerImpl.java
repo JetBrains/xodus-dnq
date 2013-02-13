@@ -40,7 +40,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     }
 
     @Override
-    public TransientEntity getSnapshotEntity(TransientEntity e) {
+    public TransientEntityImpl getSnapshotEntity(TransientEntity e) {
         final ReadOnlyPersistentEntity ro = e.getPersistentEntity().getSnapshot(snapshot);
         return new ReadonlyTransientEntityImpl(getChangeDescription(e), ro, (TransientEntityStore) e.getStore());
     }
@@ -51,7 +51,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
       for (TransientEntity e : getChangedEntities()) {
           // do not notify about RemovedNew entities - such entities was created and removed during same transaction
-          if (e.isRemoved() && !e.wasSaved()) continue;
+          if (wasCreatedAndRemovedInSameTransaction(e)) continue;
 
           changesDescription.add(new TransientEntityChange(this, e, getChangedProperties(e), getChangedLinksDetailed(e), getEntityChangeType(e)));
       }
@@ -77,6 +77,26 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     @Nullable
     public Set<String> getChangedProperties(@NotNull TransientEntity e) {
         return entityToChangedProperties.get(e);
+    }
+
+    Set<TransientEntity> getRemovedEntities() {
+        return removedEntities;
+    }
+
+    boolean isNew(@NotNull TransientEntity e) {
+        return addedEntities.contains(e);
+    }
+
+    boolean isRemoved(@NotNull TransientEntity e) {
+        return removedEntities.contains(e);
+    }
+
+    boolean isSaved(@NotNull TransientEntity e) {
+        return !addedEntities.contains(e) && !removedEntities.contains(e);
+    }
+
+    boolean wasCreatedAndRemovedInSameTransaction(@NotNull TransientEntity e) {
+        return addedEntities.contains(e) && removedEntities.contains(e);
     }
 
     void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add) {

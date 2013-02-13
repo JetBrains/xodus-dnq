@@ -4,14 +4,14 @@ import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
-import jetbrains.exodus.database.persistence.Transaction;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
+import java.io.File;
+import java.io.InputStream;
 import java.util.*;
 
 /**
@@ -21,15 +21,7 @@ class TransientEntityImpl implements TransientEntity {
 
     protected static final Log log = LogFactory.getLog(TransientEntity.class);
 
-    enum State {
-        New,
-        Saved,
-        RemovedNew,
-        RemovedSaved,
-    }
-
     protected String type;
-    protected State state;
     protected TransientEntityStore store;
     @NotNull
     protected PersistentEntity persistentEntity;
@@ -37,13 +29,11 @@ class TransientEntityImpl implements TransientEntity {
     TransientEntityImpl(@NotNull String type, @NotNull TransientEntityStore store) {
         this.store = store;
         this.type = type;
-        setState(State.New);
-        getThreadStoreSession().createEntity(this);
+        getAndCheckThreadStoreSession().createEntity(this);
     }
 
     TransientEntityImpl(@NotNull PersistentEntity persistentEntity, @NotNull TransientEntityStore store) {
         this.store = store;
-        setState(State.Saved);
         setPersistentEntity(persistentEntity);
     }
 
@@ -62,39 +52,28 @@ class TransientEntityImpl implements TransientEntity {
         return store;
     }
 
-    TransientSessionImpl getThreadStoreSession() {
-        return (TransientSessionImpl) store.getThreadSession();
+    @NotNull
+    TransientSessionImpl getAndCheckThreadStoreSession() {
+        final TransientSessionImpl result = (TransientSessionImpl) store.getThreadSession();
+        if (result == null) {
+            throw new IllegalStateException("No store session in current thread!");
+        }
+        return result;
     }
 
     public boolean isNew() {
-        return state == State.New;
+        return getAndCheckThreadStoreSession().changesTracker.isNew(this);
     }
 
     public boolean isSaved() {
-        return state == State.Saved;
+        return getAndCheckThreadStoreSession().changesTracker.isSaved(this);
     }
 
     public boolean isRemoved() {
-        return state == State.RemovedNew || state == State.RemovedSaved;
+        return getAndCheckThreadStoreSession().changesTracker.isRemoved(this);
     }
 
     public boolean isReadonly() {
-        return false;
-    }
-
-    State getState() {
-        return state;
-    }
-
-    protected void setState(State state) {
-        this.state = state;
-    }
-
-    public boolean wasSaved() {
-        switch (state) {
-            case RemovedSaved:
-                return true;
-        }
         return false;
     }
 
@@ -141,7 +120,7 @@ class TransientEntityImpl implements TransientEntity {
 
         final List<Entity> history = persistentEntity.getHistory();
         final List<Entity> result = new ArrayList<Entity>(history.size());
-        final TransientStoreSession session = getThreadStoreSession();
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
         for (final Entity _entity : history) {
             result.add(session.newEntity(_entity));
         }
@@ -153,7 +132,7 @@ class TransientEntityImpl implements TransientEntity {
         if (isNew()) return null;
 
         final Entity e = persistentEntity.getNextVersion();
-        return e == null ? null : getThreadStoreSession().newEntity(e);
+        return e == null ? null : getAndCheckThreadStoreSession().newEntity(e);
     }
 
     @Nullable
@@ -161,7 +140,7 @@ class TransientEntityImpl implements TransientEntity {
         if (isNew()) return null;
 
         final Entity e = persistentEntity.getPreviousVersion();
-        return e == null ? null : getThreadStoreSession().newEntity(e);
+        return e == null ? null : getAndCheckThreadStoreSession().newEntity(e);
     }
 
     public int compareTo(final Entity e) {
@@ -174,8 +153,7 @@ class TransientEntityImpl implements TransientEntity {
      * @return debug presentation
      */
     public String getDebugPresentation() {
-        final StringBuilder sb = new StringBuilder();
-        return sb.append(persistentEntity).append(" (").append(state).append(")").toString();
+        return persistentEntity.toString();
     }
 
     public String toString() {
@@ -199,17 +177,17 @@ class TransientEntityImpl implements TransientEntity {
 
     @Nullable
     public Comparable getPropertyOldValue(@NotNull final String propertyName) {
-        final PersistentStoreTransaction snapshot = getThreadStoreSession().getTransientChangesTracker().getSnapshot();
+        final PersistentStoreTransaction snapshot = getAndCheckThreadStoreSession().getTransientChangesTracker().getSnapshot();
         return persistentEntity.getSnapshot(snapshot).getProperty(propertyName);
     }
 
 
     public boolean setProperty(@NotNull final String propertyName, @NotNull final Comparable value) {
-        return getThreadStoreSession().setProperty(this, propertyName, value);
+        return getAndCheckThreadStoreSession().setProperty(this, propertyName, value);
     }
 
     public boolean deleteProperty(@NotNull final String propertyName) {
-        return getThreadStoreSession().deleteProperty(this, propertyName);
+        return getAndCheckThreadStoreSession().deleteProperty(this, propertyName);
     }
 
     @Nullable
@@ -218,19 +196,19 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public void setBlob(@NotNull final String blobName, @NotNull final InputStream blob) {
-        getThreadStoreSession().setBlob(this, blobName, blob);
+        getAndCheckThreadStoreSession().setBlob(this, blobName, blob);
     }
 
     public void setBlob(@NotNull final String blobName, @NotNull final File file) {
-        getThreadStoreSession().setBlob(this, blobName, file);
+        getAndCheckThreadStoreSession().setBlob(this, blobName, file);
     }
 
     public boolean setBlobString(@NotNull final String blobName, @NotNull final String blobString) {
-        return getThreadStoreSession().setBlobString(this, blobName, blobString);
+        return getAndCheckThreadStoreSession().setBlobString(this, blobName, blobString);
     }
 
     public boolean deleteBlob(@NotNull final String blobName) {
-        return getThreadStoreSession().deleteBlob(this, blobName);
+        return getAndCheckThreadStoreSession().deleteBlob(this, blobName);
     }
 
     @Nullable
@@ -239,19 +217,19 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean setLink(@NotNull final String linkName, @NotNull final Entity target) {
-        return getThreadStoreSession().setLink(this, linkName, (TransientEntity) target);
+        return getAndCheckThreadStoreSession().setLink(this, linkName, (TransientEntity) target);
     }
 
     public boolean addLink(@NotNull final String linkName, @NotNull final Entity target) {
-        return getThreadStoreSession().addLink(this, linkName, (TransientEntity) target);
+        return getAndCheckThreadStoreSession().addLink(this, linkName, (TransientEntity) target);
     }
 
     public boolean deleteLink(@NotNull final String linkName, @NotNull final Entity target) {
-        return getThreadStoreSession().deleteLink(this, linkName, (TransientEntity) target);
+        return getAndCheckThreadStoreSession().deleteLink(this, linkName, (TransientEntity) target);
     }
 
     public void deleteLinks(@NotNull final String linkName) {
-        getThreadStoreSession().deleteLinks(this, linkName);
+        getAndCheckThreadStoreSession().deleteLinks(this, linkName);
     }
 
     @NotNull
@@ -263,7 +241,7 @@ class TransientEntityImpl implements TransientEntity {
     public Entity getLink(@NotNull final String linkName) {
         final Entity link = persistentEntity.getLink(linkName);
         //TODO: remove (link.getVersion() < 0) together with history support removing
-        return link == null || link.getVersion() < 0 ? null : getThreadStoreSession().newEntity(link);
+        return link == null || link.getVersion() < 0 ? null : getAndCheckThreadStoreSession().newEntity(link);
     }
 
     @NotNull
@@ -285,7 +263,7 @@ class TransientEntityImpl implements TransientEntity {
     @NotNull
     public List<Pair<String, EntityIterable>> getIncomingLinks() {
         final List<Pair<String, EntityIterable>> result = new ArrayList<Pair<String, EntityIterable>>();
-        final TransientStoreSession session = getThreadStoreSession();
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
         final ModelMetaData mmd = ((TransientEntityStore) session.getStore()).getModelMetaData();
         if (mmd != null) {
             final EntityMetaData emd = mmd.getEntityMetaData(getType());
@@ -305,20 +283,14 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean delete() {
-        getThreadStoreSession().deleteEntity(this);
-        switch (state) {
-            case New:
-                state = State.RemovedNew;
-            case Saved:
-                state = State.RemovedSaved;
-        }
+        getAndCheckThreadStoreSession().deleteEntity(this);
         return true;
     }
 
     public boolean hasChanges() {
         if (isNew()) return true;
 
-        final TransientStoreSession session = getThreadStoreSession();
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
         Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
         Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
 
@@ -326,7 +298,7 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean hasChanges(final String property) {
-        final TransientStoreSession session = getThreadStoreSession();
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
         Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
         Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
 
@@ -334,7 +306,7 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean hasChangesExcepting(String[] properties) {
-        final TransientStoreSession session = getThreadStoreSession();
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
         Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
         Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
 
@@ -362,7 +334,7 @@ class TransientEntityImpl implements TransientEntity {
     private EntityIterable getAddedRemovedLinks(final String name, boolean removed) {
         if (isNew()) return EntityIterableBase.EMPTY;
 
-        Map<String, LinkChange> changesLinks = getThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this);
+        Map<String, LinkChange> changesLinks = getAndCheckThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this);
 
         if (changesLinks != null) {
             final LinkChange linkChange = changesLinks.get(name);
@@ -411,7 +383,7 @@ class TransientEntityImpl implements TransientEntity {
     private EntityIterable getAddedRemovedLinks(final Set<String> linkNames, boolean removed) {
         if (isNew()) return UniversalEmptyEntityIterable.INSTANCE;
 
-        final Map<String, LinkChange> changedLinksDetailed = getThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this);
+        final Map<String, LinkChange> changedLinksDetailed = getAndCheckThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this);
         return changedLinksDetailed == null ? UniversalEmptyEntityIterable.INSTANCE : AddedOrRemovedLinksFromSetTransientEntityIterable.get(
                 changedLinksDetailed,
                 linkNames, removed

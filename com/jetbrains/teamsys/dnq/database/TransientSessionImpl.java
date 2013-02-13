@@ -4,8 +4,6 @@ import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
-import jetbrains.exodus.core.dataStructures.hash.*;
-import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
@@ -147,6 +145,11 @@ public class TransientSessionImpl implements TransientStoreSession {
         } else {
             flushChanges();
             changes = new QueueDecorator<MyRunnable>();
+
+            for (TransientEntity r: changesTracker.getRemovedEntities()) {
+                managedEntities.remove(r.getId());
+            }
+
             final TransientChangesTracker oldChangesTracker = changesTracker;
             this.changesTracker = new TransientChangesTrackerImpl(getSnapshot());
             notifyFlushedListeners(oldChangesTracker);
@@ -714,7 +717,6 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
 
                 txn.flush();
-                setSavedState();
                 lastEx = null;
                 break;
             } catch (Throwable e) {
@@ -791,9 +793,8 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Nullable
-    Set<Pair<Index, List<Comparable>>> getIndexesValues(TransientEntity e) {
-        final TransientEntityImpl.State state = ((TransientEntityImpl) e).getState();
-        if (state == TransientEntityImpl.State.RemovedNew || state == TransientEntityImpl.State.New) return null;
+    Set<Pair<Index, List<Comparable>>> getIndexesValuesBeforeDelete(TransientEntity e) {
+        if (changesTracker.isNew(e)) return null;
 
         Set<Pair<Index, List<Comparable>>> res = null;
         final EntityMetaData emd = getEntityMetaData(e);
@@ -856,7 +857,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
             }
         }
-        return ((TransientEntityImpl)e).getPersistentEntity().getLink(linkName);
+        return changesTracker.getSnapshotEntity(e).getLink(linkName);
     }
 
     private List<Comparable> getIndexFieldsFinalValues(TransientEntity e, Index index) {
@@ -913,16 +914,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
 
         throw new RuntimeException(e);
-    }
-
-    private void setSavedState() {
-        for (TransientEntity e : changesTracker.getChangedEntities()) {
-            switch (((TransientEntityImpl)e).getState()) {
-                case New:
-                    ((TransientEntityImpl)e).setState(TransientEntityImpl.State.Saved);
-                    break;
-            }
-        }
     }
 
     private void saveHistory() {
@@ -1200,7 +1191,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         return addChange(new MyRunnable() {
             public boolean run() {
                 // remember index values first
-                final Set<Pair<Index, List<Comparable>>> indexes = getIndexesValues(e);
+                final Set<Pair<Index, List<Comparable>>> indexes = getIndexesValuesBeforeDelete(e);
                 if (e.getPersistentEntity().delete()) {
                     deleteIndexes(e, indexes);
                     changesTracker.entityRemoved(e);
