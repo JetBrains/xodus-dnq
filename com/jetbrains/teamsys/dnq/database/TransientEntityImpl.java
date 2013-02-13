@@ -21,15 +21,13 @@ class TransientEntityImpl implements TransientEntity {
 
     protected static final Log log = LogFactory.getLog(TransientEntity.class);
 
-    protected String type;
     protected TransientEntityStore store;
     @NotNull
     protected PersistentEntity persistentEntity;
 
     TransientEntityImpl(@NotNull String type, @NotNull TransientEntityStore store) {
         this.store = store;
-        this.type = type;
-        getAndCheckThreadStoreSession().createEntity(this);
+        getAndCheckThreadStoreSession().createEntity(this, type);
     }
 
     TransientEntityImpl(@NotNull PersistentEntity persistentEntity, @NotNull TransientEntityStore store) {
@@ -44,7 +42,6 @@ class TransientEntityImpl implements TransientEntity {
 
     protected void setPersistentEntity(@NotNull PersistentEntity persistentEntity) {
         this.persistentEntity = persistentEntity;
-        this.type = persistentEntity.getType();
     }
 
     @NotNull
@@ -79,7 +76,7 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public String getType() {
-        return type;
+        return persistentEntity.getType();
     }
 
     @NotNull

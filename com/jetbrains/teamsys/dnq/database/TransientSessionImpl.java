@@ -1065,8 +1065,8 @@ public class TransientSessionImpl implements TransientStoreSession {
         return e;
     }
 
-    void createEntity(@NotNull final TransientEntityImpl e) {
-        final PersistentEntity persistentEntity = (PersistentEntity) getPersistentTransaction().newEntity(e.getType());
+    void createEntity(@NotNull final TransientEntityImpl e, @NotNull String type) {
+        final PersistentEntity persistentEntity = (PersistentEntity) getPersistentTransaction().newEntity(type);
         e.setPersistentEntity(persistentEntity);
         changesTracker.entityAdded(e);
 
