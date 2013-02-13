@@ -21,9 +21,9 @@ import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
 import jetbrains.exodus.database.EntityChangeType;
-import jetbrains.exodus.database.EntityMetaData;
 import jetbrains.exodus.database.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
+import jetbrains.exodus.database.EntityMetaData;
 import jetbrains.mps.internal.collections.runtime.Sequence;
 import jetbrains.exodus.core.execution.Job;
 import jetbrains.teamsys.dnq.runtime.txn._Txn;
@@ -223,17 +223,20 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private void handlePerEntityTypeChanges(Where where, TransientEntityChange c) {
-    EntityMetaData emd = ((ModelMetaData) ServiceLocator.getBean("modelMetaData")).getEntityMetaData(c.getTransientEntity().getType());
-    if (emd != null) {
-      for (String type : Sequence.fromIterable(emd.getThisAndSuperTypes())) {
-        Queue<IEntityListener> listeners = null;
-        this.rwl.readLock().lock();
-        try {
-          listeners = this.typeToListeners.get(type);
-        } finally {
-          this.rwl.readLock().unlock();
+    ModelMetaData modelMedatData = (((ModelMetaData) ServiceLocator.getOptionalBean("modelMetaData")));
+    if (modelMedatData != null) {
+      EntityMetaData emd = modelMedatData.getEntityMetaData(c.getTransientEntity().getType());
+      if (emd != null) {
+        for (String type : Sequence.fromIterable(emd.getThisAndSuperTypes())) {
+          Queue<IEntityListener> listeners = null;
+          this.rwl.readLock().lock();
+          try {
+            listeners = this.typeToListeners.get(type);
+          } finally {
+            this.rwl.readLock().unlock();
+          }
+          this.handleChange(where, c, listeners);
         }
-        this.handleChange(where, c, listeners);
       }
     }
   }
