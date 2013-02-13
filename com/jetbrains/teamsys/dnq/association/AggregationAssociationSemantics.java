@@ -127,7 +127,6 @@ public class AggregationAssociationSemantics {
    * @param childToParentLinkName child to parent link name
    * @param child child
    */
-  @SuppressWarnings({"UnusedDeclaration"})
   public static void removeOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
     final Entity entity = TransientStoreUtil.reattach((TransientEntity) child);
     
