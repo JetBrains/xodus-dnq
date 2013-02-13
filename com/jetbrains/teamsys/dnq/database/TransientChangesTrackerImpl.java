@@ -143,6 +143,15 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         properties.add(propertyName);
     }
 
+    void removePropertyChanged(TransientEntity e, String propertyName) {
+        Set<String> properties = entityToChangedProperties.get(e);
+        if (properties != null) {
+            properties.remove(propertyName);
+            if (properties.isEmpty()) {
+                entityToChangedProperties.remove(e);
+            }
+        }
+    }
 
     void entityChanged(TransientEntity e) {
         changedEntities.add(e);

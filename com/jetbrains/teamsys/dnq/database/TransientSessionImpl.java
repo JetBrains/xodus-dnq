@@ -835,10 +835,22 @@ public class TransientSessionImpl implements TransientStoreSession {
         return res;
     }
 
+    @Nullable
     private Comparable getOriginalPropertyValue(TransientEntity e, String propertyName) {
         return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getProperty(propertyName);
     }
 
+    @Nullable
+    private String getOriginalBlobStringValue(TransientEntity e, String blobName) {
+        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getBlobString(blobName);
+    }
+
+    @Nullable
+    private InputStream getOriginalBlobValue(TransientEntity e, String blobName) {
+        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getBlob(blobName);
+    }
+
+    @Nullable
     private Comparable getOriginalLinkValue(TransientEntity e, String linkName) {
         // get from saved changes, if not - from db
         Map<String, LinkChange> linksDetailed = changesTracker.getChangedLinksDetailed(e);
@@ -1072,7 +1084,12 @@ public class TransientSessionImpl implements TransientStoreSession {
             @Override
             public boolean run() {
                 if (e.getPersistentEntity().setProperty(propertyName, propertyNewValue)) {
-                    changesTracker.propertyChanged(e, propertyName);
+                    final Comparable oldValue = getOriginalPropertyValue(e, propertyName);
+                    if (propertyNewValue == oldValue || propertyNewValue.equals(oldValue)) {
+                        changesTracker.removePropertyChanged(e, propertyName);
+                    } else {
+                        changesTracker.propertyChanged(e, propertyName);
+                    }
                     return true;
                 }
                 return false;
@@ -1085,7 +1102,12 @@ public class TransientSessionImpl implements TransientStoreSession {
             @Override
             public boolean run() {
                 if (e.getPersistentEntity().deleteProperty(propertyName)) {
-                    changesTracker.propertyChanged(e, propertyName);
+                    final Comparable oldValue = getOriginalPropertyValue(e, propertyName);
+                    if (oldValue == null) {
+                        changesTracker.removePropertyChanged(e, propertyName);
+                    } else {
+                        changesTracker.propertyChanged(e, propertyName);
+                    }
                     return true;
                 }
                 return false;
@@ -1117,7 +1139,12 @@ public class TransientSessionImpl implements TransientStoreSession {
         return addChange(new MyRunnable() {
             public boolean run() {
                 if (e.getPersistentEntity().setBlobString(blobName, newValue)) {
-                    changesTracker.propertyChanged(e, blobName);
+                    final Comparable oldValue = getOriginalBlobStringValue(e, blobName);
+                    if (newValue == oldValue || newValue.equals(oldValue)) {
+                        changesTracker.removePropertyChanged(e, blobName);
+                    } else {
+                        changesTracker.propertyChanged(e, blobName);
+                    }
                     return true;
                 }
                 return false;
@@ -1129,7 +1156,12 @@ public class TransientSessionImpl implements TransientStoreSession {
         return addChange(new MyRunnable() {
             public boolean run() {
                 if (e.getPersistentEntity().deleteBlob(blobName)) {
-                    changesTracker.propertyChanged(e, blobName);
+                    final InputStream oldValue = getOriginalBlobValue(e, blobName);
+                    if (oldValue == null) {
+                        changesTracker.removePropertyChanged(e, blobName);
+                    } else {
+                        changesTracker.propertyChanged(e, blobName);
+                    }
                     return true;
                 }
                 return false;
