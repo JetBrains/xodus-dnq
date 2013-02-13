@@ -45,6 +45,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return new ReadonlyTransientEntityImpl(getChangeDescription(e), ro, (TransientEntityStore) e.getStore());
     }
 
+    @NotNull
     public Set<TransientEntityChange> getChangesDescription() {
       Set<TransientEntityChange> changesDescription = new HashSetDecorator<TransientEntityChange>();
 
@@ -139,6 +140,9 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     @Override
     public void dispose() {
-        snapshot.abort();
+        if (snapshot != null) {
+            snapshot.abort();
+            snapshot = null;
+        }
     }
 }

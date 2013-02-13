@@ -10,6 +10,7 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.exceptions.PhysicalLayerException;
+import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -140,9 +141,16 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
 
         assertOpen("flush");
-        flushChanges();
-        changes = new QueueDecorator<MyRunnable>();
-        notifyFlushedListeners(initChangesTracker().getChangesDescription());
+
+        if (changes.isEmpty()) {
+            log.trace("Nothing to flush.");
+        } else {
+            flushChanges();
+            changes = new QueueDecorator<MyRunnable>();
+            final TransientChangesTracker oldChangesTracker = changesTracker;
+            this.changesTracker = new TransientChangesTrackerImpl(getSnapshot());
+            notifyFlushedListeners(oldChangesTracker);
+        }
     }
 
     public void commit() {
@@ -685,15 +693,8 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     /**
      * Flushes changes
-     *
-     * @return changed description excluding deleted entities
      */
-    private final void flushChanges() {
-        if (changes.isEmpty()) {
-            log.trace("Nothing to flush.");
-            return;
-        }
-
+    private void flushChanges() {
         beforeFlush();
         checkBeforeSaveChangesConstraints(removeOrphans());
 
@@ -958,8 +959,10 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    private void notifyFlushedListeners(final Set<TransientEntityChange> changes) {
-        if (changes == null || changes.isEmpty()) {
+    private void notifyFlushedListeners(TransientChangesTracker oldChangesTracker) {
+        final Set<TransientEntityChange> changesDescription = oldChangesTracker.getChangesDescription();
+        if (changesDescription.isEmpty()) {
+            oldChangesTracker.dispose();
             return;
         }
 
@@ -970,7 +973,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
             public void visit(TransientStoreSessionListener listener) {
                 try {
-                    listener.flushed(changes);
+                    listener.flushed(changesDescription);
                 } catch (Exception e) {
                     if (log.isErrorEnabled()) {
                         log.error("Exception while inside listener [" + listener + "]", e);
@@ -979,6 +982,21 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
             }
         });
+
+        //explicitly notify EventsMultiplexer - it will dispose changes tracker in async job
+        final EventsMultiplexer ep = EventsMultiplexer.getInstance();
+        if (ep != null) {
+            try {
+                ep.flushed(oldChangesTracker, changesDescription);
+            } catch (Exception e) {
+                if (log.isErrorEnabled()) {
+                    log.error("Exception while inside events multiplexer", e);
+                }
+                oldChangesTracker.dispose();
+            }
+        } else {
+            oldChangesTracker.dispose();
+        }
     }
 
     private void notifyBeforeFlushListeners(final Set<TransientEntityChange> changes) {
