@@ -836,7 +836,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     private Comparable getOriginalPropertyValue(TransientEntity e, String propertyName) {
-        return changesTracker.getSnapshotEntity(e).getProperty(propertyName);
+        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getProperty(propertyName);
     }
 
     private Comparable getOriginalLinkValue(TransientEntity e, String linkName) {
@@ -857,7 +857,8 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
             }
         }
-        return changesTracker.getSnapshotEntity(e).getLink(linkName);
+
+        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getLink(linkName);
     }
 
     private List<Comparable> getIndexFieldsFinalValues(TransientEntity e, Index index) {
