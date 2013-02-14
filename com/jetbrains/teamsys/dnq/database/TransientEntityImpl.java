@@ -416,4 +416,8 @@ class TransientEntityImpl implements TransientEntity {
         return getAddedRemovedLinks(linkNames, true);
     }
 
+    @Override
+    public void setToOne(@NotNull String linkName, @Nullable Entity target) {
+        getAndCheckThreadStoreSession().setToOne(this, linkName, (TransientEntity) target);
+    }
 }

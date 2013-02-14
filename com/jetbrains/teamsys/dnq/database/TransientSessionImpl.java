@@ -1199,29 +1199,32 @@ public class TransientSessionImpl implements TransientStoreSession {
     boolean deleteLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
         return addChange(new MyRunnable() {
             public boolean run() {
-                if (source.getPersistentEntity().deleteLink(linkName, target.getPersistentEntity())) {
-                    changesTracker.linkChanged(source, linkName, target, null, false);
-                    return true;
-                }
-
-                return false;
+                return deleteLinkInternal(source, linkName, target);
             }
         }).run();
+    }
+
+    private boolean deleteLinkInternal(TransientEntity source, String linkName, TransientEntity target) {
+        if (source.getPersistentEntity().deleteLink(linkName, target.getPersistentEntity())) {
+            changesTracker.linkChanged(source, linkName, target, null, false);
+            return true;
+        }
+
+        return false;
     }
 
     void deleteLinks(@NotNull final TransientEntity source, @NotNull final String linkName) {
-        addChange(new MyRunnable() {
+        addChangeAndRun(new MyRunnable() {
             public boolean run() {
+                changesTracker.linksRemoved(source, linkName, source.getLinks(linkName));
                 source.getPersistentEntity().deleteLinks(linkName);
-                //TODO: somehow save that all links was removed
-                changesTracker.entityChanged(source);
                 return true;
             }
-        }).run();
+        });
     }
 
     boolean deleteEntity(@NotNull final TransientEntity e) {
-        return addChange(new MyRunnable() {
+        return addChangeAndRun(new MyRunnable() {
             public boolean run() {
                 // remember index values first
                 final Set<Pair<Index, List<Comparable>>> indexes = getIndexesValuesBeforeDelete(e);
@@ -1231,11 +1234,28 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
                 return true;
             }
-        }).run();
+        });
     }
 
-    void addChangeAndRun(MyRunnable change) {
-        addChange(change).run();
+    void setToOne(@NotNull final TransientEntity source, @NotNull final String linkName, @Nullable final TransientEntity target) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                if (target == null) {
+                    TransientEntity oldTarget = (TransientEntity)source.getLink(linkName);
+                    if (oldTarget != null) {
+                        deleteLinkInternal(source, linkName, oldTarget);
+                    }
+                } else {
+                    source.setLink(linkName, target);
+                }
+                return true;
+            }
+        });
+    }
+
+    public boolean addChangeAndRun(MyRunnable change) {
+        return addChange(change).run();
     }
 
     @Override
@@ -1283,8 +1303,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    interface MyRunnable {
+    public static interface MyRunnable {
         boolean run();
     }
-
 }

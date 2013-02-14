@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator;
@@ -99,9 +100,16 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return addedEntities.contains(e) && removedEntities.contains(e);
     }
 
-    void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add) {
+    void linksRemoved(@NotNull TransientEntity source, @NotNull String linkName, Iterable<Entity> links) {
         entityChanged(source);
 
+        final Pair<Map<String, LinkChange>, LinkChange> lc = getLinkChange(source, linkName);
+        for (Entity entity : links) {
+            lc.getSecond().addRemoved((TransientEntity) entity);
+        }
+    }
+
+    private Pair<Map<String, LinkChange>, LinkChange> getLinkChange(TransientEntity source, String linkName) {
         Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(source);
         if (linksDetailed == null) {
             linksDetailed = new HashMap<String, LinkChange>();
@@ -114,18 +122,16 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
             linksDetailed.put(linkName, lc);
         }
 
-        if (add) {
-            if (oldTarget != null) {
-                lc.addRemoved(oldTarget);
-            }
-            lc.addAdded(target);
-        } else {
-            lc.addRemoved(target);
-        }
+        return new Pair<Map<String, LinkChange>, LinkChange>(linksDetailed, lc);
+    }
 
-        if (lc.getAddedEntitiesSize() == 0 && lc.getRemovedEntitiesSize() == 0) {
-            linksDetailed.remove(linkName);
-            if (linksDetailed.size() == 0) {
+    void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add) {
+        entityChanged(source);
+
+        final Pair<Map<String, LinkChange>, LinkChange> lc = getLinkChange(source, linkName);
+        if (lc.getSecond().getAddedEntitiesSize() == 0 && lc.getSecond().getRemovedEntitiesSize() == 0) {
+            lc.getFirst().remove(linkName);
+            if (lc.getFirst().size() == 0) {
                 entityToChangedLinksDetailed.remove(source);
             }
         }

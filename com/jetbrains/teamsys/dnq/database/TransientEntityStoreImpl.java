@@ -2,7 +2,6 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
-import jetbrains.exodus.core.dataStructures.hash.LongHashMap;
 import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
 import jetbrains.teamsys.dnq.runtime.queries.QueryEngine;

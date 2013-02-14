@@ -21,6 +21,10 @@ public class TransientStoreUtil {
     private static final Log log = LogFactory.getLog(TransientStoreUtil.class);
     private static final LongHashSet POSTPONE_UNIQUE_INDICES = new LongHashSet(10);
 
+    public static TransientStoreSession getCurrentSession(TransientEntity e) {
+        return (TransientStoreSession) e.getStore().getCurrentTransaction();
+    }
+
     public static boolean isPostponeUniqueIndexes() {
         final long id = Thread.currentThread().getId();
         synchronized (POSTPONE_UNIQUE_INDICES) {
