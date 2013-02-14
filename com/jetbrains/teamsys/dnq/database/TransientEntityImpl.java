@@ -214,10 +214,31 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean setLink(@NotNull final String linkName, @NotNull final Entity target) {
+        final AssociationEndMetaData aemd = getAssociationEndMetaData(linkName);
+        if (aemd != null && aemd.getCardinality().isMultiple())
+            throw new IllegalArgumentException("Can not call setLink for multiple association");
+
         return getAndCheckThreadStoreSession().setLink(this, linkName, (TransientEntity) target);
     }
 
+    @Nullable
+    private AssociationEndMetaData getAssociationEndMetaData(String linkName) {
+        final ModelMetaData mmd = store.getModelMetaData();
+        if (mmd != null) {
+            final EntityMetaData emd = mmd.getEntityMetaData(getType());
+            if (emd != null) {
+                return emd.getAssociationEndMetaData(linkName);
+            }
+        }
+
+        return null;
+    }
+
     public boolean addLink(@NotNull final String linkName, @NotNull final Entity target) {
+        final AssociationEndMetaData aemd = getAssociationEndMetaData(linkName);
+        if (aemd != null && !aemd.getCardinality().isMultiple())
+            throw new IllegalArgumentException("Can not call addLink for not multiple association");
+
         return getAndCheckThreadStoreSession().addLink(this, linkName, (TransientEntity) target);
     }
 
