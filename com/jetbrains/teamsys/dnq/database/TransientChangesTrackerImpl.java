@@ -11,7 +11,9 @@ import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Vadim.Gurov
@@ -128,10 +130,19 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add) {
         entityChanged(source);
 
-        final Pair<Map<String, LinkChange>, LinkChange> lc = getLinkChange(source, linkName);
-        if (lc.getSecond().getAddedEntitiesSize() == 0 && lc.getSecond().getRemovedEntitiesSize() == 0) {
-            lc.getFirst().remove(linkName);
-            if (lc.getFirst().size() == 0) {
+        final Pair<Map<String, LinkChange>, LinkChange> pair = getLinkChange(source, linkName);
+        final LinkChange lc = pair.getSecond();
+        if (add) {
+            if (oldTarget != null) {
+                lc.addRemoved(oldTarget);
+            }
+            lc.addAdded(target);
+        } else {
+            lc.addRemoved(target);
+        }
+        if (lc.getAddedEntitiesSize() == 0 && lc.getRemovedEntitiesSize() == 0) {
+            pair.getFirst().remove(linkName);
+            if (pair.getFirst().size() == 0) {
                 entityToChangedLinksDetailed.remove(source);
             }
         }
