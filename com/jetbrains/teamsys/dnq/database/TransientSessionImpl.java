@@ -1172,15 +1172,19 @@ public class TransientSessionImpl implements TransientStoreSession {
     boolean setLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
         return addChange(new MyRunnable() {
             public boolean run() {
-                final TransientEntity oldTarget = (TransientEntity) source.getLink(linkName);
-                if (source.getPersistentEntity().setLink(linkName, target.getPersistentEntity())) {
-                    changesTracker.linkChanged(source, linkName, target, oldTarget, true);
-                    return true;
-                }
-
-                return false;
+                return setLinkInternal(source, linkName, target);
             }
         }).run();
+    }
+
+    private boolean setLinkInternal(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
+        final TransientEntity oldTarget = (TransientEntity) source.getLink(linkName);
+        if (source.getPersistentEntity().setLink(linkName, target.getPersistentEntity())) {
+            changesTracker.linkChanged(source, linkName, target, oldTarget, true);
+            return true;
+        }
+
+        return false;
     }
 
     boolean addLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
@@ -1247,7 +1251,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                         deleteLinkInternal(source, linkName, oldTarget);
                     }
                 } else {
-                    source.setLink(linkName, target);
+                    setLinkInternal(source, linkName, target);
                 }
                 return true;
             }
