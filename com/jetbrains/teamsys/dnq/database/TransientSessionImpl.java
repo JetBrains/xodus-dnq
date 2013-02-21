@@ -75,7 +75,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     @Override
     public int hashCode() {
         if (hashCode == 0) {
-            hashCode = (int)(Math.random()*Integer.MAX_VALUE);
+            hashCode = (int) (Math.random() * Integer.MAX_VALUE);
         }
 
         return hashCode;
@@ -146,7 +146,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             flushChanges();
             changes = new QueueDecorator<MyRunnable>();
 
-            for (TransientEntity r: changesTracker.getRemovedEntities()) {
+            for (TransientEntity r : changesTracker.getRemovedEntities()) {
                 managedEntities.remove(r.getId());
             }
 
@@ -746,7 +746,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     private PersistentStoreTransaction getSnapshot() {
-        return ((PersistentStoreTransaction)getPersistentTransaction()).getSnapshot();
+        return ((PersistentStoreTransaction) getPersistentTransaction()).getSnapshot();
     }
 
     private void flushIndexes() {
@@ -754,41 +754,41 @@ public class TransientSessionImpl implements TransientStoreSession {
             return;
         }
 
-        for (TransientEntity e: changesTracker.getChangedEntities()) {
-                if (!e.isRemoved()) {
-                    // create/update
-                    Set<Index> dirtyIndeces = new HashSetDecorator<Index>();
-                    final Set<String> changedProperties = changesTracker.getChangedProperties(e);
-                    if (changedProperties != null) {
-                        for (String propertyName: changedProperties) {
-                            final Set<Index> indices = getMetadataIndexes(e, propertyName);
-                            if (indices != null) {
-                                dirtyIndeces.addAll(indices);
-                            }
-                        }
-                    }
-
-                    final Map<String, LinkChange> changedLinksDetailed = changesTracker.getChangedLinksDetailed(e);
-                    if (changedLinksDetailed != null) {
-                        for (String propertyName: changedLinksDetailed.keySet()) {
-                            final Set<Index> indices = getMetadataIndexes(e, propertyName);
-                            if (indices != null) {
-                                dirtyIndeces.addAll(indices);
-                            }
-                        }
-                    }
-
-                    for (Index index: dirtyIndeces) {
-                        try {
-                            if (!e.isNew()) {
-                                getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
-                            }
-                            getPersistentTransaction().insertUniqueKey(index, getIndexFieldsFinalValues(e, index), e);
-                        } catch (PhysicalLayerException ex) {
-                            throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
+        for (TransientEntity e : changesTracker.getChangedEntities()) {
+            if (!e.isRemoved()) {
+                // create/update
+                Set<Index> dirtyIndeces = new HashSetDecorator<Index>();
+                final Set<String> changedProperties = changesTracker.getChangedProperties(e);
+                if (changedProperties != null) {
+                    for (String propertyName : changedProperties) {
+                        final Set<Index> indices = getMetadataIndexes(e, propertyName);
+                        if (indices != null) {
+                            dirtyIndeces.addAll(indices);
                         }
                     }
                 }
+
+                final Map<String, LinkChange> changedLinksDetailed = changesTracker.getChangedLinksDetailed(e);
+                if (changedLinksDetailed != null) {
+                    for (String propertyName : changedLinksDetailed.keySet()) {
+                        final Set<Index> indices = getMetadataIndexes(e, propertyName);
+                        if (indices != null) {
+                            dirtyIndeces.addAll(indices);
+                        }
+                    }
+                }
+
+                for (Index index : dirtyIndeces) {
+                    try {
+                        if (!e.isNew()) {
+                            getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
+                        }
+                        getPersistentTransaction().insertUniqueKey(index, getIndexFieldsFinalValues(e, index), e);
+                    } catch (PhysicalLayerException ex) {
+                        throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
+                    }
+                }
+            }
         }
     }
 
@@ -799,7 +799,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         Set<Pair<Index, List<Comparable>>> res = null;
         final EntityMetaData emd = getEntityMetaData(e);
         if (emd != null) {
-            for (Index index: emd.getIndexes()) {
+            for (Index index : emd.getIndexes()) {
                 if (res == null) res = new HashSet<Pair<Index, List<Comparable>>>();
                 res.add(new Pair<Index, List<Comparable>>(index, getIndexFieldsOriginalValues(e, index)));
             }
@@ -825,7 +825,7 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     private List<Comparable> getIndexFieldsOriginalValues(TransientEntity e, Index index) {
         List<Comparable> res = new ArrayList<Comparable>(index.getFields().size());
-        for (IndexField f: index.getFields()) {
+        for (IndexField f : index.getFields()) {
             if (f.isProperty()) {
                 res.add(getOriginalPropertyValue(e, f.getName()));
             } else {
@@ -875,7 +875,7 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     private List<Comparable> getIndexFieldsFinalValues(TransientEntity e, Index index) {
         List<Comparable> res = new ArrayList<Comparable>(index.getFields().size());
-        for (IndexField f: index.getFields()) {
+        for (IndexField f : index.getFields()) {
             if (f.isProperty()) {
                 res.add(e.getProperty(f.getName()));
             } else {
@@ -1059,7 +1059,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         final EntityId entityId = persistent.getId();
         TransientEntity e = managedEntities.get(entityId);
         if (e == null) {
-            e = new TransientEntityImpl((PersistentEntity)persistent, this.getStore());
+            e = new TransientEntityImpl((PersistentEntity) persistent, this.getStore());
             managedEntities.put(entityId, e);
         }
         return e;
@@ -1190,14 +1190,18 @@ public class TransientSessionImpl implements TransientStoreSession {
     boolean addLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
         return addChange(new MyRunnable() {
             public boolean run() {
-                if (source.getPersistentEntity().addLink(linkName, target.getPersistentEntity())) {
-                    changesTracker.linkChanged(source, linkName, target, null, true);
-                    return true;
-                }
-
-                return false;
+                return addLinkInternal(source, linkName, target);
             }
         }).run();
+    }
+
+    private boolean addLinkInternal(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
+        if (source.getPersistentEntity().addLink(linkName, target.getPersistentEntity())) {
+            changesTracker.linkChanged(source, linkName, target, null, true);
+            return true;
+        }
+
+        return false;
     }
 
     boolean deleteLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
@@ -1246,12 +1250,70 @@ public class TransientSessionImpl implements TransientStoreSession {
             @Override
             public boolean run() {
                 if (target == null) {
-                    TransientEntity oldTarget = (TransientEntity)source.getLink(linkName);
+                    TransientEntity oldTarget = (TransientEntity) source.getLink(linkName);
                     if (oldTarget != null) {
                         deleteLinkInternal(source, linkName, oldTarget);
                     }
                 } else {
                     setLinkInternal(source, linkName, target);
+                }
+                return true;
+            }
+        });
+    }
+
+    void setManyToOne(@NotNull final TransientEntity many, @NotNull final String manyToOneLinkName,
+                      @NotNull final String oneToManyLinkName, @Nullable final TransientEntity one) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                final TransientEntity oldOne = (TransientEntity) many.getLink(manyToOneLinkName);
+                if (oldOne != null) {
+                    deleteLinkInternal(oldOne, oneToManyLinkName, many);
+                }
+                if (one != null) {
+                    addLinkInternal(one, oneToManyLinkName, many);
+                    setLinkInternal(many, manyToOneLinkName, one);
+                }
+                return true;
+            }
+        });
+    }
+
+    void clearOneToMany(@NotNull final TransientEntity one, @NotNull final String manyToOneLinkName, @NotNull final String oneToManyLinkName) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                for (final Entity target : one.getLinks(oneToManyLinkName)) {
+                    final TransientEntity many = (TransientEntity) target;
+                    deleteLinkInternal(one, oneToManyLinkName, many);
+                    deleteLinkInternal(many, manyToOneLinkName, one);
+                }
+                return true;
+            }
+        });
+    }
+
+    public void createManyToMany(@NotNull final TransientEntity e1, @NotNull final String e1Toe2LinkName,
+                                 @NotNull final String e2Toe1LinkName, @NotNull final TransientEntity e2) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                addLinkInternal(e1, e1Toe2LinkName, e2);
+                addLinkInternal(e2, e2Toe1LinkName, e1);
+                return true;
+            }
+        });
+    }
+
+    public void clearManyToMany(@NotNull final TransientEntity e1, @NotNull final String e1Toe2LinkName, @NotNull final String e2Toe1LinkName) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                for (final Entity target : e1.getLinks(e1Toe2LinkName)) {
+                    final TransientEntity e2 = (TransientEntity) target;
+                    deleteLinkInternal(e1, e1Toe2LinkName, e2);
+                    deleteLinkInternal(e2, e2Toe1LinkName, e1);
                 }
                 return true;
             }

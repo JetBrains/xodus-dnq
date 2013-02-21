@@ -420,4 +420,39 @@ class TransientEntityImpl implements TransientEntity {
     public void setToOne(@NotNull String linkName, @Nullable Entity target) {
         getAndCheckThreadStoreSession().setToOne(this, linkName, (TransientEntity) target);
     }
+
+    public void setManyToOne(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName, @Nullable Entity one) {
+        final AssociationEndMetaData aemd = getAssociationEndMetaData(oneToManyLinkName);
+        if (aemd != null && !aemd.getCardinality().isMultiple())
+            throw new IllegalArgumentException("Can not call setManyToOne for not multiple association");
+
+        getAndCheckThreadStoreSession().setManyToOne(this, manyToOneLinkName, oneToManyLinkName, (TransientEntity) one);
+    }
+
+    @Override
+    public void clearOneToMany(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName) {
+        final AssociationEndMetaData aemd = getAssociationEndMetaData(oneToManyLinkName);
+        if (aemd != null && !aemd.getCardinality().isMultiple())
+            throw new IllegalArgumentException("Can not call clearOneToMany for not multiple association");
+
+        getAndCheckThreadStoreSession().clearOneToMany(this, manyToOneLinkName, oneToManyLinkName);
+    }
+
+    @Override
+    public void createManyToMany(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @NotNull Entity e2) {
+        final AssociationEndMetaData aemd = getAssociationEndMetaData(e1Toe2LinkName);
+        if (aemd != null && !aemd.getCardinality().isMultiple())
+            throw new IllegalArgumentException("Can not call createManyToMany for not multiple association");
+
+        getAndCheckThreadStoreSession().createManyToMany(this, e1Toe2LinkName, e2Toe1LinkName, (TransientEntity) e2);
+    }
+
+    @Override
+    public void clearManyToMany(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName) {
+        final AssociationEndMetaData aemd = getAssociationEndMetaData(e1Toe2LinkName);
+        if (aemd != null && !aemd.getCardinality().isMultiple())
+            throw new IllegalArgumentException("Can not call createManyToMany for not multiple association");
+
+        getAndCheckThreadStoreSession().clearManyToMany(this, e1Toe2LinkName, e2Toe1LinkName);
+    }
 }
