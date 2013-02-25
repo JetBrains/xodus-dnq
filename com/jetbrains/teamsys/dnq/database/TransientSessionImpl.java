@@ -428,12 +428,12 @@ public class TransientSessionImpl implements TransientStoreSession {
     public void clearHistory(@NotNull final String entityType) {
         assertOpen("clear history");
 
-        addChange(new MyRunnable() {
+        addChangeAndRun(new MyRunnable() {
             public boolean run() {
                 getPersistentTransaction().clearHistory(entityType);
                 return true;
             }
-        }).run();
+        });
     }
 
     @NotNull
@@ -820,9 +820,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    void deleteIndexes(TransientEntity e) {
-    }
-
     private List<Comparable> getIndexFieldsOriginalValues(TransientEntity e, Index index) {
         List<Comparable> res = new ArrayList<Comparable>(index.getFields().size());
         for (IndexField f : index.getFields()) {
@@ -1080,7 +1077,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     boolean setProperty(@NotNull final TransientEntity e, @NotNull final String propertyName, @NotNull final Comparable propertyNewValue) {
-        return addChange(new MyRunnable() {
+        return addChangeAndRun(new MyRunnable() {
             @Override
             public boolean run() {
                 if (e.getPersistentEntity().setProperty(propertyName, propertyNewValue)) {
@@ -1094,11 +1091,11 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
                 return false;
             }
-        }).run();
+        });
     }
 
     boolean deleteProperty(@NotNull final TransientEntity e, @NotNull final String propertyName) {
-        return addChange(new MyRunnable() {
+        return addChangeAndRun(new MyRunnable() {
             @Override
             public boolean run() {
                 if (e.getPersistentEntity().deleteProperty(propertyName)) {
@@ -1112,31 +1109,31 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
                 return false;
             }
-        }).run();
+        });
     }
 
     void setBlob(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final InputStream file) {
-        addChange(new MyRunnable() {
+        addChangeAndRun(new MyRunnable() {
             public boolean run() {
                 e.getPersistentEntity().setBlob(blobName, file);
                 changesTracker.propertyChanged(e, blobName);
                 return true;
             }
-        }).run();
+        });
     }
 
     void setBlob(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final File file) {
-        addChange(new MyRunnable() {
+        addChangeAndRun(new MyRunnable() {
             public boolean run() {
                 e.getPersistentEntity().setBlob(blobName, file);
                 changesTracker.propertyChanged(e, blobName);
                 return true;
             }
-        }).run();
+        });
     }
 
     boolean setBlobString(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final String newValue) {
-        return addChange(new MyRunnable() {
+        return addChangeAndRun(new MyRunnable() {
             public boolean run() {
                 if (e.getPersistentEntity().setBlobString(blobName, newValue)) {
                     final Comparable oldValue = getOriginalBlobStringValue(e, blobName);
@@ -1149,11 +1146,11 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
                 return false;
             }
-        }).run();
+        });
     }
 
     boolean deleteBlob(@NotNull final TransientEntity e, @NotNull final String blobName) {
-        return addChange(new MyRunnable() {
+        return addChangeAndRun(new MyRunnable() {
             public boolean run() {
                 if (e.getPersistentEntity().deleteBlob(blobName)) {
                     final InputStream oldValue = getOriginalBlobValue(e, blobName);
@@ -1166,15 +1163,15 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
                 return false;
             }
-        }).run();
+        });
     }
 
     boolean setLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
-        return addChange(new MyRunnable() {
+        return addChangeAndRun(new MyRunnable() {
             public boolean run() {
                 return setLinkInternal(source, linkName, target);
             }
-        }).run();
+        });
     }
 
     private boolean setLinkInternal(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
@@ -1188,11 +1185,11 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     boolean addLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
-        return addChange(new MyRunnable() {
+        return addChangeAndRun(new MyRunnable() {
             public boolean run() {
                 return addLinkInternal(source, linkName, target);
             }
-        }).run();
+        });
     }
 
     private boolean addLinkInternal(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
@@ -1205,11 +1202,11 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     boolean deleteLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
-        return addChange(new MyRunnable() {
+        return addChangeAndRun(new MyRunnable() {
             public boolean run() {
                 return deleteLinkInternal(source, linkName, target);
             }
-        }).run();
+        });
     }
 
     private boolean deleteLinkInternal(TransientEntity source, String linkName, TransientEntity target) {
