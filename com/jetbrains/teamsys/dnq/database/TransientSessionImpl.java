@@ -885,7 +885,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     @Nullable
     private Set<Index> getMetadataIndexes(TransientEntity e, String field) {
         EntityMetaData md = getEntityMetaData(e);
-        return md == null ? null : md.getIndexes();
+        return md == null ? null : md.getIndexes(field);
     }
 
     @Nullable
