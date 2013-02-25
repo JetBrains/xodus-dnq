@@ -1320,6 +1320,32 @@ public class TransientSessionImpl implements TransientStoreSession {
         });
     }
 
+    public void setOneToOne(@NotNull final TransientEntityImpl e1, @NotNull final String e1Toe2LinkName,
+                            @NotNull final String e2Toe1LinkName, @Nullable final TransientEntity e2) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                final TransientEntity prevE2 = (TransientEntity) e1.getLink(e1Toe2LinkName);
+                if (prevE2 != null) {
+                    if (prevE2.equals(e2)) {
+                        return true;
+                    }
+                    deleteLinkInternal(prevE2, e2Toe1LinkName, e1);
+                    deleteLinkInternal(e1, e1Toe2LinkName, prevE2);
+                }
+                if (e2 != null) {
+                    final TransientEntity prevE1 = (TransientEntity) e2.getLink(e2Toe1LinkName);
+                    if (prevE1 != null) {
+                        deleteLinkInternal(prevE1, e1Toe2LinkName, e2);
+                    }
+                    setLinkInternal(e1, e1Toe2LinkName, e2);
+                    setLinkInternal(e2, e2Toe1LinkName, e1);
+                }
+                return true;
+            }
+        });
+    }
+
     public boolean addChangeAndRun(MyRunnable change) {
         return addChange(change).run();
     }

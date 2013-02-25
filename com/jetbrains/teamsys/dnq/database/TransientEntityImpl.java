@@ -455,4 +455,9 @@ class TransientEntityImpl implements TransientEntity {
 
         getAndCheckThreadStoreSession().clearManyToMany(this, e1Toe2LinkName, e2Toe1LinkName);
     }
+
+    @Override
+    public void setOneToOne(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @Nullable Entity e2) {
+        getAndCheckThreadStoreSession().setOneToOne(this, e1Toe2LinkName, e2Toe1LinkName, (TransientEntity) e2);
+    }
 }

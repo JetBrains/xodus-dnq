@@ -25,29 +25,11 @@ public class UndirectedAssociationSemantics {
     public static void setOneToOne(@Nullable Entity e1, @NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @Nullable Entity e2) {
         if (e1 == null && e2 == null) {
             throw new IllegalArgumentException("Both entities can't be null.");
-        } else if (e1 == null && e2 != null) {
-            // e2.e2Toe1LinkName = null;
-            e1 = AssociationSemantics.getToOne(e2, e2Toe1LinkName);
-
-            // e1 == null means there was no association between e1 and e2
-            if (e1 != null) {
-                DirectedAssociationSemantics.setToOne(e1, e1Toe2LinkName, null);
-                DirectedAssociationSemantics.setToOne(e2, e2Toe1LinkName, null);
-            }
-        } else if (e1 != null && e2 == null) {
-            // e1.e1Toe1LinkName = null;
-
-            e2 = AssociationSemantics.getToOne(e1, e1Toe2LinkName);
-
-            // e2 == null means there was no association between e1 and e2
-            if (e2 != null) {
-                DirectedAssociationSemantics.setToOne(e1, e1Toe2LinkName, null);
-                DirectedAssociationSemantics.setToOne(e2, e2Toe1LinkName, null);
-            }
+        }
+        if (e1 == null) {
+            ((TransientEntity) e2).setOneToOne(e2Toe1LinkName, e1Toe2LinkName, e1);
         } else {
-            // e1.e1Toe2LinkName = e2 or e2.e2Toe1LinkName = e1
-            DirectedAssociationSemantics.setToOne(e1, e1Toe2LinkName, e2);
-            DirectedAssociationSemantics.setToOne(e2, e2Toe1LinkName, e1);
+            ((TransientEntity) e1).setOneToOne(e1Toe2LinkName, e2Toe1LinkName, e2);
         }
     }
 
