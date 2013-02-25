@@ -54,9 +54,7 @@ public class UndirectedAssociationSemantics {
      * @param manyToOneLinkName
      */
     public static void removeOneToMany(@NotNull Entity one, @NotNull String oneToManyLinkName, @NotNull String manyToOneLinkName, @NotNull Entity many) {
-        //one.oneToManyLinkName.remove(many)
-        DirectedAssociationSemantics.removeToMany(one, oneToManyLinkName, many);
-        DirectedAssociationSemantics.setToOne(many, manyToOneLinkName, null);
+        ((TransientEntity) one).removeOneToMany(manyToOneLinkName, oneToManyLinkName, many);
     }
 
     /**

@@ -1346,6 +1346,21 @@ public class TransientSessionImpl implements TransientStoreSession {
         });
     }
 
+    public void removeOneToMany(@NotNull final TransientEntityImpl one, @NotNull final String manyToOneLinkName,
+                                @NotNull final String oneToManyLinkName, @NotNull final TransientEntity many) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                final TransientEntity oldOne = (TransientEntity) many.getLink(manyToOneLinkName);
+                if (one.equals(oldOne)) {
+                    deleteLinkInternal(many, manyToOneLinkName, oldOne);
+                }
+                deleteLinkInternal(one, oneToManyLinkName, many);
+                return true;
+            }
+        });
+    }
+
     public boolean addChangeAndRun(MyRunnable change) {
         return addChange(change).run();
     }
