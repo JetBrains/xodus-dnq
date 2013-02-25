@@ -24,6 +24,9 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     protected static final Log log = LogFactory.getLog(TransientSessionImpl.class);
 
+    private static final String CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__";
+    private static final String PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__";
+
     protected TransientEntityStoreImpl store;
     protected int flushRetryOnVersionMismatch;
     protected State state;
@@ -1076,40 +1079,50 @@ public class TransientSessionImpl implements TransientStoreSession {
         });
     }
 
-    boolean setProperty(@NotNull final TransientEntity e, @NotNull final String propertyName, @NotNull final Comparable propertyNewValue) {
+    boolean setProperty(@NotNull final TransientEntity e, @NotNull final String propertyName,
+                        @NotNull final Comparable propertyNewValue) {
         return addChangeAndRun(new MyRunnable() {
             @Override
             public boolean run() {
-                if (e.getPersistentEntity().setProperty(propertyName, propertyNewValue)) {
-                    final Comparable oldValue = getOriginalPropertyValue(e, propertyName);
-                    if (propertyNewValue == oldValue || propertyNewValue.equals(oldValue)) {
-                        changesTracker.removePropertyChanged(e, propertyName);
-                    } else {
-                        changesTracker.propertyChanged(e, propertyName);
-                    }
-                    return true;
-                }
-                return false;
+                return setPropertyInternal(e, propertyName, propertyNewValue);
             }
         });
+    }
+
+    private boolean setPropertyInternal(@NotNull final TransientEntity e, @NotNull final String propertyName,
+                                        @NotNull final Comparable propertyNewValue) {
+        if (e.getPersistentEntity().setProperty(propertyName, propertyNewValue)) {
+            final Comparable oldValue = getOriginalPropertyValue(e, propertyName);
+            if (propertyNewValue == oldValue || propertyNewValue.equals(oldValue)) {
+                changesTracker.removePropertyChanged(e, propertyName);
+            } else {
+                changesTracker.propertyChanged(e, propertyName);
+            }
+            return true;
+        }
+        return false;
     }
 
     boolean deleteProperty(@NotNull final TransientEntity e, @NotNull final String propertyName) {
         return addChangeAndRun(new MyRunnable() {
             @Override
             public boolean run() {
-                if (e.getPersistentEntity().deleteProperty(propertyName)) {
-                    final Comparable oldValue = getOriginalPropertyValue(e, propertyName);
-                    if (oldValue == null) {
-                        changesTracker.removePropertyChanged(e, propertyName);
-                    } else {
-                        changesTracker.propertyChanged(e, propertyName);
-                    }
-                    return true;
-                }
-                return false;
+                return deletePropertyInternal(e, propertyName);
             }
         });
+    }
+
+    private boolean deletePropertyInternal(@NotNull final TransientEntity e, @NotNull final String propertyName) {
+        if (e.getPersistentEntity().deleteProperty(propertyName)) {
+            final Comparable oldValue = getOriginalPropertyValue(e, propertyName);
+            if (oldValue == null) {
+                changesTracker.removePropertyChanged(e, propertyName);
+            } else {
+                changesTracker.propertyChanged(e, propertyName);
+            }
+            return true;
+        }
+        return false;
     }
 
     void setBlob(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final InputStream file) {
@@ -1353,6 +1366,64 @@ public class TransientSessionImpl implements TransientStoreSession {
                     deleteLinkInternal(many, manyToOneLinkName, oldOne);
                 }
                 deleteLinkInternal(one, oneToManyLinkName, many);
+                return true;
+            }
+        });
+    }
+
+    public void removeFromParent(@NotNull final TransientEntity child, @NotNull final String parentToChildLinkName,
+                                 @NotNull final String childToParentLinkName) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                final TransientEntity parent = (TransientEntity) child.getLink(childToParentLinkName);
+                if (parent != null) { // may be changed or removed
+                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, child);
+                }
+                return true;
+            }
+        });
+    }
+
+    public void removeChild(@NotNull final TransientEntityImpl parent, @NotNull final String parentToChildLinkName,
+                            @NotNull final String childToParentLinkName) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                final TransientEntity child = (TransientEntity) parent.getLink(parentToChildLinkName);
+                if (child != null) { // may be changed or removed
+                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, child);
+                }
+                return true;
+            }
+        });
+    }
+
+    private void removeChildFromParentInternal(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName,
+                                               @NotNull final String childToParentLinkName, @NotNull final TransientEntity child) {
+        deleteLinkInternal(parent, parentToChildLinkName, child);
+        deleteLinkInternal(child, childToParentLinkName, parent);
+        deletePropertyInternal(child, PARENT_TO_CHILD_LINK_NAME);
+        deletePropertyInternal(child, CHILD_TO_PARENT_LINK_NAME);
+    }
+
+    public void setChild(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName,
+                         @NotNull final String childToParentLinkName, @NotNull final TransientEntity child) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                final TransientEntity oldChild = (TransientEntity) parent.getLink(parentToChildLinkName);
+                if (oldChild != null) {
+                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, oldChild);
+                }
+                final TransientEntity oldParent = (TransientEntity) child.getLink(childToParentLinkName);
+                if (oldParent != null) {
+                    deleteLinkInternal(oldParent, parentToChildLinkName, child);
+                }
+                setLinkInternal(parent, parentToChildLinkName, child);
+                setLinkInternal(child, childToParentLinkName, parent);
+                setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName);
+                setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName);
                 return true;
             }
         });

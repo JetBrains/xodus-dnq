@@ -465,4 +465,19 @@ class TransientEntityImpl implements TransientEntity {
     public void removeOneToMany(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName, @NotNull Entity many) {
         getAndCheckThreadStoreSession().removeOneToMany(this, manyToOneLinkName, oneToManyLinkName, (TransientEntity) many);
     }
+
+    @Override
+    public void removeFromParent(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName) {
+        getAndCheckThreadStoreSession().removeFromParent(this, parentToChildLinkName, childToParentLinkName);
+    }
+
+    @Override
+    public void removeChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName) {
+        getAndCheckThreadStoreSession().removeChild(this, parentToChildLinkName, childToParentLinkName);
+    }
+
+    @Override
+    public void setChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
+        getAndCheckThreadStoreSession().setChild(this, parentToChildLinkName, childToParentLinkName, (TransientEntity)child);
+    }
 }
