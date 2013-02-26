@@ -1422,9 +1422,22 @@ public class TransientSessionImpl implements TransientStoreSession {
                 if (oldChild != null) {
                     removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, oldChild);
                 }
-                final TransientEntity oldParent = (TransientEntity) child.getLink(childToParentLinkName);
-                if (oldParent != null) {
-                    deleteLinkInternal(oldParent, parentToChildLinkName, child);
+                final String oldChildToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
+                if (oldChildToParentLinkName != null) {
+                    if (childToParentLinkName.equals(oldChildToParentLinkName)) {
+                        final TransientEntity oldParent = (TransientEntity) child.getLink(childToParentLinkName);
+                        if (oldParent != null) {
+                            // child to parent link will be owerwritten, so don't delete it directly
+                            deleteLinkInternal(oldParent, parentToChildLinkName, child);
+                        }
+                    } else {
+                        final TransientEntity oldParent = (TransientEntity) child.getLink(oldChildToParentLinkName);
+                        if (oldParent != null) {
+                            final String oldParentToChildLinkName = (String) child.getProperty(PARENT_TO_CHILD_LINK_NAME);
+                            deleteLinkInternal(oldParent, oldParentToChildLinkName == null ? parentToChildLinkName : oldParentToChildLinkName, child);
+                            deleteLinkInternal(child, oldChildToParentLinkName, oldParent);
+                        }
+                    }
                 }
                 setLinkInternal(parent, parentToChildLinkName, child);
                 setLinkInternal(child, childToParentLinkName, parent);
