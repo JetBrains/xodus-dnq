@@ -592,7 +592,6 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     /**
      * Checks constraints before save changes
-     *
      */
     private void checkBeforeSaveChangesConstraints() {
         final Set<DataIntegrityViolationException> exceptions = removeOrphans();
