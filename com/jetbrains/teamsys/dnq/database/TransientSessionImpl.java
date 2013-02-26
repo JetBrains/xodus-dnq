@@ -593,9 +593,10 @@ public class TransientSessionImpl implements TransientStoreSession {
     /**
      * Checks constraints before save changes
      *
-     * @param exceptions resulting errors set
      */
-    private void checkBeforeSaveChangesConstraints(@NotNull final Set<DataIntegrityViolationException> exceptions) {
+    private void checkBeforeSaveChangesConstraints() {
+        final Set<DataIntegrityViolationException> exceptions = removeOrphans();
+
         final ModelMetaData modelMetaData = store.getModelMetaData();
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
@@ -703,7 +704,7 @@ public class TransientSessionImpl implements TransientStoreSession {
      */
     private void flushChanges() {
         beforeFlush();
-        checkBeforeSaveChangesConstraints(removeOrphans());
+        checkBeforeSaveChangesConstraints();
 
         notifyBeforeFlushAfterConstraintsCheckListeners();
 
@@ -732,7 +733,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                     // replay changes
                     replayChanges();
                     //recheck constraints against new database root
-                    checkBeforeSaveChangesConstraints(removeOrphans());
+                    checkBeforeSaveChangesConstraints();
                 } else {
                     break;
                 }
