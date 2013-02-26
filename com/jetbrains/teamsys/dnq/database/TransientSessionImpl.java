@@ -477,7 +477,8 @@ public class TransientSessionImpl implements TransientStoreSession {
                             log.debug("Remove orphan: " + e);
                         }
 
-                        EntityOperations.remove(e);
+                        // we don't want this change to be repeated on flush
+                        deleteEntityInternal(e);
                     } else {
                         // has no parent, but orphans shouldn't be removed automatically - exception
                         orphans.add(new OrphanChildException(e, emd.getAggregationChildEnds()));
@@ -1244,15 +1245,19 @@ public class TransientSessionImpl implements TransientStoreSession {
     boolean deleteEntity(@NotNull final TransientEntity e) {
         return addChangeAndRun(new MyRunnable() {
             public boolean run() {
-                // remember index values first
-                final Set<Pair<Index, List<Comparable>>> indexes = getIndexesValuesBeforeDelete(e);
-                if (e.getPersistentEntity().delete()) {
-                    deleteIndexes(e, indexes);
-                    changesTracker.entityRemoved(e);
-                }
-                return true;
+                return deleteEntityInternal(e);
             }
         });
+    }
+
+    private boolean deleteEntityInternal(@NotNull final TransientEntity e) {
+        // remember index values first
+        final Set<Pair<Index, List<Comparable>>> indexes = getIndexesValuesBeforeDelete(e);
+        if (e.getPersistentEntity().delete()) {
+            deleteIndexes(e, indexes);
+            changesTracker.entityRemoved(e);
+        }
+        return true;
     }
 
     void setToOne(@NotNull final TransientEntity source, @NotNull final String linkName, @Nullable final TransientEntity target) {
