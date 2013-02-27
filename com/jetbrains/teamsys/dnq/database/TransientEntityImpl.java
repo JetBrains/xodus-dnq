@@ -480,4 +480,19 @@ class TransientEntityImpl implements TransientEntity {
     public void setChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
         getAndCheckThreadStoreSession().setChild(this, parentToChildLinkName, childToParentLinkName, (TransientEntity)child);
     }
+
+    @Override
+    public void clearChildren(@NotNull String parentToChildLinkName) {
+        getAndCheckThreadStoreSession().clearChildren(this, parentToChildLinkName);
+    }
+
+    @Override
+    public void addChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
+        getAndCheckThreadStoreSession().addChild(this, parentToChildLinkName, childToParentLinkName, (TransientEntity)child);
+    }
+
+    @Override
+    public Entity getParent() {
+        return getAndCheckThreadStoreSession().getParent(this);
+    }
 }

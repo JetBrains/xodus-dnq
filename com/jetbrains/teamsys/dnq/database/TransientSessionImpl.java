@@ -1405,11 +1405,13 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     private void removeChildFromParentInternal(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName,
-                                               @NotNull final String childToParentLinkName, @NotNull final TransientEntity child) {
+                                               @Nullable final String childToParentLinkName, @NotNull final TransientEntity child) {
         deleteLinkInternal(parent, parentToChildLinkName, child);
-        deleteLinkInternal(child, childToParentLinkName, parent);
         deletePropertyInternal(child, PARENT_TO_CHILD_LINK_NAME);
-        deletePropertyInternal(child, CHILD_TO_PARENT_LINK_NAME);
+        if (childToParentLinkName != null) {
+            deleteLinkInternal(child, childToParentLinkName, parent);
+            deletePropertyInternal(child, CHILD_TO_PARENT_LINK_NAME);
+        }
     }
 
     public void setChild(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName,
@@ -1417,34 +1419,83 @@ public class TransientSessionImpl implements TransientStoreSession {
         addChangeAndRun(new MyRunnable() {
             @Override
             public boolean run() {
-                final TransientEntity oldChild = (TransientEntity) parent.getLink(parentToChildLinkName);
-                if (oldChild != null) {
-                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, oldChild);
-                }
-                final String oldChildToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
-                if (oldChildToParentLinkName != null) {
-                    if (childToParentLinkName.equals(oldChildToParentLinkName)) {
-                        final TransientEntity oldParent = (TransientEntity) child.getLink(childToParentLinkName);
-                        if (oldParent != null) {
-                            // child to parent link will be owerwritten, so don't delete it directly
-                            deleteLinkInternal(oldParent, parentToChildLinkName, child);
-                        }
-                    } else {
-                        final TransientEntity oldParent = (TransientEntity) child.getLink(oldChildToParentLinkName);
-                        if (oldParent != null) {
-                            final String oldParentToChildLinkName = (String) child.getProperty(PARENT_TO_CHILD_LINK_NAME);
-                            deleteLinkInternal(oldParent, oldParentToChildLinkName == null ? parentToChildLinkName : oldParentToChildLinkName, child);
-                            deleteLinkInternal(child, oldChildToParentLinkName, oldParent);
-                        }
+                if (removeChildFromCurrentParentInternal(child, childToParentLinkName, parentToChildLinkName, parent)) {
+                    final TransientEntity oldChild = (TransientEntity) parent.getLink(parentToChildLinkName);
+                    if (oldChild != null) {
+                        removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, oldChild);
                     }
+                    setLinkInternal(parent, parentToChildLinkName, child);
+                    setLinkInternal(child, childToParentLinkName, parent);
+                    setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName);
+                    setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName);
                 }
-                setLinkInternal(parent, parentToChildLinkName, child);
-                setLinkInternal(child, childToParentLinkName, parent);
-                setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName);
-                setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName);
                 return true;
             }
         });
+    }
+
+    private boolean removeChildFromCurrentParentInternal(@NotNull final TransientEntity child, @NotNull final String childToParentLinkName,
+                                                         @NotNull final String parentToChildLinkName, @NotNull final TransientEntity newParent) {
+        final String oldChildToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
+        if (oldChildToParentLinkName != null) {
+            if (childToParentLinkName.equals(oldChildToParentLinkName)) {
+                final TransientEntity oldParent = (TransientEntity) child.getLink(childToParentLinkName);
+                if (oldParent != null) {
+                    if (oldParent.equals(newParent)) {
+                        return false;
+                    }
+                    // child to parent link will be owerwritten, so don't delete it directly
+                    deleteLinkInternal(oldParent, parentToChildLinkName, child);
+                }
+            } else {
+                final TransientEntity oldParent = (TransientEntity) child.getLink(oldChildToParentLinkName);
+                if (oldParent != null) {
+                    final String oldParentToChildLinkName = (String) child.getProperty(PARENT_TO_CHILD_LINK_NAME);
+                    deleteLinkInternal(oldParent, oldParentToChildLinkName == null ? parentToChildLinkName : oldParentToChildLinkName, child);
+                    deleteLinkInternal(child, oldChildToParentLinkName, oldParent);
+                }
+            }
+        }
+        return true;
+    }
+
+    public void clearChildren(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                for (final Entity child : parent.getLinks(parentToChildLinkName)) {
+                    final String childToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
+                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, (TransientEntity) child);
+                }
+                return true;
+            }
+        });
+    }
+
+    public void addChild(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName,
+                         @NotNull final String childToParentLinkName, @NotNull final TransientEntity child) {
+        addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                if (removeChildFromCurrentParentInternal(child, childToParentLinkName, parentToChildLinkName, parent)) {
+                    addLinkInternal(parent, parentToChildLinkName, child);
+                    setLinkInternal(child, childToParentLinkName, parent);
+                    setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName);
+                    setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName);
+                }
+                return true;
+            }
+        });
+    }
+
+    public Entity getParent(@NotNull final TransientEntity child) {
+        final String childToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
+
+        if (childToParentLinkName == null) {
+            return null;
+        }
+
+        return child.getLink(childToParentLinkName);
     }
 
     public boolean addChangeAndRun(MyRunnable change) {
