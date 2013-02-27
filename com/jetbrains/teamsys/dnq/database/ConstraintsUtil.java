@@ -14,7 +14,6 @@ import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
