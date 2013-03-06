@@ -48,9 +48,9 @@ public abstract class BasePersistentClassImpl implements Runnable {
         for (IncomingLinkViolation violation : linkViolations) {
             linkDescriptions.add(violation.getDescription());
         }
-        //final String header = "Could not delete " + getDisplayName(entity.getHistory().get(0)) + ", because it is referenced as:";
-        final String header = "Could not delete " + getDisplayName(entity) + ", because it is referenced as: ";
-        return new CantRemoveEntityException(entity, header, linkDescriptions);
+        final String displayName = getDisplayName(entity);
+        final String header = "Could not delete " + displayName + ", because it is referenced as: ";
+        return new CantRemoveEntityException(entity, header, displayName, linkDescriptions);
     }
 
     public IncomingLinkViolation createIncomingLinkViolation(String linkName) {
