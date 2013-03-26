@@ -30,6 +30,11 @@ class TransientEntityImpl implements TransientEntity {
         getAndCheckThreadStoreSession().createEntity(this, type);
     }
 
+    TransientEntityImpl(@NotNull EntityCreator creator, @NotNull TransientEntityStore store) {
+        this.store = store;
+        getAndCheckThreadStoreSession().createEntity(this, creator);
+    }
+
     TransientEntityImpl(@NotNull PersistentEntity persistentEntity, @NotNull TransientEntityStore store) {
         this.store = store;
         setPersistentEntity(persistentEntity);

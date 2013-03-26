@@ -36,6 +36,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected Map<EntityId, TransientEntity> managedEntities;
     private Queue<MyRunnable> changes = new QueueDecorator<MyRunnable>();
     private int hashCode = 0;
+    private boolean allowRunnables = true;
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store) {
         this.store = store;
@@ -499,9 +500,18 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public Entity newEntity(@NotNull final String entityType) {
         assertOpen("create entity");
-        final TransientEntity e = new TransientEntityImpl(entityType, this.getStore());
-        managedEntities.put(e.getId(), e);
-        return e;
+        return new TransientEntityImpl(entityType, this.getStore());
+    }
+
+    @NotNull
+    @Override
+    public TransientEntity newEntity(@NotNull final EntityCreator creator) {
+        final Entity found = creator.find();
+        if (found != null) {
+            addEntityCreator((TransientEntityImpl) found, creator);
+            return (TransientEntity) found;
+        }
+        return new TransientEntityImpl(creator, this.getStore());
     }
 
     /**
@@ -1069,11 +1079,61 @@ public class TransientSessionImpl implements TransientStoreSession {
     void createEntity(@NotNull final TransientEntityImpl e, @NotNull String type) {
         final PersistentEntity persistentEntity = (PersistentEntity) getPersistentTransaction().newEntity(type);
         e.setPersistentEntity(persistentEntity);
+        managedEntities.put(e.getId(), e);
         changesTracker.entityAdded(e);
-
         addChange(new MyRunnable() {
             public boolean run() {
-                getPersistentTransaction().saveEntity(persistentEntity);
+                return saveEntityInternal(persistentEntity, e);
+            }
+        });
+    }
+
+    private boolean saveEntityInternal(@NotNull final PersistentEntity persistentEntity, @NotNull final TransientEntityImpl e) {
+        getPersistentTransaction().saveEntity(persistentEntity);
+        changesTracker.entityAdded(e);
+        return true;
+    }
+
+    void createEntity(@NotNull final TransientEntityImpl e, @NotNull final EntityCreator creator) {
+        final PersistentEntity persistentEntity = (PersistentEntity) getPersistentTransaction().newEntity(creator.getType());
+        e.setPersistentEntity(persistentEntity);
+        addChange(new MyRunnable() {
+            @Override
+            public boolean run() {
+                final Entity found = creator.find();
+                if (found == null) {
+                    return saveEntityInternal(persistentEntity, e);
+                }
+                e.setPersistentEntity(((TransientEntityImpl) found).getPersistentEntity());
+                return false;
+            }
+        });
+        managedEntities.put(e.getId(), e);
+        changesTracker.entityAdded(e);
+        try {
+            allowRunnables = false;
+            creator.created(e);
+        } finally {
+            allowRunnables = true;
+        }
+    }
+
+    private void addEntityCreator(@NotNull final TransientEntityImpl e, @NotNull final EntityCreator creator) {
+        addChange(new MyRunnable() {
+            @Override
+            public boolean run() {
+                final Entity found = creator.find();
+                if (found != null) {
+                    if (!found.equals(e)) {
+                        // update existing entity
+                        e.setPersistentEntity(((TransientEntityImpl) found).getPersistentEntity());
+                    }
+                    return false;
+                }
+                // somebody deleted our (initially found) entity! we need to create some again
+                final PersistentEntity persistentEntity = (PersistentEntity) getPersistentTransaction().newEntity(creator.getType());
+                creator.created(newEntity(persistentEntity));
+                e.setPersistentEntity(persistentEntity);
                 changesTracker.entityAdded(e);
                 return true;
             }
@@ -1531,7 +1591,9 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     MyRunnable addChange(@NotNull final MyRunnable change) {
-        changes.offer(change);
+        if (allowRunnables) {
+            changes.offer(change);
+        }
         return change;
     }
 
