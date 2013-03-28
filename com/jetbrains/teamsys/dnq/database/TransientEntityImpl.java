@@ -230,18 +230,22 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean setLink(@NotNull final String linkName, @NotNull final Entity target) {
-        final AssociationEndMetaData aemd = getAssociationEndMetaData(linkName);
-        if (aemd != null && aemd.getCardinality().isMultiple())
-            throw new IllegalArgumentException("Can not call setLink for multiple association");
+        checkCardinality(linkName, this);
 
         return getAndCheckThreadStoreSession().setLink(this, linkName, (TransientEntity) target);
     }
 
+    private void checkCardinality(@NotNull String oneToManyLinkName, @NotNull Entity entity) {
+        final AssociationEndMetaData aemd = getAssociationEndMetaData(oneToManyLinkName, entity);
+        if (aemd != null && !aemd.getCardinality().isMultiple())
+            throw new IllegalArgumentException("Can not call this opperation for non-multiple association");
+    }
+
     @Nullable
-    private AssociationEndMetaData getAssociationEndMetaData(String linkName) {
+    private AssociationEndMetaData getAssociationEndMetaData(@NotNull String linkName, @NotNull Entity entity) {
         final ModelMetaData mmd = store.getModelMetaData();
         if (mmd != null) {
-            final EntityMetaData emd = mmd.getEntityMetaData(getType());
+            final EntityMetaData emd = mmd.getEntityMetaData(entity.getType());
             if (emd != null) {
                 return emd.getAssociationEndMetaData(linkName);
             }
@@ -251,9 +255,7 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public boolean addLink(@NotNull final String linkName, @NotNull final Entity target) {
-        final AssociationEndMetaData aemd = getAssociationEndMetaData(linkName);
-        if (aemd != null && !aemd.getCardinality().isMultiple())
-            throw new IllegalArgumentException("Can not call addLink for not multiple association");
+        checkCardinality(linkName, this);
 
         return getAndCheckThreadStoreSession().addLink(this, linkName, (TransientEntity) target);
     }
@@ -438,36 +440,30 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     public void setManyToOne(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName, @Nullable Entity one) {
-        final AssociationEndMetaData aemd = getAssociationEndMetaData(oneToManyLinkName);
-        if (aemd != null && !aemd.getCardinality().isMultiple())
-            throw new IllegalArgumentException("Can not call setManyToOne for not multiple association");
-
+        if (one != null) {
+            checkCardinality(oneToManyLinkName, one);
+        }
         getAndCheckThreadStoreSession().setManyToOne(this, manyToOneLinkName, oneToManyLinkName, (TransientEntity) one);
     }
 
     @Override
     public void clearOneToMany(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName) {
-        final AssociationEndMetaData aemd = getAssociationEndMetaData(oneToManyLinkName);
-        if (aemd != null && !aemd.getCardinality().isMultiple())
-            throw new IllegalArgumentException("Can not call clearOneToMany for not multiple association");
+        checkCardinality(oneToManyLinkName, this);
 
         getAndCheckThreadStoreSession().clearOneToMany(this, manyToOneLinkName, oneToManyLinkName);
     }
 
     @Override
     public void createManyToMany(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @NotNull Entity e2) {
-        final AssociationEndMetaData aemd = getAssociationEndMetaData(e1Toe2LinkName);
-        if (aemd != null && !aemd.getCardinality().isMultiple())
-            throw new IllegalArgumentException("Can not call createManyToMany for not multiple association");
+        checkCardinality(e1Toe2LinkName, this);
+        checkCardinality(e2Toe1LinkName, e2);
 
         getAndCheckThreadStoreSession().createManyToMany(this, e1Toe2LinkName, e2Toe1LinkName, (TransientEntity) e2);
     }
 
     @Override
     public void clearManyToMany(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName) {
-        final AssociationEndMetaData aemd = getAssociationEndMetaData(e1Toe2LinkName);
-        if (aemd != null && !aemd.getCardinality().isMultiple())
-            throw new IllegalArgumentException("Can not call createManyToMany for not multiple association");
+        checkCardinality(e1Toe2LinkName, this);
 
         getAndCheckThreadStoreSession().clearManyToMany(this, e1Toe2LinkName, e2Toe1LinkName);
     }
@@ -494,7 +490,7 @@ class TransientEntityImpl implements TransientEntity {
 
     @Override
     public void setChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
-        getAndCheckThreadStoreSession().setChild(this, parentToChildLinkName, childToParentLinkName, (TransientEntity)child);
+        getAndCheckThreadStoreSession().setChild(this, parentToChildLinkName, childToParentLinkName, (TransientEntity) child);
     }
 
     @Override
@@ -504,7 +500,7 @@ class TransientEntityImpl implements TransientEntity {
 
     @Override
     public void addChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
-        getAndCheckThreadStoreSession().addChild(this, parentToChildLinkName, childToParentLinkName, (TransientEntity)child);
+        getAndCheckThreadStoreSession().addChild(this, parentToChildLinkName, childToParentLinkName, (TransientEntity) child);
     }
 
     @Override
