@@ -852,6 +852,11 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Nullable
+    private ByteIterable getOriginalRawPropertyValue(TransientEntity e, String propertyName) {
+        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getRawProperty(propertyName);
+    }
+
+    @Nullable
     private String getOriginalBlobStringValue(TransientEntity e, String blobName) {
         return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getBlobString(blobName);
     }
@@ -1146,6 +1151,25 @@ public class TransientSessionImpl implements TransientStoreSession {
             @Override
             public boolean run() {
                 return setPropertyInternal(e, propertyName, propertyNewValue);
+            }
+        });
+    }
+
+    boolean setRawProperty(@NotNull final TransientEntity e, @NotNull final String propertyName,
+                        @NotNull final ByteIterable propertyNewValue) {
+        return addChangeAndRun(new MyRunnable() {
+            @Override
+            public boolean run() {
+                if (e.getPersistentEntity().setRawProperty(propertyName, propertyNewValue)) {
+                    final ByteIterable oldValue = getOriginalRawPropertyValue(e, propertyName);
+                    if (propertyNewValue == oldValue || propertyNewValue.equals(oldValue)) {
+                        changesTracker.removePropertyChanged(e, propertyName);
+                    } else {
+                        changesTracker.propertyChanged(e, propertyName);
+                    }
+                    return true;
+                }
+                return false;
             }
         });
     }
