@@ -14,6 +14,11 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
         super(null);
     }
 
+    @Override
+    public EntityIterator iterator() {
+        return Iterator.INSTANCE;
+    }
+
     @NotNull
     @Override
     public EntityIterator getIteratorImpl(@NotNull final PersistentStoreTransaction txn) {
