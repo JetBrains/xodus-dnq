@@ -1136,15 +1136,14 @@ public class TransientSessionImpl implements TransientStoreSession {
                     return false;
                 }
                 // somebody deleted our (initially found) entity! we need to create some again
-                final PersistentEntity persistentEntity = (PersistentEntity) getPersistentTransaction().newEntity(creator.getType());
+                e.setPersistentEntity((PersistentEntity) getPersistentTransaction().newEntity(creator.getType()));
+                changesTracker.entityAdded(e);
                 try {
                     allowRunnables = false;
-                    creator.created(newEntity(persistentEntity));
+                    creator.created(e);
                 } finally {
                     allowRunnables = true;
                 }
-                e.setPersistentEntity(persistentEntity);
-                changesTracker.entityAdded(e);
                 return true;
             }
         });
