@@ -1107,7 +1107,14 @@ public class TransientSessionImpl implements TransientStoreSession {
             public boolean run() {
                 final Entity found = creator.find();
                 if (found == null) {
-                    return saveEntityInternal(persistentEntity, e);
+                    final boolean result = saveEntityInternal(persistentEntity, e);
+                    try {
+                        allowRunnables = false;
+                        creator.created(e);
+                    } finally {
+                        allowRunnables = true;
+                    }
+                    return result;
                 }
                 e.setPersistentEntity(((TransientEntityImpl) found).getPersistentEntity());
                 return false;
