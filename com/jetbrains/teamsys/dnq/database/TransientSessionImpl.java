@@ -1167,7 +1167,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     boolean setRawProperty(@NotNull final TransientEntity e, @NotNull final String propertyName,
-                        @NotNull final ByteIterable propertyNewValue) {
+                           @NotNull final ByteIterable propertyNewValue) {
         return addChangeAndRun(new MyRunnable() {
             @Override
             public boolean run() {
@@ -1380,6 +1380,9 @@ public class TransientSessionImpl implements TransientStoreSession {
                 final TransientEntity oldOne = (TransientEntity) many.getLink(manyToOneLinkName);
                 if (oldOne != null) {
                     deleteLinkInternal(oldOne, oneToManyLinkName, many);
+                    if (one == null) {
+                        deleteLinkInternal(many, manyToOneLinkName, oldOne);
+                    }
                 }
                 if (one != null) {
                     addLinkInternal(one, oneToManyLinkName, many);
