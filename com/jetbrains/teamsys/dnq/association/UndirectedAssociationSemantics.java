@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.association;
 
+import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import jetbrains.exodus.database.Entity;
 import jetbrains.exodus.database.TransientEntity;
 import org.jetbrains.annotations.NotNull;
@@ -23,6 +24,9 @@ public class UndirectedAssociationSemantics {
      * @param e2
      */
     public static void setOneToOne(@Nullable Entity e1, @NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @Nullable Entity e2) {
+        e1 = TransientStoreUtil.reattach((TransientEntity) e1);
+        e2 = TransientStoreUtil.reattach((TransientEntity) e2);
+
         if (e1 == null && e2 == null) {
             throw new IllegalArgumentException("Both entities can't be null.");
         }
@@ -42,6 +46,9 @@ public class UndirectedAssociationSemantics {
      * @param manyToOneLinkName
      */
     public static void createOneToMany(@NotNull Entity one, @NotNull String oneToManyLinkName, @NotNull String manyToOneLinkName, @NotNull Entity many) {
+        one = TransientStoreUtil.reattach((TransientEntity) one);
+        many = TransientStoreUtil.reattach((TransientEntity) many);
+
         ((TransientEntity) many).setManyToOne(manyToOneLinkName, oneToManyLinkName, one);
     }
 
@@ -54,6 +61,9 @@ public class UndirectedAssociationSemantics {
      * @param manyToOneLinkName
      */
     public static void removeOneToMany(@NotNull Entity one, @NotNull String oneToManyLinkName, @NotNull String manyToOneLinkName, @NotNull Entity many) {
+        one = TransientStoreUtil.reattach((TransientEntity) one);
+        many = TransientStoreUtil.reattach((TransientEntity) many);
+
         ((TransientEntity) one).removeOneToMany(manyToOneLinkName, oneToManyLinkName, many);
     }
 
@@ -65,6 +75,8 @@ public class UndirectedAssociationSemantics {
      * @param manyToOneLinkName
      */
     public static void clearOneToMany(@NotNull Entity one, @NotNull String oneToManyLinkName, @NotNull String manyToOneLinkName) {
+        one = TransientStoreUtil.reattach((TransientEntity) one);
+
         //one.oneToManyLinkName.removeAll
         ((TransientEntity) one).clearOneToMany(manyToOneLinkName, oneToManyLinkName);
     }
@@ -79,6 +91,9 @@ public class UndirectedAssociationSemantics {
      * @param many
      */
     public static void setManyToOne(@Nullable Entity one, @NotNull String oneToManyLinkName, @NotNull String manyToOneLinkName, @NotNull Entity many) {
+        one = TransientStoreUtil.reattach((TransientEntity) one);
+        many = TransientStoreUtil.reattach((TransientEntity) many);
+
         ((TransientEntity) many).setManyToOne(manyToOneLinkName, oneToManyLinkName, one);
     }
 
@@ -91,6 +106,9 @@ public class UndirectedAssociationSemantics {
      * @param e2Toe1LinkName
      */
     public static void createManyToMany(@NotNull Entity e1, @NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @NotNull Entity e2) {
+        e1 = TransientStoreUtil.reattach((TransientEntity) e1);
+        e2 = TransientStoreUtil.reattach((TransientEntity) e2);
+
         ((TransientEntity) e1).createManyToMany(e1Toe2LinkName, e2Toe1LinkName, e2);
     }
 
@@ -103,6 +121,7 @@ public class UndirectedAssociationSemantics {
      * @param e2Toe1LinkName
      */
     public static void removeManyToMany(@NotNull Entity e1, @NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @NotNull Entity e2) {
+        // reattach is inside of removeToMany
         DirectedAssociationSemantics.removeToMany(e1, e1Toe2LinkName, e2);
         DirectedAssociationSemantics.removeToMany(e2, e2Toe1LinkName, e1);
     }
@@ -115,6 +134,8 @@ public class UndirectedAssociationSemantics {
      * @param e2Toe1LinkName
      */
     public static void clearManyToMany(@NotNull Entity e1, @NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName) {
+        e1 = TransientStoreUtil.reattach((TransientEntity) e1);
+
         ((TransientEntity) e1).clearManyToMany(e1Toe2LinkName, e2Toe1LinkName);
     }
 

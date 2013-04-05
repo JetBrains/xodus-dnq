@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.association;
 
+import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import jetbrains.exodus.database.Entity;
 import jetbrains.exodus.database.TransientEntity;
 import org.jetbrains.annotations.NotNull;
@@ -23,6 +24,9 @@ public class AggregationAssociationSemantics {
      * @param child                 child
      */
     public static void setOneToOne(@Nullable Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @Nullable Entity child) {
+        parent = TransientStoreUtil.reattach((TransientEntity) parent);
+        child = TransientStoreUtil.reattach((TransientEntity) child);
+
         if (child == null && parent == null) {
             throw new IllegalArgumentException("Both entities can't be null.");
         }
@@ -44,6 +48,9 @@ public class AggregationAssociationSemantics {
      * @param child                 child
      */
     public static void createOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
+        parent = TransientStoreUtil.reattach((TransientEntity) parent);
+        child = TransientStoreUtil.reattach((TransientEntity) child);
+
         ((TransientEntity) parent).addChild(parentToChildLinkName, childToParentLinkName, child);
     }
 
@@ -56,6 +63,8 @@ public class AggregationAssociationSemantics {
      * @param child                 child
      */
     public static void removeOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
+        parent = TransientStoreUtil.reattach((TransientEntity) parent);
+        child = TransientStoreUtil.reattach((TransientEntity) child);
         ((TransientEntity) child).removeFromParent(parentToChildLinkName, childToParentLinkName);
     }
 
@@ -66,6 +75,8 @@ public class AggregationAssociationSemantics {
      * @param parentToChildLinkName parent to child link name
      */
     public static void clearOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName) {
+        parent = TransientStoreUtil.reattach((TransientEntity) parent);
+
         //parent.parentToChild.clear
         ((TransientEntity) parent).clearChildren(parentToChildLinkName);
     }
@@ -80,6 +91,9 @@ public class AggregationAssociationSemantics {
      * @param child                 child
      */
     public static void setManyToOne(@Nullable Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
+        parent = TransientStoreUtil.reattach((TransientEntity) parent);
+        child = TransientStoreUtil.reattach((TransientEntity) child);
+
         if (parent == null) {
             ((TransientEntity) child).removeFromParent(parentToChildLinkName, childToParentLinkName);
         } else {
@@ -90,6 +104,8 @@ public class AggregationAssociationSemantics {
 
     @Nullable
     public static Entity getParent(@NotNull Entity child) {
+        child = TransientStoreUtil.reattach((TransientEntity) child);
+
         return  ((TransientEntity)child).getParent();
     }
 
