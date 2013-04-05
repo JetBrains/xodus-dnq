@@ -5,17 +5,20 @@ import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
+import jetbrains.exodus.core.util.ByteArraySpinAllocator;
+import jetbrains.exodus.core.util.LightByteArrayOutputStream;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
+import jetbrains.exodus.database.persistence.BlobVault;
 import jetbrains.exodus.exceptions.PhysicalLayerException;
+import jetbrains.exodus.util.IOUtil;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
 
 /**
@@ -36,6 +39,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected Map<EntityId, TransientEntity> managedEntities;
     private Queue<MyRunnable> changes = new QueueDecorator<MyRunnable>();
     private int hashCode = 0;
+    private final ByteArraySpinAllocator bufferAllocator;
     private boolean allowRunnables = true;
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store) {
@@ -44,6 +48,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         this.store.getPersistentStore().beginTransaction();
         this.state = State.Open;
         this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
+        this.bufferAllocator = new ByteArraySpinAllocator(BlobVault.READ_BUFFER_SIZE);
         initChangesTracker();
     }
 
@@ -1222,9 +1227,18 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     void setBlob(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final InputStream file) {
+        final ByteArrayOutputStream memCopy = new LightByteArrayOutputStream();
+        try {
+            IOUtil.copyStreams(file, memCopy, bufferAllocator);
+        } catch (final IOException ioe) {
+            throw new RuntimeException(ioe);
+        }
+        final ByteArrayInputStream copy = new ByteArrayInputStream(memCopy.toByteArray(), 0, memCopy.size());
+        copy.mark(Integer.MAX_VALUE);
         addChangeAndRun(new MyRunnable() {
             public boolean run() {
-                e.getPersistentEntity().setBlob(blobName, file);
+                copy.reset();
+                e.getPersistentEntity().setBlob(blobName, copy);
                 changesTracker.propertyChanged(e, blobName);
                 return true;
             }
