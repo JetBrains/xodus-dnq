@@ -2,12 +2,13 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
 import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
+import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
+import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
 import jetbrains.exodus.database.Entity;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
-import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
 import jetbrains.mps.internal.collections.runtime.ListSequence;
+import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexerJobProcessor;
 
 /**
  * Date: 14.12.2006
@@ -24,6 +25,7 @@ public class StoreStartupTest extends AbstractEntityStoreAwareTestCase {
 
     //
     setRemoveStoreOnTearsDown(false);
+    EventsMultiplexerJobProcessor.getInstance().waitForJobs(100);
     tearDown();
     setRemoveStoreOnTearsDown(true);
     setUp();
