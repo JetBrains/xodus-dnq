@@ -726,7 +726,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         Throwable lastEx = null;
         final StoreTransaction txn = getPersistentTransactionInternal();
 
-        while (retry++ < flushRetryOnVersionMismatch) {
+        while (true) {
             try {
                 saveHistory();
                 flushIndexes();
@@ -743,6 +743,11 @@ public class TransientSessionImpl implements TransientStoreSession {
                 log.error("Catch exception in flush: " + e.getMessage());
 
                 if (e instanceof jetbrains.exodus.exceptions.VersionMismatchException) {
+                    if (++retry >= flushRetryOnVersionMismatch) {
+                        // mark trace and count for better diagnostics
+                        lastEx = new RuntimeException("Optimistic flush gave up after " + retry + " retries ", lastEx);
+                        break;
+                    }
                     Thread.yield();
                     // replay changes
                     replayChanges();
