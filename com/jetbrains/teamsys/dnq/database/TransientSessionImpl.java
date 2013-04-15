@@ -11,6 +11,7 @@ import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.persistence.BlobVault;
 import jetbrains.exodus.exceptions.ExodusException;
+import jetbrains.exodus.exceptions.VersionMismatchException;
 import jetbrains.exodus.util.IOUtil;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
@@ -723,7 +724,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         notifyBeforeFlushAfterConstraintsCheckListeners();
 
         int retry = 0;
-        Throwable lastEx = null;
+        Throwable lastEx;
         final StoreTransaction txn = getPersistentTransactionInternal();
 
         while (true) {
@@ -740,9 +741,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                 break;
             } catch (Throwable e) {
                 lastEx = e;
-                log.error("Catch exception in flush: " + e.getMessage());
-
-                if (e instanceof jetbrains.exodus.exceptions.VersionMismatchException) {
+                if (e instanceof VersionMismatchException) {
                     if (++retry >= flushRetryOnVersionMismatch) {
                         // mark trace and count for better diagnostics
                         lastEx = new RuntimeException("Optimistic flush gave up after " + retry + " retries ", lastEx);
@@ -760,6 +759,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
 
         if (lastEx != null) {
+            log.error("Catch exception in flush: " + lastEx.getMessage());
             txn.revert();
             // we have to execute changes against new database root
             //TODO: there're none recovarable exceptions, for which can skip executeChanges
