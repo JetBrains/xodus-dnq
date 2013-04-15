@@ -10,7 +10,7 @@ import jetbrains.exodus.core.util.LightByteArrayOutputStream;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.persistence.BlobVault;
-import jetbrains.exodus.exceptions.PhysicalLayerException;
+import jetbrains.exodus.exceptions.ExodusException;
 import jetbrains.exodus.util.IOUtil;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
@@ -808,7 +808,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                             getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
                         }
                         getPersistentTransaction().insertUniqueKey(index, getIndexFieldsFinalValues(e, index), e);
-                    } catch (PhysicalLayerException ex) {
+                    } catch (ExodusException ex) {
                         throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
                     }
                 }
@@ -838,7 +838,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         for (Pair<Index, List<Comparable>> index : indexes) {
             try {
                 getPersistentTransaction().deleteUniqueKey(index.getFirst(), index.getSecond());
-            } catch (PhysicalLayerException ex) {
+            } catch (ExodusException ex) {
                 throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index.getFirst()));
             }
         }
