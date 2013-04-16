@@ -2,7 +2,6 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.exceptions.EntityRemovedException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -77,7 +76,7 @@ public class EntityOperations {
      * @return true if e was removed, false if it wasn't removed at all
      */
     @SuppressWarnings({"ConstantConditions"})
-    public static boolean isRemoved(@NotNull final Entity e) {
+    public static boolean isRemoved(@Nullable final Entity e) {
         if (e == null) {
             return true;
         }

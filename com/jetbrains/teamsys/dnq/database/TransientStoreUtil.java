@@ -21,6 +21,10 @@ public class TransientStoreUtil {
     private static final Log log = LogFactory.getLog(TransientStoreUtil.class);
     private static final LongHashSet POSTPONE_UNIQUE_INDICES = new LongHashSet(10);
 
+    public static TransientStoreSession getCurrentSession(TransientEntity e) {
+        return (TransientStoreSession) e.getStore().getCurrentTransaction();
+    }
+
     public static boolean isPostponeUniqueIndexes() {
         final long id = Thread.currentThread().getId();
         synchronized (POSTPONE_UNIQUE_INDICES) {
@@ -57,7 +61,7 @@ public class TransientStoreUtil {
             throw new IllegalStateException("There's no current session entity store.");
         }*/
 
-        TransientStoreSession s = (TransientStoreSession) entity.getStore().getThreadSession();
+        TransientStoreSession s = (TransientStoreSession) ((TransientEntityStore)entity.getStore()).getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("There's no current session to attach transient entity to.");
@@ -78,7 +82,7 @@ public class TransientStoreUtil {
             return ((PersistentEntityStore) entity.getStore()).getLastVersion(entity.getId()) < 0;
         }
 
-        TransientStoreSession s = (TransientStoreSession) entity.getStore().getThreadSession();
+        TransientStoreSession s = (TransientStoreSession) ((TransientEntityStore)entity.getStore()).getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("There's no current session to attach transient entity to.");
@@ -87,40 +91,10 @@ public class TransientStoreUtil {
         return s.isRemoved(entity);
     }
 
-    /**
-     * Attach entity to current session if possible.
-     *
-     * @return
-     */
-    public static TransientEntity readonlyCopy(@NotNull TransientEntityChange change) {
-        /*if (store == null) {
-            throw new IllegalStateException("There's no current session entity store.");
-        }*/
-
-        TransientStoreSession s = (TransientStoreSession) change.getTransientEntity().getStore().getThreadSession();
-
-        if (s == null) {
-            throw new IllegalStateException("There's no current session to attach transient entity to.");
-        }
-
-
-        return s.newReadonlyLocalCopy(change);
-    }
-
     public static void commit(@Nullable TransientStoreSession s) {
         if (s != null && s.isOpened()) {
             try {
                 s.commit();
-            } catch (Throwable e) {
-                abort(e, s);
-            }
-        }
-    }
-
-    public static void suspend(@Nullable TransientStoreSession s) {
-        if (s != null && s.isOpened()) {
-            try {
-                s.suspend();
             } catch (Throwable e) {
                 abort(e, s);
             }

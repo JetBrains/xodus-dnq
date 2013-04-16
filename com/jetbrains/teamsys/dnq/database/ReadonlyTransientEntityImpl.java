@@ -13,12 +13,12 @@ import java.util.Set;
 public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   private Boolean hasChanges = null;
   private Map<String, LinkChange> linksDetaled;
-  private Map<String, PropertyChange> propertiesDetaled;
+  private Set<String> changedProperties;
 
-  ReadonlyTransientEntityImpl(@NotNull TransientEntityChange change, @NotNull TransientStoreSession session) {
-    super(((AbstractTransientEntity) change.getTransientEntity()).getPersistentEntityInternal(), session);
+  public ReadonlyTransientEntityImpl(@NotNull TransientEntityChange change, @NotNull PersistentEntity snapshot, @NotNull TransientEntityStore store) {
+    super(snapshot, store);
 
-    this.propertiesDetaled = change.getChangedPropertiesDetaled();
+    this.changedProperties = change.getChangedProperties();
     this.linksDetaled = change.getChangedLinksDetaled();
   }
 
@@ -27,7 +27,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
   @Override
-  public void setProperty(@NotNull String propertyName, @NotNull Comparable value) {
+  public boolean setProperty(@NotNull String propertyName, @NotNull Comparable value) {
     throw createReadonlyException();
   }
 
@@ -42,37 +42,32 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
   @Override
-  public void setBlobString(@NotNull String blobName, @NotNull String blobString) {
+  public boolean setBlobString(@NotNull String blobName, @NotNull String blobString) {
     throw createReadonlyException();
   }
 
   @Override
-  public void setLink(@NotNull String linkName, @NotNull Entity target) {
+  public boolean setLink(@NotNull String linkName, @NotNull Entity target) {
     throw createReadonlyException();
   }
 
   @Override
-  public void addLink(@NotNull String linkName, @NotNull Entity target) {
+  public boolean addLink(@NotNull String linkName, @NotNull Entity target) {
     throw createReadonlyException();
   }
 
   @Override
-  public void deleteProperty(@NotNull String propertyName) {
+  public boolean deleteProperty(@NotNull String propertyName) {
     throw createReadonlyException();
   }
 
   @Override
-  public void deleteBlob(@NotNull String blobName) {
+  public boolean deleteBlob(@NotNull String blobName) {
     throw createReadonlyException();
   }
 
   @Override
-  public void deleteLink(@NotNull String linkName, @NotNull Entity target) {
-    throw createReadonlyException();
-  }
-
-  @Override
-  public void deleteBlobString(@NotNull String blobName) {
+  public boolean deleteLink(@NotNull String linkName, @NotNull Entity target) {
     throw createReadonlyException();
   }
 
@@ -83,73 +78,26 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
   @Override
   public Comparable getProperty(@NotNull String propertyName) {
-    // return old property value if it was changed
-    if (propertiesDetaled != null && propertiesDetaled.containsKey(propertyName)) {
-      return propertiesDetaled.get(propertyName).getOldValue();
-    } else {
-      return super.getProperty(propertyName);
-    }
+    return super.getProperty(propertyName);
   }
 
   @Override
   public Entity getLink(@NotNull String linkName) {
-    if (linksDetaled != null) {
-      LinkChange c = linksDetaled.get(linkName);
-      if (c != null) {
-        Set<TransientEntity> removedEntities = c.getRemovedEntities();
-        if (removedEntities != null) {
-          return removedEntities.iterator().next();
-        }
-      }
-    }
     return super.getLink(linkName);
   }
 
-/* TODO: implement it, but union and minus throw exception
-  @NotNull
   @Override
-  public EntityIterable getLinks(@NotNull String linkName) {
-    EntityIterable result = super.getLinks(linkName);
-
-    // add added links to result and and remove removed links
-    if (linksDetaled != null) {
-      LinkChange c = linksDetaled.get(linkName);
-      if (c != null) {
-        Set<TransientEntity> addedEntities = c.getAddedEntities();
-        Set<TransientEntity> removedEntities = c.getRemovedEntities();
-        if (addedEntities != null) {
-          result = result.union(new TransientEntityIterable(addedEntities));
-        }
-        if (removedEntities != null) {
-          result = result.minus(new TransientEntityIterable(removedEntities));
-        }
-      }
-    }
-    return result;
-  }
-*/
-
-  @Override
-  public long getLinksSize(@NotNull String linkName) {
-    return super.getLinksSize(linkName);
-  }
-
-  @Override
-  public void delete() {
+  public boolean delete() {
     throw createReadonlyException();
   }
 
   @Override
   public boolean hasChanges() {
-    if (super.hasChanges()) {
-      return true;
-    } else {
       // lazy hasChanges evaluation
       if (hasChanges == null) {
-        evaluateHasChanges();
+          evaluateHasChanges();
       }
       return hasChanges;
-    }
   }
 
   @Override
@@ -162,7 +110,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         return change.getAddedEntitiesSize() > 0 || change.getRemovedEntitiesSize() > 0;
       }
 
-      return propertiesDetaled != null && propertiesDetaled.containsKey(property);
+      return changedProperties != null && changedProperties.contains(property);
     }
   }
 
@@ -184,12 +132,12 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
           return true;
         }
       }
-      if (propertiesDetaled != null) {
-        if (propertiesDetaled.size() > properties.length) {
+      if (changedProperties != null) {
+        if (changedProperties.size() > properties.length) {
           // by Dirichlet principle, even if 'properties' param is malformed
           return true;
         }
-        final Set<String> propertiesDetailedCopy = new HashSet(propertiesDetaled.keySet());
+        final Set<String> propertiesDetailedCopy = new HashSet(changedProperties);
         for (String property : properties) {
           propertiesDetailedCopy.remove(property);
         }
@@ -280,7 +228,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
       }
     }
 
-    if (propertiesDetaled != null && propertiesDetaled.size() > 0) {
+    if (changedProperties != null && changedProperties.size() > 0) {
       hasChanges = true;
     }
 

@@ -2,7 +2,6 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
-import jetbrains.exodus.core.dataStructures.hash.LongHashMap;
 import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
 import jetbrains.teamsys.dnq.runtime.queries.QueryEngine;
@@ -13,7 +12,6 @@ import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.InitializingBean;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,13 +26,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private EntityStore persistentStore;
     private QueryEngine queryEngine;
     private ModelMetaData modelMetaData;
-    private final LongHashMap<TransientStoreSession> sessions = new LongHashMap<TransientStoreSession>();
+    private final Set<TransientStoreSession> sessions = new HashSet<TransientStoreSession>();
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
     private final Set<TransientStoreSessionListener> listeners = new LinkedHashSet<TransientStoreSessionListener>();
 
-    private boolean trackEntityCreation = true;
-    private boolean abortSessionsOnClose = false;
-    private boolean attachToCurrentOnBeginIfExists = false;
+    private boolean open = true;
     private String blobsStorePath;
     private File blobsStore;
     private int flushRetryOnLockConflict = 100;
@@ -94,30 +90,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         this.queryEngine = queryEngine;
     }
 
-    /**
-     * If true, on store close all opened sessions will be aborted.
-     *
-     * @param abortSessionsOnClose true to abort.
-     */
-    @SuppressWarnings({"UnusedDeclaration"})
-    public void setAbortSessionsOnClose(boolean abortSessionsOnClose) {
-        this.abortSessionsOnClose = abortSessionsOnClose;
-    }
-
-    /**
-     * If true, in {@link #beginSession(String, Object)} will use existing current session if exists.
-     *
-     * @param attachToCurrentOnBeginIfExists true to use existing current session.
-     */
-    @SuppressWarnings({"UnusedDeclaration"})
-    public void setAttachToCurrentOnBeginIfExists(boolean attachToCurrentOnBeginIfExists) {
-        this.attachToCurrentOnBeginIfExists = attachToCurrentOnBeginIfExists;
-    }
-
-    @Deprecated
-    public void setResumeOnBeginIfExists(boolean resumeOnBeginIfExists) {
-    }
-
     @NotNull
     public String getName() {
         return "transient store";
@@ -128,84 +100,38 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         throw new UnsupportedOperationException("Not supported by transient store.");
     }
 
+    @NotNull
+    @Override
+    public StoreTransaction beginTransaction() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Nullable
+    @Override
+    public StoreTransaction getCurrentTransaction() {
+        throw new UnsupportedOperationException();
+    }
+
     public TransientStoreSession beginSession() {
+        assertOpen();
+
         if (log.isDebugEnabled()) {
             log.debug("Begin new session");
         }
 
         TransientStoreSession currentSession = this.currentSession.get();
         if (currentSession != null) {
-            if (attachToCurrentOnBeginIfExists) {
-                log.debug("Return session already associated with the current thread " + currentSession);
-                return currentSession;
-            } else {
-                throw new IllegalStateException("Open session already presents for current thread.");
-            }
+            log.debug("Return session already associated with the current thread " + currentSession);
+            return currentSession;
         }
 
         return registerStoreSession(new TransientSessionImpl(this));
     }
 
-    @Deprecated
-    public TransientStoreSession beginSession(long id) {
-        if (log.isDebugEnabled()) {
-            StringBuilder logMessage = new StringBuilder(64);
-            logMessage.append("Begin new session with id [");
-            logMessage.append(id);
-            logMessage.append(']');
-            log.debug(logMessage.toString());
-        }
-        TransientStoreSession currentSession = this.currentSession.get();
-        if (currentSession != null) {
-            if (attachToCurrentOnBeginIfExists) {
-                TransientStoreSession transientStoreSession = currentSession;
-                log.debug("Return session already associated with the current thread " + transientStoreSession);
-                return currentSession;
-            } else {
-                throw new IllegalStateException("Open session already presents for current thread.");
-            }
-        }
-        if (getStoreSession(id) != null) {
-            throw new IllegalArgumentException("Transient session with id [" + id + "] already exists.");
-        }
-        return registerStoreSession(new TransientSessionImpl(this, id));
-    }
+    public void resumeSession(TransientStoreSession session) {
+        assertOpen();
 
-    public boolean isSessionExists(@NotNull long id) {
-        return getStoreSession(id) != null;
-    }
-
-    public boolean isTrackEntityCreation() {
-        return trackEntityCreation;
-    }
-
-    public TransientStoreSession resumeSession(@NotNull long id) {
-        if (log.isDebugEnabled()) {
-            log.debug("Resume session with id [" + id + "]");
-        }
-
-        if (currentSession.get() != null) {
-            throw new IllegalStateException("Open transient session already associated with current thread.");
-        }
-
-        TransientStoreSession s = getStoreSession(id);
-
-        if (s == null) {
-            throw new IllegalArgumentException("Transient session with id [" + id + "] is not found.");
-        }
-
-        s.resume();
-        currentSession.set(s);
-
-        return s;
-    }
-
-    public void resumeSession(TransientStoreSession session, int timeout) {
         if (session != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("Resume session with id [" + session.getId() + "]");
-            }
-
             TransientStoreSession current = currentSession.get();
             if (current != null) {
                 if (current != session) {
@@ -213,13 +139,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
                 }
             }
 
-            session.resume(timeout);
             currentSession.set(session);
         }
-    }
-
-    public void resumeSession(TransientStoreSession session) {
-        resumeSession(session, 0);
     }
 
     public void setModelMetaData(final ModelMetaData modelMetaData) {
@@ -243,35 +164,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     public void close() {
         log.debug("Close transient store.");
+        open = false;
 
-        // check there's no opened sessions
-        final ArrayList<TransientStoreSession> _sessions;
-        synchronized (sessions) {
-            _sessions = new ArrayList<TransientStoreSession>(sessions.values());
+        if (sessions.size() != 0) {
+            log.warn("There're " + sessions.size() + " open transient sessions.");
         }
-        if (abortSessionsOnClose) {
-            log.debug("Abort opened transient sessions.");
-
-            for (TransientStoreSession s : _sessions) {
-                try {
-                    s.forceAbort();
-                } catch (Throwable e) {
-                    log.error("Error while aborting session " + s, e);
-                }
-            }
-        } else {
-            if (sessions.size() != 0) {
-                throw new IllegalStateException("Can't close transient store, because there're opened transient sessions.");
-            }
-        }
-    }
-
-    public void setReadonly(boolean readonly) {
-        persistentStore.setReadonly(readonly);
-    }
-
-    public boolean isReadonly() {
-        return persistentStore.isReadonly();
     }
 
     public boolean entityTypeExists(@NotNull final String entityTypeName) {
@@ -284,108 +181,98 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void renameEntityTypeRefactoring(@NotNull final String oldEntityTypeName, @NotNull final String newEntityTypeName) {
-        final TransientStoreSession s = getThreadSession();
+        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
         }
 
-        final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
-        changesTracker.offerChange(new Runnable() {
-            public void run() {
-                ((PersistentEntityStore) s.getPersistentSession().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
+        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+            @Override
+            public boolean run() {
+                ((PersistentEntityStore) s.getPersistentTransaction().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
+                return true;
             }
         });
     }
 
     public void deleteEntityTypeRefactoring(@NotNull final String entityTypeName) {
-        final TransientStoreSession s = getThreadSession();
+        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
         }
 
-        final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
-        changesTracker.offerChange(new Runnable() {
-            public void run() {
-                ((PersistentEntityStoreImpl) s.getPersistentSession().getStore()).deleteEntityType(entityTypeName);
+        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+            @Override
+            public boolean run() {
+                ((PersistentEntityStoreImpl) s.getPersistentTransaction().getStore()).deleteEntityType(entityTypeName);
+                return true;
             }
         });
     }
 
     public void deleteEntityRefactoring(@NotNull Entity entity) {
-        final TransientStoreSession s = getThreadSession();
+        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
         }
 
-        final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
-        final Entity persistentEntity =
-                (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
-
+        final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
         if (entity instanceof TransientEntity) {
-            changesTracker.entityDeleted((TransientEntity) entity);
+            s.deleteEntity((TransientEntity) entity);
         } else {
-            changesTracker.offerChange(new Runnable() {
-                public void run() {
+            s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+                public boolean run() {
                     persistentEntity.delete();
+                    return true;
                 }
             });
         }
     }
 
     public void deleteLinksRefactoring(@NotNull final Entity entity, @NotNull final String linkName) {
-        final TransientStoreSession s = getThreadSession();
+        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
         }
 
-        final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
-
-        final Entity persistentEntity =
-                (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
-        changesTracker.offerChange(new Runnable() {
-            public void run() {
+        final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
+        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+            public boolean run() {
                 persistentEntity.deleteLinks(linkName);
+                return true;
             }
         });
     }
 
     public void deleteLinkRefactoring(@NotNull final Entity entity, @NotNull final String linkName, @NotNull final Entity link) {
-        final TransientStoreSession s = getThreadSession();
+        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("No current thread session.");
         }
 
-        final TransientChangesTrackerImpl changesTracker = (TransientChangesTrackerImpl) s.getTransientChangesTracker();
+        final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
+        final Entity persistentLink = (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
 
-        final Entity persistentEntity =
-                (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
-        final Entity persistentLink =
-                (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
-        changesTracker.offerChange(new Runnable() {
-            public void run() {
+        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+            public boolean run() {
                 persistentEntity.deleteLink(linkName, persistentLink);
+                return true;
             }
         });
     }
 
-    public TransientStoreSession getStoreSession(long id) {
-        synchronized (sessions) {
-            return sessions.get(id);
-        }
-    }
-
     private TransientStoreSession registerStoreSession(TransientStoreSession s) {
         synchronized (sessions) {
-            if (sessions.containsKey(s.getId())) {
-                throw new IllegalArgumentException("Session with id [" + s.getId() + "] already registered.");
+            if (sessions.contains(s)) {
+                throw new IllegalArgumentException("Session with already registered.");
             }
 
-            sessions.put(s.getId(), s);
+            sessions.add(s);
         }
 
         currentSession.set(s);
@@ -395,29 +282,35 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     void unregisterStoreSession(TransientStoreSession s) {
         synchronized (sessions) {
-            if (sessions.remove(s.getId()) == null) {
-                throw new IllegalArgumentException("Transient session with id [" + s.getId() + "] wasn't previously registered.");
+            if (!sessions.remove(s)) {
+                throw new IllegalArgumentException("Transient session with wasn't previously registered.");
             }
         }
 
         currentSession.remove();
     }
 
-    void suspendThreadSession() {
-        assert currentSession.get() != null;
+    @Nullable
+    public TransientStoreSession suspendThreadSession() {
+        assertOpen();
 
-        currentSession.remove();
+        final TransientStoreSession current = getThreadSession();
+        if (current != null) {
+            currentSession.remove();
+        }
+
+        return current;
     }
 
-    public void addListener(TransientStoreSessionListener listener) {
+    public void addListener(@NotNull TransientStoreSessionListener listener) {
         listeners.add(listener);
     }
 
-    public void removeListener(TransientStoreSessionListener listener) {
+    public void removeListener(@NotNull TransientStoreSessionListener listener) {
         listeners.remove(listener);
     }
 
-    void forAllListeners(ListenerVisitor v) {
+    void forAllListeners(@NotNull ListenerVisitor v) {
         for (TransientStoreSessionListener l : listeners) {
             v.visit(l);
         }
@@ -455,7 +348,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     public void dumpSessions(StringBuilder sb) {
         synchronized (sessions) {
-            for (TransientStoreSession s : sessions.values()) {
+            for (TransientStoreSession s : sessions) {
                 sb.append("\n").append(s.toString());
             }
         }
@@ -492,6 +385,10 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     public void setCachedPersistentClassInstance(@NotNull final String entityType, @NotNull final BasePersistentClassImpl clazz) {
         persistentClassInstanceCache.put(entityType, clazz);
+    }
+
+    private void assertOpen() {
+        if (!open) throw new IllegalStateException("Transient store is closed.");
     }
 
     public static String getEnumKey(@NotNull final String className, @NotNull final String propName) {

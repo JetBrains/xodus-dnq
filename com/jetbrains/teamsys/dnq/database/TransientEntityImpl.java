@@ -1,489 +1,305 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
-import org.apache.commons.io.IOUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
+import java.io.File;
+import java.io.InputStream;
 import java.util.*;
 
 /**
- * Date: 05.02.2007
- * Time: 16:34:36
- * <p/>
- * TODO: for blobs implement BlobsManagers, like LinkManager, because there're 3 blob types - String, File, InputStream
- *
  * @author Vadim.Gurov
  */
-class TransientEntityImpl extends AbstractTransientEntity {
+class TransientEntityImpl implements TransientEntity {
 
-    private final Map<String, TransientLinksManager> linksManagers = new HashMapDecorator<String, TransientLinksManager>();
-    private final Map<String, Comparable> propertiesCache = new HashMapDecorator<String, Comparable>();
-    private final Map<String, File> fileBlobsCache = new HashMapDecorator<String, File>();
+    protected static final Log log = LogFactory.getLog(TransientEntity.class);
 
-    TransientEntityImpl(@NotNull String type, @NotNull TransientStoreSession session) {
-        setTransientStoreSession(session);
-        setType(type);
-        setState(State.New);
-        setId(new TransientEntityIdImpl());
+    protected TransientEntityStore store;
+    @NotNull
+    protected PersistentEntity persistentEntity;
 
-        session.getTransientChangesTracker().entityAdded(this);
-
-        //trackEntityCreation(session);
+    TransientEntityImpl(@NotNull String type, @NotNull TransientEntityStore store) {
+        this.store = store;
+        getAndCheckThreadStoreSession().createEntity(this, type);
     }
 
-    TransientEntityImpl(@NotNull Entity persistentEntity, @NotNull TransientStoreSession session) {
-        setTransientStoreSession(session);
-        setPersistentEntityInternal(persistentEntity);
-        setState(State.Saved);
-
-        //trackEntityCreation(session);
+    TransientEntityImpl(@NotNull EntityCreator creator, @NotNull TransientEntityStore store) {
+        this.store = store;
+        getAndCheckThreadStoreSession().createEntity(this, creator);
     }
 
-    TransientEntityImpl(@NotNull Entity persistentEntity, @NotNull TransientStoreSession session, int version) {
-        setTransientStoreSession(session);
-        setPersistentEntityInternal(persistentEntity, version);
-        setState(State.Saved);
-
-        //trackEntityCreation(session);
+    TransientEntityImpl(@NotNull PersistentEntity persistentEntity, @NotNull TransientEntityStore store) {
+        this.store = store;
+        setPersistentEntity(persistentEntity);
     }
 
-    private static final StandardEventHandler<String, Object, Comparable> getPropertyEventHandler = new StandardEventHandler2<String, Object, Comparable>() {
-        Comparable processOpenSaved(AbstractTransientEntity entity, String propertyName, Object param2) {
-            return _(entity).getPropertyInSavedStateInternal(propertyName);
+    @NotNull
+    public PersistentEntity getPersistentEntity() {
+        return persistentEntity;
+    }
+
+    protected void setPersistentEntity(@NotNull PersistentEntity persistentEntity) {
+        this.persistentEntity = persistentEntity;
+    }
+
+    @NotNull
+    public TransientEntityStore getStore() {
+        return store;
+    }
+
+    @NotNull
+    TransientSessionImpl getAndCheckThreadStoreSession() {
+        final TransientSessionImpl result = (TransientSessionImpl) store.getThreadSession();
+        if (result == null) {
+            throw new IllegalStateException("No store session in current thread!");
         }
+        return result;
+    }
 
-        Comparable processOpenNew(AbstractTransientEntity entity, String propertyName, Object param2) {
-            return _(entity).getPropertyInNewStateInternal(propertyName);
+    public boolean isNew() {
+        return getAndCheckThreadStoreSession().changesTracker.isNew(this);
+    }
+
+    public boolean isSaved() {
+        return getAndCheckThreadStoreSession().changesTracker.isSaved(this);
+    }
+
+    public boolean isRemoved() {
+        return getAndCheckThreadStoreSession().changesTracker.isRemoved(this);
+    }
+
+    public boolean isReadonly() {
+        return false;
+    }
+
+    @NotNull
+    public String getType() {
+        return persistentEntity.getType();
+    }
+
+    @NotNull
+    public EntityId getId() {
+        return persistentEntity.getId();
+    }
+
+    @NotNull
+    public String toIdString() {
+        return persistentEntity.toIdString();
+    }
+    @NotNull
+    public List<String> getPropertyNames() {
+        return persistentEntity.getPropertyNames();
+    }
+
+    @NotNull
+    public List<String> getBlobNames() {
+        return persistentEntity.getBlobNames();
+    }
+
+    @NotNull
+    public List<String> getLinkNames() {
+        return persistentEntity.getLinkNames();
+    }
+
+    public int getVersion() {
+        return persistentEntity.getVersion();
+    }
+
+    public boolean isUpToDate() {
+        return persistentEntity.isUpToDate();
+    }
+
+    @NotNull
+    public List<Entity> getHistory() {
+        if (isNew()) return Collections.EMPTY_LIST;
+
+        final List<Entity> history = persistentEntity.getHistory();
+        final List<Entity> result = new ArrayList<Entity>(history.size());
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
+        for (final Entity _entity : history) {
+            result.add(session.newEntity(_entity));
         }
+        return result;
+    }
 
-    };
+    @Nullable
+    public Entity getNextVersion() {
+        if (isNew()) return null;
 
+        final Entity e = persistentEntity.getNextVersion();
+        return e == null ? null : getAndCheckThreadStoreSession().newEntity(e);
+    }
+
+    @Nullable
+    public Entity getPreviousVersion() {
+        if (isNew()) return null;
+
+        final Entity e = persistentEntity.getPreviousVersion();
+        return e == null ? null : getAndCheckThreadStoreSession().newEntity(e);
+    }
+
+    public int compareTo(final Entity e) {
+        return persistentEntity.compareTo(e);
+    }
+
+    /**
+     * Called by BasePersistentClassImpl by default
+     *
+     * @return debug presentation
+     */
+    public String getDebugPresentation() {
+        return persistentEntity.toString();
+    }
+
+    public String toString() {
+        return getDebugPresentation();
+    }
+
+    public boolean equals(Object obj) {
+        if (obj == this) return true;
+        if (!(obj instanceof TransientEntity)) return false;
+        return persistentEntity.equals(((TransientEntity) obj).getPersistentEntity());
+    }
+
+    public int hashCode() {
+        return persistentEntity.hashCode();
+    }
 
     @Nullable
     public Comparable getProperty(@NotNull final String propertyName) {
-        return getPropertyEventHandler.handle(this, propertyName, null);
+        return persistentEntity.getProperty(propertyName);
     }
 
     @Nullable
-    Comparable getPropertyInSavedStateInternal(@NotNull final String propertyName) {
-        if (!(this.propertiesCache.containsKey(propertyName))) {
-            final Comparable v = this.getPersistentEntityInternal().getProperty(propertyName);
-            this.propertiesCache.put(propertyName, v);
-            return v;
-        } else {
-            return this.propertiesCache.get(propertyName);
-        }
+    @Override
+    public ByteIterable getRawProperty(@NotNull String propertyName) {
+        return persistentEntity.getRawProperty(propertyName);
+    }
+
+    @Override
+    public boolean setRawProperty(@NotNull String propertyName, @NotNull ByteIterable value) {
+        return getAndCheckThreadStoreSession().setRawProperty(this, propertyName, value);
     }
 
     @Nullable
-    Comparable getPropertyInNewStateInternal(@NotNull final String propertyName) {
-        return this.propertiesCache.get(propertyName);
-    }
-
-    private static final StandardEventHandler<String, Comparable, Object> setPropertyEventHandler = new StandardEventHandler2<String, Comparable, Object>() {
-        Object processOpenSaved(AbstractTransientEntity entity, String propertyName, Comparable value) {
-            entity.getTransientStoreSession().getTransientChangesTracker().propertyChanged(
-                    entity,
-                    propertyName,
-                    entity.isSaved() ? _(entity).getPersistentEntityInternal().getProperty(propertyName) : null,
-                    value);
-            putValueInPropertiesCache(entity, propertyName, value);
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, String propertyName, Comparable value) {
-            return processOpenSaved(entity, propertyName, value);
-        }
-
-    };
-
-    public void setProperty(@NotNull final String propertyName, @NotNull final Comparable value) {
-        setPropertyEventHandler.handle(this, propertyName, value);
+    public Comparable getPropertyOldValue(@NotNull final String propertyName) {
+        final PersistentStoreTransaction snapshot = getAndCheckThreadStoreSession().getTransientChangesTracker().getSnapshot();
+        return persistentEntity.getSnapshot(snapshot).getProperty(propertyName);
     }
 
 
-    private static final StandardEventHandler<String, Object, Object> deletePropertyEventHandler = new StandardEventHandler2<String, Object, Object>() {
-
-        Object processOpenSaved(AbstractTransientEntity entity, String propertyName, Object value) {
-            entity.getTransientStoreSession().getTransientChangesTracker().propertyDeleted(
-                    entity,
-                    propertyName,
-                    entity.isSaved() ? _(entity).getPersistentEntityInternal().getProperty(propertyName) : entity.getProperty(propertyName));
-            putValueInPropertiesCache(entity, propertyName, null);
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, String propertyName, Object value) {
-            return processOpenSaved(entity, propertyName, value);
-        }
-
-    };
-
-
-    public void deleteProperty(@NotNull final String propertyName) {
-        deletePropertyEventHandler.handle(this, propertyName, null);
+    public boolean setProperty(@NotNull final String propertyName, @NotNull final Comparable value) {
+        return getAndCheckThreadStoreSession().setProperty(this, propertyName, value);
     }
 
-    private static final StandardEventHandler<String, Object, InputStream> getBlobEventHandler = new StandardEventHandler2<String, Object, InputStream>() {
-        InputStream processOpenSaved(AbstractTransientEntity entity, String blobName, Object value) {
-            if (!_(entity).fileBlobsCache.containsKey(blobName)) {
-                //TODO: bad solution - it breaks transaction isolation.
-                //TODO: Better solution is to get blob from persistent store only ones and save it somehow in transient session.
-                return entity.getPersistentEntityInternal().getBlob(blobName);
-            }
-
-            File f = _(entity).fileBlobsCache.get(blobName);
-
-            try {
-                return f == null ? null : new FileInputStream(f);
-            } catch (FileNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        InputStream processOpenNew(AbstractTransientEntity entity, String blobName, Object value) {
-            File f = _(entity).fileBlobsCache.get(blobName);
-
-            try {
-                return f == null ? null : new FileInputStream(f);
-            } catch (FileNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-    };
-
+    public boolean deleteProperty(@NotNull final String propertyName) {
+        return getAndCheckThreadStoreSession().deleteProperty(this, propertyName);
+    }
 
     @Nullable
     public InputStream getBlob(@NotNull final String blobName) {
-        return getBlobEventHandler.handle(this, blobName, null);
+        return persistentEntity.getBlob(blobName);
     }
-
-    private static final StandardEventHandler<String, InputStream, Object> setBlobEventHandler = new StandardEventHandler2<String, InputStream, Object>() {
-
-        Object processOpenSaved(AbstractTransientEntity entity, String blobName, InputStream blob) {
-            File f = _(entity).createFile(blob);
-            entity.getTransientStoreSession().getTransientChangesTracker().blobChanged(entity, blobName, f);
-            _(entity).fileBlobsCache.put(blobName, f);
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, String blobName, InputStream blob) {
-            return processOpenSaved(entity, blobName, blob);
-        }
-
-    };
-
 
     public void setBlob(@NotNull final String blobName, @NotNull final InputStream blob) {
-        setBlobEventHandler.handle(this, blobName, blob);
+        getAndCheckThreadStoreSession().setBlob(this, blobName, blob);
     }
-
-    private File createFile(InputStream blob) {
-        File outputFile = getTransientStoreSession().createBlobFile(true);
-
-        BufferedOutputStream out = null;
-        try {
-            out = new BufferedOutputStream(new FileOutputStream(outputFile));
-            IOUtils.copy(blob, out);
-        } catch (IOException e) {
-            throw new RuntimeException("Can't save blob to file [" + outputFile.getAbsolutePath() + "]", e);
-        } finally {
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException ignored) {
-                }
-            }
-        }
-
-        return outputFile;
-    }
-
-    private static final StandardEventHandler<String, File, Object> setBlobFileEventHandler = new StandardEventHandler2<String, File, Object>() {
-
-        Object processOpenSaved(AbstractTransientEntity entity, String blobName, File file) {
-            File f = _(entity).moveOrCopy(file);
-            entity.getTransientStoreSession().getTransientChangesTracker().blobChanged(entity, blobName, f);
-            _(entity).fileBlobsCache.put(blobName, f);
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, String blobName, File file) {
-            return processOpenSaved(entity, blobName, file);
-        }
-
-    };
-
 
     public void setBlob(@NotNull final String blobName, @NotNull final File file) {
-        setBlobFileEventHandler.handle(this, blobName, file);
+        getAndCheckThreadStoreSession().setBlob(this, blobName, file);
     }
 
-    private File moveOrCopy(File inputFile) {
-        File outputFile = getTransientStoreSession().createBlobFile(false);
-
-        if (!inputFile.renameTo(outputFile)) {
-            if (log.isDebugEnabled()) {
-                log.warn("Can't move file [" + inputFile.getAbsolutePath() + "] to file [" + outputFile.getAbsolutePath() + "]. Try copy.");
-            }
-
-            BufferedInputStream in = null;
-            BufferedOutputStream out = null;
-            try {
-                in = new BufferedInputStream(new FileInputStream(inputFile));
-                out = new BufferedOutputStream(new FileOutputStream(outputFile));
-                IOUtils.copy(in, out);
-            } catch (IOException e) {
-                throw new RuntimeException("Can't copy file [" + inputFile.getAbsolutePath() + "] to file [" + outputFile.getAbsolutePath() + "]");
-            } finally {
-                if (in != null) {
-                    try {
-                        in.close();
-                    } catch (IOException ignored) {
-                    }
-                }
-                if (out != null) {
-                    try {
-                        out.close();
-                    } catch (IOException ignored) {
-                    }
-                }
-            }
-        }
-
-        return outputFile;
+    public boolean setBlobString(@NotNull final String blobName, @NotNull final String blobString) {
+        return getAndCheckThreadStoreSession().setBlobString(this, blobName, blobString);
     }
 
-    private static final StandardEventHandler<String, Object, Object> deleteBlobEventHandler = new StandardEventHandler2<String, Object, Object>() {
-
-        Object processOpenSaved(AbstractTransientEntity entity, String blobName, Object param2) {
-            _(entity).fileBlobsCache.put(blobName, null);
-            entity.getTransientStoreSession().getTransientChangesTracker().blobDeleted(entity, blobName);
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, String blobName, Object param2) {
-            return processOpenSaved(entity, blobName, param2);
-        }
-
-    };
-
-
-    public void deleteBlob(@NotNull final String blobName) {
-        deleteBlobEventHandler.handle(this, blobName, null);
+    public boolean deleteBlob(@NotNull final String blobName) {
+        return getAndCheckThreadStoreSession().deleteBlob(this, blobName);
     }
-
-
-    private static final StandardEventHandler<String, Object, String> getBlobStringEventHandler = new StandardEventHandler2<String, Object, String>() {
-        String processOpenSaved(AbstractTransientEntity entity, String blobName, Object param2) {
-            if (!_(entity).propertiesCache.containsKey(blobName)) {
-                final String value = entity.getPersistentEntityInternal().getBlobString(blobName);
-                putValueInPropertiesCache(entity, blobName, value);
-                return value;
-            }
-            return (String) _(entity).propertiesCache.get(blobName);
-        }
-
-        String processOpenNew(AbstractTransientEntity entity, String blobName, Object param2) {
-            return (String) _(entity).propertiesCache.get(blobName);
-        }
-
-    };
-
 
     @Nullable
     public String getBlobString(@NotNull final String blobName) {
-        return getBlobStringEventHandler.handle(this, blobName, null);
+        return persistentEntity.getBlobString(blobName);
     }
 
-    private static final StandardEventHandler<String, String, Object> setBlobStringEventHandler = new StandardEventHandler2<String, String, Object>() {
-        Object processOpenSaved(AbstractTransientEntity entity, String blobName, String blobString) {
-            entity.getTransientStoreSession().getTransientChangesTracker().blobChanged(entity, blobName, blobString);
-            putValueInPropertiesCache(entity, blobName, blobString);
-            return null;
-        }
+    public boolean setLink(@NotNull final String linkName, @NotNull final Entity target) {
+        checkCardinality(linkName, this);
 
-        Object processOpenNew(AbstractTransientEntity entity, String blobName, String blobString) {
-            return processOpenSaved(entity, blobName, blobString);
-        }
-
-    };
-
-
-    public void setBlobString(@NotNull final String blobName, @NotNull final String blobString) {
-        setBlobStringEventHandler.handle(this, blobName, blobString);
+        return getAndCheckThreadStoreSession().setLink(this, linkName, (TransientEntity) target);
     }
 
-    private static final StandardEventHandler<String, Object, Object> deleteBlobStringEventHandler = new StandardEventHandler2<String, Object, Object>() {
-        Object processOpenSaved(AbstractTransientEntity entity, String blobName, Object blobString) {
-            putValueInPropertiesCache(entity, blobName, null);
-            entity.getTransientStoreSession().getTransientChangesTracker().blobDeleted(entity, blobName);
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, String blobName, Object blobString) {
-            return processOpenSaved(entity, blobName, blobString);
-        }
-
-    };
-
-
-    public void deleteBlobString(@NotNull final String blobName) {
-        deleteBlobStringEventHandler.handle(this, blobName, null);
+    private void checkCardinality(@NotNull String oneToManyLinkName, @NotNull Entity entity) {
+        final AssociationEndMetaData aemd = getAssociationEndMetaData(oneToManyLinkName, entity);
+        if (aemd != null && !aemd.getCardinality().isMultiple())
+            throw new IllegalArgumentException("Can not call this opperation for non-multiple association");
     }
 
-    private static final StandardEventHandler<String, Entity, Object> addLinkEventHandler = new StandardEventHandler2<String, Entity, Object>() {
-
-        Object processOpenSaved(AbstractTransientEntity entity, String linkName, Entity target) {
-            _(entity).getLinksManager(linkName).addLink((TransientEntity) target);
-            return null;
+    @Nullable
+    private AssociationEndMetaData getAssociationEndMetaData(@NotNull String linkName, @NotNull Entity entity) {
+        final ModelMetaData mmd = store.getModelMetaData();
+        if (mmd != null) {
+            final EntityMetaData emd = mmd.getEntityMetaData(entity.getType());
+            if (emd != null) {
+                return emd.getAssociationEndMetaData(linkName);
+            }
         }
 
-        Object processOpenNew(AbstractTransientEntity entity, String linkName, Entity target) {
-            return processOpenSaved(entity, linkName, target);
-        }
-
-    };
-
-    public void addLink(@NotNull final String linkName, @NotNull final Entity target) {
-        addLinkEventHandler.handle(this, linkName, target);
+        return null;
     }
 
-    private static final StandardEventHandler<String, Entity, Object> setLinkEventHandler = new StandardEventHandler2<String, Entity, Object>() {
-        Object processOpenSaved(AbstractTransientEntity entity, String linkName, Entity target) {
-            _(entity).getLinksManager(linkName).setLink((TransientEntity) target);
-            return null;
-        }
+    public boolean addLink(@NotNull final String linkName, @NotNull final Entity target) {
+        checkCardinality(linkName, this);
 
-        Object processOpenNew(AbstractTransientEntity entity, String linkName, Entity target) {
-            return processOpenSaved(entity, linkName, target);
-        }
-
-    };
-
-
-    public void setLink(@NotNull final String linkName, @NotNull final Entity target) {
-        setLinkEventHandler.handle(this, linkName, target);
+        return getAndCheckThreadStoreSession().addLink(this, linkName, (TransientEntity) target);
     }
 
-    private static final StandardEventHandler<String, Entity, Object> deleteLinkEventHandler = new StandardEventHandler2<String, Entity, Object>() {
-
-        Object processOpenSaved(AbstractTransientEntity entity, String linkName, Entity target) {
-            _(entity).getLinksManager(linkName).deleteLink((TransientEntity) target);
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, String linkName, Entity target) {
-            return processOpenSaved(entity, linkName, target);
-        }
-
-    };
-
-
-    public void deleteLink(@NotNull final String linkName, @NotNull final Entity target) {
-        deleteLinkEventHandler.handle(this, linkName, target);
+    public boolean deleteLink(@NotNull final String linkName, @NotNull final Entity target) {
+        return getAndCheckThreadStoreSession().deleteLink(this, linkName, (TransientEntity) target);
     }
-
-    private static final StandardEventHandler<String, Object, Object> deleteLinksEventHandler = new StandardEventHandler2<String, Object, Object>() {
-        Object processOpenSaved(AbstractTransientEntity entity, String linkName, Object param2) {
-            _(entity).getLinksManager(linkName).deleteLinks();
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, String linkName, Object param2) {
-            return processOpenSaved(entity, linkName, param2);
-        }
-
-    };
 
     public void deleteLinks(@NotNull final String linkName) {
-        deleteLinksEventHandler.handle(this, linkName, null);
+        getAndCheckThreadStoreSession().deleteLinks(this, linkName);
     }
-
-    private static final StandardEventHandler<String, Object, Iterable<Entity>> getLinksEventHandler = new StandardEventHandler2<String, Object, Iterable<Entity>>() {
-        Iterable<Entity> processOpenSaved(AbstractTransientEntity entity, String linkName, Object param2) {
-            return _(entity).getLinksManager(linkName).getLinks();
-        }
-
-        Iterable<Entity> processOpenNew(AbstractTransientEntity entity, String linkName, Object param2) {
-            return processOpenSaved(entity, linkName, param2);
-        }
-
-    };
 
     @NotNull
     public Iterable<Entity> getLinks(@NotNull final String linkName) {
-        return getLinksEventHandler.handle(this, linkName, null);
+        return new PersistentEntityIterableWrapper(persistentEntity.getLinks(linkName));
     }
-
-    private static final StandardEventHandler<String, Object, Entity> getLinkEventHandler = new StandardEventHandler2<String, Object, Entity>() {
-
-        Entity processOpenSaved(AbstractTransientEntity entity, String linkName, Object param2) {
-            return _(entity).getLinksManager(linkName).getLink();
-        }
-
-        Entity processOpenNew(AbstractTransientEntity entity, String linkName, Object param2) {
-            return processOpenSaved(entity, linkName, param2);
-        }
-
-    };
 
     @Nullable
     public Entity getLink(@NotNull final String linkName) {
-        return getLinkEventHandler.handle(this, linkName, null);
+        final Entity link = persistentEntity.getLink(linkName);
+        //TODO: remove (link.getVersion() < 0) together with history support removing
+        return link == null || link.getVersion() < 0 ? null : getAndCheckThreadStoreSession().newEntity(link);
     }
 
-    private static final StandardEventHandler<Collection<String>, Object, EntityIterable> getLinksFromSetEventHandler = new StandardEventHandler2<Collection<String>, Object, EntityIterable>() {
-        EntityIterable processOpenSaved(AbstractTransientEntity entity, Collection<String> linkNames, Object param2) {
-            return new PersistentEntityIterableWrapper(_(entity).getPersistentEntityInternal().getLinks(linkNames)) {
-                @Override
-                public EntityIterator iterator() {
-                    return new PersistentEntityIteratorWithPropIdWrapper((EntityIteratorWithPropId) wrappedIterable.iterator(),
-                            (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
-                }
-            };
-        }
-
-        EntityIterable processOpenNew(AbstractTransientEntity entity, Collection<String> linkNames, Object param2) {
-            return processOpenSaved(entity, linkNames, param2);
-        }
-
-    };
-
-    @Nullable
+    @NotNull
     public EntityIterable getLinks(@NotNull final Collection<String> linkNames) {
-        return getLinksFromSetEventHandler.handle(this, linkNames, null);
+        return new PersistentEntityIterableWrapper(persistentEntity.getLinks(linkNames)) {
+            @Override
+            public EntityIterator iterator() {
+                return new PersistentEntityIteratorWithPropIdWrapper((EntityIteratorWithPropId) wrappedIterable.iterator(),
+                        (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
+            }
+        };
     }
-
-    private static final StandardEventHandler<String, Object, Long> getLinksSizeEventHandler = new StandardEventHandler2<String, Object, Long>() {
-        Long processOpenSaved(AbstractTransientEntity entity, String linkName, Object param2) {
-            return _(entity).getLinksManager(linkName).getLinksSize();
-        }
-
-        Long processOpenNew(AbstractTransientEntity entity, String linkName, Object param2) {
-            return processOpenSaved(entity, linkName, param2);
-        }
-
-    };
 
     public long getLinksSize(@NotNull final String linkName) {
-        return getLinksSizeEventHandler.handle(this, linkName, null);
+        //TODO: slow method
+        return persistentEntity.getLinks(linkName).size();
     }
 
     @NotNull
     public List<Pair<String, EntityIterable>> getIncomingLinks() {
         final List<Pair<String, EntityIterable>> result = new ArrayList<Pair<String, EntityIterable>>();
-        final TransientStoreSession session = getTransientStoreSession();
-        //Why persistent store is here instead of transient?
-        final StoreSession persistentSession = session.getPersistentSession();
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
         final ModelMetaData mmd = ((TransientEntityStore) session.getStore()).getModelMetaData();
         if (mmd != null) {
             final EntityMetaData emd = mmd.getEntityMetaData(getType());
@@ -502,299 +318,193 @@ class TransientEntityImpl extends AbstractTransientEntity {
         return result;
     }
 
-    private static final StandardEventHandler<Object, Object, Object> deleteEventHandler = new StandardEventHandler2<Object, Object, Object>() {
-
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.getTransientStoreSession().getTransientChangesTracker().entityDeleted(entity);
-            switch (entity.getState()) {
-                case Saved:
-                    entity.setState(State.RemovedSaved);
-                    break;
-                case SavedNew:
-                    entity.setState(State.RemovedSavedNew);
-                    break;
-            }
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.getTransientStoreSession().getTransientChangesTracker().entityDeleted(entity);
-            entity.setState(State.RemovedNew);
-            return null;
-        }
-
-    };
-
-    public void delete() {
-        deleteEventHandler.handle(this, null, null);
+    public boolean delete() {
+        getAndCheckThreadStoreSession().deleteEntity(this);
+        return true;
     }
-
-    //TODO: check if method can me deleted
-    @SuppressWarnings({"UnusedDeclaration"})
-    private EntityMetaData getEntityMetadata() {
-        final ModelMetaData md = ((TransientEntityStore) this.getStore()).getModelMetaData();
-        return md == null ? null : md.getEntityMetaData(this.getType());
-    }
-
-    /**
-     * Called by session on session abort
-     */
-    void rollbackDelete() {
-        switch (getState()) {
-            case RemovedNew:
-                setState(State.New);
-                break;
-
-            case RemovedSaved:
-                setState(State.Saved);
-                break;
-
-            case RemovedSavedNew:
-                setState(State.SavedNew);
-                break;
-        }
-    }
-
-    private static final StandardEventHandler<Object, Object, Object> newVersionEventHandler = new StandardEventHandler2<Object, Object, Object>() {
-
-        Object processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-            entity.getPersistentEntityInternal().newVersion();
-            return null;
-        }
-
-        Object processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            throw new UnsupportedOperationException("Not supported by transient entity in the current state. " + entity);
-        }
-
-    };
-
-
-    public void newVersion() {
-        newVersionEventHandler.handle(this, null, null);
-    }
-
-    @Deprecated
-    public void markAsTemporary() {
-        //TODO: remove
-    }
-
-    private TransientLinksManager getLinksManager(@NotNull String linkName) {
-        TransientLinksManager m = linksManagers.get(linkName);
-
-        if (m == null) {
-            final ModelMetaData md = ((TransientEntityStore) getStore()).getModelMetaData();
-            final AssociationEndMetaData aemd;
-            final EntityMetaData emd;
-            if (md == null || (emd = md.getEntityMetaData(getType())) == null || (aemd = emd.getAssociationEndMetaData(linkName)) == null) {
-                if (log.isTraceEnabled()) {
-                    log.trace("Model-meta data is not defined. Use unified link manager for link [" + linkName + "]");
-                }
-                m = new UnifiedTransientLinksManagerImpl(linkName, this);
-            } else {
-                switch (aemd.getCardinality()) {
-                    case _0_1:
-                    case _1:
-                        m = new SingleTransientLinksManagerImpl(linkName, this);
-                        break;
-
-                    case _0_n:
-                    case _1_n:
-                        m = new MultipleTransientLinksManagerImpl(linkName, this, aemd.getOppositeEntityMetaData().getType());
-                        break;
-                }
-            }
-
-            linksManagers.put(linkName, m);
-        }
-
-        return m;
-    }
-
-    /**
-     * Is called by session on flush, because all files stored in temp location will be moved to persistent store location.
-     */
-    void clearFileBlobsCache() {
-        fileBlobsCache.clear();
-    }
-
-    /**
-     * Notifies links managers about successful flush. Called by transient session
-     */
-    void updateLinkManagers() {
-        for (TransientLinksManager lm : linksManagers.values()) {
-            lm.flushed();
-        }
-    }
-
-    private static final StandardEventHandler<Object, Object, Boolean> hasChangesEventHandler = new StandardEventHandler2<Object, Object, Boolean>() {
-
-        Boolean processOpenNew(AbstractTransientEntity entity, Object param1, Object param2) {
-            return true;
-        }
-
-        Boolean processOpenSaved(AbstractTransientEntity entity, Object param1, Object param2) {
-            final TransientStoreSession session = entity.getTransientStoreSession();
-            Map<String, PropertyChange> changesProperties = session.getTransientChangesTracker().getChangedPropertiesDetailed(entity);
-            Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(entity);
-
-            return (changesLinks != null && !changesLinks.isEmpty()) || (changesProperties != null && !changesProperties.isEmpty());
-        }
-
-    };
-
 
     public boolean hasChanges() {
-        return hasChangesEventHandler.handle(this, null, null);
+        if (isNew()) return true;
+
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
+        Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
+        Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
+
+        return (changesLinks != null && !changesLinks.isEmpty()) || (changesProperties != null && !changesProperties.isEmpty());
     }
-
-    private static final StandardEventHandler<String, Object, Boolean> hasChangesForPropertyEventHandler = new StandardEventHandler2<String, Object, Boolean>() {
-
-        Boolean processOpenNew(AbstractTransientEntity entity, String property, Object param2) {
-            return processOpenSaved(entity, property, param2);
-        }
-
-        Boolean processOpenSaved(AbstractTransientEntity entity, String property, Object param2) {
-            final TransientStoreSession session = entity.getTransientStoreSession();
-            Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(entity);
-            Map<String, PropertyChange> changesProperties = session.getTransientChangesTracker().getChangedPropertiesDetailed(entity);
-
-            return (changesLinks != null && changesLinks.containsKey(property)) ||
-                    (changesProperties != null && changesProperties.containsKey(property));
-        }
-
-    };
 
     public boolean hasChanges(final String property) {
-        return hasChangesForPropertyEventHandler.handle(this, property, null);
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
+        Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
+        Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
+
+        return (changesLinks != null && changesLinks.containsKey(property)) || (changesProperties != null && changesProperties.contains(property));
     }
-
-    private static final StandardEventHandler<String[], Object, Boolean> hasChangesExceptingEventHandler = new StandardEventHandler2<String[], Object, Boolean>() {
-
-        Boolean processOpenNew(AbstractTransientEntity entity, String[] properties, Object param2) {
-            return processOpenSaved(entity, properties, param2);
-        }
-
-        Boolean processOpenSaved(AbstractTransientEntity entity, String[] properties, Object param2) {
-            final TransientStoreSession session = entity.getTransientStoreSession();
-            Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(entity);
-            Map<String, PropertyChange> changesProperties = session.getTransientChangesTracker().getChangedPropertiesDetailed(entity);
-
-            int found = 0;
-            int changed;
-            if (changesLinks == null && changesProperties == null) {
-                return false;
-            } else {
-                for (String property : properties) {
-                    // all properties have to be changed
-                    if (entity.hasChanges(property)) found++;
-                }
-                if (changesLinks == null) {
-                    changed = changesProperties.size();
-                } else if (changesProperties == null) {
-                    changed = changesLinks.size();
-                } else {
-                    changed = changesLinks.size() + changesProperties.size();
-                }
-                return changed > found;
-            }
-        }
-
-    };
 
     public boolean hasChangesExcepting(String[] properties) {
-        return hasChangesExceptingEventHandler.handle(this, properties, null);
-    }
+        final TransientStoreSession session = getAndCheckThreadStoreSession();
+        Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
+        Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
 
-    private static final StandardEventHandler<String, Boolean, EntityIterable> addedRemovedLinksEventHandler = new StandardEventHandler2<String, Boolean, EntityIterable>() {
-
-        @NotNull
-        EntityIterable processOpenNew(AbstractTransientEntity entity, String name, Boolean removed) {
-            return EntityIterableBase.EMPTY;
+        int found = 0;
+        int changed;
+        if (changesLinks == null && changesProperties == null) {
+            return false;
+        } else {
+            for (String property : properties) {
+                // all properties have to be changed
+                if (this.hasChanges(property)) found++;
+            }
+            if (changesLinks == null) {
+                changed = changesProperties.size();
+            } else if (changesProperties == null) {
+                changed = changesLinks.size();
+            } else {
+                changed = changesLinks.size() + changesProperties.size();
+            }
+            return changed > found;
         }
 
-        @NotNull
-        EntityIterable processOpenSaved(AbstractTransientEntity entity, String name, Boolean removed) {
-            Map<String, LinkChange> changesLinks = entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity);
+    }
 
-            if (changesLinks != null) {
-                final LinkChange linkChange = changesLinks.get(name);
-                if (linkChange != null) {
-                    Set<TransientEntity> result = removed ? linkChange.getRemovedEntities() : linkChange.getAddedEntities();
-                    if (result != null) {
-                        if (removed) {
-                            return new TransientEntityIterable(result) {
-                                @Override
-                                public long size() {
-                                    return linkChange.getRemovedEntitiesSize();
-                                }
+    private EntityIterable getAddedRemovedLinks(final String name, boolean removed) {
+        if (isNew()) return EntityIterableBase.EMPTY;
 
-                                @Override
-                                public long count() {
-                                    return linkChange.getRemovedEntitiesSize();
-                                }
-                            };
-                        } else {
-                            return new TransientEntityIterable(result) {
-                                @Override
-                                public long size() {
-                                    return linkChange.getAddedEntitiesSize();
-                                }
+        Map<String, LinkChange> changesLinks = getAndCheckThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this);
 
-                                @Override
-                                public long count() {
-                                    return linkChange.getAddedEntitiesSize();
-                                }
-                            };
-                        }
+        if (changesLinks != null) {
+            final LinkChange linkChange = changesLinks.get(name);
+            if (linkChange != null) {
+                Set<TransientEntity> result = removed ? linkChange.getRemovedEntities() : linkChange.getAddedEntities();
+                if (result != null) {
+                    if (removed) {
+                        return new TransientEntityIterable(result) {
+                            @Override
+                            public long size() {
+                                return linkChange.getRemovedEntitiesSize();
+                            }
+
+                            @Override
+                            public long count() {
+                                return linkChange.getRemovedEntitiesSize();
+                            }
+                        };
+                    } else {
+                        return new TransientEntityIterable(result) {
+                            @Override
+                            public long size() {
+                                return linkChange.getAddedEntitiesSize();
+                            }
+
+                            @Override
+                            public long count() {
+                                return linkChange.getAddedEntitiesSize();
+                            }
+                        };
                     }
                 }
             }
-            return EntityIterableBase.EMPTY;
         }
-
-    };
+        return EntityIterableBase.EMPTY;
+    }
 
     public EntityIterable getAddedLinks(final String name) {
-        return addedRemovedLinksEventHandler.handle(this, name, false);
+        return getAddedRemovedLinks(name, false);
     }
 
     public EntityIterable getRemovedLinks(final String name) {
-        return addedRemovedLinksEventHandler.handle(this, name, true);
+        return getAddedRemovedLinks(name, true);
     }
 
-    private static final StandardEventHandler<Set<String>, Boolean, EntityIterable> addedRemovedFromSetLinksEventHandler = new StandardEventHandler2<Set<String>, Boolean, EntityIterable>() {
+    private EntityIterable getAddedRemovedLinks(final Set<String> linkNames, boolean removed) {
+        if (isNew()) return UniversalEmptyEntityIterable.INSTANCE;
 
-        @NotNull
-        EntityIterable processOpenNew(AbstractTransientEntity entity, Set<String> linkNames, Boolean removed) {
-            return UniversalEmptyEntityIterable.INSTANCE;
-        }
-
-        @NotNull
-        EntityIterable processOpenSaved(AbstractTransientEntity entity, final Set<String> linkNames, final Boolean removed) {
-            return AddedOrRemovedLinksFromSetTransientEntityIterable.get(
-                    entity.getTransientStoreSession().getTransientChangesTracker().getChangedLinksDetailed(entity),
-                    linkNames, removed
-            );
-        }
-
-    };
+        final Map<String, LinkChange> changedLinksDetailed = getAndCheckThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this);
+        return changedLinksDetailed == null ? UniversalEmptyEntityIterable.INSTANCE : AddedOrRemovedLinksFromSetTransientEntityIterable.get(
+                changedLinksDetailed,
+                linkNames, removed
+        );
+    }
 
     public EntityIterable getAddedLinks(final Set<String> linkNames) {
-        return addedRemovedFromSetLinksEventHandler.handle(this, linkNames, false);
+        return getAddedRemovedLinks(linkNames, false);
     }
 
     public EntityIterable getRemovedLinks(final Set<String> linkNames) {
-        return addedRemovedFromSetLinksEventHandler.handle(this, linkNames, true);
+        return getAddedRemovedLinks(linkNames, true);
     }
 
-    private static abstract class StandardEventHandler2<P1, P2, T> extends StandardEventHandler<P1, P2, T> {
-        TransientEntityImpl _(AbstractTransientEntity entity) {
-            return (TransientEntityImpl) entity;
-        }
-
-        void putValueInPropertiesCache(AbstractTransientEntity entity, String propertyName, Comparable value) {
-            _(entity).propertiesCache.put(propertyName, value);
-        }
+    @Override
+    public void setToOne(@NotNull String linkName, @Nullable Entity target) {
+        getAndCheckThreadStoreSession().setToOne(this, linkName, (TransientEntity) target);
     }
 
+    public void setManyToOne(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName, @Nullable Entity one) {
+        if (one != null) {
+            checkCardinality(oneToManyLinkName, one);
+        }
+        getAndCheckThreadStoreSession().setManyToOne(this, manyToOneLinkName, oneToManyLinkName, (TransientEntity) one);
+    }
+
+    @Override
+    public void clearOneToMany(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName) {
+        checkCardinality(oneToManyLinkName, this);
+
+        getAndCheckThreadStoreSession().clearOneToMany(this, manyToOneLinkName, oneToManyLinkName);
+    }
+
+    @Override
+    public void createManyToMany(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @NotNull Entity e2) {
+        checkCardinality(e1Toe2LinkName, this);
+        checkCardinality(e2Toe1LinkName, e2);
+
+        getAndCheckThreadStoreSession().createManyToMany(this, e1Toe2LinkName, e2Toe1LinkName, (TransientEntity) e2);
+    }
+
+    @Override
+    public void clearManyToMany(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName) {
+        checkCardinality(e1Toe2LinkName, this);
+
+        getAndCheckThreadStoreSession().clearManyToMany(this, e1Toe2LinkName, e2Toe1LinkName);
+    }
+
+    @Override
+    public void setOneToOne(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @Nullable Entity e2) {
+        getAndCheckThreadStoreSession().setOneToOne(this, e1Toe2LinkName, e2Toe1LinkName, (TransientEntity) e2);
+    }
+
+    @Override
+    public void removeOneToMany(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName, @NotNull Entity many) {
+        getAndCheckThreadStoreSession().removeOneToMany(this, manyToOneLinkName, oneToManyLinkName, (TransientEntity) many);
+    }
+
+    @Override
+    public void removeFromParent(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName) {
+        getAndCheckThreadStoreSession().removeFromParent(this, parentToChildLinkName, childToParentLinkName);
+    }
+
+    @Override
+    public void removeChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName) {
+        getAndCheckThreadStoreSession().removeChild(this, parentToChildLinkName, childToParentLinkName);
+    }
+
+    @Override
+    public void setChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
+        getAndCheckThreadStoreSession().setChild(this, parentToChildLinkName, childToParentLinkName, (TransientEntity) child);
+    }
+
+    @Override
+    public void clearChildren(@NotNull String parentToChildLinkName) {
+        getAndCheckThreadStoreSession().clearChildren(this, parentToChildLinkName);
+    }
+
+    @Override
+    public void addChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
+        getAndCheckThreadStoreSession().addChild(this, parentToChildLinkName, childToParentLinkName, (TransientEntity) child);
+    }
+
+    @Override
+    public Entity getParent() {
+        return getAndCheckThreadStoreSession().getParent(this);
+    }
 }

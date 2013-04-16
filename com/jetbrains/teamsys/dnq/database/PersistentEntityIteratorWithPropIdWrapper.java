@@ -28,8 +28,7 @@ class PersistentEntityIteratorWithPropIdWrapper implements EntityIteratorWithPro
         if (persistentEntity == null) {
             return null;
         }
-        final int version = source.getCurrentVersion();
-        return version < 0 ? session.newEntity(persistentEntity) : session.newEntity(persistentEntity, version);
+        return session.newEntity(persistentEntity);
     }
 
     public String currentLinkName() {

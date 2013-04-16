@@ -14,7 +14,6 @@ import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -23,38 +22,32 @@ class ConstraintsUtil {
 
     private static final Log log = LogFactory.getLog(ConstraintsUtil.class);
 
-
-    //TODO: performance tip: use getPersistentIterable.next instead of getLinksSize
-
     static boolean checkCardinality(TransientEntity e, AssociationEndMetaData md) {
-        return checkCardinality(e, md.getCardinality(), md.getName());
-    }
+        final AssociationEndCardinality cardinality = md.getCardinality();
+        if (cardinality == AssociationEndCardinality._0_n) return true;
 
-    static boolean checkCardinality(TransientEntity e, AssociationEndCardinality cardinality, String associationName) {
-        long size;
+        final EntityIterable links = e.getPersistentEntity().getLinks(md.getName());
+        final EntityIterator iter = links.iterator();
+
+        int size = 0;
+        for (; size < 2 && iter.hasNext(); iter.next(), size++);
 
         switch (cardinality) {
-            case _0_1:
-                size = e.getLinksSize(associationName);
-                return size <= 1;
+        case _0_1:
+            return size <= 1;
 
-            case _0_n:
-                return true;
+        case _1:
+            return size == 1;
 
-            case _1:
-                size = e.getLinksSize(associationName);
-                return size == 1;
-
-            case _1_n:
-                size = e.getLinksSize(associationName);
-                return size >= 1;
+        case _1_n:
+            return size >= 1;
         }
 
         throw new IllegalArgumentException("Unknown cardinality [" + cardinality + "]");
     }
 
     @NotNull
-    static Set<DataIntegrityViolationException> checkIncomingLinks(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
+    static Set<DataIntegrityViolationException> checkIncomingLinks(@NotNull TransientChangesTracker changesTracker) {
         final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
 
         for (TransientEntity e : changesTracker.getChangedEntities()) {
@@ -62,7 +55,6 @@ class ConstraintsUtil {
                 List<Pair<String, EntityIterable>> incomingLinks = e.getIncomingLinks();
 
                 if (incomingLinks.size() > 0) {
-
                     List<IncomingLinkViolation> badIncomingLinks = new ArrayList<IncomingLinkViolation>();
                     for (Pair<String, EntityIterable> pair : incomingLinks) {
                         IncomingLinkViolation violation = null;
@@ -370,7 +362,7 @@ class ConstraintsUtil {
 
                 Set<String> requiredProperties = emd.getRequiredProperties();
                 Set<String> requiredIfProperties = EntityMetaDataUtils.getRequiredIfProperties(emd, e);
-                Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+                Set<String> changedProperties = tracker.getChangedProperties(e);
 
                 if ((requiredProperties.size() + requiredIfProperties.size() > 0 && (e.isNew() || (changedProperties != null && changedProperties.size() > 0)))) {
                     for (String requiredPropertyName : requiredProperties) {
@@ -419,14 +411,14 @@ class ConstraintsUtil {
         Iterable<String> propertyNames = Collections.emptySet();
         if (constraintedProperties != null && !constraintedProperties.isEmpty()) {
             // Any property has constraints
-            Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+            Set<String> changedProperties = tracker.getChangedProperties(e);
             if (e.isNew()) {
                 // All properties with constriants
                 propertyNames = constraintedProperties;
             } else if (changedProperties != null && !changedProperties.isEmpty()) {
                 // Changed properties with constraints
                 Set<String> intersection = new HashSet<String>(changedProperties.size());
-                for (String changedProperty: changedProperties.keySet()) {
+                for (String changedProperty: changedProperties) {
                     if (constraintedProperties.contains(changedProperty)) {
                         intersection.add(changedProperty);
                     }
@@ -453,7 +445,7 @@ class ConstraintsUtil {
 
                 EntityMetaData emd = md.getEntityMetaData(e.getType());
 
-                Map<String, PropertyChange> changedProperties = tracker.getChangedPropertiesDetailed(e);
+                Set<String> changedProperties = tracker.getChangedProperties(e);
                 Set<Index> indexes = emd.getIndexes();
 
                 for (Index index : indexes) {
@@ -464,7 +456,7 @@ class ConstraintsUtil {
                             }
                         } else {
                             // link
-                            if (!checkCardinality(e, AssociationEndCardinality._1, f.getName())) {
+                            if (!checkCardinality(e, emd.getAssociationEndMetaData(f.getName()))) {
                                 errors.add(new CardinalityViolationException("Association [" + f.getName() + "] can't be empty, because it's part of unique constraint.", e, f.getName()));
                             }
                         }
@@ -476,10 +468,10 @@ class ConstraintsUtil {
         return errors;
     }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Map<String, PropertyChange> changedProperties, EntityMetaData emd, String name) {
+    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Set<String> changedProperties, EntityMetaData emd, String name) {
         final PropertyType type = getPropertyType(emd.getPropertyMetaData(name));
 
-        if (e.isNew() || changedProperties.containsKey(name)) {
+        if (e.isNew() || changedProperties.contains(name)) {
             checkProperty(errors, e, name, type);
         }
     }

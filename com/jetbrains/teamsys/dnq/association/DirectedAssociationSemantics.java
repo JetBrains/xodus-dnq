@@ -3,6 +3,7 @@ package com.jetbrains.teamsys.dnq.association;
 import jetbrains.exodus.database.Entity;
 import jetbrains.exodus.database.TransientEntity;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
+import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,30 +24,9 @@ public class DirectedAssociationSemantics {
      */
     public static void setToOne(Entity source, @NotNull String linkName, @Nullable Entity target) {
         source = TransientStoreUtil.reattach((TransientEntity) source);
+        if (source == null) return;
 
-        if (source == null) {
-            return;
-        }
-
-        target = TransientStoreUtil.reattach((TransientEntity) target);
-
-        // find old target
-        Entity oldTarget = source.getLink(linkName);
-
-        // compare new and old targets
-        if (oldTarget == null && target == null) {
-            return;
-        }
-        if (oldTarget != null && oldTarget.equals(target)) {
-            return;
-        }
-
-        // set new target
-        if (target == null) {
-            source.deleteLinks(linkName);
-        } else {
-            ((TransientEntity) source).setLink(linkName, target);
-        }
+        ((TransientEntity) source).setToOne(linkName, TransientStoreUtil.reattach((TransientEntity) target));
     }
 
     /**
@@ -56,18 +36,11 @@ public class DirectedAssociationSemantics {
      * @param linkName
      * @param target
      */
-    public static void createToMany(@NotNull Entity source, @NotNull String linkName, @NotNull Entity target) {
+    public static void createToMany(Entity source, @NotNull String linkName, Entity target) {
         source = TransientStoreUtil.reattach((TransientEntity) source);
-
-        if (source == null) {
-            return;
-        }
-
+        if (source == null) return;
         target = TransientStoreUtil.reattach((TransientEntity) target);
-
-        if (target == null) {
-            return;
-        }
+        if (target == null) return;
 
         source.addLink(linkName, target);
     }
@@ -79,18 +52,11 @@ public class DirectedAssociationSemantics {
      * @param linkName
      * @param target
      */
-    public static void removeToMany(@NotNull Entity source, @NotNull String linkName, @NotNull Entity target) {
+    public static void removeToMany(Entity source, @NotNull String linkName, Entity target) {
         source = TransientStoreUtil.reattach((TransientEntity) source);
-
-        if (source == null) {
-            return;
-        }
-
+        if (source == null) return;
         target = TransientStoreUtil.reattach((TransientEntity) target);
-
-        if (target == null) {
-            return;
-        }
+        if (target == null) return;
 
         source.deleteLink(linkName, target);
     }
@@ -101,16 +67,11 @@ public class DirectedAssociationSemantics {
      * @param source
      * @param linkName
      */
-    public static void clearToMany(@NotNull Entity source, @NotNull String linkName) {
+    public static void clearToMany(Entity source, @NotNull String linkName) {
         source = TransientStoreUtil.reattach((TransientEntity) source);
+        if (source == null) return;
 
-        if (source == null) {
-            return;
-        }
-
-        for (Entity target : AssociationSemantics.getToManyList(source, linkName)) {
-            source.deleteLink(linkName, target);
-        }
+        source.deleteLinks(linkName);
     }
 
 }
