@@ -839,7 +839,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             try {
                 getPersistentTransaction().deleteUniqueKey(index.getFirst(), index.getSecond());
             } catch (ExodusException ex) {
-                throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index.getFirst()));
+                throw new ConstraintsValidationException(new UniqueIndexIntegrityException(e, index.getFirst(), ex));
             }
         }
     }
