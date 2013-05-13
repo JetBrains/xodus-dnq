@@ -11,7 +11,6 @@ import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.persistence.BlobVault;
 import jetbrains.exodus.exceptions.ExodusException;
-import jetbrains.exodus.exceptions.VersionMismatchException;
 import jetbrains.exodus.util.IOUtil;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
@@ -139,7 +138,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Override
-    public void flush() {
+    public boolean flush() {
         if (store.getThreadSession() != this) {
             throw new IllegalStateException("Can't commit session from another thread.");
         }
@@ -164,9 +163,10 @@ public class TransientSessionImpl implements TransientStoreSession {
             this.changesTracker = new TransientChangesTrackerImpl(getSnapshot());
             notifyFlushedListeners(oldChangesTracker);
         }
+        return true;
     }
 
-    public void commit() {
+    public boolean commit() {
         // flush until no side-effects from listeners
         do {
             flush();
@@ -182,6 +182,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                 state = State.Committed;
             }
         }
+        return true;
     }
 
     public void abort() {
@@ -724,7 +725,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         notifyBeforeFlushAfterConstraintsCheckListeners();
 
         int retry = 0;
-        Throwable lastEx;
+        Throwable exception;
         final StoreTransaction txn = getPersistentTransactionInternal();
 
         while (true) {
@@ -736,15 +737,12 @@ public class TransientSessionImpl implements TransientStoreSession {
                     log.trace("Flush persistent transaction in transient session " + this);
                 }
 
-                txn.flush();
-                lastEx = null;
-                break;
-            } catch (Throwable e) {
-                lastEx = e;
-                if (e instanceof VersionMismatchException) {
+                if (txn.flush()) {
+                    return;
+                } else {
                     if (++retry >= flushRetryOnVersionMismatch) {
                         // mark trace and count for better diagnostics
-                        lastEx = new RuntimeException("Optimistic flush gave up after " + retry + " retries ", lastEx);
+                        exception = new RuntimeException("Optimistic flush gave up after " + retry + " retries");
                         break;
                     }
                     Thread.yield();
@@ -752,21 +750,20 @@ public class TransientSessionImpl implements TransientStoreSession {
                     replayChanges();
                     //recheck constraints against new database root
                     checkBeforeSaveChangesConstraints();
-                } else {
-                    break;
                 }
+            } catch (Throwable e) {
+                exception = e;
+                break;
             }
         }
 
-        if (lastEx != null) {
-            log.error("Catch exception in flush: " + lastEx.getMessage());
-            txn.revert();
-            // we have to execute changes against new database root
-            //TODO: there're none recovarable exceptions, for which can skip executeChanges
-            replayChanges();
-            decodeException(lastEx);
-            throw new IllegalStateException("should never be thrown");
-        }
+        log.error("Catch exception in flush: " + exception.getMessage());
+        txn.revert();
+        // we have to execute changes against new database root
+        //TODO: there're none recovarable exceptions, for which can skip executeChanges
+        replayChanges();
+        decodeException(exception);
+        throw new IllegalStateException("should never be thrown");
     }
 
     private PersistentStoreTransaction getSnapshot() {
