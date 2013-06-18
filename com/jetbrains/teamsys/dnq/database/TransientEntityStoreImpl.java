@@ -10,7 +10,6 @@ import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.context.SmartLifecycle;
 
 import java.io.File;
 import java.util.Map;
@@ -20,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * @author Vadim.Gurov
  */
-public class TransientEntityStoreImpl implements TransientEntityStore, InitializingBean, SmartLifecycle {
+public class TransientEntityStoreImpl implements TransientEntityStore, InitializingBean {
 
     private static final Log log = LogFactory.getLog(TransientEntityStoreImpl.class);
 
@@ -164,11 +163,17 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void close() {
-        log.debug("Close transient store.");
+        log.info("Close transient store.");
         open = false;
 
         if (sessions.size() != 0) {
-            log.warn("There're " + sessions.size() + " open transient sessions.");
+            log.warn("There're " + sessions.size() + " open transient sessions. Print.");
+            for (TransientStoreSession session : sessions) {
+                TransientSessionImpl impl = session instanceof TransientSessionImpl ? (TransientSessionImpl) session : null;
+                if (impl != null) {
+                    log.warn("Not closed session stack trace: ", impl.getStack());
+                }
+            }
         }
     }
 
@@ -318,10 +323,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void afterPropertiesSet() throws Exception {
-        if (log.isInfoEnabled()) {
-            log.info("Transient entity store after properties called.");
-        }
-
         if (blobsStorePath == null) {
             blobsStorePath = System.getProperty("java.io.tmpdir");
         }
@@ -402,38 +403,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         builder.append('@');
         builder.append(className);
         return builder.toString();
-    }
-
-    @Override
-    public boolean isAutoStartup() {
-        return false;
-    }
-
-    @Override
-    public void stop(Runnable callback) {
-        stop();
-        callback.run();
-    }
-
-    @Override
-    public void start() {
-        log.info("Transient entity store bean start called");
-    }
-
-    @Override
-    public void stop() {
-        log.info("Transient entity store bean stop called");
-        this.close();
-    }
-
-    @Override
-    public boolean isRunning() {
-        return open;
-    }
-
-    @Override
-    public int getPhase() {
-        return Integer.MAX_VALUE;
     }
 
     interface ListenerVisitor {
