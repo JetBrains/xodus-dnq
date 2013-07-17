@@ -166,12 +166,14 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         log.info("Close transient store.");
         open = false;
 
-        if (sessions.size() != 0) {
+        if (sessions.size() >= 0) {
             log.warn("There're " + sessions.size() + " open transient sessions. Print.");
-            for (TransientStoreSession session : sessions) {
-                TransientSessionImpl impl = session instanceof TransientSessionImpl ? (TransientSessionImpl) session : null;
-                if (impl != null) {
-                    log.warn("Not closed session stack trace: ", impl.getStack());
+            if (log.isDebugEnabled()){
+                for (TransientStoreSession session : sessions) {
+                    TransientSessionImpl impl = session instanceof TransientSessionImpl ? (TransientSessionImpl) session : null;
+                    if (impl != null) {
+                        log.warn("Not closed session stack trace: ", impl.getStack());
+                    }
                 }
             }
         }

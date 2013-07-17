@@ -41,7 +41,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     private int hashCode = 0;
     private final ByteArraySpinAllocator bufferAllocator;
     private boolean allowRunnables = true;
-    private final Throwable stack;
+    private Throwable stack = null;
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store) {
         this.store = store;
@@ -50,7 +50,9 @@ public class TransientSessionImpl implements TransientStoreSession {
         this.state = State.Open;
         this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
         this.bufferAllocator = new ByteArraySpinAllocator(BlobVault.READ_BUFFER_SIZE);
-        stack = new Throwable();
+        if (LogFactory.getLog(TransientEntityStoreImpl.class).isDebugEnabled()) {
+            stack = new Throwable();
+        }
         initChangesTracker();
     }
 
