@@ -208,6 +208,10 @@ class TransientEntityImpl implements TransientEntity {
         return persistentEntity.getBlob(blobName);
     }
 
+    public long getBlobSize(@NotNull final String blobName) {
+        return persistentEntity.getBlobSize(blobName);
+    }
+
     public void setBlob(@NotNull final String blobName, @NotNull final InputStream blob) {
         getAndCheckThreadStoreSession().setBlob(this, blobName, blob);
     }

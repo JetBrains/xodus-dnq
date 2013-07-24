@@ -1,15 +1,15 @@
 package com.jetbrains.teamsys.dnq.association;
 
-import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import jetbrains.exodus.core.crypto.MessageDigestUtil;
-import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientStoreSession;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.InputStream;
-import java.util.Map;
 
 /**
  */
@@ -155,6 +155,16 @@ public class PrimitiveAssociationSemantics {
         }
 
         return e.getBlob(blobName);
+    }
+
+    public static long getBlobSize(@NotNull Entity e, @NotNull String blobName) {
+        e = TransientStoreUtil.reattach((TransientEntity) e);
+
+        if (e == null) {
+            return -1;
+        }
+
+        return e.getBlobSize(blobName);
     }
 
     public static String getBlobAsString(@NotNull Entity e, @NotNull String blobName) {
