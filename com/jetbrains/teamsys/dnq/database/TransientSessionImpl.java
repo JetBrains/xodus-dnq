@@ -738,8 +738,13 @@ public class TransientSessionImpl implements TransientStoreSession {
 
         while (true) {
             try {
-                saveHistory();
-                flushIndexes();
+                try {
+                    allowRunnables = false;
+                    saveHistory();
+                    flushIndexes();
+                } finally {
+                    allowRunnables = true;
+                }
 
                 if (log.isTraceEnabled()) {
                     log.trace("Flush persistent transaction in transient session " + this);
