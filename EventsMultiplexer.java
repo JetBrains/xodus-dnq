@@ -9,6 +9,9 @@ import java.util.Map;
 import java.util.Queue;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import jetbrains.exodus.core.execution.DelegatingJobProcessor;
+import jetbrains.exodus.core.execution.ThreadJobProcessor;
+import jetbrains.exodus.database.ModelMetaData;
 import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 import jetbrains.exodus.database.TransientEntityChange;
@@ -21,10 +24,12 @@ import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
 import jetbrains.exodus.database.EntityChangeType;
-import jetbrains.exodus.database.ModelMetaData;
-import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import jetbrains.exodus.database.EntityMetaData;
 import jetbrains.mps.internal.collections.runtime.Sequence;
+import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.springframework.configuration.runtime.ServiceLocator;
+import jetbrains.exodus.core.execution.ThreadJobProcessorPool;
 import jetbrains.exodus.core.execution.Job;
 import jetbrains.teamsys.dnq.runtime.txn._Txn;
 import jetbrains.exodus.database.EntityStore;
@@ -36,8 +41,18 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   private Map<EventsMultiplexer.FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<EventsMultiplexer.FullEntityId, Queue<IEntityListener>>();
   private Map<String, Queue<IEntityListener>> typeToListeners = new HashMap<String, Queue<IEntityListener>>();
   private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+  private final DelegatingJobProcessor<ThreadJobProcessor> asyncJobProcessor;
+  private boolean open = true;
+  private ModelMetaData myModelMetaData;
 
-  private EventsMultiplexer() {
+  public EventsMultiplexer(final DelegatingJobProcessor<ThreadJobProcessor> jobProcessor) {
+    jobProcessor.setExceptionHandler(new ExceptionHandlerImpl());
+    jobProcessor.start();
+    asyncJobProcessor = jobProcessor;
+  }
+
+  public EventsMultiplexer() {
+    this(createJobProcessor());
   }
 
   public void flushed(@Nullable Set<TransientEntityChange> changes) {
@@ -99,12 +114,14 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     final EventsMultiplexer.FullEntityId id = new EventsMultiplexer.FullEntityId(e.getStore(), e.getId());
     this.rwl.writeLock().lock();
     try {
-      Queue<IEntityListener> listeners = this.instanceToListeners.get(id);
-      if (listeners == null) {
-        listeners = new ConcurrentLinkedQueue<IEntityListener>();
-        this.instanceToListeners.put(id, listeners);
+      if (open) {
+        Queue<IEntityListener> listeners = this.instanceToListeners.get(id);
+        if (listeners == null) {
+          listeners = new ConcurrentLinkedQueue<IEntityListener>();
+          this.instanceToListeners.put(id, listeners);
+        }
+        listeners.add(listener);
       }
-      listeners.add(listener);
     } finally {
       this.rwl.writeLock().unlock();
     }
@@ -137,12 +154,14 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     //  ensure that this code will be executed outside of transaction 
     this.rwl.writeLock().lock();
     try {
-      Queue<IEntityListener> listeners = this.typeToListeners.get(entityType);
-      if (listeners == null) {
-        listeners = new ConcurrentLinkedQueue<IEntityListener>();
-        this.typeToListeners.put(entityType, listeners);
+      if (open) {
+        Queue<IEntityListener> listeners = this.typeToListeners.get(entityType);
+        if (listeners == null) {
+          listeners = new ConcurrentLinkedQueue<IEntityListener>();
+          this.typeToListeners.put(entityType, listeners);
+        }
+        listeners.add(listener);
       }
-      listeners.add(listener);
     } finally {
       this.rwl.writeLock().unlock();
     }
@@ -151,11 +170,13 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   public void removeListener(String entityType, IEntityListener listener) {
     this.rwl.writeLock().lock();
     try {
-      Queue<IEntityListener> listeners = this.typeToListeners.get(entityType);
-      if (listeners != null) {
-        listeners.remove(listener);
-        if (listeners.size() == 0) {
-          this.typeToListeners.remove(entityType);
+      if (open) {
+        Queue<IEntityListener> listeners = this.typeToListeners.get(entityType);
+        if (listeners != null) {
+          listeners.remove(listener);
+          if (listeners.size() == 0) {
+            this.typeToListeners.remove(entityType);
+          }
         }
       }
     } finally {
@@ -163,8 +184,10 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     }
   }
 
-  public void clearListeners() {
+  public void close() {
     this.rwl.writeLock().lock();
+    open = false;
+    // clear listeners 
     try {
       this.typeToListeners.clear();
       for (final EventsMultiplexer.FullEntityId id : this.instanceToListeners.keySet()) {
@@ -173,6 +196,8 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
         }
       }
       instanceToListeners.clear();
+      // finish all jobs 
+      asyncJobProcessor.finish();
     } finally {
       this.rwl.writeLock().unlock();
     }
@@ -187,7 +212,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     }
   }
 
-  public String listenerToString(final EventsMultiplexer.FullEntityId id, Queue<IEntityListener> listeners) {
+  private String listenerToString(final EventsMultiplexer.FullEntityId id, Queue<IEntityListener> listeners) {
     final StringBuilder builder = new StringBuilder(40);
     builder.append("Unregistered entity to listener class: ");
     id.toString(builder);
@@ -223,7 +248,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private void handlePerEntityTypeChanges(Where where, TransientEntityChange c) {
-    ModelMetaData modelMedatData = (((ModelMetaData) ServiceLocator.getOptionalBean("modelMetaData")));
+    ModelMetaData modelMedatData = this.getModelMetaData();
     if (modelMedatData != null) {
       EntityMetaData emd = modelMedatData.getEntityMetaData(c.getTransientEntity().getType());
       if (emd != null) {
@@ -325,12 +350,24 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     }
   }
 
+  public DelegatingJobProcessor<ThreadJobProcessor> getAsyncJobProcessor() {
+    return asyncJobProcessor;
+  }
+
+  public ModelMetaData getModelMetaData() {
+    return this.myModelMetaData;
+  }
+
+  public void setModelMetaData(ModelMetaData value) {
+    this.myModelMetaData = value;
+  }
+
   @Nullable
   public static EventsMultiplexer getInstance() {
     // this method may be called by global beans on global scope shutdown 
     // as a result, eventsMultiplexer may be removed already 
     try {
-      return ((EventsMultiplexer) ServiceLocator.getBean("eventsMultiplexer"));
+      return ((TransientEntityStoreImpl) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore"))).getEventsMultiplexer();
     } catch (Exception e) {
       if (log.isWarnEnabled()) {
         log.warn("Can't access events multiplexer: " + e.getClass().getName() + ": " + e.getMessage());
@@ -347,6 +384,15 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     check_9klgcu_a0a2(getInstance(), type, listener);
   }
 
+  private static DelegatingJobProcessor<ThreadJobProcessor> createJobProcessor() {
+    // TODO: get rid of this shit ASAP! 
+    DelegatingJobProcessor<ThreadJobProcessor> processor = (((DelegatingJobProcessor<ThreadJobProcessor>) ServiceLocator.getOptionalBean("eventsMultiplexerJobProcessor")));
+    if (processor == null) {
+      processor = new DelegatingJobProcessor<ThreadJobProcessor>(ThreadJobProcessorPool.getOrCreateJobProcessor("EventsMultiplexerJobProcessor"));
+    }
+    return processor;
+  }
+
   private static void check_9klgcu_a0a1(EventsMultiplexer checkedDotOperand, Entity e, IEntityListener listener) {
     if (null != checkedDotOperand) {
       checkedDotOperand.removeListener(e, listener);
@@ -361,7 +407,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
 
   }
 
-  public static class JobImpl extends Job {
+  private static class JobImpl extends Job {
     private Set<TransientEntityChange> changes;
     private TransientChangesTracker changesTracker;
     private EventsMultiplexer eventsMultiplexer;

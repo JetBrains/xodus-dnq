@@ -4,25 +4,9 @@ package jetbrains.teamsys.dnq.runtime.events;
 
 import jetbrains.exodus.core.execution.DelegatingJobProcessor;
 import jetbrains.exodus.core.execution.ThreadJobProcessor;
-import jetbrains.springframework.configuration.runtime.ServiceLocator;
-import jetbrains.exodus.core.execution.ThreadJobProcessorPool;
 
 public class EventsMultiplexerJobProcessor {
-  private static DelegatingJobProcessor<ThreadJobProcessor> instance;
-
   public static DelegatingJobProcessor<ThreadJobProcessor> getInstance() {
-    {
-      final Object result = (((DelegatingJobProcessor<ThreadJobProcessor>) ServiceLocator.getOptionalBean("eventsMultiplexerJobProcessor")));
-      if (result != null) {
-        return (DelegatingJobProcessor) result;
-      }
-    }
-    if (instance == null) {
-      final DelegatingJobProcessor<ThreadJobProcessor> result = new DelegatingJobProcessor<ThreadJobProcessor>(ThreadJobProcessorPool.getOrCreateJobProcessor("EventsMultiplexerJobProcessor"));
-      instance = result;
-      result.setExceptionHandler(new ExceptionHandlerImpl());
-      result.start();
-    }
-    return instance;
+    return EventsMultiplexer.getInstance().getAsyncJobProcessor();
   }
 }
