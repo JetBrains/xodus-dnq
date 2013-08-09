@@ -12,6 +12,7 @@ import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.persistence.BlobVault;
 import jetbrains.exodus.exceptions.ExodusException;
 import jetbrains.exodus.util.IOUtil;
+import jetbrains.teamsys.dnq.runtime.events.*;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -1033,7 +1034,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         });
 
         //explicitly notify EventsMultiplexer - it will dispose changes tracker in async job
-        final EventsMultiplexer ep = EventsMultiplexer.getInstance();
+        final EventsMultiplexer ep = store.getEventsMultiplexer();
         if (ep != null) {
             try {
                 ep.flushed(oldChangesTracker, changesDescription);

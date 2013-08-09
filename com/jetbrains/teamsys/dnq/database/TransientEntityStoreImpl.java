@@ -4,6 +4,7 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
 import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
+import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import jetbrains.teamsys.dnq.runtime.queries.QueryEngine;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -26,6 +27,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private EntityStore persistentStore;
     private QueryEngine queryEngine;
     private ModelMetaData modelMetaData;
+    private EventsMultiplexer eventsMultiplexer;
     private final Set<TransientStoreSession> sessions = new HashSet<TransientStoreSession>();
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
     private final Set<TransientStoreSessionListener> listeners = new LinkedHashSet<TransientStoreSessionListener>();
@@ -60,6 +62,14 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     File getBlobsStore() {
         return blobsStore;
+    }
+
+    public EventsMultiplexer getEventsMultiplexer() {
+        return eventsMultiplexer;
+    }
+
+    public void setEventsMultiplexer(EventsMultiplexer eventsMultiplexer) {
+        this.eventsMultiplexer = eventsMultiplexer;
     }
 
     public int getFlushRetryOnLockConflict() {
