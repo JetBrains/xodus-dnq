@@ -42,6 +42,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     private final ByteArraySpinAllocator bufferAllocator;
     private boolean allowRunnables = true;
     private Throwable stack = null;
+    private boolean flushing = false;
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store) {
         this.store = store;
@@ -727,56 +728,64 @@ public class TransientSessionImpl implements TransientStoreSession {
      * Flushes changes
      */
     private void flushChanges() {
-        beforeFlush();
-        checkBeforeSaveChangesConstraints();
-
-        notifyBeforeFlushAfterConstraintsCheckListeners();
-
-        int retry = 0;
-        Throwable exception;
-        final StoreTransaction txn = getPersistentTransactionInternal();
-
-        while (true) {
-            try {
-                try {
-                    allowRunnables = false;
-                    saveHistory();
-                    flushIndexes();
-                } finally {
-                    allowRunnables = true;
-                }
-
-                if (log.isTraceEnabled()) {
-                    log.trace("Flush persistent transaction in transient session " + this);
-                }
-
-                if (txn.flush()) {
-                    return;
-                } else {
-                    if (++retry >= flushRetryOnVersionMismatch) {
-                        // mark trace and count for better diagnostics
-                        exception = new RuntimeException("Optimistic flush gave up after " + retry + " retries");
-                        break;
-                    }
-                    Thread.yield();
-                    // replay changes
-                    replayChanges();
-                    //recheck constraints against new database root
-                    checkBeforeSaveChangesConstraints();
-                }
-            } catch (Throwable e) {
-                exception = e;
-                break;
-            }
+        if (flushing) {
+            throw new IllegalStateException("Transaction is already being flushed!");
         }
+        try {
+            flushing = true;
+            beforeFlush();
+            checkBeforeSaveChangesConstraints();
 
-        log.error("Catch exception in flush: " + exception.getMessage());
-        txn.revert();
-        // we have to execute changes against new database root
-        //TODO: there're none recovarable exceptions, for which can skip executeChanges
-        replayChanges();
-        decodeException(exception);
-        throw new IllegalStateException("should never be thrown");
+            notifyBeforeFlushAfterConstraintsCheckListeners();
+
+            int retry = 0;
+            Throwable exception;
+            final StoreTransaction txn = getPersistentTransactionInternal();
+
+            while (true) {
+                try {
+                    try {
+                        allowRunnables = false;
+                        saveHistory();
+                        flushIndexes();
+                    } finally {
+                        allowRunnables = true;
+                    }
+
+                    if (log.isTraceEnabled()) {
+                        log.trace("Flush persistent transaction in transient session " + this);
+                    }
+
+                    if (txn.flush()) {
+                        return;
+                    } else {
+                        if (++retry >= flushRetryOnVersionMismatch) {
+                            // mark trace and count for better diagnostics
+                            exception = new RuntimeException("Optimistic flush gave up after " + retry + " retries");
+                            break;
+                        }
+                        Thread.yield();
+                        // replay changes
+                        replayChanges();
+                        //recheck constraints against new database root
+                        checkBeforeSaveChangesConstraints();
+                    }
+                } catch (Throwable e) {
+                    exception = e;
+                    break;
+                }
+            }
+
+            log.error("Catch exception in flush: " + exception.getMessage());
+            txn.revert();
+            // we have to execute changes against new database root
+            //TODO: there're none recovarable exceptions, for which can skip executeChanges
+            replayChanges();
+            decodeException(exception);
+            throw new IllegalStateException("should never be thrown");
+        } finally {
+            flushing = false;
+        }
     }
 
     private PersistentStoreTransaction getSnapshot() {
