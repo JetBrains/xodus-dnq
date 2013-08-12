@@ -22,6 +22,7 @@ import jetbrains.exodus.database.Entity;
 import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
 import jetbrains.exodus.database.EntityChangeType;
 import jetbrains.exodus.database.EntityMetaData;
@@ -187,20 +188,23 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   public void close() {
     this.rwl.writeLock().lock();
     open = false;
+    final Set<EventsMultiplexer.FullEntityId> notClosedListeners;
     // clear listeners 
     try {
       this.typeToListeners.clear();
-      for (final EventsMultiplexer.FullEntityId id : this.instanceToListeners.keySet()) {
-        if (log.isWarnEnabled()) {
-          log.warn(listenerToString(id, this.instanceToListeners.get(id)));
-        }
-      }
+      // copy set 
+      notClosedListeners = new HashSet<EventsMultiplexer.FullEntityId>(this.instanceToListeners.keySet());
       instanceToListeners.clear();
-      // finish all jobs 
-      asyncJobProcessor.finish();
     } finally {
       this.rwl.writeLock().unlock();
     }
+    for (final EventsMultiplexer.FullEntityId id : notClosedListeners) {
+      if (log.isWarnEnabled()) {
+        log.warn(listenerToString(id, this.instanceToListeners.get(id)));
+      }
+    }
+    // finish all jobs 
+    asyncJobProcessor.finish();
   }
 
   public boolean hasEntityListeners() {
