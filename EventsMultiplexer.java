@@ -81,7 +81,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private void asyncFire(final Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
-    EventsMultiplexerJobProcessor.getInstance().queue(new EventsMultiplexer.JobImpl(this, changes, changesTracker));
+    asyncJobProcessor.queue(new EventsMultiplexer.JobImpl(this, changes, changesTracker));
   }
 
   private void fire(Where where, Set<TransientEntityChange> changes) {
