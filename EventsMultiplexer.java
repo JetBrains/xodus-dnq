@@ -186,6 +186,9 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public void close() {
+    if (log.isInfoEnabled()) {
+      log.info("Cleaning EventsMultiplexer listeners");
+    }
     this.rwl.writeLock().lock();
     open = false;
     final Set<EventsMultiplexer.FullEntityId> notClosedListeners;
@@ -204,7 +207,13 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       }
     }
     // finish all jobs 
+    if (log.isInfoEnabled()) {
+      log.info("Finishing EventsMultiplexer job processor");
+    }
     asyncJobProcessor.finish();
+    if (log.isInfoEnabled()) {
+      log.info("EventsMultiplexer closed");
+    }
   }
 
   public boolean hasEntityListeners() {
