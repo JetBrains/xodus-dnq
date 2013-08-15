@@ -663,17 +663,15 @@ public class TransientSessionImpl implements TransientStoreSession {
     /**
      * Checks custom flush constraints before save changes
      *
-     * @return side effects
      */
-    @Nullable
-    private Set<TransientEntity> executeBeforeFlushTriggers(Set<TransientEntity> changedEntities, Set<TransientEntity> processedEntities) {
+    private void executeBeforeFlushTriggers(Set<TransientEntity> changedEntities) {
         final ModelMetaData modelMetaData = store.getModelMetaData();
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
             if (log.isDebugEnabled()) {
                 log.warn("Quiet intermediate commit: skip before flush triggers. " + this);
             }
-            return null;
+            return;
         }
 
         if (log.isDebugEnabled()) {
@@ -681,7 +679,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
 
         final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
-        final int changesEntitiesCount = ((TransientChangesTrackerImpl) changesTracker).getChangedEntities().size();
         for (TransientEntity entity : changedEntities) {
             if (!entity.isRemoved()) {
                 EntityMetaData md = modelMetaData.getEntityMetaData(entity.getType());
@@ -703,17 +700,6 @@ public class TransientSessionImpl implements TransientStoreSession {
             ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
             throw e;
         }
-
-        if (changesEntitiesCount != ((TransientChangesTrackerImpl) changesTracker).getChangedEntities().size()) {
-            processedEntities.addAll(changedEntities);
-
-            HashSet<TransientEntity> sideEffect = new HashSet<TransientEntity>(changesTracker.getChangedEntities());
-            sideEffect.removeAll(processedEntities);
-
-            return sideEffect;
-        }
-
-        return null;
     }
 
     /**
@@ -938,20 +924,33 @@ public class TransientSessionImpl implements TransientStoreSession {
         // notify listeners, execute before flush, if were side effects, do the same for side effects
 
         Set<TransientEntityChange> changesDescription = changesTracker.getChangesDescription();
-        Set<TransientEntity> sideEffects = new HashSet<TransientEntity>(changesTracker.getChangedEntities());
-        Set<TransientEntity> processedEntities = new HashSetDecorator<TransientEntity>();
-
-        while (sideEffects != null && !sideEffects.isEmpty()) {
-            notifyBeforeFlushListeners(changesDescription);
-            sideEffects = executeBeforeFlushTriggers(sideEffects, processedEntities);
-
-            if (sideEffects != null && !sideEffects.isEmpty()) {
+        if (!changesTracker.getChangedEntities().isEmpty()) {
+            final Set<TransientEntity> processedEntities = new HashSetDecorator<TransientEntity>();
+            Set<TransientEntity> changed = getSideEffects(processedEntities);
+            while (true) {
+                final int changesSize = changesTracker.getChangedEntities().size();
+                notifyBeforeFlushListeners(changesDescription);
+                executeBeforeFlushTriggers(changed);
+                if (changesSize == changesTracker.getChangedEntities().size()) {
+                    break;
+                }
+                processedEntities.addAll(changed);
+                changed = getSideEffects(processedEntities);
+                if (changed.isEmpty()) {
+                    break;
+                }
                 changesDescription = new HashSet<TransientEntityChange>();
-                for (TransientEntity sideEffectEntity : sideEffects) {
+                for (TransientEntity sideEffectEntity : changed) {
                     changesDescription.add(changesTracker.getChangeDescription(sideEffectEntity));
                 }
             }
         }
+    }
+
+    private Set<TransientEntity> getSideEffects(Set<TransientEntity> processedEntities) {
+        HashSet<TransientEntity> sideEffect = new HashSet<TransientEntity>(changesTracker.getChangedEntities());
+        sideEffect.removeAll(processedEntities);
+        return sideEffect;
     }
 
     private static void decodeException(@NotNull Throwable e) {
