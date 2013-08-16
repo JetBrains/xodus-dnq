@@ -212,7 +212,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     }
     asyncJobProcessor.finish();
     if (log.isInfoEnabled()) {
-      log.info("EventsMultiplexer closed");
+      log.info("EventsMultiplexer closed. Jobs count: " + asyncJobProcessor.pendingJobs() + "/" + asyncJobProcessor.pendingTimedJobs());
     }
   }
 
