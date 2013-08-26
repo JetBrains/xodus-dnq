@@ -173,7 +173,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void close() {
-        this.getEventsMultiplexer().close();
+        eventsMultiplexer.finishJobProcessor(this);
 
         log.info("Close transient store.");
         open = false;
