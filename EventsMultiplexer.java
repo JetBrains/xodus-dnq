@@ -8,10 +8,10 @@ import org.apache.commons.logging.LogFactory;
 import java.util.Map;
 import java.util.Queue;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.core.execution.DelegatingJobProcessor;
 import jetbrains.exodus.core.execution.ThreadJobProcessor;
-import jetbrains.mps.internal.collections.runtime.MapSequence;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import java.util.Set;
@@ -24,6 +24,7 @@ import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
+import jetbrains.mps.internal.collections.runtime.MapSequence;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
 import jetbrains.exodus.database.EntityChangeType;
 import jetbrains.exodus.database.ModelMetaData;
@@ -41,7 +42,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
 
   private Map<EventsMultiplexer.FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<EventsMultiplexer.FullEntityId, Queue<IEntityListener>>();
   private Map<String, Queue<IEntityListener>> typeToListeners = new HashMap<String, Queue<IEntityListener>>();
-  private Map<TransientEntityStore, DelegatingJobProcessor<ThreadJobProcessor>> store2processor = MapSequence.fromMap(new java.util.HashMap<TransientEntityStore, DelegatingJobProcessor<ThreadJobProcessor>>());
+  private ConcurrentHashMap<TransientEntityStore, DelegatingJobProcessor<ThreadJobProcessor>> store2processor = new ConcurrentHashMap<TransientEntityStore, DelegatingJobProcessor<ThreadJobProcessor>>();
   private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
   private boolean open = true;
 
@@ -202,7 +203,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     int processors = MapSequence.fromMap(store2processor).count();
     if (processors > 0) {
       if (log.isWarnEnabled()) {
-        log.warn("Active job processors on store close: " + processors);
+        log.warn("Active job processors on eventMultiplexer close: " + processors);
       }
     }
   }
@@ -376,8 +377,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     DelegatingJobProcessor<ThreadJobProcessor> processor = MapSequence.fromMap(store2processor).get(store);
     if (processor == null) {
       DelegatingJobProcessor<ThreadJobProcessor> newProcessor = createJobProcessor();
-      MapSequence.fromMap(store2processor).put(store, newProcessor);
-      processor = newProcessor;
+      processor = store2processor.putIfAbsent(store, newProcessor);
     }
     return processor;
   }
@@ -405,7 +405,6 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private static DelegatingJobProcessor<ThreadJobProcessor> createJobProcessor() {
-    // TODO: get rid of this shit ASAP! 
     DelegatingJobProcessor<ThreadJobProcessor> processor = (((DelegatingJobProcessor<ThreadJobProcessor>) ServiceLocator.getOptionalBean("eventsMultiplexerJobProcessor")));
     if (processor == null) {
       processor = new DelegatingJobProcessor<ThreadJobProcessor>(ThreadJobProcessorPool.getOrCreateJobProcessor("EventsMultiplexerJobProcessor"));
