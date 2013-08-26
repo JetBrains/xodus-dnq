@@ -1,0 +1,3 @@
+<beans>
+  <bean id="eventsMultiplexer" class="jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer" destroy-method="close"></bean>
+</beans>

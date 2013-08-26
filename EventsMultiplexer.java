@@ -8,10 +8,11 @@ import org.apache.commons.logging.LogFactory;
 import java.util.Map;
 import java.util.Queue;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.core.execution.DelegatingJobProcessor;
 import jetbrains.exodus.core.execution.ThreadJobProcessor;
-import jetbrains.exodus.database.ModelMetaData;
+import jetbrains.mps.internal.collections.runtime.MapSequence;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 import jetbrains.exodus.database.TransientEntityChange;
@@ -25,11 +26,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
 import jetbrains.exodus.database.EntityChangeType;
+import jetbrains.exodus.database.ModelMetaData;
+import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import jetbrains.exodus.database.EntityMetaData;
 import jetbrains.mps.internal.collections.runtime.Sequence;
-import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl;
-import jetbrains.exodus.database.TransientEntityStore;
-import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import jetbrains.exodus.core.execution.ThreadJobProcessorPool;
 import jetbrains.exodus.core.execution.Job;
 import jetbrains.teamsys.dnq.runtime.txn._Txn;
@@ -41,19 +41,11 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
 
   private Map<EventsMultiplexer.FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<EventsMultiplexer.FullEntityId, Queue<IEntityListener>>();
   private Map<String, Queue<IEntityListener>> typeToListeners = new HashMap<String, Queue<IEntityListener>>();
+  private Map<TransientEntityStore, DelegatingJobProcessor<ThreadJobProcessor>> store2processor = MapSequence.fromMap(new java.util.HashMap<TransientEntityStore, DelegatingJobProcessor<ThreadJobProcessor>>());
   private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
-  private final DelegatingJobProcessor<ThreadJobProcessor> asyncJobProcessor;
   private boolean open = true;
-  private ModelMetaData myModelMetaData;
-
-  public EventsMultiplexer(final DelegatingJobProcessor<ThreadJobProcessor> jobProcessor) {
-    jobProcessor.setExceptionHandler(new ExceptionHandlerImpl());
-    jobProcessor.start();
-    asyncJobProcessor = jobProcessor;
-  }
 
   public EventsMultiplexer() {
-    this(createJobProcessor());
   }
 
   public void flushed(@Nullable Set<TransientEntityChange> changes) {
@@ -82,7 +74,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private void asyncFire(final Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
-    asyncJobProcessor.queue(new EventsMultiplexer.JobImpl(this, changes, changesTracker));
+    getAsyncJobProcessor().queue(new EventsMultiplexer.JobImpl(this, changes, changesTracker));
   }
 
   private void fire(Where where, Set<TransientEntityChange> changes) {
@@ -206,13 +198,29 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
         log.warn(listenerToString(id, this.instanceToListeners.get(id)));
       }
     }
-    // finish all jobs 
-    if (log.isInfoEnabled()) {
-      log.info("Finishing EventsMultiplexer job processor");
+    // all processors should be finished before 
+    int processors = MapSequence.fromMap(store2processor).count();
+    if (processors > 0) {
+      if (log.isWarnEnabled()) {
+        log.warn("Active job processors on store close: " + processors);
+      }
     }
-    asyncJobProcessor.finish();
+  }
+
+  public void finishJobProcessor(TransientEntityStore store) {
     if (log.isInfoEnabled()) {
-      log.info("EventsMultiplexer closed. Jobs count: " + asyncJobProcessor.pendingJobs() + "/" + asyncJobProcessor.pendingTimedJobs());
+      log.info("Finishing EventsMultiplexer job processor for store " + store);
+    }
+    DelegatingJobProcessor<ThreadJobProcessor> processor = MapSequence.fromMap(store2processor).get(store);
+    if (processor == null) {
+      if (log.isWarnEnabled()) {
+        log.warn("Job processor for store " + store + " not found");
+      }
+    }
+    MapSequence.fromMap(store2processor).removeKey(store);
+    processor.finish();
+    if (log.isInfoEnabled()) {
+      log.info("EventsMultiplexer closed. Jobs count: " + processor.pendingJobs() + "/" + processor.pendingTimedJobs());
     }
   }
 
@@ -261,7 +269,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private void handlePerEntityTypeChanges(Where where, TransientEntityChange c) {
-    ModelMetaData modelMedatData = this.getModelMetaData();
+    ModelMetaData modelMedatData = ((ModelMetaData) ServiceLocator.getBean("modelMetaData"));
     if (modelMedatData != null) {
       EntityMetaData emd = modelMedatData.getEntityMetaData(c.getTransientEntity().getType());
       if (emd != null) {
@@ -364,15 +372,14 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   public DelegatingJobProcessor<ThreadJobProcessor> getAsyncJobProcessor() {
-    return asyncJobProcessor;
-  }
-
-  public ModelMetaData getModelMetaData() {
-    return this.myModelMetaData;
-  }
-
-  public void setModelMetaData(ModelMetaData value) {
-    this.myModelMetaData = value;
+    TransientEntityStore store = ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore"));
+    DelegatingJobProcessor<ThreadJobProcessor> processor = MapSequence.fromMap(store2processor).get(store);
+    if (processor == null) {
+      DelegatingJobProcessor<ThreadJobProcessor> newProcessor = createJobProcessor();
+      MapSequence.fromMap(store2processor).put(store, newProcessor);
+      processor = newProcessor;
+    }
+    return processor;
   }
 
   @Nullable
@@ -380,7 +387,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     // this method may be called by global beans on global scope shutdown 
     // as a result, eventsMultiplexer may be removed already 
     try {
-      return ((TransientEntityStoreImpl) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore"))).getEventsMultiplexer();
+      return ((EventsMultiplexer) ServiceLocator.getBean("eventsMultiplexer"));
     } catch (Exception e) {
       if (log.isWarnEnabled()) {
         log.warn("Can't access events multiplexer: " + e.getClass().getName() + ": " + e.getMessage());
@@ -403,6 +410,8 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     if (processor == null) {
       processor = new DelegatingJobProcessor<ThreadJobProcessor>(ThreadJobProcessorPool.getOrCreateJobProcessor("EventsMultiplexerJobProcessor"));
     }
+    processor.setExceptionHandler(new ExceptionHandlerImpl());
+    processor.start();
     return processor;
   }
 
