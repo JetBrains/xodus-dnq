@@ -270,7 +270,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
   }
 
   private void handlePerEntityTypeChanges(Where where, TransientEntityChange c) {
-    ModelMetaData modelMedatData = ((ModelMetaData) ServiceLocator.getBean("modelMetaData"));
+    ModelMetaData modelMedatData = (((ModelMetaData) ServiceLocator.getOptionalBean("modelMetaData")));
     if (modelMedatData != null) {
       EntityMetaData emd = modelMedatData.getEntityMetaData(c.getTransientEntity().getType());
       if (emd != null) {
