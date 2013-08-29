@@ -46,7 +46,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected TransientSessionImpl(final TransientEntityStoreImpl store) {
         this.store = store;
         this.flushRetryOnVersionMismatch = store.getFlushRetryOnLockConflict();
-        this.store.getPersistentStore().beginTransaction();
+        this.store.getPersistentStore().beginTransaction().enableReplayData();
         this.state = State.Open;
         this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
         this.bufferAllocator = new ByteArraySpinAllocator(BlobVault.READ_BUFFER_SIZE);
@@ -134,7 +134,10 @@ public class TransientSessionImpl implements TransientStoreSession {
 
         managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
         changes = new QueueDecorator<MyRunnable>();
-        getPersistentTransactionInternal().revert();
+        StoreTransaction txn = getPersistentTransactionInternal();
+        txn.disableReplayData();
+        txn.revert();
+        txn.enableReplayData();
         initChangesTracker();
     }
 
@@ -735,6 +738,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                     }
 
                     if (txn.flush()) {
+                        txn.enableReplayData(); // clear
                         return;
                     } else {
                         if (++retry >= flushRetryOnVersionMismatch) {
@@ -755,7 +759,9 @@ public class TransientSessionImpl implements TransientStoreSession {
             }
 
             log.error("Catch exception in flush: " + exception.getMessage());
+            txn.disableReplayData();
             txn.revert();
+            txn.enableReplayData();
             // we have to execute changes against new database root
             //TODO: there're none recovarable exceptions, for which can skip executeChanges
             replayChanges();
@@ -1649,6 +1655,16 @@ public class TransientSessionImpl implements TransientStoreSession {
     @Override
     public void deleteUniqueKey(@NotNull final Index index,
                                 @NotNull final List<Comparable> propValues) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void enableReplayData() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void disableReplayData() {
         throw new UnsupportedOperationException();
     }
 
