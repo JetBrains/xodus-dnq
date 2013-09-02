@@ -24,7 +24,6 @@ import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.mps.internal.collections.runtime.MapSequence;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
 import jetbrains.exodus.database.EntityChangeType;
 import jetbrains.exodus.database.ModelMetaData;
@@ -200,7 +199,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
       }
     }
     // all processors should be finished before 
-    int processors = MapSequence.fromMap(store2processor).count();
+    int processors = store2processor.size();
     if (processors > 0) {
       if (log.isWarnEnabled()) {
         log.warn("Active job processors on eventMultiplexer close: " + processors);
@@ -212,13 +211,13 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     if (log.isInfoEnabled()) {
       log.info("Finishing EventsMultiplexer job processor for store " + store);
     }
-    DelegatingJobProcessor<ThreadJobProcessor> processor = MapSequence.fromMap(store2processor).get(store);
+    DelegatingJobProcessor<ThreadJobProcessor> processor = store2processor.get(store);
     if (processor == null) {
       if (log.isWarnEnabled()) {
         log.warn("Job processor for store " + store + " not found");
       }
     }
-    MapSequence.fromMap(store2processor).removeKey(store);
+    store2processor.remove(store);
     processor.finish();
     if (log.isInfoEnabled()) {
       log.info("EventsMultiplexer closed. Jobs count: " + processor.pendingJobs() + "/" + processor.pendingTimedJobs());
@@ -374,10 +373,13 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
 
   public DelegatingJobProcessor<ThreadJobProcessor> getAsyncJobProcessor() {
     TransientEntityStore store = ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore"));
-    DelegatingJobProcessor<ThreadJobProcessor> processor = MapSequence.fromMap(store2processor).get(store);
+    DelegatingJobProcessor<ThreadJobProcessor> processor = store2processor.get(store);
     if (processor == null) {
       DelegatingJobProcessor<ThreadJobProcessor> newProcessor = createJobProcessor();
       processor = store2processor.putIfAbsent(store, newProcessor);
+      if (processor == null) {
+        processor = newProcessor;
+      }
     }
     return processor;
   }
