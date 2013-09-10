@@ -11,6 +11,7 @@ import jetbrains.exodus.database.exceptions.CardinalityViolationException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.exodus.database.exceptions.NullPropertyException;
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
+import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -468,11 +469,13 @@ class ConstraintsUtil {
         return errors;
     }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, Set<String> changedProperties, EntityMetaData emd, String name) {
-        final PropertyType type = getPropertyType(emd.getPropertyMetaData(name));
+    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity entity, Set<String> changedProperties, EntityMetaData emd, String name) {
+        if (entity.isNew() || changedProperties.contains(name)) {
+            final PropertyType type = getPropertyType(emd.getPropertyMetaData(name));
+            final String displayName;
+            displayName = DnqUtils.getPersistentClassInstance(entity, emd.getType()).getPropertyDisplayName(name);
 
-        if (e.isNew() || changedProperties.contains(name)) {
-            checkProperty(errors, e, name, type);
+            checkProperty(errors, entity, name, displayName, type);
         }
     }
 
@@ -489,24 +492,24 @@ class ConstraintsUtil {
         return type;
     }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, String name, PropertyType type) {
+    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, String name, String displayName, PropertyType type) {
 
         switch (type) {
             case PRIMITIVE:
                 if (isEmptyPrimitiveProperty(e.getProperty(name))) {
-                    errors.add(new NullPropertyException(e, name));
+                    errors.add(new NullPropertyException(e, displayName));
                 }
                 break;
 
             case BLOB:
                 if (e.getBlob(name) == null) {
-                    errors.add(new NullPropertyException(e, name));
+                    errors.add(new NullPropertyException(e, displayName));
                 }
                 break;
 
             case TEXT:
                 if (isEmptyPrimitiveProperty(e.getBlobString(name))) {
-                    errors.add(new NullPropertyException(e, name));
+                    errors.add(new NullPropertyException(e, displayName));
                 }
                 break;
 
