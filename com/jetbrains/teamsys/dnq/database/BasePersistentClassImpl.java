@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.concurrent.Callable;
 
 public abstract class BasePersistentClassImpl implements Runnable {
     protected Map<String, Iterable<PropertyConstraint>> propertyConstraints;
@@ -27,6 +28,21 @@ public abstract class BasePersistentClassImpl implements Runnable {
     @NotNull
     public Map<String, Iterable<PropertyConstraint>> getPropertyConstraints() {
         return propertyConstraints != null ? propertyConstraints : Collections.<String, Iterable<PropertyConstraint>>emptyMap();
+    }
+
+    protected Map<String, Callable<String>> getPropertyDisplayNames() {
+        return null;
+    }
+
+    @NotNull
+    public String getPropertyDisplayName(String name) {
+        final Map<String, Callable<String>> propertyDisplayNames = getPropertyDisplayNames();
+        final Callable<String> displayName = propertyDisplayNames == null ? null : propertyDisplayNames.get(name);
+        try {
+            return displayName == null ? name : displayName.call();
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     public void destructor(Entity entity) {
