@@ -194,10 +194,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         List<LinkChange> changes = removedFrom.get(e);
         if (changes != null) {
             for (LinkChange change : changes) {
-                final Set<TransientEntity> removed = change.getRemovedEntities();
-                if (removed != null) {
-                    removed.remove(e);
-                }
+                change.addDeleted(e);
             }
         }
     }
