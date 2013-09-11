@@ -133,11 +133,11 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         final LinkChange lc = pair.getSecond();
         if (add) {
             if (oldTarget != null) {
-                addRemoved(lc, getSnapshotEntity(oldTarget));
+                addRemoved(lc, oldTarget);
             }
             lc.addAdded(target);
         } else {
-            addRemoved(lc, getSnapshotEntity(target));
+            addRemoved(lc, oldTarget);
         }
         if (lc.getAddedEntitiesSize() == 0 && lc.getRemovedEntitiesSize() == 0) {
             pair.getFirst().remove(linkName);
