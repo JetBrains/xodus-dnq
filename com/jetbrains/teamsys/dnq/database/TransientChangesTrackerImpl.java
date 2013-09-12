@@ -11,9 +11,7 @@ import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * @author Vadim.Gurov
@@ -25,6 +23,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     private Set<TransientEntity> changedEntities = new LinkedHashSetDecorator<TransientEntity>();
     private Set<TransientEntity> addedEntities = new HashSetDecorator<TransientEntity>();
     private Set<TransientEntity> removedEntities = new HashSetDecorator<TransientEntity>();
+    private Map<TransientEntity, List<LinkChange>> removedFrom = new HashMapDecorator<TransientEntity, List<LinkChange>>();
     private Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
     private Map<TransientEntity, Set<String>> entityToChangedProperties = new HashMapDecorator<TransientEntity, Set<String>>();
     private PersistentStoreTransaction snapshot;
@@ -50,16 +49,16 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     @NotNull
     public Set<TransientEntityChange> getChangesDescription() {
-      Set<TransientEntityChange> changesDescription = new HashSetDecorator<TransientEntityChange>();
+        Set<TransientEntityChange> changesDescription = new HashSetDecorator<TransientEntityChange>();
 
-      for (TransientEntity e : getChangedEntities()) {
-          // do not notify about RemovedNew entities - such entities was created and removed during same transaction
-          if (wasCreatedAndRemovedInSameTransaction(e)) continue;
+        for (TransientEntity e : getChangedEntities()) {
+            // do not notify about RemovedNew entities - such entities was created and removed during same transaction
+            if (wasCreatedAndRemovedInSameTransaction(e)) continue;
 
-          changesDescription.add(new TransientEntityChange(this, e, getChangedProperties(e), getChangedLinksDetailed(e), getEntityChangeType(e)));
-      }
+            changesDescription.add(new TransientEntityChange(this, e, getChangedProperties(e), getChangedLinksDetailed(e), getEntityChangeType(e)));
+        }
 
-      return changesDescription;
+        return changesDescription;
     }
 
     private EntityChangeType getEntityChangeType(TransientEntity e) {
@@ -107,7 +106,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
         final Pair<Map<String, LinkChange>, LinkChange> lc = getLinkChange(source, linkName);
         for (Entity entity : links) {
-            lc.getSecond().addRemoved((TransientEntity) entity);
+            addRemoved(lc.getSecond(), (TransientEntity) entity);
         }
     }
 
@@ -134,11 +133,11 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         final LinkChange lc = pair.getSecond();
         if (add) {
             if (oldTarget != null) {
-                lc.addRemoved(getSnapshotEntity(oldTarget));
+                addRemoved(lc, oldTarget);
             }
             lc.addAdded(target);
         } else {
-            lc.addRemoved(getSnapshotEntity(target));
+            addRemoved(lc, target);
         }
         if (lc.getAddedEntitiesSize() == 0 && lc.getRemovedEntitiesSize() == 0) {
             pair.getFirst().remove(linkName);
@@ -146,6 +145,16 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
                 entityToChangedLinksDetailed.remove(source);
             }
         }
+    }
+
+    private void addRemoved(@NotNull final LinkChange change, @NotNull final TransientEntity entity) {
+        change.addRemoved(entity);
+        List<LinkChange> changes = removedFrom.get(entity);
+        if (changes == null) {
+            changes = new ArrayList<LinkChange>();
+            removedFrom.put(entity, changes);
+        }
+        changes.add(change);
     }
 
     void propertyChanged(TransientEntity e, String propertyName) {
@@ -182,6 +191,12 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     void entityRemoved(TransientEntity e) {
         entityChanged(e);
         removedEntities.add(e);
+        List<LinkChange> changes = removedFrom.get(e);
+        if (changes != null) {
+            for (LinkChange change : changes) {
+                change.addDeleted(e);
+            }
+        }
     }
 
     @Override

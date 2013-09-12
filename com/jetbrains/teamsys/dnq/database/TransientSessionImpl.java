@@ -899,6 +899,9 @@ public class TransientSessionImpl implements TransientStoreSession {
                     case ADD_AND_REMOVE:
                     case REMOVE:
                         if (change.getRemovedEntitiesSize() != 1) {
+                            if (change.getDeletedEntitiesSize() == 1) {
+                                return change.getDeletedEntities().iterator().next();
+                            }
                             throw new IllegalStateException("Can't determine original link value: " + e.getType() + "." + linkName);
                         }
                         return change.getRemovedEntities().iterator().next();
