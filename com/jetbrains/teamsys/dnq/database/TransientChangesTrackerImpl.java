@@ -139,7 +139,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         } else {
             addRemoved(lc, target);
         }
-        if (lc.getAddedEntitiesSize() == 0 && lc.getRemovedEntitiesSize() == 0) {
+        if (lc.getAddedEntitiesSize() == 0 && lc.getRemovedEntitiesSize() == 0 && lc.getDeletedEntitiesSize() == 0) {
             pair.getFirst().remove(linkName);
             if (pair.getFirst().size() == 0) {
                 entityToChangedLinksDetailed.remove(source);

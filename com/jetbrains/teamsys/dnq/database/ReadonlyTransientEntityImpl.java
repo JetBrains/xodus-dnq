@@ -107,7 +107,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     } else {
       if (linksDetaled != null && linksDetaled.containsKey(property)) {
         LinkChange change = linksDetaled.get(property);
-        return change.getAddedEntitiesSize() > 0 || change.getRemovedEntitiesSize() > 0;
+        return change.getAddedEntitiesSize() > 0 || change.getRemovedEntitiesSize() > 0 || change.getDeletedEntitiesSize() > 0;
       }
 
       return changedProperties != null && changedProperties.contains(property);
@@ -220,7 +220,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
       for (String linkName : linksDetaled.keySet()) {
         LinkChange linkChange = linksDetaled.get(linkName);
         if (linkChange != null) {
-          if (linkChange.getAddedEntitiesSize() > 0 || linkChange.getRemovedEntitiesSize() > 0) {
+          if (linkChange.getAddedEntitiesSize() > 0 || linkChange.getRemovedEntitiesSize() > 0 || linkChange.getDeletedEntitiesSize() > 0) {
             hasChanges = true;
             break;
           }
