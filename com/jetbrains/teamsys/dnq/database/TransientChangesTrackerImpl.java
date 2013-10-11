@@ -85,6 +85,10 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return removedEntities;
     }
 
+    Set<TransientEntity> getAddedEntities() {
+        return addedEntities;
+    }
+
     boolean isNew(@NotNull TransientEntity e) {
         return addedEntities.contains(e);
     }
