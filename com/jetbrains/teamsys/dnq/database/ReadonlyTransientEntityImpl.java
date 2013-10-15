@@ -284,7 +284,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
     @Override
     public boolean hasNext() {
-      return source.hasNext();  //To change body of implemented methods use File | Settings | File Templates.
+      return source.hasNext();
     }
 
     @Override
