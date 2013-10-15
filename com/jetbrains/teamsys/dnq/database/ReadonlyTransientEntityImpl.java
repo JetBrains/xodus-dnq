@@ -4,22 +4,24 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.InputStream;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   private Boolean hasChanges = null;
   private Map<String, LinkChange> linksDetaled;
   private Set<String> changedProperties;
 
-  public ReadonlyTransientEntityImpl(@NotNull TransientEntityChange change, @NotNull PersistentEntity snapshot, @NotNull TransientEntityStore store) {
+  public ReadonlyTransientEntityImpl(@Nullable TransientEntityChange change, @NotNull PersistentEntity snapshot, @NotNull TransientEntityStore store) {
     super(snapshot, store);
 
-    this.changedProperties = change.getChangedProperties();
-    this.linksDetaled = change.getChangedLinksDetaled();
+    if (change != null) {
+      this.changedProperties = change.getChangedProperties();
+      this.linksDetaled = change.getChangedLinksDetaled();
+    }
   }
 
   public boolean isReadonly() {
@@ -47,7 +49,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
   }
 
   @Override
-  public boolean setLink(@NotNull String linkName, @NotNull Entity target) {
+  public boolean setLink(@NotNull String linkName, @Nullable Entity target) {
     throw createReadonlyException();
   }
 
@@ -83,7 +85,20 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
   @Override
   public Entity getLink(@NotNull String linkName) {
-    return super.getLink(linkName);
+    final PersistentEntity link = (PersistentEntity) persistentEntity.getLink(linkName);
+    return link == null ? null : newReadOnlyEntity(link);
+  }
+
+  @NotNull
+  @Override
+  public Iterable<Entity> getLinks(@NotNull String linkName) {
+    return new ReadOnlyIterable(persistentEntity.getLinks(linkName));
+  }
+
+  @NotNull
+  @Override
+  public EntityIterable getLinks(@NotNull final Collection<String> linkNames) {
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -93,11 +108,11 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
   @Override
   public boolean hasChanges() {
-      // lazy hasChanges evaluation
-      if (hasChanges == null) {
-          evaluateHasChanges();
-      }
-      return hasChanges;
+    // lazy hasChanges evaluation
+    if (hasChanges == null) {
+      evaluateHasChanges();
+    }
+    return hasChanges;
   }
 
   @Override
@@ -198,23 +213,23 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     return EntityIterableBase.EMPTY;
   }
 
-    @Override
-    public EntityIterable getAddedLinks(Set<String> linkNames) {
-      if (linksDetaled != null) {
-        return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, false);
-      }
-      return UniversalEmptyEntityIterable.INSTANCE;
+  @Override
+  public EntityIterable getAddedLinks(Set<String> linkNames) {
+    if (linksDetaled != null) {
+      return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, false);
     }
+    return UniversalEmptyEntityIterable.INSTANCE;
+  }
 
-    @Override
-    public EntityIterable getRemovedLinks(Set<String> linkNames) {
-      if (linksDetaled != null) {
-        return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, true);
-      }
-      return UniversalEmptyEntityIterable.INSTANCE;
+  @Override
+  public EntityIterable getRemovedLinks(Set<String> linkNames) {
+    if (linksDetaled != null) {
+      return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, true);
     }
+    return UniversalEmptyEntityIterable.INSTANCE;
+  }
 
-    private void evaluateHasChanges() {
+  private void evaluateHasChanges() {
     boolean hasChanges = false;
     if (linksDetaled != null) {
       for (String linkName : linksDetaled.keySet()) {
@@ -239,4 +254,51 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     return new IllegalStateException("Entity is readonly.");
   }
 
+  private ReadonlyTransientEntityImpl newReadOnlyEntity(@Nullable PersistentEntity entity) {
+    return entity == null ? null : new ReadonlyTransientEntityImpl(null, new ReadOnlyPersistentEntity(persistentEntity.getTxn(), entity.getId()), store);
+  }
+
+  private class ReadOnlyIterable implements Iterable<Entity> {
+
+    @NotNull
+    private final EntityIterable source;
+
+    public ReadOnlyIterable(@NotNull EntityIterable source) {
+      this.source = source;
+    }
+
+    @NotNull
+    public Iterator<Entity> iterator() {
+      return new PersistentIteratorWrapper(source.iterator());
+    }
+  }
+
+  private class PersistentIteratorWrapper implements Iterator<Entity> {
+
+
+    private final EntityIterator source;
+
+    private PersistentIteratorWrapper(EntityIterator source) {
+      this.source = source;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return source.hasNext();  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public Entity next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      PersistentEntity next = (PersistentEntity) source.next();
+      return newReadOnlyEntity(next);
+    }
+
+    @Override
+    public void remove() {
+      throw new UnsupportedOperationException();
+    }
+  }
 }
