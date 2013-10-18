@@ -453,6 +453,16 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
         changesTracker.dispose();
       }
     }
+
+    @Override
+    public String getName() {
+      return "Async events from EventMultiplexer";
+    }
+
+    @Override
+    public String getGroup() {
+      return changesTracker.getSnapshot().getStore().getLocation();
+    }
   }
 
   private class FullEntityId {
