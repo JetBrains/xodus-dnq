@@ -12,7 +12,6 @@ import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.database.persistence.BlobVault;
 import jetbrains.exodus.exceptions.ExodusException;
 import jetbrains.exodus.util.IOUtil;
-import jetbrains.teamsys.dnq.runtime.events.*;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -290,6 +289,13 @@ public class TransientSessionImpl implements TransientStoreSession {
     public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable minValue, @NotNull final Comparable maxValue) {
         assertOpen("find");
         return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().find(entityType, propertyName, minValue, maxValue));
+    }
+
+    @NotNull
+    @Override
+    public EntityIterable findIds(@NotNull String entityType, long minValue, long maxValue) {
+        assertOpen("findIds");
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findIds(entityType, minValue, maxValue));
     }
 
     public EntityIterable findWithProp(@NotNull final String entityType, @NotNull final String propertyName) {
