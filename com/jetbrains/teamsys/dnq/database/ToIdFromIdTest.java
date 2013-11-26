@@ -31,7 +31,9 @@ public class ToIdFromIdTest extends AbstractEntityStoreAwareTestCase {
 
       Entity user = transientStoreSession.getEntity(transientStoreSession.toEntityId(id));
 
-      assertNull(user);
+      fail();
+  
+    } catch (EntityRemovedInDatabaseException e) {
 
     } catch (Throwable e) {
       TransientStoreUtil.abort(e, transientStoreSession);
