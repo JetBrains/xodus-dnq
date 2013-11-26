@@ -247,7 +247,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         if (e == null) {
             PersistentEntityStoreImpl persistentEntityStore = (PersistentEntityStoreImpl) store.getPersistentStore();
             if (persistentEntityStore.getLastVersion(id) < 0) {
-                return null;
+                throw new EntityRemovedInDatabaseException(persistentEntityStore.getEntityType(getSnapshot(), id.getTypeId()));
             }
             return newEntity(persistentEntityStore.getEntity(id));
         } else {
