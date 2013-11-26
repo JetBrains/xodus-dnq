@@ -240,16 +240,12 @@ public class TransientSessionImpl implements TransientStoreSession {
         return newEntityImpl(persistent);
     }
 
-    @Nullable
+    @NotNull
     public Entity getEntity(@NotNull final EntityId id) {
         assertOpen("get entity");
         TransientEntity e = managedEntities.get(id);
         if (e == null) {
-            PersistentEntityStoreImpl persistentEntityStore = (PersistentEntityStoreImpl) store.getPersistentStore();
-            if (persistentEntityStore.getLastVersion(id) < 0) {
-                throw new EntityRemovedInDatabaseException(persistentEntityStore.getEntityType(getSnapshot(), id.getTypeId()));
-            }
-            return newEntity(persistentEntityStore.getEntity(id));
+            return newEntity(getSnapshot().getEntity(id));
         } else {
             return e;
         }
@@ -1115,6 +1111,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
+    @NotNull
     protected TransientEntity newEntityImpl(final Entity persistent) {
         final EntityId entityId = persistent.getId();
         TransientEntity e = managedEntities.get(entityId);
