@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  */
@@ -42,6 +43,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     private final ByteArraySpinAllocator bufferAllocator;
     private boolean allowRunnables = true;
     private boolean flushing = false;
+    private final ReentrantLock lock = new ReentrantLock(true); // fair lock
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store) {
         this.store = store;
@@ -720,55 +722,58 @@ public class TransientSessionImpl implements TransientStoreSession {
             notifyBeforeFlushAfterConstraintsCheckListeners();
 
             int retry = 0;
-            Throwable exception;
             final StoreTransaction txn = getPersistentTransactionInternal();
 
-            while (true) {
+            try {
+                prepare();
+                lock.lock();
                 try {
-                    try {
-                        allowRunnables = false;
-                        saveHistory();
-                        flushIndexes();
-                    } finally {
-                        allowRunnables = true;
-                    }
-
-                    if (log.isTraceEnabled()) {
-                        log.trace("Flush persistent transaction in transient session " + this);
-                    }
-
-                    if (txn.flush()) {
-                        txn.enableReplayData(); // clear
-                        return;
-                    } else {
-                        if (++retry >= flushRetryOnVersionMismatch) {
-                            // mark trace and count for better diagnostics
-                            exception = new RuntimeException("Optimistic flush gave up after " + retry + " retries");
-                            break;
+                    while (true) {
+                        if (txn.flush()) {
+                            txn.enableReplayData(); // clear
+                            return;
+                        } else {
+                            if (++retry >= flushRetryOnVersionMismatch) {
+                                // mark trace and count for better diagnostics
+                                throw new RuntimeException("Optimistic flush gave up after " + retry + " retries");
+                            }
+                            // replay changes
+                            replayChanges();
+                            //recheck constraints against new database root
+                            checkBeforeSaveChangesConstraints();
+                            prepare();
                         }
-                        Thread.yield();
-                        // replay changes
-                        replayChanges();
-                        //recheck constraints against new database root
-                        checkBeforeSaveChangesConstraints();
                     }
-                } catch (Throwable e) {
-                    exception = e;
-                    break;
+                } finally {
+                    lock.unlock();
                 }
+            } catch (Throwable exception) {
+                log.error("Catch exception in flush: " + exception.getMessage());
+                txn.disableReplayData();
+                txn.revert();
+                txn.enableReplayData();
+                // we have to execute changes against new database root
+                //TODO: there're none recovarable exceptions, for which can skip executeChanges
+                replayChanges();
+                decodeException(exception);
+                throw new IllegalStateException("should never be thrown");
             }
-
-            log.error("Catch exception in flush: " + exception.getMessage());
-            txn.disableReplayData();
-            txn.revert();
-            txn.enableReplayData();
-            // we have to execute changes against new database root
-            //TODO: there're none recovarable exceptions, for which can skip executeChanges
-            replayChanges();
-            decodeException(exception);
-            throw new IllegalStateException("should never be thrown");
         } finally {
             flushing = false;
+        }
+    }
+
+    private void prepare() {
+        try {
+            allowRunnables = false;
+            saveHistory();
+            flushIndexes();
+        } finally {
+            allowRunnables = true;
+        }
+
+        if (log.isTraceEnabled()) {
+            log.trace("Flush persistent transaction in transient session " + this);
         }
     }
 
