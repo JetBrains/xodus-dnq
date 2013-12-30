@@ -3,8 +3,10 @@ package com.jetbrains.teamsys.dnq.database;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.ConstantEntityIterableHandle;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
+import jetbrains.exodus.database.impl.iterate.EntityIteratorBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class UniversalEmptyEntityIterable extends EntityIterableBase {
 
@@ -66,39 +68,26 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
         return false;
     }
 
-    public static class Iterator implements EntityIteratorWithPropId {
+    public static class Iterator extends EntityIteratorBase implements EntityIteratorWithPropId {
+
         public static final Iterator INSTANCE = new Iterator();
+
+        protected Iterator() {
+            super(UniversalEmptyEntityIterable.INSTANCE);
+        }
 
         public String currentLinkName() {
             return null;
         }
 
-        public boolean skip(int number) {
-            return false;
-        }
-
-        public EntityId nextId() {
-            return null;
-        }
-
-        public boolean dispose() {
-            return false;
-        }
-
         @Override
-        public int getCurrentVersion() {
-            return PersistentEntityId.ACTUAL_VERSION;
-        }
-
-        public boolean shouldBeDisposed() {
+        protected boolean hasNextImpl() {
             return false;
         }
 
-        public boolean hasNext() {
-            return false;
-        }
-
-        public Entity next() {
+        @Nullable
+        @Override
+        protected EntityId nextIdImpl() {
             return null;
         }
 
