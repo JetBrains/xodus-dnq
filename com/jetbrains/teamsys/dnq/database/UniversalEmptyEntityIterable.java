@@ -94,6 +94,11 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
         public void remove() {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public boolean shouldBeDisposed() {
+            return false;
+        }
     }
 
 }
