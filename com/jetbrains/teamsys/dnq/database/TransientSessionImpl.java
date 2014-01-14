@@ -1656,16 +1656,6 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Override
-    public void registerEntityIterator(@NotNull EntityIterator iterator) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void deregisterEntityIterator(@NotNull EntityIterator iterator) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void insertUniqueKey(@NotNull final Index index,
                                 @NotNull final List<Comparable> propValues,
                                 @NotNull final Entity entity) {
