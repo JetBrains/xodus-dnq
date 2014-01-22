@@ -247,7 +247,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         assertOpen("get entity");
         TransientEntity e = managedEntities.get(id);
         if (e == null) {
-            return newEntity(getSnapshot().getEntity(id));
+            return newEntity(changesTracker.getSnapshot().getEntity(id));
         } else {
             return e;
         }
