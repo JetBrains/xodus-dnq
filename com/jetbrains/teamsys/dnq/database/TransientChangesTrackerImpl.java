@@ -2,7 +2,6 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
-import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.database.*;
@@ -21,8 +20,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     private static final Log log = LogFactory.getLog(TransientEntityStoreImpl.class);
 
     private Set<TransientEntity> changedEntities = new LinkedHashSetDecorator<TransientEntity>();
-    private Set<TransientEntity> addedEntities = new HashSetDecorator<TransientEntity>();
-    private Set<TransientEntity> removedEntities = new HashSetDecorator<TransientEntity>();
+    private Set<TransientEntity> addedEntities = new LinkedHashSetDecorator<TransientEntity>();
+    private Set<TransientEntity> removedEntities = new LinkedHashSetDecorator<TransientEntity>();
     private Map<TransientEntity, List<LinkChange>> removedFrom = new HashMapDecorator<TransientEntity, List<LinkChange>>();
     private Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
     private Map<TransientEntity, Set<String>> entityToChangedProperties = new HashMapDecorator<TransientEntity, Set<String>>();
@@ -49,7 +48,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     @NotNull
     public Set<TransientEntityChange> getChangesDescription() {
-        Set<TransientEntityChange> changesDescription = new HashSetDecorator<TransientEntityChange>();
+        Set<TransientEntityChange> changesDescription = new LinkedHashSetDecorator<TransientEntityChange>();
 
         for (TransientEntity e : getChangedEntities()) {
             // do not notify about RemovedNew entities - such entities was created and removed during same transaction
