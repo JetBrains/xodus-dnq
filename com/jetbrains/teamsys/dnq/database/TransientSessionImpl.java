@@ -20,7 +20,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  */
@@ -44,7 +43,6 @@ public class TransientSessionImpl implements TransientStoreSession {
     private boolean allowRunnables = true;
     private Throwable stack = null;
     private boolean flushing = false;
-    private final ReentrantLock lock = new ReentrantLock(true); // fair lock
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store) {
         this.store = store;
@@ -737,7 +735,7 @@ public class TransientSessionImpl implements TransientStoreSession {
 
             try {
                 prepare();
-                lock.lock();
+                store.lock.lock();
                 try {
                     while (true) {
                         if (txn.flush()) {
@@ -756,7 +754,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                         }
                     }
                 } finally {
-                    lock.unlock();
+                    store.lock.unlock();
                 }
             } catch (Throwable exception) {
                 log.error("Catch exception in flush: " + exception.getMessage());

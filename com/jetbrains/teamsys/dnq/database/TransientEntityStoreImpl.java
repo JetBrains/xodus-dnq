@@ -16,6 +16,7 @@ import java.io.File;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author Vadim.Gurov
@@ -40,6 +41,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private final Set<EnumContainer> initedContainers = new HashSet<EnumContainer>(10);
     private final Map<String, Entity> enumCache = new ConcurrentHashMap<String, Entity>();
     private final Map<String, BasePersistentClassImpl> persistentClassInstanceCache = new ConcurrentHashMap<String, BasePersistentClassImpl>();
+
+    final ReentrantLock lock = new ReentrantLock(true); // fair lock
 
     public TransientEntityStoreImpl() {
         if (log.isTraceEnabled()) {
