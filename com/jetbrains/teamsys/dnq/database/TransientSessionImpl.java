@@ -735,7 +735,7 @@ public class TransientSessionImpl implements TransientStoreSession {
 
             try {
                 prepare();
-//                store.lock.lock();
+                store.lock.lock();
                 try {
                     while (true) {
                         if (txn.flush()) {
@@ -754,7 +754,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                         }
                     }
                 } finally {
-//                    store.lock.unlock();
+                    store.lock.unlock();
                 }
             } catch (Throwable exception) {
                 log.error("Catch exception in flush: " + exception.getMessage());
