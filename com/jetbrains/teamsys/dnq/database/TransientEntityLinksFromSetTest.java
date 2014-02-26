@@ -4,11 +4,11 @@ import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
 import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
-import jetbrains.exodus.core.dataStructures.NanoSet;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.async.EntityStoreSharedAsyncProcessor;
+import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
 
 public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTestCase {
