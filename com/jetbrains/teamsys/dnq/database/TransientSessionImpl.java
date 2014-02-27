@@ -9,7 +9,6 @@ import jetbrains.exodus.core.util.ByteArraySpinAllocator;
 import jetbrains.exodus.core.util.LightByteArrayOutputStream;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
-import jetbrains.exodus.database.persistence.BlobVault;
 import jetbrains.exodus.exceptions.ExodusException;
 import jetbrains.exodus.util.IOUtil;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
@@ -50,7 +49,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         this.store.getPersistentStore().beginTransaction().enableReplayData();
         this.state = State.Open;
         this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
-        this.bufferAllocator = new ByteArraySpinAllocator(BlobVault.READ_BUFFER_SIZE);
+        this.bufferAllocator = new ByteArraySpinAllocator(0x4000);
         if (LogFactory.getLog(TransientEntityStoreImpl.class).isDebugEnabled()) {
             stack = new Throwable();
         }

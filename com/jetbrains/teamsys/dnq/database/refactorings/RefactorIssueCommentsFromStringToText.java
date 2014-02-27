@@ -31,7 +31,7 @@ public class RefactorIssueCommentsFromStringToText implements Runnable {
                 comment.deleteProperty("text");
             } catch (Throwable e) {
                 txn.abort();
-                throw ExodusException.toRuntime(e);
+                throw ExodusException.toExodusException(e);
             }
             txn.flush();
         }

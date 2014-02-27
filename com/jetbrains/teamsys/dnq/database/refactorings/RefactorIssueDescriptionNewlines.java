@@ -29,7 +29,7 @@ public class RefactorIssueDescriptionNewlines implements Runnable {
                     issue.setBlobString("text", text.replace("\r", ""));
                 } catch (Throwable e) {
                     txn.abort();
-                    throw ExodusException.toRuntime(e);
+                    throw ExodusException.toExodusException(e);
                 }
                 txn.flush();
             }
