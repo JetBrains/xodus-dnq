@@ -10,6 +10,7 @@ import jetbrains.exodus.core.util.LightByteArrayOutputStream;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.exceptions.ExodusException;
+import jetbrains.exodus.io.ByteArraySizedInputStream;
 import jetbrains.exodus.util.IOUtil;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
@@ -1264,14 +1265,13 @@ public class TransientSessionImpl implements TransientStoreSession {
         return false;
     }
 
-    void setBlob(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final InputStream file) {
-        final ByteArrayOutputStream memCopy = new LightByteArrayOutputStream();
+    void setBlob(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final InputStream stream) {
+        final ByteArraySizedInputStream copy;
         try {
-            IOUtil.copyStreams(file, memCopy, bufferAllocator);
+            copy = ((PersistentEntityStore)store.getPersistentStore()).getBlobVault().cloneStream(stream, true);
         } catch (final IOException ioe) {
             throw new RuntimeException(ioe);
         }
-        final ByteArrayInputStream copy = new ByteArrayInputStream(memCopy.toByteArray(), 0, memCopy.size());
         copy.mark(Integer.MAX_VALUE);
         addChangeAndRun(new MyRunnable() {
             public boolean run() {
