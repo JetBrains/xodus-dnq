@@ -93,6 +93,7 @@ class TransientEntityImpl implements TransientEntity {
     public String toIdString() {
         return persistentEntity.toIdString();
     }
+
     @NotNull
     public List<String> getPropertyNames() {
         return persistentEntity.getPropertyNames();
@@ -280,8 +281,12 @@ class TransientEntityImpl implements TransientEntity {
     @Nullable
     public Entity getLink(@NotNull final String linkName) {
         final Entity link = persistentEntity.getLink(linkName);
-        //TODO: remove (link.getVersion() < 0) together with history support removing
-        return link == null || link.getVersion() < 0 ? null : getAndCheckThreadStoreSession().newEntity(link);
+        if (link == null || (!persistentEntity.isUpToDate() && link.getVersion() < 0)) {
+            return null;
+        }
+        final TransientSessionImpl session = getAndCheckThreadStoreSession();
+        final TransientEntity result = session.newEntity(link);
+        return session.changesTracker.isRemoved(result) ? null : result;
     }
 
     @NotNull
