@@ -10,16 +10,15 @@ import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
 
 /**
  * @author Vadim.Gurov
  */
-class TransientEntityImpl implements TransientEntity {
+class TransientEntityImpl implements TransientEntity, Serializable {
 
-    protected static final Log log = LogFactory.getLog(TransientEntity.class);
+    protected static final Log log = LogFactory.getLog(TransientEntityImpl.class);
 
     protected TransientEntityStore store;
     @NotNull
@@ -516,4 +515,37 @@ class TransientEntityImpl implements TransientEntity {
     public Entity getParent() {
         return getAndCheckThreadStoreSession().getParent(this);
     }
+
+    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+        final String idString = persistentEntity.toIdString();
+        log.trace("Serialize [" + idString + "]");
+        out.writeObject(idString);
+    }
+
+    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+        String idString = (String) in.readObject();
+        log.trace("Deserialize [" + idString + "]");
+
+        final TransientEntityStore transientEntityStore = (TransientEntityStore) ServiceLocator.getBean("transientEntityStore");
+        TransientStoreSession session = transientEntityStore.getThreadSession();
+        boolean closeSession = false;
+        if (session == null) {
+            session = transientEntityStore.beginSession();
+            closeSession = true;
+        }
+
+        try {
+            this.store = transientEntityStore;
+            this.persistentEntity = (PersistentEntity) session.getPersistentTransaction().getEntity(session.toEntityId(idString));
+        } finally {
+            if (closeSession) {
+                session.abort();
+            }
+        }
+    }
+
+    private void readObjectNoData() throws ObjectStreamException {
+        throw new UnsupportedOperationException();
+    }
+
 }
