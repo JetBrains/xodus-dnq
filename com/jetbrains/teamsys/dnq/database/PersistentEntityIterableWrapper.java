@@ -3,6 +3,7 @@ package com.jetbrains.teamsys.dnq.database;
 import jetbrains.exodus.database.*;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper for persistent iterable. Handles iterator.next and delegates it to transient session.
@@ -79,6 +80,42 @@ public class PersistentEntityIterableWrapper implements EntityIterableWrapper {
         return new PersistentEntityIterableWrapper(wrappedIterable.take(number));
     }
 
+    @NotNull
+    @Override
+    public EntityIterable distinct() {
+        return wrappedIterable.distinct();
+    }
+
+    @NotNull
+    @Override
+    public EntityIterable selectDistinct(@NotNull String linkName) {
+        return wrappedIterable.selectDistinct(linkName);
+    }
+
+    @NotNull
+    @Override
+    public EntityIterable selectManyDistinct(@NotNull String linkName) {
+        return wrappedIterable.selectManyDistinct(linkName);
+    }
+
+    @Nullable
+    @Override
+    public Entity getFirst() {
+        return wrappedIterable.getFirst();
+    }
+
+    @Nullable
+    @Override
+    public Entity getLast() {
+        return wrappedIterable.getLast();
+    }
+
+    @NotNull
+    @Override
+    public EntityIterable reverse() {
+        return wrappedIterable.reverse();
+    }
+
     public boolean isSortResult() {
         return wrappedIterable.isSortResult();
     }
@@ -95,6 +132,12 @@ public class PersistentEntityIterableWrapper implements EntityIterableWrapper {
     public EntityIterator iterator() {
         return new PersistentEntityIteratorWrapper(wrappedIterable.iterator(),
                 (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
+    }
+
+    @NotNull
+    @Override
+    public StoreTransaction getTransaction() {
+        return null;
     }
 
     public boolean isEmpty() {

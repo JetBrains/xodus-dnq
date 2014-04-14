@@ -273,7 +273,7 @@ class TransientEntityImpl implements TransientEntity, Serializable {
     }
 
     @NotNull
-    public Iterable<Entity> getLinks(@NotNull final String linkName) {
+    public EntityIterable getLinks(@NotNull final String linkName) {
         return new PersistentEntityIterableWrapper(persistentEntity.getLinks(linkName));
     }
 

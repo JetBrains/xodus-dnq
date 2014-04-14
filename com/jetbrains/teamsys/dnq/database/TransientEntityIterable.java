@@ -6,6 +6,7 @@ import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -91,6 +92,7 @@ public class TransientEntityIterable implements EntityIterableWrapper {
         throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
     }
 
+    @NotNull
     public EntityIterable skip(final int number) {
         if (number == 0) return this;
         final Iterator<TransientEntity> it = values.iterator();
@@ -104,6 +106,7 @@ public class TransientEntityIterable implements EntityIterableWrapper {
         return new TransientEntityIterable(result);
     }
 
+    @NotNull
     public EntityIterable take(final int number) {
         if (number == 0) return EntityIterableBase.EMPTY;
         final Iterator<TransientEntity> it = values.iterator();
@@ -112,6 +115,42 @@ public class TransientEntityIterable implements EntityIterableWrapper {
             result.add(it.next());
         }
         return new TransientEntityIterable(result);
+    }
+
+    @NotNull
+    @Override
+    public EntityIterable distinct() {
+        return this;
+    }
+
+    @NotNull
+    @Override
+    public EntityIterable selectDistinct(@NotNull String linkName) {
+        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+    }
+
+    @NotNull
+    @Override
+    public EntityIterable selectManyDistinct(@NotNull String linkName) {
+        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+    }
+
+    @Nullable
+    @Override
+    public Entity getFirst() {
+        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+    }
+
+    @Nullable
+    @Override
+    public Entity getLast() {
+        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+    }
+
+    @NotNull
+    @Override
+    public EntityIterable reverse() {
+        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
     }
 
     public boolean isSortResult() {
@@ -125,7 +164,6 @@ public class TransientEntityIterable implements EntityIterableWrapper {
     @NotNull
     public EntityIterable getSource() {
         throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-        //return source;
     }
 
     public EntityIterator iterator() {
@@ -135,8 +173,13 @@ public class TransientEntityIterable implements EntityIterableWrapper {
         return new TransientEntityIterator(values.iterator());
     }
 
+    @NotNull
+    @Override
+    public StoreTransaction getTransaction() {
+        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+    }
+
     public boolean isEmpty() {
         return size() == 0;
     }
-
 }

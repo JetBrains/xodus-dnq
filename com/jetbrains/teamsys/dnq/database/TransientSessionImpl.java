@@ -300,9 +300,9 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @NotNull
-    public EntityIterable startsWith(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final String value) {
+    public EntityIterable findStartingWith(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final String value) {
         assertOpen("startsWith");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().startsWith(entityType, propertyName, value));
+        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findStartingWith(entityType, propertyName, value));
     }
 
     @NotNull
@@ -385,44 +385,6 @@ public class TransientSessionImpl implements TransientStoreSession {
     public EntityIterable mergeSorted(@NotNull List<EntityIterable> sorted, @NotNull Comparator<Entity> comparator) {
         assertOpen("mergeSorted");
         return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().mergeSorted(sorted, comparator));
-    }
-
-    @NotNull
-    public EntityIterable distinct(@NotNull final EntityIterable source) {
-        assertOpen("distinct");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().distinct(source.getSource()));
-    }
-
-    @NotNull
-    public EntityIterable selectDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
-        assertOpen("selectDistinct");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().selectDistinct(source.getSource(), linkName));
-    }
-
-    @NotNull
-    public EntityIterable selectManyDistinct(@NotNull EntityIterable source, @NotNull String linkName) {
-        assertOpen("selectManyDistinct");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().selectManyDistinct(source.getSource(), linkName));
-    }
-
-    @Nullable
-    public Entity getFirst(@NotNull final EntityIterable it) {
-        assertOpen("getFirst");
-        final Entity first = getPersistentTransactionInternal().getFirst(it.getSource());
-        return (first == null) ? null : newEntityImpl(first);
-    }
-
-    @Nullable
-    public Entity getLast(@NotNull final EntityIterable it) {
-        assertOpen("getLast");
-        final Entity last = getPersistentTransactionInternal().getLast(it.getSource());
-        return (last == null) ? null : newEntityImpl(last);
-    }
-
-    @NotNull
-    public EntityIterable reverse(@NotNull final EntityIterable source) {
-        assertOpen("reverse");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().reverse(source.getSource()));
     }
 
     @NotNull
