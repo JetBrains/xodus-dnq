@@ -5,20 +5,19 @@ import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.core.util.ByteArraySpinAllocator;
-import jetbrains.exodus.core.util.LightByteArrayOutputStream;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.exceptions.ExodusException;
 import jetbrains.exodus.io.ByteArraySizedInputStream;
-import jetbrains.exodus.util.IOUtil;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 
 /**
@@ -39,7 +38,6 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected Map<EntityId, TransientEntity> managedEntities;
     private Queue<MyRunnable> changes = new QueueDecorator<MyRunnable>();
     private int hashCode = 0;
-    private final ByteArraySpinAllocator bufferAllocator;
     private boolean allowRunnables = true;
     private Throwable stack = null;
     private boolean flushing = false;
@@ -50,14 +48,13 @@ public class TransientSessionImpl implements TransientStoreSession {
         this.store.getPersistentStore().beginTransaction().enableReplayData();
         this.state = State.Open;
         this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
-        this.bufferAllocator = new ByteArraySpinAllocator(0x4000);
         if (LogFactory.getLog(TransientEntityStoreImpl.class).isDebugEnabled()) {
             stack = new Throwable();
         }
         initChangesTracker();
     }
 
-    public Throwable getStack(){
+    public Throwable getStack() {
         return stack;
     }
 
@@ -237,7 +234,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             throw new IllegalArgumentException("Can't create transient entity wrapper for another transient entity.");
         }
         assertOpen("create entity");
-        return newEntityImpl(persistent);
+        return newEntityImpl((PersistentEntity) persistent);
     }
 
     @NotNull
@@ -638,7 +635,6 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     /**
      * Checks custom flush constraints before save changes
-     *
      */
     private void executeBeforeFlushTriggers(Set<TransientEntity> changedEntities) {
         final ModelMetaData modelMetaData = store.getModelMetaData();
@@ -1077,7 +1073,10 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @NotNull
-    protected TransientEntity newEntityImpl(final Entity persistent) {
+    protected TransientEntity newEntityImpl(final PersistentEntity persistent) {
+        if (persistent instanceof ReadOnlyPersistentEntity) {
+            return new ReadonlyTransientEntityImpl((ReadOnlyPersistentEntity) persistent, store);
+        }
         final EntityId entityId = persistent.getId();
         TransientEntity e = managedEntities.get(entityId);
         if (e == null) {
@@ -1230,7 +1229,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     void setBlob(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final InputStream stream) {
         final ByteArraySizedInputStream copy;
         try {
-            copy = ((PersistentEntityStore)store.getPersistentStore()).getBlobVault().cloneStream(stream, true);
+            copy = ((PersistentEntityStore) store.getPersistentStore()).getBlobVault().cloneStream(stream, true);
         } catch (final IOException ioe) {
             throw new RuntimeException(ioe);
         }

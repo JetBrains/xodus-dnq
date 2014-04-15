@@ -3,6 +3,7 @@ package com.jetbrains.teamsys.dnq.database;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
+import jetbrains.exodus.database.impl.iterate.EntityIterableDecoratorBase;
 import jetbrains.exodus.database.impl.iterate.EntityIteratorBase;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -18,6 +19,10 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     private Boolean hasChanges = null;
     private Map<String, LinkChange> linksDetaled;
     private Set<String> changedProperties;
+
+    public ReadonlyTransientEntityImpl(@NotNull ReadOnlyPersistentEntity snapshot, @NotNull TransientEntityStore store) {
+        this(null, snapshot, store);
+    }
 
     public ReadonlyTransientEntityImpl(@Nullable TransientEntityChange change, @NotNull PersistentEntity snapshot, @NotNull TransientEntityStore store) {
         super(snapshot, store);
@@ -83,20 +88,15 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
 
     @Override
-    public Comparable getProperty(@NotNull String propertyName) {
-        return super.getProperty(propertyName);
-    }
-
-    @Override
     public Entity getLink(@NotNull String linkName) {
         final PersistentEntity link = (PersistentEntity) persistentEntity.getLink(linkName);
-        return link == null ? null : newReadOnlyEntity(link);
+        return link == null ? null : new ReadonlyTransientEntityImpl(getSnapshotPersistentEntity(link), store);
     }
 
     @NotNull
     @Override
     public EntityIterable getLinks(@NotNull String linkName) {
-        return new ReadOnlyIterable((EntityIterableBase) persistentEntity.getLinks(linkName));
+        return new PersistentEntityIterableWrapper(new ReadOnlyIterable((EntityIterableBase) persistentEntity.getLinks(linkName)));
     }
 
     @NotNull
@@ -143,7 +143,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
                     // by Dirichlet principle, even if 'properties' param is malformed
                     return true;
                 }
-                final Set<String> linksDetaledCopy = new HashSet(linksDetaled.keySet());
+                final Set<String> linksDetaledCopy = new HashSet<String>(linksDetaled.keySet());
                 for (String property : properties) {
                     linksDetaledCopy.remove(property);
                 }
@@ -156,7 +156,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
                     // by Dirichlet principle, even if 'properties' param is malformed
                     return true;
                 }
-                final Set<String> propertiesDetailedCopy = new HashSet(changedProperties);
+                final Set<String> propertiesDetailedCopy = new HashSet<String>(changedProperties);
                 for (String property : properties) {
                     propertiesDetailedCopy.remove(property);
                 }
@@ -254,29 +254,38 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         this.hasChanges = hasChanges;
     }
 
-    private IllegalStateException createReadonlyException() {
+    private ReadOnlyPersistentEntity getSnapshotPersistentEntity(@Nullable final PersistentEntity entity) {
+        return entity == null ? null : new ReadOnlyPersistentEntity(persistentEntity.getTransaction(), entity.getId());
+    }
+
+    private static IllegalStateException createReadonlyException() {
         return new IllegalStateException("Entity is readonly.");
     }
 
-    private ReadonlyTransientEntityImpl newReadOnlyEntity(@Nullable PersistentEntity entity) {
-        return entity == null ? null : new ReadonlyTransientEntityImpl(
-                null, new ReadOnlyPersistentEntity(persistentEntity.getTransaction(), entity.getId()), store);
-    }
+    private class ReadOnlyIterable extends EntityIterableDecoratorBase {
 
-    private class ReadOnlyIterable extends EntityIterableBase {
+        public ReadOnlyIterable(@NotNull final EntityIterableBase source) {
+            super(source.getStore(), source);
+            final PersistentStoreTransaction sourceTxn = source.getTransaction();
+            if (!sourceTxn.isCurrent()) {
+                txnGetter = sourceTxn;
+            }
+        }
 
-        @NotNull
-        private final EntityIterableBase source;
+        @Override
+        public boolean isSortedById() {
+            return source.isSortedById();
+        }
 
-        public ReadOnlyIterable(@NotNull EntityIterableBase source) {
-            super(source.getStore());
-            this.source = source;
+        @Override
+        public boolean canBeCached() {
+            return false;
         }
 
         @NotNull
         @Override
         public EntityIterator getIteratorImpl(@NotNull PersistentStoreTransaction txn) {
-            return new PersistentIteratorWrapper(this, (EntityIteratorBase) source.iterator());
+            return new ReadOnlyIterator(this);
         }
 
         @NotNull
@@ -284,16 +293,27 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         protected EntityIterableHandle getHandleImpl() {
             return source.getHandle();
         }
+
+        @Nullable
+        @Override
+        public Entity getFirst() {
+            return getSnapshotPersistentEntity((PersistentEntity) source.getFirst());
+        }
+
+        @Nullable
+        @Override
+        public Entity getLast() {
+            return getSnapshotPersistentEntity((PersistentEntity) source.getLast());
+        }
     }
 
-    private class PersistentIteratorWrapper extends EntityIteratorBase {
-
+    private class ReadOnlyIterator extends EntityIteratorBase {
 
         private final EntityIteratorBase source;
 
-        private PersistentIteratorWrapper(ReadOnlyIterable iterable, EntityIteratorBase source) {
-            super(iterable);
-            this.source = source;
+        private ReadOnlyIterator(ReadOnlyIterable source) {
+            super(source);
+            this.source = (EntityIteratorBase) source.getDecorated().iterator();
         }
 
         @Override
@@ -301,13 +321,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
-            PersistentEntity next = (PersistentEntity) source.next();
-            return newReadOnlyEntity(next);
-        }
-
-        @Override
-        public void remove() {
-            throw new UnsupportedOperationException();
+            return getSnapshotPersistentEntity((PersistentEntity) source.next());
         }
 
         @Override
@@ -319,6 +333,11 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         @Override
         protected EntityId nextIdImpl() {
             return source.nextId();
+        }
+
+        @Override
+        public boolean shouldBeDisposed() {
+            return false;
         }
     }
 }
