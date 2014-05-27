@@ -1,6 +1,10 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.EntityCreator;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.database.exceptions.CantRemoveEntityException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;

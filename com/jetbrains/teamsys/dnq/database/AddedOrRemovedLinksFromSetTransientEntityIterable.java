@@ -1,7 +1,9 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
+import jetbrains.exodus.database.LinkChange;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;

@@ -2,7 +2,7 @@ package com.jetbrains.teamsys.dnq.database;
 
 
 import jetbrains.exodus.core.dataStructures.NanoSet;
-import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.entitystore.Entity;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;

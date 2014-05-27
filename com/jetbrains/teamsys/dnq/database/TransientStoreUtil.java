@@ -1,7 +1,11 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.LongHashSet;
-import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.metadata.EntityMetaData;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;

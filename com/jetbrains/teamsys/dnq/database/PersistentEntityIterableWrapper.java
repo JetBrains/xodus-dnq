@@ -1,6 +1,8 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.entitystore.*;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

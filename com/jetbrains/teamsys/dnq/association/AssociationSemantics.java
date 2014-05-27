@@ -3,8 +3,11 @@ package com.jetbrains.teamsys.dnq.association;
 import com.jetbrains.teamsys.dnq.database.EntityOperations;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import com.jetbrains.teamsys.dnq.database.UniversalEmptyEntityIterable;
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
 import jetbrains.teamsys.dnq.runtime.queries.QueryOperations;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -18,8 +21,6 @@ import java.util.Set;
 /**
  */
 public class AssociationSemantics {
-
-    private static final Log log = LogFactory.getLog(AssociationSemantics.class);
 
     /**
      * To one association end getter.

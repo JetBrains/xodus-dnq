@@ -2,7 +2,11 @@ package com.jetbrains.teamsys.dnq.database;
 
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
-import jetbrains.exodus.database.*;
+import jetbrains.exodus.database.LinkChange;
+import jetbrains.exodus.database.TransientChangesTracker;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.metadata.EntityMetaData;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;

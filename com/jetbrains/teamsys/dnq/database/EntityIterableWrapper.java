@@ -1,6 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.database.EntityIterable;
+import jetbrains.exodus.entitystore.EntityIterable;
 
 /**
  *

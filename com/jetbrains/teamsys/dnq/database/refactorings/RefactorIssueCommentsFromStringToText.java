@@ -1,9 +1,9 @@
 package com.jetbrains.teamsys.dnq.database.refactorings;
 
-import jetbrains.exodus.database.Entity;
-import jetbrains.exodus.database.PersistentEntityStore;
-import jetbrains.exodus.database.StoreTransaction;
-import jetbrains.exodus.exceptions.ExodusException;
+import jetbrains.exodus.entitystore.Entity;
+import jetbrains.exodus.entitystore.PersistentEntityStore;
+import jetbrains.exodus.entitystore.StoreTransaction;
+import jetbrains.exodus.ExodusException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;

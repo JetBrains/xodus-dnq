@@ -1,10 +1,10 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.ConstantEntityIterableHandle;
-import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
-import jetbrains.exodus.database.impl.iterate.EntityIteratorBase;
-import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
+import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.iterate.ConstantEntityIterableHandle;
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
+import jetbrains.exodus.entitystore.iterate.EntityIteratorBase;
+import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

@@ -2,7 +2,8 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
-import jetbrains.exodus.database.*;
+import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.metadata.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;

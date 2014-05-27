@@ -1,10 +1,14 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
-import jetbrains.exodus.database.impl.iterate.EntityIterableDecoratorBase;
-import jetbrains.exodus.database.impl.iterate.EntityIteratorBase;
+import jetbrains.exodus.database.LinkChange;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientEntityChange;
+import jetbrains.exodus.database.TransientEntityStore;
+import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
+import jetbrains.exodus.entitystore.iterate.EntityIterableDecoratorBase;
+import jetbrains.exodus.entitystore.iterate.EntityIteratorBase;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

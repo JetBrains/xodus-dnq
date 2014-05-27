@@ -5,6 +5,7 @@ import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.database.*;
+import jetbrains.exodus.entitystore.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;

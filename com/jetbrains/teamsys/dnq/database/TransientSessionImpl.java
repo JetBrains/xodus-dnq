@@ -1,14 +1,20 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import jetbrains.exodus.ByteIterable;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
+import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.database.exceptions.*;
-import jetbrains.exodus.exceptions.ExodusException;
-import jetbrains.exodus.io.ByteArraySizedInputStream;
+import jetbrains.exodus.ExodusException;
+import jetbrains.exodus.entitystore.metadata.EntityMetaData;
+import jetbrains.exodus.entitystore.metadata.Index;
+import jetbrains.exodus.entitystore.metadata.IndexField;
+import jetbrains.exodus.entitystore.metadata.ModelMetaData;
+import jetbrains.exodus.util.ByteArraySizedInputStream;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;

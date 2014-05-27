@@ -1,9 +1,14 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import jetbrains.exodus.ByteIterable;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.impl.iterate.EntityIterableBase;
-import jetbrains.exodus.database.impl.iterate.EntityIteratorWithPropId;
+import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
+import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
+import jetbrains.exodus.entitystore.metadata.AssociationEndMetaData;
+import jetbrains.exodus.entitystore.metadata.EntityMetaData;
+import jetbrains.exodus.entitystore.metadata.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
