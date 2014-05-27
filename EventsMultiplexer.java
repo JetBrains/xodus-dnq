@@ -19,22 +19,22 @@ import jetbrains.exodus.database.TransientEntityChange;
 import org.jetbrains.annotations.NotNull;
 import jetbrains.exodus.database.TransientChangesTracker;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
-import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.entitystore.Entity;
 import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.mps.internal.collections.runtime.QueueSequence;
 import jetbrains.exodus.database.EntityChangeType;
-import jetbrains.exodus.database.ModelMetaData;
+import jetbrains.exodus.entitystore.metadata.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
-import jetbrains.exodus.database.EntityMetaData;
+import jetbrains.exodus.entitystore.metadata.EntityMetaData;
 import jetbrains.mps.internal.collections.runtime.Sequence;
 import jetbrains.exodus.core.execution.ThreadJobProcessorPool;
 import jetbrains.exodus.core.execution.Job;
 import jetbrains.teamsys.dnq.runtime.txn._Txn;
-import jetbrains.exodus.database.EntityStore;
-import jetbrains.exodus.database.EntityId;
+import jetbrains.exodus.entitystore.EntityStore;
+import jetbrains.exodus.entitystore.EntityId;
 
 public class EventsMultiplexer implements TransientStoreSessionListener {
   protected static Log log = LogFactory.getLog(EventsMultiplexer.class);
