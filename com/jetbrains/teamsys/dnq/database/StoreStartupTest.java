@@ -4,7 +4,7 @@ import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
 import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
-import jetbrains.exodus.database.Entity;
+import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.mps.internal.collections.runtime.ListSequence;
