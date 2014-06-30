@@ -721,7 +721,9 @@ public class TransientSessionImpl implements TransientStoreSession {
                     store.lock.unlock();
                 }
             } catch (Throwable exception) {
-                log.error("Catch exception in flush: " + exception.getMessage());
+                if (log.isInfoEnabled()) {
+                    log.info("Catch exception in flush: " + exception.getMessage());
+                }
                 txn.disableReplayData();
                 txn.revert();
                 txn.enableReplayData();
