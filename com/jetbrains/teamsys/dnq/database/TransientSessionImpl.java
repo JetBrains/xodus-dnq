@@ -1649,6 +1649,12 @@ public class TransientSessionImpl implements TransientStoreSession {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void disposeCreatedIterators() {
+        assertOpen("dispose created iterators");
+        getPersistentTransactionInternal().disposeCreatedIterators();
+    }
+
     MyRunnable addChange(@NotNull final MyRunnable change) {
         if (allowRunnables) {
             changes.offer(change);
