@@ -1,15 +1,15 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.ByteIterable;
+import jetbrains.exodus.ExodusException;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.database.exceptions.*;
-import jetbrains.exodus.ExodusException;
+import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.entitystore.metadata.EntityMetaData;
 import jetbrains.exodus.entitystore.metadata.Index;
 import jetbrains.exodus.entitystore.metadata.IndexField;
@@ -83,6 +83,11 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public TransientEntityStore getStore() {
         return store;
+    }
+
+    @Override
+    public boolean isIdempotent() {
+        return getPersistentTransaction().isIdempotent();
     }
 
     protected StoreTransaction getPersistentTransactionInternal() {
@@ -696,6 +701,9 @@ public class TransientSessionImpl implements TransientStoreSession {
 
             int retry = 0;
             final StoreTransaction txn = getPersistentTransactionInternal();
+            if (txn.isIdempotent()) {
+                return;
+            }
 
             try {
                 prepare();
