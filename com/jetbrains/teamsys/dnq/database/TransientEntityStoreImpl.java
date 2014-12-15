@@ -1,7 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
 import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.TransientEntityStore;
@@ -9,8 +8,8 @@ import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.database.TransientStoreSessionListener;
 import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.entitystore.metadata.ModelMetaData;
-import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import jetbrains.exodus.query.QueryEngine;
+import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -19,7 +18,9 @@ import org.springframework.beans.factory.InitializingBean;
 
 import java.io.File;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -36,7 +37,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private EventsMultiplexer eventsMultiplexer;
     private final Set<TransientStoreSession> sessions = new HashSet<TransientStoreSession>();
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
-    private final Set<TransientStoreSessionListener> listeners = new LinkedHashSet<TransientStoreSessionListener>();
+    private final NavigableSet<TransientStoreSessionListenerComparableAdapter> listeners = new TreeSet<TransientStoreSessionListenerComparableAdapter>();
+    private int orderCounter = Integer.MIN_VALUE;
 
     private boolean open = true;
     private String blobsStorePath;
@@ -188,7 +190,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
         if (sessions.size() >= 0) {
             log.warn("There're " + sessions.size() + " open transient sessions. Print.");
-            if (log.isDebugEnabled()){
+            if (log.isDebugEnabled()) {
                 for (TransientStoreSession session : sessions) {
                     TransientSessionImpl impl = session instanceof TransientSessionImpl ? (TransientSessionImpl) session : null;
                     if (impl != null) {
@@ -331,16 +333,26 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void addListener(@NotNull TransientStoreSessionListener listener) {
-        listeners.add(listener);
+        listeners.add(new TransientStoreSessionListenerComparableAdapter(listener));
+    }
+
+    @Override
+    public void addListener(TransientStoreSessionListener listener, final int priority) {
+        listeners.add(new TransientStoreSessionListenerComparableAdapter(listener, priority));
     }
 
     public void removeListener(@NotNull TransientStoreSessionListener listener) {
-        listeners.remove(listener);
+        for (TransientStoreSessionListenerComparableAdapter adapter : listeners) {
+            if (adapter.listener.equals(listener)) {
+                listeners.remove(adapter);
+                break;
+            }
+        }
     }
 
     void forAllListeners(@NotNull ListenerVisitor v) {
-        for (TransientStoreSessionListener l : listeners) {
-            v.visit(l);
+        for (TransientStoreSessionListenerComparableAdapter adapter : listeners) {
+            v.visit(adapter.listener);
         }
     }
 
@@ -431,4 +443,38 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         void visit(TransientStoreSessionListener listener);
     }
 
+    private class TransientStoreSessionListenerComparableAdapter implements Comparable<TransientStoreSessionListenerComparableAdapter> {
+
+        private final int priority;
+        private final int samePriorityCounter;
+        @NotNull
+        private final TransientStoreSessionListener listener;
+
+        public TransientStoreSessionListenerComparableAdapter(@NotNull final TransientStoreSessionListener listener, final int priority) {
+            this.priority = -priority;
+            samePriorityCounter = ++orderCounter;
+            this.listener = listener;
+        }
+
+        public TransientStoreSessionListenerComparableAdapter(TransientStoreSessionListener listener) {
+            this(listener, 0);
+        }
+
+        @Override
+        public int compareTo(TransientStoreSessionListenerComparableAdapter o) {
+            if (priority < o.priority) {
+                return -1;
+            }
+            if (priority > o.priority) {
+                return 1;
+            }
+            if (samePriorityCounter < o.samePriorityCounter) {
+                return -1;
+            }
+            if (samePriorityCounter > o.samePriorityCounter) {
+                return 1;
+            }
+            return 0;
+        }
+    }
 }
