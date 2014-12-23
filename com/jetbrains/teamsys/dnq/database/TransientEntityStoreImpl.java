@@ -10,6 +10,7 @@ import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.entitystore.metadata.ModelMetaData;
 import jetbrains.exodus.query.QueryEngine;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
+import jetbrains.teamsys.dnq.runtime.queries.TransientQueryEngine;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -108,6 +109,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     @SuppressWarnings({"UnusedDeclaration"})
     public void setQueryEngine(QueryEngine queryEngine) {
         this.queryEngine = queryEngine;
+        if (queryEngine instanceof TransientQueryEngine) {
+            ((TransientQueryEngine)queryEngine).setEntityStore(this);
+        }
     }
 
     @NotNull
