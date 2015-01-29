@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import jetbrains.exodus.core.dataStructures.StablePriorityQueue;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.TransientEntity;
@@ -38,8 +39,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private EventsMultiplexer eventsMultiplexer;
     private final Set<TransientStoreSession> sessions = new HashSet<TransientStoreSession>();
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
-    private final NavigableSet<TransientStoreSessionListenerComparableAdapter> listeners = new TreeSet<TransientStoreSessionListenerComparableAdapter>();
-    private int orderCounter = Integer.MIN_VALUE;
+    private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<Integer, TransientStoreSessionListener>();
 
     private boolean open = true;
     private String blobsStorePath;
@@ -337,26 +337,21 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void addListener(@NotNull TransientStoreSessionListener listener) {
-        listeners.add(new TransientStoreSessionListenerComparableAdapter(listener));
+        listeners.push(Integer.valueOf(0), listener);
     }
 
     @Override
     public void addListener(TransientStoreSessionListener listener, final int priority) {
-        listeners.add(new TransientStoreSessionListenerComparableAdapter(listener, priority));
+        listeners.push(Integer.valueOf(priority), listener);
     }
 
     public void removeListener(@NotNull TransientStoreSessionListener listener) {
-        for (TransientStoreSessionListenerComparableAdapter adapter : listeners) {
-            if (adapter.listener.equals(listener)) {
-                listeners.remove(adapter);
-                break;
-            }
-        }
+        listeners.remove(listener);
     }
 
     void forAllListeners(@NotNull ListenerVisitor v) {
-        for (TransientStoreSessionListenerComparableAdapter adapter : listeners) {
-            v.visit(adapter.listener);
+        for (final TransientStoreSessionListener listener : listeners) {
+            v.visit(listener);
         }
     }
 
@@ -447,38 +442,4 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         void visit(TransientStoreSessionListener listener);
     }
 
-    private class TransientStoreSessionListenerComparableAdapter implements Comparable<TransientStoreSessionListenerComparableAdapter> {
-
-        private final int priority;
-        private final int samePriorityCounter;
-        @NotNull
-        private final TransientStoreSessionListener listener;
-
-        public TransientStoreSessionListenerComparableAdapter(@NotNull final TransientStoreSessionListener listener, final int priority) {
-            this.priority = -priority;
-            samePriorityCounter = ++orderCounter;
-            this.listener = listener;
-        }
-
-        public TransientStoreSessionListenerComparableAdapter(TransientStoreSessionListener listener) {
-            this(listener, 0);
-        }
-
-        @Override
-        public int compareTo(TransientStoreSessionListenerComparableAdapter o) {
-            if (priority < o.priority) {
-                return -1;
-            }
-            if (priority > o.priority) {
-                return 1;
-            }
-            if (samePriorityCounter < o.samePriorityCounter) {
-                return -1;
-            }
-            if (samePriorityCounter > o.samePriorityCounter) {
-                return 1;
-            }
-            return 0;
-        }
-    }
 }
