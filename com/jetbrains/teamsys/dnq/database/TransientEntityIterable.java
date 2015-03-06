@@ -53,6 +53,13 @@ public class TransientEntityIterable implements EntityIterableWrapper {
         return values.size();
     }
 
+    public long getRoughSize() {
+        if (log.isWarnEnabled()) {
+            log.warn("getRoughCount() is requested from TransientEntityIterable!");
+        }
+        return values.size();
+    }
+
     public int indexOf(@NotNull Entity entity) {
         return Arrays.asList(values.toArray(new Entity[values.size()])).indexOf(entity);
     }

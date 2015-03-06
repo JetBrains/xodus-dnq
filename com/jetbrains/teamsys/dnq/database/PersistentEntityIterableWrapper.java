@@ -36,6 +36,10 @@ public class PersistentEntityIterableWrapper implements EntityIterableWrapper {
         return wrappedIterable.getRoughCount();
     }
 
+    public long getRoughSize() {
+        return wrappedIterable.getRoughSize();
+    }
+
     public int indexOf(@NotNull Entity entity) {
         return wrappedIterable.indexOf(entity);
     }
