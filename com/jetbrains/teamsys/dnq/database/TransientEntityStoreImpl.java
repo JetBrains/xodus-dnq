@@ -192,8 +192,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         log.info("Close transient store.");
         open = false;
 
-        if (sessions.size() >= 0) {
-            log.warn("There're " + sessions.size() + " open transient sessions. Print.");
+        int sessionsSize = sessions.size();
+        if (sessionsSizeinor > 0) {
+            log.warn("There're " + sessionsSize + " open transient sessions. Print.");
             if (log.isDebugEnabled()) {
                 for (TransientStoreSession session : sessions) {
                     TransientSessionImpl impl = session instanceof TransientSessionImpl ? (TransientSessionImpl) session : null;
