@@ -43,7 +43,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     // stores transient entities that were created for loaded persistent entities to avoid double loading
     protected Map<EntityId, TransientEntity> managedEntities;
     private Queue<MyRunnable> changes = new QueueDecorator<MyRunnable>();
-    private int hashCode = 0;
+    private final int hashCode = (int) (Math.random() * Integer.MAX_VALUE);
     private boolean allowRunnables = true;
     private Throwable stack = null;
     private boolean flushing = false;
@@ -100,10 +100,6 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     @Override
     public int hashCode() {
-        if (hashCode == 0) {
-            hashCode = (int) (Math.random() * Integer.MAX_VALUE);
-        }
-
         return hashCode;
     }
 

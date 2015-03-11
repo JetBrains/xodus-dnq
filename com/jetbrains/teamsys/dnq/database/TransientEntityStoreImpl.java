@@ -20,9 +20,7 @@ import org.springframework.beans.factory.InitializingBean;
 
 import java.io.File;
 import java.util.Map;
-import java.util.NavigableSet;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -37,7 +35,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private QueryEngine queryEngine;
     private ModelMetaData modelMetaData;
     private EventsMultiplexer eventsMultiplexer;
-    private final Set<TransientStoreSession> sessions = new HashSet<TransientStoreSession>();
+    private final Set<TransientStoreSession> sessions = new HashSet<TransientStoreSession>(200);
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
     private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<Integer, TransientStoreSessionListener>();
 
@@ -110,7 +108,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     public void setQueryEngine(QueryEngine queryEngine) {
         this.queryEngine = queryEngine;
         if (queryEngine instanceof TransientQueryEngine) {
-            ((TransientQueryEngine)queryEngine).setEntityStore(this);
+            ((TransientQueryEngine) queryEngine).setEntityStore(this);
         }
     }
 
@@ -303,11 +301,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     private TransientStoreSession registerStoreSession(TransientStoreSession s) {
         synchronized (sessions) {
-            if (sessions.contains(s)) {
-                throw new IllegalArgumentException("Session with already registered.");
+            if (!sessions.add(s)) {
+                throw new IllegalArgumentException("Session is already registered.");
             }
-
-            sessions.add(s);
         }
 
         currentSession.set(s);
@@ -318,7 +314,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     void unregisterStoreSession(TransientStoreSession s) {
         synchronized (sessions) {
             if (!sessions.remove(s)) {
-                throw new IllegalArgumentException("Transient session with wasn't previously registered.");
+                throw new IllegalArgumentException("Transient session wasn't previously registered.");
             }
         }
 
