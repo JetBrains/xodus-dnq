@@ -48,10 +48,15 @@ public class TransientSessionImpl implements TransientStoreSession {
     private Throwable stack = null;
     private boolean flushing = false;
 
-    protected TransientSessionImpl(final TransientEntityStoreImpl store) {
+    protected TransientSessionImpl(final TransientEntityStoreImpl store, boolean readonly) {
         this.store = store;
         this.flushRetryOnVersionMismatch = store.getFlushRetryOnLockConflict();
-        this.store.getPersistentStore().beginTransaction().enableReplayData();
+        EntityStore persistentStore = this.store.getPersistentStore();
+        if (readonly) {
+            ((PersistentEntityStoreImpl)persistentStore).beginReadonlyTransaction();
+        } else {
+            persistentStore.beginTransaction().enableReplayData();
+        }
         this.state = State.Open;
         this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
         if (LogFactory.getLog(TransientEntityStoreImpl.class).isDebugEnabled()) {

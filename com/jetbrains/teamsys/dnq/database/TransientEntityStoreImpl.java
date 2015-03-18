@@ -128,6 +128,12 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         throw new UnsupportedOperationException();
     }
 
+    @NotNull
+    @Override
+    public StoreTransaction beginReadonlyTransaction() {
+        throw new UnsupportedOperationException();
+    }
+
     @Nullable
     @Override
     public StoreTransaction getCurrentTransaction() {
@@ -147,7 +153,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
             return currentSession;
         }
 
-        return registerStoreSession(new TransientSessionImpl(this));
+        return registerStoreSession(new TransientSessionImpl(this, false));
     }
 
     public void resumeSession(TransientStoreSession session) {
