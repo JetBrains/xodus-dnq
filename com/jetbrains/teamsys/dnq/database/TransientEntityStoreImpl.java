@@ -157,9 +157,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void resumeSession(TransientStoreSession session) {
-        assertOpen();
-
         if (session != null) {
+            assertOpen();
+
             TransientStoreSession current = currentSession.get();
             if (current != null) {
                 if (current != session) {
