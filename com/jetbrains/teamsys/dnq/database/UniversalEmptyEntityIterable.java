@@ -1,7 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.entitystore.iterate.ConstantEntityIterableHandle;
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
 import jetbrains.exodus.entitystore.iterate.EntityIteratorBase;
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
@@ -50,8 +49,7 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
     @NotNull
     @Override
     protected EntityIterableHandle getHandleImpl() {
-        return new ConstantEntityIterableHandle(null, EntityIterableType.EMPTY) {
-        };
+        return EntityIterableBase.EMPTY.getHandle();
     }
 
     @Override
