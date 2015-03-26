@@ -389,38 +389,76 @@ class TransientEntityImpl implements TransientEntity {
         if (changesLinks != null) {
             final LinkChange linkChange = changesLinks.get(name);
             if (linkChange != null) {
-                Set<TransientEntity> result = removed ? linkChange.getRemovedEntities() : linkChange.getAddedEntities();
-                if (result != null) {
-                    if (removed) {
-                        return new TransientEntityIterable(result) {
-                            @Override
-                            public long size() {
-                                return linkChange.getRemovedEntitiesSize();
-                            }
-
-                            @Override
-                            public long count() {
-                                return linkChange.getRemovedEntitiesSize();
-                            }
-                        };
-                    } else {
-                        return new TransientEntityIterable(result) {
-                            @Override
-                            public long size() {
-                                return linkChange.getAddedEntitiesSize();
-                            }
-
-                            @Override
-                            public long count() {
-                                return linkChange.getAddedEntitiesSize();
-                            }
-                        };
+                EntityIterable result = removed ? getRemovedWrapper(linkChange) : getAddedWrapper(linkChange);
+                if (removed) {
+                    TransientEntityIterable deleted = getDeletedWrapper(linkChange);
+                    if (result == null || result.isEmpty()) {
+                        result = deleted;
+                    } else if (deleted != null) {
+                        result = result.concat(deleted);
                     }
+                }
+                if (result != null) {
+                    return result;
                 }
             }
         }
         return EntityIterableBase.EMPTY;
     }
+
+    private TransientEntityIterable getAddedWrapper(final LinkChange change) {
+        Set<TransientEntity> addedEntities = change.getAddedEntities();
+        if (addedEntities == null) {
+            return null;
+        }
+        return new TransientEntityIterable(addedEntities) {
+            @Override
+            public long size() {
+                return change.getAddedEntitiesSize();
+            }
+
+            @Override
+            public long count() {
+                return change.getAddedEntitiesSize();
+            }
+        };
+    };
+
+    private TransientEntityIterable getRemovedWrapper(final LinkChange change) {
+        Set<TransientEntity> removedEntities = change.getRemovedEntities();
+        if (removedEntities == null) {
+            return null;
+        }
+        return new TransientEntityIterable(removedEntities) {
+            @Override
+            public long size() {
+                return change.getRemovedEntitiesSize();
+            }
+
+            @Override
+            public long count() {
+                return change.getRemovedEntitiesSize();
+            }
+        };
+    };
+
+    private TransientEntityIterable getDeletedWrapper(final LinkChange change) {
+        Set<TransientEntity> deletedEntities = change.getDeletedEntities();
+        if (deletedEntities == null) {
+            return null;
+        }
+        return new TransientEntityIterable(deletedEntities) {
+            @Override
+            public long size() {
+                return change.getDeletedEntitiesSize();
+            }
+
+            @Override
+            public long count() {
+                return change.getDeletedEntitiesSize();
+            }
+        };
+    };
 
     public EntityIterable getAddedLinks(final String name) {
         return getAddedRemovedLinks(name, false);

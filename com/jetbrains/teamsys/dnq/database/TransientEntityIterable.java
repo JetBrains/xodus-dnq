@@ -1,5 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.entitystore.*;
@@ -97,7 +98,13 @@ public class TransientEntityIterable implements EntityIterableWrapper {
 
     @NotNull
     public EntityIterable concat(@NotNull EntityIterable right) {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+        if (!(right instanceof TransientEntityIterable)) {
+            throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+        };
+        final HashSet<TransientEntity> result = new HashSet<TransientEntity>();
+        result.addAll(values);
+        result.addAll(((TransientEntityIterable)right).values);
+        return new TransientEntityIterable(result);
     }
 
     @NotNull
