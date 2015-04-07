@@ -15,7 +15,6 @@ import jetbrains.exodus.entitystore.metadata.Index;
 import jetbrains.exodus.entitystore.metadata.IndexField;
 import jetbrains.exodus.entitystore.metadata.ModelMetaData;
 import jetbrains.exodus.util.ByteArraySizedInputStream;
-import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -138,7 +137,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         if (wrappedIterable instanceof PersistentEntityIterableWrapper) {
             return wrappedIterable;
         } else {
-            return new PersistentEntityIterableWrapper(wrappedIterable);
+            return new PersistentEntityIterableWrapper(store, wrappedIterable);
         }
     }
 
@@ -275,67 +274,67 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public EntityIterable getAll(@NotNull final String entityType) {
         assertOpen("getAll");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getAll(entityType));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().getAll(entityType));
     }
 
     @NotNull
     public EntityIterable getSingletonIterable(@NotNull final Entity entity) {
         assertOpen("getSingletonIterable");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().getSingletonIterable(((TransientEntityImpl) entity).getPersistentEntity()));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().getSingletonIterable(((TransientEntityImpl) entity).getPersistentEntity()));
     }
 
     @NotNull
     public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable value) {
         assertOpen("find");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().find(entityType, propertyName, value));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().find(entityType, propertyName, value));
     }
 
     @NotNull
     public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable minValue, @NotNull final Comparable maxValue) {
         assertOpen("find");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().find(entityType, propertyName, minValue, maxValue));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().find(entityType, propertyName, minValue, maxValue));
     }
 
     @NotNull
     @Override
     public EntityIterable findIds(@NotNull String entityType, long minValue, long maxValue) {
         assertOpen("findIds");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findIds(entityType, minValue, maxValue));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findIds(entityType, minValue, maxValue));
     }
 
     public EntityIterable findWithProp(@NotNull final String entityType, @NotNull final String propertyName) {
         assertOpen("findWithProp");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithProp(entityType, propertyName));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findWithProp(entityType, propertyName));
     }
 
     @NotNull
     public EntityIterable findStartingWith(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final String value) {
         assertOpen("startsWith");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findStartingWith(entityType, propertyName, value));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findStartingWith(entityType, propertyName, value));
     }
 
     @NotNull
     public EntityIterable findWithBlob(@NotNull final String entityType, @NotNull final String propertyName) {
         assertOpen("findWithBlob");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithBlob(entityType, propertyName));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findWithBlob(entityType, propertyName));
     }
 
     @NotNull
     public EntityIterable findLinks(@NotNull final String entityType, @NotNull final Entity entity, @NotNull final String linkName) {
         assertOpen("findLinks");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findLinks(entityType, entity, linkName));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findLinks(entityType, entity, linkName));
     }
 
     @NotNull
     public EntityIterable findLinks(@NotNull String entityType, @NotNull EntityIterable entities, @NotNull String linkName) {
         assertOpen("findLinks");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findLinks(entityType, entities.getSource(), linkName));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findLinks(entityType, entities.getSource(), linkName));
     }
 
     @NotNull
     public EntityIterable findWithLinks(@NotNull String entityType, @NotNull String linkName) {
         assertOpen("findWithLinks");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().findWithLinks(entityType, linkName));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findWithLinks(entityType, linkName));
     }
 
     @NotNull
@@ -344,7 +343,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                                         @NotNull String oppositeEntityType,
                                         @NotNull String oppositeLinkName) {
         assertOpen("findWithLinks");
-        return new PersistentEntityIterableWrapper(
+        return new PersistentEntityIterableWrapper(store,
                 getPersistentTransactionInternal().findWithLinks(entityType, linkName, oppositeEntityType, oppositeLinkName));
     }
 
@@ -353,7 +352,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                                @NotNull final String propertyName,
                                final boolean ascending) {
         assertOpen("sort");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().sort(entityType, propertyName, ascending));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().sort(entityType, propertyName, ascending));
     }
 
     @NotNull
@@ -362,7 +361,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                                @NotNull final EntityIterable rightOrder,
                                final boolean ascending) {
         assertOpen("sort");
-        return new PersistentEntityIterableWrapper(
+        return new PersistentEntityIterableWrapper(store,
                 getPersistentTransactionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
     }
 
@@ -373,7 +372,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                                     @NotNull final String linkName,
                                     final @NotNull EntityIterable rightOrder) {
         assertOpen("sortLinks");
-        return new PersistentEntityIterableWrapper(
+        return new PersistentEntityIterableWrapper(store,
                 getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource()));
     }
 
@@ -386,14 +385,14 @@ public class TransientSessionImpl implements TransientStoreSession {
                                     @NotNull final String oppositeEntityType,
                                     @NotNull final String oppositeLinkName) {
         assertOpen("sortLinks");
-        return new PersistentEntityIterableWrapper(
+        return new PersistentEntityIterableWrapper(store,
                 getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource(), oppositeEntityType, oppositeLinkName));
     }
 
     @NotNull
     public EntityIterable mergeSorted(@NotNull List<EntityIterable> sorted, @NotNull Comparator<Entity> comparator) {
         assertOpen("mergeSorted");
-        return new PersistentEntityIterableWrapper(getPersistentTransactionInternal().mergeSorted(sorted, comparator));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().mergeSorted(sorted, comparator));
     }
 
     @NotNull
@@ -670,7 +669,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                 // meta-data may be null for persistent enums
                 if (md != null) {
                     try {
-                        TransientStoreUtil.getPersistentClassInstance(entity, md).executeBeforeFlushTrigger(entity);
+                        TransientStoreUtil.getPersistentClassInstance(entity).executeBeforeFlushTrigger(entity);
                     } catch (ConstraintsValidationException cve) {
                         for (DataIntegrityViolationException dive : cve.getCauses()) {
                             exceptions.add(dive);
@@ -983,7 +982,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         for (final TransientEntity e : changedEntities.toArray(new TransientEntity[changedEntities.size()])) {
             if (!e.isNew() && !e.isRemoved()) {
                 final EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
-                if (emd != null && TransientStoreUtil.getPersistentClassInstance(e, emd).evaluateSaveHistoryCondition(e)
+                if (emd != null && TransientStoreUtil.getPersistentClassInstance(e).evaluateSaveHistoryCondition(e)
                         && EntityMetaDataUtils.changesReflectHistory(emd, e, changesTracker)) {
                     if (log.isDebugEnabled()) {
                         log.debug("Save history of: " + e);
@@ -991,7 +990,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                     e.getPersistentEntity().newVersion(snapshot);
 
                     // !!! should be called after e.newVersion();
-                    TransientStoreUtil.getPersistentClassInstance(e, emd).saveHistoryCallback(e);
+                    TransientStoreUtil.getPersistentClassInstance(e).saveHistoryCallback(e);
                 }
             }
         }
@@ -1022,7 +1021,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         });
 
         //explicitly notify EventsMultiplexer - it will dispose changes tracker in async job
-        final EventsMultiplexer ep = store.getEventsMultiplexer();
+        final IEventsMultiplexer ep = store.getEventsMultiplexer();
         if (ep != null) {
             try {
                 ep.flushed(oldChangesTracker, changesDescription);

@@ -10,8 +10,6 @@ import jetbrains.exodus.database.TransientStoreSessionListener;
 import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.entitystore.metadata.ModelMetaData;
 import jetbrains.exodus.query.QueryEngine;
-import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexer;
-import jetbrains.teamsys.dnq.runtime.queries.TransientQueryEngine;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -34,7 +32,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private EntityStore persistentStore;
     private QueryEngine queryEngine;
     private ModelMetaData modelMetaData;
-    private EventsMultiplexer eventsMultiplexer;
+    private IEventsMultiplexer eventsMultiplexer;
     private final Set<TransientStoreSession> sessions = new HashSet<TransientStoreSession>(200);
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
     private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<Integer, TransientStoreSessionListener>();
@@ -73,11 +71,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
         return blobsStore;
     }
 
-    public EventsMultiplexer getEventsMultiplexer() {
+    public IEventsMultiplexer getEventsMultiplexer() {
         return eventsMultiplexer;
     }
 
-    public void setEventsMultiplexer(EventsMultiplexer eventsMultiplexer) {
+    public void setEventsMultiplexer(IEventsMultiplexer eventsMultiplexer) {
         this.eventsMultiplexer = eventsMultiplexer;
     }
 
@@ -107,9 +105,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     @SuppressWarnings({"UnusedDeclaration"})
     public void setQueryEngine(QueryEngine queryEngine) {
         this.queryEngine = queryEngine;
-        if (queryEngine instanceof TransientQueryEngine) {
-            ((TransientQueryEngine) queryEngine).setEntityStore(this);
-        }
     }
 
     @NotNull
@@ -191,7 +186,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     }
 
     public void close() {
-        eventsMultiplexer.finishJobProcessor(this);
+        eventsMultiplexer.onClose(this);
 
         log.info("Close transient store.");
         open = false;

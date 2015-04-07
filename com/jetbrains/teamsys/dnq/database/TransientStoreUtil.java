@@ -5,12 +5,15 @@ import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
 import jetbrains.exodus.entitystore.metadata.EntityMetaData;
+import jetbrains.exodus.query.StaticTypedEntityIterable;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
@@ -125,14 +128,31 @@ public class TransientStoreUtil {
         throw new RuntimeException(e);
     }
 
-    public static BasePersistentClassImpl getPersistentClassInstance(@Nullable final Entity entity, final String defaultType) {
-        final String entityType = entity == null ? defaultType : entity.getType();
-        return ((TransientEntityStoreImpl) entity.getStore()).getCachedPersistentClassInstance(entityType);
+    public static BasePersistentClassImpl getPersistentClassInstance(@NotNull final Entity entity) {
+        return ((TransientEntityStoreImpl) entity.getStore()).getCachedPersistentClassInstance(entity.getType());
     }
 
-    public static BasePersistentClassImpl getPersistentClassInstance(@Nullable final Entity entity, @NotNull final EntityMetaData entityMetaData) {
-        final String entityType = entity == null ? entityMetaData.getType() : entity.getType();
-        return ((TransientEntityStoreImpl) entity.getStore()).getCachedPersistentClassInstance(entityType);
+    public static int getSize(Iterable<Entity> it) {
+        if (it == null) {
+            return 0;
+        }
+        if (it instanceof StaticTypedEntityIterable) {
+            it = ((StaticTypedEntityIterable) it).instantiate();
+        }
+        if (it == EntityIterableBase.EMPTY) {
+            return 0;
+        }
+        if (it instanceof EntityIterable) {
+            return (int) ((EntityIterable) it).size();
+        }
+        if (it instanceof Collection) {
+            return ((Collection) it).size();
+        }
+        int result = 0;
+        for (Entity ignored: it) {
+            result++;
+        }
+        return result;
     }
 
     static String toString(Set<String> strings) {

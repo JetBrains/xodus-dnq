@@ -18,7 +18,7 @@ public class EntityMetaDataUtils {
     static Set<String> getRequiredIfProperties(EntityMetaData emd, Entity e) {
         Set<String> result = new HashSetDecorator<String>();
         for (String property : emd.getRequiredIfProperties(e)) {
-            if (TransientStoreUtil.getPersistentClassInstance(e, emd).isPropertyRequired(property, e)) {
+            if (TransientStoreUtil.getPersistentClassInstance(e).isPropertyRequired(property, e)) {
                 result.add(property);
             }
         }
@@ -26,8 +26,8 @@ public class EntityMetaDataUtils {
     }
 
     @NotNull
-    static Map<String, Iterable<PropertyConstraint>> getPropertyConstraints(EntityMetaData emd, Entity e) {
-        BasePersistentClassImpl persistentClass = TransientStoreUtil.getPersistentClassInstance(e, emd);
+    static Map<String, Iterable<PropertyConstraint>> getPropertyConstraints(Entity e) {
+        BasePersistentClassImpl persistentClass = TransientStoreUtil.getPersistentClassInstance(e);
         return persistentClass.getPropertyConstraints();
     }
 

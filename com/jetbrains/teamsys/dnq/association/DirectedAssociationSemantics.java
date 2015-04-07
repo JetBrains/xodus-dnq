@@ -3,7 +3,6 @@ package com.jetbrains.teamsys.dnq.association;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.database.TransientEntity;
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

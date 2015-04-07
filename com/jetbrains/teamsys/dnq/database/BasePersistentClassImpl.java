@@ -1,32 +1,36 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.database.EntityCreator;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.TransientEntityStore;
-import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.database.exceptions.CantRemoveEntityException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
-import jetbrains.springframework.configuration.runtime.ServiceLocator;
-import jetbrains.teamsys.dnq.runtime.queries.QueryOperations;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.Callable;
 
 public abstract class BasePersistentClassImpl implements Runnable {
     protected Map<String, Iterable<PropertyConstraint>> propertyConstraints;
+    protected TransientEntityStore entityStore;
 
     protected BasePersistentClassImpl() {
     }
 
     protected Entity _constructor(final String _entityType_) {
-        return ((TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession()).newEntity(_entityType_);
+        return getEntityStore().getThreadSession().newEntity(_entityType_);
     }
 
     public boolean isPropertyRequired(String name, Entity entity) {
         return false;
+    }
+
+    public TransientEntityStore getEntityStore() {
+        return entityStore;
+    }
+
+    public void setEntityStore(TransientEntityStore entityStore) {
+        this.entityStore = entityStore;
     }
 
     @NotNull
@@ -85,44 +89,12 @@ public abstract class BasePersistentClassImpl implements Runnable {
         return entity.toString();
     }
 
-    protected static QueryingEntityCreator getEntityCreator(final String entityType, final Set<String> queriedParams) {
-        return new QueryingEntityCreator(entityType) {
-            @Override
-            public Iterable<Entity> query() {
-                return QueryOperations.queryGetAll(entityType);
-            }
-
-            @Override
-            public void created(@NotNull Entity entity) {
-            }
-        };
-    }
-
     public static <T> Set<T> buildSet(final T[] data) {
         final Set<T> result = new HashSet<T>(data.length);
         for (final T t : data) {
             result.add(t);
         }
         return result;
-    }
-
-    protected static abstract class QueryingEntityCreator extends EntityCreator {
-
-        protected QueryingEntityCreator(@NotNull String type) {
-            super(type);
-        }
-
-        @Nullable
-        @Override
-        public Entity find() {
-            return QueryOperations.getFirst(query());
-        }
-
-        public abstract Iterable<Entity> query();
-
-        public Entity create() {
-            return ((TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession()).newEntity(this);
-        }
     }
 
 }

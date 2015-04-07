@@ -3,7 +3,6 @@ package com.jetbrains.teamsys.dnq.database;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.*;
-import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,12 +14,13 @@ import org.jetbrains.annotations.Nullable;
 public class PersistentEntityIterableWrapper implements EntityIterableWrapper {
 
     protected final EntityIterable wrappedIterable;
+    protected final TransientEntityStore store;
 
-    public PersistentEntityIterableWrapper(@NotNull EntityIterable wrappedIterable) {
+    public PersistentEntityIterableWrapper(@NotNull final TransientEntityStore store, @NotNull EntityIterable wrappedIterable) {
         if (wrappedIterable instanceof PersistentEntityIterableWrapper) {
             throw new IllegalArgumentException("Can't wrap transient entity iterable with another transient entity iterable.");
         }
-
+        this.store = store;
         this.wrappedIterable = wrappedIterable;
     }
 
@@ -55,35 +55,35 @@ public class PersistentEntityIterableWrapper implements EntityIterableWrapper {
 
     @NotNull
     public EntityIterable intersect(@NotNull EntityIterable right) {
-        return new PersistentEntityIterableWrapper(wrappedIterable.intersect(right.getSource()));
+        return new PersistentEntityIterableWrapper(store, wrappedIterable.intersect(right.getSource()));
     }
 
     @NotNull
     public EntityIterable intersectSavingOrder(@NotNull EntityIterable right) {
-        return new PersistentEntityIterableWrapper(wrappedIterable.intersectSavingOrder(right.getSource()));
+        return new PersistentEntityIterableWrapper(store, wrappedIterable.intersectSavingOrder(right.getSource()));
     }
 
     @NotNull
     public EntityIterable union(@NotNull EntityIterable right) {
-        return new PersistentEntityIterableWrapper(wrappedIterable.union(right.getSource()));
+        return new PersistentEntityIterableWrapper(store, wrappedIterable.union(right.getSource()));
     }
 
     @NotNull
     public EntityIterable minus(@NotNull EntityIterable right) {
-        return new PersistentEntityIterableWrapper(wrappedIterable.minus(right.getSource()));
+        return new PersistentEntityIterableWrapper(store, wrappedIterable.minus(right.getSource()));
     }
 
     @NotNull
     public EntityIterable concat(@NotNull EntityIterable right) {
-        return new PersistentEntityIterableWrapper(wrappedIterable.concat(right.getSource()));
+        return new PersistentEntityIterableWrapper(store, wrappedIterable.concat(right.getSource()));
     }
 
     public EntityIterable skip(int number) {
-        return new PersistentEntityIterableWrapper(wrappedIterable.skip(number));
+        return new PersistentEntityIterableWrapper(store, wrappedIterable.skip(number));
     }
 
     public EntityIterable take(int number) {
-        return new PersistentEntityIterableWrapper(wrappedIterable.take(number));
+        return new PersistentEntityIterableWrapper(store, wrappedIterable.take(number));
     }
 
     @NotNull
@@ -127,7 +127,7 @@ public class PersistentEntityIterableWrapper implements EntityIterableWrapper {
     }
 
     public EntityIterable asSortResult() {
-        return new PersistentEntityIterableWrapper(wrappedIterable.asSortResult());
+        return new PersistentEntityIterableWrapper(store, wrappedIterable.asSortResult());
     }
 
     @NotNull
@@ -136,8 +136,7 @@ public class PersistentEntityIterableWrapper implements EntityIterableWrapper {
     }
 
     public EntityIterator iterator() {
-        return new PersistentEntityIteratorWrapper(wrappedIterable.iterator(),
-                (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
+        return new PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.getThreadSession());
     }
 
     @NotNull

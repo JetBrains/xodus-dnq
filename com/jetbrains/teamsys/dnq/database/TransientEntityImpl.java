@@ -9,7 +9,6 @@ import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
 import jetbrains.exodus.entitystore.metadata.AssociationEndMetaData;
 import jetbrains.exodus.entitystore.metadata.EntityMetaData;
 import jetbrains.exodus.entitystore.metadata.ModelMetaData;
-import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -280,7 +279,7 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public EntityIterable getLinks(@NotNull final String linkName) {
-        return new PersistentEntityIterableWrapper(persistentEntity.getLinks(linkName));
+        return new PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkName));
     }
 
     @Nullable
@@ -296,11 +295,11 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public EntityIterable getLinks(@NotNull final Collection<String> linkNames) {
-        return new PersistentEntityIterableWrapper(persistentEntity.getLinks(linkNames)) {
+        return new PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkNames)) {
             @Override
             public EntityIterator iterator() {
                 return new PersistentEntityIteratorWithPropIdWrapper((EntityIteratorWithPropId) wrappedIterable.iterator(),
-                        (TransientStoreSession) ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore")).getThreadSession());
+                        store.getThreadSession());
             }
         };
     }

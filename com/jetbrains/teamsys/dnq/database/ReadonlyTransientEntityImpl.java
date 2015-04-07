@@ -100,7 +100,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     @NotNull
     @Override
     public EntityIterable getLinks(@NotNull String linkName) {
-        return new PersistentEntityIterableWrapper(new ReadOnlyIterable((EntityIterableBase) persistentEntity.getLinks(linkName)));
+        return new PersistentEntityIterableWrapper(store, new ReadOnlyIterable((EntityIterableBase) persistentEntity.getLinks(linkName)));
     }
 
     @NotNull

@@ -6,17 +6,13 @@ import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
-import jetbrains.exodus.database.LinkChange;
-import jetbrains.exodus.database.TransientChangesTracker;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.database.*;
 import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.database.exceptions.CardinalityViolationException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.exodus.database.exceptions.NullPropertyException;
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
 import jetbrains.exodus.entitystore.metadata.*;
-import jetbrains.teamsys.dnq.runtime.util.DnqUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -71,7 +67,7 @@ class ConstraintsUtil {
                                 continue;
                             }
                             if (violation == null) {
-                                BasePersistentClassImpl impl = TransientStoreUtil.getPersistentClassInstance(entity, entity.getType());
+                                BasePersistentClassImpl impl = TransientStoreUtil.getPersistentClassInstance(entity);
                                 violation = impl.createIncomingLinkViolation(pair.getFirst());
                             }
                             if (!violation.tryAddCause(entity)) break;
@@ -82,7 +78,7 @@ class ConstraintsUtil {
                         }
                     }
                     if (badIncomingLinks.size() > 0) {
-                        exceptions.add(TransientStoreUtil.getPersistentClassInstance(e, e.getType()).createIncomingLinksException(badIncomingLinks, e));
+                        exceptions.add(TransientStoreUtil.getPersistentClassInstance(e).createIncomingLinksException(badIncomingLinks, e));
                     }
                 }
             }
@@ -393,7 +389,7 @@ class ConstraintsUtil {
 
                 EntityMetaData emd = md.getEntityMetaData(e.getType());
 
-                Map<String, Iterable<PropertyConstraint>> propertyConstraints = EntityMetaDataUtils.getPropertyConstraints(emd, e);
+                Map<String, Iterable<PropertyConstraint>> propertyConstraints = EntityMetaDataUtils.getPropertyConstraints(e);
                 Iterable<String> suspectedProperties = getChangedPropertiesWithConstraints(tracker, e, propertyConstraints.keySet());
                 for (String propertyName: suspectedProperties) {
                     PropertyMetaData propertyMetaData = emd.getPropertyMetaData(propertyName);
@@ -474,11 +470,11 @@ class ConstraintsUtil {
         return errors;
     }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity entity, Set<String> changedProperties, EntityMetaData emd, String name) {
+    private static void checkProperty( Set<DataIntegrityViolationException> errors, TransientEntity entity, Set<String> changedProperties, EntityMetaData emd, String name) {
         if (entity.isNew() || changedProperties.contains(name)) {
             final PropertyType type = getPropertyType(emd.getPropertyMetaData(name));
             final String displayName;
-            displayName = DnqUtils.getPersistentClassInstance(entity, emd.getType()).getPropertyDisplayName(name);
+            displayName = TransientStoreUtil.getPersistentClassInstance(entity).getPropertyDisplayName(name);
 
             checkProperty(errors, entity, name, displayName, type);
         }

@@ -8,13 +8,12 @@ import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import jetbrains.teamsys.dnq.runtime.queries.QueryOperations;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import jetbrains.exodus.query.StaticTypedEntityIterable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -124,7 +123,7 @@ public class AssociationSemantics {
             return ((TransientEntity) e).getLinksSize(linkName);
         }
 
-        return e == null ? 0 : QueryOperations.getSize(e.getLinks(linkName));
+        return e == null ? 0 : TransientStoreUtil.getSize(e.getLinks(linkName));
     }
 
     /**
