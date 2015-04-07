@@ -24,12 +24,10 @@ import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.mps.internal.collections.runtime.QueueSequence;
 import jetbrains.exodus.database.EntityChangeType;
 import jetbrains.exodus.entitystore.metadata.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import jetbrains.exodus.entitystore.metadata.EntityMetaData;
-import jetbrains.mps.internal.collections.runtime.Sequence;
 import jetbrains.exodus.core.execution.ThreadJobProcessorPool;
 import jetbrains.exodus.core.execution.Job;
 import jetbrains.teamsys.dnq.runtime.txn._Txn;
@@ -238,7 +236,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     builder.append("Unregistered entity to listener class: ");
     id.toString(builder);
     builder.append(" ->");
-    for (IEntityListener listener : QueueSequence.fromQueue(listeners)) {
+    for (IEntityListener listener : listeners) {
       builder.append(' ');
       builder.append(listener.getClass().getName());
     }
@@ -273,7 +271,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener {
     if (modelMedatData != null) {
       EntityMetaData emd = modelMedatData.getEntityMetaData(c.getTransientEntity().getType());
       if (emd != null) {
-        for (String type : Sequence.fromIterable(emd.getThisAndSuperTypes())) {
+        for (String type : emd.getThisAndSuperTypes()) {
           Queue<IEntityListener> listeners = null;
           this.rwl.readLock().lock();
           try {
