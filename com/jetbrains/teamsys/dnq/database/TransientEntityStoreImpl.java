@@ -14,7 +14,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.springframework.beans.factory.InitializingBean;
 
 import java.io.File;
 import java.util.Map;
@@ -25,7 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * @author Vadim.Gurov
  */
-public class TransientEntityStoreImpl implements TransientEntityStore, InitializingBean {
+public class TransientEntityStoreImpl implements TransientEntityStore {
 
     private static final Log log = LogFactory.getLog(TransientEntityStoreImpl.class);
 
@@ -38,8 +37,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<Integer, TransientStoreSessionListener>();
 
     private boolean open = true;
-    private String blobsStorePath;
-    private File blobsStore;
     private int flushRetryOnLockConflict = 100;
     private final Latch enumContainersLock = Latch.create();
     private final Set<EnumContainer> initedContainers = new HashSet<EnumContainer>(10);
@@ -60,15 +57,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
 
     public QueryEngine getQueryEngine() {
         return queryEngine;
-    }
-
-    @SuppressWarnings({"UnusedDeclaration"})
-    public void setBlobsStorePath(@NotNull String blobsStorePath) {
-        this.blobsStorePath = blobsStorePath;
-    }
-
-    File getBlobsStore() {
-        return blobsStore;
     }
 
     public IEventsMultiplexer getEventsMultiplexer() {
@@ -350,30 +338,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore, Initializ
     void forAllListeners(@NotNull ListenerVisitor v) {
         for (final TransientStoreSessionListener listener : listeners) {
             v.visit(listener);
-        }
-    }
-
-    public void afterPropertiesSet() throws Exception {
-        if (blobsStorePath == null) {
-            blobsStorePath = System.getProperty("java.io.tmpdir");
-        }
-
-        blobsStore = new File(blobsStorePath);
-
-        if (!blobsStore.exists() && !blobsStore.mkdirs()) {
-            throw new IllegalArgumentException("Can't create not existing directory [" + blobsStorePath + "]");
-        }
-
-        if (!blobsStore.isDirectory()) {
-            throw new IllegalArgumentException("Path [" + blobsStorePath + "] should be directory.");
-        }
-
-        if (!blobsStore.canWrite() || !blobsStore.canRead()) {
-            throw new IllegalArgumentException("Application must have write and read access to [" + blobsStorePath + "]");
-        }
-
-        if (log.isDebugEnabled()) {
-            log.debug("Transient store will use the following path for storing blobs [" + blobsStore.getCanonicalPath() + "]");
         }
     }
 
