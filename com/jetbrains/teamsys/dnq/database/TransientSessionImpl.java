@@ -490,7 +490,7 @@ public class TransientSessionImpl implements TransientStoreSession {
      * @return
      */
     @NotNull
-    public Entity newEntity(@NotNull final String entityType) {
+    public TransientEntity newEntity(@NotNull final String entityType) {
         assertOpen("create entity");
         return new TransientEntityImpl(entityType, this.getStore());
     }
