@@ -42,6 +42,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     private final Set<EnumContainer> initedContainers = new HashSet<EnumContainer>(10);
     private final Map<String, Entity> enumCache = new ConcurrentHashMap<String, Entity>();
     private final Map<String, BasePersistentClassImpl> persistentClassInstanceCache = new ConcurrentHashMap<String, BasePersistentClassImpl>();
+    private final Map<Class, BasePersistentClassImpl> persistentClassInstances = new ConcurrentHashMap<Class, BasePersistentClassImpl>();
 
     final ReentrantLock lock = new ReentrantLock(true); // fair lock
 
@@ -384,8 +385,19 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         return persistentClassInstanceCache.get(entityType);
     }
 
-    public void setCachedPersistentClassInstance(@NotNull final String entityType, @NotNull final BasePersistentClassImpl clazz) {
-        persistentClassInstanceCache.put(entityType, clazz);
+    public BasePersistentClassImpl getCachedPersistentClassInstance(@NotNull final Class<? extends BasePersistentClassImpl> entityType) {
+        return persistentClassInstances.get(entityType);
+    }
+
+    public void setCachedPersistentClassInstance(@NotNull final String entityType, @NotNull final BasePersistentClassImpl instance) {
+        persistentClassInstanceCache.put(entityType, instance);
+        Class<? extends BasePersistentClassImpl> clazz = instance.getClass();
+        if (persistentClassInstances.get(clazz) != null) {
+            if (log.isWarnEnabled()) {
+                log.warn("Persistent class instance already registered for: " + clazz.getSimpleName());
+            }
+        }
+        persistentClassInstances.put(clazz, instance);
     }
 
     private void assertOpen() {
