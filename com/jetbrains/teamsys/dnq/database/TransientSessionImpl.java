@@ -52,7 +52,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         this.flushRetryOnVersionMismatch = store.getFlushRetryOnLockConflict();
         EntityStore persistentStore = this.store.getPersistentStore();
         if (readonly) {
-            ((PersistentEntityStoreImpl)persistentStore).beginReadonlyTransaction();
+            ((PersistentEntityStoreImpl) persistentStore).beginReadonlyTransaction();
         } else {
             persistentStore.beginTransaction().enableReplayData();
         }
@@ -110,6 +110,11 @@ public class TransientSessionImpl implements TransientStoreSession {
     @Override
     public boolean equals(Object obj) {
         return obj == this;
+    }
+
+    @Override
+    public boolean hasChanges() {
+        return !changes.isEmpty();
     }
 
     public boolean isOpened() {
