@@ -188,11 +188,6 @@ class TransientEntityImpl implements TransientEntity {
         return persistentEntity.getRawProperty(propertyName);
     }
 
-    @Override
-    public boolean setRawProperty(@NotNull String propertyName, @NotNull ByteIterable value) {
-        return getAndCheckThreadStoreSession().setRawProperty(this, propertyName, value);
-    }
-
     @Nullable
     public Comparable getPropertyOldValue(@NotNull final String propertyName) {
         final PersistentStoreTransaction snapshot = getAndCheckThreadStoreSession().getTransientChangesTracker().getSnapshot();

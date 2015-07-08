@@ -1192,25 +1192,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         });
     }
 
-    boolean setRawProperty(@NotNull final TransientEntity e, @NotNull final String propertyName,
-                           @NotNull final ByteIterable propertyNewValue) {
-        return addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                if (e.getPersistentEntity().setRawProperty(propertyName, propertyNewValue)) {
-                    final ByteIterable oldValue = getOriginalRawPropertyValue(e, propertyName);
-                    if (propertyNewValue == oldValue || propertyNewValue.equals(oldValue)) {
-                        changesTracker.removePropertyChanged(e, propertyName);
-                    } else {
-                        changesTracker.propertyChanged(e, propertyName);
-                    }
-                    return true;
-                }
-                return false;
-            }
-        });
-    }
-
     private boolean setPropertyInternal(@NotNull final TransientEntity e, @NotNull final String propertyName,
                                         @NotNull final Comparable propertyNewValue) {
         if (e.getPersistentEntity().setProperty(propertyName, propertyNewValue)) {
