@@ -88,14 +88,7 @@ public class TransientStoreUtil {
         if (entity instanceof PersistentEntity) {
             return ((PersistentEntityStore) entity.getStore()).getLastVersion(entity.getId()) < 0;
         }
-
-        TransientStoreSession s = (TransientStoreSession) ((TransientEntityStore)entity.getStore()).getThreadSession();
-
-        if (s == null) {
-            throw new IllegalStateException("There's no current session to attach transient entity to.");
-        }
-
-        return s.isRemoved(entity);
+        return ((TransientEntityImpl) entity).getAndCheckThreadStoreSession().isRemoved(entity);
     }
 
     public static void commit(@Nullable TransientStoreSession s) {
