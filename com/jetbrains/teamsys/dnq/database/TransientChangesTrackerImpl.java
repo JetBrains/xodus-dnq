@@ -4,10 +4,12 @@ import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
 import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
+import jetbrains.exodus.core.dataStructures.hash.HashSet;
+import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
 import jetbrains.exodus.database.*;
-import jetbrains.exodus.entitystore.*;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import jetbrains.exodus.entitystore.Entity;
+import jetbrains.exodus.entitystore.PersistentStoreTransaction;
+import jetbrains.exodus.entitystore.ReadOnlyPersistentEntity;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,14 +20,13 @@ import java.util.*;
  */
 public final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
-    private static final Log log = LogFactory.getLog(TransientEntityStoreImpl.class);
-
-    private Set<TransientEntity> changedEntities = new LinkedHashSetDecorator<TransientEntity>();
-    private Set<TransientEntity> addedEntities = new LinkedHashSetDecorator<TransientEntity>();
-    private Set<TransientEntity> removedEntities = new LinkedHashSetDecorator<TransientEntity>();
-    private Map<TransientEntity, List<LinkChange>> removedFrom = new HashMapDecorator<TransientEntity, List<LinkChange>>();
-    private Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
-    private Map<TransientEntity, Set<String>> entityToChangedProperties = new HashMapDecorator<TransientEntity, Set<String>>();
+    private final Set<TransientEntity> changedEntities = new LinkedHashSet<TransientEntity>();
+    private final Set<TransientEntity> addedEntities = new LinkedHashSet<TransientEntity>();
+    private final Set<TransientEntity> removedEntities = new LinkedHashSetDecorator<TransientEntity>();
+    private final Set<String> affectedEntityTypes = new HashSet<String>();
+    private final Map<TransientEntity, List<LinkChange>> removedFrom = new HashMapDecorator<TransientEntity, List<LinkChange>>();
+    private final Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
+    private final Map<TransientEntity, Set<String>> entityToChangedProperties = new HashMapDecorator<TransientEntity, Set<String>>();
     private PersistentStoreTransaction snapshot;
 
     TransientChangesTrackerImpl(PersistentStoreTransaction snapshot) {
@@ -35,6 +36,11 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     @NotNull
     public Set<TransientEntity> getChangedEntities() {
         return changedEntities;
+    }
+
+    @NotNull
+    public Set<String> getAffectedEntityTypes() {
+        return Collections.unmodifiableSet(affectedEntityTypes);
     }
 
     public PersistentStoreTransaction getSnapshot() {
@@ -185,6 +191,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
 
     void entityChanged(TransientEntity e) {
         changedEntities.add(e);
+        affectedEntityTypes.add(e.getType());
     }
 
     void entityAdded(TransientEntity e) {
