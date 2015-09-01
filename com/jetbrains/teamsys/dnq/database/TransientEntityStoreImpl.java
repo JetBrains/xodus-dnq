@@ -115,7 +115,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     @NotNull
     @Override
     public StoreTransaction beginReadonlyTransaction() {
-        throw new UnsupportedOperationException();
+        return registerStoreSession(new TransientSessionImpl(this, true));
     }
 
     @Nullable
