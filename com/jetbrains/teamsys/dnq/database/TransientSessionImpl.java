@@ -35,7 +35,6 @@ public class TransientSessionImpl implements TransientStoreSession {
     private static final String PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__";
 
     protected TransientEntityStoreImpl store;
-    protected int flushRetryOnVersionMismatch;
     protected State state;
     protected boolean quietFlush = false;
     protected TransientChangesTrackerImpl changesTracker;
@@ -49,7 +48,6 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store, boolean readonly) {
         this.store = store;
-        this.flushRetryOnVersionMismatch = store.getFlushRetryOnLockConflict();
         EntityStore persistentStore = this.store.getPersistentStore();
         if (readonly) {
             ((PersistentEntityStoreImpl) persistentStore).beginReadonlyTransaction();
@@ -704,7 +702,6 @@ public class TransientSessionImpl implements TransientStoreSession {
 
             notifyBeforeFlushAfterConstraintsCheckListeners();
 
-            int retry = 0;
             final StoreTransaction txn = getPersistentTransactionInternal();
             if (txn.isIdempotent()) {
                 return;
@@ -712,26 +709,17 @@ public class TransientSessionImpl implements TransientStoreSession {
 
             try {
                 prepare();
-                store.lock.lock();
-                try {
-                    while (true) {
-                        if (txn.flush()) {
-                            txn.enableReplayData(); // clear
-                            return;
-                        } else {
-                            if (++retry >= flushRetryOnVersionMismatch) {
-                                // mark trace and count for better diagnostics
-                                throw new RuntimeException("Optimistic flush gave up after " + retry + " retries");
-                            }
-                            // replay changes
-                            replayChanges();
-                            //recheck constraints against new database root
-                            checkBeforeSaveChangesConstraints();
-                            prepare();
-                        }
+                while (true) {
+                    if (txn.flush()) {
+                        txn.enableReplayData(); // clear
+                        return;
+                    } else {
+                        // replay changes
+                        replayChanges();
+                        //recheck constraints against new database root
+                        checkBeforeSaveChangesConstraints();
+                        prepare();
                     }
-                } finally {
-                    store.lock.unlock();
                 }
             } catch (Throwable exception) {
                 if (log.isInfoEnabled()) {

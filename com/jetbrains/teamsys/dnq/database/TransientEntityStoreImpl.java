@@ -37,14 +37,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<Integer, TransientStoreSessionListener>();
 
     private boolean open = true;
-    private int flushRetryOnLockConflict = 100;
     private final Latch enumContainersLock = Latch.create();
     private final Set<EnumContainer> initedContainers = new HashSet<EnumContainer>(10);
     private final Map<String, Entity> enumCache = new ConcurrentHashMap<String, Entity>();
     private final Map<String, BasePersistentClassImpl> persistentClassInstanceCache = new ConcurrentHashMap<String, BasePersistentClassImpl>();
     private final Map<Class, BasePersistentClassImpl> persistentClassInstances = new ConcurrentHashMap<Class, BasePersistentClassImpl>();
-
-    final ReentrantLock lock = new ReentrantLock(true); // fair lock
 
     public TransientEntityStoreImpl() {
         if (log.isTraceEnabled()) {
@@ -66,14 +63,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
 
     public void setEventsMultiplexer(IEventsMultiplexer eventsMultiplexer) {
         this.eventsMultiplexer = eventsMultiplexer;
-    }
-
-    public int getFlushRetryOnLockConflict() {
-        return flushRetryOnLockConflict;
-    }
-
-    public void setFlushRetryOnLockConflict(int flushRetryOnLockConflict) {
-        this.flushRetryOnLockConflict = flushRetryOnLockConflict;
     }
 
     /**
