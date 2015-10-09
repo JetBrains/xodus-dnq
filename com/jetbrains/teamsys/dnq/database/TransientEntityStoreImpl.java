@@ -9,17 +9,16 @@ import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.database.TransientStoreSessionListener;
 import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.entitystore.metadata.ModelMetaData;
+import jetbrains.exodus.env.EnvironmentConfig;
 import jetbrains.exodus.query.QueryEngine;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author Vadim.Gurov
@@ -73,6 +72,14 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     @SuppressWarnings({"UnusedDeclaration"})
     public void setPersistentStore(EntityStore persistentStore) {
         this.persistentStore = persistentStore;
+
+        // TODO: remove the following work around when transactions ordering is finally fixed
+        // <work around>
+        final EnvironmentConfig ec = ((PersistentEntityStore) persistentStore).getEnvironment().getEnvironmentConfig();
+        ec.setGcUseExclusiveTransaction(false);
+        ec.setEnvTxnReplayMaxCount(Integer.MAX_VALUE);
+        ec.setEnvTxnReplayTimeout(Long.MAX_VALUE);
+        //</word around>
     }
 
     /**
