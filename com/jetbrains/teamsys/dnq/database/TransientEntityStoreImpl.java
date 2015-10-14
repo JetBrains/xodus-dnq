@@ -72,14 +72,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     @SuppressWarnings({"UnusedDeclaration"})
     public void setPersistentStore(EntityStore persistentStore) {
         this.persistentStore = persistentStore;
-
-        // TODO: remove the following work around when transactions ordering is finally fixed
-        // <work around>
-        final EnvironmentConfig ec = ((PersistentEntityStore) persistentStore).getEnvironment().getEnvironmentConfig();
-        ec.setGcUseExclusiveTransaction(false);
-        ec.setEnvTxnReplayMaxCount(Integer.MAX_VALUE);
-        ec.setEnvTxnReplayTimeout(Long.MAX_VALUE);
-        //</word around>
     }
 
     /**
