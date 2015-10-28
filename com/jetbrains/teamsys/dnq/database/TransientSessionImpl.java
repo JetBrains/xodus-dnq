@@ -50,7 +50,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         this.store = store;
         EntityStore persistentStore = this.store.getPersistentStore();
         if (readonly) {
-            ((PersistentEntityStoreImpl) persistentStore).beginReadonlyTransaction();
+            persistentStore.beginReadonlyTransaction();
         } else {
             persistentStore.beginTransaction().enableReplayData();
         }
@@ -151,12 +151,17 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
         assertOpen("revert");
 
-        managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
-        changes = new QueueDecorator<MyRunnable>();
-        StoreTransaction txn = getPersistentTransactionInternal();
-        txn.disableReplayData();
-        txn.revert();
-        txn.enableReplayData();
+        PersistentStoreTransaction txn = (PersistentStoreTransaction) getPersistentTransactionInternal();
+        if (txn.getEnvironmentTransaction().isReadonly()) {
+            txn.abort();
+            store.beginReadonlyTransaction();
+        } else {
+            managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
+            changes = new QueueDecorator<MyRunnable>();
+            txn.disableReplayData();
+            txn.revert();
+            txn.enableReplayData();
+        }
         initChangesTracker();
     }
 
