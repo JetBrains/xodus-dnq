@@ -102,7 +102,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
 
     @NotNull
     @Override
-    public StoreTransaction beginReadonlyTransaction() {
+    public TransientStoreSession beginReadonlyTransaction() {
         return registerStoreSession(new TransientSessionImpl(this, true));
     }
 
