@@ -154,7 +154,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         PersistentStoreTransaction txn = (PersistentStoreTransaction) getPersistentTransactionInternal();
         if (txn.getEnvironmentTransaction().isReadonly()) {
             txn.abort();
-            store.beginReadonlyTransaction();
+            store.getPersistentStore().beginReadonlyTransaction();
         } else {
             managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
             changes = new QueueDecorator<MyRunnable>();
