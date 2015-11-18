@@ -99,7 +99,7 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     @Override
     public boolean isReadonly() {
-        return getPersistentTransactionInternal().isReadonly();
+        return readonly;
     }
 
     protected StoreTransaction getPersistentTransactionInternal() {
