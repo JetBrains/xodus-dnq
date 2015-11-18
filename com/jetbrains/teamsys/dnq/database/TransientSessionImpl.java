@@ -36,6 +36,8 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     protected final TransientEntityStoreImpl store;
     protected final boolean readonly;
+    @Nullable
+    protected ReadonlyPersistentStoreTransaction txnWhichWasUpgraded;
     protected State state;
     protected boolean quietFlush = false;
     protected TransientChangesTrackerImpl changesTracker;
@@ -109,8 +111,8 @@ public class TransientSessionImpl implements TransientStoreSession {
         if (!readonly && currentTxn.isReadonly()) {
             final ReadonlyPersistentStoreTransaction roTxn = (ReadonlyPersistentStoreTransaction) currentTxn;
             final PersistentStoreTransaction newTxn = roTxn.getUpgradedTransaction();
-            roTxn.abort();
             TxnUtil.registerTransation((PersistentEntityStoreImpl) store.getPersistentStore(), newTxn);
+            txnWhichWasUpgraded = roTxn;
         }
     }
 
@@ -170,7 +172,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         assertOpen("revert");
 
         PersistentStoreTransaction txn = (PersistentStoreTransaction) getPersistentTransactionInternal();
-        if (txn.getEnvironmentTransaction().isReadonly()) {
+        if (txn.isReadonly()) {
             txn.abort();
             store.getPersistentStore().beginReadonlyTransaction();
         } else {
@@ -432,6 +434,10 @@ public class TransientSessionImpl implements TransientStoreSession {
             log.debug("Close persistent session for transient session " + this);
         }
         StoreTransaction persistentTxn = getPersistentTransactionInternal();
+        if (persistentTxn != null) {
+            persistentTxn.abort();
+        }
+        persistentTxn = txnWhichWasUpgraded;
         if (persistentTxn != null) {
             persistentTxn.abort();
         }
