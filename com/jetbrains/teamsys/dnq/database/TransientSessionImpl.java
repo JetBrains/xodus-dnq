@@ -34,7 +34,8 @@ public class TransientSessionImpl implements TransientStoreSession {
     private static final String CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__";
     private static final String PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__";
 
-    protected TransientEntityStoreImpl store;
+    protected final TransientEntityStoreImpl store;
+    protected final boolean readonly;
     protected State state;
     protected boolean quietFlush = false;
     protected TransientChangesTrackerImpl changesTracker;
@@ -48,12 +49,14 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     protected TransientSessionImpl(final TransientEntityStoreImpl store, boolean readonly) {
         this.store = store;
+        this.readonly = readonly;
         EntityStore persistentStore = this.store.getPersistentStore();
-        if (readonly) {
+        persistentStore.beginReadonlyTransaction();
+        /*if (readonly) {
             persistentStore.beginReadonlyTransaction();
         } else {
             persistentStore.beginTransaction().enableReplayData();
-        }
+        }*/
         this.state = State.Open;
         this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
         if (LogFactory.getLog(TransientEntityStoreImpl.class).isDebugEnabled()) {
@@ -92,8 +95,23 @@ public class TransientSessionImpl implements TransientStoreSession {
         return getPersistentTransaction().isIdempotent();
     }
 
+    @Override
+    public boolean isReadonly() {
+        return getPersistentTransactionInternal().isReadonly();
+    }
+
     protected StoreTransaction getPersistentTransactionInternal() {
         return store.getPersistentStore().getCurrentTransaction();
+    }
+
+    protected void upgradeReadonlyTransactionIfNecessary() {
+        final StoreTransaction currentTxn = getPersistentTransactionInternal();
+        if (!readonly && currentTxn.isReadonly()) {
+            final ReadonlyPersistentStoreTransaction roTxn = (ReadonlyPersistentStoreTransaction) currentTxn;
+            final PersistentStoreTransaction newTxn = roTxn.getUpgradedTransaction();
+            roTxn.abort();
+            TxnUtil.registerTransation((PersistentEntityStoreImpl) store.getPersistentStore(), newTxn);
+        }
     }
 
     public String toString() {
@@ -500,6 +518,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public TransientEntity newEntity(@NotNull final String entityType) {
         assertOpen("create entity");
+        upgradeReadonlyTransactionIfNecessary();
         return new TransientEntityImpl(entityType, this.getStore());
     }
 
@@ -511,6 +530,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             addEntityCreator((TransientEntityImpl) found, creator);
             return (TransientEntity) found;
         }
+        upgradeReadonlyTransactionIfNecessary();
         return new TransientEntityImpl(creator, this.getStore());
     }
 
@@ -1091,6 +1111,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         if (persistent instanceof ReadOnlyPersistentEntity) {
             return new ReadonlyTransientEntityImpl((ReadOnlyPersistentEntity) persistent, store);
         }
+        upgradeReadonlyTransactionIfNecessary();
         final EntityId entityId = persistent.getId();
         TransientEntity e = managedEntities.get(entityId);
         if (e == null) {
@@ -1161,6 +1182,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                     }
                     return false;
                 }
+                upgradeReadonlyTransactionIfNecessary();
                 // somebody deleted our (initially found) entity! we need to create some again
                 e.setPersistentEntity((PersistentEntity) getPersistentTransaction().newEntity(creator.getType()));
                 changesTracker.entityAdded(e);
@@ -1605,6 +1627,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     public boolean addChangeAndRun(MyRunnable change) {
+        upgradeReadonlyTransactionIfNecessary();
         return addChange(change).run();
     }
 
