@@ -167,16 +167,12 @@ public class TransientSessionImpl implements TransientStoreSession {
         assertOpen("revert");
 
         PersistentStoreTransaction txn = (PersistentStoreTransaction) getPersistentTransactionInternal();
-        if (txn.isReadonly()) {
-            txn.abort();
-            store.getPersistentStore().beginReadonlyTransaction();
-        } else {
+        if (!txn.isReadonly()) {
             managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
             changes = new QueueDecorator<MyRunnable>();
-            txn.disableReplayData();
-            txn.revert();
-            txn.enableReplayData();
         }
+        closePersistentSession();
+        this.store.getPersistentStore().beginReadonlyTransaction();
         initChangesTracker();
     }
 
