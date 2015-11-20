@@ -205,9 +205,10 @@ public class TransientSessionImpl implements TransientStoreSession {
             final TransientChangesTracker oldChangesTracker = changesTracker;
             this.changesTracker = new TransientChangesTrackerImpl(getSnapshot());
             notifyFlushedListeners(oldChangesTracker);
-            closePersistentSession();
-            txnWhichWasUpgraded = null;
-            this.store.getPersistentStore().beginReadonlyTransaction();
+            if (changes.isEmpty()) {
+                closePersistentSession();
+                this.store.getPersistentStore().beginReadonlyTransaction();
+            }
         }
         return true;
     }
@@ -438,6 +439,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         persistentTxn = txnWhichWasUpgraded;
         if (persistentTxn != null) {
             persistentTxn.abort();
+            txnWhichWasUpgraded = null;
         }
     }
 
