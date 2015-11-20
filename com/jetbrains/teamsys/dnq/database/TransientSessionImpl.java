@@ -52,13 +52,8 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected TransientSessionImpl(final TransientEntityStoreImpl store, boolean readonly) {
         this.store = store;
         this.readonly = readonly;
-        EntityStore persistentStore = this.store.getPersistentStore();
-        persistentStore.beginReadonlyTransaction();
-        /*if (readonly) {
-            persistentStore.beginReadonlyTransaction();
-        } else {
-            persistentStore.beginTransaction().enableReplayData();
-        }*/
+        txnWhichWasUpgraded = null;
+        this.store.getPersistentStore().beginReadonlyTransaction();
         this.state = State.Open;
         this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
         if (LogFactory.getLog(TransientEntityStoreImpl.class).isDebugEnabled()) {
@@ -210,6 +205,9 @@ public class TransientSessionImpl implements TransientStoreSession {
             final TransientChangesTracker oldChangesTracker = changesTracker;
             this.changesTracker = new TransientChangesTrackerImpl(getSnapshot());
             notifyFlushedListeners(oldChangesTracker);
+            closePersistentSession();
+            txnWhichWasUpgraded = null;
+            this.store.getPersistentStore().beginReadonlyTransaction();
         }
         return true;
     }
