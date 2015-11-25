@@ -46,7 +46,7 @@ public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTrac
 
     @Override
     public PersistentStoreTransaction getSnapshot() {
-        throw new UnsupportedOperationException();
+        return snapshot;
     }
 
     @Override
