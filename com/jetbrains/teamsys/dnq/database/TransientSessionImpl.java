@@ -40,7 +40,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected ReadonlyPersistentStoreTransaction txnWhichWasUpgraded;
     protected State state;
     protected boolean quietFlush = false;
-    protected TransientChangesTrackerImpl changesTracker;
+    protected TransientChangesTracker changesTracker;
     // stores transient entities that were created for loaded persistent entities to avoid double loading
     protected Map<EntityId, TransientEntity> managedEntities;
     private Queue<MyRunnable> changes = new QueueDecorator<MyRunnable>();
@@ -59,17 +59,18 @@ public class TransientSessionImpl implements TransientStoreSession {
         if (LogFactory.getLog(TransientEntityStoreImpl.class).isDebugEnabled()) {
             stack = new Throwable();
         }
-        initChangesTracker();
+        initChangesTracker(true);
     }
 
     public Throwable getStack() {
         return stack;
     }
 
-    private TransientChangesTrackerImpl initChangesTracker() {
+    private TransientChangesTracker initChangesTracker(boolean readonly) {
         if (this.changesTracker != null) changesTracker.dispose();
-        TransientChangesTrackerImpl oldChangesTracker = changesTracker;
-        this.changesTracker = new TransientChangesTrackerImpl(getSnapshot());
+        TransientChangesTracker oldChangesTracker = changesTracker;
+        final PersistentStoreTransaction snapshot = getSnapshot();
+        this.changesTracker = readonly ? new ReadOnlyTransientChangesTrackerImpl(snapshot) : new TransientChangesTrackerImpl(snapshot);
 
         return oldChangesTracker;
     }
@@ -107,6 +108,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             final ReadonlyPersistentStoreTransaction roTxn = (ReadonlyPersistentStoreTransaction) currentTxn;
             final PersistentStoreTransaction newTxn = roTxn.getUpgradedTransaction();
             TxnUtil.registerTransation((PersistentEntityStoreImpl) store.getPersistentStore(), newTxn);
+            this.changesTracker = this.changesTracker.upgrade();
             txnWhichWasUpgraded = roTxn;
         }
     }
@@ -173,7 +175,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
         closePersistentSession();
         this.store.getPersistentStore().beginReadonlyTransaction();
-        initChangesTracker();
+        initChangesTracker(true);
     }
 
     @Override
@@ -199,11 +201,13 @@ public class TransientSessionImpl implements TransientStoreSession {
             }
 
             final TransientChangesTracker oldChangesTracker = changesTracker;
-            this.changesTracker = new TransientChangesTrackerImpl(getSnapshot());
+            final TransientChangesTrackerImpl newChangesTracker = new TransientChangesTrackerImpl(getSnapshot());
+            this.changesTracker = newChangesTracker;
             notifyFlushedListeners(oldChangesTracker);
             if (changes.isEmpty()) {
                 closePersistentSession();
                 this.store.getPersistentStore().beginReadonlyTransaction();
+                this.changesTracker = new ReadOnlyTransientChangesTrackerImpl(newChangesTracker.getSnapshot());
             }
         }
         return true;
@@ -468,7 +472,7 @@ public class TransientSessionImpl implements TransientStoreSession {
 
 
     private void replayChanges() {
-        initChangesTracker();
+        initChangesTracker(false);
 
         for (MyRunnable c : changes) {
             c.run();
