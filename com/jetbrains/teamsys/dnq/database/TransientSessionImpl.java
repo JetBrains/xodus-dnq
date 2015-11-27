@@ -38,6 +38,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected final boolean readonly;
     @Nullable
     protected ReadonlyPersistentStoreTransaction txnWhichWasUpgraded;
+    protected Runnable upgradeHook;
     protected State state;
     protected boolean quietFlush = false;
     protected TransientChangesTracker changesTracker;
@@ -98,6 +99,11 @@ public class TransientSessionImpl implements TransientStoreSession {
         return readonly;
     }
 
+    @Override
+    public void setUpgradeHook(@Nullable final Runnable hook) {
+        upgradeHook = hook;
+    }
+
     protected StoreTransaction getPersistentTransactionInternal() {
         return store.getPersistentStore().getCurrentTransaction();
     }
@@ -105,6 +111,9 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected void upgradeReadonlyTransactionIfNecessary() {
         final StoreTransaction currentTxn = getPersistentTransactionInternal();
         if (!readonly && currentTxn.isReadonly()) {
+            if (upgradeHook != null) {
+                upgradeHook.run();
+            }
             final ReadonlyPersistentStoreTransaction roTxn = (ReadonlyPersistentStoreTransaction) currentTxn;
             final PersistentStoreTransaction newTxn = roTxn.getUpgradedTransaction();
             TxnUtil.registerTransation((PersistentEntityStoreImpl) store.getPersistentStore(), newTxn);
