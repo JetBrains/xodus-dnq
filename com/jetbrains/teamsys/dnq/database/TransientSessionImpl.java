@@ -765,12 +765,6 @@ public class TransientSessionImpl implements TransientStoreSession {
                 if (log.isInfoEnabled()) {
                     log.info("Catch exception in flush: " + exception.getMessage());
                 }
-                txn.disableReplayData();
-                txn.revert();
-                txn.enableReplayData();
-                // we have to execute changes against new database root
-                //TODO: there're none recovarable exceptions, for which can skip executeChanges
-                replayChanges();
                 decodeException(exception);
                 throw new IllegalStateException("should never be thrown");
             }
