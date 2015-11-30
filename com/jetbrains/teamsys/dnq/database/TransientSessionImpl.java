@@ -751,15 +751,13 @@ public class TransientSessionImpl implements TransientStoreSession {
                 prepare();
                 while (true) {
                     if (txn.flush()) {
-                        txn.enableReplayData(); // clear
                         return;
-                    } else {
-                        // replay changes
-                        replayChanges();
-                        //recheck constraints against new database root
-                        checkBeforeSaveChangesConstraints();
-                        prepare();
                     }
+                    // replay changes
+                    replayChanges();
+                    //recheck constraints against new database root
+                    checkBeforeSaveChangesConstraints();
+                    prepare();
                 }
             } catch (Throwable exception) {
                 if (log.isInfoEnabled()) {
@@ -1653,16 +1651,6 @@ public class TransientSessionImpl implements TransientStoreSession {
     @Override
     public void deleteUniqueKey(@NotNull final Index index,
                                 @NotNull final List<Comparable> propValues) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void enableReplayData() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void disableReplayData() {
         throw new UnsupportedOperationException();
     }
 
