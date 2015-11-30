@@ -765,6 +765,10 @@ public class TransientSessionImpl implements TransientStoreSession {
                 if (log.isInfoEnabled()) {
                     log.info("Catch exception in flush: " + exception.getMessage());
                 }
+                if (exception instanceof DataIntegrityViolationException) {
+                    txn.revert();
+                    replayChanges();
+                }
                 decodeException(exception);
                 throw new IllegalStateException("should never be thrown");
             }
