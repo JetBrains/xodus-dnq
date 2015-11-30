@@ -1120,7 +1120,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         if (persistent instanceof ReadOnlyPersistentEntity) {
             return new ReadonlyTransientEntityImpl((ReadOnlyPersistentEntity) persistent, store);
         }
-        upgradeReadonlyTransactionIfNecessary();
         final EntityId entityId = persistent.getId();
         TransientEntity e = managedEntities.get(entityId);
         if (e == null) {
