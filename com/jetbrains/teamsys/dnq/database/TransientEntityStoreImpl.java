@@ -71,6 +71,13 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
      */
     @SuppressWarnings({"UnusedDeclaration"})
     public void setPersistentStore(EntityStore persistentStore) {
+        final EnvironmentConfig ec = ((PersistentEntityStore) persistentStore).getEnvironment().getEnvironmentConfig();
+        if (ec.getEnvTxnDowngradeAfterFlush() == EnvironmentConfig.DEFAULT.getEnvTxnDowngradeAfterFlush()) {
+            ec.setEnvTxnDowngradeAfterFlush(false);
+        }
+        if (ec.getEnvTxnReplayMaxCount() == EnvironmentConfig.DEFAULT.getEnvTxnReplayMaxCount()) {
+            ec.setEnvTxnReplayMaxCount(1);
+        }
         this.persistentStore = persistentStore;
     }
 
