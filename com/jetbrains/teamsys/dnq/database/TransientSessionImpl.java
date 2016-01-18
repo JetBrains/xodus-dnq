@@ -15,6 +15,7 @@ import jetbrains.exodus.entitystore.metadata.Index;
 import jetbrains.exodus.entitystore.metadata.IndexField;
 import jetbrains.exodus.entitystore.metadata.ModelMetaData;
 import jetbrains.exodus.env.EnvironmentUtil;
+import jetbrains.exodus.env.ReadonlyTransactionException;
 import jetbrains.exodus.env.TransactionImpl;
 import jetbrains.exodus.util.ByteArraySizedInputStream;
 import org.apache.commons.logging.Log;
@@ -113,12 +114,16 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected void upgradeReadonlyTransactionIfNecessary() {
         final StoreTransaction currentTxn = getPersistentTransactionInternal();
         if (!readonly && currentTxn.isReadonly()) {
+            final PersistentEntityStoreImpl persistentStore = (PersistentEntityStoreImpl) store.getPersistentStore();
+            if (persistentStore.getEnvironment().getEnvironmentConfig().getEnvIsReadonly()) {
+                throw new ReadonlyTransactionException("Can't upgrade transient transaction in read-only mode");
+            }
             if (upgradeHook != null) {
                 upgradeHook.run();
             }
             final ReadonlyPersistentStoreTransaction roTxn = (ReadonlyPersistentStoreTransaction) currentTxn;
             final PersistentStoreTransaction newTxn = roTxn.getUpgradedTransaction();
-            TxnUtil.registerTransation((PersistentEntityStoreImpl) store.getPersistentStore(), newTxn);
+            TxnUtil.registerTransation(persistentStore, newTxn);
             this.changesTracker = this.changesTracker.upgrade();
             txnWhichWasUpgraded = roTxn;
         }
