@@ -5,10 +5,10 @@ import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
 
 public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTestCase {
@@ -89,6 +89,21 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
         }
     }
 
+    public void testWD_2060() {
+        TransientEntity i;
+        TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
+        TransientStoreSession session = store.beginSession();
+        try {
+            i = ro(createIssue(session), session);
+            AssociationSemantics.getToManyList(i, "nonExistentLinkName");
+        } catch (Throwable e) {
+            TransientStoreUtil.abort(e, session);
+            throw new RuntimeException("Should never be thrown.");
+        } finally {
+            TransientStoreUtil.commit(session);
+        }
+    }
+
     private static TransientEntity createIssue(TransientStoreSession session) {
         return (TransientEntity) session.newEntity("Issue");
     }
@@ -98,7 +113,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
     }
 
     private void check_i2(Iterable<Entity> iterable, TransientEntity i3) {
-        final EntityIteratorWithPropId it = (EntityIteratorWithPropId)iterable.iterator();
+        final EntityIteratorWithPropId it = (EntityIteratorWithPropId) iterable.iterator();
         assertTrue(it.hasNext());
         assertEquals(i3, it.next());
         assertEquals("dup", it.currentLinkName());
@@ -106,7 +121,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
     }
 
     private void check_i1(Iterable<Entity> iterable, TransientEntity i2, TransientEntity i3, TransientEntity i4) {
-        final EntityIteratorWithPropId it = (EntityIteratorWithPropId)iterable.iterator();
+        final EntityIteratorWithPropId it = (EntityIteratorWithPropId) iterable.iterator();
         assertTrue(it.hasNext());
         assertEquals(i2, it.next());
         assertEquals("dup", it.currentLinkName());
