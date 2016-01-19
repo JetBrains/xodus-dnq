@@ -100,7 +100,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     @NotNull
     @Override
     public EntityIterable getLinks(@NotNull String linkName) {
-        return new PersistentEntityIterableWrapper(store, new ReadOnlyIterable((EntityIterableBase) persistentEntity.getLinks(linkName)));
+        return new PersistentEntityIterableWrapper(store, wrapWithReadOnlyIterable(persistentEntity.getLinks(linkName)));
     }
 
     @NotNull
@@ -266,9 +266,13 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         return new IllegalStateException("Entity is readonly.");
     }
 
+    private EntityIterable wrapWithReadOnlyIterable(@NotNull final EntityIterable source) {
+        return source == EntityIterableBase.EMPTY ? source : new ReadOnlyIterable((EntityIterableBase) source);
+    }
+
     private class ReadOnlyIterable extends EntityIterableDecoratorBase {
 
-        public ReadOnlyIterable(@NotNull final EntityIterableBase source) {
+        private ReadOnlyIterable(@NotNull final EntityIterableBase source) {
             super((PersistentEntityStoreImpl) store.getPersistentStore(), source);
             final PersistentStoreTransaction sourceTxn = source.getTransaction();
             if (!sourceTxn.isCurrent()) {
