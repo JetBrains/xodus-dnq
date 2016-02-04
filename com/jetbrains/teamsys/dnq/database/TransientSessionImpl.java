@@ -14,9 +14,7 @@ import jetbrains.exodus.entitystore.metadata.EntityMetaData;
 import jetbrains.exodus.entitystore.metadata.Index;
 import jetbrains.exodus.entitystore.metadata.IndexField;
 import jetbrains.exodus.entitystore.metadata.ModelMetaData;
-import jetbrains.exodus.env.EnvironmentUtil;
 import jetbrains.exodus.env.ReadonlyTransactionException;
-import jetbrains.exodus.env.TransactionImpl;
 import jetbrains.exodus.util.ByteArraySizedInputStream;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -219,14 +217,10 @@ public class TransientSessionImpl implements TransientStoreSession {
             final TransientChangesTracker oldChangesTracker = changesTracker;
             final TransientChangesTrackerImpl newChangesTracker = new TransientChangesTrackerImpl(getSnapshot());
             this.changesTracker = newChangesTracker;
+            closePersistentSession();
+            this.store.getPersistentStore().beginReadonlyTransaction();
+            this.changesTracker = new ReadOnlyTransientChangesTrackerImpl(newChangesTracker.getSnapshot());
             notifyFlushedListeners(oldChangesTracker);
-            if (changes.isEmpty()) {
-                closePersistentSession();
-                this.store.getPersistentStore().beginReadonlyTransaction();
-                this.changesTracker = new ReadOnlyTransientChangesTrackerImpl(newChangesTracker.getSnapshot());
-            } else {
-                EnvironmentUtil.downgradeTransaction((TransactionImpl) ((PersistentStoreTransaction) getPersistentTransactionInternal()).getEnvironmentTransaction());
-            }
         }
         return true;
     }
