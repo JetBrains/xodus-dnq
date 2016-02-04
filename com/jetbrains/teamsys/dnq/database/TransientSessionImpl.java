@@ -215,11 +215,9 @@ public class TransientSessionImpl implements TransientStoreSession {
             }
 
             final TransientChangesTracker oldChangesTracker = changesTracker;
-            final TransientChangesTrackerImpl newChangesTracker = new TransientChangesTrackerImpl(getSnapshot());
-            this.changesTracker = newChangesTracker;
             closePersistentSession();
             this.store.getPersistentStore().beginReadonlyTransaction();
-            this.changesTracker = new ReadOnlyTransientChangesTrackerImpl(newChangesTracker.getSnapshot());
+            this.changesTracker = new ReadOnlyTransientChangesTrackerImpl(getSnapshot());
             notifyFlushedListeners(oldChangesTracker);
         }
         return true;
