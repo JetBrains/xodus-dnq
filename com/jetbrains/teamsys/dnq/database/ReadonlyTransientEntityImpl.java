@@ -273,11 +273,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     private class ReadOnlyIterable extends EntityIterableDecoratorBase {
 
         private ReadOnlyIterable(@NotNull final EntityIterableBase source) {
-            super((PersistentEntityStoreImpl) store.getPersistentStore(), source);
-            final PersistentStoreTransaction sourceTxn = source.getTransaction();
-            if (!sourceTxn.isCurrent()) {
-                txnGetter = sourceTxn;
-            }
+            super(source.getTransaction(), source);
         }
 
         @Override
