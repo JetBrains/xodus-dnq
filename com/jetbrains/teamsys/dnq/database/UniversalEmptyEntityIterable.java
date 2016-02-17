@@ -66,6 +66,12 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
         return false;
     }
 
+    @NotNull
+    @Override
+    public EntityIterable getSource() {
+        return EntityIterableBase.EMPTY;
+    }
+
     public static class Iterator extends EntityIteratorBase implements EntityIteratorWithPropId {
 
         public static final Iterator INSTANCE = new Iterator();
