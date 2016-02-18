@@ -105,14 +105,14 @@ public class TransientSessionImpl implements TransientStoreSession {
         upgradeHook = hook;
     }
 
-    protected StoreTransaction getPersistentTransactionInternal() {
-        return store.getPersistentStore().getCurrentTransaction();
+    protected PersistentStoreTransaction getPersistentTransactionInternal() {
+        return (PersistentStoreTransaction) store.getPersistentStore().getCurrentTransaction();
     }
 
     protected void upgradeReadonlyTransactionIfNecessary() {
         final StoreTransaction currentTxn = getPersistentTransactionInternal();
         if (!readonly && currentTxn.isReadonly()) {
-            final PersistentEntityStoreImpl persistentStore = (PersistentEntityStoreImpl) store.getPersistentStore();
+            final PersistentEntityStoreImpl persistentStore = getPersistentStore();
             if (persistentStore.getEnvironment().getEnvironmentConfig().getEnvIsReadonly()) {
                 throw new ReadonlyTransactionException("Can't upgrade transient transaction in read-only mode");
             }
@@ -633,7 +633,8 @@ public class TransientSessionImpl implements TransientStoreSession {
         if (entityId == null) {
             entityId = entity.getId();
         }
-        return ((PersistentEntityStore) getPersistentTransactionInternal().getStore()).getLastVersion(entityId) < 0;
+        final PersistentStoreTransaction persistentTxn = getPersistentTransactionInternal();
+        return getPersistentStore().getLastVersion(persistentTxn, entityId) < 0;
     }
 
     /**
@@ -1681,5 +1682,9 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     public static interface MyRunnable {
         boolean run();
+    }
+
+    private PersistentEntityStoreImpl getPersistentStore() {
+        return (PersistentEntityStoreImpl) store.getPersistentStore();
     }
 }
