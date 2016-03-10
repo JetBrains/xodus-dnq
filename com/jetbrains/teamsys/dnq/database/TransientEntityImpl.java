@@ -26,8 +26,7 @@ class TransientEntityImpl implements TransientEntity {
     protected static final Log log = LogFactory.getLog(TransientEntity.class);
 
     protected TransientEntityStore store;
-    @NotNull
-    protected PersistentEntity persistentEntity;
+    protected PersistentEntityId entityId;
 
     TransientEntityImpl(@NotNull String type, @NotNull TransientEntityStore store) {
         this.store = store;
@@ -46,11 +45,11 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public PersistentEntity getPersistentEntity() {
-        return persistentEntity;
+        return ((PersistentEntityStoreImpl)store.getPersistentStore()).getEntity(entityId);
     }
 
     protected void setPersistentEntity(@NotNull PersistentEntity persistentEntity) {
-        this.persistentEntity = persistentEntity;
+        entityId = persistentEntity.getId();
     }
 
     @NotNull
@@ -85,47 +84,49 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public String getType() {
-        return persistentEntity.getType();
+        return getPersistentEntity().getType();
     }
 
     @NotNull
     public EntityId getId() {
-        return persistentEntity.getId();
+        return getPersistentEntity().getId();
     }
 
     @NotNull
     public String toIdString() {
-        return persistentEntity.toIdString();
+        return getPersistentEntity().toIdString();
     }
 
     @NotNull
     public List<String> getPropertyNames() {
-        return persistentEntity.getPropertyNames();
+        return getPersistentEntity().getPropertyNames();
     }
 
     @NotNull
     public List<String> getBlobNames() {
-        return persistentEntity.getBlobNames();
+        return getPersistentEntity().getBlobNames();
     }
 
     @NotNull
     public List<String> getLinkNames() {
-        return persistentEntity.getLinkNames();
+        return getPersistentEntity().getLinkNames();
     }
 
     public int getVersion() {
-        return persistentEntity.getVersion();
+        return getPersistentEntity().getVersion();
     }
 
     public boolean isUpToDate() {
-        return persistentEntity.isUpToDate();
+        return getPersistentEntity().isUpToDate();
     }
 
     @NotNull
     public List<Entity> getHistory() {
-        if (isNew()) return Collections.EMPTY_LIST;
+        if (isNew()) {
+            return Collections.emptyList();
+        }
 
-        final List<Entity> history = persistentEntity.getHistory();
+        final List<Entity> history = getPersistentEntity().getHistory();
         final List<Entity> result = new ArrayList<Entity>(history.size());
         final TransientStoreSession session = getAndCheckThreadStoreSession();
         for (final Entity _entity : history) {
@@ -138,7 +139,7 @@ class TransientEntityImpl implements TransientEntity {
     public Entity getNextVersion() {
         if (isNew()) return null;
 
-        final Entity e = persistentEntity.getNextVersion();
+        final Entity e = getPersistentEntity().getNextVersion();
         return e == null ? null : getAndCheckThreadStoreSession().newEntity(e);
     }
 
@@ -146,12 +147,12 @@ class TransientEntityImpl implements TransientEntity {
     public Entity getPreviousVersion() {
         if (isNew()) return null;
 
-        final Entity e = persistentEntity.getPreviousVersion();
+        final Entity e = getPersistentEntity().getPreviousVersion();
         return e == null ? null : getAndCheckThreadStoreSession().newEntity(e);
     }
 
     public int compareTo(final Entity e) {
-        return persistentEntity.compareTo(e);
+        return getPersistentEntity().compareTo(e);
     }
 
     /**
@@ -160,7 +161,7 @@ class TransientEntityImpl implements TransientEntity {
      * @return debug presentation
      */
     public String getDebugPresentation() {
-        return persistentEntity.toString();
+        return getPersistentEntity().toString();
     }
 
     public String toString() {
@@ -170,28 +171,28 @@ class TransientEntityImpl implements TransientEntity {
     public boolean equals(Object obj) {
         if (obj == this) return true;
         if (!(obj instanceof TransientEntity)) return false;
-        return persistentEntity.equals(((TransientEntity) obj).getPersistentEntity());
+        return getPersistentEntity().equals(((TransientEntity) obj).getPersistentEntity());
     }
 
     public int hashCode() {
-        return persistentEntity.hashCode();
+        return getPersistentEntity().hashCode();
     }
 
     @Nullable
     public Comparable getProperty(@NotNull final String propertyName) {
-        return persistentEntity.getProperty(propertyName);
+        return getPersistentEntity().getProperty(propertyName);
     }
 
     @Nullable
     @Override
     public ByteIterable getRawProperty(@NotNull String propertyName) {
-        return persistentEntity.getRawProperty(propertyName);
+        return getPersistentEntity().getRawProperty(propertyName);
     }
 
     @Nullable
     public Comparable getPropertyOldValue(@NotNull final String propertyName) {
         final PersistentStoreTransaction snapshot = getAndCheckThreadStoreSession().getTransientChangesTracker().getSnapshot();
-        return persistentEntity.getSnapshot(snapshot).getProperty(propertyName);
+        return getPersistentEntity().getSnapshot(snapshot).getProperty(propertyName);
     }
 
 
@@ -205,11 +206,11 @@ class TransientEntityImpl implements TransientEntity {
 
     @Nullable
     public InputStream getBlob(@NotNull final String blobName) {
-        return persistentEntity.getBlob(blobName);
+        return getPersistentEntity().getBlob(blobName);
     }
 
     public long getBlobSize(@NotNull final String blobName) {
-        return persistentEntity.getBlobSize(blobName);
+        return getPersistentEntity().getBlobSize(blobName);
     }
 
     public void setBlob(@NotNull final String blobName, @NotNull final InputStream blob) {
@@ -230,7 +231,7 @@ class TransientEntityImpl implements TransientEntity {
 
     @Nullable
     public String getBlobString(@NotNull final String blobName) {
-        return persistentEntity.getBlobString(blobName);
+        return getPersistentEntity().getBlobString(blobName);
     }
 
     public boolean setLink(@NotNull final String linkName, @NotNull final Entity target) {
@@ -274,11 +275,12 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public EntityIterable getLinks(@NotNull final String linkName) {
-        return new PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkName));
+        return new PersistentEntityIterableWrapper(store, getPersistentEntity().getLinks(linkName));
     }
 
     @Nullable
     public Entity getLink(@NotNull final String linkName) {
+        final PersistentEntity persistentEntity = getPersistentEntity();
         final Entity link = persistentEntity.getLink(linkName);
         if (link == null || (!persistentEntity.isUpToDate() && link.getVersion() < 0)) {
             return null;
@@ -290,7 +292,7 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public EntityIterable getLinks(@NotNull final Collection<String> linkNames) {
-        return new PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkNames)) {
+        return new PersistentEntityIterableWrapper(store, getPersistentEntity().getLinks(linkNames)) {
             @Override
             public EntityIterator iterator() {
                 return new PersistentEntityIteratorWithPropIdWrapper((EntityIteratorWithPropId) wrappedIterable.iterator(),
@@ -301,7 +303,7 @@ class TransientEntityImpl implements TransientEntity {
 
     public long getLinksSize(@NotNull final String linkName) {
         //TODO: slow method
-        return persistentEntity.getLinks(linkName).size();
+        return getPersistentEntity().getLinks(linkName).size();
     }
 
     @NotNull
