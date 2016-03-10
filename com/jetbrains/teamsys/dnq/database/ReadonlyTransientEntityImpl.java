@@ -93,14 +93,14 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
     @Override
     public Entity getLink(@NotNull String linkName) {
-        final PersistentEntity link = (PersistentEntity) persistentEntity.getLink(linkName);
+        final PersistentEntity link = (PersistentEntity) getPersistentEntity().getLink(linkName);
         return link == null ? null : new ReadonlyTransientEntityImpl(getSnapshotPersistentEntity(link), store);
     }
 
     @NotNull
     @Override
     public EntityIterable getLinks(@NotNull String linkName) {
-        return new PersistentEntityIterableWrapper(store, wrapWithReadOnlyIterable(persistentEntity.getLinks(linkName)));
+        return new PersistentEntityIterableWrapper(store, wrapWithReadOnlyIterable(getPersistentEntity().getLinks(linkName)));
     }
 
     @NotNull
@@ -259,7 +259,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
 
     private ReadOnlyPersistentEntity getSnapshotPersistentEntity(@Nullable final PersistentEntity entity) {
-        return entity == null ? null : new ReadOnlyPersistentEntity(persistentEntity.getTransaction(), entity.getId());
+        return entity == null ? null : new ReadOnlyPersistentEntity(getPersistentEntity().getTransaction(), entity.getId());
     }
 
     private static IllegalStateException createReadonlyException() {

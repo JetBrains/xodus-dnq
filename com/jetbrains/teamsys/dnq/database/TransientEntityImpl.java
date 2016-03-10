@@ -25,8 +25,8 @@ class TransientEntityImpl implements TransientEntity {
 
     protected static final Log log = LogFactory.getLog(TransientEntity.class);
 
-    protected TransientEntityStore store;
-    protected PersistentEntityId entityId;
+    protected final TransientEntityStore store;
+    private PersistentEntityId entityId;
 
     TransientEntityImpl(@NotNull String type, @NotNull TransientEntityStore store) {
         this.store = store;
