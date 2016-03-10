@@ -26,7 +26,7 @@ class TransientEntityImpl implements TransientEntity {
     protected static final Log log = LogFactory.getLog(TransientEntity.class);
 
     protected final TransientEntityStore store;
-    private PersistentEntityId entityId;
+    private Object entity;
 
     TransientEntityImpl(@NotNull String type, @NotNull TransientEntityStore store) {
         this.store = store;
@@ -45,11 +45,16 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public PersistentEntity getPersistentEntity() {
-        return ((PersistentEntityStoreImpl)store.getPersistentStore()).getEntity(entityId);
+        return entity instanceof PersistentEntity ? (PersistentEntity) entity :
+                ((PersistentEntityStoreImpl) store.getPersistentStore()).getEntity((EntityId) entity);
     }
 
     protected void setPersistentEntity(@NotNull PersistentEntity persistentEntity) {
-        entityId = persistentEntity.getId();
+        if (persistentEntity instanceof ReadOnlyPersistentEntity) {
+            entity = persistentEntity;
+        } else {
+            entity = persistentEntity.getId();
+        }
     }
 
     @NotNull
@@ -418,7 +423,9 @@ class TransientEntityImpl implements TransientEntity {
                 return change.getAddedEntitiesSize();
             }
         };
-    };
+    }
+
+    ;
 
     private TransientEntityIterable getRemovedWrapper(final LinkChange change) {
         Set<TransientEntity> removedEntities = change.getRemovedEntities();
@@ -436,7 +443,9 @@ class TransientEntityImpl implements TransientEntity {
                 return change.getRemovedEntitiesSize();
             }
         };
-    };
+    }
+
+    ;
 
     private TransientEntityIterable getDeletedWrapper(final LinkChange change) {
         Set<TransientEntity> deletedEntities = change.getDeletedEntities();
@@ -454,7 +463,9 @@ class TransientEntityImpl implements TransientEntity {
                 return change.getDeletedEntitiesSize();
             }
         };
-    };
+    }
+
+    ;
 
     public EntityIterable getAddedLinks(final String name) {
         return getAddedRemovedLinks(name, false);
