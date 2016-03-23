@@ -35,7 +35,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
     private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<Integer, TransientStoreSessionListener>();
 
-    private boolean open = true;
+    private volatile boolean open = true;
+    private boolean closed = false;
     private final Latch enumContainersLock = Latch.create();
     private final Set<EnumContainer> initedContainers = new HashSet<EnumContainer>(10);
     private final Map<String, Entity> enumCache = new ConcurrentHashMap<String, Entity>();
@@ -169,11 +170,18 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         return currentSession.get();
     }
 
+    @Override
+    public boolean isOpen() {
+        return open;
+    }
+
     public void close() {
+        open = false;
+
         eventsMultiplexer.onClose(this);
 
         log.info("Close transient store.");
-        open = false;
+        closed = true;
 
         int sessionsSize = sessions.size();
         if (sessionsSize > 0) {
@@ -396,7 +404,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     }
 
     private void assertOpen() {
-        if (!open) throw new IllegalStateException("Transient store is closed.");
+        // this flag isn't even volatile, but this is legacy behavior
+        if (closed) throw new IllegalStateException("Transient store is closed.");
     }
 
     public static String getEnumKey(@NotNull final String className, @NotNull final String propName) {
