@@ -374,6 +374,10 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     TransientEntityStore store = ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore"));
     DelegatingJobProcessor<ThreadJobProcessor> processor = store2processor.get(store);
     if (processor == null) {
+      if (!(store.isOpen())) {
+        throw new IllegalStateException("Putting closed stores in a global map is prohibited");
+      }
+
       DelegatingJobProcessor<ThreadJobProcessor> newProcessor = createJobProcessor();
       processor = store2processor.putIfAbsent(store, newProcessor);
       if (processor == null) {
