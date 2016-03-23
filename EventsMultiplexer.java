@@ -211,12 +211,13 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
       log.info("Finishing EventsMultiplexer job processor for store " + store);
     }
     DelegatingJobProcessor<ThreadJobProcessor> processor = store2processor.get(store);
+    store2processor.remove(store);
     if (processor == null) {
       if (log.isWarnEnabled()) {
         log.warn("Job processor for store " + store + " not found");
       }
+      return;
     }
-    store2processor.remove(store);
     processor.finish();
     if (log.isInfoEnabled()) {
       log.info("EventsMultiplexer closed. Jobs count: " + processor.pendingJobs() + "/" + processor.pendingTimedJobs());
