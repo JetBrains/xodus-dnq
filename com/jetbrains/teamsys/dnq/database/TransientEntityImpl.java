@@ -87,6 +87,11 @@ class TransientEntityImpl implements TransientEntity {
         return false;
     }
 
+    @Override
+    public boolean isWrapper() {
+        return false;
+    }
+
     @NotNull
     public String getType() {
         return getPersistentEntity().getType();

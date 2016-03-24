@@ -559,44 +559,50 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public TransientEntity newLocalCopy(@NotNull final TransientEntity entity) {
         assertOpen("create local copy");
-        if (entity.isReadonly()) {
+        if (entity.isReadonly() || entity.isWrapper()) {
             return entity;
-        } else if (entity.isRemoved()) {
+        } else if (
+            // optimization: inlined entity.isRemoved()
+                changesTracker.isRemoved(entity)) {
             EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
             log.warn("Entity [" + entity + "] was removed by you.");
             throw entityRemovedException;
-        } else if (entity.isNew()) {
+        } else if (
+            // optimization: inlined entity.isNew()
+                changesTracker.isNew(entity)) {
             final EntityId entityId = entity.getId();
             if (managedEntities.get(entityId) == entity) {
                 // was created in this session and session wasn't reverted
                 return entity;
             }
             throw new IllegalStateException("Entity in state New was not created in this session. " + entity);
-        } else if (entity.isSaved()) {
+        } else if (
+            // optimization: inlined entity.isSaved()
+                changesTracker.isSaved(entity)) {
             final EntityId entityId = entity.getId();
-            if (managedEntities.get(entityId) == entity) {
+            final TransientEntity localCopy = managedEntities.get(entityId);
+            if (localCopy == entity) {
                 // was created in this session and session wasn't reverted
                 return entity;
-            } else {
-                // saved entity from another session or from reverted session - load it from database by id
-                // local copy already created?
-                TransientEntity localCopy = managedEntities.get(entityId);
-                if (localCopy != null) {
-                    if (localCopy.isRemoved()) {
-                        EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
-                        log.warn("Local copy of entity [" + entity + "] was removed by you.");
-                        throw entityRemovedException;
-                    }
-                    return localCopy;
+            }
+            // saved entity from another session or from reverted session - load it from database by id
+            // local copy already created?
+            if (localCopy != null) {
+                if (
+                    // optimization: inlined localCopy.isRemoved()
+                        changesTracker.isRemoved(localCopy)) {
+                    EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
+                    log.warn("Local copy of entity [" + entity + "] was removed by you.");
+                    throw entityRemovedException;
                 }
-
-                try {
-                    // load persistent entity from database by id
-                    return newEntity(getPersistentTransactionInternal().getEntity(entityId));
-                } catch (EntityRemovedInDatabaseException e) {
-                    log.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
-                    throw e;
-                }
+                return localCopy;
+            }
+            try {
+                // load persistent entity from database by id
+                return newEntity(getPersistentTransactionInternal().getEntity(entityId));
+            } catch (EntityRemovedInDatabaseException e) {
+                log.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
+                throw e;
             }
         } else {
             throw new IllegalStateException("Can't create local copy of entity (unexpected state) [" + entity + "]");
