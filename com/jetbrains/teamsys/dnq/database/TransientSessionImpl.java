@@ -619,6 +619,9 @@ public class TransientSessionImpl implements TransientStoreSession {
         EntityId entityId = null;
         if (entity instanceof TransientEntity && state == State.Open) {
             final TransientEntity transientEntity = (TransientEntity) entity;
+            if (transientEntity.isWrapper()) {
+                return transientEntity.isRemoved();
+            }
             // transientEntity.isSaved() inlined:
             if (changesTracker.isSaved(transientEntity)) {
                 // saved entity from another session or from reverted session
