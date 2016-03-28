@@ -619,19 +619,26 @@ public class TransientSessionImpl implements TransientStoreSession {
         EntityId entityId = null;
         if (entity instanceof TransientEntity && state == State.Open) {
             final TransientEntity transientEntity = (TransientEntity) entity;
-            if (transientEntity.isSaved()) {
+            // transientEntity.isSaved() inlined:
+            if (changesTracker.isSaved(transientEntity)) {
                 // saved entity from another session or from reverted session
                 entityId = entity.getId();
                 final TransientEntity localCopy = managedEntities.get(entityId);
                 if (localCopy != transientEntity) {
                     // local copy already created?
-                    if (localCopy != null && localCopy.isRemoved()) {
+                    if (localCopy != null &&
+                            // localCopy.isRemoved() inlined:
+                            changesTracker.isRemoved(localCopy)) {
                         return true;
                     }
                 }
-            } else if (transientEntity.isRemoved()) {
+            } else if (
+                // transientEntity.isRemoved() inlined:
+                    changesTracker.isRemoved(transientEntity)) {
                 return true;
-            } else if (transientEntity.isReadonly() || transientEntity.isNew()) {
+            } else if (transientEntity.isReadonly() ||
+                    // transientEntity.isNew() inlined:
+                    changesTracker.isNew(transientEntity)) {
                 return false;
             }
         }
