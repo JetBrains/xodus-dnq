@@ -27,6 +27,7 @@ class TransientEntityImpl implements TransientEntity {
 
     protected final TransientEntityStore store;
     private Object entity;
+    private String entityType;
 
     TransientEntityImpl(@NotNull String type, @NotNull TransientEntityStore store) {
         this.store = store;
@@ -94,7 +95,10 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public String getType() {
-        return getPersistentEntity().getType();
+        if (entityType == null) {
+            entityType = getPersistentEntity().getType();
+        }
+        return entityType;
     }
 
     @NotNull
