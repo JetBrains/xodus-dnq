@@ -767,15 +767,20 @@ public class TransientSessionImpl implements TransientStoreSession {
 
             try {
                 prepare();
-                while (true) {
-                    if (txn.flush()) {
-                        return;
+                store.flushLock.lock();
+                try {
+                    while (true) {
+                        if (txn.flush()) {
+                            return;
+                        }
+                        // replay changes
+                        replayChanges();
+                        //recheck constraints against new database root
+                        checkBeforeSaveChangesConstraints();
+                        prepare();
                     }
-                    // replay changes
-                    replayChanges();
-                    //recheck constraints against new database root
-                    checkBeforeSaveChangesConstraints();
-                    prepare();
+                } finally {
+                    store.flushLock.unlock();
                 }
             } catch (Throwable exception) {
                 if (log.isInfoEnabled()) {

@@ -19,6 +19,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author Vadim.Gurov
@@ -42,6 +43,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     private final Map<String, Entity> enumCache = new ConcurrentHashMap<String, Entity>();
     private final Map<String, BasePersistentClassImpl> persistentClassInstanceCache = new ConcurrentHashMap<String, BasePersistentClassImpl>();
     private final Map<Class, BasePersistentClassImpl> persistentClassInstances = new ConcurrentHashMap<Class, BasePersistentClassImpl>();
+
+    final ReentrantLock flushLock = new ReentrantLock(true); // fair flushLock
 
     public TransientEntityStoreImpl() {
         if (log.isTraceEnabled()) {
@@ -76,9 +79,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         if (ec.getEnvTxnDowngradeAfterFlush() == EnvironmentConfig.DEFAULT.getEnvTxnDowngradeAfterFlush()) {
             ec.setEnvTxnDowngradeAfterFlush(false);
         }
-        if (ec.getEnvTxnReplayMaxCount() == EnvironmentConfig.DEFAULT.getEnvTxnReplayMaxCount()) {
-            ec.setEnvTxnReplayMaxCount(1);
-        }
+        ec.setEnvTxnReplayMaxCount(Integer.MAX_VALUE);
+        ec.setEnvTxnReplayTimeout(Long.MAX_VALUE);
+        ec.setGcUseExclusiveTransaction(true);
         this.persistentStore = persistentStore;
     }
 
