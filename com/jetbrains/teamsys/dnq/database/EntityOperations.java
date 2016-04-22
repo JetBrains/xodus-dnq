@@ -67,13 +67,6 @@ public class EntityOperations {
         }
     }
 
-
-    public static List<Entity> getHistory(@NotNull Entity e) {
-        final Entity entity = TransientStoreUtil.reattach((TransientEntity) e);
-
-        return entity == null ? Collections.<Entity>emptyList() : entity.getHistory();
-    }
-
     /**
      * Checks if entity e was removed
      *
@@ -92,24 +85,6 @@ public class EntityOperations {
         if (e == null) return false;
         e = TransientStoreUtil.reattach((TransientEntity) e);
         return e != null && ((TransientEntity) e).isNew();
-    }
-
-    public static int getVersion(@NotNull Entity e) {
-        e = TransientStoreUtil.reattach((TransientEntity) e);
-
-        return e == null ? -1 : e.getVersion();
-    }
-
-    public static Entity getPreviousVersion(@NotNull Entity e) {
-        final Entity entity = TransientStoreUtil.reattach((TransientEntity) e);
-
-        return entity == null ? null : entity.getPreviousVersion();
-    }
-
-    public static Entity getNextVersion(@NotNull Entity e) {
-        final Entity entity = TransientStoreUtil.reattach((TransientEntity) e);
-
-        return entity == null ? null : entity.getNextVersion();
     }
 
     public static boolean equals(Entity e1, Object e2) {

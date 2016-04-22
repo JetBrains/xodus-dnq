@@ -42,11 +42,6 @@ public class PersistentEntityIteratorWrapper implements EntityIterator {
         return source.dispose();
     }
 
-    @Override
-    public int getCurrentVersion() {
-        return source.getCurrentVersion();
-    }
-
     public boolean skip(int number) {
         return source.skip(number);
     }

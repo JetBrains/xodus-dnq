@@ -41,11 +41,6 @@ class TransientEntityIterator implements EntityIterator {
         throw new UnsupportedOperationException("Transient iterator doesn't support disposing.");
     }
 
-    @Override
-    public int getCurrentVersion() {
-        throw new UnsupportedOperationException("Transient iterator doesn't support entity version.");
-    }
-
     public boolean skip(int number) {
         while (number-- > 0 && hasNext()) {
             next();

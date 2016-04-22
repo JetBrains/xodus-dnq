@@ -126,45 +126,6 @@ class TransientEntityImpl implements TransientEntity {
         return getPersistentEntity().getLinkNames();
     }
 
-    public int getVersion() {
-        return getPersistentEntity().getVersion();
-    }
-
-    public boolean isUpToDate() {
-        return getPersistentEntity().isUpToDate();
-    }
-
-    @NotNull
-    public List<Entity> getHistory() {
-        if (isNew()) {
-            return Collections.emptyList();
-        }
-
-        final List<Entity> history = getPersistentEntity().getHistory();
-        final List<Entity> result = new ArrayList<Entity>(history.size());
-        final TransientStoreSession session = getAndCheckThreadStoreSession();
-        for (final Entity _entity : history) {
-            result.add(session.newEntity(_entity));
-        }
-        return result;
-    }
-
-    @Nullable
-    public Entity getNextVersion() {
-        if (isNew()) return null;
-
-        final Entity e = getPersistentEntity().getNextVersion();
-        return e == null ? null : getAndCheckThreadStoreSession().newEntity(e);
-    }
-
-    @Nullable
-    public Entity getPreviousVersion() {
-        if (isNew()) return null;
-
-        final Entity e = getPersistentEntity().getPreviousVersion();
-        return e == null ? null : getAndCheckThreadStoreSession().newEntity(e);
-    }
-
     public int compareTo(final Entity e) {
         return getPersistentEntity().compareTo(e);
     }
@@ -296,7 +257,7 @@ class TransientEntityImpl implements TransientEntity {
     public Entity getLink(@NotNull final String linkName) {
         final PersistentEntity persistentEntity = getPersistentEntity();
         final Entity link = persistentEntity.getLink(linkName);
-        if (link == null || (!persistentEntity.isUpToDate() && link.getVersion() < 0)) {
+        if (link == null) {
             return null;
         }
         final TransientSessionImpl session = getAndCheckThreadStoreSession();

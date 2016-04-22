@@ -463,17 +463,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    public void clearHistory(@NotNull final String entityType) {
-        assertOpen("clear history");
-
-        addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                getPersistentTransaction().clearHistory(entityType);
-                return true;
-            }
-        });
-    }
-
     @NotNull
     public TransientChangesTracker getTransientChangesTracker() throws IllegalStateException {
         assertOpen("get changes tracker");
@@ -801,7 +790,6 @@ public class TransientSessionImpl implements TransientStoreSession {
     private void prepare() {
         try {
             allowRunnables = false;
-            saveHistory();
             flushIndexes();
         } finally {
             allowRunnables = true;
@@ -1014,40 +1002,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         throw new RuntimeException(e);
     }
 
-    private void saveHistory() {
-        final ModelMetaData modelMetaData = store.getModelMetaData();
-
-        if (modelMetaData == null) {
-            if (log.isWarnEnabled()) {
-                log.warn("Model meta data is not defined. Skip history processing. " + this);
-            }
-            return;
-        }
-
-        if (log.isDebugEnabled()) {
-            log.debug("Save history of changed entities. " + this);
-        }
-
-        final PersistentStoreTransaction snapshot = changesTracker.getSnapshot();
-        final Set<TransientEntity> changedEntities = changesTracker.getChangedEntities();
-
-        for (final TransientEntity e : changedEntities.toArray(new TransientEntity[changedEntities.size()])) {
-            if (!e.isNew() && !e.isRemoved()) {
-                final EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
-                if (emd != null && TransientStoreUtil.getPersistentClassInstance(e).evaluateSaveHistoryCondition(e)
-                        && EntityMetaDataUtils.changesReflectHistory(emd, e, changesTracker)) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Save history of: " + e);
-                    }
-                    e.getPersistentEntity().newVersion(snapshot);
-
-                    // !!! should be called after e.newVersion();
-                    TransientStoreUtil.getPersistentClassInstance(e).saveHistoryCallback(e);
-                }
-            }
-        }
-    }
-
     private void notifyFlushedListeners(TransientChangesTracker oldChangesTracker) {
         final Set<TransientEntityChange> changesDescription = oldChangesTracker.getChangesDescription();
         if (changesDescription.isEmpty()) {
@@ -1114,7 +1068,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     private void notifyBeforeFlushAfterConstraintsCheckListeners() {
         final Set<TransientEntityChange> changesDescr = changesTracker.getChangesDescription();
 
-        if (changesDescr == null || changesDescr.isEmpty()) return;
+        if (changesDescr.isEmpty()) return;
 
         if (log.isDebugEnabled()) {
             log.debug("Notify before flush after constraints check listeners " + this);

@@ -31,28 +31,6 @@ public class EntityMetaDataUtils {
         return persistentClass.getPropertyConstraints();
     }
 
-    static boolean changesReflectHistory(EntityMetaData emd, TransientEntity e, TransientChangesTracker tracker) {
-        Set<String> changedProperties = tracker.getChangedProperties(e);
-        if (changedProperties != null) {
-            for (String field : changedProperties) {
-                if (!emd.isHistoryIgnored(field)) {
-                    return true;
-                }
-            }
-        }
-
-        Map<String, LinkChange> changedLinks = tracker.getChangedLinksDetailed(e);
-        if (changedLinks != null) {
-            for (String field : changedLinks.keySet()) {
-                if (!emd.isHistoryIgnored(field)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     static boolean hasParent(@NotNull EntityMetaData emd, @NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
         final Set<String> aggregationChildEnds = emd.getAggregationChildEnds();
         if (e.isNew() || parentChanged(aggregationChildEnds, tracker.getChangedLinksDetailed(e))) {
