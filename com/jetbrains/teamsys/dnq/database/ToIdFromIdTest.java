@@ -19,8 +19,8 @@ public class ToIdFromIdTest extends AbstractEntityStoreAwareTestCase {
 
   public void testFindByIncorrectId() {
     createData();
-    tryToRestoreById("0-0-0"); //ok
-    findByIncorrectId("0-1-0"); // bad id!
+    tryToRestoreById("0-0"); //ok
+    findByIncorrectId("0-1"); // bad id!
   }
 
   private void findByIncorrectId(String id) {
