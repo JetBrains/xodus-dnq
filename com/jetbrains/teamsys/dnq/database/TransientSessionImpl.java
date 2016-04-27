@@ -44,8 +44,8 @@ public class TransientSessionImpl implements TransientStoreSession {
     protected boolean quietFlush = false;
     protected TransientChangesTracker changesTracker;
     // stores transient entities that were created for loaded persistent entities to avoid double loading
-    protected Map<EntityId, TransientEntity> managedEntities;
-    private Queue<MyRunnable> changes = new QueueDecorator<MyRunnable>();
+    private final Map<EntityId, TransientEntity> managedEntities;
+    private final Queue<MyRunnable> changes = new QueueDecorator<MyRunnable>();
     private final int hashCode = (int) (Math.random() * Integer.MAX_VALUE);
     private boolean allowRunnables = true;
     private Throwable stack = null;
@@ -184,8 +184,8 @@ public class TransientSessionImpl implements TransientStoreSession {
 
         PersistentStoreTransaction txn = (PersistentStoreTransaction) getPersistentTransactionInternal();
         if (!txn.isReadonly()) {
-            managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
-            changes = new QueueDecorator<MyRunnable>();
+            managedEntities.clear();
+            changes.clear();
         }
         closePersistentSession();
         this.store.getPersistentStore().beginReadonlyTransaction();
@@ -208,7 +208,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             log.trace("Nothing to flush.");
         } else {
             flushChanges();
-            changes = new QueueDecorator<MyRunnable>();
+            changes.clear();
 
             for (TransientEntity r : changesTracker.getRemovedEntities()) {
                 managedEntities.remove(r.getId());
@@ -762,6 +762,8 @@ public class TransientSessionImpl implements TransientStoreSession {
                         if (txn.flush()) {
                             return;
                         }
+                        // some of manages entities could be deleted
+                        managedEntities.clear();
                         // replay changes
                         replayChanges();
                         //recheck constraints against new database root
@@ -1394,16 +1396,20 @@ public class TransientSessionImpl implements TransientStoreSession {
         addChangeAndRun(new MyRunnable() {
             @Override
             public boolean run() {
-                final TransientEntity oldOne = (TransientEntity) many.getLink(manyToOneLinkName);
-                if (oldOne != null) {
-                    deleteLinkInternal(oldOne, oneToManyLinkName, many);
-                    if (one == null) {
-                        deleteLinkInternal(many, manyToOneLinkName, oldOne);
+                final TransientEntity m = newLocalCopySafe(many);
+                if (m != null) {
+                    final TransientEntity o = newLocalCopySafe(one);
+                    final TransientEntity oldOne = (TransientEntity) m.getLink(manyToOneLinkName);
+                    if (oldOne != null) {
+                        deleteLinkInternal(oldOne, oneToManyLinkName, m);
+                        if (o == null) {
+                            deleteLinkInternal(m, manyToOneLinkName, oldOne);
+                        }
                     }
-                }
-                if (one != null) {
-                    addLinkInternal(one, oneToManyLinkName, many);
-                    setLinkInternal(many, manyToOneLinkName, one);
+                    if (o != null) {
+                        addLinkInternal(o, oneToManyLinkName, m);
+                        setLinkInternal(m, manyToOneLinkName, o);
+                    }
                 }
                 return true;
             }
@@ -1636,6 +1642,18 @@ public class TransientSessionImpl implements TransientStoreSession {
         throw new UnsupportedOperationException();
     }
 
+    @Nullable
+    private TransientEntity newLocalCopySafe(@Nullable final TransientEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+        try {
+            return newLocalCopy(entity);
+        } catch (EntityRemovedInDatabaseException ignore) {
+            return null;
+        }
+    }
+
     MyRunnable addChange(@NotNull final MyRunnable change) {
         if (allowRunnables) {
             changes.offer(change);
@@ -1655,7 +1673,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    public static interface MyRunnable {
+    public interface MyRunnable {
         boolean run();
     }
 
