@@ -472,6 +472,8 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     private void replayChanges() {
         initChangesTracker(false);
+        // some of manages entities could be deleted
+        managedEntities.clear();
 
         for (MyRunnable c : changes) {
             c.run();
@@ -762,8 +764,6 @@ public class TransientSessionImpl implements TransientStoreSession {
                         if (txn.flush()) {
                             return;
                         }
-                        // some of manages entities could be deleted
-                        managedEntities.clear();
                         // replay changes
                         replayChanges();
                         //recheck constraints against new database root
@@ -1124,6 +1124,7 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     private boolean saveEntityInternal(@NotNull final PersistentEntity persistentEntity, @NotNull final TransientEntityImpl e) {
         getPersistentTransaction().saveEntity(persistentEntity);
+        managedEntities.put(e.getId(), e);
         changesTracker.entityAdded(e);
         return true;
     }
