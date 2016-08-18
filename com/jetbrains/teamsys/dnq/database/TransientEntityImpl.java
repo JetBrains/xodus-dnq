@@ -103,7 +103,7 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public EntityId getId() {
-        return getPersistentEntity().getId();
+        return entity instanceof PersistentEntity ? ((PersistentEntity) entity).getId() : ((EntityId) entity);
     }
 
     @NotNull
