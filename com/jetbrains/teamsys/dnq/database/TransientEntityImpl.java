@@ -47,7 +47,7 @@ class TransientEntityImpl implements TransientEntity {
     @NotNull
     public PersistentEntity getPersistentEntity() {
         return entity instanceof PersistentEntity ? (PersistentEntity) entity :
-                ((PersistentEntityStoreImpl) store.getPersistentStore()).getEntity((EntityId) entity);
+                ((PersistentEntityStoreImpl) getPersistentStore()).getEntity((EntityId) entity);
     }
 
     protected void setPersistentEntity(@NotNull PersistentEntity persistentEntity) {
@@ -108,7 +108,7 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public String toIdString() {
-        return getPersistentEntity().toIdString();
+        return getId().toString();
     }
 
     @NotNull
@@ -146,11 +146,12 @@ class TransientEntityImpl implements TransientEntity {
     public boolean equals(Object obj) {
         if (obj == this) return true;
         if (!(obj instanceof TransientEntity)) return false;
-        return getPersistentEntity().equals(((TransientEntity) obj).getPersistentEntity());
+        final TransientEntity entity = (TransientEntity) obj;
+        return getId().equals(entity.getId()) && store == entity.getStore();
     }
 
     public int hashCode() {
-        return getPersistentEntity().hashCode();
+        return getId().hashCode() + getPersistentStore().hashCode();
     }
 
     @Nullable
@@ -535,5 +536,9 @@ class TransientEntityImpl implements TransientEntity {
     @Override
     public Entity getParent() {
         return getAndCheckThreadStoreSession().getParent(this);
+    }
+
+    private EntityStore getPersistentStore() {
+        return store.getPersistentStore();
     }
 }
