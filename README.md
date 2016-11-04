@@ -1,2 +1,4 @@
 # xodus-dnq
-Data definition and queries Kotlin DSL over Xodus
+Kotlin library for the data definition and query over Xodus
+
+
