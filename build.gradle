@@ -41,13 +41,17 @@ dependencies {
 
     compile "com.jetbrains.webr-dnq:exodus:$mps_dnq_version"
     compile "com.jetbrains.webr-dnq:exodus-openAPI:$mps_dnq_version"
+    compile "com.jetbrains.webr-dnq:exodus-persistentEntityStore:$mps_dnq_version"
     compile "com.jetbrains.webr-dnq:exodus-query:$mps_dnq_version"
+    compile "com.jetbrains.webr-dnq:exodus-utils:$mps_dnq_version"
     compile "com.jetbrains.webr-dnq:jetbrains.exodus.entitystore.transient:$mps_dnq_version"
     compile "com.jetbrains.webr-dnq:jetbrains.teamsys.dnq.runtime:$mps_dnq_version"
     compile "com.jetbrains.webr-dnq:jetbrains.teamsys.dnq.openAPI:$mps_dnq_version"
     compile "com.jetbrains.webr-dnq:exodus-persistentEntityStore:$mps_dnq_version"
     compile "org.reflections:reflections:0.9.10"
     compile "javax.servlet:javax.servlet-api:3.0.1"
+
+    runtime "org.slf4j:jcl-over-slf4j:1.7.7"
 
     testCompile 'junit:junit:4.12'
     testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'

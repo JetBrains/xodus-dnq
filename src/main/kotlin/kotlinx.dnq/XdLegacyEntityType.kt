@@ -2,11 +2,12 @@ package kotlinx.dnq
 
 import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
 import jetbrains.teamsys.dnq.runtime.util.DnqUtils
+import kotlinx.dnq.store.container.LegacyStoreContainer
 import kotlinx.dnq.util.inferTypeParameters
 import java.lang.reflect.ParameterizedType
 
 
-abstract class XdLegacyEntityType<P : BasePersistentClassImpl, T : XdEntity>(legacyClass: Class<P>? = null) : XdEntityType<T>() {
+abstract class XdLegacyEntityType<P : BasePersistentClassImpl, T : XdEntity>(legacyClass: Class<P>? = null) : XdEntityType<T>(LegacyStoreContainer()) {
 
     val legacyClass: Class<P> = legacyClass ?: run {
         val pArgument = javaClass.inferTypeParameters(XdLegacyEntityType::class.java)[0]
