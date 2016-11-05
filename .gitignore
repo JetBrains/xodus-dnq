@@ -6,8 +6,6 @@ build/
 # Ignore Gradle GUI config
 gradle-app.setting
 
-# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
-!gradle-wrapper.jar
 ### JetBrains template
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio
 
@@ -63,7 +61,6 @@ crashlytics-build.properties
 .mtj.tmp/
 
 # Package Files #
-*.jar
 *.war
 *.ear
 
