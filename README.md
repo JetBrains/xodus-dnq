@@ -1,6 +1,15 @@
 # xodus-dnq
 Kotlin library for the data definition and query over Xodus
 
+## Dependecies
+```groovy
+repositories {
+    maven { url 'http://repo.labs.intellij.net/webr-dnq' }
+}
+
+compile 'kotlinx.dnq:dnq:1.0.6'
+```
+
 ## Data Definition
 
 ### Persistent Class
