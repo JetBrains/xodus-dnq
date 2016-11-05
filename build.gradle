@@ -1,5 +1,5 @@
 group 'kotlinx.dnq'
-version '0.5'
+version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'SNAPSHOT-1.0'
 
 buildscript {
     ext.kotlin_version = '1.0.4'
@@ -13,14 +13,29 @@ buildscript {
 }
 
 apply plugin: 'java'
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
 apply plugin: 'kotlin'
 apply plugin: 'idea'
+apply plugin: 'maven'
+
 
 idea {
     project {
         jdkName = '1.7'
         vcs = 'Git'
     }
+    module {
+        downloadSources = true
+    }
+}
+
+artifacts {
+    archives jar
+    archives sourcesJar
 }
 
 sourceCompatibility = 1.7
@@ -30,6 +45,17 @@ repositories {
 
     maven { url 'http://maven.labs.intellij.net/webr-dnq' }
     maven { url "https://jitpack.io" }
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: "http://maven.labs.intellij.net/webr-dnq")
+            pom.project {
+                url 'https://github.com/JetBrains/xodus-dnq'
+            }
+        }
+    }
 }
 
 dependencies {
