@@ -2,6 +2,9 @@
 Kotlin library for the data definition and query over Xodus
 
 ## Dependecies
+[TeamCity project](https://buildserver.labs.intellij.net/project.html?projectId=Ring_Tools_XodusDnq) to build and
+
+
 ```groovy
 repositories {
     maven { url 'http://repo.labs.intellij.net/webr-dnq' }
