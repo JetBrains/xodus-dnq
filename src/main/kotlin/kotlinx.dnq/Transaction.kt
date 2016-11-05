@@ -1,19 +1,9 @@
 package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.database.EntityIterableWrapper
-import com.jetbrains.teamsys.dnq.database.EntityOperations
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil
-import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
-import jetbrains.exodus.entitystore.iterate.SingleEntityIterable
-import jetbrains.exodus.query.QueryEngine
 import jetbrains.teamsys.dnq.runtime.txn._Txn
-import jetbrains.teamsys.dnq.runtime.util.DnqUtils
 
 
 fun <T> TransientEntityStore.transactional(readonly: Boolean = false, queryCancellingPolicy: QueryCancellingPolicy? = null, block: (TransientStoreSession) -> T): T {

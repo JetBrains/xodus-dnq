@@ -2,15 +2,14 @@ package kotlinx.dnq
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.query.eq
-import kotlinx.dnq.query.firstOrNull
-import kotlinx.dnq.query.query
+import kotlinx.dnq.link.OnDeletePolicy.CLEAR
+import kotlinx.dnq.query.XdMutableQuery
+import kotlinx.dnq.query.XdQuery
+import kotlinx.dnq.simple.min
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
 import org.junit.After
-import org.junit.Assert
 import org.junit.Before
-import org.junit.Test
 import java.io.File
 import java.io.IOException
 import java.nio.file.FileVisitResult
@@ -19,27 +18,58 @@ import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
 
-class UsageTest {
+abstract class DBTest {
+    lateinit var store: TransientEntityStoreImpl
+    lateinit var databaseHome: File
 
     class User(override val entity: Entity) : XdEntity() {
         companion object : XdNaturalEntityType<User>()
 
-        var login by xdRequiredStringProp(unique = true)
+        var login by xdRequiredStringProp(trimmed = true, unique = true)
+        var name by xdStringProp(dbName = "visibleName")
+        var age by xdIntProp() { this.min(0) }
+        var skill by xdRequiredIntProp()
+        var salary by xdLongProp()
+        var isGuest by xdBooleanProp()
+        var registered by xdDateTimeProp()
+
+        val groups by xdLink0_N(Group::users, onDelete = CLEAR, onTargetDelete = CLEAR)
     }
 
-    lateinit var store: TransientEntityStoreImpl
-    lateinit var databaseHome: File
+    abstract class Group(override val entity: Entity) : XdEntity() {
+        companion object : XdNaturalEntityType<Group>()
+
+        var name by xdRequiredStringProp(unique = true)
+        val nestedGroups by xdLink0_N(NestedGroup::parentGroup)
+        val users: XdMutableQuery<User> by xdLink0_N(User::groups, onDelete = CLEAR, onTargetDelete = CLEAR)
+    }
+
+    class NestedGroup(entity: Entity) : Group(entity) {
+        companion object : XdNaturalEntityType<NestedGroup>()
+
+        val parentGroup: Group by xdLink1(Group::nestedGroups)
+    }
+
+    class RootGroup(entity: Entity) : Group(entity) {
+        companion object : XdNaturalEntityType<RootGroup>()
+    }
+
 
     @Before
     fun setup() {
-        XdModel.registerNode(User)
-
+        registerEntityTypes()
         databaseHome = File(System.getProperty("java.io.tmpdir"), "kotlinx.dnq.test")
         store = StaticStoreContainer.init(databaseHome, "testDB") {
             envCloseForcedly = true
         }
 
         initMetaData(XdModel.hierarchy, store)
+    }
+
+    open fun registerEntityTypes() {
+        XdModel.registerNode(User)
+        XdModel.registerNode(RootGroup)
+        XdModel.registerNode(NestedGroup)
     }
 
     @After
@@ -70,22 +100,6 @@ class UsageTest {
                     return FileVisitResult.CONTINUE
                 }
             })
-        }
-    }
-
-
-    @Test
-    fun create() {
-        val login = "mazine"
-
-        store.transactional { txn ->
-            User.new {
-                this.login = login
-            }
-        }
-
-        store.transactional {
-            Assert.assertNotNull(User.query(User::login eq login).firstOrNull())
         }
     }
 }

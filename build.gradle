@@ -55,4 +55,5 @@ dependencies {
 
     testCompile 'junit:junit:4.12'
     testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
+    testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }
