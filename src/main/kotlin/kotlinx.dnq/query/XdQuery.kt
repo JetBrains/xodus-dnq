@@ -259,7 +259,9 @@ fun <T : XdEntity> XdQuery<T>.first(node: NodeBase): T {
 fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
     val it = queryEngine.toEntityIterable(entityIterable)
     return if (it is EntityIterable) {
-        entityType.entityStore.threadSession.newEntity(it.source.first())
+        it.source.first?.let {
+            entityType.entityStore.threadSession.newEntity(it)
+        }
     } else {
         it.firstOrNull()
     }?.let {
