@@ -2,8 +2,8 @@ package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
+import jetbrains.exodus.entitystore.metadata.PropertyType
 import kotlinx.dnq.XdEntity
-import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 class XdProperty<in R : XdEntity, T : Comparable<*>>(
@@ -12,7 +12,11 @@ class XdProperty<in R : XdEntity, T : Comparable<*>>(
         constraints: List<PropertyConstraint<T?>>,
         requirement: XdPropertyRequirement,
         val default: (R, KProperty<*>) -> T) :
-        XdConstrainedProperty<R, T>(dbPropertyName, constraints, requirement) {
+        XdConstrainedProperty<R, T>(
+                dbPropertyName,
+                constraints,
+                requirement,
+                PropertyType.PRIMITIVE) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
         return PrimitiveAssociationSemantics.get(thisRef.entity, dbPropertyName ?: property.name, clazz, null) ?:

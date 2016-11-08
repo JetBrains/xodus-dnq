@@ -76,6 +76,19 @@ class PropertiesTest : DBTest() {
     }
 
     @Test
+    fun required_text() {
+        val e = assertFailsWith<ConstraintsValidationException> {
+            store.transactional {
+                Image.new()
+            }
+        }
+        assertEquals(1, e.causes.count())
+        assertTrue {
+            e.causes.any { it is NullPropertyException && it.propertyName == Image::content.name }
+        }
+    }
+
+    @Test
     fun unique() {
         val e = assertFailsWith<ConstraintsValidationException> {
             store.transactional {

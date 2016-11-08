@@ -2,6 +2,7 @@ package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
+import jetbrains.exodus.entitystore.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlin.reflect.KProperty
 
@@ -9,7 +10,11 @@ class XdNullableProperty<in R : XdEntity, T : Comparable<*>>(
         val clazz: Class<T>,
         dbPropertyName: String?,
         constraints: List<PropertyConstraint<T?>>) :
-        XdConstrainedProperty<R, T?>(dbPropertyName, constraints, XdPropertyRequirement.OPTIONAL) {
+        XdConstrainedProperty<R, T?>(
+                dbPropertyName,
+                constraints,
+                XdPropertyRequirement.OPTIONAL,
+                PropertyType.PRIMITIVE) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
         // Used PrimitiveAssociationSemantics.get(Entity, String, Any) instead of get(Entity, String, Class, Any)

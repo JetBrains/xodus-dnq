@@ -1,12 +1,18 @@
 package kotlinx.dnq.simple
 
+import jetbrains.exodus.entitystore.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlin.reflect.KProperty
 
 class XdWrappedProperty<in R : XdEntity, B, T>(
         val wrapped: XdConstrainedProperty<R, B>,
         val wrap: (B) -> T,
-        val unwrap: (T) -> B) : XdConstrainedProperty<R, T>(null, emptyList(), XdPropertyRequirement.OPTIONAL) {
+        val unwrap: (T) -> B) :
+        XdConstrainedProperty<R, T>(
+                null,
+                emptyList(),
+                XdPropertyRequirement.OPTIONAL,
+                PropertyType.PRIMITIVE) {
 
     override val dbPropertyName: String?
         get() = wrapped.dbPropertyName

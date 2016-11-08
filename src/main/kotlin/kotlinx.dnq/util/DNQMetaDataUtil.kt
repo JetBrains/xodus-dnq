@@ -42,7 +42,9 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
         this.propertiesMetaData = node.simpleProperties.values.map {
             SimplePropertyMetaDataImpl(
                     it.dbPropertyName,
-                    (it.property.returnType.javaType as Class<*>).simpleName)
+                    (it.property.returnType.javaType as Class<*>).simpleName).apply {
+                this.type = it.delegate.propertyType
+            }
         }
 
         requiredProperties = node.simpleProperties.values.asSequence().filter {

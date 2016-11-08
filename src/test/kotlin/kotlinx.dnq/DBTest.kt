@@ -54,6 +54,12 @@ abstract class DBTest {
         companion object : XdNaturalEntityType<RootGroup>()
     }
 
+    class Image(override val entity: Entity) : XdEntity() {
+        companion object : XdNaturalEntityType<Image>()
+
+        var content by xdRequiredBlobStringProp()
+    }
+
 
     @Before
     fun setup() {
@@ -70,6 +76,7 @@ abstract class DBTest {
         XdModel.registerNode(User)
         XdModel.registerNode(RootGroup)
         XdModel.registerNode(NestedGroup)
+        XdModel.registerNode(Image)
     }
 
     @After
