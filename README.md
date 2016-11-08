@@ -18,6 +18,7 @@ compile 'kotlinx.dnq:dnq:1.0.6'
 ### Persistent Class
 
 Each persistent class should 
+
 1. Inherit from class `XdEntity`.
 2. Have constructor with a single argument of type `jetbrains.exodus.entitystore.Entity`
 3. Have companion object of type `XdEntityType`
