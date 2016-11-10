@@ -1,9 +1,7 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
-import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.entitystore.metadata.*;
+import jetbrains.exodus.entitystore.Entity;
+import jetbrains.exodus.query.metadata.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
@@ -23,7 +21,7 @@ public class ValidationUtil {
     private static final Log log = LogFactory.getLog(ConstraintsUtil.class);
 
 
-    public static void validateEntity(@NotNull Entity entity,@NotNull ModelMetaData modelMetaData) {
+    public static void validateEntity(@NotNull Entity entity, @NotNull ModelMetaData modelMetaData) {
 
         // 1. validate associations
         validateAssociations(entity, modelMetaData);
@@ -87,10 +85,10 @@ public class ValidationUtil {
         Set<String> required = emd.getRequiredProperties();
         Set<String> requiredIf = EntityMetaDataUtils.getRequiredIfProperties(emd, entity);
 
-        for (String property: required) {
+        for (String property : required) {
             checkProperty(entity, emd, property);
         }
-        for (String property: requiredIf) {
+        for (String property : requiredIf) {
             checkProperty(entity, emd, property);
         }
     }
@@ -132,6 +130,7 @@ public class ValidationUtil {
                 throw new IllegalArgumentException("Unknown property type: " + name);
         }
     }
+
     private static boolean isEmptyPrimitiveProperty(Comparable propertyValue) {
         return propertyValue == null || "".equals(propertyValue);
     }

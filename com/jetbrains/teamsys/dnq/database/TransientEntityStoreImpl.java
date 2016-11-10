@@ -8,7 +8,7 @@ import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.database.TransientStoreSessionListener;
 import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.entitystore.metadata.ModelMetaData;
+import jetbrains.exodus.query.metadata.ModelMetaData;
 import jetbrains.exodus.env.EnvironmentConfig;
 import jetbrains.exodus.query.QueryEngine;
 import org.apache.commons.logging.Log;
@@ -113,6 +113,12 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
 
     @NotNull
     @Override
+    public StoreTransaction beginExclusiveTransaction() {
+        throw new UnsupportedOperationException();
+    }
+
+    @NotNull
+    @Override
     public TransientStoreSession beginReadonlyTransaction() {
         return registerStoreSession(new TransientSessionImpl(this, true));
     }
@@ -202,7 +208,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
 
     public boolean entityTypeExists(@NotNull final String entityTypeName) {
         try {
-            return ((PersistentEntityStore) persistentStore).getEntityTypeId(entityTypeName, false) >= 0;
+            return ((PersistentEntityStore) persistentStore).getEntityTypeId(entityTypeName) >= 0;
         } catch (Exception e) {
             // ignore
         }

@@ -1,6 +1,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.entitystore.metadata.PropertyMetaData;
+import jetbrains.exodus.query.metadata.PropertyMetaData;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
 

@@ -6,7 +6,7 @@ import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import jetbrains.exodus.entitystore.metadata.EntityMetaData;
+import jetbrains.exodus.query.metadata.EntityMetaData;
 import jetbrains.exodus.query.StaticTypedEntityIterable;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -86,7 +86,7 @@ public class TransientStoreUtil {
      */
     public static boolean isRemoved(@NotNull Entity entity) {
         if (entity instanceof PersistentEntity) {
-            return ((PersistentEntityStore) entity.getStore()).getLastVersion(entity.getId()) < 0;
+            return ((PersistentEntityStoreImpl) entity.getStore()).getLastVersion(entity.getId()) < 0;
         }
         return ((TransientEntityImpl) entity).getAndCheckThreadStoreSession().isRemoved(entity);
     }

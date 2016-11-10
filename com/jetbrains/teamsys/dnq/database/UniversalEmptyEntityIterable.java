@@ -68,7 +68,7 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
 
     @NotNull
     @Override
-    public EntityIterable getSource() {
+    public EntityIterableBase getSource() {
         return EntityIterableBase.EMPTY;
     }
 

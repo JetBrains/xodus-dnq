@@ -12,7 +12,7 @@ import jetbrains.exodus.database.exceptions.CardinalityViolationException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.exodus.database.exceptions.NullPropertyException;
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
-import jetbrains.exodus.entitystore.metadata.*;
+import jetbrains.exodus.query.metadata.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;

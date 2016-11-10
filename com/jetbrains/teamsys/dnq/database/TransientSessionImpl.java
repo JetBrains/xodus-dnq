@@ -10,11 +10,12 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.*;
 import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.entitystore.metadata.EntityMetaData;
-import jetbrains.exodus.entitystore.metadata.Index;
-import jetbrains.exodus.entitystore.metadata.IndexField;
-import jetbrains.exodus.entitystore.metadata.ModelMetaData;
 import jetbrains.exodus.env.ReadonlyTransactionException;
+import jetbrains.exodus.query.UniqueKeyIndicesEngine;
+import jetbrains.exodus.query.metadata.EntityMetaData;
+import jetbrains.exodus.query.metadata.Index;
+import jetbrains.exodus.query.metadata.IndexField;
+import jetbrains.exodus.query.metadata.ModelMetaData;
 import jetbrains.exodus.util.ByteArraySizedInputStream;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -365,7 +366,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     @NotNull
     public EntityIterable findLinks(@NotNull String entityType, @NotNull EntityIterable entities, @NotNull String linkName) {
         assertOpen("findLinks");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findLinks(entityType, entities.getSource(), linkName));
+        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findLinks(entityType, entities, linkName));
     }
 
     @NotNull
@@ -399,7 +400,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                                final boolean ascending) {
         assertOpen("sort");
         return new PersistentEntityIterableWrapper(store,
-                getPersistentTransactionInternal().sort(entityType, propertyName, rightOrder.getSource(), ascending));
+                getPersistentTransactionInternal().sort(entityType, propertyName, rightOrder, ascending));
     }
 
     @NotNull
@@ -410,7 +411,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                                     final @NotNull EntityIterable rightOrder) {
         assertOpen("sortLinks");
         return new PersistentEntityIterableWrapper(store,
-                getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource()));
+                getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder));
     }
 
     @NotNull
@@ -423,7 +424,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                                     @NotNull final String oppositeLinkName) {
         assertOpen("sortLinks");
         return new PersistentEntityIterableWrapper(store,
-                getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder.getSource(), oppositeEntityType, oppositeLinkName));
+                getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder, oppositeEntityType, oppositeLinkName));
     }
 
     @NotNull
@@ -802,7 +803,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    private PersistentStoreTransaction getSnapshot() {
+    public PersistentStoreTransaction getSnapshot() {
         return ((PersistentStoreTransaction) getPersistentTransaction()).getSnapshot();
     }
 
@@ -835,12 +836,15 @@ public class TransientSessionImpl implements TransientStoreSession {
                     }
                 }
 
+                final PersistentStoreTransaction persistentTransaction = (PersistentStoreTransaction) getPersistentTransaction();
+                final UniqueKeyIndicesEngine ukiEngine = store.getQueryEngine().getUniqueKeyIndicesEngine();
                 for (Index index : dirtyIndeces) {
                     try {
                         if (!e.isNew()) {
-                            getPersistentTransaction().deleteUniqueKey(index, getIndexFieldsOriginalValues(e, index));
+                            ukiEngine.deleteUniqueKey(persistentTransaction, index, getIndexFieldsOriginalValues(e, index));
                         }
-                        getPersistentTransaction().insertUniqueKey(index, getIndexFieldsFinalValues(e, index), e);
+                        ukiEngine.insertUniqueKey(persistentTransaction, index, getIndexFieldsFinalValues(e, index), e);
+
                     } catch (ExodusException ex) {
                         throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
                     }
@@ -868,9 +872,11 @@ public class TransientSessionImpl implements TransientStoreSession {
     void deleteIndexes(TransientEntity e, @Nullable Set<Pair<Index, List<Comparable>>> indexes) {
         if (indexes == null) return;
 
+        final PersistentStoreTransaction persistentTransaction = (PersistentStoreTransaction) getPersistentTransaction();
+        final UniqueKeyIndicesEngine ukiEngine = store.getQueryEngine().getUniqueKeyIndicesEngine();
         for (Pair<Index, List<Comparable>> index : indexes) {
             try {
-                getPersistentTransaction().deleteUniqueKey(index.getFirst(), index.getSecond());
+                ukiEngine.deleteUniqueKey(persistentTransaction, index.getFirst(), index.getSecond());
             } catch (ExodusException ex) {
                 throw new ConstraintsValidationException(new UniqueIndexIntegrityException(e, index.getFirst(), ex));
             }
@@ -1623,19 +1629,6 @@ public class TransientSessionImpl implements TransientStoreSession {
     public boolean addChangeAndRun(MyRunnable change) {
         upgradeReadonlyTransactionIfNecessary();
         return addChange(change).run();
-    }
-
-    @Override
-    public void insertUniqueKey(@NotNull final Index index,
-                                @NotNull final List<Comparable> propValues,
-                                @NotNull final Entity entity) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void deleteUniqueKey(@NotNull final Index index,
-                                @NotNull final List<Comparable> propValues) {
-        throw new UnsupportedOperationException();
     }
 
     @Override
