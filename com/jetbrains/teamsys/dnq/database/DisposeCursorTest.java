@@ -9,6 +9,7 @@ import jetbrains.exodus.database.TransientStoreSession;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
 import jetbrains.mps.internal.collections.runtime.ListSequence;
+import jetbrains.teamsys.dnq.runtime.queries.QueryOperations;
 
 /**
  * Date: 14.12.2006
@@ -78,7 +79,8 @@ public class DisposeCursorTest extends AbstractEntityStoreAwareTestCase {
     TransientStoreSession session = store.beginSession();
     try {
 
-      Iterable<Entity> users = getTransientEntityStore().getThreadSession().find("User", "login", username).intersect(getTransientEntityStore().getThreadSession().find("User", "password", password));
+      Iterable<Entity> users = QueryOperations.intersect(
+              session.find("User", "login", username), session.find("User", "password", password));
       if(!(ListSequence.fromIterable(users).isEmpty())) {
         System.out.println("found");
       }
