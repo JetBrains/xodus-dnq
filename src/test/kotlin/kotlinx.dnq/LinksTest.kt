@@ -9,13 +9,13 @@ import kotlin.test.assertTrue
 class LinksTest : DBTest() {
 
     @Test
-    fun bidirectional() {
+    fun `bidirectional many to many`() {
         store.transactional {
             RootGroup.new {
                 name = "Root"
-                nestedGroups.add(NestedGroup.new { name = "A"})
-                nestedGroups.add(NestedGroup.new { name = "B"})
-                nestedGroups.add(NestedGroup.new { name = "C"})
+                nestedGroups.add(NestedGroup.new { name = "A" })
+                nestedGroups.add(NestedGroup.new { name = "B" })
+                nestedGroups.add(NestedGroup.new { name = "C" })
             }
         }
 
@@ -28,6 +28,40 @@ class LinksTest : DBTest() {
             root.nestedGroups.asSequence().forEach {
                 assertEquals(root, it.parentGroup)
             }
+        }
+    }
+
+    @Test
+    fun `bidirectional many to one`() {
+        val contact = store.transactional {
+            Contact.new {
+                this.email = "1@1.com"
+                this.user = User.new {
+                    login = "1"
+                    skill = 1
+                }
+            }
+        }
+
+        store.transactional {
+            assertEquals("1", contact.user.login)
+        }
+    }
+
+    @Test
+    fun `bidirectional one to many`() {
+        val user = store.transactional {
+            User.new {
+                login = "1"
+                skill = 1
+                contacts.add(Contact.new {
+                    this.email = "1@1.com"
+                })
+            }
+        }
+
+        store.transactional {
+            assertEquals("1@1.com", user.contacts.first().email)
         }
     }
 }

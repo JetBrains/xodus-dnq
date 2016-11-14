@@ -4,7 +4,7 @@ import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.query.XdMutableQuery
-import kotlinx.dnq.query.XdQuery
+import kotlinx.dnq.simple.email
 import kotlinx.dnq.simple.min
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
@@ -32,6 +32,7 @@ abstract class DBTest {
         var salary by xdLongProp()
         var isGuest by xdBooleanProp()
         var registered by xdDateTimeProp()
+        val contacts by xdLink0_N(Contact::user)
 
         val groups by xdLink0_N(Group::users, onDelete = CLEAR, onTargetDelete = CLEAR)
     }
@@ -60,6 +61,13 @@ abstract class DBTest {
         var content by xdRequiredBlobStringProp()
     }
 
+    class Contact(override val entity: Entity) : XdEntity() {
+        companion object : XdNaturalEntityType<Contact>()
+
+        var user: User by xdLink1(User::contacts)
+        var email by xdRequiredStringProp() { email() }
+    }
+
 
     @Before
     fun setup() {
@@ -77,6 +85,7 @@ abstract class DBTest {
         XdModel.registerNode(RootGroup)
         XdModel.registerNode(NestedGroup)
         XdModel.registerNode(Image)
+        XdModel.registerNode(Contact)
     }
 
     @After

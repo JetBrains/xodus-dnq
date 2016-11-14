@@ -28,7 +28,7 @@ class XdManyToOneOptionalLink<R : XdEntity, T : XdEntity>(
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
         if (value != null) {
-            UndirectedAssociationSemantics.setManyToOne(thisRef.entity, property.name, oppositeField.name, value.entity)
+            UndirectedAssociationSemantics.setManyToOne(value.entity, oppositeField.name, property.name, thisRef.entity)
         } else {
             val currentValue = getValue(thisRef, property)
             if (currentValue != null) {

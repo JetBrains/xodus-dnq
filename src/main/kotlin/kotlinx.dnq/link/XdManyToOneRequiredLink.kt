@@ -28,7 +28,7 @@ class XdManyToOneRequiredLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        UndirectedAssociationSemantics.setManyToOne(thisRef.entity, property.name, oppositeField.name, value.entity)
+        UndirectedAssociationSemantics.setManyToOne(value.entity, oppositeField.name, property.name, thisRef.entity)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
