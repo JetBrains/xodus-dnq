@@ -1,7 +1,7 @@
-package kotlinx.dnq
+package kotlinx.dnq.query
 
-import kotlinx.dnq.query.first
-import kotlinx.dnq.query.firstOrNull
+import kotlinx.dnq.DBTest
+import kotlinx.dnq.transactional
 import org.junit.Test
 import java.util.*
 import kotlin.test.assertFailsWith

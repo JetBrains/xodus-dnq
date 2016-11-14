@@ -300,3 +300,27 @@ fun <T : XdEntity> XdQuery<T>.none() = isEmpty
 fun <T : XdEntity> XdQuery<T>.none(node: NodeBase): Boolean {
     return query(node).asSequence().none()
 }
+
+fun <T : XdEntity> XdMutableQuery<T>.addAll(elements: Sequence<T>) {
+    elements.forEach { add(it) }
+}
+
+fun <T : XdEntity> XdMutableQuery<T>.addAll(elements: XdQuery<T>) {
+    addAll(elements.asSequence())
+}
+
+fun <T : XdEntity> XdMutableQuery<T>.addAll(elements: Iterable<T>) {
+    addAll(elements.asSequence())
+}
+
+fun <T : XdEntity> XdMutableQuery<T>.removeAll(elements: Sequence<T>) {
+    elements.forEach { remove(it) }
+}
+
+fun <T : XdEntity> XdMutableQuery<T>.removeAll(elements: XdQuery<T>) {
+    removeAll(elements.asSequence())
+}
+
+fun <T : XdEntity> XdMutableQuery<T>.removeAll(elements: Iterable<T>) {
+    removeAll(elements.asSequence())
+}
