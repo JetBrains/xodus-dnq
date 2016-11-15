@@ -57,51 +57,76 @@ class PersistentEntityIterableWrapper extends EntityIterableBase implements Enti
 
     @NotNull
     public EntityIterableHandle getHandleImpl() {
-        throwUnsupported();
         return wrappedIterable.getHandle();
     }
 
     @NotNull
     public EntityIterable intersect(@NotNull EntityIterable right) {
+        if (right instanceof EntityIterableBase) {
+            return wrappedIterable.intersect(((EntityIterableBase) right).getSource());
+        }
         return throwUnsupported();
     }
 
     @NotNull
     public EntityIterable intersectSavingOrder(@NotNull EntityIterable right) {
+        if (right instanceof EntityIterableBase) {
+            return wrappedIterable.intersectSavingOrder(((EntityIterableBase) right).getSource());
+        }
         return throwUnsupported();
     }
 
     @NotNull
     public EntityIterable union(@NotNull EntityIterable right) {
+        if (right instanceof EntityIterableBase) {
+            return wrappedIterable.union(((EntityIterableBase) right).getSource());
+        }
         return throwUnsupported();
     }
 
     @NotNull
     public EntityIterable minus(@NotNull EntityIterable right) {
+        if (right instanceof EntityIterableBase) {
+            return wrappedIterable.minus(((EntityIterableBase) right).getSource());
+        }
         return throwUnsupported();
     }
 
     @NotNull
     public EntityIterable concat(@NotNull EntityIterable right) {
+        if (right instanceof EntityIterableBase) {
+            return wrappedIterable.concat(((EntityIterableBase) right).getSource());
+        }
         return throwUnsupported();
+    }
+
+    @NotNull
+    @Override
+    public EntityIterable take(int number) {
+        return wrappedIterable.take(number);
+    }
+
+    @Override
+    public EntityIterable findLinks(@NotNull EntityIterable entities, @NotNull String linkName) {
+        return wrappedIterable.findLinks(entities, linkName);
     }
 
     @NotNull
     @Override
     public EntityIterable distinct() {
-        return throwUnsupported();
+        return wrappedIterable.distinct();
     }
 
     @NotNull
     @Override
     public EntityIterable selectDistinct(@NotNull String linkName) {
-        return throwUnsupported();
+        return wrappedIterable.selectDistinct(linkName);
     }
 
     @NotNull
     @Override
     public EntityIterable selectManyDistinct(@NotNull String linkName) {
-        return throwUnsupported();
+        return wrappedIterable.selectManyDistinct(linkName);
     }
 
     @Nullable
@@ -119,7 +144,7 @@ class PersistentEntityIterableWrapper extends EntityIterableBase implements Enti
     @NotNull
     @Override
     public EntityIterable reverse() {
-        return throwUnsupported();
+        return wrappedIterable.reverse();
     }
 
     public boolean isSortResult() {
