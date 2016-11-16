@@ -2,7 +2,7 @@ group 'kotlinx.dnq'
 version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'SNAPSHOT-1.0'
 
 buildscript {
-    ext.kotlin_version = '1.0.4'
+    ext.kotlin_version = '1.0.5'
     ext.mps_dnq_version = '2953'
     repositories {
         mavenCentral()
@@ -44,7 +44,6 @@ repositories {
     mavenCentral()
 
     maven { url 'http://maven.labs.intellij.net/webr-dnq' }
-    maven { url "https://jitpack.io" }
 }
 
 uploadArchives {
