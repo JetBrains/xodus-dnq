@@ -10,8 +10,9 @@ repositories {
     maven { url 'http://repo.labs.intellij.net/webr-dnq' }
 }
 
-compile 'kotlinx.dnq:dnq:1.0.6'
+compile 'kotlinx.dnq:dnq:${ext.version}'
 ```
+where `ext.version` is a version from https://github.com/JetBrains/xodus-dnq/releases
 
 ## Data Definition
 
