@@ -4,7 +4,7 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.query.metadata.EntityMetaData;
 import jetbrains.exodus.query.metadata.ModelMetaData;
 import org.apache.commons.logging.Log;
@@ -12,8 +12,6 @@ import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 
 // TODO: move this class to the associations semantics package
@@ -108,17 +106,10 @@ public class EntityOperations {
             log.warn("Slow method getElementOfMultiple() was called!");
         }
 
-        if (entities instanceof EntityIterable) {
-            final EntityIterator it = ((EntityIterable) entities).skip(i).iterator();
-            if (it.hasNext()) {
-                return it.next();
-            }
-        } else {
-            int j = 0;
-            for (Entity e : entities) {
-                if (i == j++) {
-                    return e;
-                }
+        int j = 0;
+        for (Entity e : entities) {
+            if (i == j++) {
+                return e;
             }
         }
 
