@@ -213,9 +213,9 @@ fun <S : XdEntity, T : XdEntity> XdQuery<S>.flatMapDistinct(dbFieldName: String,
     return queryEngine.selectManyDistinct(entityIterable, dbFieldName).asQuery(targetEntityType)
 }
 
-inline fun <reified S : XdEntity, T : XdEntity> XdQuery<S>.flatMapDistinct(field: KProperty1<S, T>): XdQuery<T> {
+inline fun <S : XdEntity, reified T : XdEntity, Q: XdQuery<T>> XdQuery<S>.flatMapDistinct(field: KProperty1<S, Q>): XdQuery<T> {
     @Suppress("UNCHECKED_CAST")
-    return flatMapDistinct(field.getDBName(entityType), (field.returnType.javaType as Class<T>).entityType)
+    return flatMapDistinct(field.getDBName(entityType), T::class.java.entityType)
 }
 
 fun <T : XdEntity> XdQuery<T>.indexOf(entity: Entity?): Int {
