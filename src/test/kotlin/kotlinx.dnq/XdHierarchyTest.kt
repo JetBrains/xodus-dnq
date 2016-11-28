@@ -10,6 +10,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 @RunWith(Parameterized::class)
 class XdHierarchyTest(
@@ -58,12 +60,12 @@ class XdHierarchyTest(
 
     @Test
     fun `Entity type should be detected`() {
-        Assert.assertNotNull(XdModel[entityType])
+        assertNotNull(XdModel[entityType])
     }
 
     @Test
     fun `Parent should be as expected`() {
-        Assert.assertEquals(parent?.let { XdModel[parent] }, XdModel[entityType]?.parentNode)
+        assertEquals(parent?.let { XdModel[parent] }, XdModel[entityType]?.parentNode)
     }
 
     @Test

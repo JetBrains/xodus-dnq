@@ -1,13 +1,14 @@
 package kotlinx.dnq
 
 import kotlinx.dnq.util.getDelegateField
-import org.junit.Assert
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.memberProperties
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 @RunWith(Parameterized::class)
 class DelegateFieldTest(val clazz: KClass<Any>, val fieldsWithDelegates: List<Pair<KClass<*>, KProperty1<*, *>>>) {
@@ -47,8 +48,8 @@ class DelegateFieldTest(val clazz: KClass<Any>, val fieldsWithDelegates: List<Pa
         fieldsWithDelegates.forEach {
             @Suppress("UNCHECKED_CAST")
             val delegateField = clazz.java.getDelegateField(it.second as KProperty1<Any, *>)
-            Assert.assertNotNull(delegateField)
-            Assert.assertEquals(it.first.java, delegateField?.declaringClass)
+            assertNotNull(delegateField)
+            assertEquals(it.first.java, delegateField?.declaringClass)
         }
     }
 
@@ -58,7 +59,7 @@ class DelegateFieldTest(val clazz: KClass<Any>, val fieldsWithDelegates: List<Pa
             val expectedToHaveDelegate = fieldsWithDelegates.any { it.second.name == property.name }
             val actuallyHasDelegate = clazz.java.getDelegateField(property) != null
 
-            Assert.assertEquals("${property.name} is ${if (expectedToHaveDelegate) "" else "not"} expected to have delegate", expectedToHaveDelegate, actuallyHasDelegate)
+            assertEquals(expectedToHaveDelegate, actuallyHasDelegate, "${property.name} is ${if (expectedToHaveDelegate) "" else "not"} expected to have delegate")
         }
     }
 }

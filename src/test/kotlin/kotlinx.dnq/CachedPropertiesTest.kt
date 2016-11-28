@@ -2,11 +2,11 @@ package kotlinx.dnq
 
 import kotlinx.dnq.util.fromBitsArray
 import kotlinx.dnq.util.toBitsArray
-import org.hamcrest.core.IsEqual
 import org.junit.Assert
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import kotlin.test.assertEquals
 
 @RunWith(Parameterized::class)
 class CachedPropertiesTest(val size: Int, val int: Int, val array: List<Boolean>) {
@@ -14,7 +14,7 @@ class CachedPropertiesTest(val size: Int, val int: Int, val array: List<Boolean>
 
     @Test
     fun `toBitsArray should convert int to boolean array of expected size`() {
-        Assert.assertThat(int.toBitsArray(size).size, IsEqual(size))
+        assertEquals(size, int.toBitsArray(size).size)
     }
 
     @Test
@@ -27,7 +27,7 @@ class CachedPropertiesTest(val size: Int, val int: Int, val array: List<Boolean>
 
     @Test
     fun `fromBitsArray should convert flag array to bits correctly`() {
-        Assert.assertThat(array.toBooleanArray().fromBitsArray(), IsEqual(int.and(1.shl(size) - 1)))
+        assertEquals(int.and(1.shl(size) - 1), array.toBooleanArray().fromBitsArray())
     }
 
     companion object {

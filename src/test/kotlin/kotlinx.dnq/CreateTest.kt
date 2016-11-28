@@ -3,8 +3,8 @@ package kotlinx.dnq
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.firstOrNull
 import kotlinx.dnq.query.query
-import org.junit.Assert
 import org.junit.Test
+import kotlin.test.assertNotNull
 
 class CreateTest : DBTest() {
 
@@ -20,7 +20,7 @@ class CreateTest : DBTest() {
         }
 
         store.transactional {
-            Assert.assertNotNull(User.query(User::login eq login).firstOrNull())
+            assertNotNull(User.query(User::login eq login).firstOrNull())
         }
     }
 }
