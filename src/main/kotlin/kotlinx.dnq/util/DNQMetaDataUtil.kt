@@ -98,29 +98,27 @@ private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchy
                     targetTargetClearOnDelete = false)
         }
         AssociationEndType.UndirectedAssociationEnd -> {
-            if (entityTypeName < sourceEnd.delegate.oppositeEntityType.entityType) {
-                val targetEnd = getTargetEnd(hierarchy, sourceEnd.delegate)
-                if (targetEnd != null) {
-                    addLink(
-                            sourceEntityName = entityTypeName,
-                            targetEntityName = sourceEnd.delegate.oppositeEntityType.entityType,
-                            type = AssociationType.Undirected,
+            val targetEnd = getTargetEnd(hierarchy, sourceEnd.delegate)
+            val targetEntityType = sourceEnd.delegate.oppositeEntityType.entityType
+            if (targetEnd != null && (entityTypeName < targetEntityType || (entityTypeName == targetEntityType && sourceEnd.dbPropertyName <= targetEnd.dbPropertyName))) {
+                addLink(
+                        sourceEntityName = entityTypeName,
+                        targetEntityName = sourceEnd.delegate.oppositeEntityType.entityType,
+                        type = AssociationType.Undirected,
 
-                            sourceName = sourceEnd.dbPropertyName,
-                            sourceCardinality = sourceEnd.delegate.cardinality,
-                            sourceCascadeDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
-                            sourceClearOnDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
-                            sourceTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
-                            sourceTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
+                        sourceName = sourceEnd.dbPropertyName,
+                        sourceCardinality = sourceEnd.delegate.cardinality,
+                        sourceCascadeDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                        sourceClearOnDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                        sourceTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                        sourceTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
 
-                            targetName = targetEnd.dbPropertyName,
-                            targetCardinality = targetEnd.delegate.cardinality,
-                            targetCascadeDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
-                            targetClearOnDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
-                            targetTargetCascadeDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
-                            targetTargetClearOnDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR)
-                }
-
+                        targetName = targetEnd.dbPropertyName,
+                        targetCardinality = targetEnd.delegate.cardinality,
+                        targetCascadeDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                        targetClearOnDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                        targetTargetCascadeDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                        targetTargetClearOnDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR)
             }
         }
         AssociationEndType.ParentEnd -> {
