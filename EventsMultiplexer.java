@@ -232,6 +232,15 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     }
   }
 
+  public boolean hasEntityListener(TransientEntity entity) {
+    this.rwl.readLock().lock();
+    try {
+      return instanceToListeners.containsKey(new EventsMultiplexer.FullEntityId(entity.getStore(), entity.getId()));
+    } finally {
+      this.rwl.readLock().unlock();
+    }
+  }
+
   private String listenerToString(final EventsMultiplexer.FullEntityId id, Queue<IEntityListener> listeners) {
     final StringBuilder builder = new StringBuilder(40);
     builder.append("Unregistered entity to listener class: ");
