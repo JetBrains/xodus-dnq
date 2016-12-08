@@ -23,7 +23,10 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     naturalNodes.forEach {
         val (entityTypeName, node) = it
         modelMetaData.addEntityMetaData(entityTypeName, node)
-        entityStore.setCachedPersistentClassInstance(entityTypeName, CommonBasePersistentClass)
+        entityStore.setCachedPersistentClassInstance(
+                entityTypeName,
+                (node.entityType as XdNaturalEntityType).persistentClassInstance
+        )
     }
 
     naturalNodes.forEach {
