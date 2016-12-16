@@ -2,8 +2,7 @@ package kotlinx.dnq
 
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.query.XdQuery
-import kotlinx.dnq.query.XdQueryImpl
+import kotlinx.dnq.query.*
 import kotlinx.dnq.store.container.StoreContainer
 
 abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer) {
@@ -13,6 +12,17 @@ abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer
 
     fun all(): XdQuery<T> {
         return XdQueryImpl(entityStore.queryEngine.queryGetAll(entityType), this)
+    }
+
+    fun where(clause: T.() -> Unit): XdQuery<T> {
+        val query = XdQueryImpl(entityStore.queryEngine.queryGetAll(entityType), this)
+        var temp: XdQuery<T> = query
+        SearchingEntity(entityType, entityStore).inScope {
+            wrap(this).clause()
+        }.nodes.forEach {
+            temp = temp.query(it)
+        }
+        return temp
     }
 
     fun new(init: (T.() -> Unit)? = null): T {
