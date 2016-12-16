@@ -242,34 +242,29 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
 
 }
 
-@Suppress("UNCHECKED_CAST")
 infix fun <T : Comparable<T>> T?.less(value: T) {
     val searchingEntity = SearchingEntity.get()
     val returnType = value.javaClass.kotlin
     searchingEntity.nodes.add(PropertyRange(searchingEntity.currentProperty!!, returnType.minValue(), returnType.prev(value)))
 }
 
-@Suppress("UNCHECKED_CAST")
 infix fun <T : Comparable<T>> T?.greater(value: T) {
     val searchingEntity = SearchingEntity.get()
     val returnType = value.javaClass.kotlin
     searchingEntity.nodes.add(PropertyRange(searchingEntity.currentProperty!!, returnType.next(value), returnType.maxValue()))
 }
 
-@Suppress("UNCHECKED_CAST")
 infix fun <T : Comparable<T>> T?.between(value: kotlin.Pair<T, T>) {
     val searchingEntity = SearchingEntity.get()
     val returnType = value.first.javaClass.kotlin
     searchingEntity.nodes.add(PropertyRange(searchingEntity.currentProperty!!, returnType.prev(value.first), returnType.next(value.second)))
 }
 
-@Suppress("UNCHECKED_CAST")
 infix fun String?.startsWith(value: String?) {
     val searchingEntity = SearchingEntity.get()
     searchingEntity.nodes.add(PropertyStartsWith(searchingEntity.currentProperty!!, value ?: ""))
 }
 
-@Suppress("UNCHECKED_CAST")
 infix fun <T : Comparable<T>> T?.not(value: T) {
     val searchingEntity = SearchingEntity.get()
     searchingEntity.nodes.add(UnaryNot(PropertyEqual(searchingEntity.currentProperty!!, value)))
