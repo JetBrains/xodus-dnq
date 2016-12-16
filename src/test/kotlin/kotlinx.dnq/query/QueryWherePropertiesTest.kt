@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-class QueryWhereTest : DBTest() {
+class QueryWherePropertiesTest : DBTest() {
 
     @Test
     fun `firstOrNull should return null if nothing found`() {
@@ -17,7 +17,7 @@ class QueryWhereTest : DBTest() {
     }
 
     @Test
-    fun `firstOrNull should return entity if something is there`() {
+    fun `simple search should work`() {
         store.transactional {
             val user1 = User.new {
                 login = "test"
@@ -125,6 +125,60 @@ class QueryWhereTest : DBTest() {
             val sequence = users.asSequence()
             assertNotNull(sequence.first { it.entityId == user1.entityId })
             assertNotNull(sequence.first { it.entityId == user3.entityId })
+        }
+    }
+
+    @Test
+    fun `should apply multiple causes`() {
+        store.transactional {
+            val user1 = User.new {
+                login = "test1"
+                name = "test"
+                skill = 1
+            }
+            User.new {
+                login = "test2"
+                name = "test"
+                skill = 2
+            }
+            User.new {
+                login = "test3"
+                name = "test"
+                skill = 2
+            }
+
+            val users = User.where {
+                name = "test"
+                skill not 2
+            }
+            assertEquals(1, users.size())
+            assertEquals(user1, users.first())
+        }
+    }
+
+    @Test
+    fun `should search by between`() {
+        store.transactional {
+            val user1 = User.new {
+                login = "test1"
+                skill = 1
+            }
+            val user2 = User.new {
+                login = "test2"
+                skill = 2
+            }
+            User.new {
+                login = "test3"
+                skill = 7
+            }
+
+            val users = User.where {
+                skill between (1 to 3)
+            }
+            assertEquals(2, users.size())
+            val sequence = users.asSequence()
+            assertNotNull(sequence.first { it.entityId == user1.entityId })
+            assertNotNull(sequence.first { it.entityId == user2.entityId })
         }
     }
 

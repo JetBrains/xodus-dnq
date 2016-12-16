@@ -16,7 +16,9 @@ import java.io.InputStream
 class SearchingEntity(private val _type: String, private val _entityStore: TransientEntityStore) : TransientEntity {
 
     companion object {
-        val current: ThreadLocal<SearchingEntity> = ThreadLocal()
+        internal val current: ThreadLocal<SearchingEntity> = ThreadLocal()
+
+        fun get(): SearchingEntity = current.get()
     }
 
     var currentProperty: String? = null
@@ -225,7 +227,7 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
     }
 
     override fun setManyToOne(manyToOneLinkName: String, oneToManyLinkName: String, one: Entity?) {
-        throw unsupported()
+        nodes.add(LinkEqual(manyToOneLinkName, one))
     }
 
     override fun setToOne(linkName: String, target: Entity?) {
@@ -241,22 +243,35 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
 }
 
 @Suppress("UNCHECKED_CAST")
-infix fun <T : Comparable<T>> Comparable<T>?.less(value: T) {
-    val searchingEntity = SearchingEntity.current.get()
+infix fun <T : Comparable<T>> T?.less(value: T) {
+    val searchingEntity = SearchingEntity.get()
     val returnType = value.javaClass.kotlin
     searchingEntity.nodes.add(PropertyRange(searchingEntity.currentProperty!!, returnType.minValue(), returnType.prev(value)))
 }
 
 @Suppress("UNCHECKED_CAST")
-infix fun <T : Comparable<T>> Comparable<T>?.greater(value: T) {
-    val searchingEntity = SearchingEntity.current.get()
+infix fun <T : Comparable<T>> T?.greater(value: T) {
+    val searchingEntity = SearchingEntity.get()
     val returnType = value.javaClass.kotlin
     searchingEntity.nodes.add(PropertyRange(searchingEntity.currentProperty!!, returnType.next(value), returnType.maxValue()))
 }
 
 @Suppress("UNCHECKED_CAST")
-infix fun <T : Comparable<T>> Comparable<T>?.not(value: T) {
-    val searchingEntity = SearchingEntity.current.get()
+infix fun <T : Comparable<T>> T?.between(value: kotlin.Pair<T, T>) {
+    val searchingEntity = SearchingEntity.get()
+    val returnType = value.first.javaClass.kotlin
+    searchingEntity.nodes.add(PropertyRange(searchingEntity.currentProperty!!, returnType.prev(value.first), returnType.next(value.second)))
+}
+
+@Suppress("UNCHECKED_CAST")
+infix fun String?.startsWith(value: String?) {
+    val searchingEntity = SearchingEntity.get()
+    searchingEntity.nodes.add(PropertyStartsWith(searchingEntity.currentProperty!!, value ?: ""))
+}
+
+@Suppress("UNCHECKED_CAST")
+infix fun <T : Comparable<T>> T?.not(value: T) {
+    val searchingEntity = SearchingEntity.get()
     searchingEntity.nodes.add(UnaryNot(PropertyEqual(searchingEntity.currentProperty!!, value)))
 }
 
