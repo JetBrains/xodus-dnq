@@ -238,7 +238,7 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
         throw unsupported()
     }
 
-    private fun unsupported(): Exception = throw UnsupportedOperationException("not implemented")
+    private fun unsupported(): Exception = UnsupportedOperationException("not implemented")
 
 }
 
@@ -269,7 +269,6 @@ infix fun <T : Comparable<T>> T?.not(value: T) {
     val searchingEntity = SearchingEntity.get()
     searchingEntity.nodes.add(UnaryNot(PropertyEqual(searchingEntity.currentProperty!!, value)))
 }
-
 
 fun SearchingEntity.inScope(fn: SearchingEntity.() -> Unit): SearchingEntity {
     SearchingEntity.current.set(this)
