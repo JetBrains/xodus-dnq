@@ -15,8 +15,7 @@ abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer
     }
 
     fun where(clause: T.() -> Unit): XdQuery<T> {
-        val query = XdQueryImpl(entityStore.queryEngine.queryGetAll(entityType), this)
-        var temp: XdQuery<T> = query
+        var temp = all()
         SearchingEntity(entityType, entityStore).inScope {
             wrap(this).clause()
         }.nodes.forEach {
