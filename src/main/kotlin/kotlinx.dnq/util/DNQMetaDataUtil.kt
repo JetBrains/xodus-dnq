@@ -1,17 +1,119 @@
 package kotlinx.dnq.util
 
 import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
+import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import javassist.util.proxy.MethodHandler
+import javassist.util.proxy.ProxyFactory
+import javassist.util.proxy.ProxyObject
+import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.metadata.*
-import kotlinx.dnq.XdNaturalEntityType
+import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.simple.RequireIfConstraint
+import kotlinx.dnq.simple.XdConstrainedProperty
 import kotlinx.dnq.simple.XdPropertyRequirement
+import kotlinx.dnq.simple.XdWrappedProperty
+import java.lang.reflect.Method
+import java.util.*
+import kotlin.reflect.companionObjectInstance
+import kotlin.reflect.jvm.javaGetter
 import kotlin.reflect.jvm.javaType
 
-object CommonBasePersistentClass : BasePersistentClassImpl() {
+open class CommonBasePersistentClass : BasePersistentClassImpl() {
     override fun run() = Unit
+}
+
+private class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEntityType<*>) : MethodHandler {
+    val xdEntityClass = xdEntityType.enclosingEntityClass
+    val requireIfConstraints = LinkedHashMap<String, MutableCollection<RequireIfConstraint<*, *>>>()
+
+    init {
+        val propertyConstraintRegistry = getPropertyConstraintRegistry(self)
+
+        val naturalProperties = getEntityProperties(xdEntityType).filter {
+            isNaturalEntity(getPropertyDeclaringClass(it))
+        }
+        for (property in naturalProperties) {
+            ArrayList<PropertyConstraint<*>>().run {
+                for (constraint in getPropertyConstraints(property.delegate)) {
+                    if (constraint is RequireIfConstraint<*, *>) {
+                        requireIfConstraints.getOrPut(property.dbPropertyName) {
+                            ArrayList<RequireIfConstraint<*, *>>()
+                        } += constraint
+                    } else {
+                        this += constraint
+                    }
+                }
+
+                if (isNotEmpty()) {
+                    propertyConstraintRegistry[property.dbPropertyName] = this
+                }
+            }
+        }
+    }
+
+    override fun invoke(self: Any, thisMethod: Method, proceed: Method, args: Array<out Any>): Any? {
+        if (thisMethod.parameterTypes.isNotEmpty() && thisMethod.parameterTypes.last() == Entity::class.java) {
+            if (isPropertyRequiredCall(thisMethod, args)) {
+                return isPropertyRequired(self, proceed, args)
+            }
+            findNaturalMethod(thisMethod)?.let {
+                if (isNaturalEntity(it.declaringClass)) {
+                    return invokeNaturalMethod(it, args)
+                }
+            }
+        }
+        return proceed.invoke(self, *args)
+    }
+
+    private fun getEntityProperties(xdEntityType: XdNaturalEntityType<*>) = XdModel[xdEntityType]!!.getAllProperties()
+
+    private fun getPropertyDeclaringClass(property: XdHierarchyNode.SimpleProperty) = property.property.javaGetter!!.declaringClass
+
+    private fun isNaturalEntity(entityClass: Class<*>) = entityClass.kotlin.companionObjectInstance is XdNaturalEntityType<*>
+
+    private fun getPropertyConstraintRegistry(self: Any): MutableMap<String, Iterable<PropertyConstraint<*>>> {
+        val propertyConstraintsField = BasePersistentClassImpl::class.java.getDeclaredField("propertyConstraints")
+        propertyConstraintsField.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        var propertyConstraints = propertyConstraintsField.get(self) as MutableMap<String, Iterable<PropertyConstraint<*>>>?
+        if (propertyConstraints == null) {
+            propertyConstraints = LinkedHashMap<String, Iterable<PropertyConstraint<*>>>()
+            propertyConstraintsField.set(self, propertyConstraints)
+        }
+        return propertyConstraints
+    }
+
+    private fun isPropertyRequiredCall(method: Method, args: Array<out Any>) = method.name == BasePersistentClassImpl::isPropertyRequired.name && method.parameterTypes.size == 2 && args[0] is String
+
+    private fun isPropertyRequired(self: Any, method: Method, args: Array<out Any>): Boolean {
+        if (method.invoke(self, *args) as Boolean) {
+            return true
+        }
+        val xdEntity = (args.last() as Entity).wrapper
+        val propertyName = args[0] as String
+        return requireIfConstraints.getOrElse(propertyName) { emptyList<RequireIfConstraint<*, *>>() }.any {
+            @Suppress("UNCHECKED_CAST")
+            with(xdEntity, it.predicate as XdEntity.() -> Boolean)
+        }
+    }
+
+    private fun findNaturalMethod(method: Method): Method? {
+        val xdArgTypes = method.parameterTypes.let { Arrays.copyOf(it, it.size - 1) }
+        return try {
+            xdEntityClass.getMethod(method.name, *xdArgTypes)
+        } catch (e: NoSuchMethodException) {
+            null
+        }
+    }
+
+    private fun invokeNaturalMethod(xdMethod: Method, args: Array<out Any>): Any {
+        val xdEntity = (args.last() as Entity).wrapper
+        val xdArgs = Arrays.copyOf(args, args.size - 1)
+        return xdMethod.invoke(xdEntity, *xdArgs)
+    }
 }
 
 fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: TransientEntityStoreImpl) {
@@ -23,10 +125,7 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     naturalNodes.forEach {
         val (entityTypeName, node) = it
         modelMetaData.addEntityMetaData(entityTypeName, node)
-        entityStore.setCachedPersistentClassInstance(
-                entityTypeName,
-                (node.entityType as XdNaturalEntityType).persistentClassInstance
-        )
+        entityStore.setCachedPersistentClassInstance(entityTypeName, getPersistenceClassInstance(node))
     }
 
     naturalNodes.forEach {
@@ -36,6 +135,22 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
         }
     }
 }
+
+private fun getPersistenceClassInstance(node: XdHierarchyNode): BasePersistentClassImpl {
+    val persistentClass = findLegacyEntitySuperclass(node)?.legacyClass ?: CommonBasePersistentClass::class.java
+    return ProxyFactory().apply {
+        superclass = persistentClass
+        setFilter(::isNotFinalize)
+    }.create(emptyArray(), emptyArray()).apply {
+        this as ProxyObject
+        handler = PersistentClassMethodHandler(this, node.entityType as XdNaturalEntityType<*>)
+    } as BasePersistentClassImpl
+}
+
+private fun findLegacyEntitySuperclass(node: XdHierarchyNode): XdLegacyEntityType<*, *>? =
+        node.entityType.let { it as? XdLegacyEntityType<*, *> ?: node.parentNode?.let(::findLegacyEntitySuperclass) }
+
+private fun isNotFinalize(method: Method) = !method.parameterTypes.isEmpty() || method.name != "finalize"
 
 private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: XdHierarchyNode) {
     addEntityMetaData(EntityMetaDataImpl().apply {

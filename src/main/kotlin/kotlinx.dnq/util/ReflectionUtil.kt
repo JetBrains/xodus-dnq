@@ -36,7 +36,7 @@ fun <B, T : B> Class<T>.inferTypeParameters(baseClass: Class<B>): Array<Type> {
     return prevMapping.values.toTypedArray()
 }
 
-private val <T : XdEntity> XdEntityType<T>.enclosingEntityClass: Class<out T>
+internal val <T : XdEntity> XdEntityType<T>.enclosingEntityClass: Class<out T>
     get() {
         val entityTypeClass = this.javaClass
         val entityClass = entityTypeClass.enclosingClass
