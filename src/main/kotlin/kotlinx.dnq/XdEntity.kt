@@ -19,6 +19,9 @@ abstract class XdEntity {
         EntityOperations.remove(entity)
     }
 
+    // FIXME: this trigger is fired only for natural entities, should it be called for legacy entities also?
+    open fun beforeFlush() {}
+
     override fun equals(other: Any?): Boolean {
         return when {
             this === other -> true
