@@ -9,9 +9,20 @@ import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentEntity
 import jetbrains.exodus.query.*
+import kotlinx.dnq.XdEntity
+import kotlinx.dnq.XdEntityType
 import java.io.File
 import java.io.InputStream
 
+fun <T : XdEntity> XdEntityType<T>.filter(clause: (T) -> Unit): XdQuery<T> {
+    var temp = all()
+    SearchingEntity(entityType, entityStore).inScope {
+        clause(wrap(this))
+    }.nodes.forEach {
+        temp = temp.query(it)
+    }
+    return temp
+}
 
 class SearchingEntity(private val _type: String, private val _entityStore: TransientEntityStore) : TransientEntity {
 
@@ -242,13 +253,18 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
 
 }
 
-infix fun <T : Comparable<T>> T?.less(value: T) {
+infix fun <T : Comparable<T>> T?.lt(value: T) {
     val searchingEntity = SearchingEntity.get()
     val returnType = value.javaClass.kotlin
     searchingEntity.nodes.add(PropertyRange(searchingEntity.currentProperty!!, returnType.minValue(), returnType.prev(value)))
 }
 
-infix fun <T : Comparable<T>> T?.greater(value: T) {
+infix fun <T : Comparable<T>> T?.eq(value: T?) {
+    val searchingEntity = SearchingEntity.get()
+    searchingEntity.nodes.add(PropertyEqual(searchingEntity.currentProperty!!, value))
+}
+
+infix fun <T : Comparable<T>> T?.gt(value: T) {
     val searchingEntity = SearchingEntity.get()
     val returnType = value.javaClass.kotlin
     searchingEntity.nodes.add(PropertyRange(searchingEntity.currentProperty!!, returnType.next(value), returnType.maxValue()))

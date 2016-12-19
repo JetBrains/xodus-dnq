@@ -12,7 +12,7 @@ class QueryWherePropertiesTest : DBTest() {
     @Test
     fun `firstOrNull should return null if nothing found`() {
         store.transactional {
-            assertNull(User.where {}.firstOrNull())
+            assertNull(User.filter {}.firstOrNull())
         }
     }
 
@@ -28,16 +28,16 @@ class QueryWherePropertiesTest : DBTest() {
                 skill = 2
             }
 
-            assertEquals(user1.entityId, User.where { login = "test" }.first().entityId)
-            assertEquals(user2.entityId, User.where { login = "test1" }.first().entityId)
+            assertEquals(user1.entityId, User.filter { it.login = "test" }.first().entityId)
+            assertEquals(user2.entityId, User.filter { it.login = "test1" }.first().entityId)
 
-            assertNull(User.where { skill = 0 }.firstOrNull())
+            assertNull(User.filter { it.skill = 0 }.firstOrNull())
 
-            assertEquals(user1.entityId, User.where { skill = 1 }.first().entityId)
-            assertEquals(1, User.where { skill = 1 }.size())
+            assertEquals(user1.entityId, User.filter { it.skill = 1 }.first().entityId)
+            assertEquals(1, User.filter { it.skill = 1 }.size())
 
-            assertEquals(user2.entityId, User.where { skill = 2 }.first().entityId)
-            assertEquals(1, User.where { skill = 2 }.size())
+            assertEquals(user2.entityId, User.filter { it.skill = 2 }.first().entityId)
+            assertEquals(1, User.filter { it.skill = 2 }.size())
         }
     }
 
@@ -53,11 +53,11 @@ class QueryWherePropertiesTest : DBTest() {
                 skill = 2
             }
 
-            val users1 = User.where { login = "test" }
+            val users1 = User.filter { it.login = "test" }
             assertEquals(1, users1.size())
             assertEquals(user1.entityId, users1.first().entityId)
 
-            val users2 = User.where { skill = 2 }
+            val users2 = User.filter { it.skill = 2 }
             assertEquals(user2.entityId, users2.first().entityId)
             assertEquals(1, users2.size())
         }
@@ -76,7 +76,7 @@ class QueryWherePropertiesTest : DBTest() {
                 skill = 2
             }
 
-            val users = User.where { name = null }
+            val users = User.filter { it.name = null }
             assertEquals(1, users.size())
             assertEquals(user2.entityId, users.first().entityId)
         }
@@ -94,11 +94,11 @@ class QueryWherePropertiesTest : DBTest() {
                 skill = 2
             }
 
-            var users = User.where { skill less 2 }
+            var users = User.filter { it.skill lt 2 }
             assertEquals(1, users.size())
             assertEquals(user1.entityId, users.first().entityId)
 
-            users = User.where { skill greater 1 }
+            users = User.filter { it.skill gt 1 }
             assertEquals(1, users.size())
             assertEquals(user2.entityId, users.first().entityId)
         }
@@ -120,7 +120,7 @@ class QueryWherePropertiesTest : DBTest() {
                 skill = 3
             }
 
-            val users = User.where { skill not 2 }
+            val users = User.filter { it.skill not 2 }
             assertEquals(2, users.size())
             val sequence = users.asSequence()
             assertNotNull(sequence.first { it.entityId == user1.entityId })
@@ -147,9 +147,9 @@ class QueryWherePropertiesTest : DBTest() {
                 skill = 2
             }
 
-            val users = User.where {
-                name = "test"
-                skill not 2
+            val users = User.filter {
+                it.name = "test"
+                it.skill not 2
             }
             assertEquals(1, users.size())
             assertEquals(user1, users.first())
@@ -172,8 +172,8 @@ class QueryWherePropertiesTest : DBTest() {
                 skill = 7
             }
 
-            val users = User.where {
-                skill between (1 to 3)
+            val users = User.filter {
+                it.skill between (1 to 3)
             }
             assertEquals(2, users.size())
             val sequence = users.asSequence()

@@ -28,7 +28,7 @@ class QueryWhereLinksTest : DBTest() {
                 email = "123@123"
             }
 
-            assertEquals(contact1.entityId, Contact.where { user = user1 }.first().entityId)
+            assertEquals(contact1.entityId, Contact.filter { it.user = user1 }.first().entityId)
         }
     }
 
