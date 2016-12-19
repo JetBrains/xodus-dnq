@@ -57,7 +57,7 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
         }.toSet()
 
         setRequiredIfProperties(node.simpleProperties.values.asSequence().filter {
-            it.delegate.constraints.any { it is RequireIfConstraint<*> }
+            getPropertyConstraints(it.delegate).any { it is RequireIfConstraint<*, *> }
         }.map {
             it.dbPropertyName
         }.toSet())
@@ -153,6 +153,9 @@ private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchy
         }
     }
 }
+
+private fun getPropertyConstraints(property: XdConstrainedProperty<*, *>) =
+        ((property as? XdWrappedProperty<*, *, *>)?.wrapped ?: property).constraints
 
 private fun ModelMetaDataImpl.addLink(
         sourceEntityName: String, targetEntityName: String, type: AssociationType,
