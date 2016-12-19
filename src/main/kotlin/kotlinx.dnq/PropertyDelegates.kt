@@ -12,22 +12,21 @@ import kotlin.reflect.KProperty
 // Optional Int property
 private val _xdIntProp = xdProp<XdEntity, Int> { e, p -> 0 }
 
-fun xdIntProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<Int?>.() -> Unit)? = null): XdProperty<XdEntity, Int> {
+fun <R : XdEntity> R.xdIntProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Int?>.() -> Unit)? = null): XdProperty<R, Int> {
     return if (dbName == null && constraints == null) {
         _xdIntProp
     } else {
-        xdProp<XdEntity, Int>(dbName, constraints) { e, p -> 0 }
+        xdProp<R, Int>(dbName, constraints) { e, p -> 0 }
     }
 }
-
 
 /*************************************************************/
 // Required Int property
 private val _xdRequiredIntProp = CachedProperties(1) {
-    createXdRequiredIntProp(dbName = null, unique = it[0], constraints = null)
+    createXdRequiredIntProp<XdEntity>(dbName = null, unique = it[0], constraints = null)
 }
 
-fun xdRequiredIntProp(dbName: String? = null, unique: Boolean = false, constraints: (PropertyConstraintBuilder<Int?>.() -> Unit)? = null): ReadWriteProperty<XdEntity, Int> {
+fun <R : XdEntity> R.xdRequiredIntProp(dbName: String? = null, unique: Boolean = false, constraints: (PropertyConstraintBuilder<R, Int?>.() -> Unit)? = null): ReadWriteProperty<R, Int> {
     return if (dbName == null && constraints == null) {
         _xdRequiredIntProp[unique]
     } else {
@@ -35,7 +34,7 @@ fun xdRequiredIntProp(dbName: String? = null, unique: Boolean = false, constrain
     }
 }
 
-private fun createXdRequiredIntProp(dbName: String?, unique: Boolean, constraints: (PropertyConstraintBuilder<Int?>.() -> Unit)?): XdProperty<XdEntity, Int> =
+private fun <R : XdEntity> createXdRequiredIntProp(dbName: String?, unique: Boolean, constraints: (PropertyConstraintBuilder<R, Int?>.() -> Unit)?): XdProperty<R, Int> =
         xdProp(dbName, constraints, require = true, unique = unique) { e, p -> 0 }
 
 
@@ -43,21 +42,21 @@ private fun createXdRequiredIntProp(dbName: String?, unique: Boolean, constraint
 // Optional Long property
 private val _xdLongProp = xdProp<XdEntity, Long> { e, p -> 0L }
 
-fun xdLongProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<Long?>.() -> Unit)? = null): XdProperty<XdEntity, Long> {
+fun <R : XdEntity> R.xdLongProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): XdProperty<R, Long> {
     return if (dbName == null && constraints == null) {
         _xdLongProp
     } else {
-        xdProp<XdEntity, Long>(dbName, constraints) { e, p -> 0L }
+        xdProp<R, Long>(dbName, constraints) { e, p -> 0L }
     }
 }
 
 /*************************************************************/
 // Required Long property
 private val _xdRequiredLongProp = CachedProperties(1) {
-    createXdRequiredLongProp(unique = it[0])
+    createXdRequiredLongProp<XdEntity>(unique = it[0])
 }
 
-fun xdRequiredLongProp(dbName: String? = null, unique: Boolean = false, constraints: (PropertyConstraintBuilder<Long?>.() -> Unit)? = null): ReadWriteProperty<XdEntity, Long> {
+fun <R : XdEntity> R.xdRequiredLongProp(dbName: String? = null, unique: Boolean = false, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): ReadWriteProperty<R, Long> {
     return if (dbName == null && constraints == null) {
         _xdRequiredLongProp[unique]
     } else {
@@ -65,7 +64,7 @@ fun xdRequiredLongProp(dbName: String? = null, unique: Boolean = false, constrai
     }
 }
 
-private fun createXdRequiredLongProp(dbName: String? = null, unique: Boolean = false, constraints: (PropertyConstraintBuilder<Long?>.() -> Unit)? = null): XdProperty<XdEntity, Long> {
+private fun <R : XdEntity> createXdRequiredLongProp(dbName: String? = null, unique: Boolean = false, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): XdProperty<R, Long> {
     return xdProp(dbName, constraints, require = true, unique = unique) { e, p -> 0L }
 }
 
@@ -73,11 +72,11 @@ private fun createXdRequiredLongProp(dbName: String? = null, unique: Boolean = f
 // Nullable Long property
 private val _xdNullableLongProp = xdNullableProp<XdEntity, Long>()
 
-fun xdNullableLongProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<Long?>.() -> Unit)? = null): XdNullableProperty<XdEntity, Long> {
+fun <R : XdEntity> R.xdNullableLongProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): XdNullableProperty<R, Long> {
     return if (dbName == null && constraints == null) {
         _xdNullableLongProp
     } else {
-        xdNullableProp<XdEntity, Long>(dbName, constraints)
+        xdNullableProp<R, Long>(dbName, constraints)
     }
 }
 
@@ -108,10 +107,10 @@ fun xdNullableBooleanProp(dbName: String? = null): XdNullableProperty<XdEntity, 
 /*************************************************************/
 // Optional String property
 private val _xdStringProp = CachedProperties(1) {
-    createXdStringProp(trimmed = it[0])
+    createXdStringProp<XdEntity>(trimmed = it[0])
 }
 
-fun xdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<String?>.() -> Unit)? = null): XdConstrainedProperty<XdEntity, String?> {
+fun <R : XdEntity> R.xdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null): XdConstrainedProperty<R, String?> {
     return if (dbName == null && constraints == null) {
         _xdStringProp[trimmed]
     } else {
@@ -119,8 +118,8 @@ fun xdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: 
     }
 }
 
-private fun createXdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<String?>.() -> Unit)? = null): XdConstrainedProperty<XdEntity, String?> {
-    val prop = xdNullableProp<XdEntity, String>(dbName, constraints)
+private fun <R : XdEntity> createXdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null): XdConstrainedProperty<R, String?> {
+    val prop = xdNullableProp<R, String>(dbName, constraints)
     return if (trimmed) {
         prop.wrap({ it }, { it?.trim() })
     } else {
@@ -131,10 +130,10 @@ private fun createXdStringProp(trimmed: Boolean = false, dbName: String? = null,
 /*************************************************************/
 // Required String property
 private val _xdRequiredStringProp = CachedProperties(2) {
-    createXdRequiredStringProp(unique = it[0], trimmed = it[1])
+    createXdRequiredStringProp<XdEntity>(unique = it[0], trimmed = it[1])
 }
 
-fun xdRequiredStringProp(unique: Boolean = false, trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<String?>.() -> Unit)? = null): XdConstrainedProperty<XdEntity, String> {
+fun <R : XdEntity> R.xdRequiredStringProp(unique: Boolean = false, trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null): XdConstrainedProperty<R, String> {
     return if (dbName == null && constraints == null) {
         _xdRequiredStringProp[unique, trimmed]
     } else {
@@ -142,8 +141,8 @@ fun xdRequiredStringProp(unique: Boolean = false, trimmed: Boolean = false, dbNa
     }
 }
 
-private fun createXdRequiredStringProp(unique: Boolean = false, trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<String?>.() -> Unit)? = null): XdConstrainedProperty<XdEntity, String> {
-    val prop = xdProp<XdEntity, String>(dbName, constraints, require = true, unique = unique) { e, p -> throw RequiredPropertyUndefinedException(e, p) }
+private fun <R : XdEntity> createXdRequiredStringProp(unique: Boolean = false, trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null): XdConstrainedProperty<R, String> {
+    val prop = xdProp<R, String>(dbName, constraints, require = true, unique = unique) { e, p -> throw RequiredPropertyUndefinedException(e, p) }
     return if (trimmed) {
         prop.wrap({ it }, { it.trim() })
     } else {
@@ -153,9 +152,9 @@ private fun createXdRequiredStringProp(unique: Boolean = false, trimmed: Boolean
 
 /*************************************************************/
 // Optional DateTime property
-private val _xdDateTimeProp = createXdDateTimeProp()
+private val _xdDateTimeProp = createXdDateTimeProp<XdEntity>()
 
-fun xdDateTimeProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<Long?>.() -> Unit)? = null): ReadWriteProperty<XdEntity, DateTime?> {
+fun <R : XdEntity> R.xdDateTimeProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): ReadWriteProperty<R, DateTime?> {
     return if (dbName == null && constraints == null) {
         _xdDateTimeProp
     } else {
@@ -163,17 +162,17 @@ fun xdDateTimeProp(dbName: String? = null, constraints: (PropertyConstraintBuild
     }
 }
 
-fun createXdDateTimeProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<Long?>.() -> Unit)? = null): XdWrappedProperty<XdEntity, Long?, DateTime?> {
-    return xdNullableProp<XdEntity, Long>(dbName, constraints).wrap({ it?.let { DateTime(it) } }, { it?.millis })
+fun <R : XdEntity> createXdDateTimeProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): XdWrappedProperty<R, Long?, DateTime?> {
+    return xdNullableProp<R, Long>(dbName, constraints).wrap({ it?.let { DateTime(it) } }, { it?.millis })
 }
 
 /*************************************************************/
 // Required DateTime property
 private val _xdRequiredDateTimeProp = CachedProperties(1) {
-    createXdRequiredDateTimeProp(it[0])
+    createXdRequiredDateTimeProp<XdEntity>(it[0])
 }
 
-fun xdRequiredDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<Long?>.() -> Unit)? = null): ReadWriteProperty<XdEntity, DateTime> {
+fun <R : XdEntity> R.xdRequiredDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): ReadWriteProperty<R, DateTime> {
     return if (dbName == null && constraints == null) {
         _xdRequiredDateTimeProp[unique]
     } else {
@@ -181,8 +180,8 @@ fun xdRequiredDateTimeProp(unique: Boolean = false, dbName: String? = null, cons
     }
 }
 
-fun createXdRequiredDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<Long?>.() -> Unit)? = null): XdWrappedProperty<XdEntity, Long, DateTime> {
-    return xdProp<XdEntity, Long>(dbName, constraints, require = true, unique = unique) { e, p ->
+fun <R : XdEntity> createXdRequiredDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): XdWrappedProperty<R, Long, DateTime> {
+    return xdProp<R, Long>(dbName, constraints, require = true, unique = unique) { e, p ->
         throw RequiredPropertyUndefinedException(e, p)
     }.wrap({ DateTime(it) }, { it.millis })
 }
@@ -239,13 +238,13 @@ fun xdRequiredBlobStringProp(dbName: String? = null): XdTextProperty<XdEntity> {
 
 private inline fun <R : XdEntity, reified T : Comparable<*>> xdProp(
         propertyName: String? = null,
-        noinline constraints: (PropertyConstraintBuilder<T?>.() -> Unit)? = null,
+        noinline constraints: (PropertyConstraintBuilder<R, T?>.() -> Unit)? = null,
         require: Boolean = false,
         unique: Boolean = false,
         noinline default: (R, KProperty<*>) -> T): XdProperty<R, T> {
 
     return XdProperty(T::class.java, propertyName, constraints?.let {
-        PropertyConstraintBuilder<T?>().apply(constraints).constraints
+        PropertyConstraintBuilder<R, T?>().apply(constraints).constraints
     } ?: emptyList(), when {
         unique -> XdPropertyRequirement.UNIQUE
         require -> XdPropertyRequirement.REQUIRED
@@ -255,9 +254,9 @@ private inline fun <R : XdEntity, reified T : Comparable<*>> xdProp(
 
 private inline fun <R : XdEntity, reified T : Comparable<*>> xdNullableProp(
         propertyName: String? = null,
-        noinline constraints: (PropertyConstraintBuilder<T?>.() -> Unit)? = null): XdNullableProperty<R, T> {
+        noinline constraints: (PropertyConstraintBuilder<R, T?>.() -> Unit)? = null): XdNullableProperty<R, T> {
     return XdNullableProperty(T::class.java, propertyName, constraints?.let {
-        PropertyConstraintBuilder<T?>().apply(constraints).constraints
+        PropertyConstraintBuilder<R, T?>().apply(constraints).constraints
     } ?: emptyList())
 }
 
