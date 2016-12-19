@@ -39,31 +39,32 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
 
 private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: XdHierarchyNode) {
     addEntityMetaData(EntityMetaDataImpl().apply {
-        this.type = entityTypeName
-        this.superType = node.parentNode?.entityType?.entityType
+        type = entityTypeName
+        superType = node.parentNode?.entityType?.entityType
 
-        this.propertiesMetaData = node.simpleProperties.values.map {
+        propertiesMetaData = node.getAllProperties().map {
             SimplePropertyMetaDataImpl(
                     it.dbPropertyName,
-                    (it.property.returnType.javaType as Class<*>).simpleName).apply {
-                this.type = it.delegate.propertyType
+                    (it.property.returnType.javaType as Class<*>).simpleName
+            ).apply {
+                type = it.delegate.propertyType
             }
-        }
+        }.toList()
 
-        requiredProperties = node.simpleProperties.values.asSequence().filter {
+        requiredProperties = node.getAllProperties().filter {
             it.delegate.requirement == XdPropertyRequirement.REQUIRED
         }.map {
             it.dbPropertyName
         }.toSet()
 
-        setRequiredIfProperties(node.simpleProperties.values.asSequence().filter {
+        setRequiredIfProperties(node.getAllProperties().filter {
             getPropertyConstraints(it.delegate).any { it is RequireIfConstraint<*, *> }
         }.map {
             it.dbPropertyName
         }.toSet())
 
         // TODO: Support composite indexes
-        ownIndexes = node.simpleProperties.values.asSequence().filter {
+        ownIndexes = node.getAllProperties().filter {
             it.delegate.requirement == XdPropertyRequirement.UNIQUE
         }.map {
             IndexImpl().apply {
@@ -76,6 +77,10 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
         }.toSet()
     })
 
+}
+
+private fun XdHierarchyNode.getAllProperties(): Sequence<XdHierarchyNode.SimpleProperty> {
+    return (parentNode?.getAllProperties() ?: emptySequence()) + simpleProperties.values
 }
 
 private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchyNode>, entityTypeName: String, sourceEnd: XdHierarchyNode.LinkProperty) {
