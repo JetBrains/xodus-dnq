@@ -1,17 +1,22 @@
 package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
+import jetbrains.exodus.entitystore.metadata.PropertyMetaData
 import jetbrains.teamsys.dnq.runtime.constraints.inRange
 import jetbrains.teamsys.dnq.runtime.constraints.regexp
+import kotlinx.dnq.XdEntity
+import kotlinx.dnq.wrapper
 import java.net.MalformedURLException
 import java.net.URI
 
 
-class PropertyConstraintBuilder<T>() {
+class PropertyConstraintBuilder<R : XdEntity, T>() {
     val constraints = mutableListOf<PropertyConstraint<T>>()
 }
 
-fun PropertyConstraintBuilder<String?>.regex(pattern: Regex, message: String? = null) {
+fun PropertyConstraintBuilder<*, String?>.regex(pattern: Regex, message: String? = null) {
     constraints.add(regexp().apply {
         this.pattern = pattern.toPattern()
         if (message != null) {
@@ -20,7 +25,7 @@ fun PropertyConstraintBuilder<String?>.regex(pattern: Regex, message: String? = 
     })
 }
 
-fun PropertyConstraintBuilder<String?>.email(pattern: Regex? = null, message: String? = null) {
+fun PropertyConstraintBuilder<*, String?>.email(pattern: Regex? = null, message: String? = null) {
     constraints.add(jetbrains.teamsys.dnq.runtime.constraints.email().apply {
         if (pattern != null) {
             this.pattern = pattern.toPattern()
@@ -31,7 +36,7 @@ fun PropertyConstraintBuilder<String?>.email(pattern: Regex? = null, message: St
     })
 }
 
-fun PropertyConstraintBuilder<String?>.containsNone(chars: String, message: String? = null) {
+fun PropertyConstraintBuilder<*, String?>.containsNone(chars: String, message: String? = null) {
     constraints.add(jetbrains.teamsys.dnq.runtime.constraints.containsNone().apply {
         this.chars = chars
         if (message != null) {
@@ -40,7 +45,7 @@ fun PropertyConstraintBuilder<String?>.containsNone(chars: String, message: Stri
     })
 }
 
-fun PropertyConstraintBuilder<String?>.alpha(message: String? = null) {
+fun PropertyConstraintBuilder<*, String?>.alpha(message: String? = null) {
     constraints.add(jetbrains.teamsys.dnq.runtime.constraints.alpha().apply {
         if (message != null) {
             this.message = message
@@ -48,7 +53,7 @@ fun PropertyConstraintBuilder<String?>.alpha(message: String? = null) {
     })
 }
 
-fun PropertyConstraintBuilder<String?>.numeric(message: String? = null) {
+fun PropertyConstraintBuilder<*, String?>.numeric(message: String? = null) {
     constraints.add(jetbrains.teamsys.dnq.runtime.constraints.numeric().apply {
         if (message != null) {
             this.message = message
@@ -56,7 +61,7 @@ fun PropertyConstraintBuilder<String?>.numeric(message: String? = null) {
     })
 }
 
-fun PropertyConstraintBuilder<String?>.alphaNumeric(message: String? = null) {
+fun PropertyConstraintBuilder<*, String?>.alphaNumeric(message: String? = null) {
     constraints.add(jetbrains.teamsys.dnq.runtime.constraints.alphaNumeric().apply {
         if (message != null) {
             this.message = message
@@ -64,7 +69,7 @@ fun PropertyConstraintBuilder<String?>.alphaNumeric(message: String? = null) {
     })
 }
 
-fun PropertyConstraintBuilder<String?>.url(message: String? = null) {
+fun PropertyConstraintBuilder<*, String?>.url(message: String? = null) {
     constraints.add(jetbrains.teamsys.dnq.runtime.constraints.url().apply {
         if (message != null) {
             this.message = message
@@ -72,7 +77,7 @@ fun PropertyConstraintBuilder<String?>.url(message: String? = null) {
     })
 }
 
-fun PropertyConstraintBuilder<String?>.length(min: Int = 0, max: Int = Int.MAX_VALUE, message: String? = null) {
+fun PropertyConstraintBuilder<*, String?>.length(min: Int = 0, max: Int = Int.MAX_VALUE, message: String? = null) {
     constraints.add(jetbrains.teamsys.dnq.runtime.constraints.length().apply {
         if (min > 0) {
             this.min = min
@@ -90,7 +95,7 @@ fun PropertyConstraintBuilder<String?>.length(min: Int = 0, max: Int = Int.MAX_V
     })
 }
 
-fun PropertyConstraintBuilder<String?>.uri(message: String? = null) {
+fun PropertyConstraintBuilder<*, String?>.uri(message: String? = null) {
     constraints.add(object : PropertyConstraint<String?>() {
         var message = message ?: "is not a valid URI"
 
@@ -113,9 +118,19 @@ fun PropertyConstraintBuilder<String?>.uri(message: String? = null) {
     })
 }
 
-class RequireIfConstraint<T>(val message: String?, val predicate: () -> Boolean) : PropertyConstraint<T>() {
+class RequireIfConstraint<R: XdEntity, T>(val message: String?, val predicate: R.() -> Boolean) : PropertyConstraint<T>() {
+    override fun check(e: TransientEntity, pmd: PropertyMetaData, value: T): SimplePropertyValidationException? {
+        @Suppress("UNCHECKED_CAST")
+        return if (value == null && (e.wrapper as R).predicate()) {
+            val propertyName = pmd.name
+            SimplePropertyValidationException(getExceptionMessage(propertyName, value), getDisplayMessage(propertyName, value), e, propertyName)
+        } else {
+            null
+        }
+    }
+
     override fun isValid(value: T): Boolean {
-        return !predicate() || value != null
+        throw UnsupportedOperationException()
     }
 
     override fun getExceptionMessage(propertyName: String?, propertyValue: T): String {
@@ -125,8 +140,8 @@ class RequireIfConstraint<T>(val message: String?, val predicate: () -> Boolean)
     override fun getDisplayMessage(propertyName: String?, propertyValue: T) = message ?: "required"
 }
 
-fun <T> PropertyConstraintBuilder<T>.requireIf(message: String? = null, predicate: () -> Boolean) {
-    constraints.add(RequireIfConstraint<T>(message, predicate))
+fun <R: XdEntity, T> PropertyConstraintBuilder<R, T>.requireIf(message: String? = null, predicate: R.() -> Boolean) {
+    constraints.add(RequireIfConstraint<R, T>(message, predicate))
 }
 
 open class InRange<T : Number?>() : inRange() {
@@ -141,7 +156,7 @@ open class InRange<T : Number?>() : inRange() {
     }
 }
 
-fun <T : Number?> PropertyConstraintBuilder<T>.min(min: Long, message: String? = null) {
+fun <T : Number?> PropertyConstraintBuilder<*, T>.min(min: Long, message: String? = null) {
     constraints.add(InRange<T>().apply {
         this.min = min
         if (message != null) {
@@ -150,7 +165,7 @@ fun <T : Number?> PropertyConstraintBuilder<T>.min(min: Long, message: String? =
     }.typed)
 }
 
-fun <T : Number?> PropertyConstraintBuilder<T>.max(max: Long, message: String? = null) {
+fun <T : Number?> PropertyConstraintBuilder<*, T>.max(max: Long, message: String? = null) {
     constraints.add(InRange<T>().apply {
         this.max = max
         if (message != null) {
@@ -159,7 +174,7 @@ fun <T : Number?> PropertyConstraintBuilder<T>.max(max: Long, message: String? =
     }.typed)
 }
 
-fun PropertyConstraintBuilder<Long?>.past(message: String? = null) {
+fun PropertyConstraintBuilder<*, Long?>.past(message: String? = null) {
     constraints.add(jetbrains.teamsys.dnq.runtime.constraints.past().apply {
         if (message != null) {
             this.message = message
@@ -167,7 +182,7 @@ fun PropertyConstraintBuilder<Long?>.past(message: String? = null) {
     })
 }
 
-fun PropertyConstraintBuilder<Long?>.future(message: String? = null) {
+fun PropertyConstraintBuilder<*, Long?>.future(message: String? = null) {
     constraints.add(jetbrains.teamsys.dnq.runtime.constraints.future().apply {
         if (message != null) {
             this.message = message

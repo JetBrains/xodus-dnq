@@ -73,6 +73,7 @@ dependencies {
     compile "com.jetbrains.webr-dnq:jetbrains.teamsys.dnq.openAPI:$mps_dnq_version"
     compile "com.jetbrains.webr-dnq:exodus-persistentEntityStore:$mps_dnq_version"
     compile "org.reflections:reflections:0.9.10"
+    compile "javassist:javassist:3.12.1.GA"
     compile "javax.servlet:javax.servlet-api:3.0.1"
 
     runtime "org.slf4j:jcl-over-slf4j:1.7.7"
