@@ -76,14 +76,26 @@ infix fun <T : XdEntity> XdQuery<T>.union(that: XdQuery<T>): XdQuery<T> {
     return XdQueryImpl(result, this.entityType)
 }
 
+infix fun <T : XdEntity> XdQuery<T>.union(that: T?): XdQuery<T> {
+    return this union entityType.queryOf(that)
+}
+
 operator fun <T : XdEntity> XdQuery<T>.plus(that: XdQuery<T>): XdQuery<T> {
     val result = queryEngine.concat(this.entityIterable, that.entityIterable)
     return XdQueryImpl(result, this.entityType)
 }
 
+operator fun <T : XdEntity> XdQuery<T>.plus(that: T?): XdQuery<T> {
+    return this + entityType.queryOf(that)
+}
+
 infix fun <T : XdEntity> XdQuery<T>.exclude(that: XdQuery<T>): XdQuery<T> {
     val it = queryEngine.exclude(this.entityIterable, that.entityIterable)
     return XdQueryImpl(it, this.entityType)
+}
+
+infix fun <T : XdEntity> XdQuery<T>.exclude(that: T?): XdQuery<T> {
+    return this exclude entityType.queryOf(that)
 }
 
 fun <T : XdEntity> XdQuery<T>.query(node: NodeBase): XdQuery<T> {
