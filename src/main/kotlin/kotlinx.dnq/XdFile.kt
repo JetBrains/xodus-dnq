@@ -7,10 +7,11 @@ import kotlinx.dnq.simple.containsNone
 class XdFile(override val entity: Entity) : XdEntity() {
     companion object : XdLegacyEntityType<PersistentFileImpl, XdFile>()
 
-    var blob by xdRequiredBlobProp()
+    var content by xdRequiredBlobProp()
     var name by xdRequiredStringProp() { containsNone("/\\") }
     var extension by xdStringProp()
     var size by xdLongProp()
     var charset by xdStringProp()
     var mimeType by xdStringProp()
+    var trusted by xdBooleanProp()
 }
