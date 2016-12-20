@@ -27,7 +27,7 @@ abstract class DBTest {
 
         var login by xdRequiredStringProp(trimmed = true, unique = true)
         var name by xdStringProp(dbName = "visibleName")
-        var age by xdIntProp() { this.min(0) }
+        var age by xdIntProp { this.min(0) }
         var skill by xdRequiredIntProp()
         var salary by xdLongProp()
         var isGuest by xdBooleanProp()

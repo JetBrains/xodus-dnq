@@ -2,8 +2,7 @@ package kotlinx.dnq
 
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.query.XdQuery
-import kotlinx.dnq.query.XdQueryImpl
+import kotlinx.dnq.query.*
 import kotlinx.dnq.store.container.StoreContainer
 
 abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer) {
