@@ -21,11 +21,11 @@ class QueryWhereLinksTest : DBTest() {
 
             val contact1 = Contact.new {
                 user = user1
-                email = "123@123"
+                email = "123@test.com"
             }
             Contact.new {
                 user = user2
-                email = "123@123"
+                email = "123@test.com"
             }
 
             assertEquals(contact1.entityId, Contact.filter { it.user = user1 }.first().entityId)
