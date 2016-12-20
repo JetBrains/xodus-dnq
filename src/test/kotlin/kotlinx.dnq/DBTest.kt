@@ -6,6 +6,8 @@ import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.simple.email
 import kotlinx.dnq.simple.min
+import kotlinx.dnq.simple.regex
+import kotlinx.dnq.simple.requireIf
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
 import org.junit.After
@@ -67,7 +69,6 @@ abstract class DBTest {
         var user: User by xdLink1(User::contacts)
         var email by xdRequiredStringProp() { email() }
     }
-
 
     @Before
     fun setup() {

@@ -2,10 +2,14 @@ package kotlinx.dnq
 
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.database.exceptions.NullPropertyException
+import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
 import jetbrains.exodus.database.exceptions.UniqueIndexViolationException
+import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.query
+import kotlinx.dnq.simple.regex
+import kotlinx.dnq.simple.requireIf
 import org.joda.time.DateTime
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -13,6 +17,28 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class PropertiesTest : DBTest() {
+    abstract class Base : XdEntity() {
+        companion object : XdNaturalEntityType<Base>()
+        var enabled by xdBooleanProp()
+
+        var requiredBaseProp by xdRequiredStringProp()
+        var requiredIfBaseProp by xdStringProp { requireIf { enabled } }
+        var regexBaseProp by xdStringProp { regex(Regex("good")) }
+        var regexWrappedBaseProp by xdStringProp(trimmed = true) { regex(Regex("good")) }
+    }
+
+    class Derived(override val entity: Entity) : Base() {
+        companion object : XdNaturalEntityType<Derived>()
+
+        var requiredIfDerivedProp by xdStringProp { requireIf { enabled } }
+        var regexDerivedProp by xdStringProp { regex(Regex("good")) }
+        var regexWrappedDerivedProp by xdStringProp(trimmed = true) { regex(Regex("good")) }
+    }
+
+    override fun registerEntityTypes() {
+        super.registerEntityTypes()
+        XdModel.registerNode(Derived)
+    }
 
     @Test
     fun setAndGet() {
@@ -85,6 +111,66 @@ class PropertiesTest : DBTest() {
         assertEquals(1, e.causes.count())
         assertTrue {
             e.causes.any { it is NullPropertyException && it.propertyName == Image::content.name }
+        }
+    }
+
+    @Test
+    fun required_in_base() {
+        val e = assertFailsWith<ConstraintsValidationException> {
+            store.transactional {
+                Derived.new()
+            }
+        }
+        assertEquals(1, e.causes.count())
+        assertTrue {
+            e.causes.any { it is NullPropertyException && it.propertyName == Derived::requiredBaseProp.name }
+        }
+    }
+
+    @Test
+    fun required_if() {
+        val e = assertFailsWith<ConstraintsValidationException> {
+            store.transactional {
+                Derived.new().apply {
+                    enabled = true
+                    requiredBaseProp = "test"
+                }
+            }
+        }
+        assertEquals(2, e.causes.count())
+        assertTrue {
+            e.causes.any { it is NullPropertyException && it.propertyName == Base::requiredIfBaseProp.name }
+        }
+        assertTrue {
+            e.causes.any { it is NullPropertyException && it.propertyName == Derived::requiredIfDerivedProp.name }
+        }
+    }
+
+    @Test
+    fun constraints() {
+        val e = assertFailsWith<ConstraintsValidationException> {
+            store.transactional {
+                Derived.new().apply {
+                    requiredBaseProp = "test"
+                    regexBaseProp = "bad"
+                    regexWrappedBaseProp = "bad"
+                    regexDerivedProp = "bad"
+                    regexWrappedDerivedProp = "bad"
+                }
+            }
+        }
+        assertEquals(4, e.causes.count())
+        assertTrue {
+            e.causes.any { it is SimplePropertyValidationException && it.propertyName == Base::regexBaseProp.name }
+        }
+        assertTrue {
+            e.causes.any { it is SimplePropertyValidationException && it.propertyName == Base::regexWrappedBaseProp.name }
+        }
+        assertTrue {
+            e.causes.any { it is SimplePropertyValidationException && it.propertyName == Derived::regexDerivedProp.name }
+        }
+        assertTrue {
+            e.causes.any { it is SimplePropertyValidationException && it.propertyName == Derived::regexWrappedDerivedProp.name }
         }
     }
 
