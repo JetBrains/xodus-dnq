@@ -14,14 +14,17 @@ import kotlinx.dnq.XdEntityType
 import java.io.File
 import java.io.InputStream
 
-fun <T : XdEntity> XdEntityType<T>.filter(clause: (T) -> Unit): XdQuery<T> {
-    var temp = all()
-    SearchingEntity(entityType, entityStore).inScope {
-        clause(wrap(this))
-    }.nodes.forEach {
-        temp = temp.query(it)
+fun <T : XdEntity> XdQuery<T>.filter(clause: (T) -> Unit): XdQuery<T> {
+    val searchingEntity = SearchingEntity(entityType.entityType, entityType.entityStore).inScope {
+        clause(entityType.wrap(this))
     }
-    return temp
+    return searchingEntity.nodes.fold(this) { cur, it ->
+        cur.query(it)
+    }
+}
+
+fun <T : XdEntity> XdEntityType<T>.filter(clause: (T) -> Unit): XdQuery<T> {
+    return all().filter(clause)
 }
 
 class SearchingEntity(private val _type: String, private val _entityStore: TransientEntityStore) : TransientEntity {
