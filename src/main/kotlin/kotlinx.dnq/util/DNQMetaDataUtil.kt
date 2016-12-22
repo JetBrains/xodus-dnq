@@ -15,6 +15,7 @@ import kotlinx.dnq.simple.RequireIfConstraint
 import kotlinx.dnq.simple.XdConstrainedProperty
 import kotlinx.dnq.simple.XdPropertyRequirement
 import kotlinx.dnq.simple.XdWrappedProperty
+import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.*
 import kotlin.reflect.companionObjectInstance
@@ -68,7 +69,7 @@ private class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEnt
                 }
             }
         }
-        return proceed.invoke(self, *args)
+        return invokeMethod(self, proceed, args)
     }
 
     private fun getEntityProperties(xdEntityType: XdNaturalEntityType<*>) = XdModel[xdEntityType]!!.getAllProperties()
@@ -94,12 +95,12 @@ private class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEnt
     private fun isPropertyRequiredCall(method: Method, args: Array<out Any?>) = method.name == BasePersistentClassImpl::isPropertyRequired.name && method.parameterTypes.size == 2 && args[0] is String
 
     private fun invokeBeforeFlush(self: Any, method: Method, args: Array<out Any?>) {
-        method.invoke(self, *args)
+        invokeMethod(self, method, args)
         (args.last() as Entity).wrapper.beforeFlush()
     }
 
     private fun isPropertyRequired(self: Any, method: Method, args: Array<out Any?>): Boolean {
-        if (method.invoke(self, *args) as Boolean) {
+        if (invokeMethod(self, method, args) as Boolean) {
             return true
         }
         val xdEntity = (args.last() as Entity).wrapper
@@ -122,8 +123,17 @@ private class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEnt
     private fun invokeNaturalMethod(xdMethod: Method, args: Array<out Any?>): Any? {
         val xdEntity = (args.last() as Entity).wrapper
         val xdArgs = Arrays.copyOf(args, args.size - 1)
-        return xdMethod.invoke(xdEntity, *xdArgs)
+        return invokeMethod(xdEntity, xdMethod, xdArgs)
     }
+
+    private fun invokeMethod(self: Any, method: Method, args: Array<out Any?>): Any? {
+        try {
+            return method.invoke(self, *args)
+        } catch (e: InvocationTargetException) {
+            throw e.cause!!
+        }
+    }
+
 }
 
 fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: TransientEntityStoreImpl) {
