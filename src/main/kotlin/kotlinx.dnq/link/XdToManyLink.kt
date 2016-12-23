@@ -17,10 +17,15 @@ open class XdToManyLink<in R : XdEntity, T : XdEntity>(
         dbPropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy,
-        required: Boolean) :
-        ReadOnlyProperty<R, XdMutableQuery<T>>,
-        XdLink<R, T>(entityType, dbPropertyName,
-                if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n, AssociationEndType.DirectedAssociationEnd, onDeletePolicy, onTargetDeletePolicy) {
+        required: Boolean
+) : ReadOnlyProperty<R, XdMutableQuery<T>>, XdLink<R, T>(
+        entityType,
+        dbPropertyName,
+        if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n,
+        AssociationEndType.DirectedAssociationEnd,
+        onDeletePolicy,
+        onTargetDeletePolicy
+) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(entityType) {

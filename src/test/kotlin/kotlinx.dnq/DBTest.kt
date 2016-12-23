@@ -35,6 +35,7 @@ abstract class DBTest {
         var isGuest by xdBooleanProp()
         var registered by xdDateTimeProp()
         val contacts by xdLink0_N(Contact::user)
+        var supervisor by xdLink0_1(User, "boss")
 
         val groups by xdLink0_N(Group::users, onDelete = CLEAR, onTargetDelete = CLEAR)
     }
