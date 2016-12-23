@@ -16,10 +16,16 @@ import kotlin.reflect.KProperty1
 open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
         val entityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
-        required: Boolean) :
-        ReadOnlyProperty<R, XdMutableQuery<T>>,
-        XdLink<R, T>(entityType, null,
-                if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n, AssociationEndType.ParentEnd, onDelete = OnDeletePolicy.CASCADE, onTargetDelete = OnDeletePolicy.CLEAR) {
+        dbPropertyName: String?,
+        required: Boolean
+) : ReadOnlyProperty<R, XdMutableQuery<T>>, XdLink<R, T>(
+        entityType,
+        dbPropertyName,
+        if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n,
+        AssociationEndType.ParentEnd,
+        onDelete = OnDeletePolicy.CASCADE,
+        onTargetDelete = OnDeletePolicy.CLEAR
+) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(entityType) {

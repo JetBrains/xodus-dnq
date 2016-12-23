@@ -13,10 +13,16 @@ import kotlin.reflect.KProperty1
 
 class XdParentToOneRequiredChildLink<R : XdEntity, T : XdEntity>(
         val entityType: XdEntityType<T>,
-        override val oppositeField: KProperty1<T, R?>) :
-        ReadWriteProperty<R, T>,
-        XdLink<R, T>(entityType, null,
-                AssociationEndCardinality._1, AssociationEndType.ParentEnd, onDelete = OnDeletePolicy.CASCADE, onTargetDelete = OnDeletePolicy.CLEAR) {
+        override val oppositeField: KProperty1<T, R?>,
+        dbPropertyName: String?
+) : ReadWriteProperty<R, T>, XdLink<R, T>(
+        entityType,
+        dbPropertyName,
+        AssociationEndCardinality._1,
+        AssociationEndType.ParentEnd,
+        onDelete = OnDeletePolicy.CASCADE,
+        onTargetDelete = OnDeletePolicy.CLEAR
+) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
         val entity = AssociationSemantics.getToOne(thisRef.entity, property.name) ?:

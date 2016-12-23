@@ -4,6 +4,7 @@ import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
 import org.junit.Test
 import java.util.*
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -45,6 +46,24 @@ class QueryTest : DBTest() {
                 skill = 1
             }
             assertNotNull(User.all().firstOrNull())
+        }
+    }
+
+    @Test
+    fun `query should obey custom db names of link properties`() {
+        store.transactional {
+            User.new {
+                login = "user1"
+                skill = 5
+                supervisor = User.new {
+                    login = "boss"
+                    skill = 555
+                }
+            }
+        }
+
+        store.transactional {
+            assertEquals(1, User.query(User::supervisor ne null).size())
         }
     }
 }

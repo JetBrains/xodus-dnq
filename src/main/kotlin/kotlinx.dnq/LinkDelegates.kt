@@ -54,9 +54,10 @@ fun <R : XdEntity, T : XdEntity> xdLink1_N(
  */
 inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
         oppositeLink: KProperty1<T, R?>,
+        dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdOneToOneOptionalLink<R, T> {
-    return XdOneToOneOptionalLink(entityTypeCompanion(), oppositeLink, onDelete, onTargetDelete)
+    return XdOneToOneOptionalLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete)
 }
 
 /**
@@ -64,9 +65,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
  */
 inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
         oppositeLink: KProperty1<T, R?>,
+        dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdOneToOneRequiredLink<R, T> {
-    return XdOneToOneRequiredLink(entityTypeCompanion(), oppositeLink, onDelete, onTargetDelete)
+    return XdOneToOneRequiredLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete)
 }
 
 /**
@@ -74,9 +76,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
  */
 inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
         oppositeLink: KProperty1<T, R?>,
+        dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdOneToManyLink<R, T> {
-    return XdOneToManyLink(entityTypeCompanion(), oppositeLink, onDelete, onTargetDelete, required = false)
+    return XdOneToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete, required = false)
 }
 
 /**
@@ -84,9 +87,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
  */
 inline fun <R : XdEntity, reified T : XdEntity> xdLink1_N(
         oppositeLink: KProperty1<T, R?>,
+        dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdOneToManyLink<R, T> {
-    return XdOneToManyLink(entityTypeCompanion(), oppositeLink, onDelete, onTargetDelete, required = true)
+    return XdOneToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete, required = true)
 }
 
 /**
@@ -94,9 +98,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1_N(
  */
 inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
         oppositeLink: KProperty1<T, XdMutableQuery<R>>,
+        dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdManyToOneOptionalLink<R, T> {
-    return XdManyToOneOptionalLink(entityTypeCompanion(), oppositeLink, onDelete, onTargetDelete)
+    return XdManyToOneOptionalLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete)
 }
 
 /**
@@ -104,9 +109,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
  */
 inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
         oppositeLink: KProperty1<T, XdMutableQuery<R>>,
+        dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdManyToOneRequiredLink<R, T> {
-    return XdManyToOneRequiredLink(entityTypeCompanion(), oppositeLink, onDelete, onTargetDelete)
+    return XdManyToOneRequiredLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete)
 }
 
 /**
@@ -114,9 +120,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
  */
 inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
         oppositeLink: KProperty1<T, XdMutableQuery<R>>,
+        dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdManyToManyLink<R, T> {
-    return XdManyToManyLink(entityTypeCompanion(), oppositeLink, onDelete, onTargetDelete, required = false)
+    return XdManyToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete, required = false)
 }
 
 /**
@@ -124,67 +131,68 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
  */
 inline fun <R : XdEntity, reified T : XdEntity> xdLink1_N(
         oppositeLink: KProperty1<T, XdMutableQuery<R>>,
+        dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdManyToManyLink<R, T> {
-    return XdManyToManyLink(entityTypeCompanion(), oppositeLink, onDelete, onTargetDelete, required = true)
+    return XdManyToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete, required = true)
 }
 
 /**
  * Parent end [0..1] of aggregation association
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdChild0_1(oppositeLink: KProperty1<T, R?>): XdParentToOneOptionalChildLink<R, T> {
-    return XdParentToOneOptionalChildLink(entityTypeCompanion(), oppositeLink)
+inline fun <R : XdEntity, reified T : XdEntity> xdChild0_1(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null): XdParentToOneOptionalChildLink<R, T> {
+    return XdParentToOneOptionalChildLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
 }
 
 /**
  * Parent end [1] of aggregation association
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdChild1(oppositeLink: KProperty1<T, R?>): XdParentToOneRequiredChildLink<R, T> {
-    return XdParentToOneRequiredChildLink(entityTypeCompanion(), oppositeLink)
+inline fun <R : XdEntity, reified T : XdEntity> xdChild1(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null): XdParentToOneRequiredChildLink<R, T> {
+    return XdParentToOneRequiredChildLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
 }
 
 /**
  * Parent end [0..N] of aggregation association
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdChildren0_N(oppositeLink: KProperty1<T, R?>): XdParentToManyChildrenLink<R, T> {
-    return XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, required = false)
+inline fun <R : XdEntity, reified T : XdEntity> xdChildren0_N(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null): XdParentToManyChildrenLink<R, T> {
+    return XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, dbPropertyName, required = false)
 }
 
 /**
  * Parent end [1..N] of aggregation association
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdChildren1_N(oppositeLink: KProperty1<T, R?>): XdParentToManyChildrenLink<R, T> {
-    return XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, required = true)
+inline fun <R : XdEntity, reified T : XdEntity> xdChildren1_N(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null): XdParentToManyChildrenLink<R, T> {
+    return XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, dbPropertyName, required = true)
 }
 
 /**
  * Child end of scalar aggregation association
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdParent(oppositeLink: KProperty1<T, R?>): XdOneChildToParentLink<R, T> {
-    return XdOneChildToParentLink(entityTypeCompanion(), oppositeLink)
+inline fun <R : XdEntity, reified T : XdEntity> xdParent(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null): XdOneChildToParentLink<R, T> {
+    return XdOneChildToParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
 }
 
 /**
  * Child end of scalar aggregation association.
  * Should be used if entity has several parent links
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdMultiParent(oppositeLink: KProperty1<T, R?>): XdOneChildToMultiParentLink<R, T> {
-    return XdOneChildToMultiParentLink(entityTypeCompanion(), oppositeLink)
+inline fun <R : XdEntity, reified T : XdEntity> xdMultiParent(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null): XdOneChildToMultiParentLink<R, T> {
+    return XdOneChildToMultiParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
 }
 
 /**
  * Child end of vector aggregation association
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdParent(oppositeLink: KProperty1<T, XdMutableQuery<R>>): XdManyChildrenToParentLink<R, T> {
-    return XdManyChildrenToParentLink(entityTypeCompanion(), oppositeLink)
+inline fun <R : XdEntity, reified T : XdEntity> xdParent(oppositeLink: KProperty1<T, XdMutableQuery<R>>, dbPropertyName: String? = null): XdManyChildrenToParentLink<R, T> {
+    return XdManyChildrenToParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
 }
 
 /**
  * Child end of vector aggregation association
  * Should be used if entity has several parent links
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdMultiParent(oppositeLink: KProperty1<T, XdMutableQuery<R>>): XdManyChildrenToMultiParentLink<R, T> {
-    return XdManyChildrenToMultiParentLink(entityTypeCompanion(), oppositeLink)
+inline fun <R : XdEntity, reified T : XdEntity> xdMultiParent(oppositeLink: KProperty1<T, XdMutableQuery<R>>, dbPropertyName: String? = null): XdManyChildrenToMultiParentLink<R, T> {
+    return XdManyChildrenToMultiParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
 }
 
 inline fun <reified T : XdEntity> entityTypeCompanion(): XdEntityType<T> {

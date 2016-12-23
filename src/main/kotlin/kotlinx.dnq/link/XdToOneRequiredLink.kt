@@ -14,10 +14,15 @@ class XdToOneRequiredLink<in R : XdEntity, T : XdEntity>(
         val entityType: XdEntityType<T>,
         dbPropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
-        onTargetDeletePolicy: OnDeletePolicy) :
-        ReadWriteProperty<R, T>,
-        XdLink<R, T>(entityType, dbPropertyName,
-                AssociationEndCardinality._1, AssociationEndType.DirectedAssociationEnd, onDeletePolicy, onTargetDeletePolicy) {
+        onTargetDeletePolicy: OnDeletePolicy
+) : ReadWriteProperty<R, T>, XdLink<R, T>(
+        entityType,
+        dbPropertyName,
+        AssociationEndCardinality._1,
+        AssociationEndType.DirectedAssociationEnd,
+        onDeletePolicy,
+        onTargetDeletePolicy
+) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
         val entity = AssociationSemantics.getToOne(thisRef.entity, dbPropertyName ?: property.name) ?:

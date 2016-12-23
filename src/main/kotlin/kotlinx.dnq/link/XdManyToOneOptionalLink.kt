@@ -14,11 +14,17 @@ import kotlin.reflect.KProperty1
 class XdManyToOneOptionalLink<R : XdEntity, T : XdEntity>(
         val entityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, XdMutableQuery<R>>,
+        dbPropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
-        onTargetDeletePolicy: OnDeletePolicy) :
-        ReadWriteProperty<R, T?>,
-        XdLink<R, T>(entityType, null,
-                AssociationEndCardinality._0_1, AssociationEndType.UndirectedAssociationEnd, onDeletePolicy, onTargetDeletePolicy) {
+        onTargetDeletePolicy: OnDeletePolicy
+) : ReadWriteProperty<R, T?>, XdLink<R, T>(
+        entityType,
+        dbPropertyName,
+        AssociationEndCardinality._0_1,
+        AssociationEndType.UndirectedAssociationEnd,
+        onDeletePolicy,
+        onTargetDeletePolicy
+) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
         return AssociationSemantics.getToOne(thisRef.entity, property.name)?.let { value ->

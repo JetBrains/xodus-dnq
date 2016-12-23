@@ -132,8 +132,10 @@ fun <R : XdEntity> KProperty1<R, *>.getDBName(klass: KClass<R>): String {
 }
 
 fun <R : XdEntity> KProperty1<R, *>.getDBName(entityType: XdEntityType<R>): String {
-    val delegate = XdModel[entityType]?.simpleProperties?.get(this)?.delegate
-    return delegate?.dbPropertyName ?: this.name
+    val node = XdModel[entityType]
+    return node?.simpleProperties?.get(this)?.delegate?.dbPropertyName
+            ?: node?.linkProperties?.get(this)?.delegate?.dbPropertyName
+            ?: this.name
 }
 
 val Class<*>.memberFields: Sequence<Field>

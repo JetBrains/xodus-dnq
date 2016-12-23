@@ -13,10 +13,16 @@ import kotlin.reflect.KProperty1
 
 class XdManyChildrenToMultiParentLink<R : XdEntity, T : XdEntity>(
         val entityType: XdEntityType<T>,
-        override val oppositeField: KProperty1<T, XdMutableQuery<R>>) :
-        ReadWriteProperty<R, T?>,
-        XdLink<R, T>(entityType, null,
-                AssociationEndCardinality._0_1, AssociationEndType.ChildEnd, onDelete = OnDeletePolicy.CLEAR, onTargetDelete = OnDeletePolicy.CASCADE) {
+        override val oppositeField: KProperty1<T, XdMutableQuery<R>>,
+        dbPropertyName: String?
+) : ReadWriteProperty<R, T?>, XdLink<R, T>(
+        entityType,
+        dbPropertyName,
+        AssociationEndCardinality._0_1,
+        AssociationEndType.ChildEnd,
+        onDelete = OnDeletePolicy.CLEAR,
+        onTargetDelete = OnDeletePolicy.CASCADE
+) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
         return AssociationSemantics.getToOne(thisRef.entity, property.name)?.let { value ->
