@@ -11,8 +11,10 @@ import jetbrains.exodus.entitystore.PersistentEntity
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.XdModel
 import java.io.File
 import java.io.InputStream
+import kotlin.reflect.jvm.javaType
 
 fun <T : XdEntity> XdEntityType<T>.filter(clause: (T) -> Unit): XdQuery<T> {
     var temp = all()
@@ -77,7 +79,24 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
 
     override fun getProperty(propertyName: String): Comparable<Nothing>? {
         currentProperty = propertyName
-        return null
+        val node = XdModel.getOrThrow(_type)
+        node.simpleProperties.filter { it.key.name == propertyName }.let {
+            val simpleProperty = it.values.firstOrNull() ?: return 0
+            return when (simpleProperty.property.returnType.javaType) {
+                String::class.java -> ""
+                Boolean::class.java -> false
+                Byte::class.java -> 0.toByte()
+                Short::class.java -> 0.toShort()
+                Char::class.java -> 0.toChar()
+                Int::class.java -> 0
+                Long::class.java -> 0.toLong()
+                Float::class.java -> 0.toFloat()
+                Double::class.java -> 0.toDouble()
+                else -> {
+                    0
+                }
+            }
+        }
     }
 
     override fun getBlobNames(): MutableList<String> {
@@ -281,7 +300,7 @@ infix fun String?.startsWith(value: String?) {
     searchingEntity.nodes.add(PropertyStartsWith(searchingEntity.currentProperty!!, value ?: ""))
 }
 
-infix fun <T : Comparable<T>> T?.not(value: T) {
+infix fun <T : Comparable<T>> T?.ne(value: T) {
     val searchingEntity = SearchingEntity.get()
     searchingEntity.nodes.add(UnaryNot(PropertyEqual(searchingEntity.currentProperty!!, value)))
 }

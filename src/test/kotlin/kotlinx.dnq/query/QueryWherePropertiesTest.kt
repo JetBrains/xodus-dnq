@@ -120,7 +120,7 @@ class QueryWherePropertiesTest : DBTest() {
                 skill = 3
             }
 
-            val users = User.filter { it.skill not 2 }
+            val users = User.filter { it.skill ne 2 }
             assertEquals(2, users.size())
             val sequence = users.asSequence()
             assertNotNull(sequence.first { it.entityId == user1.entityId })
@@ -149,7 +149,7 @@ class QueryWherePropertiesTest : DBTest() {
 
             val users = User.filter {
                 it.name = "test"
-                it.skill not 2
+                it.skill ne 2
             }
             assertEquals(1, users.size())
             assertEquals(user1, users.first())
@@ -182,4 +182,20 @@ class QueryWherePropertiesTest : DBTest() {
         }
     }
 
+    @Test
+    fun `should search by required fields`() {
+        store.transactional {
+            val user1 = User.new {
+                login = "test1"
+                skill = 1
+            }
+            val users1 = User.filter { it.skill ne 0 }
+            assertEquals(1, users1.size())
+            assertEquals(user1.entityId, users1.first().entityId)
+
+            val users2 = User.filter { it.login ne "" }
+            assertEquals(1, users2.size())
+            assertEquals(user1.entityId, users2.first().entityId)
+        }
+    }
 }
