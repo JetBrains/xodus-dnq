@@ -14,16 +14,16 @@ class DBNameTest {
     open class Parent(override val entity: Entity) : XdEnumEntity(entity) {
         companion object : XdNaturalEntityType<Parent>()
 
-        open val overridedPropWithDbName by xdStringProp(dbName = "overridedProp")
-        open val overridedPropWithoutDbName by xdStringProp(dbName = "overridedInChild")
+        open val overriddenPropWithDbName by xdStringProp(dbName = "overriddenProp")
+        open val overriddenPropWithoutDbName by xdStringProp(dbName = "overriddenInChild")
         val parentPropWithDbName by xdStringProp(dbName = "parentProp")
     }
 
     class Child(entity: Entity) : Parent(entity) {
         companion object : XdNaturalEntityType<Child>()
 
-        override val overridedPropWithDbName by xdStringProp(dbName = "overridedChildProp")
-        override val overridedPropWithoutDbName by xdStringProp()
+        override val overriddenPropWithDbName by xdStringProp(dbName = "overriddenChildProp")
+        override val overriddenPropWithoutDbName by xdStringProp()
 
         val propWithDbName by xdStringProp(dbName = "dbProperty")
         val propWithoutDbName by xdStringProp()
@@ -54,8 +54,8 @@ class DBNameTest {
 
     @Test
     fun `getDBName should take more priority to children properties`() {
-        assertThat(Child::overridedPropWithDbName.getDBName(), equalTo("overridedChildProp"))
-        assertThat(Child::overridedPropWithoutDbName.getDBName(), equalTo(Child::overridedPropWithoutDbName.name))
+        assertThat(Child::overriddenPropWithDbName.getDBName(), equalTo("overriddenChildProp"))
+        assertThat(Child::overriddenPropWithoutDbName.getDBName(), equalTo(Child::overriddenPropWithoutDbName.name))
     }
 
     @Test(expected = IllegalArgumentException::class)

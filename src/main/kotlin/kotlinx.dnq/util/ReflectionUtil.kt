@@ -58,10 +58,8 @@ val XdEntityType<*>.parent: XdEntityType<*>?
             null
         } else {
             val parentCompanion = parentEntityClass?.kotlin?.companionObjectInstance
-            parentCompanion?.let {
-                parentCompanion as? XdEntityType<*>
-                        ?: throw IllegalArgumentException("Companion object of XdEntity should be XdEntityType")
-            }
+            parentCompanion as? XdEntityType<*>
+                    ?: throw IllegalArgumentException("Companion object of XdEntity should be XdEntityType")
         }
     }
 
