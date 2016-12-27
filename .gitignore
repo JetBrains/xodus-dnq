@@ -18,7 +18,7 @@ gradle-app.setting
 # User-specific stuff:
 .idea/workspace.xml
 #.idea/tasks.xml
-.idea/dictionaries
+#.idea/dictionaries
 .idea/misc.xml
 #.idea/vcs.xml
 .idea/modules.xml
