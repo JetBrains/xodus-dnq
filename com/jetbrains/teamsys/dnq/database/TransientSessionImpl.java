@@ -812,6 +812,9 @@ public class TransientSessionImpl implements TransientStoreSession {
             return;
         }
 
+        List<Pair<TransientEntity, Index>> uniqueKeyDeletions = new ArrayList<>();
+        List<Pair<TransientEntity, Index>> uniqueKeyInsertions = new ArrayList<>();
+
         for (TransientEntity e : changesTracker.getChangedEntities()) {
             if (!e.isRemoved()) {
                 // create/update
@@ -836,19 +839,31 @@ public class TransientSessionImpl implements TransientStoreSession {
                     }
                 }
 
-                final PersistentStoreTransaction persistentTransaction = (PersistentStoreTransaction) getPersistentTransaction();
-                final UniqueKeyIndicesEngine ukiEngine = store.getQueryEngine().getUniqueKeyIndicesEngine();
                 for (Index index : dirtyIndeces) {
-                    try {
-                        if (!e.isNew()) {
-                            ukiEngine.deleteUniqueKey(persistentTransaction, index, getIndexFieldsOriginalValues(e, index));
-                        }
-                        ukiEngine.insertUniqueKey(persistentTransaction, index, getIndexFieldsFinalValues(e, index), e);
-
-                    } catch (ExodusException ex) {
-                        throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
+                    if (!e.isNew()) {
+                        uniqueKeyDeletions.add(new Pair<>(e, index));
                     }
+                    uniqueKeyInsertions.add(new Pair<>(e, index));
                 }
+            }
+        }
+
+        final PersistentStoreTransaction persistentTransaction = (PersistentStoreTransaction) getPersistentTransaction();
+        final UniqueKeyIndicesEngine ukiEngine = store.getQueryEngine().getUniqueKeyIndicesEngine();
+
+        for (Pair<TransientEntity, Index> deletion : uniqueKeyDeletions) {
+            TransientEntity e = deletion.getFirst();
+            Index index = deletion.getSecond();
+            ukiEngine.deleteUniqueKey(persistentTransaction, index, getIndexFieldsOriginalValues(e, index));
+        }
+
+        for (Pair<TransientEntity, Index> insertion : uniqueKeyInsertions) {
+            TransientEntity e = insertion.getFirst();
+            Index index = insertion.getSecond();
+            try {
+                ukiEngine.insertUniqueKey(persistentTransaction, index, getIndexFieldsFinalValues(e, index), e);
+            } catch (ExodusException ex) {
+                throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
             }
         }
     }
