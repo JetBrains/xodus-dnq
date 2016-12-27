@@ -59,11 +59,8 @@ val XdEntityType<*>.parent: XdEntityType<*>?
         } else {
             val parentCompanion = parentEntityClass?.kotlin?.companionObjectInstance
             parentCompanion?.let {
-                if (parentCompanion is XdEntityType<*>) {
-                    parentCompanion
-                } else {
-                    throw IllegalArgumentException("Companion object of XdEntity should be XdEntityType")
-                }
+                parentCompanion as? XdEntityType<*>
+                        ?: throw IllegalArgumentException("Companion object of XdEntity should be XdEntityType")
             }
         }
     }
@@ -133,9 +130,21 @@ fun <R : XdEntity> KProperty1<R, *>.getDBName(klass: KClass<R>): String {
 
 fun <R : XdEntity> KProperty1<R, *>.getDBName(entityType: XdEntityType<R>): String {
     val node = XdModel[entityType]
-    return node?.simpleProperties?.get(this)?.delegate?.dbPropertyName
-            ?: node?.linkProperties?.get(this)?.delegate?.dbPropertyName
-            ?: this.name
+    return node?.getDBName(this) ?: this.name
+}
+
+inline fun <reified R : XdEntity> KProperty1<R, *>.getDBName(): String {
+    if (R::class.companionObjectInstance as? XdEntityType<R> == null) {
+        throw IllegalArgumentException("Property owner class should have a companion object " +
+                "that inherits from ${XdEntityType::class.java.simpleName}")
+    }
+    return this.getDBName(R::class.companionObjectInstance as XdEntityType<R>)
+}
+
+private fun <R : XdEntity> XdHierarchyNode.getDBName(prop: KProperty1<R, *>): String? {
+    return this.simpleProperties[prop.name]?.delegate?.let { it.dbPropertyName ?: prop.name }
+            ?: this.linkProperties[prop.name]?.delegate?.let { it.dbPropertyName ?: prop.name }
+            ?: this.parentNode?.getDBName(prop)
 }
 
 val Class<*>.memberFields: Sequence<Field>

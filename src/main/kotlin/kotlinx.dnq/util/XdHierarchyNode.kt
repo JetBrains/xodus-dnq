@@ -22,8 +22,8 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
     val entityConstructor = entityType.entityConstructor
 
     val children = mutableListOf<XdHierarchyNode>()
-    val simpleProperties = LinkedHashMap<KProperty1<*, *>, SimpleProperty>()
-    val linkProperties = LinkedHashMap<KProperty1<*, *>, LinkProperty>()
+    val simpleProperties = LinkedHashMap<String, SimpleProperty>()
+    val linkProperties = LinkedHashMap<String, LinkProperty>()
 
     init {
         parentNode?.children?.add(this)
@@ -47,8 +47,8 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
             val (property, delegateField) = it
             val delegate = delegateField.get(xdFakeEntity)
             when (delegate) {
-                is XdConstrainedProperty<*, *> -> simpleProperties[property] = SimpleProperty(property, delegate)
-                is XdLink<*, *> -> linkProperties[property] = LinkProperty(property, delegate)
+                is XdConstrainedProperty<*, *> -> simpleProperties[property.name] = SimpleProperty(property, delegate)
+                is XdLink<*, *> -> linkProperties[property.name] = LinkProperty(property, delegate)
             }
         }
     }

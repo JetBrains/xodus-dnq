@@ -1,11 +1,16 @@
 package kotlinx.dnq
 
 import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.util.getDBName
+import org.hamcrest.Matchers.equalTo
+import org.hamcrest.Matchers.iterableWithSize
+import org.hamcrest.Matchers.notNullValue
 import org.hamcrest.collection.IsIterableContainingInAnyOrder
 import org.hamcrest.core.IsEqual
 import org.hamcrest.core.IsNot
 import org.hamcrest.core.IsNull
 import org.junit.Assert
+import org.junit.Assert.assertThat
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,7 +41,6 @@ class XdHierarchyTest(
     class XdD(entity: Entity) : XdB(entity) {
         companion object : XdNaturalEntityType<XdD>()
     }
-
 
     @Before
     fun setUp() {

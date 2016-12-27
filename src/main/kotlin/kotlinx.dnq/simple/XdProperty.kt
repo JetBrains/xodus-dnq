@@ -11,12 +11,13 @@ class XdProperty<in R : XdEntity, T : Comparable<*>>(
         dbPropertyName: String?,
         constraints: List<PropertyConstraint<T?>>,
         requirement: XdPropertyRequirement,
-        val default: (R, KProperty<*>) -> T) :
-        XdConstrainedProperty<R, T>(
+        val default: (R, KProperty<*>) -> T
+) : XdConstrainedProperty<R, T>(
                 dbPropertyName,
                 constraints,
                 requirement,
-                PropertyType.PRIMITIVE) {
+                PropertyType.PRIMITIVE
+) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
         return PrimitiveAssociationSemantics.get(thisRef.entity, dbPropertyName ?: property.name, clazz, null) ?:
