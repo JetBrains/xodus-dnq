@@ -133,18 +133,39 @@ private val _xdRequiredStringProp = CachedProperties(2) {
     createXdRequiredStringProp<XdEntity>(unique = it[0], trimmed = it[1])
 }
 
-fun <R : XdEntity> R.xdRequiredStringProp(unique: Boolean = false, trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null): XdConstrainedProperty<R, String> {
+fun <R : XdEntity> R.xdRequiredStringProp(
+        unique: Boolean = false,
+        trimmed: Boolean = false,
+        dbName: String? = null,
+        default: ((R, KProperty<*>) -> String)? = null,
+        constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null
+): XdConstrainedProperty<R, String> {
     return if (dbName == null && constraints == null) {
         _xdRequiredStringProp[unique, trimmed]
     } else {
-        createXdRequiredStringProp(unique, trimmed, dbName, constraints)
+        createXdRequiredStringProp(unique, trimmed, dbName, constraints, default)
     }
 }
 
-private fun <R : XdEntity> createXdRequiredStringProp(unique: Boolean = false, trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null): XdConstrainedProperty<R, String> {
-    val prop = xdProp<R, String>(dbName, constraints, require = true, unique = unique) { e, p -> throw RequiredPropertyUndefinedException(e, p) }
+fun <R : XdEntity> R.xdRequiredStringProp(
+        unique: Boolean = false,
+        trimmed: Boolean = false,
+        dbName: String? = null,
+        default: String,
+        constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null
+) = xdRequiredStringProp(unique, trimmed, dbName, { tr, p -> default }, constraints)
+
+private fun <R : XdEntity> createXdRequiredStringProp(
+        unique: Boolean = false,
+        trimmed: Boolean = false,
+        dbName: String? = null,
+        constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null,
+        default: ((R, KProperty<*>) -> String)? = null
+): XdConstrainedProperty<R, String> {
+    val prop = xdProp<R, String>(dbName, constraints, require = true, unique = unique,
+            default = default ?: { e, p -> throw RequiredPropertyUndefinedException(e, p) })
     return if (trimmed) {
-        prop.wrap({ it }, { it.trim() })
+        prop.wrap({ it }, String::trim)
     } else {
         prop
     }
