@@ -2,7 +2,7 @@ package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
-import jetbrains.exodus.entitystore.metadata.PropertyType
+import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlin.reflect.KProperty
 

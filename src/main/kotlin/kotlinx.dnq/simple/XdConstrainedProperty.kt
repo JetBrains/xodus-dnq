@@ -1,7 +1,7 @@
 package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
-import jetbrains.exodus.entitystore.metadata.PropertyType
+import jetbrains.exodus.query.metadata.PropertyType
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 

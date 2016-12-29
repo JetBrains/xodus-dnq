@@ -205,7 +205,7 @@ private fun <T : XdEntity> XdQuery<T>.wrap(entityIterable: EntityIterable): Enti
 
 fun <T : XdEntity> XdQuery<T>.distinct(): XdQuery<T> {
     val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is EntityIterable) {
+    return if (it is EntityIterableBase) {
         wrap(it.source.distinct())
     } else {
         it.distinct()
@@ -234,7 +234,7 @@ fun <T : XdEntity> XdQuery<T>.indexOf(entity: Entity?): Int {
     val it = queryEngine.toEntityIterable(entityIterable)
     return if (entity != null) {
         if (queryEngine.isPersistentIterable(it)) {
-            (it as EntityIterable).source.indexOf(entity)
+            (it as EntityIterableBase).source.indexOf(entity)
         } else {
             it.indexOf(entity)
         }
@@ -270,7 +270,7 @@ fun <T : XdEntity> XdQuery<T>.first(node: NodeBase): T {
 
 fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
     val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is EntityIterable) {
+    return if (it is EntityIterableBase) {
         it.source.first?.let {
             entityType.entityStore.threadSession.newEntity(it)
         }

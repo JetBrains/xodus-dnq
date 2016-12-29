@@ -2,7 +2,7 @@ package kotlinx.dnq.store.container
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.entitystore.PersistentEntityStoreImpl
-import jetbrains.exodus.entitystore.metadata.ModelMetaDataImpl
+import jetbrains.exodus.query.metadata.ModelMetaDataImpl
 import jetbrains.exodus.env.EnvironmentConfig
 import jetbrains.exodus.env.Environments
 import jetbrains.teamsys.dnq.runtime.queries.TransientSortEngine

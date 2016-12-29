@@ -1,7 +1,7 @@
 package kotlinx.dnq.link
 
-import jetbrains.exodus.entitystore.metadata.AssociationEndCardinality
-import jetbrains.exodus.entitystore.metadata.AssociationEndType
+import jetbrains.exodus.query.metadata.AssociationEndCardinality
+import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlin.reflect.KProperty

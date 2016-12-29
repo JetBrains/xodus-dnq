@@ -2,8 +2,8 @@ package kotlinx.dnq.link
 
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics
-import jetbrains.exodus.entitystore.metadata.AssociationEndCardinality
-import jetbrains.exodus.entitystore.metadata.AssociationEndType
+import jetbrains.exodus.query.metadata.AssociationEndCardinality
+import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlin.properties.ReadWriteProperty

@@ -7,7 +7,7 @@ import javassist.util.proxy.MethodHandler
 import javassist.util.proxy.ProxyFactory
 import javassist.util.proxy.ProxyObject
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.metadata.*
+import jetbrains.exodus.query.metadata.*
 import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink

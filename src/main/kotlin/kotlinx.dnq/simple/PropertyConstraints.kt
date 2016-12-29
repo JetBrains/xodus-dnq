@@ -3,7 +3,7 @@ package kotlinx.dnq.simple
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
-import jetbrains.exodus.entitystore.metadata.PropertyMetaData
+import jetbrains.exodus.query.metadata.PropertyMetaData
 import jetbrains.teamsys.dnq.runtime.constraints.inRange
 import jetbrains.teamsys.dnq.runtime.constraints.regexp
 import kotlinx.dnq.XdEntity

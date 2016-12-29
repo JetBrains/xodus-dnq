@@ -1,6 +1,6 @@
 package kotlinx.dnq.simple
 
-import jetbrains.exodus.entitystore.metadata.PropertyType
+import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlin.reflect.KProperty
 
