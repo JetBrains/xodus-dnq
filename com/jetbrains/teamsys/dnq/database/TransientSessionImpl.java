@@ -812,8 +812,8 @@ public class TransientSessionImpl implements TransientStoreSession {
             return;
         }
 
-        List<Pair<TransientEntity, Index>> uniqueKeyDeletions = new ArrayList<>();
-        List<Pair<TransientEntity, Index>> uniqueKeyInsertions = new ArrayList<>();
+        List<Pair<TransientEntity, Index>> uniqueKeyDeletions = new ArrayList<Pair<TransientEntity, Index>>();
+        List<Pair<TransientEntity, Index>> uniqueKeyInsertions = new ArrayList<Pair<TransientEntity, Index>>();
 
         for (TransientEntity e : changesTracker.getChangedEntities()) {
             if (!e.isRemoved()) {
@@ -840,10 +840,11 @@ public class TransientSessionImpl implements TransientStoreSession {
                 }
 
                 for (Index index : dirtyIndeces) {
+                    Pair<TransientEntity, Index> entry = new Pair<TransientEntity, Index>(e, index);
                     if (!e.isNew()) {
-                        uniqueKeyDeletions.add(new Pair<>(e, index));
+                        uniqueKeyDeletions.add(entry);
                     }
-                    uniqueKeyInsertions.add(new Pair<>(e, index));
+                    uniqueKeyInsertions.add(entry);
                 }
             }
         }
