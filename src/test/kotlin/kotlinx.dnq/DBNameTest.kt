@@ -1,6 +1,5 @@
 package kotlinx.dnq
 
-import com.sun.javaws.exceptions.InvalidArgumentException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.util.getDBName
 import org.hamcrest.CoreMatchers.equalTo

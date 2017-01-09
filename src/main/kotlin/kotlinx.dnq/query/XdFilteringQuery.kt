@@ -83,7 +83,7 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
     override fun getProperty(propertyName: String): Comparable<Nothing>? {
         currentProperty = propertyName
         val node = XdModel.getOrThrow(_type)
-        node.simpleProperties.filter { it.key.name == propertyName }.let {
+        node.simpleProperties.filter { it.key == propertyName }.let {
             val simpleProperty = it.values.firstOrNull() ?: return 0
             return when (simpleProperty.property.returnType.javaType) {
                 String::class.java -> ""
