@@ -29,12 +29,7 @@ infix inline fun <reified R : XdEntity> KProperty1<R, DateTime?>.eq(value: DateT
 }
 
 fun ne(dbPropertyName: String, value: Comparable<*>?): NodeBase {
-    return if (value == null) {
-        PropertyNotNull(dbPropertyName)
-    } else {
-        not(PropertyEqual(dbPropertyName, value))
-    }
-}
+    return not(PropertyEqual(dbPropertyName, value))}
 
 infix inline fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.ne(value: T?): NodeBase {
     return ne(this.getDBName(R::class), value)
