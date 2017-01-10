@@ -17,11 +17,7 @@ infix fun NodeBase.and(that: NodeBase): NodeBase = And(this, that)
 infix fun NodeBase.or(that: NodeBase): NodeBase = Or(this, that)
 
 fun eq(dbPropertyName: String, value: Comparable<*>?): NodeBase {
-    return if (value == null) {
-        not(PropertyNotNull(dbPropertyName))
-    } else {
-        PropertyEqual(dbPropertyName, value)
-    }
+    return PropertyEqual(dbPropertyName, value)
 }
 
 infix inline fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.eq(value: T?): NodeBase {
@@ -32,7 +28,13 @@ infix inline fun <reified R : XdEntity> KProperty1<R, DateTime?>.eq(value: DateT
     return eq(this.getDBName(R::class), value?.millis)
 }
 
-fun ne(dbPropertyName: String, value: Comparable<*>?) = not(eq(dbPropertyName, value))
+fun ne(dbPropertyName: String, value: Comparable<*>?): NodeBase {
+    return if (value == null) {
+        PropertyNotNull(dbPropertyName)
+    } else {
+        not(PropertyEqual(dbPropertyName, value))
+    }
+}
 
 infix inline fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.ne(value: T?): NodeBase {
     return ne(this.getDBName(R::class), value)
