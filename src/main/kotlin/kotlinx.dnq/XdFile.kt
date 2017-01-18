@@ -21,6 +21,10 @@ class XdFile(override val entity: Entity) : XdEntity() {
         get() = mpsType.getBaseName(entity)
         set(value) = mpsType.setBaseName(value, entity)
 
+    var fileName: String
+        get() = mpsType.getName(entity)
+        set(value) = mpsType.setName(value, entity)
+
     val stringContent: String
         get() = mpsType.getStringContent(entity)
 
