@@ -38,6 +38,22 @@ fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
     return entityIterable.asSequence().map { entityType.wrap(it) }
 }
 
+operator fun <T : XdEntity> XdQuery<T>.iterator() = asSequence().iterator()
+
+fun <T : XdEntity, C: MutableCollection<in T>> XdQuery<T>.toCollection(destination: C) = asSequence().toCollection(destination)
+
+fun <T : XdEntity> XdQuery<T>.toList() = asSequence().toList()
+
+fun <T : XdEntity> XdQuery<T>.toMutableList() = asSequence().toMutableList()
+
+fun <T : XdEntity> XdQuery<T>.toSet() = asSequence().toSet()
+
+fun <T : XdEntity> XdQuery<T>.toHashSet() = asSequence().toHashSet()
+
+fun <T : XdEntity> XdQuery<T>.toSortedSet(comparator: Comparator<T>) = asSequence().toSortedSet(comparator)
+
+fun <T : XdEntity> XdQuery<T>.toMutableSet() = asSequence().toMutableSet()
+
 fun <T : XdEntity> XdEntityType<T>.emptyQuery(): XdQuery<T> {
     val it = StaticTypedIterableDecorator(entityType, EntityIterableBase.EMPTY, entityStore.queryEngine)
     return XdQueryImpl(it, this)
