@@ -1,5 +1,6 @@
 package kotlinx.dnq.util
 
+import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import com.jetbrains.teamsys.dnq.database.EntityOperations
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
@@ -7,6 +8,9 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.link.XdLink
+import kotlinx.dnq.query.XdMutableQuery
+import kotlinx.dnq.query.XdQuery
+import kotlinx.dnq.query.asQuery
 import kotlinx.dnq.simple.XdConstrainedProperty
 import java.lang.reflect.*
 import kotlin.reflect.*
@@ -165,6 +169,25 @@ fun <T : XdEntity> T.hasChanges(property: KProperty1<T, *>): Boolean {
     }
 
     return EntityOperations.hasChanges(entity as TransientEntity, name)
+}
+
+private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<R, XdMutableQuery<T>>, getLinks: (String) -> Iterable<Entity>): XdQuery<T> {
+    val clazz = this.javaClass
+    val field = clazz.getDelegateField(property) ?:
+        throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated")
+    @Suppress("UNCHECKED_CAST")
+    val delegateValue = field[this] as? XdLink<R, T> ?:
+        throw IllegalArgumentException("Property ${clazz.name}::$property is not a Xodus link")
+    val name = delegateValue.dbPropertyName ?: property.name
+    return getLinks(name).asQuery(delegateValue.oppositeEntityType)
+}
+
+fun <R : XdEntity, T : XdEntity> R.getAddedLinks(property: KProperty1<R, XdMutableQuery<T>>) = getLinksWrapper(property) {
+    AssociationSemantics.getAddedLinks(entity as TransientEntity, it)
+}
+
+fun <R : XdEntity, T : XdEntity> R.getRemovedLinks(property: KProperty1<R, XdMutableQuery<T>>) = getLinksWrapper(property) {
+    AssociationSemantics.getRemovedLinks(entity as TransientEntity, it)
 }
 
 @Suppress("UNCHECKED_CAST")
