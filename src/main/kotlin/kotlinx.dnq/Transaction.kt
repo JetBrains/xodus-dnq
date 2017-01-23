@@ -6,10 +6,15 @@ import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.teamsys.dnq.runtime.txn._Txn
 
 
-fun <T> TransientEntityStore.transactional(readonly: Boolean = false, queryCancellingPolicy: QueryCancellingPolicy? = null, block: (TransientStoreSession) -> T): T {
+fun <T> TransientEntityStore.transactional(
+    readonly: Boolean = false,
+    queryCancellingPolicy: QueryCancellingPolicy? = null,
+    isNew: Boolean = false,
+    block: (TransientStoreSession) -> T
+): T {
     val superSession = threadSession
     var superIsSuspended = false
-    if (superSession != null && superSession.isReadonly) {
+    if (isNew || superSession != null && superSession.isReadonly) {
         suspendThreadSession()
         superIsSuspended = true
     }
