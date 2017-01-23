@@ -2,8 +2,8 @@ group 'kotlinx.dnq'
 version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'SNAPSHOT-1.0'
 
 buildscript {
-    ext.kotlin_version = '1.0.5'
-    ext.mps_dnq_version = '3029'
+    ext.kotlin_version = '1.0.6'
+    ext.mps_dnq_version = '3033'
     repositories {
         mavenCentral()
     }
