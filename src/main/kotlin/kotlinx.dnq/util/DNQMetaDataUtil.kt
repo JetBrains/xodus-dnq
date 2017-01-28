@@ -57,10 +57,13 @@ private class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEnt
 
     override fun invoke(self: Any, thisMethod: Method, proceed: Method, args: Array<out Any?>): Any? {
         if (thisMethod.parameterTypes.isNotEmpty() && thisMethod.parameterTypes.last() == Entity::class.java) {
-            if (isBeforeFlushCall(thisMethod)) {
+            if (thisMethod.isBeforeFlushCall()) {
                 return invokeBeforeFlush(self, proceed, args)
             }
-            if (isPropertyRequiredCall(thisMethod, args)) {
+            if (thisMethod.isDestructorCall()) {
+                return invokeDestructor(self, proceed, args)
+            }
+            if (thisMethod.isPropertyRequiredCall(args)) {
                 return isPropertyRequired(self, proceed, args)
             }
             findNaturalMethod(thisMethod)?.let {
@@ -90,14 +93,21 @@ private class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEnt
         return propertyConstraints
     }
 
-    private fun isBeforeFlushCall(method: Method) = method.name == BasePersistentClassImpl::executeBeforeFlushTrigger.name && method.parameterTypes.size == 1
-
-    private fun isPropertyRequiredCall(method: Method, args: Array<out Any?>) = method.name == BasePersistentClassImpl::isPropertyRequired.name && method.parameterTypes.size == 2 && args[0] is String
+    private fun Method.isBeforeFlushCall() = name == BasePersistentClassImpl::executeBeforeFlushTrigger.name && parameterTypes.size == 1
 
     private fun invokeBeforeFlush(self: Any, method: Method, args: Array<out Any?>) {
         invokeMethod(self, method, args)
         (args.last() as Entity).wrapper.beforeFlush()
     }
+
+    private fun Method.isDestructorCall() = name == BasePersistentClassImpl::destructor.name && parameterTypes.size == 1
+
+    private fun invokeDestructor(self: Any, method: Method, args: Array<out Any?>) {
+        (args.last() as Entity).wrapper.destructor()
+        invokeMethod(self, method, args)
+    }
+
+    private fun Method.isPropertyRequiredCall(args: Array<out Any?>) = name == BasePersistentClassImpl::isPropertyRequired.name && parameterTypes.size == 2 && args[0] is String
 
     private fun isPropertyRequired(self: Any, method: Method, args: Array<out Any?>): Boolean {
         if (invokeMethod(self, method, args) as Boolean) {
