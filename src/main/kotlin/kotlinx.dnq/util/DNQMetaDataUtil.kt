@@ -175,7 +175,7 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
 }
 
 private fun getPersistenceClassInstance(node: XdHierarchyNode): BasePersistentClassImpl {
-    val persistentClass = findLegacyEntitySuperclass(node)?.legacyClass ?: CommonBasePersistentClass::class.java
+    val persistentClass = node.findClosestLegacyEntitySupertype()?.legacyClass ?: CommonBasePersistentClass::class.java
     return ProxyFactory().apply {
         superclass = persistentClass
         setFilter(::isNotFinalize)
@@ -185,9 +185,6 @@ private fun getPersistenceClassInstance(node: XdHierarchyNode): BasePersistentCl
         handler = PersistentClassMethodHandler(this, node.entityType as XdNaturalEntityType<*>)
     } as BasePersistentClassImpl
 }
-
-private fun findLegacyEntitySuperclass(node: XdHierarchyNode): XdLegacyEntityType<*, *>? =
-        node.entityType.let { it as? XdLegacyEntityType<*, *> ?: node.parentNode?.let(::findLegacyEntitySuperclass) }
 
 private fun isNotFinalize(method: Method) = !method.parameterTypes.isEmpty() || method.name != "finalize"
 
