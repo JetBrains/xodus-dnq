@@ -164,6 +164,14 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
             modelMetaData.addLinkMetaData(hierarchy, entityTypeName, sourceEnd)
         }
     }
+
+    entityStore.transactional {
+        naturalNodes.values.asSequence().map {
+            it.entityType
+        }.filterIsInstance<XdNaturalEntityType<*>>().forEach {
+            it.initEntityType()
+        }
+    }
 }
 
 private fun getPersistenceClassInstance(node: XdHierarchyNode): BasePersistentClassImpl {
