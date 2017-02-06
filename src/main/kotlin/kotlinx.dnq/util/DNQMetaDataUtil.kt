@@ -179,6 +179,7 @@ private fun getPersistenceClassInstance(node: XdHierarchyNode): BasePersistentCl
     return ProxyFactory().apply {
         superclass = persistentClass
         setFilter(::isNotFinalize)
+        isUseCache = false
     }.create(emptyArray(), emptyArray()).apply {
         this as ProxyObject
         handler = PersistentClassMethodHandler(this, node.entityType as XdNaturalEntityType<*>)
