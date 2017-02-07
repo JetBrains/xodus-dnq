@@ -174,7 +174,9 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     }
 }
 
-private fun getPersistenceClassInstance(node: XdHierarchyNode): BasePersistentClassImpl {
+private val persistenceClassInstanceCache = HashMap<XdEntityType<*>, BasePersistentClassImpl>()
+
+private fun getPersistenceClassInstance(node: XdHierarchyNode) = persistenceClassInstanceCache.getOrPut(node.entityType) {
     val persistentClass = node.findClosestLegacyEntitySupertype()?.legacyClass ?: CommonBasePersistentClass::class.java
     return ProxyFactory().apply {
         superclass = persistentClass
