@@ -207,6 +207,3 @@ fun <R : XdEntity, T : XdEntity> R.getRemovedLinks(property: KProperty1<R, XdMut
 @Suppress("UNCHECKED_CAST")
 val <T : XdEntity> Class<T>.entityType: XdEntityType<T>
     get() = kotlin.companionObjectInstance as XdEntityType<T>
-
-internal fun XdHierarchyNode.findClosestLegacyEntitySupertype(): XdLegacyEntityType<*, *>? =
-    entityType.let { it as? XdLegacyEntityType<*, *> ?: parentNode?.findClosestLegacyEntitySupertype() }
