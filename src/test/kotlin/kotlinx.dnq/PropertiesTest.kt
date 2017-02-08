@@ -41,9 +41,21 @@ class PropertiesTest : DBTest() {
         var regexWrappedDerivedProp by xdStringProp(trimmed = true) { regex(Regex("good")) }
     }
 
+    class Employee(override val entity: Entity) : XdEntity() {
+        companion object : XdNaturalEntityType<Employee>()
+
+        var login by xdRequiredStringProp(trimmed = true, unique = true)
+        var skill by xdRequiredIntProp()
+        var registered by xdDateTimeProp()
+        val contacts by xdLink0_N(Contact::user)
+        var supervisor by xdLink0_1(Employee, "boss")
+        var hireDate by xdRequiredDateTimeProp()
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
         XdModel.registerNode(Derived)
+        XdModel.registerNode(Employee)
     }
 
     @Test
@@ -203,17 +215,17 @@ class PropertiesTest : DBTest() {
     @Test
     fun `transient changes should be accessible`() {
         store.transactional {
-            val boss = User.new {
+            val boss = Employee.new {
                 login = "boss"
                 skill = 555
                 hireDate = DateTime.now().minusHours(1)
             }
-            val luckyGuy = User.new {
+            val luckyGuy = Employee.new {
                 login = "lucky"
                 skill = 2
                 hireDate = DateTime.now().minusHours(1)
             }
-            val user = User.new {
+            val user = Employee.new {
                 login = "user1"
                 skill = 5
                 supervisor = boss
@@ -223,55 +235,55 @@ class PropertiesTest : DBTest() {
             }
 
             // has changes before save
-            assertTrue(user.hasChanges(User::skill))
-            assertTrue(user.hasChanges(User::supervisor))
-            assertTrue(user.hasChanges(User::contacts))
-            assertTrue(user.hasChanges(User::hireDate))
-            assertFalse(user.hasChanges(User::registered))
+            assertTrue(user.hasChanges(Employee::skill))
+            assertTrue(user.hasChanges(Employee::supervisor))
+            assertTrue(user.hasChanges(Employee::contacts))
+            assertTrue(user.hasChanges(Employee::hireDate))
+            assertFalse(user.hasChanges(Employee::registered))
             // old values are null
-            assertThat(user.getOldValue(User::skill), nullValue())
-            assertThat(user.getOldValue(User::supervisor), nullValue())
-            assertThat(user.getOldValue(User::hireDate), nullValue())
-            assertThat(user.getOldValue(User::registered), nullValue())
+            assertThat(user.getOldValue(Employee::skill), nullValue())
+            assertThat(user.getOldValue(Employee::supervisor), nullValue())
+            assertThat(user.getOldValue(Employee::hireDate), nullValue())
+            assertThat(user.getOldValue(Employee::registered), nullValue())
 
             it.flush()
 
             // a primitive property keeps track of old values
-            assertFalse(user.hasChanges(User::skill))
-            assertThat(user.getOldValue(User::skill), equalTo(5))
+            assertFalse(user.hasChanges(Employee::skill))
+            assertThat(user.getOldValue(Employee::skill), equalTo(5))
             user.skill = 6
-            assertTrue(user.hasChanges(User::skill))
-            assertThat(user.getOldValue(User::skill), equalTo(5))
+            assertTrue(user.hasChanges(Employee::skill))
+            assertThat(user.getOldValue(Employee::skill), equalTo(5))
 
             // a link property keeps track of old values until the flush
-            assertFalse(user.hasChanges(User::supervisor))
-            assertThat(user.getOldValue(User::supervisor), nullValue())
+            assertFalse(user.hasChanges(Employee::supervisor))
+            assertThat(user.getOldValue(Employee::supervisor), nullValue())
             user.supervisor = luckyGuy
-            assertTrue(user.hasChanges(User::supervisor))
-            assertThat(user.getOldValue(User::supervisor), equalTo(boss))
+            assertTrue(user.hasChanges(Employee::supervisor))
+            assertThat(user.getOldValue(Employee::supervisor), equalTo(boss))
 
             // a DateTime property keeps track of old values
             val oldHireDate = user.hireDate
             val oldRegistered = user.registered
-            assertFalse(user.hasChanges(User::hireDate))
-            assertFalse(user.hasChanges(User::registered))
-            assertThat(user.getOldValue(User::hireDate), equalTo(oldHireDate))
-            assertThat(user.getOldValue(User::registered), equalTo(oldRegistered))
+            assertFalse(user.hasChanges(Employee::hireDate))
+            assertFalse(user.hasChanges(Employee::registered))
+            assertThat(user.getOldValue(Employee::hireDate), equalTo(oldHireDate))
+            assertThat(user.getOldValue(Employee::registered), equalTo(oldRegistered))
             user.hireDate = DateTime.now()
             user.registered = DateTime.now()
-            assertTrue(user.hasChanges(User::hireDate))
-            assertTrue(user.hasChanges(User::registered))
-            assertThat(user.getOldValue(User::hireDate), equalTo(oldHireDate))
-            assertThat(user.getOldValue(User::registered), equalTo(oldRegistered))
+            assertTrue(user.hasChanges(Employee::hireDate))
+            assertTrue(user.hasChanges(Employee::registered))
+            assertThat(user.getOldValue(Employee::hireDate), equalTo(oldHireDate))
+            assertThat(user.getOldValue(Employee::registered), equalTo(oldRegistered))
 
             // no changes for not affected properties
-            assertFalse(user.hasChanges(User::login))
-            assertFalse(user.hasChanges(User::contacts))
+            assertFalse(user.hasChanges(Employee::login))
+            assertFalse(user.hasChanges(Employee::contacts))
 
             it.flush()
 
             // a link property forgets about changes after the flush :(
-            assertThat(user.getOldValue(User::supervisor), nullValue())
+            assertThat(user.getOldValue(Employee::supervisor), nullValue())
         }
     }
 
