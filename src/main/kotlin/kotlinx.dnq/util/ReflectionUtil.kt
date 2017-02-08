@@ -11,6 +11,7 @@ import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.query.asQuery
 import kotlinx.dnq.simple.XdConstrainedProperty
+import org.joda.time.DateTime
 import java.lang.reflect.*
 import kotlin.reflect.*
 import kotlin.reflect.jvm.jvmName
@@ -179,7 +180,12 @@ fun <T : XdEntity, R : XdEntity?> T.getOldValue(property: KProperty1<T, R>): R? 
     return entity?.let { it.wrapper as R }
 }
 
-fun <T : XdEntity, R> T.getOldValue(property: KProperty1<T, R>): R? {
+fun <T : XdEntity> T.getOldValue(property: KProperty1<T, DateTime?>): DateTime? {
+    val name = getPropertyName(property)
+    return PrimitiveAssociationSemantics.getOldValue(this.entity as TransientEntity, name, Long::class.java, null)?.let(::DateTime)
+}
+
+fun <T : XdEntity, R : Comparable<*>?> T.getOldValue(property: KProperty1<T, R>): R? {
     val name = getPropertyName(property)
     @Suppress("UNCHECKED_CAST")
     return PrimitiveAssociationSemantics.getOldValue(this.entity as TransientEntity, name, null) as R?

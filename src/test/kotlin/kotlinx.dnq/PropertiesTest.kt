@@ -206,15 +206,18 @@ class PropertiesTest : DBTest() {
             val boss = User.new {
                 login = "boss"
                 skill = 555
+                hireDate = DateTime.now().minusHours(1)
             }
             val luckyGuy = User.new {
                 login = "lucky"
                 skill = 2
+                hireDate = DateTime.now().minusHours(1)
             }
             val user = User.new {
                 login = "user1"
                 skill = 5
                 supervisor = boss
+                hireDate = DateTime.now().minusHours(1)
             }.apply {
                 contacts.add(Contact.new { email = "some@mail.com" })
             }
@@ -223,9 +226,13 @@ class PropertiesTest : DBTest() {
             assertTrue(user.hasChanges(User::skill))
             assertTrue(user.hasChanges(User::supervisor))
             assertTrue(user.hasChanges(User::contacts))
+            assertTrue(user.hasChanges(User::hireDate))
+            assertFalse(user.hasChanges(User::registered))
             // old values are null
             assertThat(user.getOldValue(User::skill), nullValue())
             assertThat(user.getOldValue(User::supervisor), nullValue())
+            assertThat(user.getOldValue(User::hireDate), nullValue())
+            assertThat(user.getOldValue(User::registered), nullValue())
 
             it.flush()
 
@@ -242,6 +249,20 @@ class PropertiesTest : DBTest() {
             user.supervisor = luckyGuy
             assertTrue(user.hasChanges(User::supervisor))
             assertThat(user.getOldValue(User::supervisor), equalTo(boss))
+
+            // a DateTime property keeps track of old values
+            val oldHireDate = user.hireDate
+            val oldRegistered = user.registered
+            assertFalse(user.hasChanges(User::hireDate))
+            assertFalse(user.hasChanges(User::registered))
+            assertThat(user.getOldValue(User::hireDate), equalTo(oldHireDate))
+            assertThat(user.getOldValue(User::registered), equalTo(oldRegistered))
+            user.hireDate = DateTime.now()
+            user.registered = DateTime.now()
+            assertTrue(user.hasChanges(User::hireDate))
+            assertTrue(user.hasChanges(User::registered))
+            assertThat(user.getOldValue(User::hireDate), equalTo(oldHireDate))
+            assertThat(user.getOldValue(User::registered), equalTo(oldRegistered))
 
             // no changes for not affected properties
             assertFalse(user.hasChanges(User::login))
