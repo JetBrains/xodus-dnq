@@ -1,13 +1,11 @@
 package kotlinx.dnq.util
 
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics
+import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
 import com.jetbrains.teamsys.dnq.database.EntityOperations
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.XdEntity
-import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.XdLegacyEntityType
-import kotlinx.dnq.XdModel
+import kotlinx.dnq.*
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.XdQuery
@@ -157,19 +155,34 @@ val Class<*>.memberFields: Sequence<Field>
         it.declaredFields.asSequence()
     }
 
-
-fun <T : XdEntity> T.hasChanges(property: KProperty1<T, *>): Boolean {
+private fun <T : XdEntity> T.getPropertyName(property: KProperty1<T, *>): String {
     val clazz = this.javaClass
     val field = clazz.getDelegateField(property) ?:
             throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated")
     val delegateValue = field[this]
-    val name = when (delegateValue) {
+    return when (delegateValue) {
         is XdConstrainedProperty<*, *> -> delegateValue.dbPropertyName ?: property.name
         is XdLink<*, *> -> delegateValue.dbPropertyName ?: property.name
         else -> throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated to Xodus")
     }
+}
 
+fun <T : XdEntity> T.hasChanges(property: KProperty1<T, *>): Boolean {
+    val name = getPropertyName(property)
     return EntityOperations.hasChanges(entity as TransientEntity, name)
+}
+
+fun <T : XdEntity, R : XdEntity?> T.getOldValue(property: KProperty1<T, R>): R? {
+    val name = getPropertyName(property)
+    @Suppress("UNCHECKED_CAST")
+    val entity = AssociationSemantics.getOldValue(this.entity as TransientEntity, name)
+    return entity?.let { it.wrapper as R }
+}
+
+fun <T : XdEntity, R> T.getOldValue(property: KProperty1<T, R>): R? {
+    val name = getPropertyName(property)
+    @Suppress("UNCHECKED_CAST")
+    return PrimitiveAssociationSemantics.getOldValue(this.entity as TransientEntity, name, null) as R?
 }
 
 private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<R, XdMutableQuery<T>>, getLinks: (String) -> Iterable<Entity>): XdQuery<T> {

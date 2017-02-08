@@ -10,7 +10,13 @@ import kotlinx.dnq.query.first
 import kotlinx.dnq.query.query
 import kotlinx.dnq.simple.regex
 import kotlinx.dnq.simple.requireIf
+import kotlinx.dnq.util.getOldValue
+import kotlinx.dnq.util.hasChanges
+import org.hamcrest.CoreMatchers.equalTo
+import org.hamcrest.CoreMatchers.nullValue
 import org.joda.time.DateTime
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThat
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -191,6 +197,60 @@ class PropertiesTest : DBTest() {
         assertEquals(1, e.causes.count())
         assertTrue {
             e.causes.any { it is UniqueIndexViolationException && it.propertyName == User::login.name }
+        }
+    }
+
+    @Test
+    fun `transient changes should be accessible`() {
+        store.transactional {
+            val boss = User.new {
+                login = "boss"
+                skill = 555
+            }
+            val luckyGuy = User.new {
+                login = "lucky"
+                skill = 2
+            }
+            val user = User.new {
+                login = "user1"
+                skill = 5
+                supervisor = boss
+            }.apply {
+                contacts.add(Contact.new { email = "some@mail.com" })
+            }
+
+            // has changes before save
+            assertTrue(user.hasChanges(User::skill))
+            assertTrue(user.hasChanges(User::supervisor))
+            assertTrue(user.hasChanges(User::contacts))
+            // old values are null
+            assertThat(user.getOldValue(User::skill), nullValue())
+            assertThat(user.getOldValue(User::supervisor), nullValue())
+
+            it.flush()
+
+            // a primitive property keeps track of old values
+            assertFalse(user.hasChanges(User::skill))
+            assertThat(user.getOldValue(User::skill), equalTo(5))
+            user.skill = 6
+            assertTrue(user.hasChanges(User::skill))
+            assertThat(user.getOldValue(User::skill), equalTo(5))
+
+            // a link property keeps track of old values until the flush
+            assertFalse(user.hasChanges(User::supervisor))
+            assertThat(user.getOldValue(User::supervisor), nullValue())
+            user.supervisor = luckyGuy
+            assertTrue(user.hasChanges(User::supervisor))
+            assertThat(user.getOldValue(User::supervisor), equalTo(boss))
+
+            // no changes for not affected properties
+            assertFalse(user.hasChanges(User::login))
+            assertFalse(user.hasChanges(User::contacts))
+
+            it.flush()
+
+            // a link property forgets about changes after the flush :(
+            assertThat(user.getOldValue(User::supervisor), nullValue())
         }
     }
 
