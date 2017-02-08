@@ -1,9 +1,8 @@
 package kotlinx.dnq
 
 import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
-import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import jetbrains.teamsys.dnq.runtime.util.DnqUtils
 import kotlinx.dnq.store.container.LegacyStoreContainer
-import kotlinx.dnq.util.findClosestLegacyEntitySupertype
 import kotlinx.dnq.util.inferTypeParameters
 import java.lang.reflect.ParameterizedType
 
@@ -28,9 +27,7 @@ abstract class XdLegacyEntityType<P : BasePersistentClassImpl, T : XdEntity>(leg
 
     @Suppress("UNCHECKED_CAST")
     val T.mpsType: P
-        get() = (entityStore as TransientEntityStoreImpl).getCachedPersistentClassInstance(
-            XdModel.getOrThrow(entity.type).findClosestLegacyEntitySupertype()!!.legacyClass as Class<P>
-        ) as P
+        get() = DnqUtils.getPersistentClassInstance(entity, entity.type) as P
 
 }
 
