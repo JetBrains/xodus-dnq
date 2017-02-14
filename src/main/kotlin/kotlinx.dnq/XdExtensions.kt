@@ -1,15 +1,11 @@
 package kotlinx.dnq
 
 import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.XdModel.toXd
 
-val Entity.wrapper: XdEntity get() = XdModel.wrap(this)
+val Entity.wrapper: XdEntity get() = toXd(this)
 
-fun <T : XdEntity> Entity.wrapper(): T {
-    val xdHierarchyNode = XdModel.getOrThrow(this.type)
+@Deprecated("Use toXd() instead. May be removed after 01.09.2017", ReplaceWith("toXd<T>()"))
+fun <T : XdEntity> Entity.wrapper() = XdModel.toXd<T>(this)
 
-    val entityConstructor = xdHierarchyNode.entityConstructor
-            ?: throw UnsupportedOperationException("Constructor for the type ${this.type} is not found")
-
-    @Suppress("UNCHECKED_CAST")
-    return entityConstructor(this) as T
-}
+fun <T : XdEntity> Entity.toXd() = XdModel.toXd<T>(this)

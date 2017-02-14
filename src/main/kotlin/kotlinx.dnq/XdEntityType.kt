@@ -25,5 +25,5 @@ abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer
         }
     }
 
-    open fun wrap(entity: Entity) = entity.wrapper<T>()
+    open fun wrap(entity: Entity) = entity.toXd<T>()
 }

@@ -70,9 +70,21 @@ object XdModel {
         return XdModel[entityType] ?: throw XdWrapperNotFoundException(entityType)
     }
 
+    @Deprecated("Use toXd(entity) instead. May be removed after 01.09.2017", ReplaceWith("toXd(entity)"))
     fun wrap(entity: Entity): XdEntity {
         val hierarchyNode = XdModel.getOrThrow(entity.type)
         return hierarchyNode.entityType.wrap(entity)
+    }
+
+    fun <T: XdEntity> toXd(entity: Entity): T {
+        val xdHierarchyNode = getOrThrow(entity.type)
+
+        val entityConstructor = xdHierarchyNode.entityConstructor
+                ?: throw UnsupportedOperationException("Constructor for the type ${entity.type} is not found")
+
+        @Suppress("UNCHECKED_CAST")
+        return entityConstructor(entity) as T
+
     }
 }
 
