@@ -107,7 +107,8 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
     }
 
     override fun getLink(linkName: String): Entity? {
-        throw unsupported()
+        currentProperty = linkName
+        return this
     }
 
     override fun deleteLinks(linkName: String) {
@@ -264,7 +265,8 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
     }
 
     override fun setToOne(linkName: String, target: Entity?) {
-        throw unsupported()
+        currentProperty = linkName
+        nodes.add(LinkEqual(linkName, target))
     }
 
     override fun addChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
@@ -284,6 +286,11 @@ infix fun <T : Comparable<T>> T?.lt(value: T) {
 infix fun <T : Comparable<T>> T?.eq(value: T?) {
     val searchingEntity = SearchingEntity.get()
     searchingEntity.nodes.add(PropertyEqual(searchingEntity.currentProperty!!, value))
+}
+
+infix fun <T : XdEntity> T?.eq(value: T?) {
+    val searchingEntity = SearchingEntity.get()
+    searchingEntity.nodes.add(LinkEqual(searchingEntity.currentProperty!!, value?.entity))
 }
 
 infix fun <T : Comparable<T>> T?.gt(value: T) {

@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-class QueryWherePropertiesTest : DBTest() {
+class FilterQueryPropertiesTest : DBTest() {
 
     @Test
     fun `firstOrNull should return null if nothing found`() {
