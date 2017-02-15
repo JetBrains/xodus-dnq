@@ -264,7 +264,7 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
     }
 
     override fun setToOne(linkName: String, target: Entity?) {
-        throw unsupported()
+        nodes.add(LinkEqual(linkName, target))
     }
 
     override fun addChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {

@@ -5,10 +5,10 @@ import kotlinx.dnq.transactional
 import org.junit.Test
 import kotlin.test.assertEquals
 
-class QueryWhereLinksTest : DBTest() {
+class FilterQueryLinksTest : DBTest() {
 
     @Test
-    fun `simple search by link should work`() {
+    fun `search by undirected association should work`() {
         store.transactional {
             val user1 = User.new {
                 login = "test"
@@ -29,6 +29,23 @@ class QueryWhereLinksTest : DBTest() {
             }
 
             assertEquals(contact1.entityId, Contact.filter { it.user = user1 }.first().entityId)
+        }
+    }
+
+    @Test
+    fun `simple search by directed association`() {
+        store.transactional {
+            val user1 = User.new {
+                login = "test"
+                skill = 1
+            }
+            val user2 = User.new {
+                login = "test1"
+                skill = 2
+                supervisor = user1
+            }
+
+            assertEquals(user2.entityId, User.filter { it.supervisor = user1 }.first().entityId)
         }
     }
 
