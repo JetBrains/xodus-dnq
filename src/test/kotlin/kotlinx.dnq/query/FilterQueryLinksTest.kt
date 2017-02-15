@@ -45,7 +45,13 @@ class FilterQueryLinksTest : DBTest() {
                 supervisor = user1
             }
 
-            assertEquals(user2.entityId, User.filter { it.supervisor = user1 }.first().entityId)
+            var result = User.filter { it.supervisor = user1 }
+            assertEquals(1, result.size())
+            assertEquals(user2.entityId, result.first().entityId)
+
+            result = User.filter { it.supervisor eq user1 }
+            assertEquals(1, result.size())
+            assertEquals(user2.entityId, result.first().entityId)
         }
     }
 
