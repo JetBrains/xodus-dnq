@@ -32,6 +32,11 @@ public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTrac
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public int getChangesDescriptionCount() {
+        return 0;
+    }
+
     @Nullable
     @Override
     public Map<String, LinkChange> getChangedLinksDetailed(@NotNull TransientEntity e) {

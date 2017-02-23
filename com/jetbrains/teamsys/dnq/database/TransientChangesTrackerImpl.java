@@ -67,6 +67,17 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return changesDescription;
     }
 
+    @Override
+    public int getChangesDescriptionCount() {
+        int addedAndRemovedCount = 0;
+        for (TransientEntity removed: removedEntities) {
+            if (addedEntities.contains(removed)) {
+                addedAndRemovedCount++;
+            }
+        }
+        return changedEntities.size() - addedAndRemovedCount;
+    }
+
     private EntityChangeType getEntityChangeType(TransientEntity e) {
         if (addedEntities.contains(e)) return EntityChangeType.ADD;
         if (removedEntities.contains(e)) return EntityChangeType.REMOVE;
