@@ -165,6 +165,8 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
         }
     }
 
+    modelMetaData.init()
+
     entityStore.transactional {
         naturalNodes.values.asSequence().map {
             it.entityType
