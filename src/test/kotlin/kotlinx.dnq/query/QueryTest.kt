@@ -1,13 +1,11 @@
 package kotlinx.dnq.query
 
+import jetbrains.exodus.database.TransientEntity
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
 import org.junit.Test
 import java.util.*
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
+import kotlin.test.*
 
 class QueryTest : DBTest() {
 
@@ -64,6 +62,23 @@ class QueryTest : DBTest() {
 
         store.transactional {
             assertEquals(1, User.query(User::supervisor ne null).size())
+        }
+    }
+
+    @Test
+    fun `take & drop should return query of TransientEntities`() {
+        store.transactional {
+            (1..2).forEach {
+                User.new {
+                    login = "user$it"
+                    skill = 5
+                }
+            }
+        }
+
+        store.transactional {
+            assertTrue(User.all().drop(1).entityIterable.iterator().next() is TransientEntity)
+            assertTrue(User.all().take(1).entityIterable.iterator().next() is TransientEntity)
         }
     }
 }

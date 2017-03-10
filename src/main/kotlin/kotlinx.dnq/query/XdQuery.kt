@@ -40,7 +40,7 @@ fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
 
 operator fun <T : XdEntity> XdQuery<T>.iterator() = asSequence().iterator()
 
-fun <T : XdEntity, C: MutableCollection<in T>> XdQuery<T>.toCollection(destination: C) = asSequence().toCollection(destination)
+fun <T : XdEntity, C : MutableCollection<in T>> XdQuery<T>.toCollection(destination: C) = asSequence().toCollection(destination)
 
 fun <T : XdEntity> XdQuery<T>.toList() = asSequence().toList()
 
@@ -198,20 +198,21 @@ val <T : XdEntity> XdQuery<T>?.isNotEmpty: Boolean
     get() = !isEmpty
 
 fun <T : XdEntity> XdQuery<T>.drop(n: Int): XdQuery<T> {
-    val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is EntityIterable) {
-        it.skip(n)
-    } else {
-        it.asSequence().drop(n).asIterable()
-    }.asQuery(entityType)
+    return operation({ it.skip(n) }, { it.drop(n) })
 }
 
 fun <T : XdEntity> XdQuery<T>.take(n: Int): XdQuery<T> {
+    return operation({ it.take(n) }, { it.take(n) })
+}
+
+private inline fun <T : XdEntity> XdQuery<T>.operation(
+        ifEntityIterable: (EntityIterable) -> EntityIterable,
+        notEntityIterable: (Sequence<Entity>) -> Sequence<Entity>): XdQuery<T> {
     val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is EntityIterable) {
-        it.take(n)
-    } else {
-        it.asSequence().take(n).asIterable()
+    return when (it) {
+        is EntityIterableBase -> wrap(ifEntityIterable(it.source))
+        is EntityIterable -> wrap(ifEntityIterable(it))
+        else -> notEntityIterable(it.asSequence()).asIterable()
     }.asQuery(entityType)
 }
 
@@ -220,12 +221,7 @@ private fun <T : XdEntity> XdQuery<T>.wrap(entityIterable: EntityIterable): Enti
 }
 
 fun <T : XdEntity> XdQuery<T>.distinct(): XdQuery<T> {
-    val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is EntityIterableBase) {
-        wrap(it.source.distinct())
-    } else {
-        it.distinct()
-    }.asQuery(entityType)
+    return operation({ it.distinct() }, { it.distinct() })
 }
 
 fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(dbFieldName: String, targetEntityType: XdEntityType<T>): XdQuery<T> {
@@ -241,7 +237,7 @@ fun <S : XdEntity, T : XdEntity> XdQuery<S>.flatMapDistinct(dbFieldName: String,
     return queryEngine.selectManyDistinct(entityIterable, dbFieldName).asQuery(targetEntityType)
 }
 
-inline fun <S : XdEntity, reified T : XdEntity, Q: XdQuery<T>> XdQuery<S>.flatMapDistinct(field: KProperty1<S, Q>): XdQuery<T> {
+inline fun <S : XdEntity, reified T : XdEntity, Q : XdQuery<T>> XdQuery<S>.flatMapDistinct(field: KProperty1<S, Q>): XdQuery<T> {
     @Suppress("UNCHECKED_CAST")
     return flatMapDistinct(field.getDBName(entityType), T::class.java.entityType)
 }
