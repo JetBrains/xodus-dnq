@@ -165,7 +165,12 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
         }
     }
 
-    modelMetaData.init()
+    /**
+     * This explicitly prepares all data structures within model metadata. If we don't invoke
+     * preparation here, then it would be performed on demand and very likely simultaneously in two
+     * threads: EventMultiplexer and the one executing App.init().
+     */
+    modelMetaData.prepare()
 
     entityStore.transactional {
         naturalNodes.values.asSequence().map {
