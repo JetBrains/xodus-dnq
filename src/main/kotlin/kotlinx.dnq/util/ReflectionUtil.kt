@@ -13,6 +13,7 @@ import kotlinx.dnq.query.asQuery
 import kotlinx.dnq.simple.XdConstrainedProperty
 import org.joda.time.DateTime
 import java.lang.reflect.*
+import java.util.*
 import kotlin.reflect.*
 import kotlin.reflect.jvm.jvmName
 
@@ -57,13 +58,11 @@ internal val <T : XdEntity> XdEntityType<T>.enclosingEntityClass: Class<out T>
 val XdEntityType<*>.parent: XdEntityType<*>?
     get() {
         @Suppress("UNCHECKED_CAST")
-        val parentEntityClass = enclosingEntityClass.superclass as Class<out XdEntity>?
+        val parentEntityClass = enclosingEntityClass.superclass as Class<out XdEntity>
         return if (parentEntityClass == XdEntity::class.java) {
             null
         } else {
-            val parentCompanion = parentEntityClass?.kotlin?.companionObjectInstance
-            parentCompanion as? XdEntityType<*>
-                    ?: throw IllegalArgumentException("Companion object of XdEntity should be XdEntityType")
+            parentEntityClass.entityType
         }
     }
 
@@ -135,13 +134,7 @@ fun <R : XdEntity> KProperty1<R, *>.getDBName(entityType: XdEntityType<R>): Stri
     return node?.getDBName(this) ?: this.name
 }
 
-inline fun <reified R : XdEntity> KProperty1<R, *>.getDBName(): String {
-    if (R::class.companionObjectInstance as? XdEntityType<R> == null) {
-        throw IllegalArgumentException("Property owner class should have a companion object " +
-                "that inherits from ${XdEntityType::class.java.simpleName}")
-    }
-    return this.getDBName(R::class.companionObjectInstance as XdEntityType<R>)
-}
+inline fun <reified R : XdEntity> KProperty1<R, *>.getDBName() = getDBName(R::class.entityType)
 
 private fun <R : XdEntity> XdHierarchyNode.getDBName(prop: KProperty1<R, *>): String? {
     return this.simpleProperties[prop.name]?.delegate?.let { it.dbPropertyName ?: prop.name }
@@ -210,6 +203,14 @@ fun <R : XdEntity, T : XdEntity> R.getRemovedLinks(property: KProperty1<R, XdMut
     AssociationSemantics.getRemovedLinks(entity as TransientEntity, it)
 }
 
-@Suppress("UNCHECKED_CAST")
 val <T : XdEntity> Class<T>.entityType: XdEntityType<T>
-    get() = kotlin.companionObjectInstance as XdEntityType<T>
+    get() = kotlin.entityType
+
+private val entityTypeCache = HashMap<Class<*>, XdEntityType<*>>()
+
+@Suppress("UNCHECKED_CAST")
+val <T : XdEntity> KClass<T>.entityType: XdEntityType<T>
+    get() = entityTypeCache.getOrPut(java) {
+        companionObjectInstance as? XdEntityType<T>
+                ?: throw IllegalArgumentException("XdEntity contract is broken for $java, its companion object is not an instance of XdEntityType")
+    } as XdEntityType<T>

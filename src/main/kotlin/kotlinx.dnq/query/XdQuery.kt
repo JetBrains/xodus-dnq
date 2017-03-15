@@ -239,7 +239,7 @@ fun <S : XdEntity, T : XdEntity> XdQuery<S>.flatMapDistinct(dbFieldName: String,
 
 inline fun <S : XdEntity, reified T : XdEntity, Q : XdQuery<T>> XdQuery<S>.flatMapDistinct(field: KProperty1<S, Q>): XdQuery<T> {
     @Suppress("UNCHECKED_CAST")
-    return flatMapDistinct(field.getDBName(entityType), T::class.java.entityType)
+    return flatMapDistinct(field.getDBName(entityType), T::class.entityType)
 }
 
 fun <T : XdEntity> XdQuery<T>.indexOf(entity: Entity?): Int {

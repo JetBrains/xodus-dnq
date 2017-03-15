@@ -2,8 +2,8 @@ package kotlinx.dnq
 
 import kotlinx.dnq.link.*
 import kotlinx.dnq.query.XdMutableQuery
+import kotlinx.dnq.util.entityType
 import kotlin.reflect.KProperty1
-import kotlin.reflect.companionObjectInstance
 
 /**
  * Directed [0..1] association
@@ -195,8 +195,4 @@ inline fun <R : XdEntity, reified T : XdEntity> xdMultiParent(oppositeLink: KPro
     return XdManyChildrenToMultiParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
 }
 
-inline fun <reified T : XdEntity> entityTypeCompanion(): XdEntityType<T> {
-    @Suppress("UNCHECKED_CAST")
-    return (T::class.companionObjectInstance as? XdEntityType<T>) ?:
-            throw IllegalArgumentException("XdEntity contract is broken for ${T::class.java}, its companion object is not an instance of XdEntityType")
-}
+inline fun <reified T : XdEntity> entityTypeCompanion(): XdEntityType<T> = T::class.entityType

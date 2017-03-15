@@ -18,7 +18,6 @@ import kotlinx.dnq.simple.XdWrappedProperty
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.*
-import kotlin.reflect.companionObjectInstance
 import kotlin.reflect.jvm.javaGetter
 import kotlin.reflect.jvm.javaType
 
@@ -79,7 +78,10 @@ private class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEnt
 
     private fun getPropertyDeclaringClass(property: XdHierarchyNode.SimpleProperty) = property.property.javaGetter!!.declaringClass
 
-    private fun isNaturalEntity(entityClass: Class<*>) = entityClass.kotlin.companionObjectInstance is XdNaturalEntityType<*>
+    @Suppress("UNCHECKED_CAST")
+    private fun isNaturalEntity(clazz: Class<*>) =
+            XdEntity::class.java.isAssignableFrom(clazz) && clazz != XdEntity::class.java
+                && (clazz as Class<out XdEntity>).entityType is XdNaturalEntityType<*>
 
     private fun getPropertyConstraintRegistry(self: Any): MutableMap<String, Iterable<PropertyConstraint<*>>> {
         val propertyConstraintsField = BasePersistentClassImpl::class.java.getDeclaredField("propertyConstraints")

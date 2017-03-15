@@ -2,6 +2,7 @@ package kotlinx.dnq
 
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.util.XdHierarchyNode
+import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.parent
 import org.reflections.Reflections
 import org.reflections.util.ClasspathHelper
@@ -9,7 +10,6 @@ import org.reflections.util.ConfigurationBuilder
 import java.net.URL
 import java.util.*
 import javax.servlet.ServletContext
-import kotlin.reflect.companionObjectInstance
 
 object XdModel {
     const val JAVA_CLASSPATH = "java_classpath"
@@ -50,20 +50,16 @@ object XdModel {
         val reflections = Reflections(ConfigurationBuilder().apply { configure() })
         val allEntityClasses = reflections.getSubTypesOf(XdEntity::class.java)
 
-        allEntityClasses.asSequence().map {
-            it.kotlin.companionObjectInstance
-        }.filterIsInstance<XdEntityType<*>>().forEach {
-            registerNode(it)
+        allEntityClasses.forEach {
+            if (XdEntity::class.java.isAssignableFrom(it) && it != XdEntity::class.java) {
+                registerNode(it.entityType)
+            }
         }
     }
 
-    fun registerNode(entityType: XdEntityType<*>): XdHierarchyNode {
-        return hierarchy[entityType.entityType] ?: run {
-            val parentNode = entityType.parent?.let { parent -> registerNode(parent) }
-            XdHierarchyNode(entityType, parentNode).apply {
-                hierarchy[entityType.entityType] = this
-            }
-        }
+    fun registerNode(entityType: XdEntityType<*>): XdHierarchyNode = hierarchy.getOrPut(entityType.entityType) {
+        val parentNode = entityType.parent?.let { registerNode(it) }
+        XdHierarchyNode(entityType, parentNode)
     }
 
     fun getOrThrow(entityType: String): XdHierarchyNode {
