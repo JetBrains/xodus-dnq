@@ -13,7 +13,7 @@ import kotlinx.dnq.query.asQuery
 import kotlinx.dnq.simple.XdConstrainedProperty
 import org.joda.time.DateTime
 import java.lang.reflect.*
-import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.*
 import kotlin.reflect.jvm.jvmName
 
@@ -206,7 +206,7 @@ fun <R : XdEntity, T : XdEntity> R.getRemovedLinks(property: KProperty1<R, XdMut
 val <T : XdEntity> Class<T>.entityType: XdEntityType<T>
     get() = kotlin.entityType
 
-private val entityTypeCache = HashMap<Class<*>, XdEntityType<*>>()
+private val entityTypeCache = ConcurrentHashMap<Class<*>, XdEntityType<*>>()
 
 @Suppress("UNCHECKED_CAST")
 val <T : XdEntity> KClass<T>.entityType: XdEntityType<T>
