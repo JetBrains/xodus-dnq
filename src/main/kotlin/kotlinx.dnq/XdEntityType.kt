@@ -15,7 +15,7 @@ abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer
         return XdQueryImpl(entityStore.queryEngine.queryGetAll(entityType), this)
     }
 
-    fun new(init: (T.() -> Unit)? = null): T {
+    open fun new(init: (T.() -> Unit)? = null): T {
         val transaction = (entityStore.threadSession
                 ?: throw IllegalStateException("New entities can be created only in transactional block"))
         return wrap(transaction.newEntity(entityType)).apply {
