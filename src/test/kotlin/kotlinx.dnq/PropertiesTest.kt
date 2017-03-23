@@ -25,6 +25,7 @@ import kotlin.test.assertTrue
 class PropertiesTest : DBTest() {
     abstract class Base : XdEntity() {
         companion object : XdNaturalEntityType<Base>()
+
         var enabled by xdBooleanProp()
 
         var requiredBaseProp by xdRequiredStringProp()
@@ -284,6 +285,19 @@ class PropertiesTest : DBTest() {
 
             // a link property forgets about changes after the flush :(
             assertThat(user.getOldValue(Employee::supervisor), nullValue())
+        }
+    }
+
+    @Test
+    fun `access to not initialized required property should throw an exception`() {
+        store.transactional { txn ->
+            val user = User.new()
+            val e = assertFailsWith<RequiredPropertyUndefinedException> {
+                user.login
+            }
+            val pattern = "Required field login of User\\[\\d+-\\d+] is undefined"
+            assertTrue(e.message!!.matches(Regex(pattern)), "Exception message \"${e.message}\" does not match pattern \"$pattern\"")
+            txn.revert()
         }
     }
 
