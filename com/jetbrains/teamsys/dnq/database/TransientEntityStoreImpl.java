@@ -16,6 +16,7 @@ import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +33,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     private QueryEngine queryEngine;
     private ModelMetaData modelMetaData;
     private IEventsMultiplexer eventsMultiplexer;
-    private final Set<TransientStoreSession> sessions = new HashSet<TransientStoreSession>(200);
+    private final Set<TransientStoreSession> sessions =
+            Collections.newSetFromMap(new ConcurrentHashMap<TransientStoreSession, Boolean>(200));
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
     private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<Integer, TransientStoreSessionListener>();
 
@@ -302,10 +304,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     }
 
     private TransientStoreSession registerStoreSession(TransientStoreSession s) {
-        synchronized (sessions) {
-            if (!sessions.add(s)) {
-                throw new IllegalArgumentException("Session is already registered.");
-            }
+        if (!sessions.add(s)) {
+            throw new IllegalArgumentException("Session is already registered.");
         }
 
         currentSession.set(s);
@@ -314,10 +314,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     }
 
     void unregisterStoreSession(TransientStoreSession s) {
-        synchronized (sessions) {
-            if (!sessions.remove(s)) {
-                throw new IllegalArgumentException("Transient session wasn't previously registered.");
-            }
+        if (!sessions.remove(s)) {
+            throw new IllegalArgumentException("Transient session wasn't previously registered.");
         }
 
         currentSession.remove();
@@ -355,16 +353,12 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     }
 
     public int sessionsCount() {
-        synchronized (sessions) {
-            return sessions.size();
-        }
+        return sessions.size();
     }
 
     public void dumpSessions(StringBuilder sb) {
-        synchronized (sessions) {
-            for (TransientStoreSession s : sessions) {
-                sb.append("\n").append(s.toString());
-            }
+        for (TransientStoreSession s : sessions) {
+            sb.append("\n").append(s.toString());
         }
     }
 
