@@ -18,6 +18,7 @@ import kotlinx.dnq.simple.XdWrappedProperty
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.jvm.javaGetter
 import kotlin.reflect.jvm.javaType
 
@@ -183,14 +184,19 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     }
 }
 
-private fun getPersistenceClassInstance(node: XdHierarchyNode): BasePersistentClassImpl {
+private val persistenceClassInstanceCache = ConcurrentHashMap<XdNaturalEntityType<*>, BasePersistentClassImpl>()
+
+private fun getPersistenceClassInstance(node: XdHierarchyNode) =
+        persistenceClassInstanceCache.computeIfAbsent(node.entityType as XdNaturalEntityType<*>) {
+
     val persistentClass = findLegacyEntitySuperclass(node)?.legacyClass ?: CommonBasePersistentClass::class.java
-    return ProxyFactory().apply {
+    ProxyFactory().apply {
         superclass = persistentClass
         setFilter(::isNotFinalize)
+        isUseCache = false
     }.create(emptyArray(), emptyArray()).apply {
         this as ProxyObject
-        handler = PersistentClassMethodHandler(this, node.entityType as XdNaturalEntityType<*>)
+        handler = PersistentClassMethodHandler(this, node.entityType)
     } as BasePersistentClassImpl
 }
 

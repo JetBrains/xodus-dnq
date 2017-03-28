@@ -25,7 +25,7 @@ apply plugin: 'maven'
 
 idea {
     project {
-        jdkName = '1.7'
+        jdkName = '1.8'
         vcs = 'Git'
     }
     module {
