@@ -1,11 +1,7 @@
 package kotlinx.dnq.util
 
-import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
-import javassist.util.proxy.ProxyFactory
-import javassist.util.proxy.ProxyObject
 import jetbrains.exodus.query.metadata.*
-import kotlinx.dnq.XdLegacyEntityType
 import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink
@@ -14,9 +10,6 @@ import kotlinx.dnq.simple.XdConstrainedProperty
 import kotlinx.dnq.simple.XdPropertyRequirement
 import kotlinx.dnq.simple.XdWrappedProperty
 import kotlinx.dnq.transactional
-import java.lang.reflect.Method
-import java.util.*
-import kotlin.reflect.jvm.javaGetter
 import kotlin.reflect.jvm.javaType
 
 fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: TransientEntityStoreImpl) {
@@ -28,7 +21,7 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     naturalNodes.forEach {
         val (entityTypeName, node) = it
         modelMetaData.addEntityMetaData(entityTypeName, node)
-        entityStore.setCachedPersistentClassInstance(entityTypeName, getPersistenceClassInstance(node))
+        entityStore.setCachedPersistentClassInstance(entityTypeName, node.naturalPersistentClassInstance)
     }
 
     naturalNodes.forEach {
@@ -53,27 +46,6 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
         }
     }
 }
-
-private val persistenceClassInstanceCache = ConcurrentHashMap<XdNaturalEntityType<*>, BasePersistentClassImpl>()
-
-private fun getPersistenceClassInstance(node: XdHierarchyNode) =
-        persistenceClassInstanceCache.computeIfAbsent(node.entityType as XdNaturalEntityType<*>) {
-
-    val persistentClass = findLegacyEntitySuperclass(node)?.legacyClass ?: CommonBasePersistentClass::class.java
-    ProxyFactory().apply {
-        superclass = persistentClass
-        setFilter(::isNotFinalize)
-        isUseCache = false
-    }.create(emptyArray(), emptyArray()).apply {
-        this as ProxyObject
-        handler = PersistentClassMethodHandler(this, node.entityType)
-    } as BasePersistentClassImpl
-}
-
-private fun findLegacyEntitySuperclass(node: XdHierarchyNode): XdLegacyEntityType<*, *>? =
-        node.entityType.let { it as? XdLegacyEntityType<*, *> ?: node.parentNode?.let(::findLegacyEntitySuperclass) }
-
-private fun isNotFinalize(method: Method) = !method.parameterTypes.isEmpty() || method.name != "finalize"
 
 private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: XdHierarchyNode) {
     addEntityMetaData(EntityMetaDataImpl().apply {

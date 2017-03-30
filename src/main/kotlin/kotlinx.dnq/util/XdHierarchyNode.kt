@@ -1,9 +1,15 @@
 package kotlinx.dnq.util
 
+import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
+import javassist.util.proxy.ProxyFactory
+import javassist.util.proxy.ProxyObject
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.XdLegacyEntityType
+import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.simple.XdConstrainedProperty
+import java.lang.reflect.Method
 import java.util.*
 import kotlin.reflect.KProperty1
 
@@ -56,6 +62,27 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
             }
         }
     }
+
+    val naturalPersistentClassInstance by lazy {
+        val xdEntityType = entityType as? XdNaturalEntityType<*>
+                ?: throw UnsupportedOperationException("This property is available only for XdNaturalEntityType")
+
+        val persistentClass = this.findLegacyEntitySuperclass()?.legacyClass ?: CommonBasePersistentClass::class.java
+
+        ProxyFactory().apply {
+            superclass = persistentClass
+            setFilter { isNotFinalize(it) }
+        }.create(emptyArray(), emptyArray()).apply {
+            this as ProxyObject
+            handler = PersistentClassMethodHandler(this, xdEntityType)
+        } as BasePersistentClassImpl
+    }
+
+    private fun findLegacyEntitySuperclass(): XdLegacyEntityType<*, *>? = this.entityType.let {
+        it as? XdLegacyEntityType<*, *> ?: this.parentNode?.findLegacyEntitySuperclass()
+    }
+
+    private fun isNotFinalize(method: Method) = !method.parameterTypes.isEmpty() || method.name != "finalize"
 
 }
 
