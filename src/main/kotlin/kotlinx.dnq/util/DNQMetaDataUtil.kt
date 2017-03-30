@@ -3,6 +3,7 @@ package kotlinx.dnq.util
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.query.metadata.*
 import kotlinx.dnq.XdNaturalEntityType
+import kotlinx.dnq.enum.XdEnumEntityType
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.simple.RequireIfConstraint
@@ -38,11 +39,17 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
      */
     modelMetaData.prepare()
 
-    entityStore.transactional {
+    entityStore.transactional { txn ->
         naturalNodes.values.asSequence().map {
             it.entityType
         }.filterIsInstance<XdNaturalEntityType<*>>().forEach {
             it.initEntityType()
+        }
+
+        naturalNodes.values.asSequence().map {
+            it.entityType
+        }.filterIsInstance<XdEnumEntityType<*>>().forEach {
+            it.initEnumValues(txn)
         }
     }
 }
