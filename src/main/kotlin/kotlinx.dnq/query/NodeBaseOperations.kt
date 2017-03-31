@@ -29,7 +29,8 @@ infix inline fun <reified R : XdEntity> KProperty1<R, DateTime?>.eq(value: DateT
 }
 
 fun ne(dbPropertyName: String, value: Comparable<*>?): NodeBase {
-    return not(PropertyEqual(dbPropertyName, value))}
+    return not(PropertyEqual(dbPropertyName, value))
+}
 
 infix inline fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.ne(value: T?): NodeBase {
     return ne(this.getDBName(R::class), value)
@@ -126,11 +127,7 @@ inline infix fun <reified R : XdEntity> KProperty1<R, String?>.startsWith(value:
 }
 
 fun <R : XdEntity, T : XdEntity> KProperty1<R, T?>.eq(entityKClass: KClass<R>, value: T?): NodeBase {
-    return if (value == null) {
-        not(LinkNotNull(getDBName(entityKClass)))
-    } else {
-        LinkEqual(getDBName(entityKClass), value.entity)
-    }
+    return LinkEqual(getDBName(entityKClass), value?.entity)
 }
 
 inline infix fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.eq(value: T?): NodeBase {
