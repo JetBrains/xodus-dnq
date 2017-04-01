@@ -315,6 +315,18 @@ infix fun <T : Comparable<T>> T?.ne(value: T) {
     searchingEntity.nodes.add(UnaryNot(PropertyEqual(searchingEntity.currentProperty!!, value)))
 }
 
+infix fun <T : XdEntity> T?.isIn(entities: Iterable<T?>) {
+    val searchingEntity = SearchingEntity.get()
+    val node = entities.fold(None as NodeBase) { tree, e -> tree or (LinkEqual(searchingEntity.currentProperty!!, e?.entity)) }
+    searchingEntity.nodes.add(node)
+}
+
+infix fun <T : Comparable<*>> T?.isIn(values: Iterable<T?>) {
+    val searchingEntity = SearchingEntity.get()
+    val node = values.fold(None as NodeBase) { tree, v -> tree or (PropertyEqual(searchingEntity.currentProperty!!, v)) }
+    searchingEntity.nodes.add(node)
+}
+
 fun SearchingEntity.inScope(fn: SearchingEntity.() -> Unit): SearchingEntity {
     SearchingEntity.current.set(this)
     try {
