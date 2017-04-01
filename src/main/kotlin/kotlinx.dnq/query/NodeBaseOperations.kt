@@ -1,7 +1,10 @@
 package kotlinx.dnq.query
 
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.query.*
+import jetbrains.exodus.query.metadata.ModelMetaData
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.getDBName
@@ -154,3 +157,45 @@ fun <R : XdEntity, T : XdEntity> KProperty1<R, T?>.link(entityKClass: KClass<R>,
 inline fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.link(node: NodeBase): NodeBase {
     return link(R::class, node)
 }
+
+/**
+ * Query node base condition that always returns nothing
+ */
+object None : NodeBase() {
+    override fun getSimpleName(): String = "none"
+
+    override fun getClone(): NodeBase = this
+
+    override fun instantiate(entityType: String?, queryEngine: QueryEngine?, metaData: ModelMetaData?): MutableIterable<Entity> {
+        return EntityIterableBase.EMPTY
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other === this) {
+            return true
+        }
+        return false
+    }
+
+    override fun replaceChild(child: NodeBase, newChild: NodeBase): NodeBase {
+        throw UnsupportedOperationException()
+    }
+}
+
+inline fun <reified T : XdEntity, R : XdEntity> KProperty1<T, R?>.containsIn(vararg entities: R?): NodeBase {
+    return entities.fold(None as NodeBase) { tree, e -> tree or (this eq e) }
+}
+
+inline fun <reified T : XdEntity, R : Comparable<*>> KProperty1<T, R?>.containsIn(vararg values: R?): NodeBase {
+    return values.fold(None as NodeBase) { tree, value -> tree or (this eq value) }
+}
+
+
+inline infix fun <reified T : XdEntity, reified R : XdEntity> KProperty1<T, R?>.inEntities(entities: Iterable<R?>): NodeBase {
+    return this.containsIn(*entities.toList().toTypedArray())
+}
+
+inline infix fun <reified T : XdEntity, reified R : Comparable<*>> KProperty1<T, R?>.inValues(values: Iterable<R?>): NodeBase {
+    return this.containsIn(*values.toList().toTypedArray())
+}
+
