@@ -1,11 +1,9 @@
 package kotlinx.dnq.query
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.NodeBase
 import kotlinx.dnq.*
-import org.hamcrest.CoreMatchers.equalTo
-import org.hamcrest.Matchers.containsInAnyOrder
-import org.junit.Assert.assertThat
 import org.junit.Assert.assertTrue
 import org.junit.Ignore
 import org.junit.Test
@@ -61,14 +59,19 @@ class IsInQueryTest : DBTest() {
         }
 
         store.transactional {
-            expectedCharms.forEach {
-                assertThat(Mage.query(Mage::charm.containsIn(it, UUID.randomUUID().toString())).size(), equalTo(1))
-                assertThat(Mage.query(Mage::charm.containsIn(UUID.randomUUID().toString(), it)).size(), equalTo(1))
+            expectedCharms.forEach { charm ->
+                assertThat(Mage.query(Mage::charm.containsIn(charm, UUID.randomUUID().toString())).size()).isEqualTo(1)
+                assertThat(Mage.query(Mage::charm.containsIn(UUID.randomUUID().toString(), charm)).size()).isEqualTo(1)
+
+                assertThat(Mage.filter { it.charm isIn listOf(charm, UUID.randomUUID().toString()) }.size()).isEqualTo(1)
+                assertThat(Mage.filter { it.charm isIn listOf(UUID.randomUUID().toString(), charm) }.size()).isEqualTo(1)
             }
 
-            assertThat(Mage.query(Mage::charm inValues expectedCharms.drop(2).take(4)).size(), equalTo(4))
-
+            assertThat(Mage.query(Mage::charm inValues expectedCharms.drop(2).take(4)).size()).isEqualTo(4)
             assertTrue(Mage.query(Mage::charm inValues List(2) { UUID.randomUUID().toString() }).isEmpty)
+
+            assertThat(Mage.filter { it.charm isIn expectedCharms.drop(2).take(4) }.size()).isEqualTo(4)
+            assertTrue(Mage.filter { it.charm isIn List(2) { UUID.randomUUID().toString() } }.isEmpty)
         }
     }
 
@@ -87,19 +90,21 @@ class IsInQueryTest : DBTest() {
 
             it.flush()
 
-            val expectedSubordinatesA = User.query(User::supervisor eq bossA)
-            val expectedSubordinatesB = User.query(User::supervisor eq bossB)
-            val expectedSubordinates = expectedSubordinatesA union expectedSubordinatesB
+            val expectedSubordinatesA = User.query(User::supervisor eq bossA).toList()
+            val expectedSubordinatesB = User.query(User::supervisor eq bossB).toList()
+            val expectedSubordinates = (expectedSubordinatesA union expectedSubordinatesB).toList()
 
-            val actualSubordinatesA = User.query(User::supervisor inEntities users.take(5) + bossA)
-            val actualSubordinatesB = User.query(User::supervisor inEntities users.take(5) + bossB)
-            val actualSubordinates = User.query(User::supervisor inEntities users.take(5) + bossA + bossB)
-
-            assertThat(actualSubordinatesA.toList(), containsInAnyOrder(*expectedSubordinatesA.toList().toTypedArray()))
-            assertThat(actualSubordinatesB.toList(), containsInAnyOrder(*expectedSubordinatesB.toList().toTypedArray()))
-            assertThat(actualSubordinates.toList(), containsInAnyOrder(*expectedSubordinates.toList().toTypedArray()))
+            assertThat(User.query(User::supervisor inEntities users.take(5) + bossA).toList()).containsExactlyElementsIn(expectedSubordinatesA)
+            assertThat(User.query(User::supervisor inEntities users.take(5) + bossB).toList()).containsExactlyElementsIn(expectedSubordinatesB)
+            assertThat(User.query(User::supervisor inEntities users.take(5) + bossA + bossB).toList()).containsExactlyElementsIn(expectedSubordinates)
 
             assertTrue(User.query(User::supervisor inEntities users.take(3)).isEmpty)
+
+            assertThat(User.filter { it.supervisor isIn users.take(5) + bossA }.toList()).containsExactlyElementsIn(expectedSubordinatesA)
+            assertThat(User.filter { it.supervisor isIn users.take(5) + bossB }.toList()).containsExactlyElementsIn(expectedSubordinatesB)
+            assertThat(User.filter { it.supervisor isIn users.take(5) + bossA + bossB }.toList()).containsExactlyElementsIn(expectedSubordinates)
+
+            assertTrue(User.filter { it.supervisor isIn users.take(3) }.isEmpty)
         }
     }
 
@@ -116,7 +121,7 @@ class IsInQueryTest : DBTest() {
             (1..iterationCount).forEach {
                 val charms = randomCharms.randomSubset(expectedCount, random)
                 val xdQuery = action(charms)
-                assertThat(xdQuery.toList().size, equalTo(expectedCount))
+                assertThat(xdQuery.toList()).hasSize(expectedCount)
             }
             System.currentTimeMillis() - start
         }
