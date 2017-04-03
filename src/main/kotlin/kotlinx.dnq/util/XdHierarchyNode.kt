@@ -72,6 +72,7 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
         ProxyFactory().apply {
             superclass = persistentClass
             setFilter { isNotFinalize(it) }
+            isUseCache = false
         }.create(emptyArray(), emptyArray()).apply {
             this as ProxyObject
             handler = PersistentClassMethodHandler(this, xdEntityType)
