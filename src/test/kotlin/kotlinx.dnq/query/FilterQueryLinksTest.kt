@@ -2,6 +2,7 @@ package kotlinx.dnq.query
 
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
+import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertEquals
 
@@ -52,6 +53,30 @@ class FilterQueryLinksTest : DBTest() {
             result = User.filter { it.supervisor eq user1 }
             assertEquals(1, result.size())
             assertEquals(user2.entityId, result.first().entityId)
+        }
+    }
+
+    @Ignore("Fails because of the kotlinx.dnq.query.SearchingEntity.getLink implementation details")
+    @Test
+    fun `getting a link should not fail`() {
+        store.transactional {
+            val user1 = User.new {
+                login = "user1"
+                skill = 1
+            }
+            val user2 = User.new {
+                login = "user2"
+                skill = 1
+            }
+            user1.contacts.add(Contact.new { email = "test1@users.org" })
+            user1.contacts.add(Contact.new { email = "test2@users.org" })
+
+            user2.contacts.add(Contact.new { email = "test3@users.org" })
+
+            it.flush()
+
+            val foundUsers = Contact.filter { it.user eq user1 }
+            assertEquals(2, foundUsers.size())
         }
     }
 
