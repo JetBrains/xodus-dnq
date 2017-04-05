@@ -198,4 +198,20 @@ class FilterQueryPropertiesTest : DBTest() {
             assertEquals(user1.entityId, users2.first().entityId)
         }
     }
+
+    @Test
+    fun `should search by hierarchy properties`(){
+        store.transactional {
+            RootGroup.new {
+                name = "root-group"
+            }
+        }
+        store.transactional {
+            RootGroup.filter { it.name ne null }.apply {
+                assertEquals(1, size())
+                assertEquals("root-group", first().name)
+            }
+        }
+
+    }
 }

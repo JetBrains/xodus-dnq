@@ -12,6 +12,7 @@ import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.XdModel
+import kotlinx.dnq.util.XdHierarchyNode
 import java.io.File
 import java.io.InputStream
 import kotlin.reflect.jvm.javaType
@@ -83,8 +84,8 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
     override fun getProperty(propertyName: String): Comparable<Nothing>? {
         currentProperty = propertyName
         val node = XdModel.getOrThrow(_type)
-        node.simpleProperties.filter { it.key == propertyName }.let {
-            val simpleProperty = it.values.firstOrNull() ?: return 0
+        node.findProperty(propertyName).let {
+            val simpleProperty = it ?: return 0
             return when (simpleProperty.property.returnType.javaType) {
                 String::class.java -> ""
                 Boolean::class.java -> false
@@ -108,7 +109,11 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
 
     override fun getLink(linkName: String): Entity? {
         currentProperty = linkName
-        return this
+        val node = XdModel.getOrThrow(_type)
+        node.findLink(linkName).let {
+            it ?: return this
+            return SearchingEntity(it.delegate.oppositeEntityType.entityType, _entityStore)
+        }
     }
 
     override fun deleteLinks(linkName: String) {
@@ -275,6 +280,27 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
 
     private fun unsupported(): Exception = UnsupportedOperationException("not implemented")
 
+    private fun XdHierarchyNode.findProperty(name: String): XdHierarchyNode.SimpleProperty? {
+        val result = simpleProperties.values.firstOrNull { it.dbPropertyName == name }
+        if (result == null) {
+            if (parentNode != null) {
+                return parentNode.findProperty(name)
+            }
+            return null
+        }
+        return result
+    }
+
+    private fun XdHierarchyNode.findLink(name: String): XdHierarchyNode.LinkProperty? {
+        val result = linkProperties.values.firstOrNull { it.dbPropertyName == name }
+        if (result == null) {
+            if (parentNode != null) {
+                return parentNode.findLink(name)
+            }
+            return null
+        }
+        return result
+    }
 }
 
 infix fun <T : Comparable<T>> T?.lt(value: T) {
@@ -310,7 +336,7 @@ infix fun String?.startsWith(value: String?) {
     searchingEntity.nodes.add(PropertyStartsWith(searchingEntity.currentProperty!!, value ?: ""))
 }
 
-infix fun <T : Comparable<T>> T?.ne(value: T) {
+infix fun <T : Comparable<T>> T?.ne(value: T?) {
     val searchingEntity = SearchingEntity.get()
     searchingEntity.nodes.add(UnaryNot(PropertyEqual(searchingEntity.currentProperty!!, value)))
 }
