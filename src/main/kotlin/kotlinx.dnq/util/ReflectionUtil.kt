@@ -94,12 +94,11 @@ inline fun <reified T : XdEntity, V : Any?> T.isDefined(property: KProperty1<T, 
 
 @Suppress("UNCHECKED_CAST")
 fun <R : XdEntity, T : Any?> R.isDefined(clazz: Class<R>, property: KProperty1<R, T>): Boolean {
-    val field = clazz.getDelegateField(property) ?:
-            throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated")
-    val delegateValue = field[this]
-    return when (delegateValue) {
-        is XdConstrainedProperty<*, *> -> (delegateValue as XdConstrainedProperty<R, *>).isDefined(this, property)
-        is XdLink<*, *> -> (delegateValue as XdLink<R, *>).isDefined(this, property)
+    val metaProperty = XdModel.getOrThrow(clazz.entityType.entityType).resolveMetaProperty(property)
+
+    return when (metaProperty) {
+        is XdHierarchyNode.SimpleProperty -> (metaProperty.delegate as XdConstrainedProperty<R, *>).isDefined(this, property)
+        is XdHierarchyNode.LinkProperty -> (metaProperty.delegate as XdLink<R, *>).isDefined(this, property)
         else -> throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated to Xodus")
     }
 }
