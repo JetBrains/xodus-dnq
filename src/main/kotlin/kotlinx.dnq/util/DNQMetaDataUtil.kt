@@ -80,8 +80,7 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
             it.dbPropertyName
         }.toSet())
 
-        // TODO: Support composite indexes
-        ownIndexes = node.getAllProperties().filter {
+        val uniqueProperties = node.getAllProperties().filter {
             it.delegate.requirement == XdPropertyRequirement.UNIQUE
         }.map {
             IndexImpl().apply {
@@ -91,9 +90,34 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
                     isProperty = true
                 })
             }
-        }.toSet()
+        }
+        val compositeIndices = node.getCompositeIndices()
+        ownIndexes = (uniqueProperties + compositeIndices).toSet()
     })
 
+}
+
+private fun XdHierarchyNode.getCompositeIndices(): Sequence<IndexImpl> {
+    val entityType = this.entityType
+    return when (entityType) {
+        is XdNaturalEntityType<*> -> entityType.compositeIndices
+                .asSequence()
+                .map { index ->
+                    IndexImpl().also {
+                        it.setOwnerEnityType(entityType.entityType)
+                        it.fields = index.map {
+                            val metaProperty = resolveMetaProperty(it)
+                                    ?: throw IllegalArgumentException("Cannot build composite index by property ${entityType.entityType}::${it.name}")
+
+                            IndexFieldImpl().also {
+                                it.name = metaProperty.dbPropertyName
+                                it.isProperty = metaProperty is XdHierarchyNode.SimpleProperty
+                            }
+                        }
+                    }
+                }
+        else -> emptySequence()
+    }
 }
 
 fun XdHierarchyNode.getAllProperties(): Sequence<XdHierarchyNode.SimpleProperty> {

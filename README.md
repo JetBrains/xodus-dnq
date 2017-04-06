@@ -114,3 +114,7 @@ if (classLoader is URLClassLoader) {
 ## Query
 
 ## Legacy with meta-model defined in MPS
+
+## Enumerations
+
+## Indexes

@@ -5,12 +5,15 @@ import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
 import com.jetbrains.teamsys.dnq.database.EntityOperations
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.*
+import kotlinx.dnq.XdEntity
+import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.XdModel
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.query.asQuery
 import kotlinx.dnq.simple.XdConstrainedProperty
+import kotlinx.dnq.wrapper
 import org.joda.time.DateTime
 import java.lang.reflect.*
 import java.util.concurrent.ConcurrentHashMap
@@ -131,16 +134,10 @@ fun <R : XdEntity> KProperty1<R, *>.getDBName(klass: KClass<R>): String {
 
 fun <R : XdEntity> KProperty1<R, *>.getDBName(entityType: XdEntityType<R>): String {
     val node = XdModel[entityType]
-    return node?.getDBName(this) ?: this.name
+    return node?.resolveMetaProperty(this)?.dbPropertyName ?: this.name
 }
 
 inline fun <reified R : XdEntity> KProperty1<R, *>.getDBName() = getDBName(R::class.entityType)
-
-private fun <R : XdEntity> XdHierarchyNode.getDBName(prop: KProperty1<R, *>): String? {
-    return this.simpleProperties[prop.name]?.delegate?.let { it.dbPropertyName ?: prop.name }
-            ?: this.linkProperties[prop.name]?.delegate?.let { it.dbPropertyName ?: prop.name }
-            ?: this.parentNode?.getDBName(prop)
-}
 
 val Class<*>.memberFields: Sequence<Field>
     get() = generateSequence(this) {

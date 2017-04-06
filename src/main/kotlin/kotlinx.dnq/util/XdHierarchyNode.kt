@@ -15,13 +15,18 @@ import kotlin.reflect.KProperty1
 
 class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarchyNode?) {
 
-    data class SimpleProperty(val property: KProperty1<*, *>, val delegate: XdConstrainedProperty<*, *>) {
+    interface MetaProperty {
+        val property: KProperty1<*, *>
         val dbPropertyName: String
+    }
+
+    data class SimpleProperty(override val property: KProperty1<*, *>, val delegate: XdConstrainedProperty<*, *>) : MetaProperty {
+        override val dbPropertyName: String
             get() = delegate.dbPropertyName ?: property.name
     }
 
-    data class LinkProperty(val property: KProperty1<*, *>, val delegate: XdLink<*, *>) {
-        val dbPropertyName: String
+    data class LinkProperty(override val property: KProperty1<*, *>, val delegate: XdLink<*, *>) : MetaProperty {
+        override val dbPropertyName: String
             get() = delegate.dbPropertyName ?: property.name
     }
 
@@ -84,6 +89,12 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
     }
 
     private fun isNotFinalize(method: Method) = !method.parameterTypes.isEmpty() || method.name != "finalize"
+
+    fun resolveMetaProperty(prop: KProperty1<*, *>): MetaProperty? {
+        return simpleProperties[prop.name]
+                ?: linkProperties[prop.name]
+                ?: this.parentNode?.resolveMetaProperty(prop)
+    }
 
 }
 
