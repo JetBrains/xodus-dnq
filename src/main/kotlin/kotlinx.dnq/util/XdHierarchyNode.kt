@@ -9,11 +9,17 @@ import kotlinx.dnq.XdLegacyEntityType
 import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.simple.XdConstrainedProperty
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.*
 import kotlin.reflect.KProperty1
+import kotlin.reflect.full.declaredMemberProperties
+
 
 class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarchyNode?) {
+    companion object {
+        private val DELEGATE = Regex("(\\w+)\\\$delegate")
+    }
 
     interface MetaProperty {
         val property: KProperty1<*, *>
@@ -96,5 +102,22 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
                 ?: this.parentNode?.resolveMetaProperty(prop)
     }
 
+    private fun <T : Any> Class<T>.getDelegatedFields(): List<Pair<KProperty1<*, *>, Field>> {
+        return this.declaredFields.mapNotNull { field ->
+            field.isAccessible = true
+            val matchEntire = DELEGATE.matchEntire(field.name)
+            if (matchEntire != null) {
+                val (propertyName) = matchEntire.destructured
+                val property = kotlin.declaredMemberProperties.firstOrNull { it.name == propertyName }
+                if (property != null) {
+                    Pair(property, field)
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+        }
+    }
 }
 

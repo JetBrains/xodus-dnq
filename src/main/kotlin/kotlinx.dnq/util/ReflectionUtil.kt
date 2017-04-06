@@ -15,13 +15,15 @@ import kotlinx.dnq.query.asQuery
 import kotlinx.dnq.simple.XdConstrainedProperty
 import kotlinx.dnq.wrapper
 import org.joda.time.DateTime
-import java.lang.reflect.*
+import java.lang.reflect.Modifier
+import java.lang.reflect.ParameterizedType
+import java.lang.reflect.Type
+import java.lang.reflect.TypeVariable
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.companionObject
 import kotlin.reflect.full.companionObjectInstance
-import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.jvmName
 
 
@@ -103,34 +105,6 @@ fun <R : XdEntity, T : Any?> R.isDefined(clazz: Class<R>, property: KProperty1<R
     }
 }
 
-fun <T : Any> Class<T>.getDelegateField(property: KProperty1<T, *>): Field? {
-    return memberFields.firstOrNull { it.name == "${property.name}\$delegate" }?.let { field ->
-        field.apply {
-            field.isAccessible = true
-        }
-    }
-}
-
-private val DELEGATE = Regex("(\\w+)\\\$delegate")
-
-fun <T : Any> Class<T>.getDelegatedFields(): List<Pair<KProperty1<*, *>, Field>> {
-    return this.declaredFields.mapNotNull { field ->
-        field.isAccessible = true
-        val matchEntire = DELEGATE.matchEntire(field.name)
-        if (matchEntire != null) {
-            val (propertyName) = matchEntire.destructured
-            val property = kotlin.declaredMemberProperties.firstOrNull { it.name == propertyName }
-            if (property != null) {
-                Pair(property, field)
-            } else {
-                null
-            }
-        } else {
-            null
-        }
-    }
-}
-
 fun <R : XdEntity> KProperty1<R, *>.getDBName(klass: KClass<R>): String {
     return getDBName(klass.java.entityType)
 }
@@ -141,13 +115,6 @@ fun <R : XdEntity> KProperty1<R, *>.getDBName(entityType: XdEntityType<R>): Stri
 }
 
 inline fun <reified R : XdEntity> KProperty1<R, *>.getDBName() = getDBName(R::class.entityType)
-
-val Class<*>.memberFields: Sequence<Field>
-    get() = generateSequence(this) {
-        it.superclass
-    }.flatMap {
-        it.declaredFields.asSequence()
-    }
 
 fun <T : XdEntity> T.hasChanges(property: KProperty1<T, *>): Boolean {
     val name = property.getDBName(javaClass.entityType)
