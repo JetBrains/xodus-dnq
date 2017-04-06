@@ -174,13 +174,12 @@ fun <T : XdEntity, R : Comparable<*>?> T.getOldValue(property: KProperty1<T, R>)
 
 private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<R, XdMutableQuery<T>>, getLinks: (String) -> Iterable<Entity>): XdQuery<T> {
     val clazz = this.javaClass
-    val field = clazz.getDelegateField(property) ?:
-            throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated")
+    val metaProperty = XdModel.getOrThrow(clazz.entityType.entityType).resolveMetaProperty(property) as? XdHierarchyNode.LinkProperty
+            ?: throw IllegalArgumentException("Property ${clazz.name}::$property is not a Xodus link")
+
     @Suppress("UNCHECKED_CAST")
-    val delegateValue = field[this] as? XdLink<R, T> ?:
-            throw IllegalArgumentException("Property ${clazz.name}::$property is not a Xodus link")
-    val name = delegateValue.dbPropertyName ?: property.name
-    return getLinks(name).asQuery(delegateValue.oppositeEntityType)
+    val delegateValue = metaProperty.delegate as XdLink<R, T>
+    return getLinks(metaProperty.dbPropertyName).asQuery(delegateValue.oppositeEntityType)
 }
 
 fun <R : XdEntity, T : XdEntity> R.getAddedLinks(property: KProperty1<R, XdMutableQuery<T>>) = getLinksWrapper(property) {
