@@ -29,6 +29,6 @@ class XdProperty<in R : XdEntity, T : Comparable<*>>(
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return PrimitiveAssociationSemantics.get(thisRef.entity, dbPropertyName ?: property.name, clazz, null) != null
+        return PrimitiveAssociationSemantics.get(thisRef.entity, dbPropertyName ?: property.name, null) != null
     }
 }

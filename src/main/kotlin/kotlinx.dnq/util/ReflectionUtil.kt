@@ -17,7 +17,11 @@ import kotlinx.dnq.wrapper
 import org.joda.time.DateTime
 import java.lang.reflect.*
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.reflect.*
+import kotlin.reflect.KClass
+import kotlin.reflect.KProperty1
+import kotlin.reflect.full.companionObject
+import kotlin.reflect.full.companionObjectInstance
+import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.jvmName
 
 
@@ -146,37 +150,25 @@ val Class<*>.memberFields: Sequence<Field>
         it.declaredFields.asSequence()
     }
 
-private fun <T : XdEntity> T.getPropertyName(property: KProperty1<T, *>): String {
-    val clazz = this.javaClass
-    val field = clazz.getDelegateField(property) ?:
-            throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated")
-    val delegateValue = field[this]
-    return when (delegateValue) {
-        is XdConstrainedProperty<*, *> -> delegateValue.dbPropertyName ?: property.name
-        is XdLink<*, *> -> delegateValue.dbPropertyName ?: property.name
-        else -> throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated to Xodus")
-    }
-}
-
 fun <T : XdEntity> T.hasChanges(property: KProperty1<T, *>): Boolean {
-    val name = getPropertyName(property)
+    val name = property.getDBName(javaClass.entityType)
     return EntityOperations.hasChanges(entity as TransientEntity, name)
 }
 
 fun <T : XdEntity, R : XdEntity?> T.getOldValue(property: KProperty1<T, R>): R? {
-    val name = getPropertyName(property)
+    val name = property.getDBName(javaClass.entityType)
     @Suppress("UNCHECKED_CAST")
     val entity = AssociationSemantics.getOldValue(this.entity as TransientEntity, name)
     return entity?.let { it.wrapper as R }
 }
 
 fun <T : XdEntity> T.getOldValue(property: KProperty1<T, DateTime?>): DateTime? {
-    val name = getPropertyName(property)
+    val name = property.getDBName(javaClass.entityType)
     return PrimitiveAssociationSemantics.getOldValue(this.entity as TransientEntity, name, Long::class.java, null)?.let(::DateTime)
 }
 
 fun <T : XdEntity, R : Comparable<*>?> T.getOldValue(property: KProperty1<T, R>): R? {
-    val name = getPropertyName(property)
+    val name = property.getDBName(javaClass.entityType)
     @Suppress("UNCHECKED_CAST")
     return PrimitiveAssociationSemantics.getOldValue(this.entity as TransientEntity, name, null) as R?
 }
@@ -184,10 +176,10 @@ fun <T : XdEntity, R : Comparable<*>?> T.getOldValue(property: KProperty1<T, R>)
 private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<R, XdMutableQuery<T>>, getLinks: (String) -> Iterable<Entity>): XdQuery<T> {
     val clazz = this.javaClass
     val field = clazz.getDelegateField(property) ?:
-        throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated")
+            throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated")
     @Suppress("UNCHECKED_CAST")
     val delegateValue = field[this] as? XdLink<R, T> ?:
-        throw IllegalArgumentException("Property ${clazz.name}::$property is not a Xodus link")
+            throw IllegalArgumentException("Property ${clazz.name}::$property is not a Xodus link")
     val name = delegateValue.dbPropertyName ?: property.name
     return getLinks(name).asQuery(delegateValue.oppositeEntityType)
 }
