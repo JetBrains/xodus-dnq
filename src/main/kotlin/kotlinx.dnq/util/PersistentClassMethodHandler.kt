@@ -131,7 +131,7 @@ class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEntityType<
         try {
             return method.invoke(self, *args)
         } catch (e: InvocationTargetException) {
-            throw e.cause!!
+            throw e.targetException
         }
     }
 
