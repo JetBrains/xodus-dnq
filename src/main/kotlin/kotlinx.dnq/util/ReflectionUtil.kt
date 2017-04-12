@@ -164,7 +164,7 @@ private val entityTypeCache = ConcurrentHashMap<Class<*>, XdEntityType<*>>()
 
 @Suppress("UNCHECKED_CAST")
 val <T : XdEntity> KClass<T>.entityType: XdEntityType<T>
-    get() = entityTypeCache.computeIfAbsent(java) {
+    get() = entityTypeCache.getOrPut(java) {
         companionObjectInstance as? XdEntityType<T>
                 ?: throw IllegalArgumentException("XdEntity contract is broken for $java, its companion object is not an instance of XdEntityType")
     } as XdEntityType<T>
