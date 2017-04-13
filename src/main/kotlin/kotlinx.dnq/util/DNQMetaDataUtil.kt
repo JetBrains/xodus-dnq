@@ -10,6 +10,7 @@ import kotlinx.dnq.simple.RequireIfConstraint
 import kotlinx.dnq.simple.XdConstrainedProperty
 import kotlinx.dnq.simple.XdPropertyRequirement
 import kotlinx.dnq.simple.XdWrappedProperty
+import kotlinx.dnq.singleton.XdSingletonEntityType
 import kotlinx.dnq.transactional
 import kotlin.reflect.jvm.javaType
 
@@ -50,6 +51,12 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
             it.entityType
         }.filterIsInstance<XdEnumEntityType<*>>().forEach {
             it.initEnumValues(txn)
+        }
+
+        naturalNodes.values.asSequence().map {
+            it.entityType
+        }.filterIsInstance<XdSingletonEntityType<*>>().forEach {
+            it.get()
         }
     }
 }

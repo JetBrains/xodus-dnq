@@ -117,6 +117,8 @@ if (classLoader is URLClassLoader) {
 
 ## Enumerations
 
+## Singletons
+
 ## Indices
 
 ## findOrCreate
