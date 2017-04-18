@@ -11,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @author Vadim.Gurov
  */
-class PersistentEntityIterableWrapper extends EntityIterableBase implements EntityIterableWrapper {
+public class PersistentEntityIterableWrapper extends EntityIterableBase implements EntityIterableWrapper {
 
     final EntityIterableBase wrappedIterable;
     protected final TransientEntityStore store;
