@@ -4,7 +4,6 @@ import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
 import org.joda.time.DateTime
 import org.junit.Test
-import java.util.*
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
