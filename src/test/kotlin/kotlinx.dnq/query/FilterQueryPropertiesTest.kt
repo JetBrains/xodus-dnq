@@ -2,7 +2,9 @@ package kotlinx.dnq.query
 
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
+import org.joda.time.DateTime
 import org.junit.Test
+import java.util.*
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -200,7 +202,7 @@ class FilterQueryPropertiesTest : DBTest() {
     }
 
     @Test
-    fun `should search by hierarchy properties`(){
+    fun `should search by hierarchy properties`() {
         store.transactional {
             RootGroup.new {
                 name = "root-group"
@@ -212,6 +214,71 @@ class FilterQueryPropertiesTest : DBTest() {
                 assertEquals("root-group", first().name)
             }
         }
-
     }
+
+    @Test
+    fun `should search by Boolean property`() {
+        store.transactional {
+            User.new {
+                login = "login"
+                isMale = true
+                skill = 1
+            }
+        }
+        store.transactional {
+            User.filter {
+                it.isMale eq true
+            }.apply {
+                assertEquals(1, size())
+            }
+        }
+    }
+
+    @Test
+    fun `should search by Long property`() {
+        store.transactional {
+            User.new {
+                login = "login"
+                salary = 1
+                skill = 1
+            }
+        }
+        store.transactional {
+            User.filter {
+                it.salary eq 1L
+            }.apply {
+                assertEquals(1, size())
+            }
+        }
+    }
+
+    @Test
+    fun `should search by DateTime property`() {
+        val date = DateTime()
+        store.transactional {
+            User.new {
+                login = "login1"
+                skill = 1
+                registered = date
+            }
+            User.new {
+                login = "login2"
+                skill = 1
+            }
+        }
+        store.transactional {
+            User.filter {
+                it.registered eq date
+            }.apply {
+                assertEquals(1, size())
+            }
+
+            User.filter {
+                it.registered eq null
+            }.apply {
+                assertEquals(1, size())
+            }
+        }
+    }
+
 }
