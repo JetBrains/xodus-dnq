@@ -94,15 +94,36 @@ inline fun <reified T : XdEntity, V : Any?> T.isDefined(property: KProperty1<T, 
     return isDefined(T::class.java, property)
 }
 
-@Suppress("UNCHECKED_CAST")
 fun <R : XdEntity, T : Any?> R.isDefined(clazz: Class<R>, property: KProperty1<R, T>): Boolean {
-    val metaProperty = XdModel.getOrThrow(clazz.entityType.entityType).resolveMetaProperty(property)
+    return isDefined(clazz.entityType, property)
+}
+
+@Suppress("UNCHECKED_CAST")
+fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: KProperty1<R, T>): Boolean {
+    val metaProperty = XdModel.getOrThrow(entityType.entityType).resolveMetaProperty(property)
 
     return when (metaProperty) {
         is XdHierarchyNode.SimpleProperty -> (metaProperty.delegate as XdConstrainedProperty<R, *>).isDefined(this, property)
         is XdHierarchyNode.LinkProperty -> (metaProperty.delegate as XdLink<R, *>).isDefined(this, property)
-        else -> throw IllegalArgumentException("Property ${clazz.name}::$property is not delegated to Xodus")
+        else -> throw IllegalArgumentException("Property ${entityType.entityType}::$property is not delegated to Xodus")
     }
+}
+
+/**
+ * @see XD.getSafe(entityType: XdEntityType<XD>, property: KProperty1<XD, V>): V?
+ */
+inline fun <reified XD : XdEntity, V : Any> XD.getSafe(property: KProperty1<XD, V>) = getSafe(XD::class.java, property)
+
+/**
+ * @see XD.getSafe(entityType: XdEntityType<XD>, property: KProperty1<XD, V>): V?
+ */
+fun <XD : XdEntity, V : Any> XD.getSafe(clazz: Class<XD>, property: KProperty1<XD, V>) = getSafe(clazz.entityType, property)
+
+/**
+ * @return value of the value of the `property` or null if the property is undefined
+ */
+fun <XD : XdEntity, V : Any> XD.getSafe(entityType: XdEntityType<XD>, property: KProperty1<XD, V>): V? {
+    return if (isDefined(entityType, property)) property.get(this) else null
 }
 
 fun <R : XdEntity> KProperty1<R, *>.getDBName(klass: KClass<R>): String {
