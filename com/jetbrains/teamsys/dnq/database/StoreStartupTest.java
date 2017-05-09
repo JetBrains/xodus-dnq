@@ -4,11 +4,14 @@ import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
 import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
-import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.entitystore.Entity;
 import jetbrains.mps.internal.collections.runtime.ListSequence;
 import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexerJobProcessor;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Date: 14.12.2006
@@ -58,6 +61,11 @@ public class StoreStartupTest extends AbstractEntityStoreAwareTestCase {
     } finally {
       TransientStoreUtil.commit(session);
     }
+  }
+
+  @Override
+  protected List<String> getCustomConfig() {
+    return Collections.singletonList("classpath*:com/jetbrains/mps/dnq/database/events/*Configuration.xml");
   }
 
 }
