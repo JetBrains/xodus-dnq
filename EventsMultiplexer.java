@@ -9,10 +9,6 @@ import org.apache.commons.logging.LogFactory;
 import java.util.Map;
 import java.util.Queue;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
-import jetbrains.exodus.database.TransientEntityStore;
-import jetbrains.exodus.core.execution.DelegatingJobProcessor;
-import jetbrains.exodus.core.execution.ThreadJobProcessor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import java.util.Set;
@@ -20,26 +16,28 @@ import jetbrains.exodus.database.TransientEntityChange;
 import org.jetbrains.annotations.NotNull;
 import jetbrains.exodus.database.TransientChangesTracker;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
+import jetbrains.exodus.core.execution.DelegatingJobProcessor;
+import jetbrains.exodus.core.execution.ThreadJobProcessor;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import jetbrains.exodus.database.TransientEntity;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.EntityChangeType;
 import jetbrains.exodus.query.metadata.ModelMetaData;
 import jetbrains.springframework.configuration.runtime.ServiceLocator;
 import jetbrains.exodus.query.metadata.EntityMetaData;
-import jetbrains.exodus.core.execution.ThreadJobProcessorPool;
 import jetbrains.exodus.core.execution.Job;
 import jetbrains.teamsys.dnq.runtime.txn._Txn;
 import jetbrains.exodus.entitystore.EntityStore;
 import jetbrains.exodus.entitystore.EntityId;
 
 public class EventsMultiplexer implements TransientStoreSessionListener, IEventsMultiplexer {
+  private static final ExceptionHandlerImpl EX_HANDLER = new ExceptionHandlerImpl();
   protected static Log log = LogFactory.getLog(EventsMultiplexer.class);
 
   private Map<EventsMultiplexer.FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<EventsMultiplexer.FullEntityId, Queue<IEntityListener>>();
   private Map<String, Queue<IEntityListener>> typeToListeners = new HashMap<String, Queue<IEntityListener>>();
-  private ConcurrentHashMap<TransientEntityStore, DelegatingJobProcessor<ThreadJobProcessor>> store2processor = new ConcurrentHashMap<TransientEntityStore, DelegatingJobProcessor<ThreadJobProcessor>>();
   private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
   private boolean open = true;
 
@@ -72,7 +70,12 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
   }
 
   private void asyncFire(final Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
-    getAsyncJobProcessor().queue(new EventsMultiplexer.JobImpl(this, changes, changesTracker));
+    DelegatingJobProcessor<ThreadJobProcessor> asyncJobProcessor = getAsyncJobProcessor();
+    if (asyncJobProcessor == null) {
+      changesTracker.dispose();
+    } else {
+      asyncJobProcessor.queue(new EventsMultiplexer.JobImpl(this, changes, changesTracker));
+    }
   }
 
   private void fire(Where where, Set<TransientEntityChange> changes) {
@@ -196,30 +199,18 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         log.error(listenerToString(id, notClosedListeners.get(id)));
       }
     }
-    // all processors should be finished before 
-    int processors = store2processor.size();
-    if (processors > 0) {
-      if (log.isWarnEnabled()) {
-        log.warn("Active job processors on eventMultiplexer close: " + processors);
-      }
-    }
   }
 
   public void onClose(TransientEntityStore store) {
     if (log.isInfoEnabled()) {
       log.info("Finishing EventsMultiplexer job processor for store " + store);
     }
-    DelegatingJobProcessor<ThreadJobProcessor> processor = store2processor.get(store);
-    store2processor.remove(store);
-    if (processor == null) {
-      if (log.isWarnEnabled()) {
-        log.warn("Job processor for store " + store + " not found");
+    DelegatingJobProcessor<ThreadJobProcessor> processor = getAsyncJobProcessor();
+    if (processor != null && !(processor.isFinished())) {
+      processor.finish();
+      if (log.isInfoEnabled()) {
+        log.info("EventsMultiplexer closed. Jobs count: " + processor.pendingJobs() + "/" + processor.pendingTimedJobs());
       }
-      return;
-    }
-    processor.finish();
-    if (log.isInfoEnabled()) {
-      log.info("EventsMultiplexer closed. Jobs count: " + processor.pendingJobs() + "/" + processor.pendingTimedJobs());
     }
   }
 
@@ -380,18 +371,10 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
   }
 
   public DelegatingJobProcessor<ThreadJobProcessor> getAsyncJobProcessor() {
-    TransientEntityStore store = ((TransientEntityStore) ServiceLocator.getBean("transientEntityStore"));
-    DelegatingJobProcessor<ThreadJobProcessor> processor = store2processor.get(store);
-    if (processor == null) {
-      if (!(store.isOpen())) {
-        throw new IllegalStateException("Putting closed stores in a global map is prohibited");
-      }
-
-      DelegatingJobProcessor<ThreadJobProcessor> newProcessor = createJobProcessor();
-      processor = store2processor.putIfAbsent(store, newProcessor);
-      if (processor == null) {
-        processor = newProcessor;
-      }
+    DelegatingJobProcessor<ThreadJobProcessor> processor = (((DelegatingJobProcessor<ThreadJobProcessor>) ServiceLocator.getOptionalBean("eventsMultiplexerJobProcessor")));
+    if (processor != null && !(processor.isFinished())) {
+      processor.setExceptionHandler(EX_HANDLER);
+      processor.start();
     }
     return processor;
   }
@@ -416,16 +399,6 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
 
   public static void removeListenerSafe(String type, IEntityListener listener) {
     check_9klgcu_a0a2(getInstance(), type, listener);
-  }
-
-  private static DelegatingJobProcessor<ThreadJobProcessor> createJobProcessor() {
-    DelegatingJobProcessor<ThreadJobProcessor> processor = (((DelegatingJobProcessor<ThreadJobProcessor>) ServiceLocator.getOptionalBean("eventsMultiplexerJobProcessor")));
-    if (processor == null) {
-      processor = new DelegatingJobProcessor<ThreadJobProcessor>(ThreadJobProcessorPool.getOrCreateJobProcessor("EventsMultiplexerJobProcessor"));
-    }
-    processor.setExceptionHandler(new ExceptionHandlerImpl());
-    processor.start();
-    return processor;
   }
 
   private static void check_9klgcu_a0a1(EventsMultiplexer checkedDotOperand, Entity e, IEntityListener listener) {
