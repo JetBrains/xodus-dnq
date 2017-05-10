@@ -16,11 +16,13 @@ class XdManyToOneRequiredLink<R : XdEntity, T : XdEntity>(
         val entityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, XdMutableQuery<R>>,
         dbPropertyName: String?,
+        dbOppositePropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy
 ) : ReadWriteProperty<R, T>, XdLink<R, T>(
         entityType,
         dbPropertyName,
+        dbOppositePropertyName,
         AssociationEndCardinality._1,
         AssociationEndType.UndirectedAssociationEnd,
         onDeletePolicy,
@@ -28,17 +30,17 @@ class XdManyToOneRequiredLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val entity = AssociationSemantics.getToOne(thisRef.entity, property.name) ?:
+        val entity = AssociationSemantics.getToOne(thisRef.entity, dbPropertyName ?: property.name) ?:
                 throw RequiredPropertyUndefinedException(thisRef, property)
         return entityType.wrap(entity)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        UndirectedAssociationSemantics.setManyToOne(value.entity, oppositeField.name, property.name, thisRef.entity)
+        UndirectedAssociationSemantics.setManyToOne(value.entity, dbOppositePropertyName ?: oppositeField.name, dbPropertyName ?: property.name, thisRef.entity)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return AssociationSemantics.getToOne(thisRef.entity, property.name) != null
+        return AssociationSemantics.getToOne(thisRef.entity, dbPropertyName ?: property.name) != null
     }
 }
 

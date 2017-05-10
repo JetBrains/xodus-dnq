@@ -10,6 +10,7 @@ import kotlin.reflect.KProperty1
 abstract class XdLink<in R, out T: XdEntity>(
         val oppositeEntityType: XdEntityType<T>,
         val dbPropertyName: String?,
+        val dbOppositePropertyName: String?,
         val cardinality: AssociationEndCardinality, val endType: AssociationEndType, val onDelete: OnDeletePolicy, val onTargetDelete: OnDeletePolicy) {
 
     open val oppositeField: KProperty1<*, *>?

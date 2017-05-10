@@ -15,11 +15,13 @@ class XdManyToOneOptionalLink<R : XdEntity, T : XdEntity>(
         val entityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, XdMutableQuery<R>>,
         dbPropertyName: String?,
+        dbOppositePropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy
 ) : ReadWriteProperty<R, T?>, XdLink<R, T>(
         entityType,
         dbPropertyName,
+        dbOppositePropertyName,
         AssociationEndCardinality._0_1,
         AssociationEndType.UndirectedAssociationEnd,
         onDeletePolicy,
@@ -27,18 +29,18 @@ class XdManyToOneOptionalLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return AssociationSemantics.getToOne(thisRef.entity, property.name)?.let { value ->
+        return AssociationSemantics.getToOne(thisRef.entity, dbPropertyName ?: property.name)?.let { value ->
             entityType.wrap(value)
         }
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
         if (value != null) {
-            UndirectedAssociationSemantics.setManyToOne(value.entity, oppositeField.name, property.name, thisRef.entity)
+            UndirectedAssociationSemantics.setManyToOne(value.entity, dbOppositePropertyName ?: oppositeField.name, dbPropertyName ?: property.name, thisRef.entity)
         } else {
             val currentValue = getValue(thisRef, property)
             if (currentValue != null) {
-                UndirectedAssociationSemantics.removeOneToMany(currentValue.entity, oppositeField.name, property.name, thisRef.entity)
+                UndirectedAssociationSemantics.removeOneToMany(currentValue.entity, dbOppositePropertyName ?: oppositeField.name, dbPropertyName ?: property.name, thisRef.entity)
             }
         }
     }

@@ -17,6 +17,7 @@ class XdParentToOneOptionalChildLink<R : XdEntity, T : XdEntity>(
 ) : ReadWriteProperty<R, T?>, XdLink<R, T>(
         entityType,
         dbPropertyName,
+        null,
         AssociationEndCardinality._0_1,
         AssociationEndType.ParentEnd,
         onDelete = OnDeletePolicy.CASCADE,

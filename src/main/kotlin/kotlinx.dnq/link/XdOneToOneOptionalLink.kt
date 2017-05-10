@@ -14,11 +14,13 @@ class XdOneToOneOptionalLink<R : XdEntity, T : XdEntity>(
         val entityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
         dbPropertyName: String?,
+        dbOppositePropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy
 ) : ReadWriteProperty<R, T?>, XdLink<R, T>(
         entityType,
         dbPropertyName,
+        dbOppositePropertyName,
         AssociationEndCardinality._0_1,
         AssociationEndType.UndirectedAssociationEnd,
         onDeletePolicy,
@@ -26,13 +28,13 @@ class XdOneToOneOptionalLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return AssociationSemantics.getToOne(thisRef.entity, property.name)?.let { value ->
+        return AssociationSemantics.getToOne(thisRef.entity, dbPropertyName ?: property.name)?.let { value ->
             entityType.wrap(value)
         }
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        UndirectedAssociationSemantics.setOneToOne(thisRef.entity, property.name, oppositeField.name, value?.entity)
+        UndirectedAssociationSemantics.setOneToOne(thisRef.entity, dbPropertyName ?: property.name, dbOppositePropertyName ?: oppositeField.name, value?.entity)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null

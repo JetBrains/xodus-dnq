@@ -43,14 +43,14 @@ abstract class DBTest {
         companion object : XdNaturalEntityType<Group>()
 
         var name by xdRequiredStringProp(unique = true)
-        val nestedGroups by xdLink0_N(NestedGroup::parentGroup)
+        val nestedGroups by xdLink0_N(NestedGroup::parentGroup, dbPropertyName = "nested", dbOppositePropertyName = "parent")
         val users: XdMutableQuery<User> by xdLink0_N(User::groups, onDelete = CLEAR, onTargetDelete = CLEAR)
     }
 
     class NestedGroup(entity: Entity) : Group(entity) {
         companion object : XdNaturalEntityType<NestedGroup>()
 
-        val parentGroup: Group by xdLink1(Group::nestedGroups)
+        val parentGroup: Group by xdLink1(Group::nestedGroups, dbPropertyName = "parent", dbOppositePropertyName = "nested")
     }
 
     class RootGroup(entity: Entity) : Group(entity) {

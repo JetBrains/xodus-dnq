@@ -17,6 +17,7 @@ class XdToOneOptionalLink<in R : XdEntity, T : XdEntity>(
 ) : ReadWriteProperty<R, T?>, XdLink<R, T>(
         entityType,
         dbPropertyName,
+        null,
         AssociationEndCardinality._0_1,
         AssociationEndType.DirectedAssociationEnd,
         onDeletePolicy,
