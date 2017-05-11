@@ -18,6 +18,7 @@ class XdManyChildrenToMultiParentLink<R : XdEntity, T : XdEntity>(
 ) : ReadWriteProperty<R, T?>, XdLink<R, T>(
         entityType,
         dbPropertyName,
+        null,
         AssociationEndCardinality._0_1,
         AssociationEndType.ChildEnd,
         onDelete = OnDeletePolicy.CLEAR,

@@ -55,9 +55,10 @@ fun <R : XdEntity, T : XdEntity> xdLink1_N(
 inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
         oppositeLink: KProperty1<T, R?>,
         dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdOneToOneOptionalLink<R, T> {
-    return XdOneToOneOptionalLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete)
+    return XdOneToOneOptionalLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, onDelete, onTargetDelete)
 }
 
 /**
@@ -66,9 +67,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
 inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
         oppositeLink: KProperty1<T, R?>,
         dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdOneToOneRequiredLink<R, T> {
-    return XdOneToOneRequiredLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete)
+    return XdOneToOneRequiredLink(entityTypeCompanion(), oppositeLink, dbOppositePropertyName, dbPropertyName, onDelete, onTargetDelete)
 }
 
 /**
@@ -77,9 +79,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
 inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
         oppositeLink: KProperty1<T, R?>,
         dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdOneToManyLink<R, T> {
-    return XdOneToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete, required = false)
+    return XdOneToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, onDelete, onTargetDelete, required = false)
 }
 
 /**
@@ -88,9 +91,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
 inline fun <R : XdEntity, reified T : XdEntity> xdLink1_N(
         oppositeLink: KProperty1<T, R?>,
         dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdOneToManyLink<R, T> {
-    return XdOneToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete, required = true)
+    return XdOneToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, onDelete, onTargetDelete, required = true)
 }
 
 /**
@@ -99,9 +103,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1_N(
 inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
         oppositeLink: KProperty1<T, XdMutableQuery<R>>,
         dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdManyToOneOptionalLink<R, T> {
-    return XdManyToOneOptionalLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete)
+    return XdManyToOneOptionalLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, onDelete, onTargetDelete)
 }
 
 /**
@@ -110,9 +115,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
 inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
         oppositeLink: KProperty1<T, XdMutableQuery<R>>,
         dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdManyToOneRequiredLink<R, T> {
-    return XdManyToOneRequiredLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete)
+    return XdManyToOneRequiredLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, onDelete, onTargetDelete)
 }
 
 /**
@@ -121,9 +127,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
 inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
         oppositeLink: KProperty1<T, XdMutableQuery<R>>,
         dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdManyToManyLink<R, T> {
-    return XdManyToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete, required = false)
+    return XdManyToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, onDelete, onTargetDelete, required = false)
 }
 
 /**
@@ -132,9 +139,10 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
 inline fun <R : XdEntity, reified T : XdEntity> xdLink1_N(
         oppositeLink: KProperty1<T, XdMutableQuery<R>>,
         dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdManyToManyLink<R, T> {
-    return XdManyToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, onDelete, onTargetDelete, required = true)
+    return XdManyToManyLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, onDelete, onTargetDelete, required = true)
 }
 
 /**

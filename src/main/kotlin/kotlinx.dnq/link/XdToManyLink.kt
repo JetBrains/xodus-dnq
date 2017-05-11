@@ -21,6 +21,7 @@ open class XdToManyLink<in R : XdEntity, T : XdEntity>(
 ) : ReadOnlyProperty<R, XdMutableQuery<T>>, XdLink<R, T>(
         entityType,
         dbPropertyName,
+        null,
         if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n,
         AssociationEndType.DirectedAssociationEnd,
         onDeletePolicy,

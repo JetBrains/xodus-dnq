@@ -17,12 +17,14 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
         val entityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, XdMutableQuery<R>>,
         dbPropertyName: String?,
+        dbOppositePropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy,
         required: Boolean
 ) : ReadOnlyProperty<R, XdMutableQuery<T>>, XdLink<R, T>(
         entityType,
         dbPropertyName,
+        dbOppositePropertyName,
         if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n,
         AssociationEndType.UndirectedAssociationEnd,
         onDeletePolicy,
@@ -32,18 +34,18 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(entityType) {
             override val entityIterable: Iterable<Entity>
-                get() = AssociationSemantics.getToMany(thisRef.entity, property.name)
+                get() = AssociationSemantics.getToMany(thisRef.entity, dbPropertyName ?: property.name)
 
             override fun add(entity: T) {
-                UndirectedAssociationSemantics.createManyToMany(thisRef.entity, property.name, oppositeField.name, entity.entity)
+                UndirectedAssociationSemantics.createManyToMany(thisRef.entity, dbPropertyName ?: property.name, dbOppositePropertyName ?: oppositeField.name, entity.entity)
             }
 
             override fun remove(entity: T) {
-                UndirectedAssociationSemantics.removeManyToMany(thisRef.entity, property.name, oppositeField.name, entity.entity)
+                UndirectedAssociationSemantics.removeManyToMany(thisRef.entity, dbPropertyName ?: property.name, dbOppositePropertyName ?: oppositeField.name, entity.entity)
             }
 
             override fun clear() {
-                UndirectedAssociationSemantics.clearManyToMany(thisRef.entity, property.name, oppositeField.name)
+                UndirectedAssociationSemantics.clearManyToMany(thisRef.entity, dbPropertyName ?: property.name, dbOppositePropertyName ?: oppositeField.name)
             }
         }
     }

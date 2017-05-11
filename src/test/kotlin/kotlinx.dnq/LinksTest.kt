@@ -10,6 +10,7 @@ import org.hamcrest.collection.IsIterableContainingInOrder
 import org.junit.Assert
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 
@@ -31,9 +32,11 @@ class LinksTest : DBTest() {
             assertEquals(3, root.nestedGroups.size())
             listOf("a", "b", "c").forEach {
                 assertTrue(root.nestedGroups.any(NestedGroup::name eq it))
+                assertFalse(root.entity.getLinks("nested").isEmpty)
             }
             root.nestedGroups.asSequence().forEach {
                 assertEquals(root, it.parentGroup)
+                assertEquals(root.entity, it.entity.getLink("parent"))
             }
         }
     }
