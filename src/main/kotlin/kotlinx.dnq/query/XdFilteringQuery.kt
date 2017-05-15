@@ -89,17 +89,34 @@ class SearchingEntity(private val _type: String, private val _entityStore: Trans
             val simpleProperty = it ?: return 0
             return when (simpleProperty.property.returnType.javaType) {
                 java.lang.String::class.java -> ""
+
+                java.lang.Boolean.TYPE -> false
                 java.lang.Boolean::class.java -> false
+
+                java.lang.Byte.TYPE -> 0.toByte()
                 java.lang.Byte::class.java -> 0.toByte()
+
+                java.lang.Short.TYPE -> 0.toShort()
                 java.lang.Short::class.java -> 0.toShort()
+
+                java.lang.Character.TYPE -> 0.toChar()
                 java.lang.Character::class.java -> 0.toChar()
+
+                java.lang.Integer.TYPE -> 0
                 java.lang.Integer::class.java -> 0
+
+                java.lang.Long.TYPE -> 0.toLong()
                 java.lang.Long::class.java -> 0.toLong()
+
                 DateTime::class.java -> 0.toLong()
+
+                java.lang.Float.TYPE -> 0.toFloat()
                 java.lang.Float::class.java -> 0.toFloat()
+
+                java.lang.Double.TYPE -> 0.toDouble()
                 java.lang.Double::class.java -> 0.toDouble()
                 else -> {
-                    0
+                    ""
                 }
             }
         }

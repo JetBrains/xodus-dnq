@@ -221,12 +221,13 @@ class FilterQueryPropertiesTest : DBTest() {
             User.new {
                 login = "login"
                 isMale = true
+                isGuest = true
                 skill = 1
             }
         }
         store.transactional {
             User.filter {
-                it.isMale eq true
+                (it.isMale eq true) or (it.isGuest eq true)
             }.apply {
                 assertEquals(1, size())
             }
