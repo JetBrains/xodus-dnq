@@ -5,9 +5,7 @@ import jetbrains.exodus.database.exceptions.NullPropertyException
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
 import jetbrains.exodus.database.exceptions.UniqueIndexViolationException
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.query.eq
-import kotlinx.dnq.query.first
-import kotlinx.dnq.query.query
+import kotlinx.dnq.query.*
 import kotlinx.dnq.simple.regex
 import kotlinx.dnq.simple.requireIf
 import kotlinx.dnq.util.getOldValue
@@ -299,6 +297,29 @@ class PropertiesTest : DBTest() {
             assertTrue(e.message!!.matches(Regex(pattern)), "Exception message \"${e.message}\" does not match pattern \"$pattern\"")
             txn.revert()
         }
+    }
+
+    @Test
+    fun `query of nullable property should not throw on materialization`() {
+        val boss = store.transactional {
+            User.new {
+                login = "boss"
+                skill = 1
+            }
+        }
+        store.transactional {
+            User.new {
+                login = "slave"
+                supervisor = boss
+                skill = 1
+            }
+        }
+        store.transactional {
+            User.all().mapDistinct(User::supervisor).asNullSequence().forEach {
+                println(it?.login ?: "null")
+            }
+        }
+
     }
 
 }

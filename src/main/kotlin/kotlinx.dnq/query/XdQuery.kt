@@ -16,29 +16,43 @@ import kotlin.reflect.jvm.javaType
 
 interface XdQuery<out T : XdEntity> {
     val entityType: XdEntityType<T>
-    val entityIterable: Iterable<Entity>
+    val entityIterable: Iterable<Entity?>
 }
 
 class XdQueryImpl<out T : XdEntity>(
-        override val entityIterable: Iterable<Entity>,
+        override val entityIterable: Iterable<Entity?>,
         override val entityType: XdEntityType<T>) : XdQuery<T>
 
 private val <T : XdEntity> XdQuery<T>.queryEngine: QueryEngine
     get() = entityType.entityStore.queryEngine
 
-fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQuery<T> {
+fun <T : XdEntity> Iterable<Entity?>?.asQuery(entityType: XdEntityType<T>): XdQuery<T> {
     return if (this != null) {
         XdQueryImpl(this, entityType)
     } else {
-        XdQueryImpl(EntityIterableBase.EMPTY, entityType)
+        XdQueryImpl(emptyList(), entityType)
     }
 }
 
-fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
-    return entityIterable.asSequence().map { entityType.wrap(it) }
+fun <T : XdEntity, TN : T?> XdQuery<T>.asGenericSequence(): Sequence<TN> {
+    return entityIterable.asSequence().map {
+        if (it == null) {
+            if (null is TN) {
+                null as TN
+            } else {
+                throw Exception()
+            }
+        } else {
+            entityType.wrap(it) as TN
+        }
+    }
 }
 
-operator fun <T : XdEntity> XdQuery<T>.iterator() = asSequence().iterator()
+fun <T : XdEntity> XdQuery<T>.asNullSequence(): Sequence<T?> = this.asGenericSequence<T, T?>()
+
+fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> = this.asGenericSequence()
+
+operator fun <T : XdEntity> XdQuery<T>.iterator(): Iterator<T> = this.asSequence().iterator()
 
 fun <T : XdEntity, C : MutableCollection<in T>> XdQuery<T>.toCollection(destination: C) = asSequence().toCollection(destination)
 
