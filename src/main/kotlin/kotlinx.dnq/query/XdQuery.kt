@@ -30,11 +30,14 @@ fun <T : XdEntity> Iterable<Entity?>?.asQuery(entityType: XdEntityType<T>): XdQu
     return if (this != null) {
         XdQueryImpl(this, entityType)
     } else {
-        XdQueryImpl(emptyList(), entityType)
+        XdQueryImpl(EntityIterableBase.EMPTY, entityType)
     }
 }
 
 fun <T : XdEntity, TN : T?> XdQuery<T>.asGenericSequence(): Sequence<TN> {
+    if (null is TN) {
+        ExcludeNullStaticTypedEntityIterable(entityType.entityType, StaticTypedIterableDecorator(entityType.entityType, entityIterable, queryEngine), queryEngine)
+    }
     return entityIterable.asSequence().map {
         if (it == null) {
             if (null is TN) {
