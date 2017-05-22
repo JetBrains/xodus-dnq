@@ -34,20 +34,14 @@ fun <T : XdEntity> Iterable<Entity?>?.asQuery(entityType: XdEntityType<T>): XdQu
     }
 }
 
+class XdNullSequenceException(entityType: String) : RuntimeException("A null value encountered in a non-nullable sequence of type $entityType")
+
 fun <T : XdEntity, TN : T?> XdQuery<T>.asGenericSequence(): Sequence<TN> {
-    if (null is TN) {
-        ExcludeNullStaticTypedEntityIterable(entityType.entityType, StaticTypedIterableDecorator(entityType.entityType, entityIterable, queryEngine), queryEngine)
-    }
     return entityIterable.asSequence().map {
-        if (it == null) {
-            if (null is TN) {
-                null as TN
-            } else {
-                throw Exception()
-            }
-        } else {
-            entityType.wrap(it) as TN
+        if (it == null && null !is TN) {
+            throw XdNullSequenceException(entityType.entityType)
         }
+        it?.let { entityType.wrap(it) } as TN
     }
 }
 
