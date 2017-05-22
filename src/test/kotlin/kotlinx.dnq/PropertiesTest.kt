@@ -315,9 +315,7 @@ class PropertiesTest : DBTest() {
             }
         }
         store.transactional {
-            User.all().mapDistinct(User::supervisor).asNullSequence().forEach {
-                println(it?.login ?: "null")
-            }
+            assertThat(User.all().mapDistinct(User::supervisor).asSequence().count(), equalTo(1))
         }
 
     }

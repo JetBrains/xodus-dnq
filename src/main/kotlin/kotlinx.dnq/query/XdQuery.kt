@@ -26,7 +26,7 @@ class XdQueryImpl<out T : XdEntity>(
 private val <T : XdEntity> XdQuery<T>.queryEngine: QueryEngine
     get() = entityType.entityStore.queryEngine
 
-fun <T : XdEntity> Iterable<Entity?>?.asQuery(entityType: XdEntityType<T>): XdQuery<T> {
+fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQuery<T> {
     return if (this != null) {
         XdQueryImpl(this, entityType)
     } else {
@@ -34,20 +34,32 @@ fun <T : XdEntity> Iterable<Entity?>?.asQuery(entityType: XdEntityType<T>): XdQu
     }
 }
 
-class XdNullSequenceException(entityType: String) : RuntimeException("A null value encountered in a non-nullable sequence of type $entityType")
-
-fun <T : XdEntity, TN : T?> XdQuery<T>.asGenericSequence(): Sequence<TN> {
-    return entityIterable.asSequence().map {
-        if (it == null && null !is TN) {
-            throw XdNullSequenceException(entityType.entityType)
-        }
-        it?.let { entityType.wrap(it) } as TN
-    }
+/**
+ * Returns not null entries only
+ *
+ * @see asNullableSequence
+ */
+fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
+//    val staticTypedIterable = entityIterable.let {
+//        it as? StaticTypedEntityIterable ?: StaticTypedIterableDecorator(entityType.entityType, it, queryEngine)
+//    }
+//    return ExcludeNullStaticTypedEntityIterable(entityType.entityType, staticTypedIterable, queryEngine)
+//            .asSequence()
+//            .map {
+//                entityType.wrap(it)
+//            }
+    // TODO: change on ExcludeNullStaticTypedEntityIterable after webr is updated with xodus 2670 or higher
+    return entityIterable.asSequence().filterNotNull().map { entityType.wrap(it) }
 }
 
-fun <T : XdEntity> XdQuery<T>.asNullSequence(): Sequence<T?> = this.asGenericSequence<T, T?>()
-
-fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> = this.asGenericSequence()
+/**
+ * Returns all values including nulls
+ *
+ * @see asSequence
+ */
+fun <T : XdEntity> XdQuery<T>.asNullableSequence(): Sequence<T?> {
+    return this.entityIterable.asSequence().map { it?.let { entityType.wrap(it) } }
+}
 
 operator fun <T : XdEntity> XdQuery<T>.iterator(): Iterator<T> = this.asSequence().iterator()
 
