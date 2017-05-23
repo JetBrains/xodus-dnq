@@ -16,11 +16,11 @@ import kotlin.reflect.jvm.javaType
 
 interface XdQuery<out T : XdEntity> {
     val entityType: XdEntityType<T>
-    val entityIterable: Iterable<Entity>
+    val entityIterable: Iterable<Entity?>
 }
 
 class XdQueryImpl<out T : XdEntity>(
-        override val entityIterable: Iterable<Entity>,
+        override val entityIterable: Iterable<Entity?>,
         override val entityType: XdEntityType<T>) : XdQuery<T>
 
 private val <T : XdEntity> XdQuery<T>.queryEngine: QueryEngine
@@ -34,11 +34,32 @@ fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQue
     }
 }
 
+/**
+ * Returns not null entries only
+ *
+ * @see asNullableSequence
+ */
 fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
-    return entityIterable.asSequence().map { entityType.wrap(it) }
+    val staticTypedIterable = entityIterable.let {
+        it as? StaticTypedEntityIterable ?: StaticTypedIterableDecorator(entityType.entityType, it, queryEngine)
+    }
+    return ExcludeNullStaticTypedEntityIterable(entityType.entityType, staticTypedIterable, queryEngine)
+            .asSequence()
+            .map {
+                entityType.wrap(it)
+            }
 }
 
-operator fun <T : XdEntity> XdQuery<T>.iterator() = asSequence().iterator()
+/**
+ * Returns all values including nulls
+ *
+ * @see asSequence
+ */
+fun <T : XdEntity> XdQuery<T>.asNullableSequence(): Sequence<T?> {
+    return this.entityIterable.asSequence().map { it?.let { entityType.wrap(it) } }
+}
+
+operator fun <T : XdEntity> XdQuery<T>.iterator(): Iterator<T> = this.asSequence().iterator()
 
 fun <T : XdEntity, C : MutableCollection<in T>> XdQuery<T>.toCollection(destination: C) = asSequence().toCollection(destination)
 
