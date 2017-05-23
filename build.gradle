@@ -3,7 +3,7 @@ version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] :
 
 buildscript {
     ext.kotlin_version = '1.1.1'
-    ext.mps_dnq_version = '3064'
+    ext.mps_dnq_version = '3149'
     repositories {
         mavenCentral()
     }

@@ -40,16 +40,14 @@ fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQue
  * @see asNullableSequence
  */
 fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
-//    val staticTypedIterable = entityIterable.let {
-//        it as? StaticTypedEntityIterable ?: StaticTypedIterableDecorator(entityType.entityType, it, queryEngine)
-//    }
-//    return ExcludeNullStaticTypedEntityIterable(entityType.entityType, staticTypedIterable, queryEngine)
-//            .asSequence()
-//            .map {
-//                entityType.wrap(it)
-//            }
-    // TODO: change on ExcludeNullStaticTypedEntityIterable after webr is updated with xodus 2670 or higher
-    return entityIterable.asSequence().filterNotNull().map { entityType.wrap(it) }
+    val staticTypedIterable = entityIterable.let {
+        it as? StaticTypedEntityIterable ?: StaticTypedIterableDecorator(entityType.entityType, it, queryEngine)
+    }
+    return ExcludeNullStaticTypedEntityIterable(entityType.entityType, staticTypedIterable, queryEngine)
+            .asSequence()
+            .map {
+                entityType.wrap(it)
+            }
 }
 
 /**
