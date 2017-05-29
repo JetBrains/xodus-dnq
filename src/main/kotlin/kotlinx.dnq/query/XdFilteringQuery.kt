@@ -1,22 +1,10 @@
 package kotlinx.dnq.query
 
-import jetbrains.exodus.ByteIterable
-import jetbrains.exodus.core.dataStructures.Pair
-import jetbrains.exodus.database.TransientEntity
-import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityId
-import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.PersistentEntity
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.XdModel
-import kotlinx.dnq.util.XdHierarchyNode
 import org.joda.time.DateTime
-import java.io.File
-import java.io.InputStream
-import kotlin.reflect.jvm.javaType
+import kotlin.reflect.KProperty1
 
 fun <T : XdEntity> XdQuery<T>.filter(clause: (T) -> Unit): XdQuery<T> {
     val searchingEntity = SearchingEntity(entityType.entityType, entityType.entityStore).inScope {
@@ -27,299 +15,24 @@ fun <T : XdEntity> XdQuery<T>.filter(clause: (T) -> Unit): XdQuery<T> {
     }
 }
 
-fun <T : XdEntity> XdEntityType<T>.filter(clause: (T) -> Unit): XdQuery<T> {
-    return all().filter(clause)
+inline fun <reified S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(crossinline mapping: (S) -> T?): XdQuery<T> {
+    val mappingEntity = MappingEntity(entityType.entityType, entityType.entityStore).inScope {
+        mapping(entityType.wrap(this))
+    }
+    @Suppress("UNCHECKED_CAST")
+    return mapDistinct(mappingEntity.modelProperty as KProperty1<S, T?>)
 }
 
-class SearchingEntity(private val _type: String, private val _entityStore: TransientEntityStore) : TransientEntity {
-
-    companion object {
-        internal val current: ThreadLocal<SearchingEntity> = ThreadLocal()
-
-        fun get(): SearchingEntity = current.get()
+inline fun <S : XdEntity, reified T : XdEntity, Q : XdQuery<T>> XdQuery<S>.flatMapDistinct(crossinline mapping: (S) -> Q): XdQuery<T> {
+    val mappingEntity = MappingEntity(entityType.entityType, entityType.entityStore).inScope {
+        mapping(entityType.wrap(this)).size() // to fallback to getLinks of entity method
     }
-
-    var currentProperty: String? = null
-    val nodes: MutableList<NodeBase> = arrayListOf()
-
-    override fun compareTo(other: Entity?): Int = 0
-
-    override fun getRawProperty(propertyName: String): ByteIterable? {
-        throw unsupported()
-    }
-
-    override fun getLinks(linkName: String): EntityIterable {
-        throw unsupported()
-    }
-
-    override fun getLinks(linkNames: MutableCollection<String>): EntityIterable {
-        throw unsupported()
-    }
-
-    override fun setBlob(blobName: String, blob: InputStream) {
-        throw unsupported()
-    }
-
-    override fun setBlob(blobName: String, file: File) {
-        throw unsupported()
-    }
-
-    override fun setBlobString(blobName: String, blobString: String): Boolean {
-        throw unsupported()
-    }
-
-    override fun getId(): EntityId {
-        throw unsupported()
-    }
-
-    override fun deleteLink(linkName: String, entity: Entity): Boolean {
-        nodes.add(LinkEqual(linkName, null))
-        return true
-    }
-
-    override fun setLink(linkName: String, target: Entity?): Boolean {
-        nodes.add(LinkEqual(linkName, target))
-        return true
-    }
-
-    override fun getProperty(propertyName: String): Comparable<Nothing>? {
-        currentProperty = propertyName
-        val node = XdModel.getOrThrow(_type)
-        node.findProperty(propertyName).let {
-            val simpleProperty = it ?: return 0
-            return when (simpleProperty.property.returnType.javaType) {
-                java.lang.String::class.java -> ""
-
-                java.lang.Boolean.TYPE -> false
-                java.lang.Boolean::class.java -> false
-
-                java.lang.Byte.TYPE -> 0.toByte()
-                java.lang.Byte::class.java -> 0.toByte()
-
-                java.lang.Short.TYPE -> 0.toShort()
-                java.lang.Short::class.java -> 0.toShort()
-
-                java.lang.Character.TYPE -> 0.toChar()
-                java.lang.Character::class.java -> 0.toChar()
-
-                java.lang.Integer.TYPE -> 0
-                java.lang.Integer::class.java -> 0
-
-                java.lang.Long.TYPE -> 0.toLong()
-                java.lang.Long::class.java -> 0.toLong()
-
-                DateTime::class.java -> 0.toLong()
-
-                java.lang.Float.TYPE -> 0.toFloat()
-                java.lang.Float::class.java -> 0.toFloat()
-
-                java.lang.Double.TYPE -> 0.toDouble()
-                java.lang.Double::class.java -> 0.toDouble()
-                else -> {
-                    ""
-                }
-            }
-        }
-    }
-
-    override fun getBlobNames(): MutableList<String> {
-        throw unsupported()
-    }
-
-    override fun getLink(linkName: String): Entity? {
-        currentProperty = linkName
-        val node = XdModel.getOrThrow(_type)
-        node.findLink(linkName).let {
-            it ?: return this
-            return SearchingEntity(it.delegate.oppositeEntityType.entityType, _entityStore)
-        }
-    }
-
-    override fun deleteLinks(linkName: String) {
-        throw unsupported()
-    }
-
-    override fun getPropertyNames(): MutableList<String> {
-        throw unsupported()
-    }
-
-    override fun getStore(): TransientEntityStore = _entityStore
-
-    override fun deleteBlob(blobName: String): Boolean {
-        throw unsupported()
-    }
-
-    override fun delete(): Boolean {
-        throw unsupported()
-    }
-
-    override fun addLink(linkName: String, target: Entity): Boolean {
-        throw unsupported()
-    }
-
-    override fun setProperty(propertyName: String, value: Comparable<Nothing>): Boolean {
-        nodes.add(PropertyEqual(propertyName, value))
-        return true
-    }
-
-    override fun getLinkNames(): MutableList<String> {
-        throw unsupported()
-    }
-
-    override fun getType(): String = _type
-
-    override fun deleteProperty(propertyName: String): Boolean {
-        nodes.add(PropertyEqual(propertyName, null))
-        return true
-    }
-
-    override fun getBlobString(blobName: String): String? {
-        throw unsupported()
-    }
-
-    override fun toIdString(): String = "fake-entity"
-
-
-    override fun getBlob(blobName: String): InputStream? {
-        throw unsupported()
-    }
-
-    override fun getBlobSize(blobName: String): Long {
-        throw unsupported()
-    }
-
-    override fun getPropertyOldValue(propertyName: String): Comparable<Nothing> {
-        throw unsupported()
-    }
-
-    override fun getAddedLinks(name: String?): EntityIterable {
-        throw unsupported()
-    }
-
-    override fun getAddedLinks(linkNames: MutableSet<String>?): EntityIterable {
-        throw unsupported()
-    }
-
-    override fun isNew(): Boolean {
-        throw unsupported()
-    }
-
-    override fun removeOneToMany(manyToOneLinkName: String, oneToManyLinkName: String, many: Entity) {
-        throw unsupported()
-    }
-
-    override fun removeFromParent(parentToChildLinkName: String, childToParentLinkName: String) {
-        throw unsupported()
-    }
-
-    override fun getLinksSize(linkName: String): Long {
-        throw unsupported()
-    }
-
-    override fun clearOneToMany(manyToOneLinkName: String, oneToManyLinkName: String) {
-        throw unsupported()
-    }
-
-    override fun getDebugPresentation(): String {
-        throw unsupported()
-    }
-
-    override fun hasChangesExcepting(properties: Array<out String>?): Boolean {
-        throw unsupported()
-    }
-
-    override fun setOneToOne(e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity?) {
-        throw unsupported()
-    }
-
-    override fun removeChild(parentToChildLinkName: String, childToParentLinkName: String) {
-        throw unsupported()
-    }
-
-    override fun getRemovedLinks(name: String?): EntityIterable {
-        throw unsupported()
-    }
-
-    override fun getRemovedLinks(linkNames: MutableSet<String>?): EntityIterable {
-        throw unsupported()
-    }
-
-    override fun getIncomingLinks(): MutableList<Pair<String, EntityIterable>> {
-        throw unsupported()
-    }
-
-    override fun setChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
-        throw unsupported()
-    }
-
-    override fun createManyToMany(e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity) {
-        throw unsupported()
-    }
-
-    override fun clearChildren(parentToChildLinkName: String) {
-        throw unsupported()
-    }
-
-    override fun isReadonly(): Boolean = true
-
-    override fun isRemoved(): Boolean = false
-
-    override fun clearManyToMany(e1Toe2LinkName: String, e2Toe1LinkName: String) {
-        throw unsupported()
-    }
-
-    override fun isWrapper(): Boolean = false
-
-    override fun isSaved(): Boolean = true
-
-    override fun hasChanges(): Boolean = false
-
-    override fun hasChanges(property: String?): Boolean = false
-
-    override fun getParent(): Entity {
-        throw unsupported()
-    }
-
-    override fun getPersistentEntity(): PersistentEntity {
-        throw unsupported()
-    }
-
-    override fun setManyToOne(manyToOneLinkName: String, oneToManyLinkName: String, one: Entity?) {
-        nodes.add(LinkEqual(manyToOneLinkName, one))
-    }
-
-    override fun setToOne(linkName: String, target: Entity?) {
-        currentProperty = linkName
-        nodes.add(LinkEqual(linkName, target))
-    }
-
-    override fun addChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
-        throw unsupported()
-    }
-
-    private fun unsupported(): Exception = UnsupportedOperationException("not implemented")
-
-    private fun XdHierarchyNode.findProperty(name: String): XdHierarchyNode.SimpleProperty? {
-        val result = simpleProperties.values.firstOrNull { it.dbPropertyName == name }
-        if (result == null) {
-            if (parentNode != null) {
-                return parentNode.findProperty(name)
-            }
-            return null
-        }
-        return result
-    }
-
-    private fun XdHierarchyNode.findLink(name: String): XdHierarchyNode.LinkProperty? {
-        val result = linkProperties.values.firstOrNull { it.dbPropertyName == name }
-        if (result == null) {
-            if (parentNode != null) {
-                return parentNode.findLink(name)
-            }
-            return null
-        }
-        return result
-    }
+    @Suppress("UNCHECKED_CAST")
+    return flatMapDistinct(mappingEntity.modelProperty as KProperty1<S, Q>)
+}
+
+fun <T : XdEntity> XdEntityType<T>.filter(clause: (T) -> Unit): XdQuery<T> {
+    return all().filter(clause)
 }
 
 infix fun <T : Comparable<T>> T?.lt(value: T): XdSearchingNode {
@@ -382,12 +95,12 @@ private fun withNode(node: NodeBase): XdSearchingNode {
     }
 }
 
-fun SearchingEntity.inScope(fn: SearchingEntity.() -> Unit): SearchingEntity {
-    SearchingEntity.current.set(this)
+fun <T: FakeTransientEntity> T.inScope(fn: T.() -> Unit): T {
+    FakeTransientEntity.current.set(this)
     try {
         fn()
     } finally {
-        SearchingEntity.current.set(null)
+        FakeTransientEntity.current.set(null)
     }
     return this
 }
