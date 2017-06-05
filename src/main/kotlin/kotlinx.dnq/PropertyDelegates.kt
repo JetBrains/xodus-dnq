@@ -84,11 +84,11 @@ fun <R : XdEntity> R.xdNullableLongProp(dbName: String? = null, constraints: (Pr
 // Boolean property
 private val _xdBooleanProp = xdProp<XdEntity, Boolean> { e, p -> false }
 
-fun xdBooleanProp(dbName: String? = null, defaultValue: Boolean = false): XdProperty<XdEntity, Boolean> {
-    return if (dbName == null && !defaultValue) {
+fun xdBooleanProp(dbName: String? = null): XdProperty<XdEntity, Boolean> {
+    return if (dbName == null) {
         _xdBooleanProp
     } else {
-        xdProp<XdEntity, Boolean>(dbName) { e, p -> defaultValue }
+        xdProp<XdEntity, Boolean>(dbName) { e, p -> false }
     }
 }
 
