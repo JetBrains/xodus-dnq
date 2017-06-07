@@ -22,7 +22,6 @@ import java.lang.reflect.TypeVariable
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
-import kotlin.reflect.defaultType
 import kotlin.reflect.full.*
 import kotlin.reflect.jvm.jvmName
 
@@ -90,7 +89,6 @@ val <T : XdEntity> XdEntityType<T>.entityConstructor: ((Entity) -> T)?
         }
     }
 
-@Suppress("UNCHECKED_CAST")
 inline fun <reified T : XdEntity, V : Any?> T.isDefined(property: KProperty1<T, V>): Boolean {
     return isDefined(T::class.java, property)
 }
