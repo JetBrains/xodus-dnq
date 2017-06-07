@@ -34,12 +34,12 @@ class ReflectionUtilTest : DBTest() {
             assertThat(rootGroup.isDefined(Group::name)).isTrue()
             assertThat(rootGroup.isDefined(Group::users)).isFalse()
             assertThat(rootGroup.isDefined(Group::nestedGroups)).isFalse()
-            assertThat(rootGroup.isDefined(Group::owner)).isFalse()
+            assertThat(rootGroup.isDefined(Group::owner)).isTrue() // simple property
             assertThat(rootGroup.isDefined(Group::autoJoin)).isTrue()
             assertThat(rootGroup.isDefined(TestGroup::name)).isTrue()
             assertThat(rootGroup.isDefined(TestGroup::users)).isFalse()
             assertThat(rootGroup.isDefined(TestGroup::nestedGroups)).isFalse()
-            assertThat(rootGroup.isDefined(TestGroup::owner)).isFalse()
+            assertThat(rootGroup.isDefined(TestGroup::owner)).isTrue() // simple property
             assertThat(rootGroup.isDefined(TestGroup::autoJoin)).isTrue()
 
             val admin = User.new {

@@ -94,13 +94,17 @@ inline fun <reified T : XdEntity, V : Any?> T.isDefined(property: KProperty1<T, 
 }
 
 fun <R : XdEntity, T : Any?> R.isDefined(clazz: Class<R>, property: KProperty1<R, T>): Boolean {
-    return isDefined(clazz.entityType, property)
+    return isDefined(clazz.entityType, property, clazz)
 }
 
 @Suppress("UNCHECKED_CAST")
 fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: KProperty1<R, T>): Boolean {
-    // do all this fuzzy stuff only if the property is open
-    val realProperty = if (property.isFinal) {
+    return isDefined(entityType, property, null)
+}
+
+private fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: KProperty1<R, T>, entityClass: Class<R>?): Boolean {
+    // do all this fuzzy stuff only if the property is open and the entity class is open too
+    val realProperty = if (property.isFinal || entityClass?.kotlin?.isFinal ?: false) {
         property
     } else {
         this.javaClass.kotlin.memberProperties.single { it.name == property.name }
@@ -114,19 +118,11 @@ fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: 
 
     val metaProperty = XdModel.getOrThrow(realEntityType.entityType).resolveMetaProperty(realProperty)
 
+    @Suppress("UNCHECKED_CAST")
     return when (metaProperty) {
         is XdHierarchyNode.SimpleProperty -> (metaProperty.delegate as XdConstrainedProperty<R, *>).isDefined(this, property)
         is XdHierarchyNode.LinkProperty -> (metaProperty.delegate as XdLink<R, *>).isDefined(this, property)
-        null -> {
-            // simple property
-            val value = realProperty.get(this)
-            if (value != null) {
-                // todo? Map, ByteArray, LongArray,...
-                (value as? Iterable<*>)?.any() ?: (value as? Sequence<*>)?.any() ?: (value as? Array<*>)?.any() ?: true
-            } else {
-                false
-            }
-        }
+        null -> true // simple property
         else -> throw IllegalArgumentException("Property ${entityType.entityType}::$property is not delegated to Xodus")
     }
 }
