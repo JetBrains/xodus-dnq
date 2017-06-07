@@ -58,7 +58,7 @@ abstract class DBTest {
         override var owner: User by xdLink1(User)
     }
 
-    class RootGroup(entity: Entity) : Group(entity) {
+    open class RootGroup(entity: Entity) : Group(entity) {
         companion object : XdNaturalEntityType<RootGroup>()
 
         override var autoJoin: Boolean

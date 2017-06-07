@@ -2,6 +2,7 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.TransientStoreSession
+import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentEntity
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.single
@@ -11,26 +12,35 @@ import org.junit.Test
 
 class ReflectionUtilTest : DBTest() {
 
+    class TestGroup(entity: Entity) : RootGroup(entity) {
+        companion object : XdNaturalEntityType<TestGroup>()
+    }
+
+    override fun registerEntityTypes() {
+        super.registerEntityTypes()
+        XdModel.registerNode(TestGroup)
+    }
+
     @Test
     fun `isDefined`() {
         store.transactional {
-            it.createPersistentEntity(RootGroup) {
+            it.createPersistentEntity(TestGroup) {
                 setProperty(Group::name.name, "root")
             }
         }
 
         store.transactional {
-            val rootGroup = RootGroup.all().single()
+            val rootGroup = TestGroup.all().single()
             assertThat(rootGroup.isDefined(Group::name)).isTrue()
             assertThat(rootGroup.isDefined(Group::users)).isFalse()
             assertThat(rootGroup.isDefined(Group::nestedGroups)).isFalse()
             assertThat(rootGroup.isDefined(Group::owner)).isFalse()
             assertThat(rootGroup.isDefined(Group::autoJoin)).isTrue()
-            assertThat(rootGroup.isDefined(RootGroup::name)).isTrue()
-            assertThat(rootGroup.isDefined(RootGroup::users)).isFalse()
-            assertThat(rootGroup.isDefined(RootGroup::nestedGroups)).isFalse()
-            assertThat(rootGroup.isDefined(RootGroup::owner)).isFalse()
-            assertThat(rootGroup.isDefined(RootGroup::autoJoin)).isTrue()
+            assertThat(rootGroup.isDefined(TestGroup::name)).isTrue()
+            assertThat(rootGroup.isDefined(TestGroup::users)).isFalse()
+            assertThat(rootGroup.isDefined(TestGroup::nestedGroups)).isFalse()
+            assertThat(rootGroup.isDefined(TestGroup::owner)).isFalse()
+            assertThat(rootGroup.isDefined(TestGroup::autoJoin)).isTrue()
 
             val admin = User.new {
                 login = "admin"
