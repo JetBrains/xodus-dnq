@@ -22,8 +22,8 @@ import java.lang.reflect.TypeVariable
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
-import kotlin.reflect.full.companionObject
-import kotlin.reflect.full.companionObjectInstance
+import kotlin.reflect.defaultType
+import kotlin.reflect.full.*
 import kotlin.reflect.jvm.jvmName
 
 
@@ -90,6 +90,7 @@ val <T : XdEntity> XdEntityType<T>.entityConstructor: ((Entity) -> T)?
         }
     }
 
+@Suppress("UNCHECKED_CAST")
 inline fun <reified T : XdEntity, V : Any?> T.isDefined(property: KProperty1<T, V>): Boolean {
     return isDefined(T::class.java, property)
 }
@@ -100,11 +101,34 @@ fun <R : XdEntity, T : Any?> R.isDefined(clazz: Class<R>, property: KProperty1<R
 
 @Suppress("UNCHECKED_CAST")
 fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: KProperty1<R, T>): Boolean {
-    val metaProperty = XdModel.getOrThrow(entityType.entityType).resolveMetaProperty(property)
+    // do all this fuzzy stuff only if the property is open
+    val realProperty = if (property.isFinal) {
+        property
+    } else {
+        this.javaClass.kotlin.memberProperties.single { it.name == property.name }
+    }
+
+    val realEntityType = if (realProperty == property) {
+        entityType
+    } else {
+        this.javaClass.entityType
+    }
+
+    val metaProperty = XdModel.getOrThrow(realEntityType.entityType).resolveMetaProperty(realProperty)
 
     return when (metaProperty) {
         is XdHierarchyNode.SimpleProperty -> (metaProperty.delegate as XdConstrainedProperty<R, *>).isDefined(this, property)
         is XdHierarchyNode.LinkProperty -> (metaProperty.delegate as XdLink<R, *>).isDefined(this, property)
+        null -> {
+            // simple property
+            val value = realProperty.get(this)
+            if (value != null) {
+                // todo? Map, ByteArray, LongArray,...
+                (value as? Iterable<*>)?.any() ?: (value as? Sequence<*>)?.any() ?: (value as? Array<*>)?.any() ?: true
+            } else {
+                false
+            }
+        }
         else -> throw IllegalArgumentException("Property ${entityType.entityType}::$property is not delegated to Xodus")
     }
 }

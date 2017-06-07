@@ -19,11 +19,12 @@ class LinksTest : DBTest() {
     @Test
     fun `bidirectional many to many`() {
         store.transactional {
+            val admin = User.new { login = "anakin"; skill = 1 }
             RootGroup.new {
                 name = "Root"
-                nestedGroups.add(NestedGroup.new { name = "A" })
-                nestedGroups.add(NestedGroup.new { name = "B" })
-                nestedGroups.add(NestedGroup.new { name = "C" })
+                nestedGroups.add(NestedGroup.new { name = "A"; owner = admin })
+                nestedGroups.add(NestedGroup.new { name = "B"; owner = admin })
+                nestedGroups.add(NestedGroup.new { name = "C"; owner = admin })
             }
         }
 
