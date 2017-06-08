@@ -89,14 +89,32 @@ val <T : XdEntity> XdEntityType<T>.entityConstructor: ((Entity) -> T)?
         }
     }
 
+/**
+ * Safely checks if the value of a property is not null or empty. It is especially useful for required
+ * xd-properties like xdLink1, xdLink1_N, xdRequired and so on, that will throw on access if the value is undefined.
+ * As for simple property types, only Iterable, Sequence and Array inheritors are supported. Calling this function
+ * for any other "massive" property type will result in the true value.
+ */
 inline fun <reified T : XdEntity, V : Any?> T.isDefined(property: KProperty1<T, V>): Boolean {
     return isDefined(T::class.java, property)
 }
 
+/**
+ * Safely checks if the value of a property is not null or empty. It is especially useful for required
+ * xd-properties like xdLink1, xdLink1_N, xdRequired and so on, that will throw on access if the value is undefined.
+ * As for simple property types, only Iterable, Sequence and Array inheritors are supported. Calling this function
+ * for any other "massive" property type will result in the true value.
+ */
 fun <R : XdEntity, T : Any?> R.isDefined(clazz: Class<R>, property: KProperty1<R, T>): Boolean {
     return isDefined(clazz.entityType, property, clazz)
 }
 
+/**
+ * Safely checks if the value of a property is not null or empty. It is especially useful for required
+ * xd-properties like xdLink1, xdLink1_N, xdRequired and so on, that will throw on access if the value is undefined.
+ * As for simple property types, only Iterable, Sequence and Array inheritors are supported. Calling this function
+ * for any other "massive" property type will result in the true value.
+ */
 @Suppress("UNCHECKED_CAST")
 fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: KProperty1<R, T>): Boolean {
     return isDefined(entityType, property, null)
