@@ -22,8 +22,7 @@ import java.lang.reflect.TypeVariable
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
-import kotlin.reflect.full.companionObject
-import kotlin.reflect.full.companionObjectInstance
+import kotlin.reflect.full.*
 import kotlin.reflect.jvm.jvmName
 
 
@@ -90,22 +89,67 @@ val <T : XdEntity> XdEntityType<T>.entityConstructor: ((Entity) -> T)?
         }
     }
 
+/**
+ * Safely checks if the value of a property is not null or empty. It is especially useful for required
+ * xd-properties like xdLink1, xdLink1_N, xdRequired and so on, that will throw on access if the value is undefined.
+ * As for simple property types, only Iterable, Sequence and Array inheritors are supported. Calling this function
+ * for any other "massive" property type will result in the true value.
+ */
 inline fun <reified T : XdEntity, V : Any?> T.isDefined(property: KProperty1<T, V>): Boolean {
     return isDefined(T::class.java, property)
 }
 
+/**
+ * Safely checks if the value of a property is not null or empty. It is especially useful for required
+ * xd-properties like xdLink1, xdLink1_N, xdRequired and so on, that will throw on access if the value is undefined.
+ * As for simple property types, only Iterable, Sequence and Array inheritors are supported. Calling this function
+ * for any other "massive" property type will result in the true value.
+ */
 fun <R : XdEntity, T : Any?> R.isDefined(clazz: Class<R>, property: KProperty1<R, T>): Boolean {
-    return isDefined(clazz.entityType, property)
+    return isDefined(clazz.entityType, property, clazz)
 }
 
+/**
+ * Safely checks if the value of a property is not null or empty. It is especially useful for required
+ * xd-properties like xdLink1, xdLink1_N, xdRequired and so on, that will throw on access if the value is undefined.
+ * As for simple property types, only Iterable, Sequence and Array inheritors are supported. Calling this function
+ * for any other "massive" property type will result in the true value.
+ */
 @Suppress("UNCHECKED_CAST")
 fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: KProperty1<R, T>): Boolean {
-    val metaProperty = XdModel.getOrThrow(entityType.entityType).resolveMetaProperty(property)
+    return isDefined(entityType, property, null)
+}
 
+private fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: KProperty1<R, T>, entityClass: Class<R>?): Boolean {
+    // do all this fuzzy stuff only if the property is open and the entity class is open too
+    val realProperty = if (property.isFinal || entityClass?.kotlin?.isFinal ?: false) {
+        property
+    } else {
+        this.javaClass.kotlin.memberProperties.single { it.name == property.name }
+    }
+
+    val realEntityType = if (realProperty == property) {
+        entityType
+    } else {
+        this.javaClass.entityType
+    }
+
+    val metaProperty = XdModel.getOrThrow(realEntityType.entityType).resolveMetaProperty(realProperty)
+
+    @Suppress("UNCHECKED_CAST")
     return when (metaProperty) {
         is XdHierarchyNode.SimpleProperty -> (metaProperty.delegate as XdConstrainedProperty<R, *>).isDefined(this, property)
         is XdHierarchyNode.LinkProperty -> (metaProperty.delegate as XdLink<R, *>).isDefined(this, property)
-        else -> throw IllegalArgumentException("Property ${entityType.entityType}::$property is not delegated to Xodus")
+        null -> {
+            val value = realProperty.get(this)
+            if (value != null) {
+                (value as? Iterable<*>)?.any() ?: (value as? Sequence<*>)?.any() ?: (value as? Array<*>)?.any() ?: true
+            } else {
+                false
+            }
+        }
+        else -> throw UnsupportedOperationException("Type ${metaProperty.javaClass} of meta " +
+                "property ${realEntityType.entityType}#${metaProperty.property} is not supported")
     }
 }
 

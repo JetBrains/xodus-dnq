@@ -45,16 +45,27 @@ abstract class DBTest {
         var name by xdRequiredStringProp(unique = true)
         val nestedGroups by xdLink0_N(NestedGroup::parentGroup, dbPropertyName = "nested", dbOppositePropertyName = "parent")
         val users: XdMutableQuery<User> by xdLink0_N(User::groups, onDelete = CLEAR, onTargetDelete = CLEAR)
+
+        abstract var autoJoin: Boolean
+        abstract val owner: User?
     }
 
     class NestedGroup(entity: Entity) : Group(entity) {
         companion object : XdNaturalEntityType<NestedGroup>()
 
         val parentGroup: Group by xdLink1(Group::nestedGroups, dbPropertyName = "parent", dbOppositePropertyName = "nested")
+        override var autoJoin by xdBooleanProp()
+        override var owner: User by xdLink1(User)
     }
 
-    class RootGroup(entity: Entity) : Group(entity) {
+    open class RootGroup(entity: Entity) : Group(entity) {
         companion object : XdNaturalEntityType<RootGroup>()
+
+        override var autoJoin: Boolean
+            get() = false
+            set(value) { }
+
+        override val owner: User? = null
     }
 
     class Image(override val entity: Entity) : XdEntity() {
