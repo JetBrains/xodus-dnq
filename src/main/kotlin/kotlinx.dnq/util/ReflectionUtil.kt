@@ -122,8 +122,16 @@ private fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, pr
     return when (metaProperty) {
         is XdHierarchyNode.SimpleProperty -> (metaProperty.delegate as XdConstrainedProperty<R, *>).isDefined(this, property)
         is XdHierarchyNode.LinkProperty -> (metaProperty.delegate as XdLink<R, *>).isDefined(this, property)
-        null -> true // simple property
-        else -> throw IllegalArgumentException("Property ${entityType.entityType}::$property is not delegated to Xodus")
+        null -> {
+            val value = realProperty.get(this)
+            if (value != null) {
+                (value as? Iterable<*>)?.any() ?: (value as? Sequence<*>)?.any() ?: (value as? Array<*>)?.any() ?: true
+            } else {
+                false
+            }
+        }
+        else -> throw UnsupportedOperationException("Type ${metaProperty.javaClass} of meta " +
+                "property ${realEntityType.entityType}#${metaProperty.property} is not supported")
     }
 }
 
