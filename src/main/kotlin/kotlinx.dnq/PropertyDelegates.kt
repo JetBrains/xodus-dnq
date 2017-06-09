@@ -3,20 +3,18 @@ package kotlinx.dnq
 import kotlinx.dnq.simple.*
 import kotlinx.dnq.util.CachedProperties
 import org.joda.time.DateTime
-import java.net.URI
-import java.net.URL
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 /*************************************************************/
 // Optional Int property
-private val _xdIntProp = xdProp<XdEntity, Int> { e, p -> 0 }
+private val _xdIntProp = xdProp<XdEntity, Int> { _, _ -> 0 }
 
 fun <R : XdEntity> R.xdIntProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Int?>.() -> Unit)? = null): XdProperty<R, Int> {
     return if (dbName == null && constraints == null) {
         _xdIntProp
     } else {
-        xdProp<R, Int>(dbName, constraints) { e, p -> 0 }
+        xdProp(dbName, constraints) { _, _ -> 0 }
     }
 }
 
@@ -40,13 +38,13 @@ private fun <R : XdEntity> createXdRequiredIntProp(dbName: String?, unique: Bool
 
 /*************************************************************/
 // Optional Long property
-private val _xdLongProp = xdProp<XdEntity, Long> { e, p -> 0L }
+private val _xdLongProp = xdProp<XdEntity, Long> { _, _ -> 0L }
 
 fun <R : XdEntity> R.xdLongProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): XdProperty<R, Long> {
     return if (dbName == null && constraints == null) {
         _xdLongProp
     } else {
-        xdProp<R, Long>(dbName, constraints) { e, p -> 0L }
+        xdProp(dbName, constraints) { _, _ -> 0L }
     }
 }
 
@@ -65,7 +63,7 @@ fun <R : XdEntity> R.xdRequiredLongProp(dbName: String? = null, unique: Boolean 
 }
 
 private fun <R : XdEntity> createXdRequiredLongProp(dbName: String? = null, unique: Boolean = false, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): XdProperty<R, Long> {
-    return xdProp(dbName, constraints, require = true, unique = unique) { e, p -> 0L }
+    return xdProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0L }
 }
 
 /*************************************************************/
@@ -76,7 +74,7 @@ fun <R : XdEntity> R.xdNullableLongProp(dbName: String? = null, constraints: (Pr
     return if (dbName == null && constraints == null) {
         _xdNullableLongProp
     } else {
-        xdNullableProp<R, Long>(dbName, constraints)
+        xdNullableProp(dbName, constraints)
     }
 }
 
@@ -88,7 +86,7 @@ fun xdBooleanProp(dbName: String? = null): XdProperty<XdEntity, Boolean> {
     return if (dbName == null) {
         _xdBooleanProp
     } else {
-        xdProp<XdEntity, Boolean>(dbName) { e, p -> false }
+        xdProp<XdEntity, Boolean>(dbName) { _, _ -> false }
     }
 }
 
@@ -119,7 +117,7 @@ fun <R : XdEntity> R.xdStringProp(trimmed: Boolean = false, dbName: String? = nu
 }
 
 private fun <R : XdEntity> createXdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null): XdConstrainedProperty<R, String?> {
-    val prop = xdNullableProp<R, String>(dbName, constraints)
+    val prop = xdNullableProp(dbName, constraints)
     return if (trimmed) {
         prop.wrap({ it }, { it?.trim() })
     } else {
@@ -153,7 +151,7 @@ fun <R : XdEntity> R.xdRequiredStringProp(
         dbName: String? = null,
         default: String,
         constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null
-) = xdRequiredStringProp(unique, trimmed, dbName, { tr, p -> default }, constraints)
+) = xdRequiredStringProp(unique, trimmed, dbName, { _, _ -> default }, constraints)
 
 private fun <R : XdEntity> createXdRequiredStringProp(
         unique: Boolean = false,
@@ -162,7 +160,7 @@ private fun <R : XdEntity> createXdRequiredStringProp(
         constraints: (PropertyConstraintBuilder<R, String?>.() -> Unit)? = null,
         default: ((R, KProperty<*>) -> String)? = null
 ): XdConstrainedProperty<R, String> {
-    val prop = xdProp<R, String>(dbName, constraints, require = true, unique = unique,
+    val prop = xdProp(dbName, constraints, require = true, unique = unique,
             default = default ?: { e, p -> throw RequiredPropertyUndefinedException(e, p) })
     return if (trimmed) {
         prop.wrap({ it }, String::trim)
@@ -184,7 +182,7 @@ fun <R : XdEntity> R.xdDateTimeProp(dbName: String? = null, constraints: (Proper
 }
 
 fun <R : XdEntity> createXdDateTimeProp(dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): XdWrappedProperty<R, Long?, DateTime?> {
-    return xdNullableProp<R, Long>(dbName, constraints).wrap({ it?.let { DateTime(it) } }, { it?.millis })
+    return xdNullableProp(dbName, constraints).wrap({ it?.let { DateTime(it) } }, { it?.millis })
 }
 
 /*************************************************************/
@@ -202,7 +200,7 @@ fun <R : XdEntity> R.xdRequiredDateTimeProp(unique: Boolean = false, dbName: Str
 }
 
 fun <R : XdEntity> createXdRequiredDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: (PropertyConstraintBuilder<R, Long?>.() -> Unit)? = null): XdWrappedProperty<R, Long, DateTime> {
-    return xdProp<R, Long>(dbName, constraints, require = true, unique = unique) { e, p ->
+    return xdProp(dbName, constraints, require = true, unique = unique) { e, p ->
         throw RequiredPropertyUndefinedException(e, p)
     }.wrap({ DateTime(it) }, { it.millis })
 }
