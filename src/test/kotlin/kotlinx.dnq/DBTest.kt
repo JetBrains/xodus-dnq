@@ -64,11 +64,27 @@ abstract class DBTest {
     }
 
     class Contact(override val entity: Entity) : XdEntity() {
-        companion object : XdNaturalEntityType<Contact>()
 
+        companion object : XdNaturalEntityType<Contact>()
         var user: User by xdLink1(User::contacts)
+
         var email by xdRequiredStringProp() { email() }
     }
+
+    class Team(override val entity: Entity) : XdEntity() {
+        companion object : XdNaturalEntityType<Team>()
+
+        var name by xdRequiredStringProp(unique = true)
+        val fellows by xdChildren0_N(Fellow::team)
+    }
+
+    class Fellow(override val entity: Entity) : XdEntity() {
+        companion object : XdNaturalEntityType<Fellow>()
+
+        var name by xdRequiredStringProp()
+        var team: Team by xdParent(Team::fellows)
+    }
+
 
     @Before
     fun setup() {
@@ -87,6 +103,8 @@ abstract class DBTest {
         XdModel.registerNode(NestedGroup)
         XdModel.registerNode(Image)
         XdModel.registerNode(Contact)
+        XdModel.registerNode(Team)
+        XdModel.registerNode(Fellow)
     }
 
     @After

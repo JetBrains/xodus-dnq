@@ -37,6 +37,35 @@ class MapDistinctTest : DBTest() {
         }
     }
 
+    @Test
+    fun `mapDistinct should work with xdParent`() {
+        store.transactional {
+            Fellow.all().mapDistinct(Fellow::team).let {
+                assertEquals(1, it.size())
+                assertEquals(1, it.asSequence().count())
+            }
+            Fellow.all().mapDistinct { it.team }.let {
+                assertEquals(1, it.size())
+                assertEquals(1, it.asSequence().count())
+            }
+        }
+    }
+
+    @Test
+    fun `flatMapDistinct should work with xdChildren`() {
+        store.transactional {
+            Team.all().flatMapDistinct(Team::fellows).let {
+                assertEquals(3, it.size())
+                assertEquals(2, it.asSequence().count())
+            }
+            Team.all().flatMapDistinct { it.fellows }.let {
+                assertEquals(3, it.size())
+                assertEquals(2, it.asSequence().count())
+            }
+        }
+    }
+
+
     @Before
     fun initStructure() {
         val boss = store.transactional {
@@ -47,7 +76,7 @@ class MapDistinctTest : DBTest() {
         }
         store.transactional {
             User.new {
-                login = "slave"
+                login = "fellow"
                 supervisor = boss
                 skill = 1
             }
@@ -55,7 +84,7 @@ class MapDistinctTest : DBTest() {
 
         val anotherGuy = store.transactional {
             User.new {
-                login = "anotherGuy"
+                login = "anotherFellow"
                 skill = 1
             }
         }
@@ -66,9 +95,30 @@ class MapDistinctTest : DBTest() {
                 user = boss
             }
             Contact.new {
-                email = "anotherGuy@123.org"
+                email = "anotherFellow@123.org"
                 user = anotherGuy
             }
         }
+        store.transactional {
+
+            val jb = Team.new {
+                name = "jb"
+            }
+            Team.new {
+                name = "epam"
+            }
+
+            Fellow.new {
+                name = "fellow1"
+                team = jb
+            }
+
+            Fellow.new {
+                name = "fellow2"
+                team = jb
+            }
+        }
     }
+
+
 }

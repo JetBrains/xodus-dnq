@@ -375,9 +375,4 @@ class MappingEntity(_type: String, _entityStore: TransientEntityStore) : FakeTra
         }
     }
 
-    override fun getParent(): Entity {
-        return super.getParent() //todo implement a proper way to do this
-    }
-
-
 }
