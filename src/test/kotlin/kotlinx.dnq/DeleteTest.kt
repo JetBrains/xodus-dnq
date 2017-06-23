@@ -11,22 +11,22 @@ import kotlin.test.assertTrue
 
 class DeleteTest : DBTest() {
 
-    class Team(override val entity: Entity) : XdEntity() {
-        companion object : XdNaturalEntityType<Team>()
+    class CompanyTeam(override val entity: Entity) : XdEntity() {
+        companion object : XdNaturalEntityType<CompanyTeam>()
 
         var name by xdRequiredStringProp(trimmed = true)
-        var parentTeam: Team? by xdLink0_1(Team::nestedTeams, onDelete = CLEAR)
-        val nestedTeams by xdLink0_N(Team::parentTeam, onDelete = CASCADE)
+        var parentTeam: CompanyTeam? by xdLink0_1(CompanyTeam::nestedTeams, onDelete = CLEAR)
+        val nestedTeams by xdLink0_N(CompanyTeam::parentTeam, onDelete = CASCADE)
     }
 
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNode(Team)
+        XdModel.registerNode(CompanyTeam)
     }
 
     @Test
     fun clear() {
-        val (user, group) = store.transactional { txn ->
+        val (user, group) = store.transactional {
             val user = User.new {
                 this.login = "mazine"
                 this.skill = 1
@@ -54,11 +54,11 @@ class DeleteTest : DBTest() {
 
     @Test
     fun clearCascade() {
-        val (parent, nested) = store.transactional { txn ->
-            val parent = Team.new {
+        val (parent, nested) = store.transactional {
+            val parent = CompanyTeam.new {
                 name = "parent"
             }
-            val nested = Team.new {
+            val nested = CompanyTeam.new {
                 name = "nested"
                 this.parentTeam = parent
             }
