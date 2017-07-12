@@ -44,10 +44,7 @@ class CompositeIndexTest : DBTest() {
 
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNode(Service)
-        XdModel.registerNode(BaseRole)
-        XdModel.registerNode(DefaultRole)
-        XdModel.registerNode(Role)
+        XdModel.registerNodes(Service, BaseRole, DefaultRole, Role)
     }
 
     @Test

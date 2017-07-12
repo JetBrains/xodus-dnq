@@ -109,13 +109,7 @@ abstract class DBTest {
     }
 
     open fun registerEntityTypes() {
-        XdModel.registerNode(User)
-        XdModel.registerNode(RootGroup)
-        XdModel.registerNode(NestedGroup)
-        XdModel.registerNode(Image)
-        XdModel.registerNode(Contact)
-        XdModel.registerNode(Team)
-        XdModel.registerNode(Fellow)
+        XdModel.registerNodes(User, RootGroup, NestedGroup, Image, Contact, Team, Fellow)
     }
 
     @After
