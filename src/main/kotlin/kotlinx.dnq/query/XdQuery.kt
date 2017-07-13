@@ -149,6 +149,11 @@ fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S
     return queryEngine.intersect(allOfTargetType, this.entityIterable).asQuery(entityType)
 }
 
+fun <T : XdEntity, S : T> XdQuery<T>.filterIsNotInstance(entityType: XdEntityType<S>): XdQuery<T> {
+    val queryEngine = this.queryEngine
+    return queryEngine.exclude(this.entityIterable, queryEngine.queryGetAll(entityType.entityType)).asQuery(this.entityType)
+}
+
 fun <T : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(property: KProperty1<T, V>, asc: Boolean = true): XdQuery<T> {
     return queryEngine.query(entityIterable, entityType.entityType, SortByProperty(null, property.getDBName(entityType), asc)).asQuery(entityType)
 }
