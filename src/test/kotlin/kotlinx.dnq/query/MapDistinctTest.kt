@@ -10,7 +10,7 @@ import org.junit.Test
 class MapDistinctTest : DBTest() {
 
     @Test
-    fun `mapDistinct should work with xdLink*`() {
+    fun `mapDistinct should work with xdLink`() {
         store.transactional {
             User.all().mapDistinct(User::supervisor).let {
                 assertEquals(2, it.size())
@@ -24,7 +24,7 @@ class MapDistinctTest : DBTest() {
     }
 
     @Test
-    fun `flatMapDistinct should work with xdLink*`() {
+    fun `flatMapDistinct should work with xdLink`() {
         store.transactional {
             User.all().flatMapDistinct(User::contacts).let {
                 assertEquals(3, it.size())
