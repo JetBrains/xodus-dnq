@@ -62,6 +62,8 @@ object XdModel {
         XdHierarchyNode(entityType, parentNode)
     }
 
+    fun registerNodes(vararg entityTypes: XdEntityType<*>) = entityTypes.map { registerNode(it) }
+
     fun getOrThrow(entityType: String): XdHierarchyNode {
         return XdModel[entityType] ?: throw XdWrapperNotFoundException(entityType)
     }

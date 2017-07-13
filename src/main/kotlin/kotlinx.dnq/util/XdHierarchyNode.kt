@@ -64,12 +64,19 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
         arePropertiesInited = true
 
         val xdEntityClass = this.entityType.javaClass.enclosingClass
-        xdEntityClass.getDelegatedFields().forEach {
-            val (property, delegateField) = it
+        xdEntityClass.getDelegatedFields().forEach { (property, delegateField) ->
             val delegate = delegateField.get(xdFakeEntity)
             when (delegate) {
                 is XdConstrainedProperty<*, *> -> simpleProperties[property.name] = SimpleProperty(property, delegate)
-                is XdLink<*, *> -> linkProperties[property.name] = LinkProperty(property, delegate)
+                is XdLink<*, *> -> {
+                    delegate.oppositeField?.let {
+                        if (it.isAbstract)
+                            throw UnsupportedOperationException("Property ${xdEntityClass.simpleName}#${property.name} " +
+                                    "has abstract opposite field ${delegate.oppositeEntityType.enclosingEntityClass.simpleName}::${it.name}")
+                    }
+
+                    linkProperties[property.name] = LinkProperty(property, delegate)
+                }
             }
         }
     }

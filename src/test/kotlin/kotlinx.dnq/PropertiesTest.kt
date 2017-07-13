@@ -53,8 +53,7 @@ class PropertiesTest : DBTest() {
 
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNode(Derived)
-        XdModel.registerNode(Employee)
+        XdModel.registerNodes(Derived, Employee)
     }
 
     @Test
