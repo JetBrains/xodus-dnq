@@ -1,5 +1,6 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.query.*
 import kotlinx.dnq.util.getAddedLinks
 import kotlinx.dnq.util.getOldValue
@@ -86,8 +87,8 @@ class LinksTest : DBTest() {
         }
         store.transactional {
             user.contacts.add(Contact.new { email = "zeckson@spb.ru" })
-            Assert.assertThat(user.getAddedLinks(User::contacts).toList(), IsIterableContainingInOrder(listOf(contactMatcher { it.email == "zeckson@spb.ru" })))
-            Assert.assertThat(user.getRemovedLinks(User::contacts).toList(), IsEmptyCollection())
+            assertThat(user.getAddedLinks(User::contacts).toList().map { it.email }).containsExactly("zeckson@spb.ru")
+            assertThat(user.getRemovedLinks(User::contacts).toList()).isEmpty()
         }
     }
 

@@ -16,11 +16,11 @@ import kotlin.reflect.jvm.javaType
 
 interface XdQuery<out T : XdEntity> {
     val entityType: XdEntityType<T>
-    val entityIterable: Iterable<Entity?>
+    val entityIterable: Iterable<Entity>
 }
 
 class XdQueryImpl<out T : XdEntity>(
-        override val entityIterable: Iterable<Entity?>,
+        override val entityIterable: Iterable<Entity>,
         override val entityType: XdEntityType<T>) : XdQuery<T>
 
 private val <T : XdEntity> XdQuery<T>.queryEngine: QueryEngine
@@ -34,29 +34,10 @@ fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQue
     }
 }
 
-/**
- * Returns not null entries only
- *
- * @see asNullableSequence
- */
 fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
-    val staticTypedIterable = entityIterable.let {
-        it as? StaticTypedEntityIterable ?: StaticTypedIterableDecorator(entityType.entityType, it, queryEngine)
-    }
-    return ExcludeNullStaticTypedEntityIterable(entityType.entityType, staticTypedIterable, queryEngine)
+    return entityIterable
             .asSequence()
-            .map {
-                entityType.wrap(it)
-            }
-}
-
-/**
- * Returns all values including nulls
- *
- * @see asSequence
- */
-fun <T : XdEntity> XdQuery<T>.asNullableSequence(): Sequence<T?> {
-    return this.entityIterable.asSequence().map { it?.let { entityType.wrap(it) } }
+            .map { entityType.wrap(it) }
 }
 
 operator fun <T : XdEntity> XdQuery<T>.iterator(): Iterator<T> = this.asSequence().iterator()
@@ -251,7 +232,14 @@ fun <T : XdEntity> XdQuery<T>.distinct(): XdQuery<T> {
 }
 
 fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(dbFieldName: String, targetEntityType: XdEntityType<T>): XdQuery<T> {
-    return queryEngine.selectDistinct(entityIterable, dbFieldName).asQuery(targetEntityType)
+    return queryEngine.selectDistinct(entityIterable, dbFieldName).filterNotNull(targetEntityType).asQuery(targetEntityType)
+}
+
+private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterable<Entity> {
+    val entityTypeName = entityType.entityType
+    val queryEngine = entityType.entityStore.queryEngine
+    val staticTypedIterable = this as? StaticTypedEntityIterable ?: StaticTypedIterableDecorator(entityTypeName, this, queryEngine)
+    return ExcludeNullStaticTypedEntityIterable(entityTypeName, staticTypedIterable, queryEngine)
 }
 
 inline fun <reified S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(field: KProperty1<S, T?>): XdQuery<T> {
@@ -260,7 +248,7 @@ inline fun <reified S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(field: KP
 }
 
 fun <S : XdEntity, T : XdEntity> XdQuery<S>.flatMapDistinct(dbFieldName: String, targetEntityType: XdEntityType<T>): XdQuery<T> {
-    return queryEngine.selectManyDistinct(entityIterable, dbFieldName).asQuery(targetEntityType)
+    return queryEngine.selectManyDistinct(entityIterable, dbFieldName).filterNotNull(targetEntityType).asQuery(targetEntityType)
 }
 
 inline fun <S : XdEntity, reified T : XdEntity, Q : XdQuery<T>> XdQuery<S>.flatMapDistinct(field: KProperty1<S, Q>): XdQuery<T> {

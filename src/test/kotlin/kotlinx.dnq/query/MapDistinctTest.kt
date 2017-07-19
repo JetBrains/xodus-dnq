@@ -13,11 +13,11 @@ class MapDistinctTest : DBTest() {
     fun `mapDistinct should work with xdLink`() {
         store.transactional {
             User.all().mapDistinct(User::supervisor).let {
-                assertEquals(2, it.size())
+                assertEquals(1, it.size())
                 assertEquals(1, it.asSequence().count())
             }
             User.all().mapDistinct { it.supervisor }.let {
-                assertEquals(2, it.size())
+                assertEquals(1, it.size())
                 assertEquals(1, it.asSequence().count())
             }
         }
@@ -27,11 +27,11 @@ class MapDistinctTest : DBTest() {
     fun `flatMapDistinct should work with xdLink`() {
         store.transactional {
             User.all().flatMapDistinct(User::contacts).let {
-                assertEquals(3, it.size())
+                assertEquals(2, it.size())
                 assertEquals(2, it.asSequence().count())
             }
             User.all().flatMapDistinct { it.contacts }.let {
-                assertEquals(3, it.size())
+                assertEquals(2, it.size())
                 assertEquals(2, it.asSequence().count())
             }
         }
@@ -55,11 +55,11 @@ class MapDistinctTest : DBTest() {
     fun `flatMapDistinct should work with xdChildren`() {
         store.transactional {
             Team.all().flatMapDistinct(Team::fellows).let {
-                assertEquals(3, it.size())
+                assertEquals(2, it.size())
                 assertEquals(2, it.asSequence().count())
             }
             Team.all().flatMapDistinct { it.fellows }.let {
-                assertEquals(3, it.size())
+                assertEquals(2, it.size())
                 assertEquals(2, it.asSequence().count())
             }
         }
