@@ -355,15 +355,16 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
               throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
           }
         } catch (Exception e) {
-          if (log.isErrorEnabled()) {
-            log.error("Exception while notifying entity listener.", e);
-          }
           // rethrow exception only for beforeFlush listeners 
           if (where == Where.SYNC_BEFORE_CONSTRAINTS) {
             if (e instanceof RuntimeException) {
               throw (RuntimeException) e;
             }
             throw new RuntimeException(e);
+          } else {
+            if (log.isErrorEnabled()) {
+              log.error("Exception while notifying entity listener.", e);
+            }
           }
         }
       }
