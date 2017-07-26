@@ -1388,11 +1388,17 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     private boolean deleteEntityInternal(@NotNull final TransientEntity e) {
-        // remember index values first
-        final Set<Pair<Index, List<Comparable>>> indexes = getIndexesValuesBeforeDelete(e);
-        if (e.getPersistentEntity().delete()) {
-            deleteIndexes(e, indexes);
-            changesTracker.entityRemoved(e);
+        if (TransientStoreUtil.isPostponeUniqueIndexes()) {
+            if (e.getPersistentEntity().delete()) {
+                changesTracker.entityRemoved(e);
+            }
+        } else {
+            // remember index values first
+            final Set<Pair<Index, List<Comparable>>> indexes = getIndexesValuesBeforeDelete(e);
+            if (e.getPersistentEntity().delete()) {
+                deleteIndexes(e, indexes);
+                changesTracker.entityRemoved(e);
+            }
         }
         return true;
     }
