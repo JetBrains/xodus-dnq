@@ -240,8 +240,7 @@ open class FakeTransientEntity(protected val _type: String, protected val _entit
 
     private fun unsupported(): Exception = UnsupportedOperationException("not implemented")
 
-
-    protected fun XdHierarchyNode.findProperty(name: String): XdHierarchyNode.SimpleProperty? {
+    internal fun XdHierarchyNode.findProperty(name: String): XdHierarchyNode.SimpleProperty? {
         val result = simpleProperties.values.firstOrNull { it.dbPropertyName == name }
         if (result == null) {
             if (parentNode != null) {
@@ -263,31 +262,82 @@ open class FakeTransientEntity(protected val _type: String, protected val _entit
         return result
     }
 
-
 }
 
 class SearchingEntity(_type: String, _entityStore: TransientEntityStore) : FakeTransientEntity(_type, _entityStore) {
 
     companion object {
-
         fun get(): SearchingEntity = current.get() as SearchingEntity
     }
 
-    var currentProperty: String? = null
+    var currentNodeName: String? = null
     val nodes: MutableList<NodeBase> = arrayListOf()
+    var parentEntity: SearchingEntity? = null
+    var childEntity: SearchingEntity? = null
+
+    private fun SearchingEntity.bindAsChild(): SearchingEntity {
+        parentEntity = this@SearchingEntity
+        this@SearchingEntity.childEntity = this
+        return this
+    }
+
+    fun deepestChild(): SearchingEntity {
+        val entity = childEntity
+        if (entity != null && entity.currentNodeName != null) {
+            return entity.deepestChild()
+        }
+        return this
+    }
 
     override fun deleteLink(linkName: String, entity: Entity): Boolean {
-        nodes.add(LinkEqual(linkName, null))
+        currentNodeName = linkName
+        addToNodes(LinkEqual(linkName, null).decorateIfNeeded())
         return true
     }
 
     override fun setLink(linkName: String, target: Entity?): Boolean {
-        nodes.add(LinkEqual(linkName, target))
+        currentNodeName = linkName
+        addToNodes(LinkEqual(linkName, target).decorateIfNeeded())
         return true
     }
 
     override fun getProperty(propertyName: String): Comparable<Nothing>? {
-        currentProperty = propertyName
+        currentNodeName = propertyName
+        return getDefaultPropertyValue(propertyName)
+    }
+
+    override fun getLink(linkName: String): Entity? {
+        currentNodeName = linkName
+        val node = XdModel.getOrThrow(_type)
+        node.findLink(linkName).let {
+            it ?: return this
+            return SearchingEntity(it.delegate.oppositeEntityType.entityType, _entityStore).bindAsChild()
+        }
+    }
+
+    override fun setProperty(propertyName: String, value: Comparable<Nothing>): Boolean {
+        currentNodeName = propertyName
+        addToNodes(PropertyEqual(propertyName, value).decorateIfNeeded())
+        return true
+    }
+
+    override fun deleteProperty(propertyName: String): Boolean {
+        currentNodeName = propertyName
+        addToNodes(PropertyEqual(propertyName, null).decorateIfNeeded())
+        return true
+    }
+
+    override fun setManyToOne(manyToOneLinkName: String, oneToManyLinkName: String, one: Entity?) {
+        currentNodeName = manyToOneLinkName
+        addToNodes(LinkEqual(manyToOneLinkName, one).decorateIfNeeded())
+    }
+
+    override fun setToOne(linkName: String, target: Entity?) {
+        currentNodeName = linkName
+        addToNodes(LinkEqual(linkName, target).decorateIfNeeded())
+    }
+
+    private fun getDefaultPropertyValue(propertyName: String): Comparable<Nothing>? {
         val node = XdModel.getOrThrow(_type)
         node.findProperty(propertyName).let {
             val simpleProperty = it ?: return 0
@@ -326,32 +376,8 @@ class SearchingEntity(_type: String, _entityStore: TransientEntityStore) : FakeT
         }
     }
 
-    override fun getLink(linkName: String): Entity? {
-        currentProperty = linkName
-        val node = XdModel.getOrThrow(_type)
-        node.findLink(linkName).let {
-            it ?: return this
-            return SearchingEntity(it.delegate.oppositeEntityType.entityType, _entityStore)
-        }
-    }
-
-    override fun setProperty(propertyName: String, value: Comparable<Nothing>): Boolean {
-        nodes.add(PropertyEqual(propertyName, value))
-        return true
-    }
-
-    override fun deleteProperty(propertyName: String): Boolean {
-        nodes.add(PropertyEqual(propertyName, null))
-        return true
-    }
-
-    override fun setManyToOne(manyToOneLinkName: String, oneToManyLinkName: String, one: Entity?) {
-        nodes.add(LinkEqual(manyToOneLinkName, one))
-    }
-
-    override fun setToOne(linkName: String, target: Entity?) {
-        currentProperty = linkName
-        nodes.add(LinkEqual(linkName, target))
+    private fun addToNodes(nodeBase: NodeBase) {
+        SearchingEntity.get().nodes.add(nodeBase)
     }
 }
 

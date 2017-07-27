@@ -28,8 +28,8 @@ class FilterQueryLinksTest : DBTest() {
                 email = "123@test.com"
             }
 
-            assertEquals(contact1.entityId, Contact.filter { it.user = user1 }.first().entityId)
-            assertEquals(contact1.entityId, Contact.filter { it.user eq user1 }.first().entityId)
+            assertEquals(contact1, Contact.filter { it.user = user1 }.first())
+            assertEquals(contact1, Contact.filter { it.user eq user1 }.first())
         }
     }
 
@@ -48,11 +48,11 @@ class FilterQueryLinksTest : DBTest() {
 
             var result = User.filter { it.supervisor = user1 }
             assertEquals(1, result.size())
-            assertEquals(user2.entityId, result.first().entityId)
+            assertEquals(user2, result.first())
 
             result = User.filter { it.supervisor eq user1 }
             assertEquals(1, result.size())
-            assertEquals(user2.entityId, result.first().entityId)
+            assertEquals(user2, result.first())
         }
     }
 
