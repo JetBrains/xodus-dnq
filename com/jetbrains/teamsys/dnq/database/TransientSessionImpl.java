@@ -1658,11 +1658,6 @@ public class TransientSessionImpl implements TransientStoreSession {
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public boolean isFinished() {
-        return getPersistentTransactionInternal().isFinished();
-    }
-
     @Nullable
     private TransientEntity newLocalCopySafe(@Nullable final TransientEntity entity) {
         if (entity == null) {
