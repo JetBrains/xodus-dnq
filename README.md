@@ -71,6 +71,46 @@ class Group(override val entity: Entity) : XdEntity(entity) {
 }
 ```
 
+#### isDefined and getSafe
+
+Required properties and links of cardinality `1` have non-null types in Kotlin. But for new entities
+that were not committed yet, the properties can be not defined yet. To check if a property has a value one can use
+method `isDefined`. To get a value of such a property safely there is a method `getSafe`.
+```kotlin
+class User(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<User>()
+    var login by xdRequiredStringProp(unique = true)
+}
+
+fun `isDefined returns false for undefined properties`() {
+    store.transactional {
+        val user = User.new()
+        assertEquals(false, user.isDefined(User::login))
+    }
+}
+
+fun `isDefined returns true for defined properties`() {
+    store.transactional {
+        val user = User.new { login = "zeckson" }
+        assertEquals(true, user.isDefined(User::login))
+    }
+}
+
+fun `getSafe returns null for undefined properties`() {
+    store.transactional {
+        val user = User.new()
+        assertEquals(null, user.getSafe(User::login))
+    }
+}
+
+fun `getSafe returns property value for defined properties`() {
+    store.transactional {
+        val user = User.new { login = "zeckson" }
+        assertEquals("zeckson", user.getSafe(User::login))
+    }
+}
+```
+
 ### Inheritance
 
 ```kotlin
