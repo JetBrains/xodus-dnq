@@ -1,9 +1,9 @@
 package kotlinx.dnq.query
 
+import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
 import org.junit.Test
-import kotlin.test.assertTrue
 
 class QueryAddAllTest : DBTest() {
 
@@ -43,8 +43,7 @@ class QueryAddAllTest : DBTest() {
         }
 
         store.transactional {
-            assertTrue(group.users.asSequence().any { it.login == "1" })
-            assertTrue(group.users.asSequence().any { it.login == "2" })
+            assertThat(group.users.toList().map { it.login }).containsExactly("1", "2")
         }
     }
 }

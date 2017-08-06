@@ -3,8 +3,8 @@ package kotlinx.dnq
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.XdMutableQuery
-import org.junit.Assert
 import org.junit.Test
+import kotlin.test.assertFailsWith
 
 
 class AbstractRelationTest {
@@ -29,11 +29,9 @@ class AbstractRelationTest {
 
     @Test
     fun `should throw on using links with abstract opposite fields`() {
-        try {
+        val e = assertFailsWith<UnsupportedOperationException> {
             XdModel.registerNodes(XdGroup, XdAnyoneGroup)
-            Assert.fail()
-        } catch (ex: UnsupportedOperationException) {
-            assertThat(ex.message).isEqualTo("Property XdBaseGroup#subgroups has abstract opposite field XdBaseGroup::parent")
         }
+        assertThat(e.message).isEqualTo("Property XdBaseGroup#subgroups has abstract opposite field XdBaseGroup::parent")
     }
 }

@@ -1,13 +1,12 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.link.OnDeletePolicy.CASCADE
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.query.first
-import kotlinx.dnq.query.isEmpty
+import kotlinx.dnq.query.toList
 import org.junit.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class DeleteTest : DBTest() {
 
@@ -40,7 +39,8 @@ class DeleteTest : DBTest() {
         }
 
         store.transactional {
-            assertEquals(user, group.users.first())
+            assertThat(group.users.toList())
+                    .containsExactly(user)
         }
 
         store.transactional {
@@ -48,7 +48,8 @@ class DeleteTest : DBTest() {
         }
 
         store.transactional {
-            assertTrue(group.users.isEmpty)
+            assertThat(group.users.toList())
+                    .isEmpty()
         }
     }
 
@@ -66,8 +67,8 @@ class DeleteTest : DBTest() {
         }
 
         store.transactional {
-            assertEquals(nested, parent.nestedTeams.first())
-            assertEquals(parent, nested.parentTeam)
+            assertThat(parent.nestedTeams.first()).isEqualTo(nested)
+            assertThat(nested.parentTeam).isEqualTo(parent)
         }
 
         store.transactional {
@@ -75,8 +76,7 @@ class DeleteTest : DBTest() {
         }
 
         store.transactional {
-            assertTrue(parent.nestedTeams.isEmpty)
+            assertThat(parent.nestedTeams.toList()).isEmpty()
         }
-
     }
 }

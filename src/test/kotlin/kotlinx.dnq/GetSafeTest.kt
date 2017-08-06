@@ -1,9 +1,9 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.query.first
 import kotlinx.dnq.util.getSafe
 import org.junit.Test
-import kotlin.test.assertEquals
 
 class GetSafeTest : DBTest() {
 
@@ -11,8 +11,8 @@ class GetSafeTest : DBTest() {
     fun `getSafe should return null for undefined properties`() {
         store.transactional {
             val user = User.new()
-            assertEquals(null, user.getSafe(User::login))
-            assertEquals(null, user.getSafe(User::skill))
+            assertThat(user.getSafe(User::login)).isNull()
+            assertThat(user.getSafe(User::skill)).isNull()
             user.delete()
         }
     }
@@ -24,8 +24,8 @@ class GetSafeTest : DBTest() {
                 login = "zeckson"
                 skill = 1
             }
-            assertEquals("zeckson", user.getSafe(User::login))
-            assertEquals(1, user.getSafe(User::skill))
+            assertThat(user.getSafe(User::login)).isEqualTo("zeckson")
+            assertThat(user.getSafe(User::skill)).isEqualTo(1)
         }
     }
 
@@ -34,7 +34,7 @@ class GetSafeTest : DBTest() {
     fun `getSafe should return null for undefined link`() {
         store.transactional {
             val contact = Contact.new()
-            assertEquals(null, contact.getSafe(Contact::user))
+            assertThat(contact.getSafe(Contact::user)).isNull()
             contact.delete()
         }
     }
@@ -47,7 +47,7 @@ class GetSafeTest : DBTest() {
                 skill = 1
                 contacts.add(Contact.new { email = "zeckson@spb.com" })
             }
-            assertEquals("zeckson", user.contacts.first().getSafe(Contact::user)?.login)
+            assertThat(user.contacts.first().getSafe(Contact::user)?.login).isEqualTo("zeckson")
         }
     }
 

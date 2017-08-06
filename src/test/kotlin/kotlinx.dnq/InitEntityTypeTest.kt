@@ -1,8 +1,8 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import org.junit.Test
-import kotlin.test.assertNotNull
 
 class InitEntityTypeTest : DBTest() {
 
@@ -23,6 +23,6 @@ class InitEntityTypeTest : DBTest() {
 
     @Test
     fun `initEntityType should be called during initialization`() {
-        assertNotNull(WithInitEntityType.instance)
+        assertThat(WithInitEntityType.instance).isNotNull()
     }
 }

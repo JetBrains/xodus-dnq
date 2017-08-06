@@ -1,18 +1,19 @@
 package kotlinx.dnq.query
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.TransientEntity
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
 import org.junit.Test
 import java.util.*
-import kotlin.test.*
+import kotlin.test.assertFailsWith
 
 class QueryTest : DBTest() {
 
     @Test
     fun `firstOrNull should return null if nothing found`() {
         store.transactional {
-            assertNull(User.all().firstOrNull())
+            assertThat(User.all().firstOrNull()).isNull()
         }
     }
 
@@ -23,7 +24,7 @@ class QueryTest : DBTest() {
                 login = "test"
                 skill = 1
             }
-            assertNotNull(User.all().firstOrNull())
+            assertThat(User.all().firstOrNull()).isNotNull()
         }
     }
 
@@ -43,7 +44,7 @@ class QueryTest : DBTest() {
                 login = "test"
                 skill = 1
             }
-            assertNotNull(User.all().firstOrNull())
+            assertThat(User.all().firstOrNull()).isNotNull()
         }
     }
 
@@ -61,7 +62,7 @@ class QueryTest : DBTest() {
         }
 
         store.transactional {
-            assertEquals(1, User.query(User::supervisor ne null).size())
+            assertThat(User.query(User::supervisor ne null).size()).isEqualTo(1)
         }
     }
 
@@ -77,8 +78,8 @@ class QueryTest : DBTest() {
         }
 
         store.transactional {
-            assertTrue(User.all().drop(1).entityIterable.iterator().next() is TransientEntity)
-            assertTrue(User.all().take(1).entityIterable.iterator().next() is TransientEntity)
+            assertThat(User.all().drop(1).entityIterable.iterator().next()).isInstanceOf(TransientEntity::class.java)
+            assertThat(User.all().take(1).entityIterable.iterator().next()).isInstanceOf(TransientEntity::class.java)
         }
     }
 }

@@ -4,7 +4,6 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.NodeBase
 import kotlinx.dnq.*
-import org.junit.Assert.assertTrue
 import org.junit.Ignore
 import org.junit.Test
 import java.util.*
@@ -68,20 +67,22 @@ class IsInQueryTest : DBTest() {
             }
 
             assertThat(Mage.query(Mage::charm inValues expectedCharms.drop(2).take(4)).size()).isEqualTo(4)
-            assertTrue(Mage.query(Mage::charm inValues List(2) { UUID.randomUUID().toString() }).isEmpty)
+            assertThat(Mage.query(Mage::charm inValues List(2) { UUID.randomUUID().toString() }).isEmpty).isTrue()
 
             assertThat(Mage.filter { it.charm isIn expectedCharms.drop(2).take(4) }.size()).isEqualTo(4)
-            assertTrue(Mage.filter { it.charm isIn List(2) { UUID.randomUUID().toString() } }.isEmpty)
+            assertThat(Mage.filter { it.charm isIn List(2) { UUID.randomUUID().toString() } }.isEmpty).isTrue()
         }
     }
 
     @Test
     fun `should search in entities`() {
         store.transactional {
-            val users = List(100) { User.new {
-                login = UUID.randomUUID().toString()
-                skill = 1
-            } }
+            val users = List(100) {
+                User.new {
+                    login = UUID.randomUUID().toString()
+                    skill = 1
+                }
+            }
 
             val (bossA, bossB) = users.takeLast(2)
             users.take(20).forEachIndexed { index, user ->
@@ -98,13 +99,13 @@ class IsInQueryTest : DBTest() {
             assertThat(User.query(User::supervisor inEntities users.take(5) + bossB).toList()).containsExactlyElementsIn(expectedSubordinatesB)
             assertThat(User.query(User::supervisor inEntities users.take(5) + bossA + bossB).toList()).containsExactlyElementsIn(expectedSubordinates)
 
-            assertTrue(User.query(User::supervisor inEntities users.take(3)).isEmpty)
+            assertThat(User.query(User::supervisor inEntities users.take(3)).isEmpty).isTrue()
 
             assertThat(User.filter { it.supervisor isIn users.take(5) + bossA }.toList()).containsExactlyElementsIn(expectedSubordinatesA)
             assertThat(User.filter { it.supervisor isIn users.take(5) + bossB }.toList()).containsExactlyElementsIn(expectedSubordinatesB)
             assertThat(User.filter { it.supervisor isIn users.take(5) + bossA + bossB }.toList()).containsExactlyElementsIn(expectedSubordinates)
 
-            assertTrue(User.filter { it.supervisor isIn users.take(3) }.isEmpty)
+            assertThat(User.filter { it.supervisor isIn users.take(3) }.isEmpty).isTrue()
         }
     }
 
@@ -113,7 +114,7 @@ class IsInQueryTest : DBTest() {
             iterationCount: Int,
             expectedCount: Int,
             action: (List<String>) -> XdQuery<T>
-    ) : Long {
+    ): Long {
         val random = Random()
 
         return store.transactional {

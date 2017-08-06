@@ -5,14 +5,7 @@ import kotlinx.dnq.query.*
 import kotlinx.dnq.util.getAddedLinks
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.getRemovedLinks
-import org.hamcrest.CustomMatcher
-import org.hamcrest.collection.IsEmptyCollection
-import org.hamcrest.collection.IsIterableContainingInOrder
-import org.junit.Assert
 import org.junit.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 
 class LinksTest : DBTest() {
@@ -31,14 +24,14 @@ class LinksTest : DBTest() {
 
         store.transactional {
             val root = RootGroup.query(RootGroup::name eq "Root").first()
-            assertEquals(3, root.nestedGroups.size())
-            listOf("a", "b", "c").forEach {
-                assertTrue(root.nestedGroups.any(NestedGroup::name eq it))
-                assertFalse(root.entity.getLinks("nested").isEmpty)
-            }
+
+            assertThat(root.entity.getLinks("nested"))
+                    .isNotEmpty()
+            assertThat(root.nestedGroups.toList().map { it.name })
+                    .containsExactly("A", "B", "C")
             root.nestedGroups.asSequence().forEach {
-                assertEquals(root, it.parentGroup)
-                assertEquals(root.entity, it.entity.getLink("parent"))
+                assertThat(it.parentGroup).isEqualTo(root)
+                assertThat(it.entity.getLink("parent")).isEqualTo(root.entity)
             }
         }
     }
@@ -56,7 +49,7 @@ class LinksTest : DBTest() {
         }
 
         store.transactional {
-            assertEquals("1", contact.user.login)
+            assertThat(contact.user.login).isEqualTo("1")
         }
     }
 
@@ -73,7 +66,7 @@ class LinksTest : DBTest() {
         }
 
         store.transactional {
-            assertEquals("1@1.com", user.contacts.first().email)
+            assertThat(user.contacts.first().email).isEqualTo("1@1.com")
         }
     }
 
@@ -106,12 +99,9 @@ class LinksTest : DBTest() {
             user.contacts.remove(contact)
             contact.delete()
 
-            Assert.assertThat(user.getAddedLinks(User::contacts).toList(), IsEmptyCollection())
-            Assert.assertThat(user.getRemovedLinks(User::contacts).toList(), IsIterableContainingInOrder(listOf(contactMatcher { it.getOldValue(Contact::email) == "zeckson@spb.ru" })))
+            assertThat(user.getAddedLinks(User::contacts).toList()).isEmpty()
+            assertThat(user.getRemovedLinks(User::contacts).toList().map { it.getOldValue(Contact::email) })
+                    .containsExactly("zeckson@spb.ru")
         }
-    }
-
-    private fun contactMatcher(match: (Contact) -> Boolean) = object : CustomMatcher<DBTest.Contact>("email contact") {
-        override fun matches(item: Any?) = item is Contact && match(item)
     }
 }
