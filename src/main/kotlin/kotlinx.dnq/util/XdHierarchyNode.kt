@@ -3,7 +3,10 @@ package kotlinx.dnq.util
 import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
 import javassist.util.proxy.ProxyFactory
 import javassist.util.proxy.ProxyObject
-import kotlinx.dnq.*
+import kotlinx.dnq.XdEntity
+import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.XdLegacyEntityType
+import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.simple.XdConstrainedProperty
 import java.lang.reflect.Field
@@ -11,8 +14,6 @@ import java.lang.reflect.Method
 import java.util.*
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
-import kotlin.reflect.full.getExtensionDelegate
-import kotlin.reflect.jvm.isAccessible
 
 
 class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarchyNode?) {
@@ -68,21 +69,7 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
             val delegate = delegateField.get(xdFakeEntity)
             when (delegate) {
                 is XdConstrainedProperty<*, *> -> simpleProperties[property.name] = SimpleProperty(property, delegate)
-                is XdLink<*, *> -> {
-                    linkProperties[property.name] = LinkProperty(property, delegate)
-                    val oppositeField = delegate.oppositeField
-                    if (oppositeField != null) {// is bidirected
-                        val extensionDelegate = try {
-                            oppositeField.apply { isAccessible = true }.getExtensionDelegate()
-                        } catch (e: Exception) {
-                            null
-                        }
-                        if (extensionDelegate != null && extensionDelegate is XdLink<*, *>) {
-                            val presented = XdModel[delegate.oppositeEntityType] ?: XdModel.registerNode(delegate.oppositeEntityType)
-                            presented.linkProperties[oppositeField.name] = LinkProperty(oppositeField, extensionDelegate)
-                        }
-                    }
-                }
+                is XdLink<*, *> -> linkProperties[property.name] = LinkProperty(property, delegate)
             }
         }
     }

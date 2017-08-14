@@ -74,14 +74,14 @@ class XdHierarchyTest(
 
     @Test
     fun `Children should be as expected`() {
-        assertThat(XdModel[entityType]?.children, IsIterableContainingInAnyOrder(children.map {
+        Assert.assertThat(XdModel[entityType]?.children, IsIterableContainingInAnyOrder(children.map {
             IsEqual(XdModel[it])
         }))
     }
 
     @Test
     fun `For non-abstract entities constructor should be defined `() {
-        assertThat(XdModel[entityType]?.entityConstructor, if (hasConstructor) {
+        Assert.assertThat(XdModel[entityType]?.entityConstructor, if (hasConstructor) {
             IsNot(IsNull())
         } else {
             IsNull()
