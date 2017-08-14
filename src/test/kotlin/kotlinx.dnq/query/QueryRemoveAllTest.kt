@@ -1,10 +1,9 @@
 package kotlinx.dnq.query
 
+import com.google.common.truth.Truth
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
 import org.junit.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class QueryRemoveAllTest : DBTest() {
 
@@ -52,10 +51,8 @@ class QueryRemoveAllTest : DBTest() {
         }
 
         store.transactional {
-            assertEquals(1, group.users.size())
-            assertTrue(group.users.asSequence().none { it.login == "1" })
-            assertTrue(group.users.asSequence().none { it.login == "2" })
-            assertTrue(group.users.asSequence().any { it.login == "3" })
+            Truth.assertThat(group.users.toList().map { it.login })
+                    .containsExactly("3")
         }
     }
 }

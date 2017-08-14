@@ -1,10 +1,10 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.query.first
 import kotlinx.dnq.util.isDefined
 import org.joda.time.DateTime
 import org.junit.Test
-import kotlin.test.assertEquals
 
 class IsDefinedTest : DBTest() {
     @Test
@@ -14,10 +14,10 @@ class IsDefinedTest : DBTest() {
                 login = "zeckson"
                 skill = 1
             }
-            assertEquals(false, user.isDefined(User::name))
-            assertEquals(false, user.isDefined(User::isGuest))
-            assertEquals(false, user.isDefined(User::isMale))
-            assertEquals(false, user.isDefined(User::registered))
+            assertThat(user.isDefined(User::name)).isFalse()
+            assertThat(user.isDefined(User::isGuest)).isFalse()
+            assertThat(user.isDefined(User::isMale)).isFalse()
+            assertThat(user.isDefined(User::registered)).isFalse()
         }
     }
 
@@ -32,10 +32,10 @@ class IsDefinedTest : DBTest() {
                 isGuest = false
                 isMale = true
             }
-            assertEquals(true, user.isDefined(User::name))
-            assertEquals(true, user.isDefined(User::isGuest))
-            assertEquals(true, user.isDefined(User::isMale))
-            assertEquals(true, user.isDefined(User::registered))
+            assertThat(user.isDefined(User::name)).isTrue()
+            assertThat(user.isDefined(User::isGuest)).isTrue()
+            assertThat(user.isDefined(User::isMale)).isTrue()
+            assertThat(user.isDefined(User::registered)).isTrue()
         }
     }
 
@@ -43,8 +43,8 @@ class IsDefinedTest : DBTest() {
     fun `isDefined should return false for undefined required properties`() {
         store.transactional {
             val user = User.new()
-            assertEquals(false, user.isDefined(User::login))
-            assertEquals(false, user.isDefined(User::skill))
+            assertThat(user.isDefined(User::login)).isFalse()
+            assertThat(user.isDefined(User::skill)).isFalse()
             user.delete()
         }
     }
@@ -56,8 +56,8 @@ class IsDefinedTest : DBTest() {
                 login = "zeckson"
                 skill = 1
             }
-            assertEquals(true, user.isDefined(User::login))
-            assertEquals(true, user.isDefined(User::skill))
+            assertThat(user.isDefined(User::login)).isTrue()
+            assertThat(user.isDefined(User::skill)).isTrue()
         }
     }
 
@@ -68,7 +68,7 @@ class IsDefinedTest : DBTest() {
                 login = "zeckson"
                 skill = 1
             }
-            assertEquals(false, user.isDefined(User::supervisor))
+            assertThat(user.isDefined(User::supervisor)).isFalse()
         }
     }
 
@@ -83,7 +83,7 @@ class IsDefinedTest : DBTest() {
                     skill = 42
                 }
             }
-            assertEquals(true, user.isDefined(User::supervisor))
+            assertThat(user.isDefined(User::supervisor)).isTrue()
         }
     }
 
@@ -92,7 +92,7 @@ class IsDefinedTest : DBTest() {
     fun `isDefined should return false for undefined required link`() {
         store.transactional {
             val contact = Contact.new()
-            assertEquals(false, contact.isDefined(Contact::user))
+            assertThat(contact.isDefined(Contact::user)).isFalse()
             contact.delete()
         }
     }
@@ -105,7 +105,7 @@ class IsDefinedTest : DBTest() {
                 skill = 1
                 contacts.add(Contact.new { email = "zeckson@spb.com" })
             }
-            assertEquals(true, user.contacts.first().isDefined(Contact::user))
+            assertThat(user.contacts.first().isDefined(Contact::user)).isTrue()
         }
     }
 

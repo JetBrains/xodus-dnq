@@ -1,9 +1,9 @@
 package kotlinx.dnq.query
 
+import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
 import org.junit.Test
-import kotlin.test.assertEquals
 
 class FilterQueryLinksTest : DBTest() {
 
@@ -28,8 +28,8 @@ class FilterQueryLinksTest : DBTest() {
                 email = "123@test.com"
             }
 
-            assertEquals(contact1, Contact.filter { it.user = user1 }.first())
-            assertEquals(contact1, Contact.filter { it.user eq user1 }.first())
+            assertThat(Contact.filter { it.user = user1 }.first()).isEqualTo(contact1)
+            assertThat(Contact.filter { it.user eq user1 }.first()).isEqualTo(contact1)
         }
     }
 
@@ -47,12 +47,10 @@ class FilterQueryLinksTest : DBTest() {
             }
 
             var result = User.filter { it.supervisor = user1 }
-            assertEquals(1, result.size())
-            assertEquals(user2, result.first())
+            assertThat(result.toList()).containsExactly(user2)
 
             result = User.filter { it.supervisor eq user1 }
-            assertEquals(1, result.size())
-            assertEquals(user2, result.first())
+            assertThat(result.toList()).containsExactly(user2)
         }
     }
 

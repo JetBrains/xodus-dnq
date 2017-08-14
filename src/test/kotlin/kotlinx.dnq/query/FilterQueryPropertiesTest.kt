@@ -1,19 +1,20 @@
 package kotlinx.dnq.query
 
+import com.google.common.truth.IterableSubject
+import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
+import kotlinx.dnq.XdEntity
+import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.transactional
 import org.joda.time.DateTime
 import org.junit.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 
 class FilterQueryPropertiesTest : DBTest() {
 
     @Test
     fun `firstOrNull should return null if nothing found`() {
         store.transactional {
-            assertNull(User.filter {}.firstOrNull())
+            assertThat(User.filter {}.firstOrNull()).isNull()
         }
     }
 
@@ -29,16 +30,12 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 2
             }
 
-            assertEquals(user1.entityId, User.filter { it.login = "test" }.first().entityId)
-            assertEquals(user2.entityId, User.filter { it.login = "test1" }.first().entityId)
+            User.assertThatFilterResult { it.login = "test" }.containsExactly(user1)
+            User.assertThatFilterResult { it.login = "test1" }.containsExactly(user2)
 
-            assertNull(User.filter { it.skill = 0 }.firstOrNull())
-
-            assertEquals(user1.entityId, User.filter { it.skill = 1 }.first().entityId)
-            assertEquals(1, User.filter { it.skill = 1 }.size())
-
-            assertEquals(user2.entityId, User.filter { it.skill = 2 }.first().entityId)
-            assertEquals(1, User.filter { it.skill = 2 }.size())
+            User.assertThatFilterResult { it.skill = 0 }.isEmpty()
+            User.assertThatFilterResult { it.skill = 1 }.containsExactly(user1)
+            User.assertThatFilterResult { it.skill = 2 }.containsExactly(user2)
         }
     }
 
@@ -54,13 +51,8 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 2
             }
 
-            val users1 = User.filter { it.login = "test" }
-            assertEquals(1, users1.size())
-            assertEquals(user1.entityId, users1.first().entityId)
-
-            val users2 = User.filter { it.skill = 2 }
-            assertEquals(user2.entityId, users2.first().entityId)
-            assertEquals(1, users2.size())
+            User.assertThatFilterResult { it.login = "test" }.containsExactly(user1)
+            User.assertThatFilterResult { it.login = "test1" }.containsExactly(user2)
         }
     }
 
@@ -77,9 +69,7 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 2
             }
 
-            val users = User.filter { it.name = null }
-            assertEquals(1, users.size())
-            assertEquals(user2.entityId, users.first().entityId)
+            User.assertThatFilterResult { it.name = null }.containsExactly(user2)
         }
     }
 
@@ -95,13 +85,8 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 2
             }
 
-            var users = User.filter { it.skill lt 2 }
-            assertEquals(1, users.size())
-            assertEquals(user1.entityId, users.first().entityId)
-
-            users = User.filter { it.skill gt 1 }
-            assertEquals(1, users.size())
-            assertEquals(user2.entityId, users.first().entityId)
+            User.assertThatFilterResult { it.skill lt 2 }.containsExactly(user1)
+            User.assertThatFilterResult { it.skill gt 1 }.containsExactly(user2)
         }
     }
 
@@ -121,11 +106,7 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 3
             }
 
-            val users = User.filter { it.skill ne 2 }
-            assertEquals(2, users.size())
-            val sequence = users.asSequence()
-            assertNotNull(sequence.first { it.entityId == user1.entityId })
-            assertNotNull(sequence.first { it.entityId == user3.entityId })
+            User.assertThatFilterResult { it.skill ne 2 }.containsExactly(user1, user3)
         }
     }
 
@@ -148,12 +129,10 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 2
             }
 
-            val users = User.filter {
+            User.assertThatFilterResult {
                 it.name = "test"
                 it.skill ne 2
-            }
-            assertEquals(1, users.size())
-            assertEquals(user1, users.first())
+            }.containsExactly(user1)
         }
     }
 
@@ -173,13 +152,8 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 7
             }
 
-            val users = User.filter {
-                it.skill between (1 to 3)
-            }
-            assertEquals(2, users.size())
-            val sequence = users.asSequence()
-            assertNotNull(sequence.first { it.entityId == user1.entityId })
-            assertNotNull(sequence.first { it.entityId == user2.entityId })
+            User.assertThatFilterResult { it.skill between (1 to 3) }
+                    .containsExactly(user1, user2)
         }
     }
 
@@ -190,13 +164,8 @@ class FilterQueryPropertiesTest : DBTest() {
                 login = "test1"
                 skill = 1
             }
-            val users1 = User.filter { it.skill ne 0 }
-            assertEquals(1, users1.size())
-            assertEquals(user1.entityId, users1.first().entityId)
-
-            val users2 = User.filter { it.login ne "" }
-            assertEquals(1, users2.size())
-            assertEquals(user1.entityId, users2.first().entityId)
+            User.assertThatFilterResult { it.skill ne 0 }.containsExactly(user1)
+            User.assertThatFilterResult { it.login ne "" }.containsExactly(user1)
         }
     }
 
@@ -208,10 +177,8 @@ class FilterQueryPropertiesTest : DBTest() {
             }
         }
         store.transactional {
-            RootGroup.filter { it.name ne null }.apply {
-                assertEquals(1, size())
-                assertEquals("root-group", first().name)
-            }
+            assertThat(RootGroup.filter { it.name ne null }.toList().map { it.name })
+                    .containsExactly("root-group")
         }
     }
 
@@ -226,11 +193,8 @@ class FilterQueryPropertiesTest : DBTest() {
             }
         }
         store.transactional {
-            User.filter {
-                (it.isMale eq true) or (it.isGuest eq true)
-            }.apply {
-                assertEquals(1, size())
-            }
+            User.assertThatFilterResult { (it.isMale eq true) or (it.isGuest eq true) }
+                    .hasSize(1)
         }
     }
 
@@ -244,11 +208,8 @@ class FilterQueryPropertiesTest : DBTest() {
             }
         }
         store.transactional {
-            User.filter {
-                it.salary eq 1L
-            }.apply {
-                assertEquals(1, size())
-            }
+            User.assertThatFilterResult { it.salary eq 1L }
+                    .hasSize(1)
         }
     }
 
@@ -267,18 +228,12 @@ class FilterQueryPropertiesTest : DBTest() {
             }
         }
         store.transactional {
-            User.filter {
-                it.registered eq date
-            }.apply {
-                assertEquals(1, size())
-            }
-
-            User.filter {
-                it.registered eq null
-            }.apply {
-                assertEquals(1, size())
-            }
+            User.assertThatFilterResult { it.registered eq date }.hasSize(1)
+            User.assertThatFilterResult { it.registered eq null }.hasSize(1)
         }
     }
 
+    private fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: (T) -> Unit): IterableSubject {
+        return assertThat(this.filter(clause).toList())
+    }
 }

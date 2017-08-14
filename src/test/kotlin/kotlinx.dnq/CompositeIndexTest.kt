@@ -1,12 +1,11 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.database.exceptions.UniqueIndexViolationException
 import jetbrains.exodus.entitystore.Entity
 import org.junit.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
 
 class CompositeIndexTest : DBTest() {
 
@@ -44,10 +43,7 @@ class CompositeIndexTest : DBTest() {
 
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNode(Service)
-        XdModel.registerNode(BaseRole)
-        XdModel.registerNode(DefaultRole)
-        XdModel.registerNode(Role)
+        XdModel.registerNodes(Service, BaseRole, DefaultRole, Role)
     }
 
     @Test
@@ -73,8 +69,10 @@ class CompositeIndexTest : DBTest() {
                 }
             }
         }
-        assertEquals(1, e.causes.count())
-        assertTrue(e.causes.single() is UniqueIndexViolationException)
+        assertThat(e.causes.count())
+                .isEqualTo(1)
+        assertThat(e.causes.single())
+                .isInstanceOf(UniqueIndexViolationException::class.java)
     }
 
     @Test

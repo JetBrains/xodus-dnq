@@ -1,33 +1,32 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.util.fromBitsArray
 import kotlinx.dnq.util.toBitsArray
-import org.junit.Assert
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
-import kotlin.test.assertEquals
 
 @RunWith(Parameterized::class)
 class CachedPropertiesTest(val size: Int, val int: Int, val array: List<Boolean>) {
 
-
     @Test
     fun `toBitsArray should convert int to boolean array of expected size`() {
-        assertEquals(size, int.toBitsArray(size).size)
+        assertThat(int.toBitsArray(size).size)
+                .isEqualTo(size)
     }
 
     @Test
     fun `toBitsArray should convert bits to flag array correctly`() {
         val actual = int.toBitsArray(size)
-        println("Exp: $array")
-        println("Act: ${actual.toList()}")
-        Assert.assertArrayEquals(array.toBooleanArray(), actual)
+        assertThat(actual)
+                .isEqualTo(array.toBooleanArray())
     }
 
     @Test
     fun `fromBitsArray should convert flag array to bits correctly`() {
-        assertEquals(int.and(1.shl(size) - 1), array.toBooleanArray().fromBitsArray())
+        assertThat(array.toBooleanArray().fromBitsArray())
+                .isEqualTo(int.and(1.shl(size) - 1))
     }
 
     companion object {

@@ -1,9 +1,9 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth
 import jetbrains.exodus.entitystore.Entity
 import org.junit.Before
 import org.junit.Test
-import kotlin.test.assertTrue
 
 class TriggersTest : DBTest() {
     companion object {
@@ -34,6 +34,6 @@ class TriggersTest : DBTest() {
             Triggers.new()
         }
 
-        assertTrue { beforeFlushInvoked }
+        Truth.assertThat(beforeFlushInvoked).isTrue()
     }
 }

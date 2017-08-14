@@ -43,14 +43,14 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     entityStore.transactional { txn ->
         naturalNodes.values.asSequence().map {
             it.entityType
-        }.filterIsInstance<XdNaturalEntityType<*>>().forEach {
-            it.initEntityType()
+        }.filterIsInstance<XdEnumEntityType<*>>().forEach {
+            it.initEnumValues(txn)
         }
 
         naturalNodes.values.asSequence().map {
             it.entityType
-        }.filterIsInstance<XdEnumEntityType<*>>().forEach {
-            it.initEnumValues(txn)
+        }.filterIsInstance<XdNaturalEntityType<*>>().forEach {
+            it.initEntityType()
         }
 
         naturalNodes.values.asSequence().map {

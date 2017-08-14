@@ -1,22 +1,11 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.util.getDBName
-import org.hamcrest.Matchers.equalTo
-import org.hamcrest.Matchers.iterableWithSize
-import org.hamcrest.Matchers.notNullValue
-import org.hamcrest.collection.IsIterableContainingInAnyOrder
-import org.hamcrest.core.IsEqual
-import org.hamcrest.core.IsNot
-import org.hamcrest.core.IsNull
-import org.junit.Assert
-import org.junit.Assert.assertThat
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 
 @RunWith(Parameterized::class)
 class XdHierarchyTest(
@@ -64,27 +53,29 @@ class XdHierarchyTest(
 
     @Test
     fun `Entity type should be detected`() {
-        assertNotNull(XdModel[entityType])
+        assertThat(XdModel[entityType]).isNotNull()
     }
 
     @Test
     fun `Parent should be as expected`() {
-        assertEquals(parent?.let { XdModel[parent] }, XdModel[entityType]?.parentNode)
+        assertThat(XdModel[entityType]?.parentNode)
+                .isEqualTo(parent?.let { XdModel[parent] })
     }
 
     @Test
     fun `Children should be as expected`() {
-        Assert.assertThat(XdModel[entityType]?.children, IsIterableContainingInAnyOrder(children.map {
-            IsEqual(XdModel[it])
-        }))
+        assertThat(XdModel[entityType]?.children)
+                .containsExactlyElementsIn(children.map { XdModel[it] })
     }
 
     @Test
     fun `For non-abstract entities constructor should be defined `() {
-        Assert.assertThat(XdModel[entityType]?.entityConstructor, if (hasConstructor) {
-            IsNot(IsNull())
-        } else {
-            IsNull()
-        })
+        with(assertThat(XdModel[entityType]?.entityConstructor)) {
+            if (hasConstructor) {
+                isNotNull()
+            } else {
+                isNull()
+            }
+        }
     }
 }

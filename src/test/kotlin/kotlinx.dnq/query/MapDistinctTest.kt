@@ -1,70 +1,14 @@
 package kotlinx.dnq.query
 
+import com.google.common.truth.Truth
 import kotlinx.dnq.DBTest
+import kotlinx.dnq.XdEntity
 import kotlinx.dnq.transactional
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
 
 class MapDistinctTest : DBTest() {
-
-    @Test
-    fun `mapDistinct should work with xdLink*`() {
-        store.transactional {
-            User.all().mapDistinct(User::supervisor).let {
-                assertEquals(2, it.size())
-                assertEquals(1, it.asSequence().count())
-            }
-            User.all().mapDistinct { it.supervisor }.let {
-                assertEquals(2, it.size())
-                assertEquals(1, it.asSequence().count())
-            }
-        }
-    }
-
-    @Test
-    fun `flatMapDistinct should work with xdLink*`() {
-        store.transactional {
-            User.all().flatMapDistinct(User::contacts).let {
-                assertEquals(3, it.size())
-                assertEquals(2, it.asSequence().count())
-            }
-            User.all().flatMapDistinct { it.contacts }.let {
-                assertEquals(3, it.size())
-                assertEquals(2, it.asSequence().count())
-            }
-        }
-    }
-
-    @Test
-    fun `mapDistinct should work with xdParent`() {
-        store.transactional {
-            Fellow.all().mapDistinct(Fellow::team).let {
-                assertEquals(1, it.size())
-                assertEquals(1, it.asSequence().count())
-            }
-            Fellow.all().mapDistinct { it.team }.let {
-                assertEquals(1, it.size())
-                assertEquals(1, it.asSequence().count())
-            }
-        }
-    }
-
-    @Test
-    fun `flatMapDistinct should work with xdChildren`() {
-        store.transactional {
-            Team.all().flatMapDistinct(Team::fellows).let {
-                assertEquals(3, it.size())
-                assertEquals(2, it.asSequence().count())
-            }
-            Team.all().flatMapDistinct { it.fellows }.let {
-                assertEquals(3, it.size())
-                assertEquals(2, it.asSequence().count())
-            }
-        }
-    }
-
 
     @Before
     fun initStructure() {
@@ -120,5 +64,40 @@ class MapDistinctTest : DBTest() {
         }
     }
 
+    @Test
+    fun `mapDistinct should work with xdLink`() {
+        store.transactional {
+            User.all().mapDistinct(User::supervisor).assertThatSizeIsEqualTo(1)
+            User.all().mapDistinct { it.supervisor }.assertThatSizeIsEqualTo(1)
+        }
+    }
 
+    @Test
+    fun `flatMapDistinct should work with xdLink`() {
+        store.transactional {
+            User.all().flatMapDistinct(User::contacts).assertThatSizeIsEqualTo(2)
+            User.all().flatMapDistinct { it.contacts }.assertThatSizeIsEqualTo(2)
+        }
+    }
+
+    @Test
+    fun `mapDistinct should work with xdParent`() {
+        store.transactional {
+            Fellow.all().mapDistinct(Fellow::team).assertThatSizeIsEqualTo(1)
+            Fellow.all().mapDistinct { it.team }.assertThatSizeIsEqualTo(1)
+        }
+    }
+
+    @Test
+    fun `flatMapDistinct should work with xdChildren`() {
+        store.transactional {
+            Team.all().flatMapDistinct(Team::fellows).assertThatSizeIsEqualTo(2)
+            Team.all().flatMapDistinct { it.fellows }.assertThatSizeIsEqualTo(2)
+        }
+    }
+
+    private fun <XD : XdEntity> XdQuery<XD>.assertThatSizeIsEqualTo(value: Int) {
+        Truth.assertThat(this.size()).isEqualTo(value)
+        Truth.assertThat(this.asSequence().count()).isEqualTo(value)
+    }
 }

@@ -1,5 +1,6 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.database.exceptions.NullPropertyException
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
@@ -10,15 +11,9 @@ import kotlinx.dnq.simple.regex
 import kotlinx.dnq.simple.requireIf
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.hasChanges
-import org.hamcrest.CoreMatchers.equalTo
-import org.hamcrest.CoreMatchers.nullValue
 import org.joda.time.DateTime
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertThat
 import org.junit.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
 
 class PropertiesTest : DBTest() {
     abstract class Base : XdEntity() {
@@ -53,8 +48,7 @@ class PropertiesTest : DBTest() {
 
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNode(Derived)
-        XdModel.registerNode(Employee)
+        XdModel.registerNodes(Derived, Employee)
     }
 
     @Test
@@ -74,14 +68,13 @@ class PropertiesTest : DBTest() {
 
         store.transactional {
             val user = User.query(User::login eq "test").first()
-
-            assertEquals("test", user.login)
-            assertEquals("Test Name", user.name)
-            assertEquals(25, user.age)
-            assertEquals(1, user.skill)
-            assertEquals(100, user.salary)
-            assertEquals(true, user.isGuest)
-            assertEquals(now, user.registered)
+            assertThat(user.login).isEqualTo("test")
+            assertThat(user.name).isEqualTo("Test Name")
+            assertThat(user.age).isEqualTo(25)
+            assertThat(user.skill).isEqualTo(1)
+            assertThat(user.salary).isEqualTo(100)
+            assertThat(user.isGuest).isEqualTo(true)
+            assertThat(user.registered).isEqualTo(now)
         }
     }
 
@@ -96,9 +89,9 @@ class PropertiesTest : DBTest() {
         }
 
         store.transactional {
-            assertEquals("test", user.login)
-            assertEquals("  test  ", user.name)
-            assertEquals(user.name, user.entity.getProperty("visibleName"))
+            assertThat(user.login).isEqualTo("test")
+            assertThat(user.name).isEqualTo("  test  ")
+            assertThat(user.entity.getProperty("visibleName")).isEqualTo(user.name)
         }
     }
 
@@ -109,13 +102,8 @@ class PropertiesTest : DBTest() {
                 User.new()
             }
         }
-        assertEquals(2, e.causes.count())
-        assertTrue {
-            e.causes.any { it is NullPropertyException && it.propertyName == User::login.name }
-        }
-        assertTrue {
-            e.causes.any { it is NullPropertyException && it.propertyName == User::skill.name }
-        }
+        assertThat(e.causes.filterIsInstance<NullPropertyException>().map { it.propertyName })
+                .containsExactly(User::login.name, User::skill.name)
     }
 
     @Test
@@ -125,10 +113,8 @@ class PropertiesTest : DBTest() {
                 Image.new()
             }
         }
-        assertEquals(1, e.causes.count())
-        assertTrue {
-            e.causes.any { it is NullPropertyException && it.propertyName == Image::content.name }
-        }
+        assertThat(e.causes.filterIsInstance<NullPropertyException>().map { it.propertyName })
+                .containsExactly(Image::content.name)
     }
 
     @Test
@@ -138,10 +124,8 @@ class PropertiesTest : DBTest() {
                 Derived.new()
             }
         }
-        assertEquals(1, e.causes.count())
-        assertTrue {
-            e.causes.any { it is NullPropertyException && it.propertyName == Derived::requiredBaseProp.name }
-        }
+        assertThat(e.causes.filterIsInstance<NullPropertyException>().map { it.propertyName })
+                .containsExactly(Derived::requiredBaseProp.name)
     }
 
     @Test
@@ -154,13 +138,8 @@ class PropertiesTest : DBTest() {
                 }
             }
         }
-        assertEquals(2, e.causes.count())
-        assertTrue {
-            e.causes.any { it is NullPropertyException && it.propertyName == Base::requiredIfBaseProp.name }
-        }
-        assertTrue {
-            e.causes.any { it is NullPropertyException && it.propertyName == Derived::requiredIfDerivedProp.name }
-        }
+        assertThat(e.causes.filterIsInstance<NullPropertyException>().map { it.propertyName })
+                .containsExactly(Base::requiredIfBaseProp.name, Derived::requiredIfDerivedProp.name)
     }
 
     @Test
@@ -176,19 +155,13 @@ class PropertiesTest : DBTest() {
                 }
             }
         }
-        assertEquals(4, e.causes.count())
-        assertTrue {
-            e.causes.any { it is SimplePropertyValidationException && it.propertyName == Base::regexBaseProp.name }
-        }
-        assertTrue {
-            e.causes.any { it is SimplePropertyValidationException && it.propertyName == Base::regexWrappedBaseProp.name }
-        }
-        assertTrue {
-            e.causes.any { it is SimplePropertyValidationException && it.propertyName == Derived::regexDerivedProp.name }
-        }
-        assertTrue {
-            e.causes.any { it is SimplePropertyValidationException && it.propertyName == Derived::regexWrappedDerivedProp.name }
-        }
+        assertThat(e.causes.filterIsInstance<SimplePropertyValidationException>().map { it.propertyName })
+                .containsExactly(
+                        Base::regexBaseProp.name,
+                        Base::regexWrappedBaseProp.name,
+                        Derived::regexDerivedProp.name,
+                        Derived::regexWrappedDerivedProp.name
+                )
     }
 
     @Test
@@ -205,10 +178,8 @@ class PropertiesTest : DBTest() {
                 }
             }
         }
-        assertEquals(1, e.causes.count())
-        assertTrue {
-            e.causes.any { it is UniqueIndexViolationException && it.propertyName == User::login.name }
-        }
+        assertThat(e.causes.filterIsInstance<UniqueIndexViolationException>().map { it.propertyName })
+                .containsExactly(User::login.name)
     }
 
     @Test
@@ -234,55 +205,55 @@ class PropertiesTest : DBTest() {
             }
 
             // has changes before save
-            assertTrue(user.hasChanges(Employee::skill))
-            assertTrue(user.hasChanges(Employee::supervisor))
-            assertTrue(user.hasChanges(Employee::contacts))
-            assertTrue(user.hasChanges(Employee::hireDate))
-            assertFalse(user.hasChanges(Employee::registered))
+            assertThat(user.hasChanges(Employee::skill)).isTrue()
+            assertThat(user.hasChanges(Employee::supervisor)).isTrue()
+            assertThat(user.hasChanges(Employee::contacts)).isTrue()
+            assertThat(user.hasChanges(Employee::hireDate)).isTrue()
+            assertThat(user.hasChanges(Employee::registered)).isFalse()
             // old values are null
-            assertThat(user.getOldValue(Employee::skill), nullValue())
-            assertThat(user.getOldValue(Employee::supervisor), nullValue())
-            assertThat(user.getOldValue(Employee::hireDate), nullValue())
-            assertThat(user.getOldValue(Employee::registered), nullValue())
+            assertThat(user.getOldValue(Employee::skill)).isNull()
+            assertThat(user.getOldValue(Employee::supervisor)).isNull()
+            assertThat(user.getOldValue(Employee::hireDate)).isNull()
+            assertThat(user.getOldValue(Employee::registered)).isNull()
 
             it.flush()
 
             // a primitive property keeps track of old values
-            assertFalse(user.hasChanges(Employee::skill))
-            assertThat(user.getOldValue(Employee::skill), equalTo(5))
+            assertThat(user.hasChanges(Employee::skill)).isFalse()
+            assertThat(user.getOldValue(Employee::skill)).isEqualTo(5)
             user.skill = 6
-            assertTrue(user.hasChanges(Employee::skill))
-            assertThat(user.getOldValue(Employee::skill), equalTo(5))
+            assertThat(user.hasChanges(Employee::skill)).isTrue()
+            assertThat(user.getOldValue(Employee::skill)).isEqualTo(5)
 
             // a link property keeps track of old values until the flush
-            assertFalse(user.hasChanges(Employee::supervisor))
-            assertThat(user.getOldValue(Employee::supervisor), nullValue())
+            assertThat(user.hasChanges(Employee::supervisor)).isFalse()
+            assertThat(user.getOldValue(Employee::supervisor)).isNull()
             user.supervisor = luckyGuy
-            assertTrue(user.hasChanges(Employee::supervisor))
-            assertThat(user.getOldValue(Employee::supervisor), equalTo(boss))
+            assertThat(user.hasChanges(Employee::supervisor)).isTrue()
+            assertThat(user.getOldValue(Employee::supervisor)).isEqualTo(boss)
 
             // a DateTime property keeps track of old values
             val oldHireDate = user.hireDate
             val oldRegistered = user.registered
-            assertFalse(user.hasChanges(Employee::hireDate))
-            assertFalse(user.hasChanges(Employee::registered))
-            assertThat(user.getOldValue(Employee::hireDate), equalTo(oldHireDate))
-            assertThat(user.getOldValue(Employee::registered), equalTo(oldRegistered))
+            assertThat(user.hasChanges(Employee::hireDate)).isFalse()
+            assertThat(user.hasChanges(Employee::registered)).isFalse()
+            assertThat(user.getOldValue(Employee::hireDate)).isEqualTo(oldHireDate)
+            assertThat(user.getOldValue(Employee::registered)).isEqualTo(oldRegistered)
             user.hireDate = DateTime.now()
             user.registered = DateTime.now()
-            assertTrue(user.hasChanges(Employee::hireDate))
-            assertTrue(user.hasChanges(Employee::registered))
-            assertThat(user.getOldValue(Employee::hireDate), equalTo(oldHireDate))
-            assertThat(user.getOldValue(Employee::registered), equalTo(oldRegistered))
+            assertThat(user.hasChanges(Employee::hireDate)).isTrue()
+            assertThat(user.hasChanges(Employee::registered)).isTrue()
+            assertThat(user.getOldValue(Employee::hireDate)).isEqualTo(oldHireDate)
+            assertThat(user.getOldValue(Employee::registered)).isEqualTo(oldRegistered)
 
             // no changes for not affected properties
-            assertFalse(user.hasChanges(Employee::login))
-            assertFalse(user.hasChanges(Employee::contacts))
+            assertThat(user.hasChanges(Employee::login)).isFalse()
+            assertThat(user.hasChanges(Employee::contacts)).isFalse()
 
             it.flush()
 
             // a link property forgets about changes after the flush :(
-            assertThat(user.getOldValue(Employee::supervisor), nullValue())
+            assertThat(user.getOldValue(Employee::supervisor)).isNull()
         }
     }
 
@@ -294,7 +265,9 @@ class PropertiesTest : DBTest() {
                 user.login
             }
             val pattern = "Required field login of User\\[\\d+-\\d+] is undefined"
-            assertTrue(e.message!!.matches(Regex(pattern)), "Exception message \"${e.message}\" does not match pattern \"$pattern\"")
+            assertThat(e.message)
+                    .named("exception message")
+                    .matches(pattern)
             txn.revert()
         }
     }
@@ -315,7 +288,8 @@ class PropertiesTest : DBTest() {
             }
         }
         store.transactional {
-            assertThat(User.all().mapDistinct(User::supervisor).asSequence().count(), equalTo(1))
+            assertThat(User.all().mapDistinct(User::supervisor).toList())
+                    .containsExactly(boss)
         }
 
     }

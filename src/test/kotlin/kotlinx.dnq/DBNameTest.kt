@@ -1,11 +1,11 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.util.getDBName
-import org.hamcrest.CoreMatchers.equalTo
-import org.junit.Assert.assertThat
 import org.junit.Before
 import org.junit.Test
+import kotlin.test.assertFailsWith
 
 
 class DBNameTest {
@@ -41,24 +41,32 @@ class DBNameTest {
 
     @Test
     fun `getDBName should return dbName if it exists`() {
-        assertThat(Child::propWithDbName.getDBName(), equalTo("dbProperty"))
-        assertThat(Child::propWithoutDbName.getDBName(), equalTo(Child::propWithoutDbName.name))
+        assertThat(Child::propWithDbName.getDBName())
+                .isEqualTo("dbProperty")
+        assertThat(Child::propWithoutDbName.getDBName())
+                .isEqualTo(Child::propWithoutDbName.name)
     }
 
     @Test
     fun `getDBName should return dbName for parent's property`() {
-        assertThat(Child::parentPropWithDbName.getDBName(), equalTo("parentProp"))
-        assertThat(Child::name.getDBName(), equalTo(XdEnumEntity.ENUM_CONST_NAME_FIELD))
+        assertThat(Child::parentPropWithDbName.getDBName())
+                .isEqualTo("parentProp")
+        assertThat(Child::name.getDBName())
+                .isEqualTo(XdEnumEntity.ENUM_CONST_NAME_FIELD)
     }
 
     @Test
     fun `getDBName should take more priority to children properties`() {
-        assertThat(Child::overriddenPropWithDbName.getDBName(), equalTo("overriddenChildProp"))
-        assertThat(Child::overriddenPropWithoutDbName.getDBName(), equalTo(Child::overriddenPropWithoutDbName.name))
+        assertThat(Child::overriddenPropWithDbName.getDBName())
+                .isEqualTo("overriddenChildProp")
+        assertThat(Child::overriddenPropWithoutDbName.getDBName())
+                .isEqualTo(Child::overriddenPropWithoutDbName.name)
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test()
     fun `getDBName should throw on properties of an XdEntity class without XdEntityType companion object`() {
-        NoXdEntityTypeEntity::prop.getDBName()
+        assertFailsWith<IllegalArgumentException> {
+            NoXdEntityTypeEntity::prop.getDBName()
+        }
     }
 }

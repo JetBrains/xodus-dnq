@@ -1,5 +1,6 @@
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.query.addAll
@@ -7,8 +8,6 @@ import kotlinx.dnq.query.and
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.query
 import org.junit.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 
 class FindOrCreateTest : DBTest() {
 
@@ -54,7 +53,7 @@ class FindOrCreateTest : DBTest() {
             ApprovedScope.findOrNew(user, groups)
         }
         store.transactional {
-            assertEquals(approvedScope1, approvedScope2)
+            assertThat(approvedScope1).isEqualTo(approvedScope2)
         }
     }
 
@@ -73,7 +72,7 @@ class FindOrCreateTest : DBTest() {
             Pair(ApprovedScope.findOrNew(user, groups), approvedScope2)
         }
         store.transactional {
-            assertEquals(approvedScope1, approvedScope2)
+            assertThat(approvedScope1).isEqualTo(approvedScope2)
         }
     }
 
@@ -92,7 +91,7 @@ class FindOrCreateTest : DBTest() {
             ApprovedScope.findOrNew(user, groups.take(1))
         }
         store.transactional {
-            assertNotEquals(approvedScope1, approvedScope2)
+            assertThat(approvedScope1).isNotEqualTo(approvedScope2)
         }
     }
 }
