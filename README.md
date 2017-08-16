@@ -70,6 +70,23 @@ class Group(override val entity: Entity) : XdEntity(entity) {
         get() = name
 }
 ```
+#### Links to extension properties 
+
+Bi-directional link can points to kotlin extension property on one side.
+```kotlin
+class User(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<User>()
+    var login by xdRequiredStringProp(unique = true)
+}
+
+class SecretInfo(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<Secret>()
+    var info by xdBlobStringProp()
+    var user: User by xdLink1(User::secret)
+}
+
+var User.secret by xdLink1(SecretInfo::user)
+```
 
 #### isDefined and getSafe
 
