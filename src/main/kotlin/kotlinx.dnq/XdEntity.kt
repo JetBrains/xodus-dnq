@@ -25,6 +25,8 @@ abstract class XdEntity {
     // FIXME: this trigger is fired only for natural entities, should it be called for legacy entities also?
     open fun destructor() {}
 
+    open fun constructor() {}
+
     override fun equals(other: Any?): Boolean {
         return when {
             this === other -> true
