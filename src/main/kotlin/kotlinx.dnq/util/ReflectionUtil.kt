@@ -16,38 +16,18 @@ import kotlinx.dnq.simple.XdConstrainedProperty
 import kotlinx.dnq.wrapper
 import org.joda.time.DateTime
 import java.lang.reflect.Modifier
-import java.lang.reflect.ParameterizedType
-import java.lang.reflect.Type
-import java.lang.reflect.TypeVariable
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
-import kotlin.reflect.full.*
+import kotlin.reflect.full.companionObject
+import kotlin.reflect.full.companionObjectInstance
+import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.jvmName
 
 
-fun <B, T : B> Class<T>.inferTypeParameters(baseClass: Class<B>): Array<Type> {
-    val hierarchy = generateSequence<Class<*>>(this) { it.superclass }
-
-    var prevMapping: Map<TypeVariable<*>, Type> = hierarchy.first().typeParameters.map { it to it }.toMap()
-    for (type in hierarchy.takeWhile { it != baseClass }) {
-        val parameters = type.superclass.typeParameters
-        val arguments = (type.genericSuperclass as? ParameterizedType)?.actualTypeArguments
-        prevMapping = if (parameters.isNotEmpty() && arguments != null) {
-            (parameters zip arguments).map {
-                val (parameter, argument) = it
-                parameter to if (argument is TypeVariable<*> && argument in prevMapping.keys) {
-                    prevMapping[argument]!!
-                } else {
-                    it.second
-                }
-            }.toMap()
-        } else {
-            emptyMap()
-        }
-    }
-    return prevMapping.values.toTypedArray()
-}
+@Deprecated("Use inferTypeParameters(baseClass, this) instead", ReplaceWith("inferTypeParameters(baseClass, this).values.toTypedArray()", "org.jetbrains.mazine.infer.type.parameter.inferTypeParameters"))
+fun <B, T : B> Class<T>.inferTypeParameters(baseClass: Class<B>) =
+        org.jetbrains.mazine.infer.type.parameter.inferTypeParameters(baseClass, this).values.toTypedArray()
 
 internal val <T : XdEntity> XdEntityType<T>.enclosingEntityClass: Class<out T>
     get() {
@@ -82,7 +62,7 @@ val <T : XdEntity> XdEntityType<T>.entityConstructor: ((Entity) -> T)?
         } else {
             val constructor = try {
                 entityClass.getConstructor(Entity::class.java)
-            } catch(e: Exception) {
+            } catch (e: Exception) {
                 throw IllegalArgumentException("Enclosing XdEntity should have constructor(${Entity::class.jvmName})")
             }
             { entity -> constructor.newInstance(entity) }
