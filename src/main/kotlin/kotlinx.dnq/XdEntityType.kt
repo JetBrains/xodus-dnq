@@ -19,6 +19,7 @@ abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer
         val transaction = (entityStore.threadSession
                 ?: throw IllegalStateException("New entities can be created only in transactional block"))
         return wrap(transaction.newEntity(entityType)).apply {
+            constructor()
             if (init != null) {
                 init()
             }
