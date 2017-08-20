@@ -1,7 +1,6 @@
 package kotlinx.dnq.util
 
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
 import com.jetbrains.teamsys.dnq.database.EntityOperations
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
@@ -174,14 +173,12 @@ fun <T : XdEntity, R : XdEntity?> T.getOldValue(property: KProperty1<T, R>): R? 
 }
 
 fun <T : XdEntity> T.getOldValue(property: KProperty1<T, DateTime?>): DateTime? {
-    val name = property.getDBName(javaClass.entityType)
-    return PrimitiveAssociationSemantics.getOldValue(this.entity as TransientEntity, name, Long::class.java, null)?.let(::DateTime)
+    return getOldValue(property.getDBName(javaClass.entityType))?.let(::DateTime)
 }
 
 fun <T : XdEntity, R : Comparable<*>?> T.getOldValue(property: KProperty1<T, R>): R? {
-    val name = property.getDBName(javaClass.entityType)
     @Suppress("UNCHECKED_CAST")
-    return PrimitiveAssociationSemantics.getOldValue(this.entity as TransientEntity, name, null) as R?
+    return getOldValue(property.getDBName(javaClass.entityType)) as R?
 }
 
 private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<R, XdMutableQuery<T>>, getLinks: (String) -> Iterable<Entity>): XdQuery<T> {

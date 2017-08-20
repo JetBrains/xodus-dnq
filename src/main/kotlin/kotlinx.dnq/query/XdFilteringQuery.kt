@@ -3,6 +3,10 @@ package kotlinx.dnq.query
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.simple.maxValue
+import kotlinx.dnq.simple.minValue
+import kotlinx.dnq.simple.next
+import kotlinx.dnq.simple.prev
 import org.joda.time.DateTime
 import kotlin.reflect.KProperty1
 

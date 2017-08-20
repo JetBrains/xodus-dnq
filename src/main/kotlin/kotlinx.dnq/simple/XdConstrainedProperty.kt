@@ -9,7 +9,9 @@ abstract class XdConstrainedProperty<in R, T>(
         open val dbPropertyName: String?,
         open val constraints: List<PropertyConstraint<T?>>,
         open val requirement: XdPropertyRequirement,
-        open val propertyType: PropertyType): ReadWriteProperty<R, T> {
+        open val propertyType: PropertyType) : ReadWriteProperty<R, T> {
 
     abstract fun isDefined(thisRef: R, property: KProperty<*>): Boolean
+
+    internal val KProperty<*>.dbName get() = dbPropertyName ?: this.name
 }

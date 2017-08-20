@@ -1,11 +1,14 @@
 package kotlinx.dnq.query
 
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.query.*
 import jetbrains.exodus.query.metadata.ModelMetaData
 import kotlinx.dnq.XdEntity
+import kotlinx.dnq.simple.maxValue
+import kotlinx.dnq.simple.minValue
+import kotlinx.dnq.simple.next
+import kotlinx.dnq.simple.prev
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.getDBName
 import org.joda.time.DateTime
@@ -55,11 +58,6 @@ infix inline fun <reified R : XdEntity, T : Comparable<T>> ClosedRange<T>.contai
 infix inline fun <reified R : XdEntity> ClosedRange<DateTime>.contains(property: KProperty1<R, DateTime?>): NodeBase {
     return contains(property.getDBName(R::class))
 }
-
-fun <V : Comparable<V>> KClass<V>.next(value: V) = PrimitiveAssociationSemantics.nextGreater(value, javaObjectType)
-fun <V : Comparable<V>> KClass<V>.prev(value: V) = PrimitiveAssociationSemantics.previousLess(value, javaObjectType)
-fun <V : Comparable<V>> KClass<V>.maxValue() = PrimitiveAssociationSemantics.positiveInfinity(javaObjectType)
-fun <V : Comparable<V>> KClass<V>.minValue() = PrimitiveAssociationSemantics.negativeInfinity(javaObjectType)
 
 /**
  * Filter elements with a value of the field greater then given `value`

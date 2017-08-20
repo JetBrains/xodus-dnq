@@ -1,6 +1,5 @@
 package kotlinx.dnq.enum
 
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.database.TransientStoreSession
 import kotlinx.dnq.XdEntityType
@@ -12,6 +11,7 @@ import kotlinx.dnq.query.query
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.store.container.StoreContainer
 import kotlinx.dnq.util.getDBName
+import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
@@ -28,7 +28,7 @@ abstract class XdEnumEntityType<XD : XdEnumEntity>(entityTypeName: String? = nul
                 var xdEnumValue = query(XdEnumEntity::name eq enumConst.enumFieldName).firstOrNull()
                 if (xdEnumValue == null) {
                     xdEnumValue = wrap(txn.newEntity(entityType))
-                    PrimitiveAssociationSemantics.set(xdEnumValue.entity, XdEnumEntity::name.getDBName(this), enumConst.enumFieldName)
+                    xdEnumValue.reattachAndSetPrimitiveValue(XdEnumEntity::name.getDBName(this), enumConst.enumFieldName, String::class.java)
                     enumConst.update(xdEnumValue)
                 } else {
                     enumConst.update(xdEnumValue)
@@ -39,7 +39,7 @@ abstract class XdEnumEntityType<XD : XdEnumEntity>(entityTypeName: String? = nul
         }
     }
 
-    class Const<in XD: XdEnumEntity>(val enumFieldName: String, val update: XD.() -> Unit)
+    class Const<in XD : XdEnumEntity>(val enumFieldName: String, val update: XD.() -> Unit)
 
     inner class EnumConstPropertyProvider(val dbName: String?, val init: XD.() -> Unit) {
         operator fun provideDelegate(thisRef: XdEntityType<XD>, prop: KProperty<*>): ReadOnlyProperty<XdEntityType<XD>, XD> {

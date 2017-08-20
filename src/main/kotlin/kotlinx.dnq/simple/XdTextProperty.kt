@@ -1,9 +1,11 @@
 package kotlinx.dnq.simple
 
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
+import kotlinx.dnq.util.reattachAndGetBlob
+import kotlinx.dnq.util.reattachAndGetBlobString
+import kotlinx.dnq.util.reattachAndSetBlobString
 import kotlin.reflect.KProperty
 
 class XdTextProperty<in R : XdEntity>(dbPropertyName: String?) :
@@ -14,15 +16,15 @@ class XdTextProperty<in R : XdEntity>(dbPropertyName: String?) :
                 PropertyType.TEXT) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): String {
-        return PrimitiveAssociationSemantics.getBlobAsString(thisRef.entity, dbPropertyName ?: property.name) ?:
+        return thisRef.reattachAndGetBlobString(property.dbName) ?:
                 throw RequiredPropertyUndefinedException(thisRef, property)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: String) {
-        PrimitiveAssociationSemantics.setBlob(thisRef.entity, dbPropertyName ?: property.name, value)
+        thisRef.reattachAndSetBlobString(property.dbName, value)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return PrimitiveAssociationSemantics.getBlobAsString(thisRef.entity, dbPropertyName ?: property.name) != null
+        return thisRef.reattachAndGetBlob(property.dbName) != null
     }
 }
