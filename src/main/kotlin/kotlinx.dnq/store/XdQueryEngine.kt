@@ -1,21 +1,21 @@
 package kotlinx.dnq.store
 
 import com.jetbrains.teamsys.dnq.database.EntityIterableWrapper
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentEntityStoreImpl
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.iterate.SingleEntityIterable
 import jetbrains.exodus.query.QueryEngine
+import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.requireThreadSession
 
 class XdQueryEngine(val store: TransientEntityStore) :
         QueryEngine(store.modelMetaData, store.persistentStore as PersistentEntityStoreImpl) {
 
-    val session: TransientStoreSession get() = store.threadSession
+    private val session get() = store.requireThreadSession()
 
     override fun isWrapped(it: Iterable<Entity>?): Boolean {
         return it is EntityIterableWrapper
@@ -26,12 +26,11 @@ class XdQueryEngine(val store: TransientEntityStore) :
     }
 
     override fun wrap(entity: Entity): Iterable<Entity>? {
-        if ((entity is TransientEntity) && entity.isSaved) {
-            val _e = TransientStoreUtil.reattach(entity)!!
-            if (!(TransientStoreUtil.isRemoved(_e)) && _e.isSaved) {
-                return SingleEntityIterable(session.persistentTransaction as PersistentStoreTransaction, _e.id)
-            }
-        }
-        return null
+        return (entity as? TransientEntity)
+                ?.takeIf { it.isSaved }
+                ?.reattach()
+                ?.takeUnless { session.isRemoved(it) }
+                ?.takeIf { it.isSaved }
+                ?.let { SingleEntityIterable(session.persistentTransaction as PersistentStoreTransaction, it.id) }
     }
 }
