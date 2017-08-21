@@ -1,7 +1,5 @@
 package kotlinx.dnq.util
 
-import com.jetbrains.teamsys.dnq.database.EntityOperations
-import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
@@ -160,8 +158,7 @@ fun <R : XdEntity> KProperty1<R, *>.getDBName(entityType: XdEntityType<R>): Stri
 inline fun <reified R : XdEntity> KProperty1<R, *>.getDBName() = getDBName(R::class.entityType)
 
 fun <T : XdEntity> T.hasChanges(property: KProperty1<T, *>): Boolean {
-    val name = property.getDBName(javaClass.entityType)
-    return EntityOperations.hasChanges(entity as TransientEntity, name)
+    return reattach().hasChanges(property.getDBName(javaClass.entityType))
 }
 
 fun <T : XdEntity, R : XdEntity> T.getOldValue(property: KProperty1<T, R?>): R? {

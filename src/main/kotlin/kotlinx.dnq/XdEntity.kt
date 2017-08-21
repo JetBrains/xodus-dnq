@@ -1,8 +1,10 @@
 package kotlinx.dnq
 
 import com.jetbrains.teamsys.dnq.database.EntityOperations
+import com.jetbrains.teamsys.dnq.database.TransientStoreUtil
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
+import kotlinx.dnq.util.reattach
 
 abstract class XdEntity {
     abstract val entity: Entity
@@ -10,10 +12,10 @@ abstract class XdEntity {
     val entityId: EntityId get() = entity.id
 
     val isNew: Boolean
-        get() = EntityOperations.isNew(entity)
+        get() = reattach().isNew
 
     val isRemoved: Boolean
-        get() = EntityOperations.isRemoved(entity)
+        get() = TransientStoreUtil.isRemoved(entity)
 
     open fun delete() {
         EntityOperations.remove(entity)
@@ -31,7 +33,7 @@ abstract class XdEntity {
         return when {
             this === other -> true
             other !is XdEntity -> false
-            else -> EntityOperations.equals(this.entity, other.entity)
+            else -> this.entity == other.entity
         }
     }
 

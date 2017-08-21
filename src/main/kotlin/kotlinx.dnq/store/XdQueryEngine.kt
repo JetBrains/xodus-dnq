@@ -1,7 +1,6 @@
 package kotlinx.dnq.store
 
 import com.jetbrains.teamsys.dnq.database.EntityIterableWrapper
-import com.jetbrains.teamsys.dnq.database.EntityOperations
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
@@ -29,7 +28,7 @@ class XdQueryEngine(val store: TransientEntityStore) :
     override fun wrap(entity: Entity): Iterable<Entity>? {
         if ((entity is TransientEntity) && entity.isSaved) {
             val _e = TransientStoreUtil.reattach(entity)!!
-            if (!(EntityOperations.isRemoved(_e)) && _e.isSaved) {
+            if (!(TransientStoreUtil.isRemoved(_e)) && _e.isSaved) {
                 return SingleEntityIterable(session.persistentTransaction as PersistentStoreTransaction, _e.id)
             }
         }

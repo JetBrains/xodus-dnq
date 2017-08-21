@@ -1,18 +1,19 @@
 package kotlinx.dnq.util
 
-import com.jetbrains.teamsys.dnq.database.EntityOperations
+import com.jetbrains.teamsys.dnq.database.TransientStoreUtil
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentEntityStore
 import kotlinx.dnq.XdEntity
 import java.io.InputStream
 
-fun XdEntity.reattach(): TransientEntity {
-    val transientEntity = (entity as TransientEntity)
-    val threadSession = transientEntity.store.threadSession
+fun TransientEntity.reattach(): TransientEntity {
+    val threadSession = store.threadSession
             ?: throw IllegalStateException("There's no current session to attach transient entity to.")
-    return threadSession.newLocalCopy(transientEntity)
+    return threadSession.newLocalCopy(this)
 }
+
+fun XdEntity.reattach() = (entity as TransientEntity).reattach()
 
 fun <T : Comparable<*>> XdEntity.reattachAndGetPrimitiveValue(propertyName: String): T? {
     @Suppress("UNCHECKED_CAST")
@@ -78,7 +79,7 @@ fun XdEntity.getRemovedLinks(linkName: String): EntityIterable {
 
 fun XdEntity.getOldLinkValue(linkName: String): TransientEntity? {
     val entity = this.entity as TransientEntity
-    return if (EntityOperations.isRemoved(entity)) {
+    return if (TransientStoreUtil.isRemoved(entity)) {
         val transientStore = entity.store
         val session = transientStore.threadSession
         (transientStore.persistentStore as PersistentEntityStore)
