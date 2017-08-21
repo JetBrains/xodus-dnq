@@ -5,7 +5,6 @@ import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
-import kotlinx.dnq.util.linkParentWithMultiChild
 import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -32,12 +31,13 @@ class XdManyChildrenToMultiParentLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        linkParentWithMultiChild(
-                xdParent = value,
-                parentToChildLinkName = oppositeField.name,
-                childToParentLinkName = property.name,
-                xdChild = thisRef
-        )
+        val parent = value?.reattach()
+        val child = thisRef.reattach()
+        if (parent == null) {
+            child.removeFromParent(oppositeField.name, property.name)
+        } else {
+            parent.addChild(oppositeField.name, property.name, child)
+        }
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null

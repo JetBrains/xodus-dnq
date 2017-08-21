@@ -5,7 +5,6 @@ import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.util.linkParentWithSingleChild
 import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -33,12 +32,7 @@ class XdParentToOneRequiredChildLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        linkParentWithSingleChild(
-                xdParent = thisRef,
-                parentToChildLinkName = property.name,
-                childToParentLinkName = oppositeField.name,
-                xdChild = value
-        )
+        thisRef.reattach().setChild(property.name, oppositeField.name, value.reattach())
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {

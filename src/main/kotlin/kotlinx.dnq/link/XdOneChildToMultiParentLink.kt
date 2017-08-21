@@ -4,7 +4,6 @@ import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.util.linkParentWithSingleChild
 import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -31,12 +30,13 @@ class XdOneChildToMultiParentLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        linkParentWithSingleChild(
-                xdParent = value,
-                parentToChildLinkName = oppositeField.name,
-                childToParentLinkName = property.name,
-                xdChild = thisRef
-        )
+        val parent = value?.reattach()
+        val child = thisRef.reattach()
+        if (parent != null) {
+            parent.setChild(oppositeField.name, property.name, child)
+        } else {
+            child.removeFromParent(oppositeField.name, property.name)
+        }
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null

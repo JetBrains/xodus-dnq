@@ -6,7 +6,6 @@ import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
-import kotlinx.dnq.util.linkParentWithMultiChild
 import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -34,12 +33,7 @@ class XdManyChildrenToParentLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        linkParentWithMultiChild(
-                xdParent = value,
-                parentToChildLinkName = oppositeField.name,
-                childToParentLinkName = property.name,
-                xdChild = thisRef
-        )
+        value.reattach().addChild(oppositeField.name, property.name, thisRef.reattach())
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {

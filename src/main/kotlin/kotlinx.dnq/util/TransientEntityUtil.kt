@@ -89,27 +89,3 @@ fun XdEntity.getOldLinkValue(linkName: String): TransientEntity? {
         getRemovedLinks(linkName).firstOrNull() as TransientEntity?
     }
 }
-
-fun linkParentWithMultiChild(xdParent: XdEntity?, parentToChildLinkName: String, childToParentLinkName: String, xdChild: XdEntity) {
-    val parent = xdParent?.reattach()
-    val child = xdChild.reattach()
-
-    if (parent == null) {
-        child.removeFromParent(parentToChildLinkName, childToParentLinkName)
-    } else {
-        // child.childToParent = parent
-        parent.addChild(parentToChildLinkName, childToParentLinkName, child)
-    }
-}
-
-fun linkParentWithSingleChild(xdParent: XdEntity?, parentToChildLinkName: String, childToParentLinkName: String, xdChild: XdEntity?) {
-    val parent = xdParent?.reattach()
-    val child = xdChild?.reattach()
-
-    when {
-        parent != null && child != null -> parent.setChild(parentToChildLinkName, childToParentLinkName, child)
-        parent == null && child != null -> child.removeFromParent(parentToChildLinkName, childToParentLinkName)
-        parent != null && child == null -> parent.removeChild(parentToChildLinkName, childToParentLinkName)
-        parent == null && child == null -> throw IllegalArgumentException("Both entities can't be null.")
-    }
-}
