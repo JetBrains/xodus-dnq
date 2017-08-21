@@ -1,6 +1,5 @@
 package kotlinx.dnq.util
 
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import com.jetbrains.teamsys.dnq.database.EntityOperations
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
@@ -12,7 +11,7 @@ import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.query.asQuery
 import kotlinx.dnq.simple.XdConstrainedProperty
-import kotlinx.dnq.wrapper
+import kotlinx.dnq.toXd
 import org.joda.time.DateTime
 import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
@@ -165,20 +164,17 @@ fun <T : XdEntity> T.hasChanges(property: KProperty1<T, *>): Boolean {
     return EntityOperations.hasChanges(entity as TransientEntity, name)
 }
 
-fun <T : XdEntity, R : XdEntity?> T.getOldValue(property: KProperty1<T, R>): R? {
-    val name = property.getDBName(javaClass.entityType)
-    @Suppress("UNCHECKED_CAST")
-    val entity = AssociationSemantics.getOldValue(this.entity as TransientEntity, name)
-    return entity?.let { it.wrapper as R }
+fun <T : XdEntity, R : XdEntity> T.getOldValue(property: KProperty1<T, R?>): R? {
+    return getOldLinkValue(property.getDBName(javaClass.entityType))?.toXd()
 }
 
 fun <T : XdEntity> T.getOldValue(property: KProperty1<T, DateTime?>): DateTime? {
-    return getOldValue(property.getDBName(javaClass.entityType))?.let(::DateTime)
+    return getOldPrimitiveValue(property.getDBName(javaClass.entityType))?.let(::DateTime)
 }
 
 fun <T : XdEntity, R : Comparable<*>?> T.getOldValue(property: KProperty1<T, R>): R? {
     @Suppress("UNCHECKED_CAST")
-    return getOldValue(property.getDBName(javaClass.entityType)) as R?
+    return getOldPrimitiveValue(property.getDBName(javaClass.entityType)) as R?
 }
 
 private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<R, XdMutableQuery<T>>, getLinks: (String) -> Iterable<Entity>): XdQuery<T> {
@@ -191,12 +187,12 @@ private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<
     return getLinks(metaProperty.dbPropertyName).asQuery(delegateValue.oppositeEntityType)
 }
 
-fun <R : XdEntity, T : XdEntity> R.getAddedLinks(property: KProperty1<R, XdMutableQuery<T>>) = getLinksWrapper(property) {
-    AssociationSemantics.getAddedLinks(entity as TransientEntity, it)
+fun <R : XdEntity, T : XdEntity> R.getAddedLinks(property: KProperty1<R, XdMutableQuery<T>>) = getLinksWrapper(property) { linkName ->
+    this.getAddedLinks(linkName)
 }
 
-fun <R : XdEntity, T : XdEntity> R.getRemovedLinks(property: KProperty1<R, XdMutableQuery<T>>) = getLinksWrapper(property) {
-    AssociationSemantics.getRemovedLinks(entity as TransientEntity, it)
+fun <R : XdEntity, T : XdEntity> R.getRemovedLinks(property: KProperty1<R, XdMutableQuery<T>>) = getLinksWrapper(property) { linkName ->
+    this.getRemovedLinks(linkName)
 }
 
 val <T : XdEntity> Class<T>.entityType: XdEntityType<T>

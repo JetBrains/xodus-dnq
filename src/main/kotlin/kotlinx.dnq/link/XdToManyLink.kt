@@ -1,7 +1,5 @@
 package kotlinx.dnq.link
 
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics
-import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
@@ -9,6 +7,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
+import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
@@ -31,18 +30,18 @@ open class XdToManyLink<in R : XdEntity, T : XdEntity>(
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(entityType) {
             override val entityIterable: Iterable<Entity>
-                get() = AssociationSemantics.getToMany(thisRef.entity, dbPropertyName ?: property.name)
+                get() = thisRef.reattach().getLinks(property.dbName)
 
             override fun add(entity: T) {
-                DirectedAssociationSemantics.createToMany(thisRef.entity, dbPropertyName ?: property.name, entity.entity)
+                thisRef.reattach().addLink(property.dbName, entity.reattach())
             }
 
             override fun remove(entity: T) {
-                DirectedAssociationSemantics.removeToMany(thisRef.entity, dbPropertyName ?: property.name, entity.entity)
+                thisRef.reattach().deleteLink(property.dbName, entity.reattach())
             }
 
             override fun clear() {
-                DirectedAssociationSemantics.clearToMany(thisRef.entity, dbPropertyName ?: property.name)
+                thisRef.reattach().deleteLinks(property.dbName)
             }
         }
     }

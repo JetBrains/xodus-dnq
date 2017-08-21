@@ -1,25 +1,26 @@
 package kotlinx.dnq.util
 
+import com.jetbrains.teamsys.dnq.database.EntityOperations
 import jetbrains.exodus.database.TransientEntity
-import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.PersistentEntityStore
 import kotlinx.dnq.XdEntity
 import java.io.InputStream
 
-fun Entity.reattach() = (this as TransientEntity).reattach()
-
-fun TransientEntity.reattach(): TransientEntity {
-    val threadSession = store.threadSession
+fun XdEntity.reattach(): TransientEntity {
+    val transientEntity = (entity as TransientEntity)
+    val threadSession = transientEntity.store.threadSession
             ?: throw IllegalStateException("There's no current session to attach transient entity to.")
-    return threadSession.newLocalCopy(this)
+    return threadSession.newLocalCopy(transientEntity)
 }
 
 fun <T : Comparable<*>> XdEntity.reattachAndGetPrimitiveValue(propertyName: String): T? {
     @Suppress("UNCHECKED_CAST")
-    return entity.reattach().getProperty(propertyName) as T?
+    return reattach().getProperty(propertyName) as T?
 }
 
 fun <T : Comparable<*>> XdEntity.reattachAndSetPrimitiveValue(propertyName: String, value: T?, clazz: Class<T>) {
-    val entity = entity.reattach()
+    val entity = reattach()
     if (value == null) {
         entity.deleteProperty(propertyName)
     } else {
@@ -38,11 +39,11 @@ fun <T : Comparable<*>> XdEntity.reattachAndSetPrimitiveValue(propertyName: Stri
 }
 
 fun XdEntity.reattachAndGetBlob(propertyName: String): InputStream? {
-    return entity.reattach().getBlob(propertyName)
+    return reattach().getBlob(propertyName)
 }
 
 fun XdEntity.reattachAndSetBlob(propertyName: String, value: InputStream?) {
-    val entity = entity.reattach()
+    val entity = reattach()
     if (value == null) {
         entity.deleteBlob(propertyName)
     } else {
@@ -51,11 +52,11 @@ fun XdEntity.reattachAndSetBlob(propertyName: String, value: InputStream?) {
 }
 
 fun XdEntity.reattachAndGetBlobString(propertyName: String): String? {
-    return entity.reattach().getBlobString(propertyName)
+    return reattach().getBlobString(propertyName)
 }
 
 fun XdEntity.reattachAndSetBlobString(propertyName: String, value: String?) {
-    val entity = entity.reattach()
+    val entity = reattach()
     if (value == null) {
         entity.deleteBlob(propertyName)
     } else {
@@ -63,6 +64,63 @@ fun XdEntity.reattachAndSetBlobString(propertyName: String, value: String?) {
     }
 }
 
-fun XdEntity.getOldValue(propertyName: String): Comparable<*>? {
+fun XdEntity.getOldPrimitiveValue(propertyName: String): Comparable<*>? {
     return (entity as TransientEntity).getPropertyOldValue(propertyName)
+}
+
+fun XdEntity.getAddedLinks(linkName: String): EntityIterable {
+    return reattach().getAddedLinks(linkName)
+}
+
+fun XdEntity.getRemovedLinks(linkName: String): EntityIterable {
+    return reattach().getRemovedLinks(linkName)
+}
+
+fun XdEntity.getOldLinkValue(linkName: String): TransientEntity? {
+    val entity = this.entity as TransientEntity
+    return if (EntityOperations.isRemoved(entity)) {
+        val transientStore = entity.store
+        val session = transientStore.threadSession
+        (transientStore.persistentStore as PersistentEntityStore)
+                .getEntity(entity.id)
+                .getLink(linkName)
+                ?.let { session.newEntity(it) }
+    } else {
+        getRemovedLinks(linkName).firstOrNull() as TransientEntity?
+    }
+}
+
+fun linkParentWithMultiChild(xdParent: XdEntity?, parentToChildLinkName: String, childToParentLinkName: String, xdChild: XdEntity) {
+    val parent = xdParent?.reattach()
+    val child = xdChild.reattach()
+
+    if (parent == null) {
+        child.removeFromParent(parentToChildLinkName, childToParentLinkName)
+    } else {
+        // child.childToParent = parent
+        parent.addChild(parentToChildLinkName, childToParentLinkName, child)
+    }
+}
+
+fun linkParentWithSingleChild(xdParent: XdEntity?, parentToChildLinkName: String, childToParentLinkName: String, xdChild: XdEntity?) {
+    val parent = xdParent?.reattach()
+    val child = xdChild?.reattach()
+
+    when {
+        parent != null && child != null -> parent.setChild(parentToChildLinkName, childToParentLinkName, child)
+        parent == null && child != null -> child.removeFromParent(parentToChildLinkName, childToParentLinkName)
+        parent != null && child == null -> parent.removeChild(parentToChildLinkName, childToParentLinkName)
+        parent == null && child == null -> throw IllegalArgumentException("Both entities can't be null.")
+    }
+}
+
+fun setOneToOne(xd1: XdEntity?, e1Toe2LinkName: String, e2Toe1LinkName: String, xd2: XdEntity?) {
+    val e1 = xd1?.reattach()
+    val e2 = xd2?.reattach()
+    when {
+        e1 != null && e2 != null -> e1.setOneToOne(e1Toe2LinkName, e2Toe1LinkName, e2)
+        e1 != null && e2 == null -> e1.setOneToOne(e1Toe2LinkName, e2Toe1LinkName, e2)
+        e1 == null && e2 != null -> e2.setOneToOne(e2Toe1LinkName, e1Toe2LinkName, e1)
+        e1 == null && e2 == null -> throw IllegalArgumentException("Both entities can't be null.")
+    }
 }

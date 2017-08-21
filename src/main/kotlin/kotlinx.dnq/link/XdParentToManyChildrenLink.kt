@@ -1,7 +1,5 @@
 package kotlinx.dnq.link
 
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
@@ -9,6 +7,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
+import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -31,18 +30,18 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(entityType) {
             override val entityIterable: Iterable<Entity>
-                get() = AssociationSemantics.getToMany(thisRef.entity, property.name)
+                get() = thisRef.reattach().getLinks(property.name)
 
             override fun add(entity: T) {
-                AggregationAssociationSemantics.createOneToMany(thisRef.entity, property.name, oppositeField.name, entity.entity)
+                thisRef.reattach().addChild(property.name, oppositeField.name, entity.reattach())
             }
 
             override fun remove(entity: T) {
-                AggregationAssociationSemantics.removeOneToMany(thisRef.entity, property.name, oppositeField.name, entity.entity)
+                entity.reattach().removeFromParent(property.name, oppositeField.name)
             }
 
             override fun clear() {
-                AggregationAssociationSemantics.clearOneToMany(thisRef.entity, property.name)
+                thisRef.reattach().clearChildren(property.name)
             }
         }
     }

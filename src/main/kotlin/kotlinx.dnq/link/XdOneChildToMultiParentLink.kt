@@ -1,11 +1,11 @@
 package kotlinx.dnq.link
 
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.util.linkParentWithSingleChild
+import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -25,13 +25,18 @@ class XdOneChildToMultiParentLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return AssociationSemantics.getToOne(thisRef.entity, property.name)?.let { value ->
+        return thisRef.reattach().getLink(property.name)?.let { value ->
             entityType.wrap(value)
         }
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        AggregationAssociationSemantics.setOneToOne(value?.entity, oppositeField.name, property.name, thisRef.entity)
+        linkParentWithSingleChild(
+                xdParent = value,
+                parentToChildLinkName = oppositeField.name,
+                childToParentLinkName = property.name,
+                xdChild = thisRef
+        )
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null

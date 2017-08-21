@@ -1,12 +1,12 @@
 package kotlinx.dnq.link
 
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.util.linkParentWithSingleChild
+import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -26,17 +26,21 @@ class XdOneChildToParentLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val parent = AssociationSemantics.getToOne(thisRef.entity, property.name) ?:
+        val parent = thisRef.reattach().getLink(property.name) ?:
                 throw RequiredPropertyUndefinedException(thisRef, property)
         return entityType.wrap(parent)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        AggregationAssociationSemantics.setOneToOne(value.entity, oppositeField.name, property.name, thisRef.entity)
+        linkParentWithSingleChild(
+                xdParent = value,
+                parentToChildLinkName = oppositeField.name,
+                childToParentLinkName = property.name,
+                xdChild = thisRef)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return AssociationSemantics.getToOne(thisRef.entity, property.name) != null
+        return thisRef.reattach().getLink(property.name) != null
     }
 }
 

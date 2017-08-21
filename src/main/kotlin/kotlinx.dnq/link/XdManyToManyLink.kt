@@ -1,7 +1,5 @@
 package kotlinx.dnq.link
 
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics
-import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
@@ -9,6 +7,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
+import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -34,18 +33,19 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(entityType) {
             override val entityIterable: Iterable<Entity>
-                get() = AssociationSemantics.getToMany(thisRef.entity, dbPropertyName ?: property.name)
+                get() = thisRef.reattach().getLinks(property.dbName)
 
             override fun add(entity: T) {
-                UndirectedAssociationSemantics.createManyToMany(thisRef.entity, dbPropertyName ?: property.name, dbOppositePropertyName ?: oppositeField.name, entity.entity)
+                thisRef.reattach().createManyToMany(property.dbName, dbOppositePropertyName ?: oppositeField.name, entity.reattach())
             }
 
             override fun remove(entity: T) {
-                UndirectedAssociationSemantics.removeManyToMany(thisRef.entity, dbPropertyName ?: property.name, dbOppositePropertyName ?: oppositeField.name, entity.entity)
+                thisRef.reattach().deleteLink(property.dbName, entity.reattach())
+                entity.reattach().deleteLink(dbOppositePropertyName ?: oppositeField.name, thisRef.reattach())
             }
 
             override fun clear() {
-                UndirectedAssociationSemantics.clearManyToMany(thisRef.entity, dbPropertyName ?: property.name, dbOppositePropertyName ?: oppositeField.name)
+                thisRef.reattach().clearManyToMany(property.dbName, dbOppositePropertyName ?: oppositeField.name)
             }
         }
     }

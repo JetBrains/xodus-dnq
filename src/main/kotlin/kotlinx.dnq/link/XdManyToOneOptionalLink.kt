@@ -1,12 +1,11 @@
 package kotlinx.dnq.link
 
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics
-import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
+import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -29,19 +28,16 @@ class XdManyToOneOptionalLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return AssociationSemantics.getToOne(thisRef.entity, dbPropertyName ?: property.name)?.let { value ->
+        return thisRef.reattach().getLink(property.dbName)?.let { value ->
             entityType.wrap(value)
         }
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
         if (value != null) {
-            UndirectedAssociationSemantics.setManyToOne(value.entity, dbOppositePropertyName ?: oppositeField.name, dbPropertyName ?: property.name, thisRef.entity)
+            thisRef.reattach().setManyToOne(property.dbName, dbOppositePropertyName ?: oppositeField.name, value.reattach())
         } else {
-            val currentValue = getValue(thisRef, property)
-            if (currentValue != null) {
-                UndirectedAssociationSemantics.removeOneToMany(currentValue.entity, dbOppositePropertyName ?: oppositeField.name, dbPropertyName ?: property.name, thisRef.entity)
-            }
+            getValue(thisRef, property)?.reattach()?.removeOneToMany(property.dbName, dbOppositePropertyName ?: oppositeField.name, thisRef.reattach())
         }
     }
 

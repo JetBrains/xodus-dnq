@@ -7,7 +7,7 @@ import kotlinx.dnq.XdEntityType
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
-abstract class XdLink<in R, out T: XdEntity>(
+abstract class XdLink<in R, out T : XdEntity>(
         val oppositeEntityType: XdEntityType<T>,
         val dbPropertyName: String?,
         val dbOppositePropertyName: String?,
@@ -15,6 +15,8 @@ abstract class XdLink<in R, out T: XdEntity>(
 
     open val oppositeField: KProperty1<*, *>?
         get() = null
+
+    internal val KProperty<*>.dbName get() = dbPropertyName ?: name
 
     abstract fun isDefined(thisRef: R, property: KProperty<*>): Boolean
 }

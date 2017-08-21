@@ -1,13 +1,12 @@
 package kotlinx.dnq.link
 
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics
-import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
+import kotlinx.dnq.util.reattach
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -30,17 +29,17 @@ class XdManyToOneRequiredLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val entity = AssociationSemantics.getToOne(thisRef.entity, dbPropertyName ?: property.name) ?:
+        val entity = thisRef.reattach().getLink(property.dbName) ?:
                 throw RequiredPropertyUndefinedException(thisRef, property)
         return entityType.wrap(entity)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        UndirectedAssociationSemantics.setManyToOne(value.entity, dbOppositePropertyName ?: oppositeField.name, dbPropertyName ?: property.name, thisRef.entity)
+        thisRef.reattach().setManyToOne(property.dbName, dbOppositePropertyName ?: oppositeField.name, value.reattach())
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return AssociationSemantics.getToOne(thisRef.entity, dbPropertyName ?: property.name) != null
+        return thisRef.reattach().getLink(property.dbName) != null
     }
 }
 
