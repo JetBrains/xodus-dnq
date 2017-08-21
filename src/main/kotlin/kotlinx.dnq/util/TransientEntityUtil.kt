@@ -113,14 +113,3 @@ fun linkParentWithSingleChild(xdParent: XdEntity?, parentToChildLinkName: String
         parent == null && child == null -> throw IllegalArgumentException("Both entities can't be null.")
     }
 }
-
-fun setOneToOne(xd1: XdEntity?, e1Toe2LinkName: String, e2Toe1LinkName: String, xd2: XdEntity?) {
-    val e1 = xd1?.reattach()
-    val e2 = xd2?.reattach()
-    when {
-        e1 != null && e2 != null -> e1.setOneToOne(e1Toe2LinkName, e2Toe1LinkName, e2)
-        e1 != null && e2 == null -> e1.setOneToOne(e1Toe2LinkName, e2Toe1LinkName, e2)
-        e1 == null && e2 != null -> e2.setOneToOne(e2Toe1LinkName, e1Toe2LinkName, e1)
-        e1 == null && e2 == null -> throw IllegalArgumentException("Both entities can't be null.")
-    }
-}

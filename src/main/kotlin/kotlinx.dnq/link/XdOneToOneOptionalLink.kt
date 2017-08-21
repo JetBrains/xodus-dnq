@@ -5,7 +5,6 @@ import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.util.reattach
-import kotlinx.dnq.util.setOneToOne
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -34,7 +33,7 @@ class XdOneToOneOptionalLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        setOneToOne(thisRef, property.dbName, dbOppositePropertyName ?: oppositeField.name, value)
+        thisRef.reattach().setOneToOne(property.dbName, dbOppositePropertyName ?: oppositeField.name, value?.reattach())
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null
