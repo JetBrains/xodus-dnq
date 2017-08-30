@@ -855,7 +855,11 @@ public class TransientSessionImpl implements TransientStoreSession {
         for (Pair<TransientEntity, Index> deletion : uniqueKeyDeletions) {
             TransientEntity e = deletion.getFirst();
             Index index = deletion.getSecond();
-            ukiEngine.deleteUniqueKey(persistentTransaction, index, getIndexFieldsOriginalValues(e, index));
+            final List<Comparable> originalValues = getIndexFieldsOriginalValues(e, index);
+            // ignore null values; work around for JT-43108
+            if (!originalValues.contains(null)) {
+                ukiEngine.deleteUniqueKey(persistentTransaction, index, originalValues);
+            }
         }
 
         for (Pair<TransientEntity, Index> insertion : uniqueKeyInsertions) {
