@@ -102,6 +102,11 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Override
+    public boolean isFinished() {
+        return getPersistentTransaction().isFinished();
+    }
+
+    @Override
     public void setUpgradeHook(@Nullable final Runnable hook) {
         upgradeHook = hook;
     }
