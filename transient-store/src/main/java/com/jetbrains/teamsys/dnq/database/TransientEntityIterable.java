@@ -5,10 +5,10 @@ import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -22,7 +22,7 @@ import java.util.Set;
  */
 public class TransientEntityIterable implements EntityIterableWrapper {
 
-    private static final Log log = LogFactory.getLog(TransientEntityIterable.class);
+    private static final Logger logger = LoggerFactory.getLogger(TransientEntityIterable.class);
 
     protected final Set<TransientEntity> values;
     //@NotNull private final EntityIterable source;
@@ -34,29 +34,29 @@ public class TransientEntityIterable implements EntityIterableWrapper {
     }
 
     public long size() {
-        if (log.isWarnEnabled()) {
-            log.warn("size() is requested from TransientEntityIterable!");
+        if (logger.isWarnEnabled()) {
+            logger.warn("size() is requested from TransientEntityIterable!");
         }
         return values.size();
     }
 
     public long count() {
-        if (log.isWarnEnabled()) {
-            log.warn("count() is requested from TransientEntityIterable!");
+        if (logger.isWarnEnabled()) {
+            logger.warn("count() is requested from TransientEntityIterable!");
         }
         return values.size();
     }
 
     public long getRoughCount() {
-        if (log.isWarnEnabled()) {
-            log.warn("getRoughCount() is requested from TransientEntityIterable!");
+        if (logger.isWarnEnabled()) {
+            logger.warn("getRoughCount() is requested from TransientEntityIterable!");
         }
         return values.size();
     }
 
     public long getRoughSize() {
-        if (log.isWarnEnabled()) {
-            log.warn("getRoughCount() is requested from TransientEntityIterable!");
+        if (logger.isWarnEnabled()) {
+            logger.warn("getRoughCount() is requested from TransientEntityIterable!");
         }
         return values.size();
     }
@@ -182,8 +182,8 @@ public class TransientEntityIterable implements EntityIterableWrapper {
     }
 
     public EntityIterator iterator() {
-        if (log.isTraceEnabled()) {
-            log.trace("New iterator requested for transient iterable " + this);
+        if (logger.isTraceEnabled()) {
+            logger.trace("New iterator requested for transient iterable " + this);
         }
         return new TransientEntityIterator(values.iterator());
     }

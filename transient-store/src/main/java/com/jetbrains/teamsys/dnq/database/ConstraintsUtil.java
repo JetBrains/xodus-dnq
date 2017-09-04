@@ -6,23 +6,28 @@ import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.database.LinkChange;
+import jetbrains.exodus.database.TransientChangesTracker;
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.database.exceptions.CardinalityViolationException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.exodus.database.exceptions.NullPropertyException;
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
+import jetbrains.exodus.entitystore.Entity;
+import jetbrains.exodus.entitystore.EntityIterable;
+import jetbrains.exodus.entitystore.EntityIterator;
 import jetbrains.exodus.query.metadata.*;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 @SuppressWarnings({"ThrowableInstanceNeverThrown"})
 class ConstraintsUtil {
 
-    private static final Log log = LogFactory.getLog(ConstraintsUtil.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConstraintsUtil.class);
 
     static boolean checkCardinality(TransientEntity e, AssociationEndMetaData md) {
         final AssociationEndCardinality cardinality = md.getCardinality();
@@ -101,8 +106,8 @@ class ConstraintsUtil {
                 if (e.isNew()) {
                     // check all links of new entity
                     for (AssociationEndMetaData aemd : md.getAssociationEndsMetaData()) {
-                        if (log.isTraceEnabled()) {
-                            log.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
                         }
 
                         if (!checkCardinality(e, aemd)) {
@@ -117,10 +122,10 @@ class ConstraintsUtil {
                             AssociationEndMetaData aemd = md.getAssociationEndMetaData(changedLink);
 
                             if (aemd == null) {
-                                log.debug("aemd is null. Type: [" + e.getType() + "]. Changed link: " + changedLink);
+                                logger.debug("aemd is null. Type: [" + e.getType() + "]. Changed link: " + changedLink);
                             } else {
-                                if (log.isTraceEnabled()) {
-                                    log.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
+                                if (logger.isTraceEnabled()) {
+                                    logger.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
                                 }
 
                                 if (!checkCardinality(e, aemd)) {
@@ -143,13 +148,13 @@ class ConstraintsUtil {
         for (AssociationEndMetaData amd : emd.getAssociationEndsMetaData()) {
             if (amd.getCascadeDelete() || amd.getClearOnDelete()) {
 
-                if (log.isDebugEnabled()) {
+                if (logger.isDebugEnabled()) {
                     if (amd.getCascadeDelete()) {
-                        log.debug("Cascade delete targets for link [" + e + "]." + amd.getName());
+                        logger.debug("Cascade delete targets for link [" + e + "]." + amd.getName());
                     }
 
                     if (amd.getClearOnDelete()) {
-                        log.debug("Clear associations with targets for link [" + e + "]." + amd.getName());
+                        logger.debug("Clear associations with targets for link [" + e + "]." + amd.getName());
                     }
                 }
                 processOnSourceDeleteConstrains(e, amd, callDestructorsPhase, processed);
@@ -189,13 +194,13 @@ class ConstraintsUtil {
 
             if (!linkRemoved) {
                 if (amd.getTargetCascadeDelete()) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("cascade delete targets for link [" + source + "]." + linkName);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("cascade delete targets for link [" + source + "]." + linkName);
                     }
                     EntityOperations.remove(source, callDestructorsPhase, processed);
                 } else if (amd.getTargetClearOnDelete() && !callDestructorsPhase) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("clear associations with targets for link [" + source + "]." + linkName);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("clear associations with targets for link [" + source + "]." + linkName);
                     }
                     removeLink(source, target, amd);
                 }
@@ -485,7 +490,7 @@ class ConstraintsUtil {
         final PropertyMetaData pmd = propertyMetaData;
         final PropertyType type;
         if (pmd == null) {
-            log.warn("Can't determine property type. Try to get property value as if it of primitive type.");
+            logger.warn("Can't determine property type. Try to get property value as if it of primitive type.");
             type = PropertyType.PRIMITIVE;
         } else {
             type = pmd.getType();

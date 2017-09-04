@@ -1,16 +1,16 @@
 package com.jetbrains.teamsys.dnq.database.refactorings;
 
+import jetbrains.exodus.ExodusException;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.PersistentEntityStore;
 import jetbrains.exodus.entitystore.StoreTransaction;
-import jetbrains.exodus.ExodusException;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RefactorIssueCommentsFromStringToText implements Runnable {
 
-    private static final Log log = LogFactory.getLog(RefactorIssueCommentsFromStringToText.class);
+    private static final Logger logger = LoggerFactory.getLogger(RefactorIssueCommentsFromStringToText.class);
 
     @NotNull
     private final PersistentEntityStore store;
@@ -22,7 +22,7 @@ public class RefactorIssueCommentsFromStringToText implements Runnable {
     public void run() {
         final StoreTransaction txn = store.getCurrentTransaction();
         for (final Entity comment : txn.getAll("IssueComment")) {
-            log.debug("Refactoring " + comment);
+            logger.debug("Refactoring " + comment);
             try {
                 final String text = (String) comment.getProperty("text");
                 if (text != null && text.length() > 0) {

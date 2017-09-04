@@ -7,10 +7,10 @@ import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.query.metadata.EntityMetaData;
 import jetbrains.exodus.query.metadata.ModelMetaData;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 
@@ -18,7 +18,7 @@ import java.util.Set;
 
 public class EntityOperations {
 
-    private static final Log log = LogFactory.getLog(EntityOperations.class);
+    private static final Logger logger = LoggerFactory.getLogger(EntityOperations.class);
 
     private EntityOperations() {
     }
@@ -102,8 +102,8 @@ public class EntityOperations {
      * @deprecated slow method. for testcases only.
      */
     public static Entity getElement(@NotNull Iterable<Entity> entities, int i) {
-        if (log.isWarnEnabled()) {
-            log.warn("Slow method getElementOfMultiple() was called!");
+        if (logger.isWarnEnabled()) {
+            logger.warn("Slow method getElementOfMultiple() was called!");
         }
 
         int j = 0;

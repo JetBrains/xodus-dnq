@@ -2,9 +2,8 @@ package jetbrains.exodus.database;
 
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.EntityStore;
-import jetbrains.exodus.entitystore.StoreTransaction;
-import jetbrains.exodus.query.metadata.ModelMetaData;
 import jetbrains.exodus.query.QueryEngine;
+import jetbrains.exodus.query.metadata.ModelMetaData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,6 +20,7 @@ public interface TransientEntityStore extends EntityStore, EntityStoreRefactorin
 
     TransientStoreSession beginSession();
 
+    @Nullable
     TransientStoreSession getThreadSession();
 
     @Nullable

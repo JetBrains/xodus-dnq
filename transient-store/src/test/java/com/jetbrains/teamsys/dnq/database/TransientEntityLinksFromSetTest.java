@@ -1,21 +1,24 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
-import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
+import com.jetbrains.teamsys.dnq.database.testing.TestBase;
 import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
+import org.junit.Test;
 
-public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTestCase {
+import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
+public class TransientEntityLinksFromSetTest extends TestBase {
+
+    @Test
     public void testAll() {
         TransientEntity i1, i2, i3, i4;
-        TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
         TransientStoreSession session = store.beginSession();
         try {
             i1 = createIssue(session);
@@ -29,7 +32,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
             TransientStoreUtil.commit(session);
         }
 
-        final HashSet<String> names = new HashSet<String>();
+        final HashSet<String> names = new HashSet<>();
         names.add("dup");
         names.add("hup");
 
@@ -89,9 +92,9 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
         }
     }
 
+    @Test
     public void testWD_2060() {
         TransientEntity i;
-        TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
         TransientStoreSession session = store.beginSession();
         try {
             i = ro(createIssue(session), session);
@@ -105,7 +108,7 @@ public class TransientEntityLinksFromSetTest extends AbstractEntityStoreAwareTes
     }
 
     private static TransientEntity createIssue(TransientStoreSession session) {
-        return (TransientEntity) session.newEntity("Issue");
+        return session.newEntity("Issue");
     }
 
     private static TransientEntity ro(TransientEntity i1, TransientStoreSession session) {

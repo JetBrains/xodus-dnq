@@ -17,10 +17,10 @@ import jetbrains.exodus.query.metadata.Index;
 import jetbrains.exodus.query.metadata.IndexField;
 import jetbrains.exodus.query.metadata.ModelMetaData;
 import jetbrains.exodus.util.ByteArraySizedInputStream;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,7 +31,7 @@ import java.util.*;
  */
 public class TransientSessionImpl implements TransientStoreSession {
 
-    protected static final Log log = LogFactory.getLog(TransientSessionImpl.class);
+    protected static final Logger logger = LoggerFactory.getLogger(TransientSessionImpl.class);
 
     private static final String CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__";
     private static final String PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__";
@@ -59,7 +59,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         this.store.getPersistentStore().beginReadonlyTransaction();
         this.state = State.Open;
         this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
-        if (LogFactory.getLog(TransientEntityStoreImpl.class).isDebugEnabled()) {
+        if (LoggerFactory.getLogger(TransientEntityStoreImpl.class).isDebugEnabled()) {
             stack = new Throwable();
         }
         initChangesTracker(true);
@@ -183,8 +183,8 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     @Override
     public void revert() {
-        if (log.isDebugEnabled()) {
-            log.debug("Revert transient session " + this);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Revert transient session " + this);
         }
         assertOpen("revert");
 
@@ -204,14 +204,14 @@ public class TransientSessionImpl implements TransientStoreSession {
             throw new IllegalStateException("Can't commit session from another thread.");
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Intermidiate commit transient session " + this);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Intermidiate commit transient session " + this);
         }
 
         assertOpen("flush");
 
         if (changes.isEmpty()) {
-            log.trace("Nothing to flush.");
+            logger.trace("Nothing to flush.");
         } else {
             flushChanges();
             changes.clear();
@@ -253,8 +253,8 @@ public class TransientSessionImpl implements TransientStoreSession {
             throw new IllegalStateException("Can't abort session that is not current thread session. Current thread session is [" + store.getThreadSession() + "]");
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Abort transient session " + this);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Abort transient session " + this);
         }
         assertOpen("abort");
         try {
@@ -445,8 +445,8 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     protected void closePersistentSession() {
-        if (log.isDebugEnabled()) {
-            log.debug("Close persistent session for transient session " + this);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Close persistent session for transient session " + this);
         }
         StoreTransaction persistentTxn = getPersistentTransactionInternal();
         if (persistentTxn != null) {
@@ -505,8 +505,8 @@ public class TransientSessionImpl implements TransientStoreSession {
                 if (emd != null && emd.hasAggregationChildEnds() && !EntityMetaDataUtils.hasParent(emd, e, changesTracker)) {
                     if (emd.getRemoveOrphan()) {
                         // has no parent - remove
-                        if (log.isDebugEnabled()) {
-                            log.debug("Remove orphan: " + e);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Remove orphan: " + e);
                         }
 
                         // we don't want this change to be repeated on flush
@@ -562,7 +562,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             // optimization: inlined entity.isRemoved()
                 changesTracker.isRemoved(entity)) {
             EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
-            log.warn("Entity [" + entity + "] was removed by you.");
+            logger.warn("Entity [" + entity + "] was removed by you.");
             throw entityRemovedException;
         } else if (
             // optimization: inlined entity.isNew()
@@ -589,7 +589,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                     // optimization: inlined localCopy.isRemoved()
                         changesTracker.isRemoved(localCopy)) {
                     EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
-                    log.warn("Local copy of entity [" + entity + "] was removed by you.");
+                    logger.warn("Local copy of entity [" + entity + "] was removed by you.");
                     throw entityRemovedException;
                 }
                 return localCopy;
@@ -598,7 +598,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                 // load persistent entity from database by id
                 return newEntity(getPersistentTransactionInternal().getEntity(entityId));
             } catch (EntityRemovedInDatabaseException e) {
-                log.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
+                logger.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
                 throw e;
             }
         } else {
@@ -659,14 +659,14 @@ public class TransientSessionImpl implements TransientStoreSession {
         final ModelMetaData modelMetaData = store.getModelMetaData();
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
-            if (log.isWarnEnabled()) {
-                log.warn("Quiet intermediate commit: skip before save changes constraints checking. " + this);
+            if (logger.isWarnEnabled()) {
+                logger.warn("Quiet intermediate commit: skip before save changes constraints checking. " + this);
             }
             return;
         }
 
-        if (log.isTraceEnabled()) {
-            log.trace("Check before save changes constraints. " + this);
+        if (logger.isTraceEnabled()) {
+            logger.trace("Check before save changes constraints. " + this);
         }
 
         // 0. check incoming links for deleted entities
@@ -691,8 +691,8 @@ public class TransientSessionImpl implements TransientStoreSession {
                     try {
                         listener.afterConstraintsFail(exceptions);
                     } catch (Exception e) {
-                        if (log.isErrorEnabled()) {
-                            log.error("Exception while inside listener [" + listener + "]", e);
+                        if (logger.isErrorEnabled()) {
+                            logger.error("Exception while inside listener [" + listener + "]", e);
                         }
                         // do not rethrow exception, because we are after constaints fail
                     }
@@ -709,14 +709,14 @@ public class TransientSessionImpl implements TransientStoreSession {
         final ModelMetaData modelMetaData = store.getModelMetaData();
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
-            if (log.isDebugEnabled()) {
-                log.warn("Quiet intermediate commit: skip before flush triggers. " + this);
+            if (logger.isDebugEnabled()) {
+                logger.warn("Quiet intermediate commit: skip before flush triggers. " + this);
             }
             return;
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Execute before flush triggers. " + this);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Execute before flush triggers. " + this);
         }
 
         final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
@@ -780,8 +780,8 @@ public class TransientSessionImpl implements TransientStoreSession {
                     store.flushLock.unlock();
                 }
             } catch (Throwable exception) {
-                if (log.isInfoEnabled()) {
-                    log.info("Catch exception in flush: " + exception.getMessage());
+                if (logger.isInfoEnabled()) {
+                    logger.info("Catch exception in flush: " + exception.getMessage());
                 }
                 if (exception instanceof DataIntegrityViolationException) {
                     txn.revert();
@@ -803,8 +803,8 @@ public class TransientSessionImpl implements TransientStoreSession {
             allowRunnables = true;
         }
 
-        if (log.isTraceEnabled()) {
-            log.trace("Flush persistent transaction in transient session " + this);
+        if (logger.isTraceEnabled()) {
+            logger.trace("Flush persistent transaction in transient session " + this);
         }
     }
 
@@ -1042,8 +1042,8 @@ public class TransientSessionImpl implements TransientStoreSession {
             return;
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Notify flushed listeners " + this);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Notify flushed listeners " + this);
         }
 
         store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
@@ -1051,8 +1051,8 @@ public class TransientSessionImpl implements TransientStoreSession {
                 try {
                     listener.flushed(changesDescription);
                 } catch (Exception e) {
-                    if (log.isErrorEnabled()) {
-                        log.error("Exception while inside listener [" + listener + "]", e);
+                    if (logger.isErrorEnabled()) {
+                        logger.error("Exception while inside listener [" + listener + "]", e);
                     }
                     // do not rethrow exception
                 }
@@ -1065,8 +1065,8 @@ public class TransientSessionImpl implements TransientStoreSession {
             try {
                 ep.flushed(oldChangesTracker, changesDescription);
             } catch (Exception e) {
-                if (log.isErrorEnabled()) {
-                    log.error("Exception while inside events multiplexer", e);
+                if (logger.isErrorEnabled()) {
+                    logger.error("Exception while inside events multiplexer", e);
                 }
                 oldChangesTracker.dispose();
             }
@@ -1078,8 +1078,8 @@ public class TransientSessionImpl implements TransientStoreSession {
     private void notifyBeforeFlushListeners(final Set<TransientEntityChange> changes) {
         if (changes == null || changes.isEmpty()) return;
 
-        if (log.isDebugEnabled()) {
-            log.debug("Notify before flush listeners " + this);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Notify before flush listeners " + this);
         }
 
         store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
@@ -1087,8 +1087,8 @@ public class TransientSessionImpl implements TransientStoreSession {
                 try {
                     listener.beforeFlush(changes);
                 } catch (Exception e) {
-                    if (log.isErrorEnabled()) {
-                        log.error("Exception while inside listener [" + listener + "]", e);
+                    if (logger.isErrorEnabled()) {
+                        logger.error("Exception while inside listener [" + listener + "]", e);
                     }
                     // rethrow exception, because we are before constraints check
                     decodeException(e);
@@ -1103,8 +1103,8 @@ public class TransientSessionImpl implements TransientStoreSession {
 
         if (changesDescr.isEmpty()) return;
 
-        if (log.isDebugEnabled()) {
-            log.debug("Notify before flush after constraints check listeners " + this);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Notify before flush after constraints check listeners " + this);
         }
 
         // check side effects in listeners
@@ -1114,8 +1114,8 @@ public class TransientSessionImpl implements TransientStoreSession {
                 try {
                     listener.beforeFlushAfterConstraintsCheck(changesDescr);
                 } catch (Exception e) {
-                    if (log.isErrorEnabled()) {
-                        log.error("Exception while inside listener [" + listener + "]", e);
+                    if (logger.isErrorEnabled()) {
+                        logger.error("Exception while inside listener [" + listener + "]", e);
                     }
                     // do not rethrow exceptipon, because we are after constaints check
                 }

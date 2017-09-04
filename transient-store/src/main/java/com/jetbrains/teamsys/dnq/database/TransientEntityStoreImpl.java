@@ -8,13 +8,13 @@ import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.database.TransientStoreSessionListener;
 import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.query.metadata.ModelMetaData;
 import jetbrains.exodus.env.EnvironmentConfig;
 import jetbrains.exodus.query.QueryEngine;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import jetbrains.exodus.query.metadata.ModelMetaData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Map;
@@ -27,7 +27,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class TransientEntityStoreImpl implements TransientEntityStore {
 
-    private static final Log log = LogFactory.getLog(TransientEntityStoreImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(TransientEntityStoreImpl.class);
 
     private EntityStore persistentStore;
     private QueryEngine queryEngine;
@@ -49,8 +49,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     final ReentrantLock flushLock = new ReentrantLock(true); // fair flushLock
 
     public TransientEntityStoreImpl() {
-        if (log.isTraceEnabled()) {
-            log.trace("TransientEntityStoreImpl constructor called.");
+        if (logger.isTraceEnabled()) {
+            logger.trace("TransientEntityStoreImpl constructor called.");
         }
     }
 
@@ -71,7 +71,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     }
 
     /**
-     * Service locator {@link jetbrains.springframework.configuration.runtime.ServiceLocator} is responsible to set persistent entity store
+     * Must be injected.
      *
      * @param persistentStore persistent entity store.
      */
@@ -88,9 +88,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     }
 
     /**
-     * Service locator {@link jetbrains.springframework.configuration.runtime.ServiceLocator} is responsible to set query engine
+     * Must be injected.
      *
-     * @param persistentStore persistent entity store.
+     * @param queryEngine query engine.
      */
     @SuppressWarnings({"UnusedDeclaration"})
     public void setQueryEngine(QueryEngine queryEngine) {
@@ -134,13 +134,13 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     public TransientStoreSession beginSession() {
         assertOpen();
 
-        if (log.isDebugEnabled()) {
-            log.debug("Begin new session");
+        if (logger.isDebugEnabled()) {
+            logger.debug("Begin new session");
         }
 
         TransientStoreSession currentSession = this.currentSession.get();
         if (currentSession != null) {
-            log.debug("Return session already associated with the current thread " + currentSession);
+            logger.debug("Return session already associated with the current thread " + currentSession);
             return currentSession;
         }
 
@@ -191,17 +191,17 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
 
         eventsMultiplexer.onClose(this);
 
-        log.info("Close transient store.");
+        logger.info("Close transient store.");
         closed = true;
 
         int sessionsSize = sessions.size();
         if (sessionsSize > 0) {
-            log.warn("There're " + sessionsSize + " open transient sessions. Print.");
-            if (log.isDebugEnabled()) {
+            logger.warn("There're " + sessionsSize + " open transient sessions. Print.");
+            if (logger.isDebugEnabled()) {
                 for (TransientStoreSession session : sessions) {
                     TransientSessionImpl impl = session instanceof TransientSessionImpl ? (TransientSessionImpl) session : null;
                     if (impl != null) {
-                        log.warn("Not closed session stack trace: ", impl.getStack());
+                        logger.warn("Not closed session stack trace: ", impl.getStack());
                     }
                 }
             }
@@ -399,8 +399,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         persistentClassInstanceCache.put(entityType, instance);
         Class<? extends BasePersistentClassImpl> clazz = instance.getClass();
         if (persistentClassInstances.get(clazz) != null) {
-            if (log.isWarnEnabled()) {
-                log.warn("Persistent class instance already registered for: " + clazz.getSimpleName());
+            if (logger.isWarnEnabled()) {
+                logger.warn("Persistent class instance already registered for: " + clazz.getSimpleName());
             }
         }
         persistentClassInstances.put(clazz, instance);

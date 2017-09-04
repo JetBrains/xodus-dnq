@@ -2,9 +2,9 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.query.metadata.*;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Iterator;
 import java.util.Set;
@@ -18,7 +18,7 @@ import java.util.Set;
  */
 public class ValidationUtil {
 
-    private static final Log log = LogFactory.getLog(ConstraintsUtil.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConstraintsUtil.class);
 
 
     public static void validateEntity(@NotNull Entity entity, @NotNull ModelMetaData modelMetaData) {
@@ -35,8 +35,8 @@ public class ValidationUtil {
     static void validateAssociations(@NotNull Entity entity, @NotNull ModelMetaData modelMetaData) {
         EntityMetaData md = modelMetaData.getEntityMetaData(entity.getType());
         for (AssociationEndMetaData aemd : md.getAssociationEndsMetaData()) {
-            if (log.isTraceEnabled()) {
-                log.trace("Validate cardinality [" + entity.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
+            if (logger.isTraceEnabled()) {
+                logger.trace("Validate cardinality [" + entity.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
             }
 
             if (!checkCardinality(entity, aemd)) {
@@ -97,7 +97,7 @@ public class ValidationUtil {
         final PropertyMetaData pmd = emd.getPropertyMetaData(name);
         final PropertyType type;
         if (pmd == null) {
-            log.warn("Can't determine property type. Try to get property value as if it of primitive type.");
+            logger.warn("Can't determine property type. Try to get property value as if it of primitive type.");
             type = PropertyType.PRIMITIVE;
         } else {
             type = pmd.getType();
@@ -139,19 +139,19 @@ public class ValidationUtil {
     // Error log
 
     private static void noProperty(Entity entity, String propertyName) {
-        log.error("Validation: Property [" + entity + "." + propertyName + "]" + " is empty.");
+        logger.error("Validation: Property [" + entity + "." + propertyName + "]" + " is empty.");
     }
 
     private static void unknownCardinality(AssociationEndCardinality cardinality) {
-        log.error("Validation: Unknown cardinality [" + cardinality + "]");
+        logger.error("Validation: Unknown cardinality [" + cardinality + "]");
     }
 
     private static void cardinalityViolation(Entity entity, AssociationEndMetaData md) {
-        log.error("Validation: Cardinality violation for [" + entity + "." + md.getName() + "]. Required cardinality is [" + md.getCardinality().getName() + "]");
+        logger.error("Validation: Cardinality violation for [" + entity + "." + md.getName() + "]. Required cardinality is [" + md.getCardinality().getName() + "]");
     }
 
     private static void fakeEntityLink(Entity entity, String associationName) {
-        log.error("Validation: Null entity in the [" + entity + "." + associationName + "]");
+        logger.error("Validation: Null entity in the [" + entity + "." + associationName + "]");
     }
 
 }

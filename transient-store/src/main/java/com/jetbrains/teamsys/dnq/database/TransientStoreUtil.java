@@ -4,14 +4,16 @@ import jetbrains.exodus.core.dataStructures.hash.LongHashSet;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.Entity;
+import jetbrains.exodus.entitystore.EntityIterable;
+import jetbrains.exodus.entitystore.PersistentEntity;
+import jetbrains.exodus.entitystore.PersistentEntityStoreImpl;
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import jetbrains.exodus.query.metadata.EntityMetaData;
 import jetbrains.exodus.query.StaticTypedEntityIterable;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Map;
@@ -25,7 +27,7 @@ import java.util.Set;
  */
 public class TransientStoreUtil {
 
-    private static final Log log = LogFactory.getLog(TransientStoreUtil.class);
+    private static final Logger logger = LoggerFactory.getLogger(TransientStoreUtil.class);
     private static final LongHashSet POSTPONE_UNIQUE_INDICES = new LongHashSet(10);
 
     public static TransientStoreSession getCurrentSession(TransientEntity e) {

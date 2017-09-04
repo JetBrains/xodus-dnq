@@ -1,17 +1,11 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
-import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
-import jetbrains.exodus.database.TransientEntityStore;
+import com.jetbrains.teamsys.dnq.database.testing.TestBase;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.Entity;
-import jetbrains.mps.internal.collections.runtime.ListSequence;
-import jetbrains.teamsys.dnq.runtime.events.EventsMultiplexerJobProcessor;
-
-import java.util.Collections;
-import java.util.List;
+import org.junit.Test;
 
 /**
  * Date: 14.12.2006
@@ -19,53 +13,38 @@ import java.util.List;
  *
  * @author Vadim.Gurov
  */
-public class StoreStartupTest extends AbstractEntityStoreAwareTestCase {
+public class StoreStartupTest extends TestBase {
 
-  public void testGetAllWithtransient() throws Exception {
-    // 1
+    @Test
+    public void testGetAllWithtransient() throws Exception {
+        createUsers();
 
-    createUsers();
+        reinit();
 
-    //
-    setRemoveStoreOnTearsDown(false);
-    EventsMultiplexerJobProcessor.getInstance().waitForJobs(100);
-    tearDown();
-    setRemoveStoreOnTearsDown(true);
-    setUp();
-    //
-
-    createUsers();
-
-    // 2
-  }
-
-  public void createUsers() {
-    TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession session = store.beginSession();
-    try {
-
-      if(ListSequence.fromIterable(TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().getAll("User")).size() > 0) {
-        return;
-      }
-
-      Entity u = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("User");
-      PrimitiveAssociationSemantics.set(u, "username", (Comparable)"vadim");
-      PrimitiveAssociationSemantics.set(u, "password", (Comparable)"vadim");
-      Entity i = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue");
-      DirectedAssociationSemantics.setToOne(i, "reporter", (Entity)u);
-      PrimitiveAssociationSemantics.set(i, "summary", (Comparable)"test issue");
-
-    } catch (Throwable e) {
-      TransientStoreUtil.abort(e, session);
-      throw new RuntimeException();
-    } finally {
-      TransientStoreUtil.commit(session);
+        createUsers();
     }
-  }
 
-  @Override
-  protected List<String> getCustomConfig() {
-    return Collections.singletonList("classpath*:com/jetbrains/mps/dnq/database/events/*Configuration.xml");
-  }
+    public void createUsers() {
+        TransientStoreSession session = store.beginSession();
+        try {
+
+            if ((store.getThreadSession().getAll("User")).size() > 0) {
+                return;
+            }
+
+            Entity u = store.getThreadSession().newEntity("User");
+            PrimitiveAssociationSemantics.set(u, "username", (Comparable) "vadim");
+            PrimitiveAssociationSemantics.set(u, "password", (Comparable) "vadim");
+            Entity i = store.getThreadSession().newEntity("Issue");
+            DirectedAssociationSemantics.setToOne(i, "reporter", (Entity) u);
+            PrimitiveAssociationSemantics.set(i, "summary", (Comparable) "test issue");
+
+        } catch (Throwable e) {
+            TransientStoreUtil.abort(e, session);
+            throw new RuntimeException();
+        } finally {
+            TransientStoreUtil.commit(session);
+        }
+    }
 
 }

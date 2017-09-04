@@ -9,10 +9,10 @@ import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
 import jetbrains.exodus.query.metadata.AssociationEndMetaData;
 import jetbrains.exodus.query.metadata.EntityMetaData;
 import jetbrains.exodus.query.metadata.ModelMetaData;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.InputStream;
@@ -23,7 +23,7 @@ import java.util.*;
  */
 class TransientEntityImpl implements TransientEntity {
 
-    protected static final Log log = LogFactory.getLog(TransientEntity.class);
+    protected static final Logger logger = LoggerFactory.getLogger(TransientEntity.class);
 
     protected final TransientEntityStore store;
     private Object entity;

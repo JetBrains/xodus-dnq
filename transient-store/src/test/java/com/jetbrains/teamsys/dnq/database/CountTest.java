@@ -1,74 +1,76 @@
 package com.jetbrains.teamsys.dnq.database;
 
-import com.jetbrains.mps.dnq.common.tests.AbstractEntityStoreAwareTestCase;
-import com.jetbrains.mps.dnq.common.tests.TestOnlyServiceLocator;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.database.TransientEntityStore;
-import jetbrains.exodus.database.TransientStoreSession;
 import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import junit.framework.Assert;
-import jetbrains.mps.internal.collections.runtime.ListSequence;
-import jetbrains.mps.internal.collections.runtime.Sequence;
+import com.jetbrains.teamsys.dnq.database.testing.TestBase;
+import jetbrains.exodus.database.TransientStoreSession;
+import jetbrains.exodus.dnq.util.Util;
+import jetbrains.exodus.entitystore.Entity;
+import org.junit.Test;
 
-public class CountTest extends AbstractEntityStoreAwareTestCase {
+import static org.junit.Assert.assertEquals;
 
-  public void testCount1() {
-    this.createData();
-    this.checkCount1();
-    this.checkCount2();
-  }
-  public void createData() {
-    TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession();
-    try {
-      Entity p = (TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Project"));
+public class CountTest extends TestBase {
 
-      Entity i = (TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue"));
-
-      AggregationAssociationSemantics.createOneToMany(p, "issue", "project", i);
-
-      assertEquals(p, AssociationSemantics.getToOne(i, "project"));
-
-      i = TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().newEntity("Issue");
-
-      AggregationAssociationSemantics.createOneToMany(p, "issue", "project", i);
-
-      assertEquals(p, AssociationSemantics.getToOne(i, "project"));
-      
-    } catch (Throwable e) {
-      TransientStoreUtil.abort(e, transientSession);
-      throw new RuntimeException("Should never be thrown.");
-    } finally {
-      TransientStoreUtil.commit(transientSession);
+    @Test
+    public void testCount1() {
+        this.createData();
+        this.checkCount1();
+        this.checkCount2();
     }
-  }
-  public void checkCount2() {
-    TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession();
-    try {
-      Assert.assertEquals(2, AssociationSemantics.getToManySize(ListSequence.fromIterable(TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().getAll("Project")).first(), "issue"));
-    } catch (Throwable e) {
-      TransientStoreUtil.abort(e, transientSession);
-      throw new RuntimeException("Should never be thrown.");
-    } finally {
-      TransientStoreUtil.commit(transientSession);
+
+    public void createData() {
+        TransientStoreSession transientSession = store.beginSession();
+        try {
+            Entity p = (store.getThreadSession().newEntity("Project"));
+
+            Entity i = (store.getThreadSession().newEntity("Issue"));
+
+            AggregationAssociationSemantics.createOneToMany(p, "issue", "project", i);
+
+            assertEquals(p, AssociationSemantics.getToOne(i, "project"));
+
+            i = store.getThreadSession().newEntity("Issue");
+
+            AggregationAssociationSemantics.createOneToMany(p, "issue", "project", i);
+
+            assertEquals(p, AssociationSemantics.getToOne(i, "project"));
+
+        } catch (Throwable e) {
+            TransientStoreUtil.abort(e, transientSession);
+            throw new RuntimeException("Should never be thrown.");
+        } finally {
+            TransientStoreUtil.commit(transientSession);
+        }
     }
-  }
-  public void checkCount1() {
-    TransientEntityStore store = TestOnlyServiceLocator.getTransientEntityStore();
-    TransientStoreSession transientSession = store.beginSession();
-    try {
-      int i = 0;
-      for (Object o : Sequence.fromIterable(AssociationSemantics.getToMany(Sequence.fromIterable(TestOnlyServiceLocator.getTransientEntityStore().getThreadSession().getAll("Project")).first(), "issue"))) {
-        i ++;
-      }
-      Assert.assertEquals(2, i);
-    } catch (Throwable e) {
-      TransientStoreUtil.abort(e, transientSession);
-      throw new RuntimeException("Should never be thrown.");
-    } finally {
-      TransientStoreUtil.commit(transientSession);
+
+    @Test
+    public void checkCount2() {
+        TransientStoreSession transientSession = store.beginSession();
+        try {
+            assertEquals(2, AssociationSemantics.getToManySize(Util.toList(store.getThreadSession().getAll("Project")).get(0), "issue"));
+        } catch (Throwable e) {
+            TransientStoreUtil.abort(e, transientSession);
+            throw new RuntimeException("Should never be thrown.");
+        } finally {
+            TransientStoreUtil.commit(transientSession);
+        }
     }
-  }
+
+    @Test
+    public void checkCount1() {
+        TransientStoreSession transientSession = store.beginSession();
+        try {
+            int i = 0;
+            for (Object o : AssociationSemantics.getToMany(store.getThreadSession().getAll("Project").iterator().next(), "issue")) {
+                i++;
+            }
+            assertEquals(2, i);
+        } catch (Throwable e) {
+            TransientStoreUtil.abort(e, transientSession);
+            throw new RuntimeException("Should never be thrown.");
+        } finally {
+            TransientStoreUtil.commit(transientSession);
+        }
+    }
 }
