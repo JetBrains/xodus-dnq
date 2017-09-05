@@ -7,6 +7,7 @@ import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.session
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.getDBName
 import java.util.*
@@ -68,8 +69,7 @@ private fun <T : XdEntity> XdEntityType<T>.singleton(element: Entity?): Iterable
     if ((element as TransientEntity).isNew) {
         return sequenceOf(element).asIterable()
     }
-    val session = entityStore.threadSession ?: throw IllegalStateException("No current transient session.")
-    return session.getSingletonIterable(element)
+    return entityStore.session.getSingletonIterable(element)
 }
 
 fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
@@ -224,7 +224,7 @@ private inline fun <T : XdEntity> XdQuery<T>.operation(
 }
 
 private fun <T : XdEntity> XdQuery<T>.wrap(entityIterable: EntityIterable): EntityIterable {
-    return entityType.entityStore.threadSession.createPersistentEntityIterableWrapper(entityIterable)
+    return entityType.entityStore.session.createPersistentEntityIterableWrapper(entityIterable)
 }
 
 fun <T : XdEntity> XdQuery<T>.distinct(): XdQuery<T> {
@@ -298,7 +298,7 @@ fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
     val it = queryEngine.toEntityIterable(entityIterable)
     return if (it is EntityIterableBase) {
         it.source.first?.let {
-            entityType.entityStore.threadSession.newEntity(it)
+            entityType.entityStore.session.newEntity(it)
         }
     } else {
         it.firstOrNull()

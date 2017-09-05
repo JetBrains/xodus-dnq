@@ -6,7 +6,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.query.firstOrNull
-
+import kotlinx.dnq.session
 
 fun <XD : XdEntity> XdEntityType<XD>.findOrNew(findQuery: XdQuery<XD>, initNew: XD.() -> Unit): XD {
     val entityCreator = object : EntityCreator(entityType) {
@@ -17,5 +17,5 @@ fun <XD : XdEntity> XdEntityType<XD>.findOrNew(findQuery: XdQuery<XD>, initNew: 
         }
 
     }
-    return wrap(storeContainer.store.threadSession.newEntity(entityCreator))
+    return wrap(storeContainer.store.session.newEntity(entityCreator))
 }

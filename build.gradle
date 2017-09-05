@@ -1,27 +1,27 @@
-group 'kotlinx.dnq'
-version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'SNAPSHOT-1.0'
-
 buildscript {
     ext.kotlin_version = '1.1.4'
-    ext.mps_dnq_version = '3149'
-    repositories {
-        mavenCentral()
-    }
+    ext.exodus_version = '2762-SNAPSHOT'
+
+    repositories { jcenter() }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
 
-apply plugin: 'java'
-task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
+plugins {
+    id "com.github.hierynomus.license" version "0.13.1"
 }
 
-apply plugin: 'kotlin'
-apply plugin: 'idea'
-apply plugin: 'maven'
+group = 'kotlinx.dnq'
+version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'SNAPSHOT-1.0'
 
+task wrapper(type: Wrapper) {
+    gradleVersion = '3.2'
+}
+
+defaultTasks 'assemble'
+
+apply plugin: 'idea'
 
 idea {
     project {
@@ -33,55 +33,75 @@ idea {
     }
 }
 
-artifacts {
-    archives jar
-    archives sourcesJar
-}
+subprojects {
+    apply plugin: 'license'
+    apply plugin: 'java'
+    apply plugin: 'kotlin'
+    apply plugin: 'maven'
 
-sourceCompatibility = 1.8
+    def kotlinUsed = project.sourceSets.main.kotlin.sourceDirectories.singleFile.exists()
 
-repositories {
-    mavenCentral()
+    sourceCompatibility = 1.8
+    compileJava.options.encoding = 'UTF-8'
+    group = rootProject.group
+    version = rootProject.version
 
-    maven { url 'http://maven.labs.intellij.net/webr-dnq' }
-    maven { url 'https://jitpack.io' }
-}
-
-uploadArchives {
-    repositories {
-        mavenDeployer {
-            repository(url: "http://maven.labs.intellij.net/webr-dnq")
-            pom.project {
-                url 'https://github.com/JetBrains/xodus-dnq'
-            }
+    license {
+        header rootProject.file('license/copyright.ftl')
+        strictCheck true
+        ext.inceptionYear = 2006
+        ext.year = Calendar.getInstance().get(Calendar.YEAR)
+        ext.owner = 'JetBrains s.r.o.'
+        include "**/*.kt"
+        include "**/*.java"
+        mapping {
+            kt = 'JAVADOC_STYLE'
         }
     }
-}
 
-dependencies {
-    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-    compile "org.jetbrains.kotlin:kotlin-runtime:$kotlin_version"
-    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
-    compile "joda-time:joda-time:2.1"
+    repositories {
+        mavenCentral()
+        maven { url 'http://repository.jetbrains.com/xodus' }
+        maven { url 'https://jitpack.io' }
+    }
 
-    compile "com.jetbrains.webr-dnq:exodus:$mps_dnq_version"
-    compile "com.jetbrains.webr-dnq:exodus-openAPI:$mps_dnq_version"
-    compile "com.jetbrains.webr-dnq:exodus-persistentEntityStore:$mps_dnq_version"
-    compile "com.jetbrains.webr-dnq:exodus-query:$mps_dnq_version"
-    compile "com.jetbrains.webr-dnq:exodus-utils:$mps_dnq_version"
-    compile "com.jetbrains.webr-dnq:jetbrains.exodus.entitystore.transient:$mps_dnq_version"
-    compile "com.jetbrains.webr-dnq:jetbrains.teamsys.dnq.runtime:$mps_dnq_version"
-    compile "com.jetbrains.webr-dnq:jetbrains.teamsys.dnq.openAPI:$mps_dnq_version"
-    compile "com.jetbrains.webr-dnq:exodus-persistentEntityStore:$mps_dnq_version"
-    compile "org.reflections:reflections:0.9.10"
-    compile "org.javassist:javassist:3.21.0-GA"
-    compile "javax.servlet:javax.servlet-api:3.0.1"
-    compile 'com.github.mazine:infer-hierarchy-type-parameter:1.0.1'
+    dependencies {
+        testCompile group: 'junit', name: 'junit', version: '4.12'
+        testCompile group: 'org.slf4j', name: 'jcl-over-slf4j', version: '1.7.21'
+    }
 
-    runtime "org.slf4j:jcl-over-slf4j:1.7.7"
+    jar {
+        manifest {
+            attributes 'Implementation-Title': archivesBaseName, 'Implementation-Version': version
+        }
+    }
 
-    testCompile 'com.google.truth:truth:0.31'
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
-    testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+    test {
+        minHeapSize = '512m'
+        maxHeapSize = '512m'
+        testLogging.showStandardStreams = true
+    }
+
+    task sourceJar(type: Jar) {
+        classifier = 'sources'
+        duplicatesStrategy 'exclude'
+        includeEmptyDirs false
+        from project.sourceSets.main.java
+    }
+
+    // configuring projects with Kotlin sources
+    if (kotlinUsed) {
+        dependencies {
+            compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+            compile 'io.github.microutils:kotlin-logging:1.4.1'
+        }
+
+        sourceJar {
+            from project.sourceSets.main.kotlin
+        }
+    }
+
+    artifacts {
+        archives jar, sourceJar
+    }
 }

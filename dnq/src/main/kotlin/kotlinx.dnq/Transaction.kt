@@ -3,8 +3,7 @@ package kotlinx.dnq
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
-import jetbrains.teamsys.dnq.runtime.txn._Txn
-
+import jetbrains.exodus.entitystore.doCommit
 
 fun <T> TransientEntityStore.transactional(
     readonly: Boolean = false,
@@ -30,14 +29,14 @@ fun <T> TransientEntityStore.transactional(
                 if (wasEx) {
                     newSession.abort()
                 } else {
-                    _Txn.doCommit(newSession)
+                    doCommit(newSession)
                 }
             }
         }
     } finally {
         if (superIsSuspended) {
             resumeSession(superSession)
-            if (queryCancellingPolicy != null) {
+            if (queryCancellingPolicy != null && superSession != null) {
                 superSession.queryCancellingPolicy = queryCancellingPolicy
             }
         }

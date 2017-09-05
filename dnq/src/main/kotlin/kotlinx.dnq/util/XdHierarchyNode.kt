@@ -110,8 +110,8 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
         } as BasePersistentClassImpl
     }
 
-    private fun findLegacyEntitySuperclass(): XdLegacyEntityType<*, *>? = this.entityType.let {
-        it as? XdLegacyEntityType<*, *> ?: this.parentNode?.findLegacyEntitySuperclass()
+    private fun findLegacyEntitySuperclass(): XdLegacyClassHolder<*, *>? = this.entityType.let {
+        it as? XdLegacyClassHolder<*, *> ?: this.parentNode?.findLegacyEntitySuperclass()
     }
 
     private fun isNotFinalize(method: Method) = !method.parameterTypes.isEmpty() || method.name != "finalize"
@@ -140,4 +140,3 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
         }
     }
 }
-

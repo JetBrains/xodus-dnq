@@ -54,4 +54,6 @@ public interface TransientEntityStore extends EntityStore, EntityStoreRefactorin
 
     boolean isOpen();
 
+    IEventsMultiplexer getEventsMultiplexer();
+
 }

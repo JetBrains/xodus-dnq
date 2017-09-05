@@ -1,1 +1,5 @@
-rootProject.name = 'dnq'
+rootProject.name = 'kotlinx-dnq'
+
+include 'openAPI',
+        'transient-store',
+        'dnq'

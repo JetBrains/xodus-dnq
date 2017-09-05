@@ -3,22 +3,20 @@ package kotlinx.dnq.simple
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
+import jetbrains.exodus.entitystore.constraints.inRange
+import jetbrains.exodus.entitystore.constraints.regexp
 import jetbrains.exodus.query.metadata.PropertyMetaData
-import jetbrains.teamsys.dnq.runtime.constraints.inRange
-import jetbrains.teamsys.dnq.runtime.constraints.regexp
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.wrapper
 import java.net.MalformedURLException
 import java.net.URI
-
 
 class PropertyConstraintBuilder<R : XdEntity, T>() {
     val constraints = mutableListOf<PropertyConstraint<T>>()
 }
 
 fun PropertyConstraintBuilder<*, String?>.regex(pattern: Regex, message: String? = null) {
-    constraints.add(regexp().apply {
-        this.pattern = pattern.toPattern()
+    constraints.add(regexp(pattern = pattern.toPattern()).apply {
         if (message != null) {
             this.message = message
         }
@@ -26,7 +24,7 @@ fun PropertyConstraintBuilder<*, String?>.regex(pattern: Regex, message: String?
 }
 
 fun PropertyConstraintBuilder<*, String?>.email(pattern: Regex? = null, message: String? = null) {
-    constraints.add(jetbrains.teamsys.dnq.runtime.constraints.email().apply {
+    constraints.add(jetbrains.exodus.entitystore.constraints.email().apply {
         if (pattern != null) {
             this.pattern = pattern.toPattern()
         }
@@ -37,7 +35,7 @@ fun PropertyConstraintBuilder<*, String?>.email(pattern: Regex? = null, message:
 }
 
 fun PropertyConstraintBuilder<*, String?>.containsNone(chars: String, message: String? = null) {
-    constraints.add(jetbrains.teamsys.dnq.runtime.constraints.containsNone().apply {
+    constraints.add(jetbrains.exodus.entitystore.constraints.containsNone().apply {
         this.chars = chars
         if (message != null) {
             this.message = message
@@ -46,7 +44,7 @@ fun PropertyConstraintBuilder<*, String?>.containsNone(chars: String, message: S
 }
 
 fun PropertyConstraintBuilder<*, String?>.alpha(message: String? = null) {
-    constraints.add(jetbrains.teamsys.dnq.runtime.constraints.alpha().apply {
+    constraints.add(jetbrains.exodus.entitystore.constraints.alpha().apply {
         if (message != null) {
             this.message = message
         }
@@ -54,7 +52,7 @@ fun PropertyConstraintBuilder<*, String?>.alpha(message: String? = null) {
 }
 
 fun PropertyConstraintBuilder<*, String?>.numeric(message: String? = null) {
-    constraints.add(jetbrains.teamsys.dnq.runtime.constraints.numeric().apply {
+    constraints.add(jetbrains.exodus.entitystore.constraints.numeric().apply {
         if (message != null) {
             this.message = message
         }
@@ -62,7 +60,7 @@ fun PropertyConstraintBuilder<*, String?>.numeric(message: String? = null) {
 }
 
 fun PropertyConstraintBuilder<*, String?>.alphaNumeric(message: String? = null) {
-    constraints.add(jetbrains.teamsys.dnq.runtime.constraints.alphaNumeric().apply {
+    constraints.add(jetbrains.exodus.entitystore.constraints.alphaNumeric().apply {
         if (message != null) {
             this.message = message
         }
@@ -70,7 +68,7 @@ fun PropertyConstraintBuilder<*, String?>.alphaNumeric(message: String? = null) 
 }
 
 fun PropertyConstraintBuilder<*, String?>.url(message: String? = null) {
-    constraints.add(jetbrains.teamsys.dnq.runtime.constraints.url().apply {
+    constraints.add(jetbrains.exodus.entitystore.constraints.url().apply {
         if (message != null) {
             this.message = message
         }
@@ -78,7 +76,7 @@ fun PropertyConstraintBuilder<*, String?>.url(message: String? = null) {
 }
 
 fun PropertyConstraintBuilder<*, String?>.length(min: Int = 0, max: Int = Int.MAX_VALUE, message: String? = null) {
-    constraints.add(jetbrains.teamsys.dnq.runtime.constraints.length().apply {
+    constraints.add(jetbrains.exodus.entitystore.constraints.length().apply {
         if (min > 0) {
             this.min = min
         }
@@ -118,7 +116,7 @@ fun PropertyConstraintBuilder<*, String?>.uri(message: String? = null) {
     })
 }
 
-class RequireIfConstraint<R: XdEntity, T>(val message: String?, val predicate: R.() -> Boolean) : PropertyConstraint<T>() {
+class RequireIfConstraint<R : XdEntity, T>(val message: String?, val predicate: R.() -> Boolean) : PropertyConstraint<T>() {
     override fun check(e: TransientEntity, pmd: PropertyMetaData, value: T): SimplePropertyValidationException? {
         @Suppress("UNCHECKED_CAST")
         return if (value == null && (e.wrapper as R).predicate()) {
@@ -140,42 +138,30 @@ class RequireIfConstraint<R: XdEntity, T>(val message: String?, val predicate: R
     override fun getDisplayMessage(propertyName: String?, propertyValue: T) = message ?: "required"
 }
 
-fun <R: XdEntity, T> PropertyConstraintBuilder<R, T>.requireIf(message: String? = null, predicate: R.() -> Boolean) {
+fun <R : XdEntity, T> PropertyConstraintBuilder<R, T>.requireIf(message: String? = null, predicate: R.() -> Boolean) {
     constraints.add(RequireIfConstraint<R, T>(message, predicate))
 }
 
-open class InRange<T : Number?>() : inRange() {
-    val typed = object : PropertyConstraint<T>() {
-        override fun getExceptionMessage(propertyName: String?, propertyValue: T): String {
-            return this@InRange.getExceptionMessage(propertyName, propertyValue)
-        }
-
-        override fun isValid(value: T): Boolean {
-            return this@InRange.isValid(value)
-        }
-    }
-}
-
 fun <T : Number?> PropertyConstraintBuilder<*, T>.min(min: Long, message: String? = null) {
-    constraints.add(InRange<T>().apply {
+    constraints.add(inRange<T>().apply {
         this.min = min
         if (message != null) {
             this.minMessage = message
         }
-    }.typed)
+    })
 }
 
 fun <T : Number?> PropertyConstraintBuilder<*, T>.max(max: Long, message: String? = null) {
-    constraints.add(InRange<T>().apply {
+    constraints.add(inRange<T>().apply {
         this.max = max
         if (message != null) {
             this.maxMessage = message
         }
-    }.typed)
+    })
 }
 
-fun PropertyConstraintBuilder<*, Long?>.past(message: String? = null) {
-    constraints.add(jetbrains.teamsys.dnq.runtime.constraints.past().apply {
+/* fun PropertyConstraintBuilder<*, Long?>.past(message: String? = null) {
+    constraints.add(jetbrains.exodus.entitystore.constraints.past().apply {
         if (message != null) {
             this.message = message
         }
@@ -183,9 +169,9 @@ fun PropertyConstraintBuilder<*, Long?>.past(message: String? = null) {
 }
 
 fun PropertyConstraintBuilder<*, Long?>.future(message: String? = null) {
-    constraints.add(jetbrains.teamsys.dnq.runtime.constraints.future().apply {
+    constraints.add(jetbrains.exodus.entitystore.constraints.future().apply {
         if (message != null) {
             this.message = message
         }
     })
-}
+} */
