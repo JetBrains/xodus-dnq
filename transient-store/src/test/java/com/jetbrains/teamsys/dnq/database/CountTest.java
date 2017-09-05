@@ -59,7 +59,6 @@ public class CountTest extends TestBase {
         }
     }
 
-    @Test
     public void checkCount2() {
         TransientStoreSession transientSession = store.beginSession();
         try {
@@ -72,7 +71,6 @@ public class CountTest extends TestBase {
         }
     }
 
-    @Test
     public void checkCount1() {
         TransientStoreSession transientSession = store.beginSession();
         try {
