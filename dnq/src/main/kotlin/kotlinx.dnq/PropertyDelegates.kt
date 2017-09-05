@@ -48,7 +48,7 @@ fun <R : XdEntity> R.xdRequiredIntProp(dbName: String? = null, unique: Boolean =
 }
 
 private fun <R : XdEntity> createXdRequiredIntProp(dbName: String?, unique: Boolean, constraints: (PropertyConstraintBuilder<R, Int?>.() -> Unit)?): XdProperty<R, Int> =
-        xdProp(dbName, constraints, require = true, unique = unique) { e, p -> 0 }
+        xdProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0 }
 
 
 /*************************************************************/
@@ -95,7 +95,7 @@ fun <R : XdEntity> R.xdNullableLongProp(dbName: String? = null, constraints: (Pr
 
 /*************************************************************/
 // Boolean property
-private val _xdBooleanProp = xdProp<XdEntity, Boolean> { e, p -> false }
+private val _xdBooleanProp = xdProp<XdEntity, Boolean> { _, _ -> false }
 
 fun xdBooleanProp(dbName: String? = null): XdProperty<XdEntity, Boolean> {
     return if (dbName == null) {
