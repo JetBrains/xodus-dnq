@@ -15,21 +15,18 @@
  */
 package kotlinx.dnq.store
 
-import jetbrains.exodus.database.IEntityListener
-import jetbrains.exodus.database.IEventsMultiplexer
-import jetbrains.exodus.database.TransientChangesTracker
-import jetbrains.exodus.database.TransientEntityChange
-import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.Entity
 
 object DummyEventsMultiplexer : IEventsMultiplexer {
     override fun flushed(
+            session: TransientStoreSession,
             oldChangesTracker: TransientChangesTracker,
             changesDescription: MutableSet<TransientEntityChange>) {
         oldChangesTracker.dispose()
     }
 
-    override fun onClose(transientEntityStore: TransientEntityStore?) = Unit
+    override fun onClose(transientEntityStore: TransientEntityStore) = Unit
 
     override fun addListener(e: Entity, listener: IEntityListener<*>) {
         TODO("not implemented")

@@ -21,9 +21,9 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Set;
 
 public interface IEventsMultiplexer {
-    void flushed(TransientChangesTracker oldChangesTracker, Set<TransientEntityChange> changesDescription);
+    void flushed(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker oldChangesTracker, @NotNull Set<TransientEntityChange> changesDescription);
 
-    void onClose(TransientEntityStore transientEntityStore);
+    void onClose(@NotNull TransientEntityStore transientEntityStore);
 
     void addListener(@NotNull Entity e, @NotNull IEntityListener listener);
 

@@ -26,32 +26,35 @@ public interface TransientStoreSessionListener {
     /**
      * Called on session flush, only if were changes. Thread session is still available here, but it moved to last database root.
      *
+     * @param session
      * @param changedEntities
      */
-    void flushed(@Nullable Set<TransientEntityChange> changedEntities);
+    void flushed(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
 
     /**
      * Before commit or flush, only if were changes.
-     *
+     * @param session
      * @param changedEntities
      */
-    void beforeFlush(@Nullable Set<TransientEntityChange> changedEntities);
+    void beforeFlush(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
 
     /**
      * Before commit or flush, only if were changes.
      * Is not allowed to have side effects, i.e. make database changes.
      *
+     * @param session
      * @param changedEntities
      */
     @Deprecated
-    void beforeFlushAfterConstraintsCheck(@Nullable Set<TransientEntityChange> changedEntities);
+    void beforeFlushAfterConstraintsCheck(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
 
     /**
      * After constraints if check is failed
      * Is not allowed to have side effects, i.e. make database changes.
      *
-     * @param changedEntities
+     * @param session
+     * @param exceptions
      */
-    void afterConstraintsFail(@NotNull Set<DataIntegrityViolationException> exceptions);
+    void afterConstraintsFail(@NotNull TransientStoreSession session, @NotNull Set<DataIntegrityViolationException> exceptions);
 
 }
