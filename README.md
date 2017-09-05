@@ -163,10 +163,11 @@ XdModel.scanWebClasspath(servletContext)
 if (classLoader is URLClassLoader) {
     XdModel.scanURLs("URLClassLoader.urls", classLoader.urLs)
 }
-
 ```
 
-### Transactions
+## Transactions
+All DB-operations should happen in transactions. XdEntities from one transaction can be safely used
+in another one, i.e. one can store a reference to an entity outside a transaction.
 
 ## New 
 
