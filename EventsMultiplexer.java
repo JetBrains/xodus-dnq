@@ -10,14 +10,14 @@ import java.util.Map;
 import java.util.Queue;
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import jetbrains.exodus.core.execution.JobProcessor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.database.TransientStoreSession;
 import java.util.Set;
 import jetbrains.exodus.database.TransientEntityChange;
-import org.jetbrains.annotations.NotNull;
 import jetbrains.exodus.database.TransientChangesTracker;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
-import jetbrains.exodus.core.execution.DelegatingJobProcessor;
-import jetbrains.exodus.core.execution.ThreadJobProcessor;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.mps.baseLanguage.closures.runtime._FunctionTypes;
 import jetbrains.exodus.database.TransientEntity;
@@ -40,11 +40,17 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
   private Map<String, Queue<IEntityListener>> typeToListeners = new HashMap<String, Queue<IEntityListener>>();
   private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
   private boolean open = true;
+  private final JobProcessor eventsMultiplexerJobProcessor;
 
   public EventsMultiplexer() {
+    this(null);
   }
 
-  public void flushed(@Nullable Set<TransientEntityChange> changes) {
+  public EventsMultiplexer(@Nullable JobProcessor eventsMultiplexerJobProcessor) {
+    this.eventsMultiplexerJobProcessor = eventsMultiplexerJobProcessor;
+  }
+
+  public void flushed(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
     // do nothing. actual job is in flushed(changesTracker) 
   }
 
@@ -53,28 +59,28 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
    * 
    * @param changesTracker changes tracker to dispose after async job
    */
-  public void flushed(@NotNull TransientChangesTracker changesTracker, @Nullable Set<TransientEntityChange> changes) {
+  public void flushed(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker changesTracker, @Nullable Set<TransientEntityChange> changes) {
     this.fire(Where.SYNC_AFTER_FLUSH, changes);
-    this.asyncFire(changes, changesTracker);
+    this.asyncFire(session, changes, changesTracker);
   }
 
-  public void beforeFlush(@Nullable Set<TransientEntityChange> changes) {
+  public void beforeFlush(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
     this.fire(Where.SYNC_BEFORE_CONSTRAINTS, changes);
   }
 
-  public void beforeFlushAfterConstraintsCheck(@Nullable Set<TransientEntityChange> changes) {
+  public void beforeFlushAfterConstraintsCheck(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
     this.fire(Where.SYNC_BEFORE_FLUSH, changes);
   }
 
-  public void afterConstraintsFail(@NotNull Set<DataIntegrityViolationException> exceptions) {
+  public void afterConstraintsFail(@NotNull TransientStoreSession session, @NotNull Set<DataIntegrityViolationException> exceptions) {
   }
 
-  private void asyncFire(final Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
-    DelegatingJobProcessor<ThreadJobProcessor> asyncJobProcessor = getAsyncJobProcessor();
+  private void asyncFire(@NotNull TransientStoreSession session, final Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
+    JobProcessor asyncJobProcessor = getAsyncJobProcessor();
     if (asyncJobProcessor == null) {
       changesTracker.dispose();
     } else {
-      asyncJobProcessor.queue(new EventsMultiplexer.JobImpl(this, changes, changesTracker));
+      asyncJobProcessor.queue(new EventsMultiplexer.JobImpl(session.getStore(), this, changes, changesTracker));
     }
   }
 
@@ -205,7 +211,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     if (log.isInfoEnabled()) {
       log.info("Finishing EventsMultiplexer job processor for store " + store);
     }
-    DelegatingJobProcessor<ThreadJobProcessor> processor = getAsyncJobProcessor();
+    JobProcessor processor = getAsyncJobProcessor();
     if (processor != null && !(processor.isFinished())) {
       processor.finish();
       if (log.isInfoEnabled()) {
@@ -371,8 +377,8 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     }
   }
 
-  public DelegatingJobProcessor<ThreadJobProcessor> getAsyncJobProcessor() {
-    DelegatingJobProcessor<ThreadJobProcessor> processor = (((DelegatingJobProcessor<ThreadJobProcessor>) ServiceLocator.getOptionalBean("eventsMultiplexerJobProcessor")));
+  public JobProcessor getAsyncJobProcessor() {
+    JobProcessor processor = this.eventsMultiplexerJobProcessor;
     if (processor != null && !(processor.isFinished())) {
       processor.setExceptionHandler(EX_HANDLER);
       processor.start();
@@ -380,48 +386,14 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     return processor;
   }
 
-  @Nullable
-  public static EventsMultiplexer getInstance() {
-    // this method may be called by global beans on global scope shutdown 
-    // as a result, eventsMultiplexer may be removed already 
-    try {
-      return ((EventsMultiplexer) ServiceLocator.getBean("eventsMultiplexer"));
-    } catch (Exception e) {
-      if (log.isWarnEnabled()) {
-        log.warn("Can't access events multiplexer: " + e.getClass().getName() + ": " + e.getMessage());
-      }
-      return null;
-    }
-  }
-
-  public static void removeListenerSafe(Entity e, IEntityListener listener) {
-    check_9klgcu_a0a1(getInstance(), e, listener);
-  }
-
-  public static void removeListenerSafe(String type, IEntityListener listener) {
-    check_9klgcu_a0a2(getInstance(), type, listener);
-  }
-
-  private static void check_9klgcu_a0a1(EventsMultiplexer checkedDotOperand, Entity e, IEntityListener listener) {
-    if (null != checkedDotOperand) {
-      checkedDotOperand.removeListener(e, listener);
-    }
-
-  }
-
-  private static void check_9klgcu_a0a2(EventsMultiplexer checkedDotOperand, String type, IEntityListener listener) {
-    if (null != checkedDotOperand) {
-      checkedDotOperand.removeListener(type, listener);
-    }
-
-  }
-
   private static class JobImpl extends Job {
+    @NotNull
+    private TransientEntityStore store;
     private Set<TransientEntityChange> changes;
     private TransientChangesTracker changesTracker;
     private EventsMultiplexer eventsMultiplexer;
 
-    public JobImpl(EventsMultiplexer eventsMultiplexer, Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
+    public JobImpl(@NotNull TransientEntityStore store, EventsMultiplexer eventsMultiplexer, Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
       this.eventsMultiplexer = eventsMultiplexer;
       this.changes = changes;
       this.changesTracker = changesTracker;
@@ -429,6 +401,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
 
     public void execute() throws Throwable {
       try {
+        // TODO: use store as entry point instead 
         _Txn.run(new _FunctionTypes._void_P0_E0() {
           public void invoke() {
             JobImpl.this.eventsMultiplexer.fire(Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes);
