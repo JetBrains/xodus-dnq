@@ -24,7 +24,7 @@ gradle-app.setting
 .idea/modules.xml
 .idea/encodings.xml
 .idea/compiler.xml
-#.idea/.name
+.idea/.name
 .idea/copyright/
 
 # Sensitive or high-churn files:
