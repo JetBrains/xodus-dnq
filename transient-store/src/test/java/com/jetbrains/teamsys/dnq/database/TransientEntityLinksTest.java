@@ -64,8 +64,7 @@ public class TransientEntityLinksTest extends TestBase {
 
     }
 
-    @Test
-    public void checkTransientGetLinks() {
+    private void checkTransientGetLinks() {
         TransientStoreSession transientStoreSession = store.beginSession();
 
         try {
@@ -87,8 +86,7 @@ public class TransientEntityLinksTest extends TestBase {
         }
     }
 
-    @Test
-    public void checkTransientGetLinks2() {
+    private void checkTransientGetLinks2() {
         TransientStoreSession transientStoreSession = store.beginSession();
 
         try {
