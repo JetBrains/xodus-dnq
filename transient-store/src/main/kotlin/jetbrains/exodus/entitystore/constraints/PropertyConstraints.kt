@@ -22,24 +22,20 @@ import java.net.URL
 import java.util.regex.Pattern
 
 open class alpha(var message: String = "should contain only letters") : PropertyConstraint<String?>() {
-    override fun isValid(value: String?): Boolean {
-        return value == null || StringUtils.isAlpha(value)
-    }
+    override fun isValid(value: String?) = value == null || value.all { it.isLetter() }
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
-        return String.format("%s should contain only aplpha characters but was %s", propertyName, propertyValue)
+        return "$propertyName should contain only alpha characters but was $propertyValue"
     }
 
     override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
 }
 
 open class numeric(var message: String = "should contain only digits") : PropertyConstraint<String?>() {
-    override fun isValid(value: String?): Boolean {
-        return value == null || StringUtils.isNumeric(value)
-    }
+    override fun isValid(value: String?) = value == null || value.all { it.isDigit() }
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
-        return String.format("%s should contain only numeric characters but was %s", propertyName, propertyValue)
+        return "$propertyName should contain only numeric characters but was $propertyValue"
     }
 
     override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
@@ -47,24 +43,20 @@ open class numeric(var message: String = "should contain only digits") : Propert
 
 
 open class alphaNumeric(var message: String = "should contain only letters and digits") : PropertyConstraint<String?>() {
-    override fun isValid(value: String?): Boolean {
-        return value == null || StringUtils.isAlphanumeric(value)
-    }
+    override fun isValid(value: String?) = value == null || value.all { it.isLetterOrDigit() }
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
-        return String.format("%s should contain only alpha and numeric characters but was %s", propertyName, propertyValue)
+        return "$propertyName should contain only alpha and numeric characters but was $propertyValue"
     }
 
     override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
 }
 
 open class containsNone(var chars: String = "", var message: String = "shouldn't contain characters %s") : PropertyConstraint<String?>() {
-    override fun isValid(value: String?): Boolean {
-        return StringUtils.containsNone(value, chars)
-    }
+    override fun isValid(value: String?) = StringUtils.containsNone(value, chars)
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
-        return String.format("%s shouldn't contain chars %s but was %s", propertyName, toCommaSeparatedList(), propertyValue)
+        return "$propertyName shouldn't contain chars ${toCommaSeparatedList()} but was $propertyValue"
     }
 
     override fun getDisplayMessage(propertyName: String, propertyValue: String?): String {
@@ -72,17 +64,7 @@ open class containsNone(var chars: String = "", var message: String = "shouldn't
     }
 
     private fun toCommaSeparatedList(): String {
-        val builder = StringBuilder(chars.length * 5 - 2)
-        var first = true
-        for (i in 0..chars.length - 1) {
-            if (first) {
-                first = false
-            } else {
-                builder.append(", ")
-            }
-            builder.append('\'').append(chars[i]).append('\'')
-        }
-        return builder.toString()
+        return chars.asSequence().joinToString { "'$it'" }
     }
 }
 
@@ -101,19 +83,17 @@ open class url(var message: String = "is not a valid URL") : PropertyConstraint<
     }
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
-        return String.format("%s should be valid url but was %s", propertyName, propertyValue)
+        return "$propertyName should be valid url but was $propertyValue"
     }
 
     override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
 }
 
 open class regexp(var pattern: Pattern, var message: String = "wrong value format") : PropertyConstraint<String?>() {
-    override fun isValid(value: String?): Boolean {
-        return value == null || pattern.matcher(value).matches()
-    }
+    override fun isValid(value: String?) = value == null || pattern.matcher(value).matches()
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
-        return String.format("%s should match pattern %s but was %s", propertyName, pattern.toString(), propertyValue)
+        return "$propertyName should match pattern $pattern but was $propertyValue"
     }
 
     override fun getDisplayMessage(propertyName: String, propertyValue: String?): String = message
@@ -124,35 +104,32 @@ internal val EMAIL_PATTERN = Pattern.compile("[\\w\\-]+(?:[\\+\\.][\\w\\-]+)*@(?
 open class email(message: String = "is not a valid email") : regexp(EMAIL_PATTERN, message) {
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
-        return String.format("%s should be valid email but was %s", propertyName, propertyValue)
+        return "$propertyName should be valid email but was $propertyValue"
     }
 }
 
 open class length(
         var min: Int = 0,
-        var max: Int = 0,
+        var max: Int = Int.MAX_VALUE,
         var minMessage: String = "should be at least %d characters long",
         var maxMessage: String = "should be at most %d characters long",
-        var rangeMessage: String = "should be at from %d to %d characters long"
+        var rangeMessage: String = "should be from %d to %d characters long"
 ) : PropertyConstraint<String?>() {
-    override fun isValid(value: String?): Boolean {
-        return StringUtils.length(value) in min..max
-    }
+
+    override fun isValid(value: String?) = (value?.length ?: 0) in min..max
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
-        return String.format("Length of %s should be in range [%d, %d] but was [%d]", propertyName, min, max, StringUtils.length(propertyValue))
+        return "Length of $propertyName should be in range [$min, $max] but was [${propertyValue?.length ?: 0}]"
     }
 
     override fun getDisplayMessage(propertyName: String, propertyValue: String?): String {
-        val message: String
-        if (min > 0 && max < Integer.MAX_VALUE) {
-            message = String.format(rangeMessage, min, max)
+        return if (min > 0 && max < Int.MAX_VALUE) {
+            String.format(rangeMessage, min, max)
         } else if (min > 0) {
-            message = String.format(minMessage, min)
+            String.format(minMessage, min)
         } else {
-            message = String.format(maxMessage, max)
+            String.format(maxMessage, max)
         }
-        return message
     }
 }
 
@@ -165,26 +142,19 @@ open class inRange<T : Number?>(
 
 ) : PropertyConstraint<T>() {
 
-    override fun isValid(value: T): Boolean {
-        if (value == null) {
-            return true
-        }
-        return value.toLong() in min..max
-    }
+    override fun isValid(value: T) = value == null || value.toLong() in min..max
 
     override fun getExceptionMessage(propertyName: String, propertyValue: T): String {
-        return String.format("%s should be in range [%d, %d] but was %d", propertyName, min, max, propertyValue)
+        return "$propertyName should be in range [$min, $max] but was $propertyValue"
     }
 
     override fun getDisplayMessage(propertyName: String, propertyValue: T): String {
-        val message: String
-        if (min > 0 && max < Long.MAX_VALUE) {
-            message = String.format(rangeMessage, min, max)
+        return if (min > 0 && max < Long.MAX_VALUE) {
+            String.format(rangeMessage, min, max)
         } else if (min > 0) {
-            message = String.format(minMessage, min)
+            String.format(minMessage, min)
         } else {
-            message = String.format(maxMessage, max)
+            String.format(maxMessage, max)
         }
-        return message
     }
 }
