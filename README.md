@@ -1,3 +1,5 @@
+[![JetBrains incubator project](http://jb.gg/badges/incubator.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+
 # xodus-dnq
 Kotlin library for the data definition and query over Xodus
 
