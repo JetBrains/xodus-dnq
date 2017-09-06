@@ -21,7 +21,7 @@ import java.net.MalformedURLException
 import java.net.URL
 import java.util.regex.Pattern
 
-open class alpha(var message: String = "should contain only letters") : PropertyConstraint<String?>() {
+open class alpha @JvmOverloads constructor(var message: String = "should contain only letters") : PropertyConstraint<String?>() {
     override fun isValid(value: String?) = value == null || value.all { it.isLetter() }
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
@@ -31,7 +31,7 @@ open class alpha(var message: String = "should contain only letters") : Property
     override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
 }
 
-open class numeric(var message: String = "should contain only digits") : PropertyConstraint<String?>() {
+open class numeric @JvmOverloads constructor(var message: String = "should contain only digits") : PropertyConstraint<String?>() {
     override fun isValid(value: String?) = value == null || value.all { it.isDigit() }
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
@@ -42,7 +42,7 @@ open class numeric(var message: String = "should contain only digits") : Propert
 }
 
 
-open class alphaNumeric(var message: String = "should contain only letters and digits") : PropertyConstraint<String?>() {
+open class alphaNumeric @JvmOverloads constructor(var message: String = "should contain only letters and digits") : PropertyConstraint<String?>() {
     override fun isValid(value: String?) = value == null || value.all { it.isLetterOrDigit() }
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
@@ -52,7 +52,7 @@ open class alphaNumeric(var message: String = "should contain only letters and d
     override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
 }
 
-open class containsNone(var chars: String = "", var message: String = "shouldn't contain characters %s") : PropertyConstraint<String?>() {
+open class containsNone @JvmOverloads constructor(var chars: String = "", var message: String = "shouldn't contain characters %s") : PropertyConstraint<String?>() {
     override fun isValid(value: String?) = StringUtils.containsNone(value, chars)
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
@@ -68,7 +68,7 @@ open class containsNone(var chars: String = "", var message: String = "shouldn't
     }
 }
 
-class notBlank(var message: String = "shouldn't be blank") : PropertyConstraint<String?>() {
+class notBlank @JvmOverloads constructor(var message: String = "shouldn't be blank") : PropertyConstraint<String?>() {
     override fun isValid(value: String?): Boolean = !value.isNullOrBlank()
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
@@ -78,7 +78,7 @@ class notBlank(var message: String = "shouldn't be blank") : PropertyConstraint<
     override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
 }
 
-open class url(var message: String = "is not a valid URL") : PropertyConstraint<String?>() {
+open class url @JvmOverloads constructor(var message: String = "is not a valid URL") : PropertyConstraint<String?>() {
     override fun isValid(propertyValue: String?): Boolean {
         if (propertyValue == null) {
             return true
@@ -99,7 +99,7 @@ open class url(var message: String = "is not a valid URL") : PropertyConstraint<
     override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
 }
 
-open class regexp(var pattern: Pattern, var message: String = "wrong value format") : PropertyConstraint<String?>() {
+open class regexp @JvmOverloads constructor(var pattern: Pattern, var message: String = "wrong value format") : PropertyConstraint<String?>() {
     override fun isValid(value: String?) = value == null || pattern.matcher(value).matches()
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
@@ -111,14 +111,14 @@ open class regexp(var pattern: Pattern, var message: String = "wrong value forma
 
 internal val EMAIL_PATTERN = Pattern.compile("[\\w\\-]+(?:[\\+\\.][\\w\\-]+)*@(?:[\\w\\-]+\\.)+[a-z]{2,}", 2)
 
-open class email(message: String = "is not a valid email") : regexp(EMAIL_PATTERN, message) {
+open class email @JvmOverloads constructor(message: String = "is not a valid email") : regexp(EMAIL_PATTERN, message) {
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
         return "$propertyName should be valid email but was $propertyValue"
     }
 }
 
-open class length(
+open class length @JvmOverloads constructor(
         var min: Int = 0,
         var max: Int = Int.MAX_VALUE,
         var minMessage: String = "should be at least %d characters long",
@@ -143,7 +143,7 @@ open class length(
     }
 }
 
-open class inRange<T : Number?>(
+open class inRange<T : Number?> @JvmOverloads constructor(
         var min: Long = 0,
         var max: Long = Long.MAX_VALUE,
         var minMessage: String = "should be at least %d",
