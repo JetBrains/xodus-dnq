@@ -74,6 +74,10 @@ infix fun <T : XdEntity> T?.eq(value: T?): XdSearchingNode {
     return withNode(LinkEqual(deepestNodeName, value?.entity).decorateIfNeeded())
 }
 
+infix fun <T : XdEntity> T?.neq(value: T?): XdSearchingNode {
+    return withNode(UnaryNot(LinkEqual(deepestNodeName, value?.entity)).decorateIfNeeded())
+}
+
 infix fun <T : Comparable<T>> T?.gt(value: T): XdSearchingNode {
     val returnType = value.javaClass.kotlin
     return withNode(PropertyRange(deepestNodeName, returnType.next(value), returnType.maxValue()).decorateIfNeeded())

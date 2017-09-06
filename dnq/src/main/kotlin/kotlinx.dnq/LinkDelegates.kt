@@ -85,7 +85,7 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL): XdOneToOneRequiredLink<R, T> {
-    return XdOneToOneRequiredLink(entityTypeCompanion(), oppositeLink, dbOppositePropertyName, dbPropertyName, onDelete, onTargetDelete)
+    return XdOneToOneRequiredLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, onDelete, onTargetDelete)
 }
 
 /**
