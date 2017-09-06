@@ -68,6 +68,16 @@ open class containsNone(var chars: String = "", var message: String = "shouldn't
     }
 }
 
+class notBlank(var message: String = "shouldn't be blank") : PropertyConstraint<String?>() {
+    override fun isValid(value: String?): Boolean = !value.isNullOrBlank()
+
+    override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
+        return "$propertyName shouldn't be blank"
+    }
+
+    override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
+}
+
 open class url(var message: String = "is not a valid URL") : PropertyConstraint<String?>() {
     override fun isValid(propertyValue: String?): Boolean {
         if (propertyValue == null) {
