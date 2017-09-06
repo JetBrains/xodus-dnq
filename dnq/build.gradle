@@ -1,5 +1,5 @@
 dependencies {
-    compile project(':openAPI')
+    compile project(':open-api')
     compile project(':transient-store')
 
     compile "joda-time:joda-time:2.1"

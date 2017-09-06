@@ -1,5 +1,5 @@
 dependencies {
-    compile project(':openAPI')
+    compile project(':open-api')
 
     compile 'org.apache.commons:commons-lang3:3.1' // added for constraints migration
 }
