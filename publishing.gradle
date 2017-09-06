@@ -1,0 +1,76 @@
+if (project.hasProperty("ossrhUser") && project.hasProperty("ossrhPassword")) {
+    nexusStaging {
+        username = ossrhUser
+        password = ossrhPassword
+    }
+
+    subprojects {
+        apply plugin: 'maven'
+        apply plugin: 'signing'
+
+        signing {
+            sign configurations.archives
+        }
+
+        // OSSRH publication
+        uploadArchives {
+            repositories {
+                mavenDeployer {
+                    // POM signature
+                    beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+                    // Target repository
+                    repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2") {
+                        authentication(userName: ossrhUser, password: ossrhPassword)
+                    }
+                    pom.project {
+                        name project.name
+                        description 'Data definition and queries Kotlin DSL over Xodus'
+                        packaging 'jar'
+                        url 'https://github.com/JetBrains/xodus-dnq'
+
+                        scm {
+                            connection 'scm:git:https://github.com/JetBrains/xodus-dnq.git'
+                            developerConnection 'scm:git@github.com:JetBrains/xodus-dnq.git'
+                            url 'https://github.com/JetBrains/xodus-dnq'
+                        }
+
+                        licenses {
+                            license {
+                                name 'Apache 2.0'
+                                url 'http://www.apache.org/licenses/'
+                                distribution 'repo'
+                            }
+                        }
+
+                        developers {
+                            developer {
+                                id 'JetBrains'
+                                name 'JetBrains Team'
+                                organization 'JetBrains s.r.o'
+                                organizationUrl 'http://www.jetbrains.com'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        task sourceJar(type: Jar) {
+            classifier = 'sources'
+            duplicatesStrategy 'exclude'
+            includeEmptyDirs false
+            from project.sourceSets.main.java
+            from project.sourceSets.main.kotlin
+        }
+
+        // todo: kotlindoc
+        task javadocJar(type: Jar) {
+            classifier = 'javadoc'
+            from javadoc
+        }
+
+        artifacts {
+            archives jar, sourceJar, javadocJar
+        }
+    }
+}

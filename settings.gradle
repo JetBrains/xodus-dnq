@@ -1,4 +1,4 @@
-rootProject.name = 'kotlinx-dnq'
+rootProject.name = 'xodus-dnq'
 
 include 'open-api',
         'transient-store',
