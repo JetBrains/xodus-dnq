@@ -32,7 +32,6 @@ subprojects {
     repositories {
         mavenCentral()
         maven { url 'http://repository.jetbrains.com/xodus' }
-        maven { url 'https://jitpack.io' }
     }
 
     dependencies {
@@ -53,12 +52,6 @@ subprojects {
         include "**/*.java"
         mapping {
             kt = 'JAVADOC_STYLE'
-        }
-    }
-
-    jar {
-        manifest {
-            attributes 'Implementation-Title': archivesBaseName, 'Implementation-Version': version
         }
     }
 

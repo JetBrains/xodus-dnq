@@ -14,7 +14,7 @@ dependencies {
     compile "org.reflections:reflections:0.9.10"
     compile "org.javassist:javassist:3.21.0-GA"
     compile "javax.servlet:javax.servlet-api:3.0.1"
-    compile 'com.github.mazine:infer-hierarchy-type-parameter:1.0.1'
+    compile 'com.github.mazine:infer-hierarchy-type-parameter:1.0.4'
 
     testCompile 'com.google.truth:truth:0.31'
     testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
