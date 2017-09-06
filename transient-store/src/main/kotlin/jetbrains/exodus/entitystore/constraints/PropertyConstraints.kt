@@ -83,11 +83,11 @@ open class url(var message: String = "is not a valid URL") : PropertyConstraint<
         if (propertyValue == null) {
             return true
         }
-        try {
+        return try {
             URL(propertyValue)
-            return true
+            true
         } catch (e: MalformedURLException) {
-            return false
+            false
         }
 
     }
