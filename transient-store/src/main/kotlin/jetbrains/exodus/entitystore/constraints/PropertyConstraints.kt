@@ -16,7 +16,6 @@
 package jetbrains.exodus.entitystore.constraints
 
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
-import org.apache.commons.lang3.StringUtils
 import java.net.MalformedURLException
 import java.net.URL
 import java.util.regex.Pattern
@@ -53,7 +52,7 @@ open class alphaNumeric(var message: String = "should contain only letters and d
 }
 
 open class containsNone(var chars: String = "", var message: String = "shouldn't contain characters %s") : PropertyConstraint<String?>() {
-    override fun isValid(value: String?) = StringUtils.containsNone(value, chars)
+    override fun isValid(value: String?) = containsNone(value, *chars.toCharArray())
 
     override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
         return "$propertyName shouldn't contain chars ${toCommaSeparatedList()} but was $propertyValue"
@@ -167,4 +166,35 @@ open class inRange<T : Number?>(
             String.format(maxMessage, max)
         }
     }
+}
+
+internal fun containsNone(value: String?, vararg searchChars: Char): Boolean {
+    if (value == null) {
+        return true
+    }
+
+    val length = value.length
+    val lastIndex = length - 1
+    val searchRange = 0 until searchChars.size
+    val lastSearchIndex = searchChars.size - 1
+
+    (0 until length).forEach { i ->
+        val ch = value[i]
+        searchRange.forEach { j ->
+            if (searchChars[j] == ch) {
+                if (Character.isHighSurrogate(ch)) {
+                    if (j == lastSearchIndex) {
+                        return false
+                    }
+                    if (i < lastIndex && searchChars[j + 1] == value[i + 1]) {
+                        return false
+                    }
+                } else {
+                    return false
+                }
+            }
+        }
+    }
+
+    return true
 }
