@@ -28,7 +28,7 @@ subprojects {
     apply plugin: 'kotlin'
 
     sourceCompatibility = 1.8
-    group = 'com.jetbrains.xodus'
+    group = 'org.jetbrains.xodus'
     version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev'
 
     repositories {
