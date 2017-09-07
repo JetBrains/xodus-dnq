@@ -18,6 +18,10 @@ package jetbrains.exodus.entitystore
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 
+object EntityStoreExtensions {
+    @JvmStatic fun run(store: TransientEntityStore, action: Runnable) = store.run(action)
+}
+
 fun TransientEntityStore.run(action: Runnable) {
     val superSession = threadSession
     var superIsSuspended = false
