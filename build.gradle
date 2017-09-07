@@ -60,6 +60,25 @@ subprojects {
         maxHeapSize = '512m'
         testLogging.showStandardStreams = true
     }
+
+    task sourceJar(type: Jar) {
+        classifier = 'sources'
+        duplicatesStrategy 'exclude'
+        includeEmptyDirs false
+        from project.sourceSets.main.java
+        from project.sourceSets.main.kotlin
+    }
+
+    // this is a stub javadoc until we investigate and fix the following docklet error somehow:
+    // java.lang.ClassCastException: com.sun.tools.javac.code.Type$AnnotatedType cannot be cast to com.sun.tools.javac.code.Type$ClassType
+    task javadocJar(type: Jar) {
+        classifier = 'javadoc'
+        from "${rootProject.projectDir}/README.MD"
+    }
+
+    artifacts {
+        archives jar, sourceJar, javadocJar
+    }
 }
 
 apply from: 'publishing.gradle'
