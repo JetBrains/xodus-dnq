@@ -22,14 +22,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ExceptionHandlerImpl implements JobProcessorExceptionHandler {
-  private static Logger logger = LoggerFactory.getLogger(ExceptionHandlerImpl.class);
+    private static Logger logger = LoggerFactory.getLogger(ExceptionHandlerImpl.class);
 
-  ExceptionHandlerImpl() {
-  }
-
-  public void handle(JobProcessor p, Job j, Throwable e) {
-    if (logger.isErrorEnabled()) {
-      logger.error("Exception inside job processor [" + p + "] while executing job [" + j + "]", e);
+    ExceptionHandlerImpl() {
     }
-  }
+
+    public void handle(JobProcessor p, Job j, Throwable e) {
+        if (logger.isErrorEnabled()) {
+            logger.error("Exception inside job processor [" + p + "] while executing job [" + j + "]", e);
+        }
+    }
 }
