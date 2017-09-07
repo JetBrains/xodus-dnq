@@ -1,5 +1,5 @@
 rootProject.name = 'xodus-dnq'
 
-include 'open-api',
-        'transient-store',
+include 'dnq-open-api',
+        'dnq-transient-store',
         'dnq'

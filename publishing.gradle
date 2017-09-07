@@ -1,4 +1,11 @@
 if (project.hasProperty("ossrhUser") && project.hasProperty("ossrhPassword")) {
+
+    def keyFile = new File(project.buildDir, 'key.pgp')
+    keyFile.createNewFile()
+    keyFile << project.signKey
+    project.ext.set("signing.secretKeyRingFile", keyFile.getPath())
+    gradle.buildFinished { keyFile.delete() }
+
     nexusStaging {
         username = ossrhUser
         password = ossrhPassword
@@ -53,24 +60,6 @@ if (project.hasProperty("ossrhUser") && project.hasProperty("ossrhPassword")) {
                     }
                 }
             }
-        }
-
-        task sourceJar(type: Jar) {
-            classifier = 'sources'
-            duplicatesStrategy 'exclude'
-            includeEmptyDirs false
-            from project.sourceSets.main.java
-            from project.sourceSets.main.kotlin
-        }
-
-        // todo: kotlindoc
-        task javadocJar(type: Jar) {
-            classifier = 'javadoc'
-            from javadoc
-        }
-
-        artifacts {
-            archives jar, sourceJar, javadocJar
         }
     }
 }

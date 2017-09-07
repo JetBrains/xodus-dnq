@@ -1,6 +1,6 @@
 dependencies {
-    compile project(':open-api')
-    compile project(':transient-store')
+    compile project(':dnq-open-api')
+    compile project(':dnq-transient-store')
 
     compile "joda-time:joda-time:2.1"
 
