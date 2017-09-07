@@ -74,7 +74,7 @@ infix fun <T : XdEntity> T?.eq(value: T?): XdSearchingNode {
     return withNode(LinkEqual(deepestNodeName, value?.entity).decorateIfNeeded())
 }
 
-infix fun <T : XdEntity> T?.neq(value: T?): XdSearchingNode {
+infix fun <T : XdEntity> T?.ne(value: T?): XdSearchingNode {
     return withNode(UnaryNot(LinkEqual(deepestNodeName, value?.entity)).decorateIfNeeded())
 }
 
