@@ -17,7 +17,10 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.database.LinkChange;
 import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.Entity;
+import jetbrains.exodus.entitystore.EntityId;
+import jetbrains.exodus.entitystore.EntityIterable;
+import jetbrains.exodus.entitystore.EntityIterator;
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
 import org.jetbrains.annotations.NotNull;
 

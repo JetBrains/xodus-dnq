@@ -15,10 +15,10 @@
  */
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.entitystore.EntityIterator;
+import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.EntityId;
-import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.entitystore.EntityIterator;
 
 import java.util.Iterator;
 

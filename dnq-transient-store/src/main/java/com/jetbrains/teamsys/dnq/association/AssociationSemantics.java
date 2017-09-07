@@ -21,14 +21,15 @@ import com.jetbrains.teamsys.dnq.database.UniversalEmptyEntityIterable;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.*;
+import jetbrains.exodus.entitystore.Entity;
+import jetbrains.exodus.entitystore.EntityIterable;
+import jetbrains.exodus.entitystore.EntityIterator;
+import jetbrains.exodus.entitystore.PersistentEntityStore;
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import jetbrains.exodus.query.StaticTypedEntityIterable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 

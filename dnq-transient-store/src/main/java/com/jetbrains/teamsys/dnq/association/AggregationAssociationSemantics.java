@@ -16,22 +16,22 @@
 package com.jetbrains.teamsys.dnq.association;
 
 import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.entitystore.Entity;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implements aggregation assocations management.<p>
- * 1-1: project.[1]leader <-> user.[1]leaderInProject <p>
- * 1-n: project[0..n].issues <-> issue[1].project <p>
- * n-n: project[0..n].assignees <-> user[0..n].assigneeInProjects <p>
+ * Implements aggregation assocations management.&lt;p&gt;
+ * 1-1: project.[1]leader &lt;-&gt; user.[1]leaderInProject &lt;p&gt;
+ * 1-n: project[0..n].issues &lt;-&gt; issue[1].project &lt;p&gt;
+ * n-n: project[0..n].assignees &lt;-&gt; user[0..n].assigneeInProjects &lt;p&gt;
  */
 public class AggregationAssociationSemantics {
 
     /**
-     * 1. parent.parentToChild = child <==> child.childToParent = parent
-     * 2. parent.parentToChild = null <==> child.childToParent = null
+     * 1. parent.parentToChild = child &lt;==&gt; child.childToParent = parent
+     * 2. parent.parentToChild = null &lt;==&gt; child.childToParent = null
      *
      * @param parent                parent
      * @param parentToChildLinkName parent to child link name

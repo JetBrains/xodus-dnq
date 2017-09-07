@@ -15,10 +15,10 @@
  */
 package com.jetbrains.teamsys.dnq.database;
 
+import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.entitystore.Entity;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.database.TransientEntity;
 
 import java.util.Set;
 
