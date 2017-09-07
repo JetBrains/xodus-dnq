@@ -1,4 +1,10 @@
 if (project.hasProperty("ossrhUser") && project.hasProperty("ossrhPassword")) {
+
+    def keyFile = new File(project.buildDir, 'key.pgp')
+    keyFile << project.signKey
+    project.ext.set("signing.secretKeyRingFile", keyFile.getPath())
+    gradle.buildFinished { keyFile.delete() }
+
     nexusStaging {
         username = ossrhUser
         password = ossrhPassword
@@ -63,10 +69,11 @@ if (project.hasProperty("ossrhUser") && project.hasProperty("ossrhPassword")) {
             from project.sourceSets.main.kotlin
         }
 
-        // todo: kotlindoc
+        // this is a stub javadoc until we investigate and fix the following docklet error somehow:
+        // java.lang.ClassCastException: com.sun.tools.javac.code.Type$AnnotatedType cannot be cast to com.sun.tools.javac.code.Type$ClassType
         task javadocJar(type: Jar) {
             classifier = 'javadoc'
-            from javadoc
+            from "${rootProject.projectDir}/README.MD"
         }
 
         artifacts {

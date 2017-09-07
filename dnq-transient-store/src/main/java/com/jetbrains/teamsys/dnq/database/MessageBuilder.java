@@ -21,11 +21,13 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Creates error message by incoming Entity and EntityIterable
- * @param linkedEntities - entities which have outcoming link with target
- * @param target - entity we are trying to delete
  */
 public interface MessageBuilder {
 
+    /**
+     * @param linkedEntities - entities which have outcoming link with target
+     * @param _this - entity we are trying to delete
+     */
     @NotNull
     String build(@Nullable Iterable<Entity> linkedEntities, @Nullable Entity _this, boolean hasMore);
 }

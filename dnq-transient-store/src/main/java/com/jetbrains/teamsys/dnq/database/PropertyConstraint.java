@@ -15,9 +15,9 @@
  */
 package com.jetbrains.teamsys.dnq.database;
 
-import jetbrains.exodus.query.metadata.PropertyMetaData;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
+import jetbrains.exodus.query.metadata.PropertyMetaData;
 
 /**
  * General constraint for simple property
