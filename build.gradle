@@ -62,16 +62,4 @@ subprojects {
         maxHeapSize = '512m'
         testLogging.showStandardStreams = true
     }
-
-    task sourceJar(type: Jar) {
-        classifier = 'sources'
-        duplicatesStrategy 'exclude'
-        includeEmptyDirs false
-        from project.sourceSets.main.java
-        from project.sourceSets.main.kotlin
-    }
-
-    artifacts {
-        archives jar, sourceJar
-    }
 }
