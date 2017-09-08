@@ -3,18 +3,27 @@
 # xodus-dnq
 Kotlin library for the data definition and query over Xodus
 
-## Dependecies
-[TeamCity project](https://buildserver.labs.intellij.net/project.html?projectId=Ring_Tools_XodusDnq) to build and
+## Install to your project
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq)
 
+List of released versions is available at https://github.com/JetBrains/xodus-dnq/releases.
 
+#### Gradle
 ```groovy
 repositories {
-    maven { url 'http://repo.labs.intellij.net/webr-dnq' }
+    mavenCentral()
 }
-
-compile 'kotlinx.dnq:dnq:${ext.version}'
+compile 'org.jetbrains.xodus:dnq:${version}'
 ```
-where `ext.version` is a version from https://github.com/JetBrains/xodus-dnq/releases
+#### Maven
+```xml
+<dependency>
+    <groupId>org.jetbrains.xodus</groupId>
+    <artifactId>dnq</artifactId>
+    <version>$version</version>
+</dependency>
+```
+
 
 ## Data Definition
 
@@ -156,10 +165,7 @@ XdModel.registerNode(User)
 // 2. Scan Java-Classpath
 XdModel.scanJavaClasspath()
 
-// 3. Scan web classpath 
-XdModel.scanWebClasspath(servletContext)
-
-// 4. Scan specific URLs
+// 3. Scan specific URLs
 if (classLoader is URLClassLoader) {
     XdModel.scanURLs("URLClassLoader.urls", classLoader.urLs)
 }
@@ -169,7 +175,21 @@ if (classLoader is URLClassLoader) {
 All DB-operations should happen in transactions. XdEntities from one transaction can be safely used
 in another one, i.e. one can store a reference to an entity outside a transaction.
 
-## New 
+## New
+
+```kotlin
+class User(override val entity: Entity) : XdEntity() {
+    var login by xdRequiredStringProp(unique = true)
+}
+
+fun createUser(store: TransientEntityStore, login: String): User {
+    return store.transactional {
+        User.new {
+            this.login = login 
+        }
+    }
+}
+```
 
 ## Query
 
