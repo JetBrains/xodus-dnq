@@ -10,6 +10,10 @@ plugins {
     id 'idea'
 }
 
+sourceCompatibility = 1.8
+group = 'org.jetbrains.xodus'
+version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev'
+
 idea {
     project {
         jdkName = '1.8'
@@ -24,10 +28,6 @@ subprojects {
     apply plugin: 'java'
     apply plugin: 'kotlin'
     apply plugin: 'license'
-
-    sourceCompatibility = 1.8
-    group = 'org.jetbrains.xodus'
-    version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev'
 
     repositories {
         mavenCentral()
