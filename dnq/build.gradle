@@ -12,11 +12,12 @@ dependencies {
     compile "org.jetbrains.xodus:xodus-utils:$exodus_version"
     
     compile "org.reflections:reflections:0.9.10"
+    compile 'com.google.guava:guava:22.0'
     compile "org.javassist:javassist:3.21.0-GA"
     compile "javax.servlet:javax.servlet-api:3.0.1"
     compile 'com.github.mazine:infer-hierarchy-type-parameter:1.0.4'
 
-    testCompile 'com.google.truth:truth:0.31'
+    testCompile 'com.google.truth:truth:0.35'
     testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }
