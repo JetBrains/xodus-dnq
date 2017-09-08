@@ -60,7 +60,11 @@ subprojects {
     test {
         minHeapSize = '512m'
         maxHeapSize = '512m'
-        testLogging.showStandardStreams = true
+        testLogging {
+            showStandardStreams = true
+            exceptionFormat = 'full'
+        }
+        outputs.upToDateWhen { false }
     }
 
     task sourceJar(type: Jar) {
