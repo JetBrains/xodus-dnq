@@ -1,11 +1,5 @@
 if (project.hasProperty("ossrhUser") && project.hasProperty("ossrhPassword")) {
 
-    def keyFile = new File(project.buildDir, 'key.pgp')
-    keyFile.createNewFile()
-    keyFile << project.signKey
-    project.ext.set("signing.secretKeyRingFile", keyFile.getPath())
-    gradle.buildFinished { keyFile.delete() }
-
     nexusStaging {
         username = ossrhUser
         password = ossrhPassword
