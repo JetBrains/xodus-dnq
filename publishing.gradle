@@ -3,6 +3,7 @@ if (project.hasProperty("ossrhUser") && project.hasProperty("ossrhPassword")) {
     nexusStaging {
         username = ossrhUser
         password = ossrhPassword
+        delayBetweenRetriesInMillis = 30000
     }
 
     subprojects {
