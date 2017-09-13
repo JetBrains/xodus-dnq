@@ -68,7 +68,7 @@ abstract class DBTest {
     class NestedGroup(entity: Entity) : Group(entity) {
         companion object : XdNaturalEntityType<NestedGroup>()
 
-        val parentGroup: Group by xdLink1(Group::nestedGroups, dbPropertyName = "parent", dbOppositePropertyName = "nested")
+        var parentGroup: Group by xdLink1(Group::nestedGroups, dbPropertyName = "parent", dbOppositePropertyName = "nested")
         override var autoJoin by xdBooleanProp()
         override var owner: User by xdLink1(User)
     }

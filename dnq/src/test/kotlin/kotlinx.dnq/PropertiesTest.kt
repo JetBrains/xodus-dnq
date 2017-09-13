@@ -242,7 +242,7 @@ class PropertiesTest : DBTest() {
 
             // a link property keeps track of old values until the flush
             assertThat(user.hasChanges(Employee::supervisor)).isFalse()
-            assertThat(user.getOldValue(Employee::supervisor)).isNull()
+            assertThat(user.getOldValue(Employee::supervisor)).isEqualTo(boss)
             user.supervisor = luckyGuy
             assertThat(user.hasChanges(Employee::supervisor)).isTrue()
             assertThat(user.getOldValue(Employee::supervisor)).isEqualTo(boss)
@@ -268,7 +268,7 @@ class PropertiesTest : DBTest() {
             it.flush()
 
             // a link property forgets about changes after the flush :(
-            assertThat(user.getOldValue(Employee::supervisor)).isNull()
+            assertThat(user.getOldValue(Employee::supervisor)).isEqualTo(luckyGuy)
         }
     }
 
