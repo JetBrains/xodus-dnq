@@ -4,6 +4,7 @@ if (project.hasProperty("ossrhUser") && project.hasProperty("ossrhPassword")) {
         username = ossrhUser
         password = ossrhPassword
         delayBetweenRetriesInMillis = 30000
+        stagingProfileId = "org.jetbrains.xodus"
     }
 
     subprojects {
