@@ -355,7 +355,7 @@ class SearchingEntity(_type: String, _entityStore: TransientEntityStore) : FakeT
     private fun getDefaultPropertyValue(propertyName: String): Comparable<Nothing>? {
         val node = XdModel.getOrThrow(_type)
         node.findProperty(propertyName).let {
-            val simpleProperty = it ?: return 0
+            val simpleProperty = it ?: return null
             return when (simpleProperty.property.returnType.javaType) {
                 java.lang.String::class.java -> ""
 

@@ -17,10 +17,7 @@ package kotlinx.dnq.query
 
 import com.google.common.truth.IterableSubject
 import com.google.common.truth.Truth.assertThat
-import kotlinx.dnq.DBTest
-import kotlinx.dnq.XdEntity
-import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.transactional
+import kotlinx.dnq.*
 import org.joda.time.DateTime
 import org.junit.Test
 
@@ -248,7 +245,33 @@ class FilterQueryPropertiesTest : DBTest() {
         }
     }
 
+    @Test
+    fun `should search by extension property`() {
+        val date = DateTime()
+        store.transactional {
+            User.new {
+                login = "login1"
+                skill = 1
+                registered = date
+                inn = "123"
+            }
+            User.new {
+                login = "login2"
+                skill = 1
+            }
+        }
+        store.transactional {
+            User.assertThatFilterResult { it.inn eq "123" }.hasSize(1)
+            User.assertThatFilterResult { it.inn eq null }.hasSize(1)
+        }
+    }
+
+
     private fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: (T) -> Unit): IterableSubject {
         return assertThat(this.filter(clause).toList())
     }
+
+    var User.inn by xdStringProp(dbName = "_inn_")
+
 }
+
