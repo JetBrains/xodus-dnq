@@ -58,6 +58,7 @@ abstract class DBTest {
         companion object : XdNaturalEntityType<Group>()
 
         var name by xdRequiredStringProp(unique = true)
+        var alias by xdStringProp()
         val nestedGroups by xdLink0_N(NestedGroup::parentGroup, dbPropertyName = "nested", dbOppositePropertyName = "parent")
         val users: XdMutableQuery<User> by xdLink0_N(User::groups, onDelete = CLEAR, onTargetDelete = CLEAR)
 

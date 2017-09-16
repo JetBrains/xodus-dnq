@@ -16,6 +16,7 @@
 package kotlinx.dnq
 
 import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.query.FakeTransientEntity
 import kotlinx.dnq.util.XdHierarchyNode
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.parent
@@ -89,7 +90,11 @@ object XdModel {
         return hierarchyNode.entityType.wrap(entity)
     }
 
-    fun <T: XdEntity> toXd(entity: Entity): T {
+    fun <T : XdEntity> toXd(entity: Entity): T {
+        // this is hack to support abstract type in XdEntityType.filter {} api
+        if (entity is FakeTransientEntity) {
+            return entity.toXdHandlingAbstraction()
+        }
         val xdHierarchyNode = getOrThrow(entity.type)
 
         val entityConstructor = xdHierarchyNode.entityConstructor

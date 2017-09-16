@@ -15,6 +15,8 @@
  */
 package kotlinx.dnq.query
 
+import javassist.util.proxy.MethodHandler
+import javassist.util.proxy.ProxyFactory
 import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.core.dataStructures.Pair
 import jetbrains.exodus.database.TransientEntity
@@ -27,15 +29,21 @@ import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.query.LinkEqual
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.PropertyEqual
+import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.util.XdHierarchyNode
+import kotlinx.dnq.util.enclosingEntityClass
 import org.joda.time.DateTime
 import java.io.File
 import java.io.InputStream
-import kotlin.reflect.KProperty1
+import java.lang.reflect.Modifier
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.jvm.javaType
 
-open class FakeTransientEntity(protected val _type: String, protected val _entityStore: TransientEntityStore) : TransientEntity {
+
+private val factoryCache = ConcurrentHashMap<String, (Entity) -> Any>()
+
+internal open class FakeTransientEntity(protected val _type: String, protected val _entityStore: TransientEntityStore) : TransientEntity {
 
     companion object {
         internal val current: ThreadLocal<FakeTransientEntity> = ThreadLocal()
@@ -277,9 +285,36 @@ open class FakeTransientEntity(protected val _type: String, protected val _entit
         return result
     }
 
+    fun <T : XdEntity> toXdHandlingAbstraction(): T {
+        val node = XdModel.getOrThrow(type)
+
+        val entityConstructor = node.entityConstructor
+        // this is abstract type. lets create fake implementation.
+        if (entityConstructor == null) {
+            val constructor = factoryCache.getOrPut(type) {
+                val factory = ProxyFactory().apply {
+                    superclass = node.entityType.enclosingEntityClass
+                    setFilter({ method -> Modifier.isAbstract(method.modifiers) })
+                }
+                val handler = MethodHandler { _, _, _, _ ->
+                    null
+                }
+                val ctor = { entity: Entity ->
+                    factory.create(arrayOf(Entity::class.java), arrayOf(entity), handler)
+                }
+                ctor
+
+            }
+            @Suppress("UNCHECKED_CAST")
+            return constructor(this) as T
+        }
+        @Suppress("UNCHECKED_CAST")
+        return entityConstructor(this) as T
+    }
+
 }
 
-class SearchingEntity(_type: String, _entityStore: TransientEntityStore) : FakeTransientEntity(_type, _entityStore) {
+internal class SearchingEntity(_type: String, _entityStore: TransientEntityStore) : FakeTransientEntity(_type, _entityStore) {
 
     companion object {
         fun get(): SearchingEntity = current.get() as SearchingEntity
@@ -325,7 +360,7 @@ class SearchingEntity(_type: String, _entityStore: TransientEntityStore) : FakeT
         currentNodeName = linkName
         val node = XdModel.getOrThrow(_type)
         node.findLink(linkName).let {
-            it ?: return this
+            it ?: return null
             return SearchingEntity(it.delegate.oppositeEntityType.entityType, _entityStore).bindAsChild()
         }
     }
@@ -394,16 +429,17 @@ class SearchingEntity(_type: String, _entityStore: TransientEntityStore) : FakeT
     private fun addToNodes(nodeBase: NodeBase) {
         SearchingEntity.get().nodes.add(nodeBase)
     }
+
 }
 
-class MappingEntity(_type: String, _entityStore: TransientEntityStore) : FakeTransientEntity(_type, _entityStore) {
+internal class MappingEntity(_type: String, _entityStore: TransientEntityStore) : FakeTransientEntity(_type, _entityStore) {
 
-    var modelProperty: KProperty1<*, *>? = null
+    var link: XdHierarchyNode.LinkProperty? = null
 
     override fun getLink(linkName: String): Entity? {
         val node = XdModel.getOrThrow(_type)
         node.findLink(linkName).let {
-            modelProperty = it?.property ?: throw IllegalStateException("can't found model name for $linkName")
+            link = it ?: throw IllegalStateException("can't found model name for $linkName")
             return MappingEntity(it.delegate.oppositeEntityType.entityType, _entityStore)
         }
     }
@@ -411,9 +447,10 @@ class MappingEntity(_type: String, _entityStore: TransientEntityStore) : FakeTra
     override fun getLinks(linkName: String): EntityIterable {
         val node = XdModel.getOrThrow(_type)
         node.findLink(linkName).let {
-            modelProperty = it?.property ?: throw IllegalStateException("can't found model name for $linkName")
+            link = it ?: throw IllegalStateException("can't found model name for $linkName")
             return EntityIterableBase.EMPTY
         }
     }
 
 }
+

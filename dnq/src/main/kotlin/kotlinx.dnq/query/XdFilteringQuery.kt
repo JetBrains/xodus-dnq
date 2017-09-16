@@ -22,6 +22,7 @@ import kotlinx.dnq.simple.maxValue
 import kotlinx.dnq.simple.minValue
 import kotlinx.dnq.simple.next
 import kotlinx.dnq.simple.prev
+import kotlinx.dnq.util.getDBName
 import org.joda.time.DateTime
 import kotlin.reflect.KProperty1
 
@@ -34,20 +35,24 @@ fun <T : XdEntity> XdQuery<T>.filter(clause: (T) -> Unit): XdQuery<T> {
     }
 }
 
-inline fun <reified S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(crossinline mapping: (S) -> T?): XdQuery<T> {
+@Suppress("UNCHECKED_CAST")
+fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(mapping: (S) -> T?): XdQuery<T> {
     val mappingEntity = MappingEntity(entityType.entityType, entityType.entityStore).inScope {
         mapping(entityType.wrap(this))
     }
-    @Suppress("UNCHECKED_CAST")
-    return mapDistinct(mappingEntity.modelProperty as KProperty1<S, T?>)
+    val link = mappingEntity.link!!
+    val property = link.property as KProperty1<XdEntity, *>
+    return mapDistinct(property.getDBName(entityType), link.delegate.oppositeEntityType as XdEntityType<T>)
 }
 
-inline fun <S : XdEntity, reified T : XdEntity, Q : XdQuery<T>> XdQuery<S>.flatMapDistinct(crossinline mapping: (S) -> Q): XdQuery<T> {
+@Suppress("UNCHECKED_CAST")
+fun <S : XdEntity, T : XdEntity, Q : XdQuery<T>> XdQuery<S>.flatMapDistinct(mapping: (S) -> Q): XdQuery<T> {
     val mappingEntity = MappingEntity(entityType.entityType, entityType.entityStore).inScope {
         mapping(entityType.wrap(this)).size() // to fallback to getLinks of entity method
     }
-    @Suppress("UNCHECKED_CAST")
-    return flatMapDistinct(mappingEntity.modelProperty as KProperty1<S, Q>)
+    val link = mappingEntity.link!!
+    val property = link.property as KProperty1<XdEntity, *>
+    return flatMapDistinct(property.getDBName(entityType), link.delegate.oppositeEntityType as XdEntityType<T>)
 }
 
 fun <T : XdEntity> XdEntityType<T>.filter(clause: (T) -> Unit): XdQuery<T> {
@@ -160,3 +165,4 @@ open class XdSearchingNode(val target: NodeBase) {
         }
     }
 }
+

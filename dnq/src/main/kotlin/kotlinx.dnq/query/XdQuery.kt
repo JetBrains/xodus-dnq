@@ -257,7 +257,7 @@ private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterab
     return ExcludeNullStaticTypedEntityIterable(entityTypeName, staticTypedIterable, queryEngine)
 }
 
-inline fun <reified S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(field: KProperty1<S, T?>): XdQuery<T> {
+fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(field: KProperty1<S, T?>): XdQuery<T> {
     @Suppress("UNCHECKED_CAST")
     return mapDistinct(field.getDBName(entityType), (field.returnType.javaType as Class<T>).entityType)
 }

@@ -18,6 +18,7 @@ package kotlinx.dnq.query
 import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.transactional
+import kotlinx.dnq.xdLink0_1
 import org.junit.Test
 
 class FilterQueryLinksTest : DBTest() {
@@ -69,4 +70,26 @@ class FilterQueryLinksTest : DBTest() {
         }
     }
 
+    @Test
+    fun `simple search by extension link`() {
+        store.transactional {
+            val user1 = User.new {
+                login = "test"
+                skill = 1
+            }
+            val user2 = User.new {
+                login = "test1"
+                skill = 2
+                fellow = user1
+            }
+
+            var result = User.filter { it.fellow = user1 }
+            assertThat(result.toList()).containsExactly(user2)
+
+            result = User.filter { it.fellow eq user1 }
+            assertThat(result.toList()).containsExactly(user2)
+        }
+    }
+
+    var User.fellow by xdLink0_1(User)
 }
