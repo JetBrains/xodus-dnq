@@ -20,6 +20,7 @@ import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdQuery
+import kotlinx.dnq.query.filter
 import kotlinx.dnq.query.firstOrNull
 import kotlinx.dnq.session
 
@@ -33,4 +34,8 @@ fun <XD : XdEntity> XdEntityType<XD>.findOrNew(findQuery: XdQuery<XD>, initNew: 
 
     }
     return wrap(storeContainer.store.session.newEntity(entityCreator))
+}
+
+fun <XD : XdEntity> XdEntityType<XD>.findOrNew(template: XD.() -> Unit): XD {
+    return findOrNew(filter { template(it) }, template)
 }

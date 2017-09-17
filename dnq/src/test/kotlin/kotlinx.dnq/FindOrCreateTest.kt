@@ -19,9 +19,6 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.query.addAll
-import kotlinx.dnq.query.and
-import kotlinx.dnq.query.eq
-import kotlinx.dnq.query.query
 import org.junit.Test
 
 class FindOrCreateTest : DBTest() {
@@ -35,10 +32,11 @@ class FindOrCreateTest : DBTest() {
             fun findOrNew(user: User, groups: Sequence<Group>): ApprovedScope {
                 val groupsConvolution = groups.map { it.entityId }.sorted().joinToString(":")
 
-                return findOrNew(query((ApprovedScope::user eq user) and (ApprovedScope::groupsConvolution eq groupsConvolution))) {
+                return (findOrNew {
                     this.user = user
-                    this.groups.addAll(groups)
                     this.groupsConvolution = groupsConvolution
+                }).apply {
+                    this.groups.addAll(groups)
                 }
             }
         }
@@ -107,6 +105,29 @@ class FindOrCreateTest : DBTest() {
         }
         store.transactional {
             assertThat(approvedScope1).isNotEqualTo(approvedScope2)
+        }
+    }
+
+    @Test
+    fun `simple findOrNew`() {
+        val user = store.transactional {
+            User.new { login = "zeckson"; skill = 1 }
+        }
+        val user1 = store.transactional {
+            User.findOrNew {
+                login = "zeckson1"
+                skill = 2
+            }
+        }
+        val user2 = store.transactional {
+            User.findOrNew {
+                login = "zeckson"
+                skill = 1
+            }
+        }
+        store.transactional {
+            assertThat(user1).isNotEqualTo(user2)
+            assertThat(user2).isEqualTo(user)
         }
     }
 }
