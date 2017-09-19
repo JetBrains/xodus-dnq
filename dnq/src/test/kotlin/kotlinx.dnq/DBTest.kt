@@ -16,6 +16,9 @@
 package kotlinx.dnq
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import jetbrains.exodus.core.execution.DelegatingJobProcessor
+import jetbrains.exodus.core.execution.JobProcessor
+import jetbrains.exodus.core.execution.ThreadJobProcessorPool
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.query.XdMutableQuery
@@ -79,7 +82,7 @@ abstract class DBTest {
 
         override var autoJoin: Boolean
             get() = false
-            set(value) { }
+            set(value) {}
 
         override val owner: User? = null
     }
@@ -93,6 +96,7 @@ abstract class DBTest {
     class Contact(override val entity: Entity) : XdEntity() {
 
         companion object : XdNaturalEntityType<Contact>()
+
         var user: User by xdLink1(User::contacts)
 
         var email by xdRequiredStringProp() { email() }
@@ -133,6 +137,10 @@ abstract class DBTest {
         store.close()
         store.persistentStore.close()
         cleanUpDbDir()
+    }
+
+    protected fun createAsyncProcessor(): JobProcessor {
+        return DelegatingJobProcessor(ThreadJobProcessorPool.getOrCreateJobProcessor("events"))
     }
 
     private fun cleanUpDbDir() {
