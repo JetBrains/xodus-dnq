@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.entitystore;
 
-enum Where {
+public enum Where {
     SYNC_BEFORE_FLUSH(),
     SYNC_BEFORE_CONSTRAINTS(),
     SYNC_AFTER_FLUSH(),

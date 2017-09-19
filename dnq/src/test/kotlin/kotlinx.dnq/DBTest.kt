@@ -19,8 +19,15 @@ import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.core.execution.DelegatingJobProcessor
 import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.core.execution.ThreadJobProcessorPool
+import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.QueryCancellingPolicy
+import jetbrains.exodus.entitystore.Where
+import jetbrains.exodus.entitystore.Where.*
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
+import kotlinx.dnq.listener.XdEntityListener
+import kotlinx.dnq.listener.addListener
+import kotlinx.dnq.listener.asLegacyListener
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.simple.email
 import kotlinx.dnq.simple.min
@@ -39,6 +46,8 @@ import java.nio.file.attribute.BasicFileAttributes
 abstract class DBTest {
     lateinit var store: TransientEntityStoreImpl
     lateinit var databaseHome: File
+    val typeListeners = mutableListOf<Pair<XdEntityType<*>, XdEntityListener<*>>>()
+    val instanceListeners = mutableListOf<Pair<XdEntity, XdEntityListener<*>>>()
 
     class User(override val entity: Entity) : XdEntity() {
         companion object : XdNaturalEntityType<User>()
@@ -134,6 +143,15 @@ abstract class DBTest {
 
     @After
     fun tearDown() {
+        val eventsMultiplexer = store.eventsMultiplexer
+        if (eventsMultiplexer != null) {
+            typeListeners.forEach {
+                eventsMultiplexer.removeListener(it.first.entityType, it.second.asLegacyListener())
+            }
+            instanceListeners.forEach {
+                eventsMultiplexer.removeListener(it.first.entity, it.second.asLegacyListener())
+            }
+        }
         store.close()
         store.persistentStore.close()
         cleanUpDbDir()
@@ -141,6 +159,44 @@ abstract class DBTest {
 
     protected fun createAsyncProcessor(): JobProcessor {
         return DelegatingJobProcessor(ThreadJobProcessorPool.getOrCreateJobProcessor("events"))
+    }
+
+    fun <T> transactional(
+            readonly: Boolean = false,
+            queryCancellingPolicy: QueryCancellingPolicy? = null,
+            isNew: Boolean = false,
+            block: (TransientStoreSession) -> T
+    ) = store.transactional(readonly, queryCancellingPolicy, isNew, block)
+
+    fun <XD : XdEntity> XdEntityType<XD>.onUpdate(mode: Where = SYNC_AFTER_FLUSH, action: (XD, XD) -> Unit): XdEntityListener<XD> {
+        val listener = makeListener(mode, action)
+        store.eventsMultiplexer.addListener(this, listener)
+        typeListeners.add(this to listener)
+        return listener
+    }
+
+    fun <XD : XdEntity> XD.onUpdate(mode: Where = SYNC_AFTER_FLUSH, action: (XD, XD) -> Unit): XdEntityListener<XD> {
+        val listener = makeListener(mode, action)
+        store.eventsMultiplexer.addListener(this, listener)
+        instanceListeners.add(this to listener)
+        return listener
+    }
+
+    private fun <XD : XdEntity> makeListener(mode: Where, action: (XD, XD) -> Unit): XdEntityListener<XD> {
+        return when (mode) {
+            SYNC_BEFORE_FLUSH -> object : XdEntityListener<XD> {
+                override fun updatedSyncBeforeFlush(old: XD, current: XD) = action(old, current)
+            }
+            SYNC_BEFORE_CONSTRAINTS -> object : XdEntityListener<XD> {
+                override fun updatedSyncBeforeConstraints(old: XD, current: XD) = action(old, current)
+            }
+            SYNC_AFTER_FLUSH -> object : XdEntityListener<XD> {
+                override fun updatedSync(old: XD, current: XD) = action(old, current)
+            }
+            ASYNC_AFTER_FLUSH -> object : XdEntityListener<XD> {
+                override fun updatedAsync(old: XD, current: XD) = action(old, current)
+            }
+        }
     }
 
     private fun cleanUpDbDir() {

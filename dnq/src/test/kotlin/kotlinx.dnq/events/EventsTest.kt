@@ -8,7 +8,6 @@ import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.listener.removeListener
 import kotlinx.dnq.query.size
-import kotlinx.dnq.transactional
 import kotlinx.dnq.util.getAddedLinks
 import kotlinx.dnq.util.hasChanges
 import org.junit.Assert.assertEquals
@@ -31,45 +30,38 @@ class EventsTest : DBTest() {
 
     @Test
     fun accessAddedOnUpdatedAfterGetLinks() {
-        val (f1, f2, g) = store.transactional {
+        val (f1, f2, g) = transactional {
             Triple(Foo.new(), Foo.new(), Goo.new())
         }
         val contentChanged = AtomicBoolean(false)
         val contentsAdded = AtomicBoolean(false)
-        val listener = object : XdEntityListener<Goo> {
-            override fun updatedSync(old: Goo, current: Goo) {
-                contentChanged.set(old.hasChanges(Goo::content))
-                contentsAdded.set(old.getAddedLinks(Goo::content).size() == 2)
-            }
+        Goo.onUpdate { old, _ ->
+            contentChanged.set(old.hasChanges(Goo::content))
+            contentsAdded.set(old.getAddedLinks(Goo::content).size() == 2)
         }
-        store.eventsMultiplexer.addListener(Goo, listener)
-        try {
-            store.transactional {
-                g.content.add(f1)
-                g.content.add(f2)
-            }
-            assertTrue(contentChanged.get())
-            assertTrue(contentsAdded.get())
-        } finally {
-            store.eventsMultiplexer.removeListener(Goo, listener)
+        transactional {
+            g.content.add(f1)
+            g.content.add(f2)
         }
+        assertTrue(contentChanged.get())
+        assertTrue(contentsAdded.get())
     }
 
     @Test
     fun removeTypeListener() {
-        val goo = store.transactional { Goo.new() }
+        val goo = transactional { Goo.new() }
         val addedCount = AtomicInteger(0)
         val listener = createIncrementListener(addedCount)
         store.eventsMultiplexer.addListener(Goo, listener)
         try {
-            store.transactional {
+            transactional {
                 goo.content.add(Foo.new())
             }
         } finally {
             store.eventsMultiplexer.removeListener(Goo, listener)
         }
         assertEquals(1, addedCount.get())
-        store.transactional {
+        transactional {
             goo.content.add(Foo.new())
         }
         assertEquals(1, addedCount.get())
@@ -77,11 +69,11 @@ class EventsTest : DBTest() {
 
     @Test
     fun removeInstanceListener() {
-        val goo = store.transactional { Goo.new() }
+        val goo = transactional { Goo.new() }
         val addedCount = AtomicInteger(0)
         val listener = createIncrementListener(addedCount)
         try {
-            store.transactional {
+            transactional {
                 store.eventsMultiplexer.addListener(goo, listener)
                 goo.content.add(Foo.new())
             }
@@ -89,7 +81,7 @@ class EventsTest : DBTest() {
             store.eventsMultiplexer.removeListener(goo, listener)
         }
         assertEquals(1, addedCount.get())
-        store.transactional {
+        transactional {
             goo.content.add(Foo.new())
         }
         assertEquals(1, addedCount.get())
