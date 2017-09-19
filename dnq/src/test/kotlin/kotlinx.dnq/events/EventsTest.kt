@@ -11,10 +11,12 @@ import kotlinx.dnq.query.size
 import kotlinx.dnq.transactional
 import kotlinx.dnq.util.getAddedLinks
 import kotlinx.dnq.util.hasChanges
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 class EventsTest : DBTest() {
 
@@ -51,6 +53,32 @@ class EventsTest : DBTest() {
         } finally {
             store.eventsMultiplexer.removeListener(Goo, listener)
         }
+    }
+
+    @Test
+    fun removeListener() {
+        val goo = store.transactional {
+            Goo.new()
+        }
+        val addedCount = AtomicInteger(0)
+        val listener = object : XdEntityListener<Goo> {
+            override fun updatedSync(old: Goo, current: Goo) {
+                addedCount.addAndGet(old.getAddedLinks(Goo::content).size())
+            }
+        }
+        store.eventsMultiplexer.addListener(Goo, listener)
+        try {
+            store.transactional {
+                goo.content.add(Foo.new())
+            }
+        } finally {
+            store.eventsMultiplexer.removeListener(Goo, listener)
+        }
+        assertEquals(1, addedCount.get())
+        store.transactional {
+            goo.content.add(Foo.new())
+        }
+        assertEquals(1, addedCount.get())
     }
 
 }
