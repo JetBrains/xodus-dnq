@@ -56,16 +56,10 @@ class EventsTest : DBTest() {
     }
 
     @Test
-    fun removeListener() {
-        val goo = store.transactional {
-            Goo.new()
-        }
+    fun removeTypeListener() {
+        val goo = store.transactional { Goo.new() }
         val addedCount = AtomicInteger(0)
-        val listener = object : XdEntityListener<Goo> {
-            override fun updatedSync(old: Goo, current: Goo) {
-                addedCount.addAndGet(old.getAddedLinks(Goo::content).size())
-            }
-        }
+        val listener = createIncrementListener(addedCount)
         store.eventsMultiplexer.addListener(Goo, listener)
         try {
             store.transactional {
@@ -79,6 +73,34 @@ class EventsTest : DBTest() {
             goo.content.add(Foo.new())
         }
         assertEquals(1, addedCount.get())
+    }
+
+    @Test
+    fun removeInstanceListener() {
+        val goo = store.transactional { Goo.new() }
+        val addedCount = AtomicInteger(0)
+        val listener = createIncrementListener(addedCount)
+        try {
+            store.transactional {
+                store.eventsMultiplexer.addListener(goo, listener)
+                goo.content.add(Foo.new())
+            }
+        } finally {
+            store.eventsMultiplexer.removeListener(goo, listener)
+        }
+        assertEquals(1, addedCount.get())
+        store.transactional {
+            goo.content.add(Foo.new())
+        }
+        assertEquals(1, addedCount.get())
+    }
+
+    private fun createIncrementListener(addedCount: AtomicInteger): XdEntityListener<Goo> {
+        return object : XdEntityListener<Goo> {
+            override fun updatedSync(old: Goo, current: Goo) {
+                addedCount.addAndGet(old.getAddedLinks(Goo::content).size())
+            }
+        }
     }
 
 }
