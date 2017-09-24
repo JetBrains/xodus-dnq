@@ -36,7 +36,7 @@ fun TransientEntityStore.run(action: Runnable) {
             action.run()
             wasEx = false
         } finally {
-            if ((superSession == null || superIsSuspended) && newSession.isOpened()) {
+            if ((superSession == null || superIsSuspended) && newSession.isOpened) {
                 if (wasEx) {
                     newSession.abort()
                 } else {
