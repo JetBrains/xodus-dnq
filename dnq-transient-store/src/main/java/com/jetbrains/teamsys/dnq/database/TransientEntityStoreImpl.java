@@ -37,6 +37,7 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * @author Vadim.Gurov
  */
+@SuppressWarnings("unused") // TODO: remove this suppression
 public class TransientEntityStoreImpl implements TransientEntityStore {
 
     private static final Logger logger = LoggerFactory.getLogger(TransientEntityStoreImpl.class);
@@ -47,16 +48,16 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     private IEventsMultiplexer eventsMultiplexer;
     private final Set<TransientStoreSession> sessions =
             Collections.newSetFromMap(new ConcurrentHashMap<TransientStoreSession, Boolean>(200));
-    private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<TransientStoreSession>();
-    private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<Integer, TransientStoreSessionListener>();
+    private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<>();
+    private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<>();
 
     private volatile boolean open = true;
     private boolean closed = false;
     private final Latch enumContainersLock = Latch.create();
-    private final Set<EnumContainer> initedContainers = new HashSet<EnumContainer>(10);
-    private final Map<String, Entity> enumCache = new ConcurrentHashMap<String, Entity>();
-    private final Map<String, BasePersistentClassImpl> persistentClassInstanceCache = new ConcurrentHashMap<String, BasePersistentClassImpl>();
-    private final Map<Class, BasePersistentClassImpl> persistentClassInstances = new ConcurrentHashMap<Class, BasePersistentClassImpl>();
+    private final Set<EnumContainer> initedContainers = new HashSet<>(10);
+    private final Map<String, Entity> enumCache = new ConcurrentHashMap<>();
+    private final Map<String, BasePersistentClassImpl> persistentClassInstanceCache = new ConcurrentHashMap<>();
+    private final Map<Class, BasePersistentClassImpl> persistentClassInstances = new ConcurrentHashMap<>();
 
     final ReentrantLock flushLock = new ReentrantLock(true); // fair flushLock
 
@@ -87,7 +88,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
      *
      * @param persistentStore persistent entity store.
      */
-    @SuppressWarnings({"UnusedDeclaration"})
     public void setPersistentStore(EntityStore persistentStore) {
         final EnvironmentConfig ec = ((PersistentEntityStore) persistentStore).getEnvironment().getEnvironmentConfig();
         if (ec.getEnvTxnDowngradeAfterFlush() == EnvironmentConfig.DEFAULT.getEnvTxnDowngradeAfterFlush()) {
@@ -104,7 +104,6 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
      *
      * @param queryEngine query engine.
      */
-    @SuppressWarnings({"UnusedDeclaration"})
     public void setQueryEngine(QueryEngine queryEngine) {
         this.queryEngine = queryEngine;
     }
@@ -236,12 +235,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
             throw new IllegalStateException("No current thread session.");
         }
 
-        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-            @Override
-            public boolean run() {
-                ((PersistentEntityStore) s.getPersistentTransaction().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
-                return true;
-            }
+        s.addChangeAndRun(() -> {
+            ((PersistentEntityStore) s.getPersistentTransaction().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
+            return true;
         });
     }
 
@@ -252,12 +248,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
             throw new IllegalStateException("No current thread session.");
         }
 
-        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-            @Override
-            public boolean run() {
-                ((PersistentEntityStoreImpl) s.getPersistentTransaction().getStore()).deleteEntityType(entityTypeName);
-                return true;
-            }
+        s.addChangeAndRun(() -> {
+            ((PersistentEntityStoreImpl) s.getPersistentTransaction().getStore()).deleteEntityType(entityTypeName);
+            return true;
         });
     }
 
@@ -272,11 +265,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         if (entity instanceof TransientEntity) {
             s.deleteEntity((TransientEntity) entity);
         } else {
-            s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-                public boolean run() {
-                    persistentEntity.delete();
-                    return true;
-                }
+            s.addChangeAndRun(() -> {
+                persistentEntity.delete();
+                return true;
             });
         }
     }
@@ -289,11 +280,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         }
 
         final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
-        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-            public boolean run() {
-                persistentEntity.deleteLinks(linkName);
-                return true;
-            }
+        s.addChangeAndRun(() -> {
+            persistentEntity.deleteLinks(linkName);
+            return true;
         });
     }
 
@@ -307,11 +296,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
         final Entity persistentLink = (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
 
-        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-            public boolean run() {
-                persistentEntity.deleteLink(linkName, persistentLink);
-                return true;
-            }
+        s.addChangeAndRun(() -> {
+            persistentEntity.deleteLink(linkName, persistentLink);
+            return true;
         });
     }
 
@@ -346,12 +333,12 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     }
 
     public void addListener(@NotNull TransientStoreSessionListener listener) {
-        listeners.push(Integer.valueOf(0), listener);
+        listeners.push(0, listener);
     }
 
     @Override
     public void addListener(TransientStoreSessionListener listener, final int priority) {
-        listeners.push(Integer.valueOf(priority), listener);
+        listeners.push(priority, listener);
     }
 
     public void removeListener(@NotNull TransientStoreSessionListener listener) {
@@ -424,11 +411,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     }
 
     public static String getEnumKey(@NotNull final String className, @NotNull final String propName) {
-        final StringBuilder builder = new StringBuilder(24);
-        builder.append(propName);
-        builder.append('@');
-        builder.append(className);
-        return builder.toString();
+        return propName + '@' + className;
     }
 
     interface ListenerVisitor {
