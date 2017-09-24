@@ -299,7 +299,7 @@ class TransientEntityImpl implements TransientEntity {
 
     @NotNull
     public List<Pair<String, EntityIterable>> getIncomingLinks() {
-        final List<Pair<String, EntityIterable>> result = new ArrayList<Pair<String, EntityIterable>>();
+        final List<Pair<String, EntityIterable>> result = new ArrayList<>();
         final TransientStoreSession session = getAndCheckThreadStoreSession();
         final ModelMetaData mmd = ((TransientEntityStore) session.getStore()).getModelMetaData();
         if (mmd != null) {
@@ -311,7 +311,7 @@ class TransientEntityImpl implements TransientEntity {
                     //Link name clash possible!!!!
                     for (final String linkName : entry.getValue()) {
                         // Can value be list?
-                        result.add(new Pair<String, EntityIterable>(linkName, session.findLinks(entityType, this, linkName)));
+                        result.add(new Pair<>(linkName, session.findLinks(entityType, this, linkName)));
                     }
                 }
             }
@@ -411,8 +411,6 @@ class TransientEntityImpl implements TransientEntity {
         };
     }
 
-    ;
-
     private TransientEntityIterable getRemovedWrapper(final LinkChange change) {
         Set<TransientEntity> removedEntities = change.getRemovedEntities();
         if (removedEntities == null) {
@@ -431,8 +429,6 @@ class TransientEntityImpl implements TransientEntity {
         };
     }
 
-    ;
-
     private TransientEntityIterable getDeletedWrapper(final LinkChange change) {
         Set<TransientEntity> deletedEntities = change.getDeletedEntities();
         if (deletedEntities == null) {
@@ -450,8 +446,6 @@ class TransientEntityImpl implements TransientEntity {
             }
         };
     }
-
-    ;
 
     public EntityIterable getAddedLinks(final String name) {
         return getAddedRemovedLinks(name, false);
