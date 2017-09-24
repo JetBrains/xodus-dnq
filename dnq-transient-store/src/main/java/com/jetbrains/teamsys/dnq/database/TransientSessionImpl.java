@@ -142,7 +142,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             }
             final ReadonlyPersistentStoreTransaction roTxn = (ReadonlyPersistentStoreTransaction) currentTxn;
             final PersistentStoreTransaction newTxn = roTxn.getUpgradedTransaction();
-            TxnUtil.registerTransation(persistentStore, newTxn);
+            persistentStore.registerTransaction(newTxn);
             this.changesTracker = this.changesTracker.upgrade();
             txnWhichWasUpgraded = roTxn;
         }

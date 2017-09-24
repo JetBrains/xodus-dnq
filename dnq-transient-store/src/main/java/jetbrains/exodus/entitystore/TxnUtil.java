@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.entitystore;
 
+@Deprecated
 public class TxnUtil {
 
     private TxnUtil() {
