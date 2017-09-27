@@ -35,9 +35,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class EventsMultiplexer implements TransientStoreSessionListener, IEventsMultiplexer {
     private static final ExceptionHandlerImpl EX_HANDLER = new ExceptionHandlerImpl();
-    private static Logger logger = LoggerFactory.getLogger(EventsMultiplexer.class);
+    static Logger logger = LoggerFactory.getLogger(EventsMultiplexer.class);
 
-    private Map<EventsMultiplexer.FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<>();
+    private Map<FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<>();
     private Map<String, Queue<IEntityListener>> typeToListeners = new HashMap<>();
     private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
     private boolean open = true;
@@ -97,7 +97,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         if (((TransientEntity) e).isNew()) {
             throw new IllegalStateException("Entity is not saved into database - you can't listern to it.");
         }
-        final EventsMultiplexer.FullEntityId id = new EventsMultiplexer.FullEntityId(e.getStore(), e.getId());
+        final FullEntityId id = new FullEntityId(e.getStore(), e.getId());
         this.rwl.writeLock().lock();
         try {
             if (open) {
@@ -114,7 +114,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     }
 
     public void removeListener(@NotNull Entity e, @NotNull IEntityListener listener) {
-        final EventsMultiplexer.FullEntityId id = new EventsMultiplexer.FullEntityId(e.getStore(), e.getId());
+        final FullEntityId id = new FullEntityId(e.getStore(), e.getId());
         this.rwl.writeLock().lock();
         try {
             final Queue<IEntityListener> listeners = this.instanceToListeners.get(id);
@@ -169,7 +169,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         }
         this.rwl.writeLock().lock();
         open = false;
-        final Map<EventsMultiplexer.FullEntityId, Queue<IEntityListener>> notClosedListeners;
+        final Map<FullEntityId, Queue<IEntityListener>> notClosedListeners;
         // clear listeners
         try {
             this.typeToListeners.clear();
@@ -179,7 +179,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         } finally {
             this.rwl.writeLock().unlock();
         }
-        for (final EventsMultiplexer.FullEntityId id : notClosedListeners.keySet()) {
+        for (final FullEntityId id : notClosedListeners.keySet()) {
             if (logger.isErrorEnabled()) {
                 logger.error(listenerToString(id, notClosedListeners.get(id)));
             }
@@ -201,13 +201,13 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     public boolean hasEntityListener(TransientEntity entity) {
         this.rwl.readLock().lock();
         try {
-            return instanceToListeners.containsKey(new EventsMultiplexer.FullEntityId(entity.getStore(), entity.getId()));
+            return instanceToListeners.containsKey(new FullEntityId(entity.getStore(), entity.getId()));
         } finally {
             this.rwl.readLock().unlock();
         }
     }
 
-    private String listenerToString(final EventsMultiplexer.FullEntityId id, Queue<IEntityListener> listeners) {
+    private String listenerToString(final FullEntityId id, Queue<IEntityListener> listeners) {
         final StringBuilder builder = new StringBuilder(40);
         builder.append("Unregistered entity to listener class: ");
         id.toString(builder);
@@ -222,7 +222,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     private void handlePerEntityChanges(Where where, TransientEntityChange c) {
         final Queue<IEntityListener> listeners;
         final TransientEntity e = c.getTransientEntity();
-        final EventsMultiplexer.FullEntityId id = new EventsMultiplexer.FullEntityId(e.getStore(), e.getId());
+        final FullEntityId id = new FullEntityId(e.getStore(), e.getId());
         if (where == Where.ASYNC_AFTER_FLUSH && c.getChangeType() == EntityChangeType.REMOVE) {
             // unsubscribe all entity listeners, but fire them anyway
             this.rwl.writeLock().lock();
@@ -262,88 +262,9 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     }
 
     @SuppressWarnings("unchecked")
-    private void handleChange(Where where, TransientEntityChange c, Queue<IEntityListener> listeners) {
+    private void handleChange(Where where, TransientEntityChange c, Queue listeners) {
         if (listeners != null) {
-            for (IEntityListener l : listeners) {
-                try {
-                    switch (where) {
-                        case SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS:
-                            switch (c.getChangeType()) {
-                                case ADD:
-                                    l.addedSyncBeforeConstraints(c.getTransientEntity());
-                                    break;
-                                case UPDATE:
-                                    l.updatedSyncBeforeConstraints(c.getSnaphotEntity(), c.getTransientEntity());
-                                    break;
-                                case REMOVE:
-                                    l.removedSyncBeforeConstraints(c.getSnaphotEntity());
-                                    break;
-                                default:
-                                    throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
-                            }
-                            break;
-                        case SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS:
-                            switch (c.getChangeType()) {
-                                case ADD:
-                                    l.addedSyncAfterConstraints(c.getTransientEntity());
-                                    break;
-                                case UPDATE:
-                                    l.updatedSyncAfterConstraints(c.getSnaphotEntity(), c.getTransientEntity());
-                                    break;
-                                case REMOVE:
-                                    l.removedSyncAfterConstraints(c.getSnaphotEntity());
-                                    break;
-                                default:
-                                    throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
-                            }
-                            break;
-                        case SYNC_AFTER_FLUSH:
-                            switch (c.getChangeType()) {
-                                case ADD:
-                                    l.addedSync(c.getTransientEntity());
-                                    break;
-                                case UPDATE:
-                                    l.updatedSync(c.getSnaphotEntity(), c.getTransientEntity());
-                                    break;
-                                case REMOVE:
-                                    l.removedSync(c.getSnaphotEntity());
-                                    break;
-                                default:
-                                    throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
-                            }
-                            break;
-                        case ASYNC_AFTER_FLUSH:
-                            switch (c.getChangeType()) {
-                                case ADD:
-                                    l.addedAsync(c.getTransientEntity());
-                                    break;
-                                case UPDATE:
-                                    l.updatedAsync(c.getSnaphotEntity(), c.getTransientEntity());
-                                    break;
-                                case REMOVE:
-                                    l.removedAsync(c.getSnaphotEntity());
-                                    break;
-                                default:
-                                    throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
-                            }
-                            break;
-                        default:
-                            throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
-                    }
-                } catch (Exception e) {
-                    // rethrow exception only for beforeFlush listeners
-                    if (where == Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS) {
-                        if (e instanceof RuntimeException) {
-                            throw (RuntimeException) e;
-                        }
-                        throw new RuntimeException(e);
-                    } else {
-                        if (logger.isErrorEnabled()) {
-                            logger.error("Exception while notifying entity listener.", e);
-                        }
-                    }
-                }
-            }
+            EventsMultiplexerInternalKt.handleChange(where, c, listeners);
         }
     }
 
@@ -368,12 +289,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
 
         public void execute() throws Throwable {
             try {
-                EntityStoreExtensions.run(store, new Runnable() {
-                    @Override
-                    public void run() {
-                        JobImpl.this.eventsMultiplexer.fire(store, Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes);
-                    }
-                });
+                EntityStoreExtensions.run(store, () -> JobImpl.this.eventsMultiplexer.fire(store, Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes));
             } finally {
                 changesTracker.dispose();
             }
@@ -387,56 +303,6 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         @Override
         public String getGroup() {
             return changesTracker.getSnapshot().getStore().getLocation();
-        }
-    }
-
-    private class FullEntityId {
-        private final int storeHashCode;
-        private final int entityTypeId;
-        private final long entityLocalId;
-
-        private FullEntityId(final EntityStore store, final EntityId id) {
-            storeHashCode = System.identityHashCode(store);
-            entityTypeId = id.getTypeId();
-            entityLocalId = id.getLocalId();
-        }
-
-        @Override
-        public boolean equals(Object object) {
-            if (this == object) {
-                return true;
-            }
-            EventsMultiplexer.FullEntityId that = (EventsMultiplexer.FullEntityId) object;
-            if (storeHashCode != that.storeHashCode) {
-                return false;
-            }
-            if (entityLocalId != that.entityLocalId) {
-                return false;
-            }
-            return entityTypeId == that.entityTypeId;
-        }
-
-        @Override
-        public int hashCode() {
-            int result = storeHashCode;
-            result = 31 * result + entityTypeId;
-            result = 31 * result + (int) (entityLocalId ^ (entityLocalId >> 32));
-            return result;
-        }
-
-        @Override
-        public String toString() {
-            final StringBuilder builder = new StringBuilder(10);
-            toString(builder);
-            return builder.toString();
-        }
-
-        public void toString(final StringBuilder builder) {
-            builder.append(entityTypeId);
-            builder.append('-');
-            builder.append(entityLocalId);
-            builder.append('@');
-            builder.append(storeHashCode);
         }
     }
 }
