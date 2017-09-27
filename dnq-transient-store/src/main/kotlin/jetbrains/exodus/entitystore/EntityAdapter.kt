@@ -20,14 +20,18 @@ import jetbrains.exodus.database.IEntityListener
 abstract class EntityAdapter<T : Entity> : IEntityListener<T> {
     override fun addedAsync(added: T) = Unit
     override fun addedSync(added: T) = Unit
-    override fun addedSyncBeforeFlush(added: T) = Unit
+    override fun addedSyncAfterConstraints(added: T) = addedSyncBeforeFlush(added)
     override fun addedSyncBeforeConstraints(added: T) = Unit
     override fun updatedAsync(old: T, current: T) = Unit
     override fun updatedSync(old: T, current: T) = Unit
-    override fun updatedSyncBeforeFlush(old: T, current: T) = Unit
+    override fun updatedSyncAfterConstraints(old: T, current: T) = updatedSyncBeforeFlush(old, current)
     override fun updatedSyncBeforeConstraints(old: T, current: T) = Unit
     override fun removedAsync(removed: T) = Unit
     override fun removedSync(removed: T) = Unit
-    override fun removedSyncBeforeFlush(removed: T) = Unit
+    override fun removedSyncAfterConstraints(added: T) = removedSyncBeforeFlush(added)
     override fun removedSyncBeforeConstraints(removed: T) = Unit
+
+    override fun addedSyncBeforeFlush(added: T) = Unit
+    override fun updatedSyncBeforeFlush(old: T, current: T) = Unit
+    override fun removedSyncBeforeFlush(removed: T) = Unit
 }

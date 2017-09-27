@@ -1100,7 +1100,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
             public void visit(TransientStoreSessionListener listener) {
                 try {
-                    listener.beforeFlush(TransientSessionImpl.this, changes);
+                    listener.beforeFlushBeforeConstraints(TransientSessionImpl.this, changes);
                 } catch (Exception e) {
                     if (logger.isErrorEnabled()) {
                         logger.error("Exception while inside listener [" + listener + "]", e);
@@ -1127,7 +1127,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
             public void visit(TransientStoreSessionListener listener) {
                 try {
-                    listener.beforeFlushAfterConstraintsCheck(TransientSessionImpl.this, changesDescr);
+                    listener.beforeFlushAfterConstraints(TransientSessionImpl.this, changesDescr);
                 } catch (Exception e) {
                     if (logger.isErrorEnabled()) {
                         logger.error("Exception while inside listener [" + listener + "]", e);

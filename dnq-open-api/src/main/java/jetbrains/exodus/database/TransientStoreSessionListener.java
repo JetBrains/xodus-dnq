@@ -36,7 +36,7 @@ public interface TransientStoreSessionListener {
      * @param session
      * @param changedEntities
      */
-    void beforeFlush(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
+    void beforeFlushBeforeConstraints(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
 
     /**
      * Before commit or flush, only if were changes.
@@ -46,7 +46,7 @@ public interface TransientStoreSessionListener {
      * @param changedEntities
      */
     @Deprecated
-    void beforeFlushAfterConstraintsCheck(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
+    void beforeFlushAfterConstraints(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
 
     /**
      * After constraints if check is failed

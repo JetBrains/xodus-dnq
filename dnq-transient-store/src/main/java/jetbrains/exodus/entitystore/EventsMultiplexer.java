@@ -66,12 +66,12 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         this.asyncFire(session, changes, changesTracker);
     }
 
-    public void beforeFlush(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
-        this.fire(session.getStore(), Where.SYNC_BEFORE_CONSTRAINTS, changes);
+    public void beforeFlushBeforeConstraints(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
+        this.fire(session.getStore(), Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS, changes);
     }
 
-    public void beforeFlushAfterConstraintsCheck(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
-        this.fire(session.getStore(), Where.SYNC_BEFORE_FLUSH, changes);
+    public void beforeFlushAfterConstraints(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
+        this.fire(session.getStore(), Where.SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS, changes);
     }
 
     public void afterConstraintsFail(@NotNull TransientStoreSession session, @NotNull Set<DataIntegrityViolationException> exceptions) {
@@ -267,7 +267,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
             for (IEntityListener l : listeners) {
                 try {
                     switch (where) {
-                        case SYNC_BEFORE_CONSTRAINTS:
+                        case SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS:
                             switch (c.getChangeType()) {
                                 case ADD:
                                     l.addedSyncBeforeConstraints(c.getTransientEntity());
@@ -282,16 +282,16 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
                                     throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
                             }
                             break;
-                        case SYNC_BEFORE_FLUSH:
+                        case SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS:
                             switch (c.getChangeType()) {
                                 case ADD:
-                                    l.addedSyncBeforeFlush(c.getTransientEntity());
+                                    l.addedSyncAfterConstraints(c.getTransientEntity());
                                     break;
                                 case UPDATE:
-                                    l.updatedSyncBeforeFlush(c.getSnaphotEntity(), c.getTransientEntity());
+                                    l.updatedSyncAfterConstraints(c.getSnaphotEntity(), c.getTransientEntity());
                                     break;
                                 case REMOVE:
-                                    l.removedSyncBeforeFlush(c.getSnaphotEntity());
+                                    l.removedSyncAfterConstraints(c.getSnaphotEntity());
                                     break;
                                 default:
                                     throw new IllegalArgumentException("Illegal arguments " + where + ":" + c.getChangeType());
@@ -332,7 +332,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
                     }
                 } catch (Exception e) {
                     // rethrow exception only for beforeFlush listeners
-                    if (where == Where.SYNC_BEFORE_CONSTRAINTS) {
+                    if (where == Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS) {
                         if (e instanceof RuntimeException) {
                             throw (RuntimeException) e;
                         }
