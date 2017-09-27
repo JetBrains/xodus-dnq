@@ -235,9 +235,12 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
             throw new IllegalStateException("No current thread session.");
         }
 
-        s.addChangeAndRun(() -> {
-            ((PersistentEntityStore) s.getPersistentTransaction().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
-            return true;
+        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+            @Override
+            public boolean run() {
+                ((PersistentEntityStore) s.getPersistentTransaction().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
+                return true;
+            }
         });
     }
 
@@ -248,9 +251,12 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
             throw new IllegalStateException("No current thread session.");
         }
 
-        s.addChangeAndRun(() -> {
-            ((PersistentEntityStoreImpl) s.getPersistentTransaction().getStore()).deleteEntityType(entityTypeName);
-            return true;
+        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+            @Override
+            public boolean run() {
+                ((PersistentEntityStoreImpl) s.getPersistentTransaction().getStore()).deleteEntityType(entityTypeName);
+                return true;
+            }
         });
     }
 
@@ -265,9 +271,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         if (entity instanceof TransientEntity) {
             s.deleteEntity((TransientEntity) entity);
         } else {
-            s.addChangeAndRun(() -> {
-                persistentEntity.delete();
-                return true;
+            s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+                public boolean run() {
+                    persistentEntity.delete();
+                    return true;
+                }
             });
         }
     }
@@ -280,9 +288,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         }
 
         final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
-        s.addChangeAndRun(() -> {
-            persistentEntity.deleteLinks(linkName);
-            return true;
+        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+            public boolean run() {
+                persistentEntity.deleteLinks(linkName);
+                return true;
+            }
         });
     }
 
@@ -296,9 +306,11 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
         final Entity persistentLink = (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
 
-        s.addChangeAndRun(() -> {
-            persistentEntity.deleteLink(linkName, persistentLink);
-            return true;
+        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
+            public boolean run() {
+                persistentEntity.deleteLink(linkName, persistentLink);
+                return true;
+            }
         });
     }
 
