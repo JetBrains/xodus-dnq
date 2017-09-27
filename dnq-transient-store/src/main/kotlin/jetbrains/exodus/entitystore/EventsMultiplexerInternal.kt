@@ -1,8 +1,11 @@
 package jetbrains.exodus.entitystore
 
+import jetbrains.exodus.core.execution.Job
 import jetbrains.exodus.database.EntityChangeType.*
 import jetbrains.exodus.database.IEntityListener
+import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientEntityChange
+import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Where.*
 import java.util.*
 
@@ -92,5 +95,30 @@ internal class FullEntityId(store: EntityStore, id: EntityId) {
         builder.append(entityLocalId)
         builder.append('@')
         builder.append(storeHashCode)
+    }
+}
+
+internal class EventsMultiplexerJob(
+        private val store: TransientEntityStore,
+        private val eventsMultiplexer: EventsMultiplexer,
+        private val changes: Set<TransientEntityChange>,
+        private val changesTracker: TransientChangesTracker
+) : Job() {
+
+    @Throws(Throwable::class)
+    public override fun execute() {
+        try {
+            store.run(Runnable {
+                eventsMultiplexer.fire(store, Where.ASYNC_AFTER_FLUSH, this@EventsMultiplexerJob.changes)
+            })
+        } finally {
+            changesTracker.dispose()
+        }
+    }
+
+    override fun getName() = "Async events from EventMultiplexer"
+
+    override fun getGroup(): String {
+        return changesTracker.snapshot.getStore().location
     }
 }

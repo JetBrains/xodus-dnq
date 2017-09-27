@@ -16,7 +16,6 @@
 package jetbrains.exodus.entitystore;
 
 import jetbrains.exodus.core.dataStructures.hash.HashMap;
-import jetbrains.exodus.core.execution.Job;
 import jetbrains.exodus.core.execution.JobProcessor;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
@@ -82,11 +81,11 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         if (asyncJobProcessor == null) {
             changesTracker.dispose();
         } else {
-            asyncJobProcessor.queue(new EventsMultiplexer.JobImpl(session.getStore(), this, changes, changesTracker));
+            asyncJobProcessor.queue(new EventsMultiplexerJob(session.getStore(), this, changes, changesTracker));
         }
     }
 
-    private void fire(TransientEntityStore store, Where where, Set<TransientEntityChange> changes) {
+    void fire(TransientEntityStore store, Where where, Set<TransientEntityChange> changes) {
         for (TransientEntityChange c : changes) {
             this.handlePerEntityChanges(where, c);
             this.handlePerEntityTypeChanges(store, where, c);
@@ -271,38 +270,5 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     @Nullable
     public JobProcessor getAsyncJobProcessor() {
         return this.eventsMultiplexerJobProcessor;
-    }
-
-    private static class JobImpl extends Job {
-        @NotNull
-        private TransientEntityStore store;
-        private Set<TransientEntityChange> changes;
-        private TransientChangesTracker changesTracker;
-        private EventsMultiplexer eventsMultiplexer;
-
-        JobImpl(@NotNull TransientEntityStore store, EventsMultiplexer eventsMultiplexer, Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
-            this.eventsMultiplexer = eventsMultiplexer;
-            this.changes = changes;
-            this.changesTracker = changesTracker;
-            this.store = store;
-        }
-
-        public void execute() throws Throwable {
-            try {
-                EntityStoreExtensions.run(store, () -> JobImpl.this.eventsMultiplexer.fire(store, Where.ASYNC_AFTER_FLUSH, JobImpl.this.changes));
-            } finally {
-                changesTracker.dispose();
-            }
-        }
-
-        @Override
-        public String getName() {
-            return "Async events from EventMultiplexer";
-        }
-
-        @Override
-        public String getGroup() {
-            return changesTracker.getSnapshot().getStore().getLocation();
-        }
     }
 }
