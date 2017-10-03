@@ -138,7 +138,7 @@ class FilterQueryDecoratedTest : DBTest() {
         containsExactlyElementsIn(logins.map { login -> User.filter { it.login eq login }.first() })
     }
 
-    fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: (T) -> Unit): IterableSubject {
+    fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: FilteringContext.(T) -> Unit): IterableSubject {
         return assertThat(this.filter(clause).toList())
     }
 }

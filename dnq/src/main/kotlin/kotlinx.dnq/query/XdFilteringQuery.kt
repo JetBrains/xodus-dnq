@@ -26,9 +26,9 @@ import kotlinx.dnq.util.getDBName
 import org.joda.time.DateTime
 import kotlin.reflect.KProperty1
 
-fun <T : XdEntity> XdQuery<T>.filter(clause: (T) -> Unit): XdQuery<T> {
+fun <T : XdEntity> XdQuery<T>.filter(clause: FilteringContext.(T) -> Unit): XdQuery<T> {
     val searchingEntity = SearchingEntity(entityType.entityType, entityType.entityStore).inScope {
-        clause(entityType.wrap(this))
+        FilteringContext.clause(entityType.wrap(this))
     }
     return searchingEntity.nodes.fold(this) { cur, it ->
         cur.query(it)
@@ -55,60 +55,71 @@ fun <S : XdEntity, T : XdEntity, Q : XdQuery<T>> XdQuery<S>.flatMapDistinct(mapp
     return flatMapDistinct(property.getDBName(entityType), link.delegate.oppositeEntityType as XdEntityType<T>)
 }
 
-fun <T : XdEntity> XdEntityType<T>.filter(clause: (T) -> Unit): XdQuery<T> {
+fun <T : XdEntity> XdEntityType<T>.filter(clause: FilteringContext.(T) -> Unit): XdQuery<T> {
     return all().filter(clause)
 }
 
-infix fun <T : Comparable<T>> T?.lt(value: T): XdSearchingNode {
-    val returnType = value.javaClass.kotlin
-    return withNode(PropertyRange(deepestNodeName, returnType.minValue(), returnType.prev(value)).decorateIfNeeded())
-}
+object FilteringContext {
 
-infix fun <T : Comparable<T>> T?.eq(value: T?): XdSearchingNode {
-    val correctedValue = value?.let {
-        if (it is DateTime) {
-            it.millis
-        } else {
-            it
+    infix fun <T : Comparable<T>> T?.lt(value: T): XdSearchingNode {
+        val returnType = value.javaClass.kotlin
+        return withNode(PropertyRange(deepestNodeName, returnType.minValue(), returnType.prev(value)).decorateIfNeeded())
+    }
+
+    infix fun <T : Comparable<T>> T?.eq(value: T?): XdSearchingNode {
+        val correctedValue = value?.let {
+            if (it is DateTime) {
+                it.millis
+            } else {
+                it
+            }
+        }
+        return withNode(PropertyEqual(deepestNodeName, correctedValue).decorateIfNeeded())
+    }
+
+    infix fun <T : XdEntity> T?.eq(value: T?): XdSearchingNode {
+        return withNode(LinkEqual(deepestNodeName, value?.entity).decorateIfNeeded())
+    }
+
+    infix fun <T : XdEntity> T?.ne(value: T?): XdSearchingNode {
+        return withNode(UnaryNot(LinkEqual(deepestNodeName, value?.entity)).decorateIfNeeded())
+    }
+
+    infix fun <T : Comparable<T>> T?.gt(value: T): XdSearchingNode {
+        val returnType = value.javaClass.kotlin
+        return withNode(PropertyRange(deepestNodeName, returnType.next(value), returnType.maxValue()).decorateIfNeeded())
+    }
+
+    infix fun <T : Comparable<T>> T?.between(value: kotlin.Pair<T, T>): XdSearchingNode {
+        val returnType = value.first.javaClass.kotlin
+        return withNode(PropertyRange(deepestNodeName, returnType.prev(value.first), returnType.next(value.second)).decorateIfNeeded())
+    }
+
+    infix fun String?.startsWith(value: String?): XdSearchingNode {
+        return withNode(PropertyStartsWith(deepestNodeName, value ?: "").decorateIfNeeded())
+    }
+
+    infix fun <T : Comparable<T>> T?.ne(value: T?): XdSearchingNode {
+        return withNode(UnaryNot(PropertyEqual(deepestNodeName, value)).decorateIfNeeded())
+    }
+
+    infix fun <T : XdEntity> T?.isIn(entities: Iterable<T?>): XdSearchingNode {
+        return withNode(entities.fold(None as NodeBase) { tree, e -> tree or (LinkEqual(deepestNodeName, e?.entity)) })
+    }
+
+    infix fun <T : Comparable<*>> T?.isIn(values: Iterable<T?>): XdSearchingNode {
+        return withNode(values.fold(None as NodeBase) { tree, v -> tree or (PropertyEqual(deepestNodeName, v).decorateIfNeeded()) })
+    }
+
+    private fun withNode(node: NodeBase): XdSearchingNode {
+        return node.let {
+            SearchingEntity.get().nodes.add(it)
+            SearchingEntity.get().childEntity = null
+            XdSearchingNode(it)
         }
     }
-    return withNode(PropertyEqual(deepestNodeName, correctedValue).decorateIfNeeded())
-}
 
-infix fun <T : XdEntity> T?.eq(value: T?): XdSearchingNode {
-    return withNode(LinkEqual(deepestNodeName, value?.entity).decorateIfNeeded())
 }
-
-infix fun <T : XdEntity> T?.ne(value: T?): XdSearchingNode {
-    return withNode(UnaryNot(LinkEqual(deepestNodeName, value?.entity)).decorateIfNeeded())
-}
-
-infix fun <T : Comparable<T>> T?.gt(value: T): XdSearchingNode {
-    val returnType = value.javaClass.kotlin
-    return withNode(PropertyRange(deepestNodeName, returnType.next(value), returnType.maxValue()).decorateIfNeeded())
-}
-
-infix fun <T : Comparable<T>> T?.between(value: kotlin.Pair<T, T>): XdSearchingNode {
-    val returnType = value.first.javaClass.kotlin
-    return withNode(PropertyRange(deepestNodeName, returnType.prev(value.first), returnType.next(value.second)).decorateIfNeeded())
-}
-
-infix fun String?.startsWith(value: String?): XdSearchingNode {
-    return withNode(PropertyStartsWith(deepestNodeName, value ?: "").decorateIfNeeded())
-}
-
-infix fun <T : Comparable<T>> T?.ne(value: T?): XdSearchingNode {
-    return withNode(UnaryNot(PropertyEqual(deepestNodeName, value)).decorateIfNeeded())
-}
-
-infix fun <T : XdEntity> T?.isIn(entities: Iterable<T?>): XdSearchingNode {
-    return withNode(entities.fold(None as NodeBase) { tree, e -> tree or (LinkEqual(deepestNodeName, e?.entity)) })
-}
-
-infix fun <T : Comparable<*>> T?.isIn(values: Iterable<T?>): XdSearchingNode {
-    return withNode(values.fold(None as NodeBase) { tree, v -> tree or (PropertyEqual(deepestNodeName, v).decorateIfNeeded()) })
-}
-
 private val deepestChild: SearchingEntity get() = SearchingEntity.get().deepestChild()
 private val deepestNodeName: String get() = deepestChild.currentNodeName!!
 
@@ -124,15 +135,6 @@ internal fun NodeBase.decorateIfNeeded(): NodeBase {
         temp = temp.parentEntity
     }
     return result
-}
-
-
-private fun withNode(node: NodeBase): XdSearchingNode {
-    return node.let {
-        SearchingEntity.get().nodes.add(it)
-        SearchingEntity.get().childEntity = null
-        XdSearchingNode(it)
-    }
 }
 
 fun <T : FakeTransientEntity> T.inScope(fn: T.() -> Unit): T {

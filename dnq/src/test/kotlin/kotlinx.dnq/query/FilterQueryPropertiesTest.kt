@@ -159,13 +159,15 @@ class FilterQueryPropertiesTest : DBTest() {
                 login = "test2"
                 skill = 2
             }
-            User.new {
+            val user3 = User.new {
                 login = "test3"
                 skill = 7
             }
 
             User.assertThatFilterResult { it.skill between (1 to 3) }
                     .containsExactly(user1, user2)
+            User.assertThatFilterResult { it.login startsWith "test" }
+                    .containsExactly(user1, user2, user3)
         }
     }
 
@@ -267,7 +269,7 @@ class FilterQueryPropertiesTest : DBTest() {
     }
 
 
-    private fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: (T) -> Unit): IterableSubject {
+    private fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: FilteringContext.(T) -> Unit): IterableSubject {
         return assertThat(this.filter(clause).toList())
     }
 
