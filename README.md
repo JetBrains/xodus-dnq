@@ -24,6 +24,205 @@ compile 'org.jetbrains.xodus:dnq:${version}'
 </dependency>
 ```
 
+## Quick Start Guide
+
+### Declare Persistent Classes
+
+To define persistent model of your application you need to define
+persistent classes.
+
+Persistent class should: 
+1. Have constructor with a single argument of type `jetbrains.exodus.entitystore.Entity`
+1. Inherit from class `XdEntity`.
+1. Have companion object of type `XdEntityType` parameterized with ths class itself.
+
+```kotlin
+class XdUser(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdUser>()
+
+    var login by xdRequiredStringProp(unique = true, trimmed = true)
+    var gender by xdLink0_1(XdGender)
+    val contacts by xdChildren0_N(XdContact::owner)
+
+    override fun toString(): String {
+        return "$login, ${gender?.presentation ?: "N/A"}, ${contacts.asSequence().joinToString()}"
+    }
+}
+```
+
+To define persistent class properties use xd-methods that create
+property delegates. 
+```kotlin 
+var login by xdRequiredStringProp(unique = true, trimmed = true)
+```
+
+`xdRequiredStringProp` defines not-null string property. Xodus will check that 
+the property is initialized with non-empty value on transaction flush.
+
+The property is marked to be `unique=true`, i.e. there can be no two instances 
+of `XdUser` with the same `login`. Xodus will check it on transaction flush as well.
+   
+Flag `trimmed=true` means that on property set leading and trailing spaces will be
+removed.
+
+`TODO: link to list of xd-methods to define properties` 
+
+```kotlin
+var gender by xdLink0_1(XdGender)
+```
+`xdLink0_1` defines a directed link between persistent class `XdUser` and
+persistent class `XdGender`.  
+
+```kotlin
+val contacts by xdChildren0_N(XdContact::owner)
+```
+`xdChildren0_N` defines a bi-directed aggregation link between persistent 
+class `XdUser` and persistent class `XdContact`. `0_N` means that
+the link can have multiple values. Parameter `XdContact::owner` points
+to the property of `XdContact` that represents the opposite end of the link.
+
+`TODO: link to list of xd-methods to define links`
+
+You can also define methods and properties that are not persistent. Like
+`toString` method of `XdUser`.
+
+```kotlin
+class XdGender(entity: Entity) : XdEnumEntity(entity) {
+    companion object : XdEnumEntityType<XdGender>() {
+        val FEMALE by enumField { presentation = "F" }
+        val MALE by enumField { presentation = "M" }
+        val OTHER by enumField { presentation = "-" }
+    }
+
+    var presentation by xdRequiredStringProp()
+        private set
+}
+```
+Enumeration persistent class simplifies a task of creating dictionaries 
+stored in database. Enumeration persistent class should extend `XdEnumEntity`. 
+Its companion object should be inherited from `XdEnumEntityType`. Its values 
+are defined as properties of the companion implemented by property delegate
+`enumField`.
+
+```kotlin
+val FEMALE by enumField { presentation = "F" }
+```
+Enumeration values are created or updated on application meta-data initialization.
+So all values are available while application runs.
+
+Method `enumField` can optionally have closure parameter that is used to initialize
+the enum value on meta-data initialization.
+
+```kotlin
+abstract class XdContact : XdEntity() {
+    companion object : XdNaturalEntityType<XdContact>()
+
+    var owner: XdUser by xdParent(XdUser::contacts)
+    var isVerified by xdBooleanProp()
+
+    abstract fun verify()
+}
+
+class XdEmail(override val entity: Entity) : XdContact() {
+    companion object : XdNaturalEntityType<XdEmail>()
+
+    var address by xdRequiredStringProp { email() }
+
+    override fun verify() {
+        isVerified = true
+    }
+
+    override fun toString(): String {
+        return "$address ${if (isVerified) "✅" else "❎"}"
+    }
+}
+```
+
+Persistent classes can be defined abstract or open and can extend each other. 
+Like `XdEmail` extends `XdContact`.
+
+```kotlin
+var address by xdRequiredStringProp { email() }
+```
+String property `address` has `email` constraint defined. This constraint 
+is check on transaction flush as well.
+
+### Initialize Xodus Database
+```kotlin
+fun initXodus(): TransientEntityStore {
+    XdModel.registerNodes(
+            XdGender,
+            XdUser,
+            XdContact,
+            XdEmail
+    )
+
+    val databaseHome = File(System.getProperty("user.home"), "xodus-dnq-sample-app")
+
+    val store = StaticStoreContainer.init(
+            dbFolder = databaseHome,
+            environmentName = "db"
+    )
+
+    initMetaData(XdModel.hierarchy, store)
+
+    return store
+}
+```
+
+```kotlin
+XdModel.registerNodes()
+```
+To make Xodus DNQ to know about your persistent meta-model, you have to 
+register persistent classes using `XdModel.registerNodes` method. `XdModel`
+also has helper methods to find all persistent classes in classpath.
+
+```kotlin
+StaticStoreContainer.init()
+```
+To use Xodus DNQ you need to initialize `TransientEntityStore`. There is
+a helper method `StaticStoreContainer.init` that creates a database in a folder
+and stores its value in a static field, but you can also create 
+the `TransientEntityStore` yourself, for example if you want to use several
+Xodus databases in your application. 
+
+```kotlin
+initMetaData(XdModel.hierarchy, store)
+```
+Method `initMetaData` initialize persistent meta-data and sets up all the 
+constraints. 
+
+### Query Data
+```kotlin
+fun main(args: Array<String>) {
+    val store = initXodus()
+
+    val user = store.transactional {
+        val zecksonLogin = "zeckson"
+
+        val zeckson = XdUser.query(XdUser::login eq zecksonLogin).firstOrNull()
+
+        zeckson ?: XdUser.new {
+            login = zecksonLogin
+            gender = XdGender.MALE
+            contacts.add(XdEmail.new {
+                address = "zeckson@gmail.com"
+            })
+        }
+    }
+
+    store.transactional {
+        for (contact in user.contacts) {
+            contact.verify()
+        }
+    }
+}
+```
+
+```kotlin
+store.transactional { ... }
+```
+All operations with 
 
 ## Data Definition
 
