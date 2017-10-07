@@ -273,7 +273,7 @@ class FilterQueryPropertiesTest : DBTest() {
         return assertThat(this.filter(clause).toList())
     }
 
-    var User.inn by xdStringProp(dbName = "_inn_")
+    var User.inn by xdStringProp<User>(dbName = "_inn_")
 
 }
 
