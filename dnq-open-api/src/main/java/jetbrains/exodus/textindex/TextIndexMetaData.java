@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.textindex;
 
+import jetbrains.exodus.entitystore.Entity;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,6 +35,6 @@ public interface TextIndexMetaData {
 
     public interface RemoveWikiFunction {
 
-        String removeWiki(final String source);
+        String removeWiki(final Entity entity, final String source);
     }
 }
