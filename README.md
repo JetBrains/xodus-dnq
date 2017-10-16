@@ -200,7 +200,7 @@ fun main(args: Array<String>) {
     val user = store.transactional {
         val zecksonLogin = "zeckson"
 
-        val zeckson = XdUser.query(XdUser::login eq zecksonLogin).firstOrNull()
+        val zeckson = XdUser.all().query(XdUser::login eq zecksonLogin).firstOrNull()
 
         zeckson ?: XdUser.new {
             login = zecksonLogin
@@ -222,7 +222,35 @@ fun main(args: Array<String>) {
 ```kotlin
 store.transactional { ... }
 ```
-All operations with 
+All operations with a Xodus database should happen in a transaction.
+
+```kotlin
+XdUser.all().query(XdUser::login eq zecksonLogin)
+```
+To query Xodus database effectively you may use `XdQuery`. For example multi-value links (e.g. `XdUser::contacts`) have 
+type `XdQuery`. There is a set of operations to filter, map, and sort `XdQueries`. The call above takes all database 
+instances of `XdUser` and filters those which have `zecksonLogin` as a value of link `XdUser::login`.
+
+```kotlin
+for (contact in user.contacts) {
+    contact.verify()
+}
+```
+There are methods convert `XdQuery` to `Sequence` and `List`. Operator `iterator` is defined for `XdQuery` as 
+an extension function, this makes it possible to user `XdQuery` in for-loops.
+
+```kotlin
+XdUser.new {
+    login = zecksonLogin
+    gender = XdGender.MALE
+    contacts.add(XdEmail.new {
+        address = "zeckson@gmail.com"
+    })
+}
+```
+To create new instances of a persistent class you may use method `XdEntityType.new` that actually creates new entity
+and passes it to a parameter closure as a reciever. This enables you to initialize new entities in a nice 
+kotlin-builder manner.  
 
 ## Data Definition
 
