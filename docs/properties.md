@@ -204,6 +204,21 @@ var description: xdRequiredBlobStringProp()
 ```
 
 #### Property constraints
+Property constraints are checked on transaction flush. Xodus-DNQ throws `ConstraintsValidationException` 
+if some of them fail. Method `getCauses()` of `ConstraintsValidationException` returns all actual
+`DataIntegrityViolationException`s corresponding to data validation errors that happen during the transaction flush.   
+
+```kotlin
+try {
+    store.transactional {
+        // Do some database update           
+    }
+} catch(e: ConstraintsValidationException) {
+    e.causes.forEach {
+        e.printStackTrace()
+    }
+}
+``` 
 
 ##### Regex
 Checks that string property value matches regular expression.
@@ -292,8 +307,49 @@ var timeout by xdIntProp { max(10_000) }
 ```
 
 #### Custom Property Constraints
-TO BE DONE
+You can define your own property constrains in the same way built-in constraints are defined. You need to defined
+an extension method for `PropertyConstraintBuilder` that builds and adds your constraint.
+ 
+```kotlin
+fun PropertyConstraintBuilder<*, String?>.cron(
+        message: String = "is not a valid cron expression"
+) {
+    constraints.add(object : PropertyConstraint<String?>() {
 
+        /**
+         * Is called on flush to check if new value of property matches constraint. 
+         */
+        override fun isValid(value: String?): Boolean {
+            // It's better to ignore empty values in your custom checks. 
+            // Otherwise check for required property may fail twice 
+            // as undefined value and as invalid cron expression. 
+            return value == null || value.isEmpty() || try {
+                CronExpression(value)
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        /**
+         * Is called on check failure to build an exeption error message  
+         */
+        override fun getExceptionMessage(propertyName: String, propertyValue: String?): String {
+            val errorMessage = try {
+                CronExpression(propertyValue)
+                ""
+            } catch (e: Exception) {
+                e.message
+            }
+
+            return "$propertyName should be valid cron expression but was $propertyValue: $errorMessage"
+        }
+
+        override fun getDisplayMessage(propertyName: String, propertyValue: String?) = message
+    })
+}
+
+```
 ### Links
 There are three types of links: directed links, bi-directed links and aggregation links. 
 
