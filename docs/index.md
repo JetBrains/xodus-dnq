@@ -1,5 +1,3 @@
-[![JetBrains incubator project](http://jb.gg/badges/incubator.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
-
 Xodus-DNQ is a Kotlin library for the data definition and queries over Xodus.
 
 1. Use in your project

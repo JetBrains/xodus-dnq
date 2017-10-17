@@ -1,5 +1,5 @@
 This is a sample application that covers
-1. Persistent classes definition
+1. Persistent classes and enumerations definition
 1. Database metamodel initialization
 1. Transactions
 1. Queries
@@ -22,7 +22,9 @@ class XdUser(override val entity: Entity) : XdEntity() {
     val contacts by xdChildren0_N(XdContact::owner)
 
     override fun toString(): String {
-        return "$login, ${gender?.presentation ?: "N/A"}, ${contacts.asSequence().joinToString()}"
+        return "$login, " +
+            "${gender?.presentation ?: "N/A"}, " +
+            "${contacts.asSequence().joinToString()}"
     }
 }
 
@@ -68,7 +70,10 @@ fun initXodus(): TransientEntityStore {
             XdEmail
     )
 
-    val databaseHome = File(System.getProperty("user.home"), "xodus-dnq-sample-app")
+    val databaseHome = File(
+            System.getProperty("user.home"), 
+            "xodus-dnq-sample-app"
+    )
 
     val store = StaticStoreContainer.init(
             dbFolder = databaseHome,
@@ -86,7 +91,9 @@ fun main(args: Array<String>) {
     val user = store.transactional {
         val zecksonLogin = "zeckson"
 
-        val zeckson = XdUser.query(XdUser::login eq zecksonLogin).firstOrNull()
+        val zeckson = XdUser.all()
+                .query(XdUser::login eq zecksonLogin)
+                .firstOrNull()
 
         zeckson ?: XdUser.new {
             login = zecksonLogin
