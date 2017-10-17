@@ -251,5 +251,47 @@ fun `getSafe returns property value for defined properties`() {
 }
 ```
 
-### Indices
-TO BE DONE
+### Unique Indices
+
+Xodus-DNQ can check uniqueness constraints for composite keys. To enable it composite key index should be defined.
+```kotlin
+class XdAPI(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdAPI>() {
+        override val compositeIndices = listOf(
+                listOf(XdAPI::service, XdAPI::key)
+        )
+    }
+
+    var key by xdRequiredStringProp()
+    var service by xdLink1(XdService)    
+}
+```
+
+It is also possible to define an index with a single property to make it unique. Technically two following code blocks
+do the same thing.
+
+```kotlin
+class XdAPI(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdAPI>()
+
+    var key by xdRequiredStringProp(unique=true)
+    var name by xdRequiredStringProp(unique=true)
+}
+```
+
+```kotlin
+class XdAPI(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdAPI>() {
+        override val compositeIndices = listOf(
+                listOf(XdAPI::key),
+                listOf(XdAPI::name)
+        )
+    }
+
+    var key by xdRequiredStringProp()
+    var name by xdRequiredStringProp()
+}
+```
+
+Explicit indices for a single property can be useful when you want to make some property of a parent class to be 
+unique for instances of a child class.
