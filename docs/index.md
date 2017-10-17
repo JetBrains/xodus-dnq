@@ -1,0 +1,26 @@
+[![JetBrains incubator project](http://jb.gg/badges/incubator.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+
+Xodus-DNQ is a Kotlin library for the data definition and queries over Xodus.
+
+1. Use in your project
+   1. [Using gradle](gradle.md)
+   1. [Using maven](maven.md)
+1. [Persistent class](persistent-class.md)
+   1. [Inheritance](persistent-class.md#inheritance)
+   1. [Enumerations](persistent-class.md#enumerations)
+   1. [Singletons](persistent-class.md#singletons)
+   1. [Meta-model](meta-model.md)
+1. [Links and Properties](properties.md)
+   1. [Simple Properties](properties.md#simple-properties)
+   1. [Links](properties.md#links)
+   1. [isDefined and getSafe](properties.md#isdefined-and-getsafe)
+   1. [Indices](properties.md#indices)
+1. [Queries](queries.md)
+   1. [Transactions](queries.md#transactions)
+   1. [Create New Entities](queries.md#new)
+   1. [Find or Create](queries.md#find-or-create)
+   1. [Filter](queries.md#filter)
+   1. [Order](queries.md#order)
+   1. [Map](queries.md#map)
+   1. [Convert to Kotlin Collections](queries.md#convert-to-kotlin-collections)
+1. [Sample application](sample.md) 

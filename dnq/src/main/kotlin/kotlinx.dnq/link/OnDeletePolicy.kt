@@ -17,14 +17,36 @@ package kotlinx.dnq.link
 
 import jetbrains.exodus.entitystore.Entity
 
+/**
+ * Defines what should happen on transaction flush if this or target entity is deleted but link still points to it.
+ */
 sealed class OnDeletePolicy {
+    /**
+     * Fail transaction if entity is deleted but link still points to it.
+     */
     object FAIL : OnDeletePolicy()
+
+    /**
+     * Clear link to deleted entity.
+     */
     object CLEAR : OnDeletePolicy()
+
+    /**
+     * If entity is delete and link still exists, then delete entity on the opposite link end as well.
+     */
     object CASCADE : OnDeletePolicy()
 
+    /**
+     * Fail transaction with a custom message if entity is deleted but link still points to it.
+     * One message per entity type.
+     */
     class FAIL_PER_TYPE(
             val message: ((linkedEntities: Iterable<Entity>?, hasMore: Boolean) -> String)? = null) : OnDeletePolicy()
 
+    /**
+     * Fail transaction with a custom message if entity is deleted but link still points to it.
+     * One message per entity.
+     */
     class FAIL_PER_ENTITY(
             val message: ((linkedEntities: Iterable<Entity>?, entity: Entity?, hasMore: Boolean) -> String)? = null) : OnDeletePolicy()
 }
