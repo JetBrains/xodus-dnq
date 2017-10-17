@@ -23,8 +23,8 @@ import jetbrains.exodus.entitystore.constraints.regexp
 import jetbrains.exodus.query.metadata.PropertyMetaData
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.wrapper
-import java.net.MalformedURLException
 import java.net.URI
+import java.net.URISyntaxException
 
 class PropertyConstraintBuilder<R : XdEntity, T>() {
     val constraints = mutableListOf<PropertyConstraint<T>>()
@@ -117,7 +117,7 @@ fun PropertyConstraintBuilder<*, String?>.uri(message: String? = null) {
                 try {
                     URI(propertyValue)
                     true
-                } catch (e: MalformedURLException) {
+                } catch (e: URISyntaxException) {
                     false
                 }
             } else true
