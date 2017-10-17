@@ -39,6 +39,259 @@ class XdGroup(override val entity: Entity) : XdEntity(entity) {
 
 ### Simple properties
 
+Methods that create delegates for simple properties accept optional parameters `dbName` and `constraints`. By default Xodus-DNQ
+uses Kotlin-property name to name the property in Xodus database. Parameter `dbName` helps to override this.
+
+Parameter `constraints` is a closure that has `PropertyConstraintsBuilder` as a receiver. Using this parameter
+you can set up property constraints that will be checked before transaction flush. Xodus-DNQ defines several
+useful constraints for `String` and `Number` types, but it is simple to defined your own constraints.    
+
+Methods to create delegates for required simple properties have parameter `unique: Boolean`. By default its value is `false`.
+If its value is `true`, Xodus-DNQ will check on flush uniqueness of property value among instances of the persistent
+class.
+
+##### Optional integer property
+If its value is not defined in database the property returns `0`.
+
+See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+var age: xdIntProp { min(0) }  // Optional non-negative Int property with database name `age`.
+var rank: xdIntProp(dbName = "grade") // Optional Int property with database name `grade`.
+```
+
+##### Required integer property
+Xodus-DNQ checks on flush that property value is defined. 
+
+See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+var age: xdRequiredIntProp { min(0) }  // Required non-negative Int property with database name `age`.
+var rank: xdRequiredIntProp(dbName = "grade") // Required Int property with database name `grade`.
+var id: xdRequiredIntProp(unique = true) // Unique required Int property with database name `id`.
+```
+
+##### Optional long property
+If its value is not defined in database the property returns `0L`.
+
+See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Optional non-negative Long property with database name `salary`.
+var salary: xdLongProp() { min(0) }  
+```
+
+##### Required long property
+Xodus-DNQ checks on flush that property value is defined. 
+
+See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Unique required Long property with database name `id`.
+var id: xdRequiredLongProp(unique = true) 
+```
+
+##### Nullable long property
+See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Non-negative nullable Long property with database name `salary`.
+var salary: xdNullableLongProp { min(0) }  
+```
+
+##### Optional boolean property
+If its value is not defined in database the property returns `false`.
+
+```kotlin
+// Optional Boolean property with database name `isGuest`.
+var isGuest: xdBooleanProp() 
+```
+
+##### Nullable boolean property
+
+```kotlin
+// Nullable Boolean property with database name `isFemale`.
+var isFemale: xdNullableBooleanProp() 
+```
+
+##### Optional string property
+Nullable String property. Optional parameter `trimmed: Boolean` enables string trimming on value set, i.e. when
+you assign a value to such property all leading and trailing spaces are removed.
+
+See also constraints: [regex()](#regex), [email()](#email), [containsNone()](#none-of-characters), 
+[alpha()](#letters-only), [numeric()](#digits-only), [alphaNumeric()](#digits-and-letters-only), [url()](#url), 
+[uri()](#uri), [length()](#string-length)
+
+```kotlin
+// Optional nullable String property with database name `lastName`.
+var lastName: xdStringProp(trimmed=true)
+```
+
+##### Required string property
+Not-null String property. Xodus-DNQ will check on flush that the property has some non-empty value. Note that Xodus 
+treats empty string as `null`. So empty string does not pass require check.
+
+Optional parameter `trimmed: Boolean` enables string trimming on value set, i.e. when
+you assign a value to such property all leading and trailing spaces are removed.
+
+See also constraints: [regex()](#regex), [email()](#email), [containsNone()](#none-of-characters), 
+[alpha()](#letters-only), [numeric()](#digits-only), [alphaNumeric()](#digits-and-letters-only), [url()](#url), 
+[uri()](#uri), [length()](#string-length)
+
+```kotlin
+// Required unique String property with database name `uuid`.
+var uuid: xdRequiredStringProp(unique=true)
+```
+
+##### Optional Joda DateTime property
+Nullable DateTime property. Xodus does not have built-in support for date-time simple properties. This property is
+actually wrapping nullable Long property and storing unix epoch timestamp.
+
+```kotlin
+// Optional nullable DateTime property with database name `createdAt`.
+var createdAt: xdDateTimeProp()
+```
+
+##### Required Joda DateTime property
+Not-null DateTime property. Xodus-DNQ will check on flush that the property value is defined.  
+
+Xodus does not have built-in support for date-time simple properties. This property is
+actually wrapping not-null Long property and storing unix epoch timestamp.
+
+```kotlin
+// Required not-null DateTime property with database name `createdAt`.
+var createdAt: xdRequiredDateTimeProp()
+```
+
+##### Optional blob property
+Nullable property of type InputStream. Xodus stores massive blobs as separate files on disk. 
+Xodus also does not build indices for blob properties, so you cannot filter or sort `XdQuery` by this property.
+
+```kotlin
+// Optional nullable InputStream property with database name `image`.
+var image: xdBlobProp()
+```
+
+##### Required blob property
+Not-null property of type InputStream. Xodus-DNQ will check on flush that the property value is defined. 
+Xodus stores massive blobs as separate files on disk. 
+Xodus also does not build indices for blob properties, so you cannot filter or sort `XdQuery` by this property.
+
+```kotlin
+// Required not-null InputStream property with database name `image`.
+var image: xdRequiredBlobProp()
+```
+
+##### Optional string blob property
+Nullable property of type String stored in Xodus database as blob. 
+Xodus stores massive blobs as separate files on disk. 
+Xodus also does not build indices for blob properties, so you cannot filter or sort `XdQuery` by this property.
+
+```kotlin
+// Optional nullable String property with database name `description`.
+var description: xdBlobStringProp()
+```
+
+##### Required string blob property
+Required not-null property of type String stored in Xodus database as blob. 
+Xodus-DNQ will check on flush that the property value is defined.
+Xodus stores massive blobs as separate files on disk. 
+Xodus also does not build indices for blob properties, so you cannot filter or sort `XdQuery` by this property.
+
+```kotlin
+// Required not-null String property with database name `description`.
+var description: xdRequiredBlobStringProp()
+```
+
+#### Property constraints
+
+##### Regex
+Checks that string property value matches regular expression.
+
+```kotlin
+var javaIdentifier by xdStringProp {
+    regex(Regex("[A-Za-z][A-Za-z0-9_]*"), "is not a valid Java identifier")
+}
+```
+
+##### Email
+Checks that string property value is a valid email. Optionally accepts custom regular expression to verify email.
+```kotlin
+var email by xdStringProp { email() }
+```
+
+##### None of characters
+Checks that string property value contains none of the specified characters. 
+
+```kotlin
+var noDash by xdStringProp { containsNone("-") }
+```
+
+##### Letters only
+Checks that string property value contains only letter characters. 
+
+```kotlin
+var alpha by xdStringProp { alpha() }
+```
+
+##### Digits only
+Checks that string property value contains only digit characters. 
+
+```kotlin
+var number by xdStringProp { numeric() }
+```
+
+##### Digits and letters only
+Checks that string property value contains only digit and letter characters. 
+
+```kotlin
+var base64 by xdStringProp { alphaNumeric() }
+```
+
+##### URL
+Checks that string property value is a valid URL. 
+
+```kotlin
+var url by xdStringProp { url() }
+```
+
+##### URI
+Checks that string property value is a valid URL. 
+
+```kotlin
+var uri by xdStringProp { uri() }
+```
+
+##### String length
+Checks that length of string property value falls into defined range. 
+
+```kotlin
+var badPassword by xdStringProp { length(min = 5, max = 10) }
+```
+
+##### URI
+Checks that property value is defined if provided closure returns `true`. 
+
+```kotlin
+var main by xdStringProp()
+var dependent by xdLongProp { requireIf { main != null } }
+```
+
+##### Min value 
+Checks that number property value is more or equals than given value.
+
+```kotlin
+var timeout by xdIntProp { min(1000) }
+```
+
+##### Max values 
+Checks that number property value is less or equals than given value.
+
+```kotlin
+var timeout by xdIntProp { max(10_000) }
+```
+
+#### Custom Property Constraints
 TO BE DONE
 
 ### Links
