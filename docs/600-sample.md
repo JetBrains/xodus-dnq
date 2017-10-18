@@ -1,3 +1,8 @@
+---
+layout: page
+title: Sample Application
+---
+
 This is a sample application that covers
 1. Persistent classes and enumerations definition
 1. Database metamodel initialization

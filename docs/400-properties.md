@@ -1,3 +1,8 @@
+---
+layout: page
+title: Simple Properties and Links 
+---
+
 Persistent class can have simple properties and links to other persistent classes implemented by property delegates.
 
 ```kotlin

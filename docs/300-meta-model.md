@@ -1,5 +1,7 @@
-### Build Meta-Model
-
+---
+layout: page
+title: Build Meta-Model 
+---
 All persistent classes should be registered in `XdModel`, there are several ways to do it.
 ```kotlin
 // 1. Register persistent class explicitly

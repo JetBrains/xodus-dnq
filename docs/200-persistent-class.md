@@ -1,4 +1,7 @@
-### Persistent Class
+---
+layout: page
+title: Persistent Class 
+---
 
 Each persistent class should:
 1. Inherit from class `XdEntity`.

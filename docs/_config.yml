@@ -1,4 +1,10 @@
-theme: jekyll-theme-cayman
+theme: jekyll-theme-hyde
+
+title: Xodus-DNQ
+description: Kotlin library for the data definition and queries over Xodus.
+version: 1.0.173
+github:
+  repo: https://github.com/JetBrains/xodus-dnq
 
 plugins:
   - jekyll-sitemap

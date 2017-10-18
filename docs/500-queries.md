@@ -1,3 +1,8 @@
+---
+layout: page
+title: Data Query 
+---
+
 ### Transactions
 All DB-operations should happen in transactions. XdEntities from one transaction can be safely used
 in another one, i.e. one can store a reference to an entity outside a transaction.
