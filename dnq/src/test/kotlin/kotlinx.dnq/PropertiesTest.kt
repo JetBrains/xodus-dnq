@@ -59,6 +59,7 @@ class PropertiesTest : DBTest() {
         val contacts by xdLink0_N(Contact::user)
         var supervisor by xdLink0_1(Employee, "boss")
         var hireDate by xdRequiredDateTimeProp()
+        var iq by xdByteProp()
     }
 
     override fun registerEntityTypes() {
@@ -215,6 +216,7 @@ class PropertiesTest : DBTest() {
                 skill = 5
                 supervisor = boss
                 hireDate = DateTime.now().minusHours(1)
+                iq = 80
             }.apply {
                 contacts.add(Contact.new { email = "some@mail.com" })
             }
@@ -225,17 +227,21 @@ class PropertiesTest : DBTest() {
             assertThat(user.hasChanges(Employee::contacts)).isTrue()
             assertThat(user.hasChanges(Employee::hireDate)).isTrue()
             assertThat(user.hasChanges(Employee::registered)).isFalse()
+            assertThat(user.hasChanges(Employee::iq)).isTrue()
             // old values are null
             assertThat(user.getOldValue(Employee::skill)).isNull()
             assertThat(user.getOldValue(Employee::supervisor)).isNull()
             assertThat(user.getOldValue(Employee::hireDate)).isNull()
             assertThat(user.getOldValue(Employee::registered)).isNull()
+            assertThat(user.getOldValue(Employee::iq)).isNull()
 
             it.flush()
 
             // a primitive property keeps track of old values
             assertThat(user.hasChanges(Employee::skill)).isFalse()
             assertThat(user.getOldValue(Employee::skill)).isEqualTo(5)
+            assertThat(user.hasChanges(Employee::iq)).isFalse()
+            assertThat(user.getOldValue(Employee::iq)).isEqualTo(80.toByte())
             user.skill = 6
             assertThat(user.hasChanges(Employee::skill)).isTrue()
             assertThat(user.getOldValue(Employee::skill)).isEqualTo(5)

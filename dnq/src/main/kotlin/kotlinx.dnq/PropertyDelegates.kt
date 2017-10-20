@@ -145,6 +145,13 @@ fun <R : XdEntity> R.xdNullableBooleanProp(dbName: String? = null, constraints: 
 
 fun xdNullableBooleanProp(dbName: String? = null) = xdNullableProp<XdEntity, Boolean>(dbName)
 
+fun <R : XdEntity> xdByteProp(dbName: String? = null) = xdProp<R, Byte>(dbName) { _, _ -> 0 }
+
+fun <R : XdEntity> R.xdRequiredByteProp(dbName: String? = null, constraints: Constraints<R, Byte?>? = null) =
+        XdPropertyCachedProvider {
+            xdProp(dbName, constraints, require = true) { _, _ -> 0 }
+        }
+
 fun <R : XdEntity> R.xdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: Constraints<R, String?>? = null) =
         XdPropertyCachedProvider {
             createXdStringProp(trimmed, dbName, constraints)
