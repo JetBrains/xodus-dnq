@@ -21,7 +21,7 @@ import kotlinx.dnq.*
 import org.joda.time.DateTime
 import org.junit.Test
 
-var DBTest.User.inn by xdStringProp<DBTest.User>(dbName = "_inn_")
+private var DBTest.User.inn by xdStringProp<DBTest.User>(dbName = "_inn_")
 
 class FilterQueryPropertiesTest : DBTest() {
 
