@@ -9,7 +9,7 @@ class XdPropertyCachedProvider<out D>(private val create: () -> D) {
         val cache = ConcurrentHashMap<KProperty<*>, Any>()
     }
 
-    operator fun provideDelegate(thisRef: XdEntity, prop: KProperty<*>): D {
+    operator fun provideDelegate(thisRef: XdEntity?, prop: KProperty<*>): D {
         @Suppress("UNCHECKED_CAST")
         return cache.getOrPut(prop, create) as D
     }

@@ -30,6 +30,8 @@ import org.joda.time.DateTime
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
+var PropertiesTest.Employee.b by xdByteProp()
+
 class PropertiesTest : DBTest() {
     abstract class Base : XdEntity() {
         companion object : XdNaturalEntityType<Base>()

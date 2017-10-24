@@ -21,6 +21,8 @@ import kotlinx.dnq.*
 import org.joda.time.DateTime
 import org.junit.Test
 
+var DBTest.User.inn by xdStringProp<DBTest.User>(dbName = "_inn_")
+
 class FilterQueryPropertiesTest : DBTest() {
 
     @Test
@@ -272,8 +274,5 @@ class FilterQueryPropertiesTest : DBTest() {
     private fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: FilteringContext.(T) -> Unit): IterableSubject {
         return assertThat(this.filter(clause).toList())
     }
-
-    var User.inn by xdStringProp<User>(dbName = "_inn_")
-
 }
 
