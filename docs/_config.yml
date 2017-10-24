@@ -1,4 +1,4 @@
-theme: jekyll-theme-hyde
+theme: jekyll-theme-cayman
 
 title: Xodus-DNQ
 description: Kotlin library for the data definition and queries over Xodus.
