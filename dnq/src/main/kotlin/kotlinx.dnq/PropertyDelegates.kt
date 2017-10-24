@@ -22,14 +22,22 @@ import kotlin.reflect.KProperty
 
 
 fun <R : XdEntity> xdByteProp(dbName: String? = null, constraints: Constraints<R, Byte?>? = null) =
-        XdPropertyCachedProvider {
-            xdProp(dbName, constraints) { _, _ -> 0 }
-        }
+        xdCachedProp(dbName, constraints) { _, _ -> 0 }
 
 fun <R : XdEntity> xdRequiredByteProp(dbName: String? = null, unique: Boolean = false, constraints: Constraints<R, Byte?>? = null) =
-        XdPropertyCachedProvider {
-            xdProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0 }
-        }
+        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0 }
+
+fun <R : XdEntity> xdNullableByteProp(dbName: String? = null, constraints: Constraints<R, Byte?>? = null) =
+        xdNullableCachedProp(dbName, constraints)
+
+fun <R : XdEntity> xdShortProp(dbName: String? = null, constraints: Constraints<R, Short?>? = null) =
+        xdCachedProp(dbName, constraints) { _, _ -> 0 }
+
+fun <R : XdEntity> xdRequiredShortProp(dbName: String? = null, unique: Boolean = false, constraints: Constraints<R, Short?>? = null) =
+        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0 }
+
+fun <R : XdEntity> xdNullableShortProp(dbName: String? = null, constraints: Constraints<R, Short?>? = null) =
+        xdNullableCachedProp(dbName, constraints)
 
 /**
  * Creates member property delegate for **optional** `Int` value. If database value is undefined, the property
@@ -45,9 +53,7 @@ fun <R : XdEntity> xdRequiredByteProp(dbName: String? = null, unique: Boolean = 
  * @param constraints closure to build property constraints.
  */
 fun <R : XdEntity> xdIntProp(dbName: String? = null, constraints: Constraints<R, Int?>? = null) =
-        XdPropertyCachedProvider {
-            xdProp(dbName, constraints) { _, _ -> 0 }
-        }
+        xdCachedProp(dbName, constraints) { _, _ -> 0 }
 
 /**
  * Creates member property delegate for **required** `Int` value. While database value is undefined, the property
@@ -66,9 +72,10 @@ fun <R : XdEntity> xdIntProp(dbName: String? = null, constraints: Constraints<R,
  * @param constraints closure to build property constraints.
  */
 fun <R : XdEntity> xdRequiredIntProp(dbName: String? = null, unique: Boolean = false, constraints: Constraints<R, Int?>? = null) =
-        XdPropertyCachedProvider {
-            xdProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0 }
-        }
+        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0 }
+
+fun <R : XdEntity> xdNullableIntProp(dbName: String? = null, constraints: Constraints<R, Int?>? = null) =
+        xdNullableCachedProp(dbName, constraints)
 
 /**
  * Creates member property delegate for **optional** `Long` value. If database value is undefined, the property
@@ -83,9 +90,7 @@ fun <R : XdEntity> xdRequiredIntProp(dbName: String? = null, unique: Boolean = f
  * @param constraints closure to build property constraints.
  */
 fun <R : XdEntity> xdLongProp(dbName: String? = null, constraints: Constraints<R, Long?>? = null) =
-        XdPropertyCachedProvider {
-            xdProp(dbName, constraints) { _, _ -> 0L }
-        }
+        xdCachedProp(dbName, constraints) { _, _ -> 0L }
 
 /**
  * Creates member property delegate for **required** `Long` value. While database value is undefined, the property
@@ -103,24 +108,34 @@ fun <R : XdEntity> xdLongProp(dbName: String? = null, constraints: Constraints<R
  * @param constraints closure to build property constraints.
  */
 fun <R : XdEntity> xdRequiredLongProp(dbName: String? = null, unique: Boolean = false, constraints: Constraints<R, Long?>? = null) =
-        XdPropertyCachedProvider {
-            xdProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0L }
-        }
+        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0L }
 
 fun <R : XdEntity> xdNullableLongProp(dbName: String? = null, constraints: Constraints<R, Long?>? = null) =
-        XdPropertyCachedProvider {
-            xdNullableProp(dbName, constraints)
-        }
+        xdNullableCachedProp(dbName, constraints)
+
+fun <R : XdEntity> xdFloatProp(dbName: String? = null, constraints: Constraints<R, Float?>? = null) =
+        xdCachedProp(dbName, constraints) { _, _ -> 0f }
+
+fun <R : XdEntity> xdRequiredFloatProp(dbName: String? = null, unique: Boolean = false, constraints: Constraints<R, Float?>? = null) =
+        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0f }
+
+fun <R : XdEntity> xdNullableFloatProp(dbName: String? = null, constraints: Constraints<R, Float?>? = null) =
+        xdNullableCachedProp(dbName, constraints)
+
+fun <R : XdEntity> xdDoubleProp(dbName: String? = null, constraints: Constraints<R, Double?>? = null) =
+        xdCachedProp(dbName, constraints) { _, _ -> 0.0 }
+
+fun <R : XdEntity> xdRequiredDoubleProp(dbName: String? = null, unique: Boolean = false, constraints: Constraints<R, Double?>? = null) =
+        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0.0 }
+
+fun <R : XdEntity> xdNullableDoubleProp(dbName: String? = null, constraints: Constraints<R, Double?>? = null) =
+        xdNullableCachedProp(dbName, constraints)
 
 fun <R : XdEntity> xdBooleanProp(dbName: String? = null, constraints: Constraints<R, Boolean?>? = null) =
-        XdPropertyCachedProvider {
-            xdProp(dbName, constraints) { _, _ -> false }
-        }
+        xdCachedProp(dbName, constraints) { _, _ -> false }
 
 fun <R : XdEntity> xdNullableBooleanProp(dbName: String? = null, constraints: Constraints<R, Boolean?>? = null) =
-        XdPropertyCachedProvider {
-            xdNullableProp(dbName, constraints)
-        }
+        xdNullableCachedProp(dbName, constraints)
 
 fun <R : XdEntity> xdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: Constraints<R, String?>? = null) =
         XdPropertyCachedProvider {

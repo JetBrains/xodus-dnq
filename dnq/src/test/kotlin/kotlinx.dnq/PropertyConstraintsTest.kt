@@ -218,7 +218,6 @@ class PropertyConstraintsTest : DBTest() {
                 }.apply(init)
             }
         }
-        println(e.causes)
         assertThat(e.causes).hasSize(1)
         assertThat(e.causes.first().displayMessage).isEqualTo(message)
     }
