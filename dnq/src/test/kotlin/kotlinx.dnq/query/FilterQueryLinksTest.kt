@@ -21,6 +21,9 @@ import kotlinx.dnq.transactional
 import kotlinx.dnq.xdLink0_1
 import org.junit.Test
 
+
+private var DBTest.User.fellow by xdLink0_1(DBTest.User)
+
 class FilterQueryLinksTest : DBTest() {
 
     @Test
@@ -90,6 +93,4 @@ class FilterQueryLinksTest : DBTest() {
             assertThat(result.toList()).containsExactly(user2)
         }
     }
-
-    var User.fellow by xdLink0_1(User)
 }
