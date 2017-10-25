@@ -1,2 +1,1 @@
-gem 'jekyll-theme-hyde', '~> 2.0'
 gem 'jekyll-sitemap', '~> 1.1', '>= 1.1.1'
