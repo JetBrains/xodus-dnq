@@ -64,6 +64,11 @@ XdUser.queryOf(user)
 
 ### Filter
 TO BE DONE
+```kotlin
+query(node: NodeBase)
+filterIsInstance(entityType: XdEntityType<S>)
+filterIsNotInstance(entityType: XdEntityType<S>)
+```
 
 ### Find or Create
 TO BE DONE
@@ -122,3 +127,120 @@ It also works for multi-value queries as well.
 // Get groups of existing users
 XdUser.all().flatMapDistinct(XdUser::groups)
 ```
+
+### Size
+
+```kotlin
+// Calculate exact number of users
+XdUser.all().size()
+
+// Calculate rough number of users. Executes faster than size() but is eventually accurate
+XdUser.all().roughSize()
+
+// Calculate number of users matching the predicate
+XdUser.all().size(XdUser::skill gt 2)
+```
+
+### isEmpty, isNotEmpty, any, none
+
+The following three expressions do the same: check if there is no users with skill greater than 2
+```kotlin
+XdUser.all().query(XdUser::skill gt 2).isEmpty()
+XdUser.all().query(XdUser::skill gt 2).none()
+XdUser.all().none(XdUser::skill gt 2)
+```
+
+The following three expressions do the same: check if there are users with skill less or equal to 2
+```kotlin
+XdUser.all().query(XdUser::skill le 2).isNotEmpty()
+XdUser.all().query(XdUser::skill le 2).any()
+XdUser.all().any(XdUser::skill le 2)
+```
+
+### Paging: drop & take
+
+Query all users except first 5. 
+```kotlin
+XdUser.all().drop(5)
+```
+
+Query at most 5 first users.
+```kotlin
+XdUser.all().take(5)
+```
+
+### indexOf
+
+Calculate position of the element within the query. 
+```kotlin
+XdUser.all().sortedBy(XdUser::login).indexOf(user)
+```
+### Contains
+
+Check if the query contains the element.
+```kotlin
+XdUser.query(XdUser::skill gt 2).contains(user)
+user in XdUser.query(XdUser::skill gt 2)
+```
+
+### First & single element
+
+Get first element of the query.
+```kotlin
+XdUser.query(XdUser::skill gt 2).first()
+```
+
+Get first element of the query that matches the predicate.
+```kotlin
+XdUser.all().first(XdUser::skill gt 2)
+```
+
+Get first element of the query or return null if the query is empty.
+```kotlin
+XdUser.query(XdUser::skill gt 2).firstOrNull()
+```
+
+Get first element of the query that matches the predicate or return null if the query is empty.
+```kotlin
+XdUser.all().firstOrNull(XdUser::skill gt 2)
+```
+
+Check that there is only one element in the query and return it.
+```kotlin
+XdUser.query(XdUser::skill gt 2).single()
+```
+
+Check that there is only one element matching the predicate and return it.
+```kotlin
+XdUser.all().single(XdUser::skill gt 2)
+```
+
+If there is only one element in the query return it, otherwise return null.
+```kotlin
+XdUser.query(XdUser::skill gt 2).singleOrNull()
+```
+
+If there is only one element matching the predicate return it, otherwise return null.
+```kotlin
+XdUser.all().singleOrNull(XdUser::skill gt 2)
+```
+
+### Mutable queries
+
+Persistent properties representing links have type `XdMutableQuery`. This type has additional operations to modify
+value of the properties.
+
+TO BE DONE
+```kotlin
+    abstract fun add(entity: T)
+    abstract fun remove(entity: T)
+    abstract fun clear()
+
+addAll(elements: Sequence<T>)
+addAll(elements: XdQuery<T>)
+addAll(elements: Iterable<T>)
+
+removeAll(elements: Sequence<T>)
+removeAll(elements: XdQuery<T>)
+removeAll(elements: Iterable<T>)
+``` 
