@@ -3,22 +3,22 @@ layout: page
 title: Data Query 
 ---
 
-### Transactions
+## Transactions
 All DB-operations should happen in transactions. XdEntities from one transaction can be safely used
 in another one, i.e. one can store a reference to an entity outside a transaction.
 
-### New
+## New entities
 
 ```kotlin
-class User(override val entity: Entity) : XdEntity() {
-    companion object : XdNaturalEntityType<User>()
+class XdUser(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdUser>()
 
     var login by xdRequiredStringProp(unique = true)
 }
 
-fun createUser(store: TransientEntityStore, login: String): User {
+fun createUser(store: TransientEntityStore, login: String): XdUser {
     return store.transactional {
-        User.new {
+        XdUser.new {
             this.login = login 
         }
     }
@@ -31,17 +31,17 @@ Effective database collections that use Xodus indices are represented in Xodus D
 Such objects are returned by `XdEntityType#all()`, [multi-value persistent links](properties.md#links), and various
 database collection operations: filtering, sorting, mapping, etc.
 
-### Query all entities of persistent class
+### Query all entities
 ```kotlin
 XdUser.all()
 ```
 
-### Empty query for persistent class
+### Empty query
 ```kotlin
 XdUser.emptyQuery()
 ```
 
-### Convert to Kotlin Collections
+### Convert to Kotlin collections
 There are several extension functions to convert `XdQueries` to Kotlin-collections. There is also 
 an extension function operator `iterator`, that enables usage of `XdQuery` in for-in loop.
 
@@ -57,7 +57,7 @@ XdUser.all().toSortedSet(compareBy { it.login })
 XdUser.all().toMutableSet()
 ```
 
-### Build query of existing elements
+### Query of specified elements
 ```kotlin
 XdUser.queryOf(user)
 ``` 
@@ -110,4 +110,15 @@ XdUser.all().sortedBy(XdUser::job, XdJob::title)
 ```
 
 ### Map
-TO BE DONE
+
+You can convert a query of entities to query of some link values. 
+```kotlin
+// Get jobs of existing users
+XdUser.all().mapDistinct(XdUser::job)
+```
+
+It also works for multi-value queries as well.
+```kotlin
+// Get groups of existing users
+XdUser.all().flatMapDistinct(XdUser::groups)
+```
