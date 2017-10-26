@@ -1,13 +1,13 @@
 ---
 layout: page
-title: Use in Your Project 
+title: Use Xodus-DNQ in Your Project
 ---
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq)
 
 List of released versions is available at [GitHub releases](https://github.com/JetBrains/xodus-dnq/releases).
 
-### Gradle
+### Using Gradle
 
 ```groovy
 repositories {
@@ -16,7 +16,7 @@ repositories {
 compile 'org.jetbrains.xodus:dnq:${version}'
 ```
 
-### Maven
+### Using Maven
 
 ```xml
 <dependency>

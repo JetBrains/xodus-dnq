@@ -4,5 +4,14 @@ version: 1.0.173
 github:
   repo: https://github.com/JetBrains/xodus-dnq
 
+toc:
+  - index.md
+  - use-in-your-project.md
+  - persistent-class.md
+  - properties.md
+  - queries.md
+  - meta-model.md
+  - sample.md
+
 plugins:
   - jekyll-sitemap

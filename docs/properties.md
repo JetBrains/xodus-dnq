@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Simple Properties and Links 
+title: Persistent Properties
 ---
 
 Persistent class can have simple properties and links to other persistent classes implemented by property delegates.
@@ -55,6 +55,9 @@ Methods to create delegates for required simple properties have parameter `uniqu
 If its value is `true`, Xodus-DNQ will check on flush uniqueness of property value among instances of the persistent
 class.
 
+#### Byte
+#### Short
+#### Integer
 ##### Optional integer property
 If its value is not defined in database the property returns `0`.
 
@@ -76,6 +79,7 @@ var rank: xdRequiredIntProp(dbName = "grade") // Required Int property with data
 var id: xdRequiredIntProp(unique = true) // Unique required Int property with database name `id`.
 ```
 
+#### Long
 ##### Optional long property
 If its value is not defined in database the property returns `0L`.
 
@@ -104,6 +108,7 @@ See also constraints: [min()](#min-value), [max()](#max-values).
 var salary: xdNullableLongProp { min(0) }  
 ```
 
+#### Boolean
 ##### Optional boolean property
 If its value is not defined in database the property returns `false`.
 
@@ -119,6 +124,7 @@ var isGuest: xdBooleanProp()
 var isFemale: xdNullableBooleanProp() 
 ```
 
+#### String
 ##### Optional string property
 Nullable String property. Optional parameter `trimmed: Boolean` enables string trimming on value set, i.e. when
 you assign a value to such property all leading and trailing spaces are removed.
@@ -148,6 +154,7 @@ See also constraints: [regex()](#regex), [email()](#email), [containsNone()](#no
 var uuid: xdRequiredStringProp(unique=true)
 ```
 
+#### Joda DateTime
 ##### Optional Joda DateTime property
 Nullable DateTime property. Xodus does not have built-in support for date-time simple properties. This property is
 actually wrapping nullable Long property and storing unix epoch timestamp.
@@ -168,6 +175,7 @@ actually wrapping not-null Long property and storing unix epoch timestamp.
 var createdAt: xdRequiredDateTimeProp()
 ```
 
+#### Blob
 ##### Optional blob property
 Nullable property of type InputStream. Xodus stores massive blobs as separate files on disk. 
 Xodus also does not build indices for blob properties, so you cannot filter or sort `XdQuery` by this property.
@@ -187,6 +195,7 @@ Xodus also does not build indices for blob properties, so you cannot filter or s
 var image: xdRequiredBlobProp()
 ```
 
+#### String Blob
 ##### Optional string blob property
 Nullable property of type String stored in Xodus database as blob. 
 Xodus stores massive blobs as separate files on disk. 
@@ -208,7 +217,7 @@ Xodus also does not build indices for blob properties, so you cannot filter or s
 var description: xdRequiredBlobStringProp()
 ```
 
-#### Property constraints
+### Simple property constraints
 Property constraints are checked on transaction flush. Xodus-DNQ throws `ConstraintsValidationException` 
 if some of them fail. Method `getCauses()` of `ConstraintsValidationException` returns all actual
 `DataIntegrityViolationException`s corresponding to data validation errors that happen during the transaction flush.   
@@ -225,7 +234,7 @@ try {
 }
 ``` 
 
-##### Regex
+#### Regex
 Checks that string property value matches regular expression.
 
 ```kotlin
@@ -234,62 +243,62 @@ var javaIdentifier by xdStringProp {
 }
 ```
 
-##### Email
+#### Email
 Checks that string property value is a valid email. Optionally accepts custom regular expression to verify email.
 ```kotlin
 var email by xdStringProp { email() }
 ```
 
-##### None of characters
+#### None of characters
 Checks that string property value contains none of the specified characters. 
 
 ```kotlin
 var noDash by xdStringProp { containsNone("-") }
 ```
 
-##### Letters only
+#### Letters only
 Checks that string property value contains only letter characters. 
 
 ```kotlin
 var alpha by xdStringProp { alpha() }
 ```
 
-##### Digits only
+#### Digits only
 Checks that string property value contains only digit characters. 
 
 ```kotlin
 var number by xdStringProp { numeric() }
 ```
 
-##### Digits and letters only
+#### Digits and letters only
 Checks that string property value contains only digit and letter characters. 
 
 ```kotlin
 var base64 by xdStringProp { alphaNumeric() }
 ```
 
-##### URL
+#### URL
 Checks that string property value is a valid URL. 
 
 ```kotlin
 var url by xdStringProp { url() }
 ```
 
-##### URI
+#### URI
 Checks that string property value is a valid URL. 
 
 ```kotlin
 var uri by xdStringProp { uri() }
 ```
 
-##### String length
+#### String length
 Checks that length of string property value falls into defined range. 
 
 ```kotlin
 var badPassword by xdStringProp { length(min = 5, max = 10) }
 ```
 
-##### URI
+#### Require if
 Checks that property value is defined if provided closure returns `true`. 
 
 ```kotlin
@@ -297,14 +306,14 @@ var main by xdStringProp()
 var dependent by xdLongProp { requireIf { main != null } }
 ```
 
-##### Min value 
+#### Min value 
 Checks that number property value is more or equals than given value.
 
 ```kotlin
 var timeout by xdIntProp { min(1000) }
 ```
 
-##### Max values 
+#### Max value 
 Checks that number property value is less or equals than given value.
 
 ```kotlin
@@ -361,7 +370,7 @@ There are three types of links: directed links, bi-directed links and aggregatio
 Most of the methods that create delegates for links accept optional parameter `dbPropertyName`. By default Xodus-DNQ
 uses Kotlin-property name to reference the link in Xodus database. Parameter `dbPropertyName` helps to override this.  
 
-#### On Delete Policy
+#### On delete policy
 Most of the methods that create delegates for links accept optional parameters `onDelete` and `onTargetDelete`.
 This parameters defines what Xodus-DNQ should do with the link on this entity delete or on the link target delete.
 Available options are
@@ -374,7 +383,8 @@ points to it. One message per entity type.
 * `OnDeletePolicy.FAIL_PER_ENTITY` -- Fail transaction with a custom message if entity is deleted but link still 
 points to it.  One message per entity.
 
-##### Directed [0..1] association
+#### Unidirectional assosiations
+##### Unidirectional [0..1] association
 Optional unidirectional association. 
 Type of Kotlin-property defined by this delegate is nullable. 
 First parameter is companion object of persistent class that is an opposite end of the association.
@@ -382,7 +392,7 @@ First parameter is companion object of persistent class that is an opposite end 
 var directedOptionalLink by xdLink0_1(XdTarget, onTargetDelete = OnDeletePolicy.CLEAR)
 ```
 
-##### Directed [1] association
+##### Unidirectional [1] association
 Required unidirectional association. 
 Type of Kotlin-property defined by this delegate is not-null. 
 Xodus-DNQ checks on flush that the link points to some entity.
@@ -391,7 +401,7 @@ First parameter is companion object of persistent class that is an opposite end 
 var directedRequiredLink by xdLink1(XdTarget)
 ```
 
-##### Directed [0..N] association
+##### Unidirectional [0..N] association
 Multi-value unidirectional association. 
 Type of Kotlin-property defined by this delegate is `XdMutableQuery`.
 First parameter is companion object of persistent class that is an opposite end of the association.
@@ -399,7 +409,7 @@ First parameter is companion object of persistent class that is an opposite end 
 var users by xdLink0_N(XdUser)
 ```
 
-##### Directed [1..N] association
+##### Unidirectional [1..N] association
 Multi-value unidirectional association. 
 Type of Kotlin-property defined by this delegate is `XdMutableQuery`. 
 Xodus-DNQ checks on flush that the link contains at least one entity.
@@ -414,7 +424,7 @@ For bidirectional associations Xodus-DNQ maintains both ends of the links. For e
 link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)` 
 Xodus-DNQ will automatically add `user` to `group.users`.
 
-##### Undirected [0..1] association
+##### Bidirectional [0..1] association
 Optional bidirectional association. 
 Type of Kotlin-property defined by this delegate is nullable. 
 First parameter is a property reference to an opposite end of the association.
@@ -422,7 +432,7 @@ First parameter is a property reference to an opposite end of the association.
 val group by xdLink0_1(XdGroup::users)
 ```
 
-##### Undirected [1] association
+##### Bidirectional [1] association
 Required bidirectional association. 
 Xodus-DNQ checks on flush that the link points to some entity.
 Type of Kotlin-property defined by this delegate is not-null. 
@@ -431,7 +441,7 @@ First parameter is a property reference to an opposite end of the association.
 val group by xdLink1(XdGroup::users)
 ```
 
-##### Undirected [0..N] association
+##### Bidirectional [0..N] association
 Multi-value bidirectional association. 
 Type of Kotlin-property defined by this delegate is `XdMutableQuery`.
 First parameter is a property reference to an opposite end of the association.
@@ -439,7 +449,7 @@ First parameter is a property reference to an opposite end of the association.
 val groups by xdLink0_N(XdGroup::users)
 ```
 
-##### Undirected [1..N] association
+##### Bidirectional [1..N] association
 Multi-value bidirectional association. 
 Type of Kotlin-property defined by this delegate is `XdMutableQuery`.
 Xodus-DNQ checks on flush that the link contains at least one entity.
@@ -506,7 +516,7 @@ val parentGroup by xdMultiParent(XdGroup::subGroups)
 val parentOfRootGroup by xdMultiParent(XdRoot::rootGroup)
 ```
 
-#### Links to extension properties 
+#### Extension property links
 
 Bidirectional link can also point to Kotlin extension property on one side.
 

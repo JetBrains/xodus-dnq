@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Persistent Class 
+title: Persistent Classes
 ---
 
 Each persistent class should:

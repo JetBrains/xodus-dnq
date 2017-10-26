@@ -28,7 +28,7 @@ fun createUser(store: TransientEntityStore, login: String): User {
 ## XdQuery
 
 Effective database collections that use Xodus indices are represented in Xodus DNQ by objects of type `XdQuery<XD>`.
-Such objects are returned by `XdEntityType#all()`, [multi-value persistent links](400-properties.md#links), and various
+Such objects are returned by `XdEntityType#all()`, [multi-value persistent links](properties.md#links), and various
 database collection operations: filtering, sorting, mapping, etc.
 
 ### Query all entities of persistent class
