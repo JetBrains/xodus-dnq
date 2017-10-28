@@ -63,13 +63,156 @@ XdUser.queryOf(user)
 ``` 
 
 ### Filter
-TO BE DONE
+
+Xodus-DNQ provides methods for entity filtering using built-in Xodus indices. It's much more efficient and 
+performant that in-memory collection manipulations.
+
 ```kotlin
-query(node: NodeBase)
-filterIsInstance(entityType: XdEntityType<S>)
-filterIsNotInstance(entityType: XdEntityType<S>)
+// Get all users with skill greater than 2
+XdUser.all().query(XdUser::skill gt 2)
+
+// The same but shorter
+XdUser.query(XdUser::skill gt 2)
 ```
 
+```kotlin
+// Contacts that have type XdEmailContact
+user.contacts.filterIsInstance(XdEmailContact)
+
+// Contacts that have any type but XdEmailContact
+user.contacts.filterIsNotInstance(XdEmailContact)
+```
+
+#### Operations
+
+Method `query()` accepts an object of type `NodeBase`. This object defines an abstract syntax tree of filtering 
+operation expression. There is a set of predefined methods to build such trees.
+
+##### Equals
+
+Filter entities with a value of the property equal to the given value.  
+
+```kotlin
+// Users with login "root"
+XdUser.query(XdUser::login eq "root")
+
+// Users with gender equal to XdGender.FEMALE
+XdUser.query(XdUser::gender eq XdGender.FEMALE)
+```
+
+##### Not Equals
+
+Filter entities with a value of the property not equal to the given value.  
+
+```kotlin
+// Users with any login but "root"
+XdUser.query(XdUser::login ne "root")
+
+// Users with gender not equal to XdGender.FEMALE
+XdUser.query(XdUser::gender ne XdGender.FEMALE)
+```
+
+##### Greater than
+
+Filter entities with a value of the property greater than given `value`.  
+
+```kotlin
+// Users with skill greater than 2
+XdUser.query(XdUser::skill gt 2)
+```
+
+##### Less than
+
+Filter entities with a value of the property less than given `value`.  
+
+```kotlin
+// Users with skill less than 2
+XdUser.query(XdUser::skill lt 2)
+```
+
+##### Greater or equal
+
+Filter entities with a value of the property greater or equal to given `value`.  
+
+```kotlin
+// Users with skill greater or equal to 2
+XdUser.query(XdUser::skill ge 2)
+```
+
+##### Less or equal
+
+Filter entities with a value of the property less or equal to given `value`.  
+
+```kotlin
+// Users with skill less or equal to 2
+XdUser.query(XdUser::skill le 2)
+```
+
+##### Starts with
+
+Filter entities with a value of the String property starting with the given `value`.  
+
+```kotlin
+// Users with skill less than 2
+XdUser.query(XdUser::login startsWith "max")
+```
+
+##### Contains
+
+Filter entities where one of the values of the multi-value property contains the given value.
+
+```kotlin
+// Users that have `group` among their groups.
+XdUser.query(XdUser::groups contains group)
+```
+
+##### Value in range
+
+Filter entities with a value of the property matching the given range.  
+
+```kotlin
+// Users with skill within the range 1..10
+XdUser.query((1..10) contains XdUser::skill)
+```
+
+##### Not 
+
+Negation of the given operation.
+
+```kotlin
+// Users with any login but "root"
+XdUser.query(not(XdUser::login eq "root"))
+```
+
+##### And
+
+Conjunction of the given operations.
+
+```kotlin
+// Users with any login not equal to "root" and skill more than 2. 
+XdUser.query((XdUser::login ne "root") and (XdUser::skill gt 2))
+```
+
+##### Or
+
+Disjunction of the given operations.
+
+```kotlin
+// Users with login equal to "root" or skill more than 2. 
+XdUser.query((XdUser::login eq "root") or (XdUser::skill gt 2))
+```
+
+##### Filter by property of property
+
+If you need to filter entities not by the value of their properties but by the value of a property of their property, 
+you may use `link` operator. Note that this operation is less effective than direct filtering by the value of 
+a property.
+
+```kotlin
+// Users with verified contacts
+XdUser.query(XdUser::contact.link(XdContact::isVerified eq true))
+```
+ 
 ### Find or Create
 TO BE DONE
 

@@ -75,7 +75,7 @@ infix inline fun <reified R : XdEntity> ClosedRange<DateTime>.contains(property:
 }
 
 /**
- * Filter elements with a value of the field greater then given `value`
+ * Filter elements with a value of the field greater than given `value`
  */
 fun <V : Comparable<V>> gt(dbPropertyName: String, value: V, valueKClass: KClass<V>): NodeBase {
     return PropertyRange(dbPropertyName, valueKClass.next(value), valueKClass.maxValue())
@@ -90,7 +90,7 @@ inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.gt(value: DateT
 }
 
 /**
- * Filter elements with a value of the field less then given `value`
+ * Filter elements with a value of the field less than given `value`
  */
 fun <V : Comparable<V>> lt(dbPropertyName: String, value: V, valueKClass: KClass<V>): NodeBase {
     return PropertyRange(dbPropertyName, valueKClass.minValue(), valueKClass.prev(value))
