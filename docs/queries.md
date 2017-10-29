@@ -83,12 +83,10 @@ user.contacts.filterIsInstance(XdEmailContact)
 user.contacts.filterIsNotInstance(XdEmailContact)
 ```
 
-#### Operations
-
 Method `query()` accepts an object of type `NodeBase`. This object defines an abstract syntax tree of filtering 
 operation expression. There is a set of predefined methods to build such trees.
 
-##### Equals
+#### Equals
 
 Filter entities with a value of the property equal to the given value.  
 
@@ -100,7 +98,7 @@ XdUser.query(XdUser::login eq "root")
 XdUser.query(XdUser::gender eq XdGender.FEMALE)
 ```
 
-##### Not Equals
+#### Not Equals
 
 Filter entities with a value of the property not equal to the given value.  
 
@@ -112,7 +110,7 @@ XdUser.query(XdUser::login ne "root")
 XdUser.query(XdUser::gender ne XdGender.FEMALE)
 ```
 
-##### Greater than
+#### Greater than
 
 Filter entities with a value of the property greater than given `value`.  
 
@@ -121,7 +119,7 @@ Filter entities with a value of the property greater than given `value`.
 XdUser.query(XdUser::skill gt 2)
 ```
 
-##### Less than
+#### Less than
 
 Filter entities with a value of the property less than given `value`.  
 
@@ -130,7 +128,7 @@ Filter entities with a value of the property less than given `value`.
 XdUser.query(XdUser::skill lt 2)
 ```
 
-##### Greater or equal
+#### Greater or equal
 
 Filter entities with a value of the property greater or equal to given `value`.  
 
@@ -139,7 +137,7 @@ Filter entities with a value of the property greater or equal to given `value`.
 XdUser.query(XdUser::skill ge 2)
 ```
 
-##### Less or equal
+#### Less or equal
 
 Filter entities with a value of the property less or equal to given `value`.  
 
@@ -148,7 +146,7 @@ Filter entities with a value of the property less or equal to given `value`.
 XdUser.query(XdUser::skill le 2)
 ```
 
-##### Starts with
+#### Starts with
 
 Filter entities with a value of the String property starting with the given `value`.  
 
@@ -157,7 +155,7 @@ Filter entities with a value of the String property starting with the given `val
 XdUser.query(XdUser::login startsWith "max")
 ```
 
-##### Contains
+#### Contains
 
 Filter entities where one of the values of the multi-value property contains the given value.
 
@@ -166,7 +164,7 @@ Filter entities where one of the values of the multi-value property contains the
 XdUser.query(XdUser::groups contains group)
 ```
 
-##### Value in range
+#### Value in range
 
 Filter entities with a value of the property matching the given range.  
 
@@ -175,7 +173,7 @@ Filter entities with a value of the property matching the given range.
 XdUser.query((1..10) contains XdUser::skill)
 ```
 
-##### Not 
+#### Not 
 
 Negation of the given operation.
 
@@ -184,7 +182,7 @@ Negation of the given operation.
 XdUser.query(not(XdUser::login eq "root"))
 ```
 
-##### And
+#### And
 
 Conjunction of the given operations.
 
@@ -193,7 +191,7 @@ Conjunction of the given operations.
 XdUser.query((XdUser::login ne "root") and (XdUser::skill gt 2))
 ```
 
-##### Or
+#### Or
 
 Disjunction of the given operations.
 
@@ -202,7 +200,7 @@ Disjunction of the given operations.
 XdUser.query((XdUser::login eq "root") or (XdUser::skill gt 2))
 ```
 
-##### Filter by property of property
+#### Filter by property of property
 
 If you need to filter entities not by the value of their properties but by the value of a property of their property, 
 you may use `link` operator. Note that this operation is less effective than direct filtering by the value of 
