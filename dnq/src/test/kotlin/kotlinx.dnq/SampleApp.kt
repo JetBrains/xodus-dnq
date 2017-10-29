@@ -2,6 +2,7 @@ package kotlinx.dnq
 
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.enum.XdEnumEntityType
 import kotlinx.dnq.query.*
 import kotlinx.dnq.simple.email
@@ -101,4 +102,38 @@ fun main(args: Array<String>) {
     store.transactional(readonly = true) {
         println(user)
     }
+}
+
+
+class XdPerson(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdPerson>()
+
+    fun setSkillLevel(skill: XdSkill, level: Int) {
+        val competence = XdCompetence.findOrNew(
+                XdCompetence.query(
+                        (XdCompetence::person eq this) and (XdCompetence::skill eq skill)
+                )
+        ) {
+            this.person = this@XdPerson
+            this.skill = skill
+        }
+        competence.level = level
+    }
+}
+
+class XdSkill(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdSkill>()
+}
+
+class XdCompetence(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdCompetence>() {
+        override val compositeIndices
+            get() = listOf(
+                    listOf(XdCompetence::person, XdCompetence::skill)
+            )
+    }
+
+    var person by xdLink1(XdPerson)
+    var skill by xdLink1(XdSkill)
+    var level by xdIntProp()
 }

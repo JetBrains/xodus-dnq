@@ -214,7 +214,44 @@ XdUser.query(XdUser::contact.link(XdContact::isVerified eq true))
 ```
  
 ### Find or Create
-TO BE DONE
+
+It's possible to create an entity with a guarantee that no identical entity will be created in a parallel thread.
+It's quite handy if you need to create an instance of association class. Method `findOrNew` 
+
+```kotlin
+class XdPerson(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdPerson>()
+
+    fun setSkillLevel(skill: XdSkill, level: Int) { 
+        val competence = XdCompetence.findOrNew(
+                XdCompetence.query(
+                        (XdCompetence::person eq this) and (XdCompetence::skill eq skill)
+                )
+        ) {
+            this.person = this@XdPerson
+            this.skill = skill
+        }
+        competence.level = level
+    }
+}
+
+class XdSkill(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdSkill>()
+}
+
+class XdCompetence(override val entity: Entity) : XdEntity() {
+    companion object : XdNaturalEntityType<XdCompetence>() {
+        override val compositeIndices
+            get() = listOf(
+                    listOf(XdCompetence::person, XdCompetence::skill)
+            )
+    }
+
+    var person by xdLink1(XdPerson)
+    var skill by xdLink1(XdSkill)
+    var level by xdIntProp()
+}
+```
 
 ### Query operations
 
