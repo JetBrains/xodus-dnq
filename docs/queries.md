@@ -410,17 +410,36 @@ XdUser.all().singleOrNull(XdUser::skill gt 2)
 Persistent properties representing links have type `XdMutableQuery`. This type has additional operations to modify
 value of the properties.
 
-TO BE DONE
+#### Add
+
 ```kotlin
-    abstract fun add(entity: T)
-    abstract fun remove(entity: T)
-    abstract fun clear()
+user.groups.add(group)
+```
 
-addAll(elements: Sequence<T>)
-addAll(elements: XdQuery<T>)
-addAll(elements: Iterable<T>)
+#### Remove
 
-removeAll(elements: Sequence<T>)
-removeAll(elements: XdQuery<T>)
-removeAll(elements: Iterable<T>)
-``` 
+```kotlin
+user.groups.remove(group)
+```
+
+#### Add all
+
+```kotlin
+user.groups.addAll(sequenceOf(group1, group2))
+user.groups.addAll(listOf(group1, group2))
+user.groups.addAll(XdGroup.query(XdGroup::parent eq null))
+```
+
+#### Remove all
+
+```kotlin
+user.groups.removeAll(sequenceOf(group1, group2))
+user.groups.removeAll(listOf(group1, group2))
+user.groups.removeAll(XdGroup.query(XdGroup::parent eq null))
+```
+
+#### Clear
+
+```kotlin
+user.groups.clear()
+```
