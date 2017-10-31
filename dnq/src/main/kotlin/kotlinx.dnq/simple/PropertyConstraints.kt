@@ -23,6 +23,7 @@ import jetbrains.exodus.entitystore.constraints.regexp
 import jetbrains.exodus.query.metadata.PropertyMetaData
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.wrapper
+import org.joda.time.DateTime
 import java.net.URI
 import java.net.URISyntaxException
 
@@ -175,18 +176,54 @@ fun <T : Number?> PropertyConstraintBuilder<*, T>.max(max: Long, message: String
     })
 }
 
-/* fun PropertyConstraintBuilder<*, Long?>.past(message: String? = null) {
-    constraints.add(jetbrains.exodus.entitystore.constraints.past().apply {
-        if (message != null) {
-            this.message = message
+fun <T : DateTime?> PropertyConstraintBuilder<*, DateTime?>.isAfter(dateTime: () -> DateTime, message: String = "is not after $dateTime") {
+    constraints.add(object : PropertyConstraint<DateTime?>() {
+        override fun isValid(propertyValue: DateTime?): Boolean {
+            return propertyValue == null || propertyValue.isAfter(dateTime())
         }
+
+        override fun getExceptionMessage(propertyName: String, propertyValue: DateTime?) =
+                "$propertyName should be after ${dateTime()} but was $propertyValue"
+
+        override fun getDisplayMessage(propertyName: String, propertyValue: DateTime?) = message
     })
 }
 
-fun PropertyConstraintBuilder<*, Long?>.future(message: String? = null) {
-    constraints.add(jetbrains.exodus.entitystore.constraints.future().apply {
-        if (message != null) {
-            this.message = message
+fun <T : DateTime?> PropertyConstraintBuilder<*, DateTime?>.isBefore(dateTime: () -> DateTime, message: String = "is not before $dateTime") {
+    constraints.add(object : PropertyConstraint<DateTime?>() {
+        override fun isValid(propertyValue: DateTime?): Boolean {
+            return propertyValue == null || propertyValue.isBefore(dateTime())
         }
+
+        override fun getExceptionMessage(propertyName: String, propertyValue: DateTime?) =
+                "$propertyName should be before ${dateTime()} but was $propertyValue"
+
+        override fun getDisplayMessage(propertyName: String, propertyValue: DateTime?) = message
     })
-} */
+}
+
+fun PropertyConstraintBuilder<*, DateTime?>.past(message: String = "is not in the past") {
+    constraints.add(object : PropertyConstraint<DateTime?>() {
+        override fun isValid(propertyValue: DateTime?): Boolean {
+            return propertyValue == null || propertyValue.isBeforeNow
+        }
+
+        override fun getExceptionMessage(propertyName: String, propertyValue: DateTime?) =
+                "$propertyName should be in the past (before ${DateTime.now()}) but was $propertyValue"
+
+        override fun getDisplayMessage(propertyName: String, propertyValue: DateTime?) = message
+    })
+}
+
+fun PropertyConstraintBuilder<*, DateTime?>.future(message: String = "is not in the future") {
+    constraints.add(object : PropertyConstraint<DateTime?>() {
+        override fun isValid(propertyValue: DateTime?): Boolean {
+            return propertyValue == null || propertyValue.isAfterNow
+        }
+
+        override fun getExceptionMessage(propertyName: String, propertyValue: DateTime?) =
+                "$propertyName should be in the future (after ${DateTime.now()}) but was $propertyValue"
+
+        override fun getDisplayMessage(propertyName: String, propertyValue: DateTime?) = message
+    })
+}

@@ -1,6 +1,8 @@
 package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.query.metadata.PropertyMetaData
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.util.XdPropertyCachedProvider
 import kotlin.reflect.KProperty
@@ -16,6 +18,25 @@ fun <R : XdEntity, T : Comparable<*>> Constraints<R, T>?.collect(): List<Propert
         emptyList()
     }
 }
+
+fun <R : XdEntity, B : Comparable<*>, T : Comparable<*>> List<PropertyConstraint<T?>>.wrap(wrap: (B) -> T): List<PropertyConstraint<B?>> {
+    return map { wrappedConstraint ->
+        object : PropertyConstraint<B?>() {
+            override fun check(e: TransientEntity, pmd: PropertyMetaData, value: B?) =
+                    wrappedConstraint.check(e, pmd, value?.let { wrap(value) })
+
+            override fun isValid(value: B?) =
+                    wrappedConstraint.isValid(value?.let { wrap(it) })
+
+            override fun getExceptionMessage(propertyName: String, propertyValue: B?) =
+                    wrappedConstraint.getExceptionMessage(propertyName, propertyValue?.let { wrap(it) })
+
+            override fun getDisplayMessage(propertyName: String, propertyValue: B?) =
+                    wrappedConstraint.getDisplayMessage(propertyName, propertyValue?.let { wrap(it) })
+        }
+    }
+}
+
 
 inline fun <R : XdEntity, reified T : Comparable<*>> xdCachedProp(
         dbName: String? = null,

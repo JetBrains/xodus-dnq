@@ -33,11 +33,11 @@ public abstract class PropertyConstraint<T> {
         return exception;
     }
 
-    protected abstract boolean isValid(T value);
+    public abstract boolean isValid(T value);
 
-    protected abstract String getExceptionMessage(String propertyName, T propertyValue);
+    public abstract String getExceptionMessage(String propertyName, T propertyValue);
 
-    protected String getDisplayMessage(String propertyName, T propertyValue) {
+    public String getDisplayMessage(String propertyName, T propertyValue) {
         return getExceptionMessage(propertyName, propertyValue);
     }
 }
