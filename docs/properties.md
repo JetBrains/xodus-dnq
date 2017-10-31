@@ -333,6 +333,7 @@ var uuid: xdRequiredStringProp(unique=true)
 - If its value is not defined in database the property returns `null`.
 - Xodus does not have built-in support for date-time simple properties. This property is
 actually wrapping nullable Long property and is storing unix epoch timestamp.
+- See also constraints: [isAfter()](#is-after), [isBefore()](#is-before), [past()](#past), [future()](#future).
 
 ```kotlin
 // Optional nullable DateTime property with database name `createdAt`.
@@ -347,6 +348,7 @@ var createdAt: xdDateTimeProp()
 of the property value among instances of the persistent class.
 - Xodus does not have built-in support for date-time simple properties. This property is
 actually wrapping nullable Long property and is storing unix epoch timestamp.
+- See also constraints: [isAfter()](#is-after), [isBefore()](#is-before), [past()](#past), [future()](#future).
 
 ```kotlin
 // Required not-null DateTime property with database name `createdAt`.
@@ -507,6 +509,34 @@ Checks that number property value is less or equals than given value.
 
 ```kotlin
 var timeout by xdIntProp { max(10_000) }
+```
+
+#### Is after 
+Checks that DateTime property value is after given value.
+
+```kotlin
+var afterDomini by xdDateTimeProp { isAfter({ domini }) }
+```
+
+#### Is before 
+Checks that DateTime property value is before given value.
+
+```kotlin
+var beforeChrist by xdDateTimeProp { isBefore({ domini }) }
+```
+
+#### Future
+Checks that DateTime property value is a moment in the future.
+
+```kotlin
+var future by xdDateTimeProp { future() }
+```
+
+#### Past
+Checks that DateTime property value is a moment in the past.
+
+```kotlin
+var past by xdDateTimeProp { past() }
 ```
 
 #### Custom Property Constraints
