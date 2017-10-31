@@ -176,7 +176,7 @@ fun <T : Number?> PropertyConstraintBuilder<*, T>.max(max: Long, message: String
     })
 }
 
-fun <T : DateTime?> PropertyConstraintBuilder<*, DateTime?>.isAfter(dateTime: () -> DateTime, message: String = "is not after $dateTime") {
+fun PropertyConstraintBuilder<*, DateTime?>.isAfter(dateTime: () -> DateTime, message: String = "is not after ${dateTime()}") {
     constraints.add(object : PropertyConstraint<DateTime?>() {
         override fun isValid(propertyValue: DateTime?): Boolean {
             return propertyValue == null || propertyValue.isAfter(dateTime())
@@ -189,7 +189,7 @@ fun <T : DateTime?> PropertyConstraintBuilder<*, DateTime?>.isAfter(dateTime: ()
     })
 }
 
-fun <T : DateTime?> PropertyConstraintBuilder<*, DateTime?>.isBefore(dateTime: () -> DateTime, message: String = "is not before $dateTime") {
+fun PropertyConstraintBuilder<*, DateTime?>.isBefore(dateTime: () -> DateTime, message: String = "is not before ${dateTime()}") {
     constraints.add(object : PropertyConstraint<DateTime?>() {
         override fun isValid(propertyValue: DateTime?): Boolean {
             return propertyValue == null || propertyValue.isBefore(dateTime())
