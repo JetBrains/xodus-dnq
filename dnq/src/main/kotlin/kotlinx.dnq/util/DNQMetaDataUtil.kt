@@ -106,7 +106,7 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
             it.delegate.requirement == XdPropertyRequirement.UNIQUE
         }.map {
             IndexImpl().apply {
-                setOwnerEntityType(entityTypeName)
+                ownerEntityType = entityTypeName
                 fields = listOf(IndexFieldImpl().apply {
                     name = it.dbPropertyName
                     isProperty = true
@@ -126,7 +126,7 @@ private fun XdHierarchyNode.getCompositeIndices(): Sequence<IndexImpl> {
                 .asSequence()
                 .map { index ->
                     IndexImpl().also {
-                        it.setOwnerEntityType(entityType.entityType)
+                        it.ownerEntityType = entityType.entityType
                         it.fields = index.map {
                             val metaProperty = resolveMetaProperty(it)
                                     ?: throw IllegalArgumentException("Cannot build composite index by property ${entityType.entityType}::${it.name}")

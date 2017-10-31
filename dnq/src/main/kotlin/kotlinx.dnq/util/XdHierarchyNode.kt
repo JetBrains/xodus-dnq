@@ -79,33 +79,7 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
 
         val xdEntityClass = this.entityType.javaClass.enclosingClass
         xdEntityClass.getDelegatedFields().forEach { (property, delegateField) ->
-            val delegate = delegateField.get(xdFakeEntity)
-            when (delegate) {
-                is XdConstrainedProperty<*, *> -> simpleProperties[property.name] = SimpleProperty(property, delegate)
-                is XdLink<*, *> -> {
-                    val oppositeField = delegate.oppositeField
-                    oppositeField?.let {
-                        if (it.isAbstract)
-                            throw UnsupportedOperationException("Property ${xdEntityClass.simpleName}#${property.name} " +
-                                    "has abstract opposite field ${delegate.oppositeEntityType.enclosingEntityClass.simpleName}::${it.name}")
-                    }
-
-                    linkProperties[property.name] = LinkProperty(property, delegate)
-                    oppositeField?.let {
-                        // is bidirected
-                        val extensionDelegate = try {
-                            oppositeField.apply { isAccessible = true }.getExtensionDelegate()
-                        } catch (e: Exception) {
-                            null
-                        }
-                        if (extensionDelegate != null && extensionDelegate is XdLink<*, *>) {
-                            val presented = XdModel[delegate.oppositeEntityType] ?: XdModel.registerNode(delegate.oppositeEntityType)
-                            presented.linkProperties[oppositeField.name] = LinkProperty(oppositeField, extensionDelegate)
-                        }
-                    }
-
-                }
-            }
+            process(property, delegateField.get(xdFakeEntity))
         }
     }
 
@@ -136,6 +110,39 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
                 ?: linkProperties[prop.name]
                 ?: this.parentNode?.resolveMetaProperty(prop)
     }
+
+    fun process(property: KProperty1<*, *>, delegate: Any): Any? {
+        when (delegate) {
+            is XdConstrainedProperty<*, *> -> simpleProperties[property.name] = SimpleProperty(property, delegate)
+            is XdLink<*, *> -> {
+                val oppositeField = delegate.oppositeField
+                oppositeField?.let {
+                    if (it.isAbstract) {
+                        val xdEntityClass = this.entityType.javaClass.enclosingClass
+                        throw UnsupportedOperationException("Property ${xdEntityClass.simpleName}#${property.name} " +
+                                "has abstract opposite field ${delegate.oppositeEntityType.enclosingEntityClass.simpleName}::${it.name}")
+                    }
+                }
+
+                linkProperties[property.name] = LinkProperty(property, delegate)
+                oppositeField?.let {
+                    // is bidirected
+                    val extensionDelegate = try {
+                        oppositeField.apply { isAccessible = true }.getExtensionDelegate()
+                    } catch (e: Exception) {
+                        null
+                    }
+                    if (extensionDelegate != null && extensionDelegate is XdLink<*, *>) {
+                        val presented = XdModel[delegate.oppositeEntityType] ?: XdModel.registerNode(delegate.oppositeEntityType)
+                        presented.linkProperties[oppositeField.name] = LinkProperty(oppositeField, extensionDelegate)
+                    }
+                }
+            }
+            else -> return null
+        }
+        return delegate
+    }
+
 
     private fun <T : Any> Class<T>.getDelegatedFields(): List<Pair<KProperty1<*, *>, Field>> {
         return this.declaredFields.mapNotNull { field ->

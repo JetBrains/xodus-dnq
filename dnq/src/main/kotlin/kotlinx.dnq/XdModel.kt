@@ -26,6 +26,10 @@ import org.reflections.util.ConfigurationBuilder
 import java.net.URL
 import java.util.*
 import javax.servlet.ServletContext
+import kotlin.reflect.full.extensionReceiverParameter
+import kotlin.reflect.full.getExtensionDelegate
+import kotlin.reflect.jvm.isAccessible
+import kotlin.reflect.jvm.jvmErasure
 
 object XdModel {
     const val JAVA_CLASSPATH = "java_classpath"
@@ -77,6 +81,34 @@ object XdModel {
         val parentNode = entityType.parent?.let { registerNode(it) }
         XdHierarchyNode(entityType, parentNode)
     }
+
+    fun withPlugins(modelPlugins: XdModelPlugins) {
+        modelPlugins.plugins.forEach { installPlugin(it) }
+    }
+
+    private fun installPlugin(plugin: XdModelPlugin) {
+        plugin.typeExtensions.forEach {
+            val delegate = try {
+                it.isAccessible = true
+                it.getExtensionDelegate()
+            } catch (e: Throwable) {
+                null
+            }
+            if (delegate == null) {
+                throw UnsupportedOperationException("Property $it cannot be registered because it is not extension property. " +
+                        "Not extension properties are registered based on XdEntities fields")
+            }
+            val receiverClass = it.extensionReceiverParameter?.type?.jvmErasure?.java
+            if (receiverClass != null && XdEntity::class.java.isAssignableFrom(receiverClass)) {
+                @Suppress("UNCHECKED_CAST")
+                val entityType = (receiverClass as Class<XdEntity>).entityType
+                get(entityType)?.process(it, delegate) ?: throw UnsupportedOperationException("Property $it cannot be registered because of unknown delegate")
+            } else {
+                throw UnsupportedOperationException("Property $it cannot be registered because receiver of incorrect receiver class $receiverClass")
+            }
+        }
+    }
+
 
     fun registerNodes(vararg entityTypes: XdEntityType<*>) = entityTypes.map { registerNode(it) }
 
