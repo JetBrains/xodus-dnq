@@ -114,10 +114,10 @@ fun <R : XdEntity> xdNullableLongProp(dbName: String? = null, constraints: Const
         xdNullableCachedProp(dbName, constraints)
 
 fun <R : XdEntity> xdFloatProp(dbName: String? = null, constraints: Constraints<R, Float?>? = null) =
-        xdCachedProp(dbName, constraints) { _, _ -> 0f }
+        xdCachedProp(dbName, constraints) { _, _ -> 0F }
 
 fun <R : XdEntity> xdRequiredFloatProp(dbName: String? = null, unique: Boolean = false, constraints: Constraints<R, Float?>? = null) =
-        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0f }
+        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0F }
 
 fun <R : XdEntity> xdNullableFloatProp(dbName: String? = null, constraints: Constraints<R, Float?>? = null) =
         xdNullableCachedProp(dbName, constraints)
