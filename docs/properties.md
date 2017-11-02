@@ -56,68 +56,238 @@ If its value is `true`, Xodus-DNQ will check on flush uniqueness of property val
 class.
 
 #### Byte
-#### Short
-#### Integer
-##### Optional integer property
-If its value is not defined in database the property returns `0`.
 
-See also constraints: [min()](#min-value), [max()](#max-values).
+##### xdByteProp --- optional byte property
+- Property type: `Byte`.
+- If its value is not defined in database the property returns `0`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
 
 ```kotlin
-var age: xdIntProp { min(0) }  // Optional non-negative Int property with database name `age`.
-var rank: xdIntProp(dbName = "grade") // Optional Int property with database name `grade`.
+// Optional non-negative Byte property with database name `age`.
+var age: xdByteProp { min(0) }
 ```
 
-##### Required integer property
-Xodus-DNQ checks on flush that property value is defined. 
-
-See also constraints: [min()](#min-value), [max()](#max-values).
+##### xdRequiredByteProp --- required byte property
+- Property type: `Byte`.
+- If its value is not defined in database the property returns `0`.
+- Xodus-DNQ checks on flush that property value is defined. 
+- If parameter `unique` is `true` then Xodus-DNQ will check on flush uniqueness 
+of the property value among instances of the persistent class.
+- See also constraints: [min()](#min-value), [max()](#max-values).
 
 ```kotlin
-var age: xdRequiredIntProp { min(0) }  // Required non-negative Int property with database name `age`.
-var rank: xdRequiredIntProp(dbName = "grade") // Required Int property with database name `grade`.
-var id: xdRequiredIntProp(unique = true) // Unique required Int property with database name `id`.
+// Unique required Byte property with database name `id`. 
+var id: xdRequiredByteProp(unique = true) 
+```
+
+##### xdNullableByteProp --- nullable byte property
+- Property type: `Byte?`.
+- If its value is not defined in database the property returns `null`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Non-negative nullable Byte property with database name `salary`.
+var salary: xdNullableByteProp { min(0) }  
+```
+ 
+#### Short
+
+##### xdShortProp --- optional short property
+- Property type: `Short`.
+- If its value is not defined in database the property returns `0`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Optional non-negative Short property with database name `age`.
+var age: xdShortProp { min(0) }
+```
+
+##### xdRequiredShortProp --- required short property
+- Property type: `Short`.
+- If its value is not defined in database the property returns `0`.
+- Xodus-DNQ checks on flush that property value is defined. 
+- If parameter `unique` is `true` then Xodus-DNQ will check on flush uniqueness 
+of the property value among instances of the persistent class.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Unique required Short property with database name `id`. 
+var id: xdRequiredShortProp(unique = true) 
+```
+
+##### xdNullableShortProp --- nullable short property
+- Property type: `Short?`.
+- If its value is not defined in database the property returns `null`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Non-negative nullable Short property with database name `salary`.
+var salary: xdNullableShortProp { min(0) }  
+```
+
+#### Int
+
+##### xdIntProp --- optional integer property
+- Property type: `Int`.
+- If its value is not defined in database the property returns `0`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Optional non-negative Int property with database name `age`.
+var age: xdIntProp { min(0) }
+
+// Optional Int property with database name `grade`.
+var rank: xdIntProp(dbName = "grade")
+```
+
+##### xdRequiredIntProp --- required integer property
+- Property type: `Int`.
+- If its value is not defined in database the property returns `0`.
+- Xodus-DNQ checks on flush that property value is defined. 
+- If parameter `unique` is `true` then Xodus-DNQ will check on flush uniqueness 
+of the property value among instances of the persistent class.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+
+```kotlin
+// Required non-negative Int property with database name `age`.
+var age: xdRequiredIntProp { min(0) }  
+
+// Required Int property with database name `grade`.
+var rank: xdRequiredIntProp(dbName = "grade")
+
+// Unique required Int property with database name `id`. 
+var id: xdRequiredIntProp(unique = true) 
+```
+
+##### xdNullableIntProp --- nullable integer property
+- Property type: `Int?`.
+- If its value is not defined in database the property returns `null`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Non-negative nullable Int property with database name `salary`.
+var salary: xdNullableIntProp { min(0) }  
 ```
 
 #### Long
-##### Optional long property
-If its value is not defined in database the property returns `0L`.
 
-See also constraints: [min()](#min-value), [max()](#max-values).
+##### xdLongProp --- optional long property
+- Property type: `Long`.
+- If its value is not defined in database the property returns `0L`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
 
 ```kotlin
 // Optional non-negative Long property with database name `salary`.
 var salary: xdLongProp() { min(0) }  
 ```
 
-##### Required long property
-Xodus-DNQ checks on flush that property value is defined. 
-
-See also constraints: [min()](#min-value), [max()](#max-values).
+##### xdRequiredLongProp --- required long property
+- Property type: `Long`.
+- If its value is not defined in database the property returns `0L`.
+- Xodus-DNQ checks on flush that property value is defined. 
+- If parameter `unique` is `true` then Xodus-DNQ will check on flush uniqueness 
+of the property value among instances of the persistent class.
+- See also constraints: [min()](#min-value), [max()](#max-values).
 
 ```kotlin
 // Unique required Long property with database name `id`.
 var id: xdRequiredLongProp(unique = true) 
 ```
 
-##### Nullable long property
-See also constraints: [min()](#min-value), [max()](#max-values).
+##### xdNullableLongProp --- nullable long property
+- Property type: `Long?`.
+- If its value is not defined in database the property returns `null`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
 
 ```kotlin
 // Non-negative nullable Long property with database name `salary`.
 var salary: xdNullableLongProp { min(0) }  
 ```
 
-#### Boolean
-##### Optional boolean property
-If its value is not defined in database the property returns `false`.
+#### Float
+
+##### xdFloatProp --- optional float property
+- Property type: `Float`.
+- If its value is not defined in database the property returns `0F`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
 
 ```kotlin
-// Optional Boolean property with database name `isGuest`.
-var isGuest: xdBooleanProp() 
+// Optional non-negative Float property with database name `salary`.
+var salary: xdFloatProp() { min(0) }  
 ```
 
-##### Nullable boolean property
+##### xdRequiredFloatProp --- required float property
+- Property type: `Float`.
+- If its value is not defined in database the property returns `0F`.
+- Xodus-DNQ checks on flush that property value is defined. 
+- If parameter `unique` is `true` then Xodus-DNQ will check on flush uniqueness 
+of the property value among instances of the persistent class.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Unique required Float property with database name `seed`.
+var seed: xdRequiredFloatProp(unique = true) 
+```
+
+##### xdNullableFloatProp --- nullable float property
+- Property type: `Float?`.
+- If its value is not defined in database the property returns `null`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Non-negative nullable Float property with database name `salary`.
+var salary: xdNullableFloatProp { min(0) }  
+```
+
+#### Double
+
+##### xdDoubleProp --- optional double property
+- Property type: `Double`.
+- If its value is not defined in database the property returns `0.0`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Optional non-negative Double property with database name `salary`.
+var salary: xdDoubleProp() { min(0) }  
+```
+
+##### xdRequiredDoubleProp --- required double property
+- Property type: `Double`.
+- If its value is not defined in database the property returns `0.0`.
+- Xodus-DNQ checks on flush that property value is defined. 
+- If parameter `unique` is `true` then Xodus-DNQ will check on flush uniqueness 
+of the property value among instances of the persistent class.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Unique required Double property with database name `seed`.
+var seed: xdRequiredDoubleProp(unique = true) 
+```
+
+##### xdNullableDoubleProp --- nullable double property
+- Property type: `Double?`.
+- If its value is not defined in database the property returns `null`.
+- See also constraints: [min()](#min-value), [max()](#max-values).
+
+```kotlin
+// Non-negative nullable Double property with database name `salary`.
+var salary: xdNullableDoubleProp { min(0) }  
+```
+
+#### Boolean
+##### xdBooleanProp --- boolean property
+- Property type: `Boolean`.
+- If its value is not defined in database the property returns `false`.
+
+```kotlin
+// Optional Boolean property with database name `anonymous`.
+var isGuest: xdBooleanProp(dbName = "anonymous") 
+```
+
+##### xdNullableBooleanProp --- nullable boolean property
+- Property type: `Boolean?`.
+- If its value is not defined in database the property returns `null`.
 
 ```kotlin
 // Nullable Boolean property with database name `isFemale`.
@@ -125,29 +295,32 @@ var isFemale: xdNullableBooleanProp()
 ```
 
 #### String
-##### Optional string property
-Nullable String property. Optional parameter `trimmed: Boolean` enables string trimming on value set, i.e. when
+##### xdStringProp --- optional string property
+- Property type: `String?`.
+- If its value is not defined in database the property returns `null`.
+- Optional parameter `trimmed: Boolean` enables string trimming on value set, i.e. when
 you assign a value to such property all leading and trailing spaces are removed.
-
-See also constraints: [regex()](#regex), [email()](#email), [containsNone()](#none-of-characters), 
+- See also constraints: [regex()](#regex), [email()](#email), [containsNone()](#none-of-characters), 
 [alpha()](#letters-only), [numeric()](#digits-only), [alphaNumeric()](#digits-and-letters-only), [url()](#url), 
-[uri()](#uri), [length()](#string-length)
+[uri()](#uri), [length()](#string-length).
 
 ```kotlin
 // Optional nullable String property with database name `lastName`.
-var lastName: xdStringProp(trimmed=true)
+var lastName: xdStringProp(trimmed = true)
 ```
 
-##### Required string property
-Not-null String property. Xodus-DNQ will check on flush that the property has some non-empty value. Note that Xodus 
+##### xdRequiredStringProp --- required string property
+- Property type: `String`.
+- If its value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+- Xodus-DNQ checks on flush that property value is defined. Note that Xodus 
 treats empty string as `null`. So empty string does not pass require check.
-
-Optional parameter `trimmed: Boolean` enables string trimming on value set, i.e. when
+- Optional parameter `trimmed: Boolean` enables string trimming on value set, i.e. when
 you assign a value to such property all leading and trailing spaces are removed.
-
-See also constraints: [regex()](#regex), [email()](#email), [containsNone()](#none-of-characters), 
+- If parameter `unique` is `true` then Xodus-DNQ will check on flush uniqueness 
+of the property value among instances of the persistent class.
+- See also constraints: [regex()](#regex), [email()](#email), [containsNone()](#none-of-characters), 
 [alpha()](#letters-only), [numeric()](#digits-only), [alphaNumeric()](#digits-and-letters-only), [url()](#url), 
-[uri()](#uri), [length()](#string-length)
+[uri()](#uri), [length()](#string-length).
 
 ```kotlin
 // Required unique String property with database name `uuid`.
@@ -155,20 +328,27 @@ var uuid: xdRequiredStringProp(unique=true)
 ```
 
 #### Joda DateTime
-##### Optional Joda DateTime property
-Nullable DateTime property. Xodus does not have built-in support for date-time simple properties. This property is
-actually wrapping nullable Long property and storing unix epoch timestamp.
+##### xdDateTimeProp --- optional Joda DateTime property
+- Property type: `org.joda.time.DateTime?`.
+- If its value is not defined in database the property returns `null`.
+- Xodus does not have built-in support for date-time simple properties. This property is
+actually wrapping nullable Long property and is storing unix epoch timestamp.
+- See also constraints: [isAfter()](#is-after), [isBefore()](#is-before), [past()](#past), [future()](#future).
 
 ```kotlin
 // Optional nullable DateTime property with database name `createdAt`.
 var createdAt: xdDateTimeProp()
 ```
 
-##### Required Joda DateTime property
-Not-null DateTime property. Xodus-DNQ will check on flush that the property value is defined.  
-
-Xodus does not have built-in support for date-time simple properties. This property is
-actually wrapping not-null Long property and storing unix epoch timestamp.
+##### xdRequiredDateTimeProp --- required Joda DateTime property
+- Property type: `org.joda.time.DateTime`.
+- If its value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+- Xodus-DNQ checks on flush that property value is defined.
+- If parameter `unique` is `true` then Xodus-DNQ will check on flush uniqueness 
+of the property value among instances of the persistent class.
+- Xodus does not have built-in support for date-time simple properties. This property is
+actually wrapping nullable Long property and is storing unix epoch timestamp.
+- See also constraints: [isAfter()](#is-after), [isBefore()](#is-before), [past()](#past), [future()](#future).
 
 ```kotlin
 // Required not-null DateTime property with database name `createdAt`.
@@ -176,19 +356,25 @@ var createdAt: xdRequiredDateTimeProp()
 ```
 
 #### Blob
-##### Optional blob property
-Nullable property of type InputStream. Xodus stores massive blobs as separate files on disk. 
-Xodus also does not build indices for blob properties, so you cannot filter or sort `XdQuery` by this property.
+##### xdBlobProp --- optional blob property
+- Property type: `InputStream?`.
+- If its value is not defined in database the property returns `null`.
+- Xodus stores massive blobs as separate files on disk.
+- Xodus also does not build indices for blob properties. So indices for blob properties do not consume memory 
+but you cannot filter or sort `XdQuery` by this property.
 
 ```kotlin
 // Optional nullable InputStream property with database name `image`.
 var image: xdBlobProp()
 ```
 
-##### Required blob property
-Not-null property of type InputStream. Xodus-DNQ will check on flush that the property value is defined. 
-Xodus stores massive blobs as separate files on disk. 
-Xodus also does not build indices for blob properties, so you cannot filter or sort `XdQuery` by this property.
+##### xdRequiredBlobProp --- required blob property
+- Property type: `InputStream`.
+- If its value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+- Xodus-DNQ checks on flush that property value is defined.
+- Xodus stores massive blobs as separate files on disk.
+- Xodus also does not build indices for blob properties. So indices for blob properties do not consume memory 
+but you cannot filter or sort `XdQuery` by this property.
 
 ```kotlin
 // Required not-null InputStream property with database name `image`.
@@ -196,26 +382,31 @@ var image: xdRequiredBlobProp()
 ```
 
 #### String Blob
-##### Optional string blob property
-Nullable property of type String stored in Xodus database as blob. 
-Xodus stores massive blobs as separate files on disk. 
-Xodus also does not build indices for blob properties, so you cannot filter or sort `XdQuery` by this property.
+##### xdBlobStringProp --- optional string blob property
+- Property type: `String?`.
+- If its value is not defined in database the property returns `null`.
+- Xodus stores massive blobs as separate files on disk.
+- Xodus also does not build indices for blob properties. So indices for blob properties do not consume memory 
+but you cannot filter or sort `XdQuery` by this property.
 
 ```kotlin
 // Optional nullable String property with database name `description`.
 var description: xdBlobStringProp()
 ```
 
-##### Required string blob property
-Required not-null property of type String stored in Xodus database as blob. 
-Xodus-DNQ will check on flush that the property value is defined.
-Xodus stores massive blobs as separate files on disk. 
-Xodus also does not build indices for blob properties, so you cannot filter or sort `XdQuery` by this property.
+##### xdRequiredBlobStringProp --- required string blob property
+- Property type: `String`.
+- If its value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+- Xodus-DNQ checks on flush that property value is defined.
+- Xodus stores massive blobs as separate files on disk.
+- Xodus also does not build indices for blob properties. So indices for blob properties do not consume memory 
+but you cannot filter or sort `XdQuery` by this property.
 
 ```kotlin
 // Required not-null String property with database name `description`.
 var description: xdRequiredBlobStringProp()
 ```
+
 
 ### Simple property constraints
 Property constraints are checked on transaction flush. Xodus-DNQ throws `ConstraintsValidationException` 
@@ -320,6 +511,34 @@ Checks that number property value is less or equals than given value.
 var timeout by xdIntProp { max(10_000) }
 ```
 
+#### Is after 
+Checks that DateTime property value is after given value.
+
+```kotlin
+var afterDomini by xdDateTimeProp { isAfter({ domini }) }
+```
+
+#### Is before 
+Checks that DateTime property value is before given value.
+
+```kotlin
+var beforeChrist by xdDateTimeProp { isBefore({ domini }) }
+```
+
+#### Future
+Checks that DateTime property value is a moment in the future.
+
+```kotlin
+var future by xdDateTimeProp { future() }
+```
+
+#### Past
+Checks that DateTime property value is a moment in the past.
+
+```kotlin
+var past by xdDateTimeProp { past() }
+```
+
 #### Custom Property Constraints
 You can define your own property constrains in the same way built-in constraints are defined. You need to defined
 an extension method for `PropertyConstraintBuilder` that builds and adds your constraint.
@@ -374,46 +593,77 @@ uses Kotlin-property name to reference the link in Xodus database. Parameter `db
 Most of the methods that create delegates for links accept optional parameters `onDelete` and `onTargetDelete`.
 This parameters defines what Xodus-DNQ should do with the link on this entity delete or on the link target delete.
 Available options are
-* `OnDeletePolicy.FAIL` -- Fail transaction if entity is deleted but link still points to it.
-* `OnDeletePolicy.CLEAR` -- Clear link to deleted entity.
-* `OnDeletePolicy.CASCADE` -- If entity is delete and link still exists, then delete entity on the opposite 
-link end as well.
-* `OnDeletePolicy.FAIL_PER_TYPE` -- Fail transaction with a custom message if entity is deleted but link still 
-points to it. One message per entity type.
-* `OnDeletePolicy.FAIL_PER_ENTITY` -- Fail transaction with a custom message if entity is deleted but link still 
-points to it.  One message per entity.
+
+|-------------------|-----------------------------------------------------------------------------------|
+| `FAIL`            | Fail transaction if entity is deleted but link still points to it.                |
+| `CLEAR`           | Clear link to deleted entity.                                                     |
+| `CASCADE`         | If entity is delete and link still exists, then delete entity on the opposite link end as well. |
+| `FAIL_PER_TYPE`   | Fail transaction with a custom message if entity is deleted but link still points to it. One message per entity type. |
+| `FAIL_PER_ENTITY` | Fail transaction with a custom message if entity is deleted but link still points to it.  One message per entity. |
 
 #### Unidirectional assosiations
-##### Unidirectional [0..1] association
-Optional unidirectional association. 
-Type of Kotlin-property defined by this delegate is nullable. 
-First parameter is companion object of persistent class that is an opposite end of the association.
+
+##### xdLink0_1<XdSource, XdTarget> –-- unidirectional [0..1] association
+- Property type: `XdTarget?`.
+- If its value is not defined in database the property returns `null`.
+- First parameter is companion object of persistent class that is an opposite end of the association.
+- Parameter `onDelete` defines what should happen to the entity on the opposite end when this entity is deleted.
+  - `CLEAR` (*default*) --- nothing.
+  - `CASCADE` --- entity on the opposite end is deleted as well.
+- Parameter `onTargetDelete` defines what should happen to this entity when the entity on the opposite end is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. link should be cleared before target entity delete.   
+  - `CLEAR` --- link is cleared.
+  - `CASCADE` --- this entity is deleted as well.
+
 ```kotlin 
 var directedOptionalLink by xdLink0_1(XdTarget, onTargetDelete = OnDeletePolicy.CLEAR)
 ```
 
-##### Unidirectional [1] association
-Required unidirectional association. 
-Type of Kotlin-property defined by this delegate is not-null. 
-Xodus-DNQ checks on flush that the link points to some entity.
-First parameter is companion object of persistent class that is an opposite end of the association.
+##### xdLink1<XdSource, XdTarget> --- unidirectional [1] association
+- Property type: `XdTarget`.
+- Xodus-DNQ checks on flush that the link points to some entity.
+- If its value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+- First parameter is companion object of persistent class that is an opposite end of the association.
+- Parameter `onDelete` defines what should happen to the entity on the opposite end when this entity is deleted.
+  - `CLEAR` (*default*) --- nothing.
+  - `CASCADE` --- entity on the opposite end is deleted as well.
+- Parameter `onTargetDelete` defines what should happen to this entity when the entity on the opposite end is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. link should be cleared before target entity delete.   
+  - `CASCADE` --- this entity is deleted as well.
+
 ```kotlin 
 var directedRequiredLink by xdLink1(XdTarget)
 ```
 
-##### Unidirectional [0..N] association
-Multi-value unidirectional association. 
-Type of Kotlin-property defined by this delegate is `XdMutableQuery`.
-First parameter is companion object of persistent class that is an opposite end of the association.
+##### xdLink0_N<XdSource, XdTarget> --- unidirectional [0..N] association
+- Property type: `XdMutableQuery<XdTarget>`.
+- If its value is not defined in database the property returns `XdTarget.emptyQuery()`.
+- First parameter is companion object of persistent class that is an opposite end of the association.
+- Parameter `onDelete` defines what should happen to the entities on the opposite end when this entity is deleted.
+  - `CLEAR` (*default*) --- nothing.
+  - `CASCADE` --- entity on the opposite end is deleted as well.
+- Parameter `onTargetDelete` defines what should happen to this entity when one of the entities on the opposite end is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. association with the deleted entity should be removed first.   
+  - `CLEAR` --- association with the deleted entity is removed.
+  - `CASCADE` --- this entity is deleted as well.
+
 ```kotlin 
 var users by xdLink0_N(XdUser)
 ```
 
-##### Unidirectional [1..N] association
-Multi-value unidirectional association. 
-Type of Kotlin-property defined by this delegate is `XdMutableQuery`. 
-Xodus-DNQ checks on flush that the link contains at least one entity.
-First parameter is companion object of persistent class that is an opposite end of the association.
+##### xdLink1_N<XdSource, XdTarget> --- unidirectional [1..N] association
+- Property type: `XdMutableQuery<XdTarget>`.
+- If its value is not defined in database the property returns `XdTarget.emptyQuery()`.
+- Xodus-DNQ checks on flush that the link contains at least one entity.
+- First parameter is companion object of persistent class that is an opposite end of the association.
+- Parameter `onDelete` defines what should happen to the entities on the opposite end when this entity is deleted.
+  - `CLEAR` (*default*) --- nothing.
+  - `CASCADE` --- entity on the opposite end is deleted as well.
+- Parameter `onTargetDelete` defines what should happen to this entity when one of the entities on the opposite end is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. association with the deleted entity should be removed first.   
+  - `CLEAR` --- association with the deleted entity is removed.
+  - `CASCADE` --- this entity is deleted as well.
+
 ```kotlin 
 var users by xdLink1_N(XdUser)
 ```
@@ -424,36 +674,71 @@ For bidirectional associations Xodus-DNQ maintains both ends of the links. For e
 link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)` 
 Xodus-DNQ will automatically add `user` to `group.users`.
 
-##### Bidirectional [0..1] association
-Optional bidirectional association. 
-Type of Kotlin-property defined by this delegate is nullable. 
-First parameter is a property reference to an opposite end of the association.
+##### xdLink0_1<XdSource, XdTarget> --- bidirectional [0..1] association
+- Property type: `XdTarget?`.
+- If its value is not defined in database the property returns `null`.
+- First parameter is a reference to a property that defines the opposite end of the association.
+- Parameter `onDelete` defines what should happen to the entity on the opposite end when this entity is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. link should be cleared before this entity delete.   
+  - `CLEAR` --- link is cleared.
+  - `CASCADE` --- entity on the opposite end is deleted as well.
+- Parameter `onTargetDelete` defines what should happen to this entity when the entity on the opposite end is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. link should be cleared before target entity delete.   
+  - `CLEAR` --- link is cleared.
+  - `CASCADE` --- this entity is deleted as well.
+
 ```kotlin
 val group by xdLink0_1(XdGroup::users)
 ```
 
-##### Bidirectional [1] association
-Required bidirectional association. 
-Xodus-DNQ checks on flush that the link points to some entity.
-Type of Kotlin-property defined by this delegate is not-null. 
-First parameter is a property reference to an opposite end of the association.
+##### xdLink1 --- bidirectional [1] association
+- Property type: `XdTarget`.
+- Xodus-DNQ checks on flush that the link points to some entity.
+- If its value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+- First parameter is a reference to a property that defines the opposite end of the association.
+- Parameter `onDelete` defines what should happen to the entity on the opposite end when this entity is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. link should be cleared before this entity delete.   
+  - `CLEAR` --- link is cleared.
+  - `CASCADE` --- entity on the opposite end is deleted as well.
+- Parameter `onTargetDelete` defines what should happen to this entity when the entity on the opposite end is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. link should be cleared before target entity delete.   
+  - `CASCADE` --- this entity is deleted as well.
+
 ```kotlin
 val group by xdLink1(XdGroup::users)
 ```
 
-##### Bidirectional [0..N] association
-Multi-value bidirectional association. 
-Type of Kotlin-property defined by this delegate is `XdMutableQuery`.
-First parameter is a property reference to an opposite end of the association.
+##### xdLink0_N<XdSource, XdTarget> --- bidirectional [0..N] association
+- Property type: `XdMutableQuery<XdTarget>`.
+- If its value is not defined in database the property returns `XdTarget.emptyQuery()`.
+- First parameter is a reference to a property that defines the opposite end of the association.
+- Parameter `onDelete` defines what should happen to the entities on the opposite end when this entity is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. association should be deleted before this entity delete.   
+  - `CLEAR` (*default*) --- association is cleared.
+  - `CASCADE` --- entities on the opposite end are deleted as well.
+- Parameter `onTargetDelete` defines what should happen to this entity when one of the entities on the opposite end is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. association with the deleted entity should be removed first.   
+  - `CLEAR` --- association with the deleted entity is removed.
+  - `CASCADE` --- this entity is deleted as well.
+
 ```kotlin
 val groups by xdLink0_N(XdGroup::users)
 ```
 
-##### Bidirectional [1..N] association
-Multi-value bidirectional association. 
-Type of Kotlin-property defined by this delegate is `XdMutableQuery`.
-Xodus-DNQ checks on flush that the link contains at least one entity.
-First parameter is a property reference to an opposite end of the association.
+##### xdLink1_N<XdSource, XdTarget> --- bidirectional [1..N] association
+- Property type: `XdMutableQuery<XdTarget>`.
+- If its value is not defined in database the property returns `XdTarget.emptyQuery()`.
+- Xodus-DNQ checks on flush that the link contains at least one entity.
+- First parameter is a reference to a property that defines the opposite end of the association.
+- Parameter `onDelete` defines what should happen to the entities on the opposite end when this entity is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. association should be deleted before this entity delete.   
+  - `CLEAR` --- association is cleared.
+  - `CASCADE` --- entities on the opposite end are deleted as well.
+- Parameter `onTargetDelete` defines what should happen to this entity when one of the entities on the opposite end is deleted.
+  - `FAIL` (*default*) --- transaction fails, i.e. association with the deleted entity should be removed first.   
+  - `CLEAR` --- association with the deleted entity is removed.
+  - `CASCADE` --- this entity is deleted as well.
+
 ```kotlin
 val groups by xdLink1_N(XdGroup::users)
 ```
@@ -464,53 +749,60 @@ Aggregations or parent-child association are auxiliary type of links with some p
 it should have exactly one parent on flush.
 2. On parent delete all its children are deleted as well.
 
-##### Parent end [0..1] of aggregation association
-Parent end of optional aggregation.
-Type of Kotlin-property defined by this delegate is nullable. 
-First parameter is a property reference to a child end of the association.
+##### xdChild0_1<XdParent, XdChild> --- parent end [0..1] of aggregation association
+- Property type: `XdChild?`.
+- If its value is not defined in database the property returns `null`.
+- First parameter is a property reference to a child end of the association.
+
 ```kotlin
 val profile by xdChild0_1(XdUser::profile)
 ```
 
-##### Parent end [1] of aggregation association
-Parent end of required aggregation.
-Type of Kotlin-property defined by this delegate is not-null.
-Xodus-DNQ checks on flush that the link points to some entity. 
-First parameter is a property reference to a child end of the association.
+##### xdChild1<XdParent, XdChild> --- parent end [1] of aggregation association
+- Property type: `XdChild`.
+- Xodus-DNQ checks on flush that the link points to some entity.
+- If its value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+- First parameter is a property reference to a child end of the association.
+
 ```kotlin
 val profile by xdChild1(XdUser::profile)
 ```
 
-##### Parent end [0..N] of aggregation association
-Parent end of multi-value aggregation. 
-Type of Kotlin-property defined by this delegate is `XdMutableQuery`.
-First parameter is a property reference to a child end of the association.
+##### xdChildren0_N<XdParent, XdChild> --- parent end [0..N] of aggregation association
+- Property type: `XdMutableQuery<XdChild>`.
+- If its value is not defined in database the property returns `XdTarget.emptyQuery()`.
+- First parameter is a property reference to a child end of the association.
+
 ```kotlin
 val subGroups by xdChildren0_N(XdGroup::parentGroup)
 ```
 
-##### Parent end [1..N] of aggregation association
-Parent end of multi-value aggregation. 
-Type of Kotlin-property defined by this delegate is `XdMutableQuery`.
-Xodus-DNQ checks on flush that the link contains at least one entity.
-First parameter is a property reference to a child end of the association.
+##### xdChildren1_N<XdParent, XdChild> --- parent end [1..N] of aggregation association
+- Property type: `XdMutableQuery<XdChild>`.
+- If its value is not defined in database the property returns `XdTarget.emptyQuery()`.
+- Xodus-DNQ checks on flush that the link contains at least one entity.
+- First parameter is a property reference to a child end of the association.
+
 ```kotlin
 val contacts by xdChildren1_N(XdContact::user)
 ```
 
-##### Child end of aggregation association, when only one parent link is defined for persistent class
-Child end of aggregation. 
-Type of Kotlin-property defined by this delegate is not-null.
-Xodus-DNQ checks on flush that the link contains at least one entity.
-First parameter is a property reference to a parent end of the association.
+##### xdParent<XdChild, XdParent> --- child end of aggregation association, when only one parent link is defined for persistent class
+- Property type: `XdParent`.
+- Xodus-DNQ checks on flush that the link points to some entity.
+- If its value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+- First parameter is a property reference to a parent end of the association.
+
 ```kotlin
 val user by xdParent(XdUser::contacts)
 ```
 
-##### Child end of aggregation association, when multiple parent links are defined for persistent class
-Child end of aggregation. 
-Type of Kotlin-property defined by this delegate is nullable. 
-First parameter is a property reference to a parent end of the association.
+##### xdMultiParent<XdChild, XdParent> --- child end of aggregation association, when multiple parent links are defined for persistent class
+- Property type: `XdTarget?`.
+- Xodus-DNQ checks on flush that this entity has exactly one parent link defined.
+- If its value is not defined in database the property returns `null`.
+- First parameter is a property reference to a parent end of the association.
+
 ```kotlin
 val parentGroup by xdMultiParent(XdGroup::subGroups)
 val parentOfRootGroup by xdMultiParent(XdRoot::rootGroup)

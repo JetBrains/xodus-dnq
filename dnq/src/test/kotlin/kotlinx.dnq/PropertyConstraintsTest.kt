@@ -4,13 +4,19 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.simple.*
+import org.joda.time.DateTime
+import org.joda.time.Days
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
+private val domini = DateTime(-1, 12, 25, 0, 0)
+
 class PropertyConstraintsTest : DBTest() {
+
 
     class XdTestEntity(override val entity: Entity) : XdEntity() {
         companion object : XdNaturalEntityType<XdTestEntity>()
+
 
         var javaIdentifier by xdStringProp {
             regex(Regex("[A-Za-z][A-Za-z0-9_]*"), "Should be valid Java identifier")
@@ -26,6 +32,11 @@ class PropertyConstraintsTest : DBTest() {
         var main by xdStringProp()
         var dependent by xdLongProp { requireIf { main != null } }
         var timeout by xdIntProp { min(1000); max(10_000) }
+
+        var future by xdDateTimeProp { future() }
+        var past by xdDateTimeProp { past() }
+        var afterDomini by xdDateTimeProp { isAfter({ domini }) }
+        var beforeChrist by xdDateTimeProp { isBefore({ domini }) }
     }
 
     override fun registerEntityTypes() {
@@ -139,6 +150,34 @@ class PropertyConstraintsTest : DBTest() {
     }
 
     @Test
+    fun `valid future`() {
+        assertValid {
+            future = DateTime.now() + Days.ONE
+        }
+    }
+
+    @Test
+    fun `valid past`() {
+        assertValid {
+            past = DateTime.now() - Days.ONE
+        }
+    }
+
+    @Test
+    fun `valid isBefore`() {
+        assertValid {
+            beforeChrist = DateTime(-100, 1, 1, 0, 0)
+        }
+    }
+
+    @Test
+    fun `valid isAfter`() {
+        assertValid {
+            afterDomini = DateTime(1970, 1, 1, 0, 0)
+        }
+    }
+
+    @Test
     fun `invalid uri`() {
         assertInvalid("is not a valid URI") {
             uri = "bad URI"
@@ -199,6 +238,34 @@ class PropertyConstraintsTest : DBTest() {
     fun `invalid max`() {
         assertInvalid("should be at most 10000") {
             timeout = 100_000
+        }
+    }
+
+    @Test
+    fun `invalid future`() {
+        assertInvalid("is not in the future") {
+            future = DateTime.now() - Days.ONE
+        }
+    }
+
+    @Test
+    fun `invalid past`() {
+        assertInvalid("is not in the past") {
+            past = DateTime.now() + Days.ONE
+        }
+    }
+
+    @Test
+    fun `invalid isBefore`() {
+        assertInvalid("is not before $domini") {
+            beforeChrist = DateTime(1970, 1, 1, 0, 0)
+        }
+    }
+
+    @Test
+    fun `invalid isAfter`() {
+        assertInvalid("is not after $domini") {
+            afterDomini = DateTime(-100, 1, 1, 0, 0)
         }
     }
 

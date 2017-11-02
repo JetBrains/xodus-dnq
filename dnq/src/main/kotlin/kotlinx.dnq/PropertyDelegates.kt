@@ -114,10 +114,10 @@ fun <R : XdEntity> xdNullableLongProp(dbName: String? = null, constraints: Const
         xdNullableCachedProp(dbName, constraints)
 
 fun <R : XdEntity> xdFloatProp(dbName: String? = null, constraints: Constraints<R, Float?>? = null) =
-        xdCachedProp(dbName, constraints) { _, _ -> 0f }
+        xdCachedProp(dbName, constraints) { _, _ -> 0F }
 
 fun <R : XdEntity> xdRequiredFloatProp(dbName: String? = null, unique: Boolean = false, constraints: Constraints<R, Float?>? = null) =
-        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0f }
+        xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0F }
 
 fun <R : XdEntity> xdNullableFloatProp(dbName: String? = null, constraints: Constraints<R, Float?>? = null) =
         xdNullableCachedProp(dbName, constraints)
@@ -176,16 +176,24 @@ fun <R : XdEntity> xdRequiredStringProp(
         constraints: Constraints<R, String?>? = null
 ) = xdRequiredStringProp(unique, trimmed, dbName, { _, _ -> default }, constraints)
 
-fun <R : XdEntity> xdDateTimeProp(dbName: String? = null, constraints: Constraints<R, Long?>? = null) =
+fun <R : XdEntity> xdDateTimeProp(dbName: String? = null, constraints: Constraints<R, DateTime?>? = null) =
         XdPropertyCachedProvider {
-            xdNullableProp(dbName, constraints).wrap({ it?.let { DateTime(it) } }, { it?.millis })
+            XdNullableProperty<R, Long>(
+                    Long::class.java,
+                    dbName,
+                    constraints.collect().wrap<R, Long, DateTime> { DateTime(it) }
+            ).wrap({ it?.let { DateTime(it) } }, { it?.millis })
         }
 
-fun <R : XdEntity> xdRequiredDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, Long?>? = null) =
+fun <R : XdEntity> xdRequiredDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, DateTime?>? = null) =
         XdPropertyCachedProvider {
-            xdProp(dbName, constraints, require = true, unique = unique) { e, p ->
-                throw RequiredPropertyUndefinedException(e, p)
-            }.wrap({ DateTime(it) }, { it.millis })
+            XdProperty<R, Long>(
+                    Long::class.java,
+                    dbName,
+                    constraints.collect().wrap<R, Long, DateTime> { DateTime(it) },
+                    if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
+                    { e, p -> throw RequiredPropertyUndefinedException(e, p) }
+            ).wrap({ DateTime(it) }, { it.millis })
         }
 
 fun <R : XdEntity> xdBlobProp(dbName: String? = null) =
