@@ -122,7 +122,7 @@ class FilterQueryDecoratedTest : DBTest() {
     }
 
     @Test
-    fun `searching by link property should works with link equation`() {
+    fun `searching should works with second level and not equals operation`() {
         store.transactional {
             val user = User.filter { it.login eq "test" }.first()
             Contact.assertThatFilterResult { it.user.supervisor ne user }
