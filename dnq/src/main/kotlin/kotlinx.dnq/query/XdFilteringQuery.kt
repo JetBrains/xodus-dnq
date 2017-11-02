@@ -82,7 +82,7 @@ object FilteringContext {
     }
 
     infix fun <T : XdEntity> T?.ne(value: T?): XdSearchingNode {
-        return withNode(UnaryNot(LinkEqual(deepestNodeName, value?.entity)).decorateIfNeeded())
+        return withNode(UnaryNot(LinkEqual(deepestNodeName, value?.entity).decorateIfNeeded()))
     }
 
     infix fun <T : Comparable<T>> T?.gt(value: T): XdSearchingNode {
@@ -100,7 +100,7 @@ object FilteringContext {
     }
 
     infix fun <T : Comparable<T>> T?.ne(value: T?): XdSearchingNode {
-        return withNode(UnaryNot(PropertyEqual(deepestNodeName, value)).decorateIfNeeded())
+        return withNode(UnaryNot(PropertyEqual(deepestNodeName, value).decorateIfNeeded()))
     }
 
     infix fun <T : XdEntity> T?.isIn(entities: Iterable<T?>): XdSearchingNode {

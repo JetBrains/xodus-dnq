@@ -125,8 +125,8 @@ class FilterQueryDecoratedTest : DBTest() {
     fun `searching by link property should works with link equation`() {
         store.transactional {
             val user = User.filter { it.login eq "test" }.first()
-            Contact.assertThatFilterResult { it.user.supervisor eq user }
-                    .containsContacts("2@123.com")
+            Contact.assertThatFilterResult { it.user.supervisor ne user }
+                    .containsContacts("1@123.com", "3@123.com")
         }
     }
 
