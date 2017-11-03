@@ -1014,7 +1014,7 @@ public class TransientSessionImpl implements TransientStoreSession {
             Set<TransientEntity> changed = getSideEffects(processedEntities);
             while (true) {
                 final int changesSize = changesTracker.getChangedEntities().size();
-                notifyBeforeFlushListeners(changesDescription);
+                notifyBeforeFlushListeners(Collections.unmodifiableSet(changesDescription));
                 executeBeforeFlushTriggers(changed);
                 if (changesSize == changesTracker.getChangedEntities().size()) {
                     break;
@@ -1024,7 +1024,7 @@ public class TransientSessionImpl implements TransientStoreSession {
                 if (changed.isEmpty()) {
                     break;
                 }
-                changesDescription = new HashSet<TransientEntityChange>();
+                changesDescription = new HashSet<>();
                 for (TransientEntity sideEffectEntity : changed) {
                     changesDescription.add(changesTracker.getChangeDescription(sideEffectEntity));
                 }
@@ -1051,7 +1051,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     private void notifyFlushedListeners(TransientChangesTracker oldChangesTracker) {
-        final Set<TransientEntityChange> changesDescription = oldChangesTracker.getChangesDescription();
+        final Set<TransientEntityChange> changesDescription = Collections.unmodifiableSet(oldChangesTracker.getChangesDescription());
         if (changesDescription.isEmpty()) {
             oldChangesTracker.dispose();
             return;
@@ -1114,7 +1114,7 @@ public class TransientSessionImpl implements TransientStoreSession {
 
     @Deprecated
     private void notifyBeforeFlushAfterConstraintsCheckListeners() {
-        final Set<TransientEntityChange> changesDescr = changesTracker.getChangesDescription();
+        final Set<TransientEntityChange> changesDescr = Collections.unmodifiableSet(changesTracker.getChangesDescription());
 
         if (changesDescr.isEmpty()) return;
 
