@@ -54,4 +54,8 @@ abstract class XdEntity {
     }
 
     override fun hashCode() = entity.hashCode()
+
+    override fun toString(): String {
+        return "${this::class.simpleName} wrapper for $entity"
+    }
 }
