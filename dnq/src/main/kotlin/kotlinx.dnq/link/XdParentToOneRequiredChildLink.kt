@@ -36,7 +36,7 @@ class XdParentToOneRequiredChildLink<R : XdEntity, T : XdEntity>(
         AssociationEndCardinality._1,
         AssociationEndType.ParentEnd,
         onDelete = OnDeletePolicy.CASCADE,
-        onTargetDelete = OnDeletePolicy.CLEAR
+        onTargetDelete = OnDeletePolicy.FAIL
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
@@ -54,4 +54,3 @@ class XdParentToOneRequiredChildLink<R : XdEntity, T : XdEntity>(
         return thisRef.reattach().getLink(property.name) != null
     }
 }
-
