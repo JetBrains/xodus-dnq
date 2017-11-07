@@ -162,13 +162,23 @@ fun <R : XdEntity, T : XdEntity> KProperty1<R, T?>.ne(entityKClass: KClass<R>, v
 
 inline infix fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.ne(value: T?): NodeBase = ne(R::class, value)
 
+@Deprecated("Use matches(entityKClass, node) instead", ReplaceWith("this.matches(entityKClass, node)", "kotlinx.dnq.query.NodeBaseOperationsKt.matches"))
 fun <R : XdEntity, T : XdEntity> KProperty1<R, T?>.link(entityKClass: KClass<R>, node: NodeBase): NodeBase {
+    return matches(entityKClass, node)
+}
+
+@Deprecated("Use matches(node) instead", ReplaceWith("this.matches(node)", "kotlinx.dnq.query.NodeBaseOperationsKt.matches"))
+inline fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.link(node: NodeBase): NodeBase {
+    return matches(node)
+}
+
+fun <R : XdEntity, T : XdEntity> KProperty1<R, T?>.matches(entityKClass: KClass<R>, node: NodeBase): NodeBase {
     @Suppress("UNCHECKED_CAST")
     return LinksEqualDecorator(getDBName(entityKClass), node, (this.returnType.javaType as Class<T>).entityType.entityType)
 }
 
-inline fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.link(node: NodeBase): NodeBase {
-    return link(R::class, node)
+inline fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.matches(node: NodeBase): NodeBase {
+    return matches(R::class, node)
 }
 
 /**
