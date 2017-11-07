@@ -38,7 +38,7 @@ are automatically created and updated on entity meta-model initialization.
 
 ```kotlin
 class State(entity: Entity) : XdEnumEntity(entity) {
-    companion object : XdEnumEntityType<MyEnum>() {
+    companion object : XdEnumEntityType<State>() {
         val OPEN by enumField { title = "open" }
         val IN_PROGRESS by enumField { title = "in progress" }
         val CLOSED by enumField { title = "closes" }
