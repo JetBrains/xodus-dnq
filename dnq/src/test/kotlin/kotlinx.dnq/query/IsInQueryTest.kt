@@ -26,7 +26,7 @@ import java.util.*
 class IsInQueryTest : DBTest() {
 
 
-    class Mage(override val entity: Entity) : XdEntity() {
+    class Mage(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Mage>()
 
         var charm by xdRequiredStringProp()

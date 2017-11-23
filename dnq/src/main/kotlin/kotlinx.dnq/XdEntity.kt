@@ -22,9 +22,7 @@ import jetbrains.exodus.entitystore.EntityId
 import kotlinx.dnq.util.reattach
 import kotlinx.dnq.util.requireThreadSession
 
-abstract class XdEntity {
-    abstract val entity: Entity
-
+abstract class XdEntity(val entity: Entity) {
     val entityId: EntityId get() = entity.id
 
     val isNew: Boolean

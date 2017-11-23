@@ -10,7 +10,7 @@ import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
 import java.io.File
 
-class XdUser(override val entity: Entity) : XdEntity() {
+class XdUser(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdUser>()
 
     var login by xdRequiredStringProp(unique = true, trimmed = true)
@@ -33,7 +33,7 @@ class XdGender(entity: Entity) : XdEnumEntity(entity) {
         private set
 }
 
-abstract class XdContact : XdEntity() {
+abstract class XdContact(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdContact>()
 
     var owner: XdUser by xdParent(XdUser::contacts)
@@ -42,7 +42,7 @@ abstract class XdContact : XdEntity() {
     abstract fun verify()
 }
 
-class XdEmail(override val entity: Entity) : XdContact() {
+class XdEmail(entity: Entity) : XdContact(entity) {
     companion object : XdNaturalEntityType<XdEmail>()
 
     var address by xdRequiredStringProp { email() }
@@ -105,7 +105,7 @@ fun main(args: Array<String>) {
 }
 
 
-class XdPerson(override val entity: Entity) : XdEntity() {
+class XdPerson(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdPerson>()
 
     fun setSkillLevel(skill: XdSkill, level: Int) {
@@ -121,11 +121,11 @@ class XdPerson(override val entity: Entity) : XdEntity() {
     }
 }
 
-class XdSkill(override val entity: Entity) : XdEntity() {
+class XdSkill(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdSkill>()
 }
 
-class XdCompetence(override val entity: Entity) : XdEntity() {
+class XdCompetence(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdCompetence>() {
         override val compositeIndices
             get() = listOf(

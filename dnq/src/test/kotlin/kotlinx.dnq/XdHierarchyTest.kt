@@ -30,7 +30,7 @@ class XdHierarchyTest(
         val hasConstructor: Boolean) {
 
 
-    abstract class XdA(override val entity: Entity) : XdEntity() {
+    abstract class XdA(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<XdA>()
     }
 

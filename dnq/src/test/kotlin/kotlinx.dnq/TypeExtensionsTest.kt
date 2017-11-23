@@ -61,11 +61,11 @@ val EmptyUser.notDelegatedField: String
 
 val EmptyUser.delegatedField: String by Delegates.notNull<String>()
 
-class EmptyUser(override val entity: Entity) : XdEntity() {
+class EmptyUser(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<EmptyUser>()
 }
 
-class User(override val entity: Entity) : XdEntity() {
+class User(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<User>()
 
     var iq by xdRequiredIntProp()

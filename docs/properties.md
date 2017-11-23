@@ -6,7 +6,7 @@ title: Persistent Properties
 Persistent class can have simple properties and links to other persistent classes implemented by property delegates.
 
 ```kotlin
-class XdUser(override val entity: Entity) : XdEntity() {
+class XdUser(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdUser>()
 
     var login by xdRequiredStringProp(unique = true, trimmed = true) { login() }
@@ -21,7 +21,7 @@ class XdUser(override val entity: Entity) : XdEntity() {
         get() = login
 }
 
-class XdSshPublicKey(override val entity: Entity) : XdEntity() {
+class XdSshPublicKey(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdSshPublicKey>()
     
     var user: XdBaseXdUser by xdParent(XdUser::sshPublicKeys)
@@ -29,7 +29,7 @@ class XdSshPublicKey(override val entity: Entity) : XdEntity() {
     var fingerPrint by xdRequiredStringProp(unique = true)
 }
 
-class XdGroup(override val entity: Entity) : XdEntity(entity) {
+class XdGroup(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdGroup>()
 
     var name by xdRequiredStringProp(unique = true) { containsNone("<>/") }
@@ -813,12 +813,12 @@ val parentOfRootGroup by xdMultiParent(XdRoot::rootGroup)
 Bidirectional link can also point to Kotlin extension property on one side.
 
 ```kotlin
-class XdUser(override val entity: Entity) : XdEntity() {
+class XdUser(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdUser>()
     var login by xdRequiredStringProp(unique = true)
 }
 
-class SecretInfo(override val entity: Entity) : XdEntity() {
+class SecretInfo(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<Secret>()
     var info by xdBlobStringProp()
     var user: XdUser by xdLink1(XdUser::secret)
@@ -833,7 +833,7 @@ Required properties and links of cardinality `1` have non-null types in Kotlin. 
 that were not committed yet, the properties can be not defined yet. To check if a property has a value one can use
 method `isDefined`. To get a value of such a property safely there is a method `getSafe`.
 ```kotlin
-class XdUser(override val entity: Entity) : XdEntity() {
+class XdUser(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdUser>()
     var login by xdRequiredStringProp(unique = true)
 }
@@ -871,7 +871,7 @@ fun `getSafe returns property value for defined properties`() {
 
 Xodus-DNQ can check uniqueness constraints for composite keys. To enable it composite key index should be defined.
 ```kotlin
-class XdAPI(override val entity: Entity) : XdEntity() {
+class XdAPI(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdAPI>() {
         override val compositeIndices = listOf(
                 listOf(XdAPI::service, XdAPI::key)
@@ -887,7 +887,7 @@ It is also possible to define an index with a single property to make it unique.
 do the same thing.
 
 ```kotlin
-class XdAPI(override val entity: Entity) : XdEntity() {
+class XdAPI(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdAPI>()
 
     var key by xdRequiredStringProp(unique=true)
@@ -896,7 +896,7 @@ class XdAPI(override val entity: Entity) : XdEntity() {
 ```
 
 ```kotlin
-class XdAPI(override val entity: Entity) : XdEntity() {
+class XdAPI(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdAPI>() {
         override val compositeIndices = listOf(
                 listOf(XdAPI::key),

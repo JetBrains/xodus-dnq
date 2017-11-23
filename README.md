@@ -45,7 +45,7 @@ Persistent class should:
 1. Have companion object of type `XdEntityType` parameterized with ths class itself.
 
 ```kotlin
-class XdUser(override val entity: Entity) : XdEntity() {
+class XdUser(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdUser>()
 
     var login by xdRequiredStringProp(unique = true, trimmed = true)

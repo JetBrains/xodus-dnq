@@ -12,6 +12,7 @@ This is a sample application that covers
 ```kotlin
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.enum.XdEnumEntityType
 import kotlinx.dnq.query.*
 import kotlinx.dnq.simple.email
@@ -19,7 +20,7 @@ import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
 import java.io.File
 
-class XdUser(override val entity: Entity) : XdEntity() {
+class XdUser(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdUser>()
 
     var login by xdRequiredStringProp(unique = true, trimmed = true)
@@ -27,9 +28,7 @@ class XdUser(override val entity: Entity) : XdEntity() {
     val contacts by xdChildren0_N(XdContact::owner)
 
     override fun toString(): String {
-        return "$login, " +
-            "${gender?.presentation ?: "N/A"}, " +
-            "${contacts.asSequence().joinToString()}"
+        return "$login, ${gender?.presentation ?: "N/A"}, ${contacts.asSequence().joinToString()}"
     }
 }
 
@@ -44,7 +43,7 @@ class XdGender(entity: Entity) : XdEnumEntity(entity) {
         private set
 }
 
-abstract class XdContact : XdEntity() {
+abstract class XdContact(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdContact>()
 
     var owner: XdUser by xdParent(XdUser::contacts)
@@ -53,7 +52,7 @@ abstract class XdContact : XdEntity() {
     abstract fun verify()
 }
 
-class XdEmail(override val entity: Entity) : XdContact() {
+class XdEmail(entity: Entity) : XdContact(entity) {
     companion object : XdNaturalEntityType<XdEmail>()
 
     var address by xdRequiredStringProp { email() }
@@ -75,10 +74,7 @@ fun initXodus(): TransientEntityStore {
             XdEmail
     )
 
-    val databaseHome = File(
-            System.getProperty("user.home"), 
-            "xodus-dnq-sample-app"
-    )
+    val databaseHome = File(System.getProperty("user.home"), "xodus-dnq-sample-app")
 
     val store = StaticStoreContainer.init(
             dbFolder = databaseHome,
@@ -96,9 +92,7 @@ fun main(args: Array<String>) {
     val user = store.transactional {
         val zecksonLogin = "zeckson"
 
-        val zeckson = XdUser.all()
-                .query(XdUser::login eq zecksonLogin)
-                .firstOrNull()
+        val zeckson = XdUser.query(XdUser::login eq zecksonLogin).firstOrNull()
 
         zeckson ?: XdUser.new {
             login = zecksonLogin
@@ -118,5 +112,39 @@ fun main(args: Array<String>) {
     store.transactional(readonly = true) {
         println(user)
     }
+}
+
+
+class XdPerson(entity: Entity) : XdEntity(entity) {
+    companion object : XdNaturalEntityType<XdPerson>()
+
+    fun setSkillLevel(skill: XdSkill, level: Int) {
+        val competence = XdCompetence.findOrNew(
+                XdCompetence.query(
+                        (XdCompetence::person eq this) and (XdCompetence::skill eq skill)
+                )
+        ) {
+            this.person = this@XdPerson
+            this.skill = skill
+        }
+        competence.level = level
+    }
+}
+
+class XdSkill(entity: Entity) : XdEntity(entity) {
+    companion object : XdNaturalEntityType<XdSkill>()
+}
+
+class XdCompetence(entity: Entity) : XdEntity(entity) {
+    companion object : XdNaturalEntityType<XdCompetence>() {
+        override val compositeIndices
+            get() = listOf(
+                    listOf(XdCompetence::person, XdCompetence::skill)
+            )
+    }
+
+    var person by xdLink1(XdPerson)
+    var skill by xdLink1(XdSkill)
+    var level by xdIntProp()
 }
 ```

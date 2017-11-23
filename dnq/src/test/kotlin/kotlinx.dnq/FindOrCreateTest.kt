@@ -23,7 +23,7 @@ import org.junit.Test
 
 class FindOrCreateTest : DBTest() {
 
-    class ApprovedScope(override val entity: Entity) : XdEntity() {
+    class ApprovedScope(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<ApprovedScope>() {
             override val compositeIndices = listOf(
                     listOf(ApprovedScope::user, ApprovedScope::groupsConvolution)

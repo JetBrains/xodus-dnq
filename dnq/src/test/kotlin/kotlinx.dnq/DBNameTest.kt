@@ -25,7 +25,7 @@ import kotlin.test.assertFailsWith
 
 class DBNameTest {
 
-    open class Parent(override val entity: Entity) : XdEnumEntity(entity) {
+    open class Parent(entity: Entity) : XdEnumEntity(entity) {
         companion object : XdNaturalEntityType<Parent>()
 
         open val overriddenPropWithDbName by xdStringProp(dbName = "overriddenProp")
@@ -43,7 +43,7 @@ class DBNameTest {
         val propWithoutDbName by xdStringProp()
     }
 
-    class NoXdEntityTypeEntity(override val entity: Entity) : XdEntity() {
+    class NoXdEntityTypeEntity(entity: Entity) : XdEntity(entity) {
         companion object
 
         val prop by xdStringProp()

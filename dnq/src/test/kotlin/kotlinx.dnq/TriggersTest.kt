@@ -25,7 +25,7 @@ class TriggersTest : DBTest() {
         var beforeFlushInvoked = false
     }
 
-    class Triggers(override val entity: Entity) : XdEntity() {
+    class Triggers(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Triggers>()
 
         override fun beforeFlush() {

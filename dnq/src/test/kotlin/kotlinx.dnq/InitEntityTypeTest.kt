@@ -21,7 +21,7 @@ import org.junit.Test
 
 class InitEntityTypeTest : DBTest() {
 
-    class WithInitEntityType(override val entity: Entity) : XdEntity() {
+    class WithInitEntityType(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<WithInitEntityType>() {
             var instance: WithInitEntityType? = null
 

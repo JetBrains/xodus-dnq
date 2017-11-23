@@ -23,7 +23,7 @@ import org.junit.Test
 
 class SingletonTest : DBTest() {
 
-    class TheKing(override val entity: Entity) : XdEntity() {
+    class TheKing(entity: Entity) : XdEntity(entity) {
         companion object : XdSingletonEntityType<TheKing>() {
 
             override fun TheKing.initSingleton() {

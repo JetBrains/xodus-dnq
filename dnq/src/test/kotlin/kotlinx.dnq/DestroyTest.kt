@@ -23,7 +23,7 @@ import kotlin.test.assertFailsWith
 
 class DestroyTest : DBTest() {
 
-    class Undestroyable(override val entity: Entity) : XdEntity() {
+    class Undestroyable(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Undestroyable>()
 
         override fun destructor() {

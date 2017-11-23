@@ -24,20 +24,20 @@ import kotlin.test.assertFailsWith
 
 class CompositeIndexTest : DBTest() {
 
-    class Service(override val entity: Entity) : XdEntity() {
+    class Service(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Service>()
 
         val defaultRoles by xdLink0_N(DefaultRole::service)
     }
 
-    abstract class BaseRole : XdEntity() {
+    abstract class BaseRole(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<BaseRole>()
 
         var key by xdRequiredStringProp()
         var name by xdRequiredStringProp()
     }
 
-    class DefaultRole(override val entity: Entity) : BaseRole() {
+    class DefaultRole(entity: Entity) : BaseRole(entity) {
         companion object : XdNaturalEntityType<DefaultRole>() {
             override val compositeIndices = listOf(
                     listOf(DefaultRole::service, DefaultRole::key)
@@ -47,7 +47,7 @@ class CompositeIndexTest : DBTest() {
         var service: Service by xdLink1(Service)
     }
 
-    class Role(override val entity: Entity) : BaseRole() {
+    class Role(entity: Entity) : BaseRole(entity) {
         companion object : XdNaturalEntityType<Role>() {
             override val compositeIndices = listOf(
                     listOf(Role::key),

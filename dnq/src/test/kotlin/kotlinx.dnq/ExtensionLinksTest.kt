@@ -25,13 +25,13 @@ import org.junit.Test
 
 class ExtensionLinksTest : DBTest() {
 
-    class Person(override val entity: Entity) : XdEntity() {
+    class Person(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Person>()
 
         var name by xdStringProp()
     }
 
-    class Spy(override val entity: Entity) : XdEntity() {
+    class Spy(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Spy>()
 
         val informant by xdLink1_N(Person::curator, dbOppositePropertyName = "_curator_", dbPropertyName = "_informant_")

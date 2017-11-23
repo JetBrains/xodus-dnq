@@ -33,7 +33,7 @@ import kotlin.test.assertFailsWith
 var PropertiesTest.Employee.b by xdByteProp()
 
 class PropertiesTest : DBTest() {
-    abstract class Base : XdEntity() {
+    abstract class Base(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Base>()
 
         var enabled by xdBooleanProp()
@@ -44,7 +44,7 @@ class PropertiesTest : DBTest() {
         var regexWrappedBaseProp by xdStringProp(trimmed = true) { regex(Regex("good")) }
     }
 
-    class Derived(override val entity: Entity) : Base() {
+    class Derived(entity: Entity) : Base(entity) {
         companion object : XdNaturalEntityType<Derived>()
 
         var requiredIfDerivedProp by xdStringProp { requireIf { enabled } }
@@ -52,7 +52,7 @@ class PropertiesTest : DBTest() {
         var regexWrappedDerivedProp by xdStringProp(trimmed = true) { regex(Regex("good")) }
     }
 
-    class Employee(override val entity: Entity) : XdEntity() {
+    class Employee(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Employee>()
 
         var login by xdRequiredStringProp(trimmed = true, unique = true)

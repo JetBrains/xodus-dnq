@@ -23,7 +23,7 @@ import kotlin.test.assertFailsWith
 
 
 class AbstractRelationTest {
-    abstract class XdBaseGroup(override val entity: Entity) : XdEntity() {
+    abstract class XdBaseGroup(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<XdBaseGroup>()
 
         abstract val parent: XdBaseGroup?

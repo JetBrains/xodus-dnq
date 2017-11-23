@@ -25,7 +25,7 @@ import org.junit.Test
 
 class DeleteTest : DBTest() {
 
-    class CompanyTeam(override val entity: Entity) : XdEntity() {
+    class CompanyTeam(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<CompanyTeam>()
 
         var name by xdRequiredStringProp(trimmed = true)

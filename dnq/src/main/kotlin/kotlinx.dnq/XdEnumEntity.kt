@@ -17,7 +17,7 @@ package kotlinx.dnq
 
 import jetbrains.exodus.entitystore.Entity
 
-open class XdEnumEntity(override val entity: Entity) : XdEntity() {
+open class XdEnumEntity(entity: Entity) : XdEntity(entity) {
 
     companion object : XdNaturalEntityType<XdEnumEntity>() {
         const val ENUM_CONST_NAME_FIELD = "__ENUM_CONST_NAME__"

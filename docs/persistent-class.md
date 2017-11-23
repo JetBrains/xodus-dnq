@@ -9,7 +9,7 @@ Each persistent class should:
 3. Have companion object of type `XdEntityType`
 
 ```kotlin
-class XdUser(override val entity: Entity) : XdEntity() {
+class XdUser(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdUser>()
 }
 ```
@@ -20,7 +20,7 @@ Xodus-DNQ support inheritance. Inherited persistent class still should have a si
 `Entity` and a companion object of type `XdEntityType`. But it can have other persistent class as a super-type. 
 
 ```kotlin
-abstract class BaseEntity(override val entity: Entity) : XdEntity() {
+abstract class BaseEntity(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<BaseEntity>()
     
     val propertyOfBaseClass by xdStringProp()
@@ -60,7 +60,7 @@ There could be singleton entities. It means that exactly one instance of such en
 in a database. For example you could store application settings in such entity.  
 
 ```kotlin
-class TheKing(override val entity: Entity) : XdEntity() {
+class TheKing(entity: Entity) : XdEntity(entity) {
     companion object : XdSingletonEntityType<TheKing>() {
         override fun TheKing.initSingleton() {
             name = "Elvis"

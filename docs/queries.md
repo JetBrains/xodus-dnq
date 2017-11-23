@@ -10,7 +10,7 @@ in another one, i.e. one can store a reference to an entity outside a transactio
 ## New entities
 
 ```kotlin
-class XdUser(override val entity: Entity) : XdEntity() {
+class XdUser(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdUser>()
 
     var login by xdRequiredStringProp(unique = true)
@@ -217,7 +217,7 @@ It's possible to create an entity with a guarantee that no identical entity will
 It's quite handy if you need to create an instance of association class. Method `findOrNew` 
 
 ```kotlin
-class XdPerson(override val entity: Entity) : XdEntity() {
+class XdPerson(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdPerson>()
 
     fun setSkillLevel(skill: XdSkill, level: Int) { 
@@ -233,11 +233,11 @@ class XdPerson(override val entity: Entity) : XdEntity() {
     }
 }
 
-class XdSkill(override val entity: Entity) : XdEntity() {
+class XdSkill(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdSkill>()
 }
 
-class XdCompetence(override val entity: Entity) : XdEntity() {
+class XdCompetence(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdCompetence>() {
         override val compositeIndices
             get() = listOf(

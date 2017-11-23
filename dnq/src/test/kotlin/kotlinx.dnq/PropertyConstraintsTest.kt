@@ -14,7 +14,7 @@ private val domini = DateTime(-1, 12, 25, 0, 0)
 class PropertyConstraintsTest : DBTest() {
 
 
-    class XdTestEntity(override val entity: Entity) : XdEntity() {
+    class XdTestEntity(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<XdTestEntity>()
 
 

@@ -49,7 +49,7 @@ abstract class DBTest {
     val typeListeners = mutableListOf<Pair<XdEntityType<*>, XdEntityListener<*>>>()
     val instanceListeners = mutableListOf<Pair<XdEntity, XdEntityListener<*>>>()
 
-    class User(override val entity: Entity) : XdEntity() {
+    class User(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<User>()
 
         var login by xdRequiredStringProp(trimmed = true, unique = true)
@@ -66,7 +66,7 @@ abstract class DBTest {
         val groups by xdLink0_N(Group::users, onDelete = CLEAR, onTargetDelete = CLEAR)
     }
 
-    abstract class Group(override val entity: Entity) : XdEntity() {
+    abstract class Group(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Group>()
 
         var name by xdRequiredStringProp(unique = true)
@@ -96,13 +96,13 @@ abstract class DBTest {
         override val owner: User? = null
     }
 
-    class Image(override val entity: Entity) : XdEntity() {
+    class Image(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Image>()
 
         var content by xdRequiredBlobStringProp()
     }
 
-    class Contact(override val entity: Entity) : XdEntity() {
+    class Contact(entity: Entity) : XdEntity(entity) {
 
         companion object : XdNaturalEntityType<Contact>()
 
@@ -111,14 +111,14 @@ abstract class DBTest {
         var email by xdRequiredStringProp() { email() }
     }
 
-    class Team(override val entity: Entity) : XdEntity() {
+    class Team(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Team>()
 
         var name by xdRequiredStringProp(unique = true)
         val fellows by xdChildren0_N(Fellow::team)
     }
 
-    class Fellow(override val entity: Entity) : XdEntity() {
+    class Fellow(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Fellow>()
 
         var name by xdRequiredStringProp()
