@@ -1,6 +1,10 @@
-[![JetBrains incubator project](http://jb.gg/badges/incubator.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
-
 # xodus-dnq
+[![official JetBrains project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
+![Pure Java + Kotlin](https://img.shields.io/badge/100%25-java%2bkotlin-orange.svg)
+[![Stack Overflow](https://img.shields.io/badge/stack%20overflow-xodus--dnq-brightgreen.svg)](http://stackoverflow.com/questions/tagged/xodus-dnq)
+
 Xodus-DNQ is a Kotlin library that contains the data definition language and queries for 
 [Xodus](https://github.com/JetBrains/xodus), a transactional schema-less embedded database. 
 Xodus-DNQ provides the same support for Xodus that ORM frameworks provide for SQL databases. 
@@ -261,3 +265,9 @@ XdUser.new {
 To create new instances of a persistent class you may use method `XdEntityType.new` that actually creates new entity
 and passes it to a parameter closure as a reciever. This enables you to initialize new entities in a nice 
 kotlin-builder manner.
+
+## Find out more
+- [Read documentation](https://jetbrains.github.io/xodus-dnq)
+- [Report an issue](https://github.com/JetBrains/xodus-dnq/issues/new)
+- [Ask question at Stack Overflow](http://stackoverflow.com/questions/tagged/xodus-dnq)
+- [Learn more about Xodus](https://github.com/JetBrains/xodus)
