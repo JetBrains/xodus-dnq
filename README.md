@@ -2,11 +2,11 @@
 
 # xodus-dnq
 Xodus-DNQ is a Kotlin library that contains the data definition language and queries for 
-[Xodus](https://jetbrains.github.io/xodus/), a transactional schema-less embedded database. 
+[Xodus](https://github.com/JetBrains/xodus), a transactional schema-less embedded database. 
 Xodus-DNQ provides the same support for Xodus that ORM frameworks provide for SQL databases. 
 With Xodus-DNQ, you can define your persistent meta-model using Kotlin classes.
 
-[YouTrack](https://jetbrains.com/youtrack) and [Hub](https://jetbrains.com/hub) use Xodus-DNQ for 
+JetBrains team tools [YouTrack](https://jetbrains.com/youtrack) and [Hub](https://jetbrains.com/hub) use Xodus-DNQ for 
 persistent layer definition.
 
 More documentation https://jetbrains.github.io/xodus-dnq.
