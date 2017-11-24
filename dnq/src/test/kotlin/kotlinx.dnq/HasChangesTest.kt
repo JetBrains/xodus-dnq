@@ -26,7 +26,7 @@ import kotlin.concurrent.thread
 import kotlin.reflect.KMutableProperty1
 
 @RunWith(Parameterized::class)
-class SimplePropertyTest(
+class HasChangesTest(
         val property: KMutableProperty1<XdIssue, String?>,
         val initialValue: String?,
         val updateValue: String?) : DBTest() {
