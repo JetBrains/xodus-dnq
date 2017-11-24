@@ -13,78 +13,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq;
+package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import com.jetbrains.teamsys.dnq.database.testing.TestBase;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.dnq.util.Util;
-import jetbrains.exodus.entitystore.Entity;
-import org.junit.Test;
+import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.query.iterator
+import kotlinx.dnq.query.size
+import kotlinx.dnq.query.toList
+import org.junit.Test
 
-import static org.junit.Assert.assertEquals;
+class CountTest : DBTest() {
 
-public class CountTest extends TestBase {
+    class XdProject(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<XdProject>()
+
+        val issues by xdLink0_N(XdIssue::project)
+    }
+
+    class XdIssue(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<XdIssue>()
+
+        var project: XdProject by xdLink1(XdProject::issues)
+    }
+
+    override fun registerEntityTypes() {
+        XdModel.registerNodes(XdProject, XdIssue)
+    }
 
     @Test
-    public void testCount1() {
-        this.createData();
-        this.checkCount1();
-        this.checkCount2();
-    }
-
-    public void createData() {
-        TransientStoreSession transientSession = store.beginSession();
-        try {
-            Entity p = (store.getThreadSession().newEntity("Project"));
-
-            Entity i = (store.getThreadSession().newEntity("Issue"));
-
-            AggregationAssociationSemantics.createOneToMany(p, "issue", "project", i);
-
-            assertEquals(p, AssociationSemantics.getToOne(i, "project"));
-
-            i = store.getThreadSession().newEntity("Issue");
-
-            AggregationAssociationSemantics.createOneToMany(p, "issue", "project", i);
-
-            assertEquals(p, AssociationSemantics.getToOne(i, "project"));
-
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientSession);
-        }
-    }
-
-    public void checkCount2() {
-        TransientStoreSession transientSession = store.beginSession();
-        try {
-            assertEquals(2, AssociationSemantics.getToManySize(Util.toList(store.getThreadSession().getAll("Project")).get(0), "issue"));
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientSession);
-        }
-    }
-
-    public void checkCount1() {
-        TransientStoreSession transientSession = store.beginSession();
-        try {
-            int i = 0;
-            for (Object o : AssociationSemantics.getToMany(store.getThreadSession().getAll("Project").iterator().next(), "issue")) {
-                i++;
+    fun `property size`() {
+        val project = transactional {
+            XdProject.new {
+                issues.add(XdIssue.new())
+                issues.add(XdIssue.new())
             }
-            assertEquals(2, i);
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientSession);
+        }
+
+        transactional {
+            assertThat(project.issues.toList()).hasSize(2)
+        }
+
+        transactional {
+            assertThat(project.issues.size()).isEqualTo(2)
+        }
+
+        transactional {
+            assertThat(XdIssue.all().size()).isEqualTo(2)
         }
     }
+
 }
