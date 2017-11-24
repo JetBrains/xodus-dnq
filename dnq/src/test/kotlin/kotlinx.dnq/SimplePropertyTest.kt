@@ -13,13 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package kotlinx.dnq;
 
 import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
+import com.jetbrains.teamsys.dnq.database.EntityOperations;
+import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import com.jetbrains.teamsys.dnq.database.testing.TestBase;
 import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.dnq.util.Util;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -163,7 +166,7 @@ public class SimplePropertyTest extends TestBase {
             PrimitiveAssociationSemantics.set(e, "summary", value1, String.class);
 
             //Assert.assertEquals(0, transientSession.getTransientChangesTracker().getChanges().size());
-            assertEquals(false, EntityOperations.hasChanges((TransientEntity) e));
+            Assert.assertEquals(false, EntityOperations.hasChanges((TransientEntity) e));
             assertEquals(false, EntityOperations.hasChanges((TransientEntity) e, "summary"));
 
             transientSession.flush();
