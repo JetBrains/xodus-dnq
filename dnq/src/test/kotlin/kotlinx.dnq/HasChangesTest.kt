@@ -59,6 +59,7 @@ class HasChangesTest(
         }
     }
 
+    @Test
     fun `change boolean in two transactions JT-10878`() {
         // set boolean to true in one transaction, then do the same in another transaction
         val e = transactional {
