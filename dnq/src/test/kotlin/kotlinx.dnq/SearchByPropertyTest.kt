@@ -13,73 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq;
+package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import com.jetbrains.teamsys.dnq.database.testing.TestBase;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.dnq.util.Util;
-import jetbrains.exodus.entitystore.Entity;
-import org.junit.Test;
-
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.assertEquals;
+import com.google.common.truth.Truth.assertThat
+import org.junit.Test
 
 /**
  * @author Maxim.Mazin at date: 11.01.2007 time: 11:29:28
  */
-public class SearchByPropertyTest extends TestBase {
+class SearchByPropertyTest : DBTest() {
 
     @Test
-    public void testSearchByProperty() {
-        createGuest();
-        assertEquals("Unexpected number of guests", 1, numberOfGuests());
-        assertTrue("Guest doesn't exist", guestExists());
-    }
+    fun testSearchByProperty() {
+        transactional {
+            User.new { login = "guest"; skill = 0 }
+        }
 
-    @Test
-    public void createGuest() {
-        TransientStoreSession transientSession = store.beginSession();
-        try {
-            TransientStoreSession session = store.getThreadSession();
-            assert session != null;
-            Entity u = (session.newEntity("User"));
-            PrimitiveAssociationSemantics.set(u, "login", "guest");
-            PrimitiveAssociationSemantics.set(u, "password", "guest");
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientSession);
+        transactional { txn ->
+            assertThat(txn.getAll(User.entityType)).hasSize(1)
+        }
+
+        transactional { txn ->
+            assertThat(txn.find("User", "login", "guest")).isNotEmpty()
         }
     }
 
-    private boolean guestExists() {
-        TransientStoreSession transientSession = store.beginSession();
-        try {
-            TransientStoreSession session = store.getThreadSession();
-            assert session != null;
-            return !Util.toList(session.find("User", "login", "guest")).isEmpty();
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientSession);
-        }
-    }
-
-    private long numberOfGuests() {
-        TransientStoreSession transientSession = store.beginSession();
-        try {
-            TransientStoreSession session = store.getThreadSession();
-            assert session != null;
-            return session.getAll("User").size();
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientSession);
-        }
-    }
 }
