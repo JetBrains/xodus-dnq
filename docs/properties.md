@@ -468,18 +468,18 @@ Checks that string property value contains only digit and letter characters.
 var base64 by xdStringProp { alphaNumeric() }
 ```
 
-#### URL
-Checks that string property value is a valid URL. 
-
-```kotlin
-var url by xdStringProp { url() }
-```
-
 #### URI
-Checks that string property value is a valid URL. 
+Checks that string property value is a valid [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier). 
 
 ```kotlin
 var uri by xdStringProp { uri() }
+```
+
+#### URL
+Checks that string property value is a valid [URL](https://en.wikipedia.org/wiki/URL). 
+
+```kotlin
+var url by xdStringProp { url() }
 ```
 
 #### String length
