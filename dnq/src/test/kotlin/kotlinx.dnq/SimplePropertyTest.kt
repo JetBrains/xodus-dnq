@@ -13,197 +13,93 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq;
+package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
-import com.jetbrains.teamsys.dnq.database.EntityOperations;
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import com.jetbrains.teamsys.dnq.database.testing.TestBase;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.dnq.util.Util;
-import org.junit.Assert;
-import org.junit.Test;
+import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.run
+import kotlinx.dnq.util.hasChanges
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import kotlin.concurrent.thread
+import kotlin.reflect.KMutableProperty1
 
-import static org.junit.Assert.assertEquals;
+@RunWith(Parameterized::class)
+class SimplePropertyTest(
+        val property: KMutableProperty1<XdIssue, String?>,
+        val initialValue: String?,
+        val updateValue: String?) : DBTest() {
 
-public class SimplePropertyTest extends TestBase {
+    class XdIssue(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<XdIssue>()
 
-    @Test
-    public void SetString_Null_Empty_Null() {
-        checkStringValue1Value2Value1MakesNoChanges(null, "");
+        var summary by xdStringProp()
+        var description by xdBlobStringProp()
+        var flagOfSchepotiev by xdNullableBooleanProp()
     }
 
-    @Test
-    public void SetString_Empty_NotEmpty_Empty() {
-        checkStringValue1Value2Value1MakesNoChanges("", "test");
+    override fun registerEntityTypes() {
+        XdModel.registerNode(XdIssue)
     }
 
-    @Test
-    public void SetString_Empty_Empty_Empty() {
-        checkStringValue1Value2Value1MakesNoChanges("", "");
-    }
-
-    @Test
-    public void SetString_Empty_Null_Empty() {
-        checkStringValue1Value2Value1MakesNoChanges("", null);
-    }
-
-    @Test
-    public void SetString_Null_NotEmpty_Null() {
-        checkStringValue1Value2Value1MakesNoChanges(null, "test1");
-    }
-
-    @Test
-    public void SetString_Null_Null_Null() {
-        checkStringValue1Value2Value1MakesNoChanges(null, null);
-    }
-
-    @Test
-    public void SetString_NotEmpty_Null_NotEmpty() {
-        checkStringValue1Value2Value1MakesNoChanges("test", null);
-    }
-
-    @Test
-    public void SetString_NotEmpty_Empty_NotEmpty() {
-        checkStringValue1Value2Value1MakesNoChanges("test", "");
-    }
-
-    @Test
-    public void SetString_NotEmpty_NotEmpty_NotEmpty() {
-        checkStringValue1Value2Value1MakesNoChanges("test", "test1");
-    }
-
-    // text
-
-    @Test
-    public void SetText_Null_Empty_Null() {
-        checkTextValue1Value2Value1MakesNoChanges(null, "");
-    }
-
-    @Test
-    public void SetText_Empty_NotEmpty_Empty() {
-        checkTextValue1Value2Value1MakesNoChanges("", "test");
-    }
-
-    @Test
-    public void SetText_Empty_Empty_Empty() {
-        checkTextValue1Value2Value1MakesNoChanges("", "");
-    }
-
-    @Test
-    public void SetText_Empty_Null_Empty() {
-        checkTextValue1Value2Value1MakesNoChanges("", null);
-    }
-
-    @Test
-    public void SetText_Null_NotEmpty_Null() {
-        checkTextValue1Value2Value1MakesNoChanges(null, "test1");
-    }
-
-    @Test
-    public void SetText_Null_Null_Null() {
-        checkTextValue1Value2Value1MakesNoChanges(null, null);
-    }
-
-    @Test
-    public void SetText_NotEmpty_Null_NotEmpty() {
-        checkTextValue1Value2Value1MakesNoChanges("test", null);
-    }
-
-    @Test
-    public void SetText_NotEmpty_Empty_NotEmpty() {
-        checkTextValue1Value2Value1MakesNoChanges("test", "");
-    }
-
-    @Test
-    public void SetText_NotEmpty_NotEmpty_NotEmpty() {
-        checkTextValue1Value2Value1MakesNoChanges("test", "test1");
-    }
-
-    @Test
-    public void ChangeBooleanInTwoTransactions_JT_10878() {
-        // set boolean to true in one transaction, then do the same in another transaction
-        TransientEntity e = null;
-        TransientStoreSession t = store.beginSession();
-        e = (TransientEntity) store.getThreadSession().newEntity("Issue");
-        t.commit();
-
-        // cache FlagOfSchepotiev null value in transient level
-        TransientStoreSession t1 = store.beginSession();
-        assertEquals(null, PrimitiveAssociationSemantics.get(e, "FlagOfSchepotiev", null));
-
-        final TransientEntity _e = e;
-        Util.runTranAsyncAndJoin(store, new Runnable() {
-            @Override
-            public void run() {
-                // set flag to false and save to database
-                TransientStoreSession t2 = store.beginSession();
-
-                assertEquals(null, PrimitiveAssociationSemantics.get(_e, "FlagOfSchepotiev", null));
-                PrimitiveAssociationSemantics.set(_e, "FlagOfSchepotiev", false, Boolean.class);
-                t2.commit();
+    companion object {
+        @JvmStatic
+        @Parameterized.Parameters(name = "{0} {1} {2}")
+        fun data(): List<Array<Any?>> {
+            val values = listOf(null, "", "not-empty")
+            val properties = listOf(XdIssue::summary, XdIssue::description)
+            return properties.flatMap { property ->
+                values.flatMap { initialValue ->
+                    values.map { updateValue ->
+                        arrayOf(property, initialValue, updateValue)
+                    }
+                }
             }
-        });
-
-        PrimitiveAssociationSemantics.set(e, "FlagOfSchepotiev", false, Boolean.class);
-        t1.commit();
-    }
-
-    private void checkStringValue1Value2Value1MakesNoChanges(String value1, String value2) {
-        TransientStoreSession transientSession = store.beginSession();
-        TransientEntity e = null;
-        try {
-            e = (TransientEntity) store.getThreadSession().newEntity("Issue");
-            PrimitiveAssociationSemantics.set(e, "summary", value1, String.class);
-            transientSession.flush();
-
-            assertEquals(value1, PrimitiveAssociationSemantics.get(e, "summary", String.class, null));
-
-            PrimitiveAssociationSemantics.set(e, "summary", value2, String.class);
-            PrimitiveAssociationSemantics.set(e, "summary", value1, String.class);
-            PrimitiveAssociationSemantics.set(e, "summary", value2, String.class);
-            PrimitiveAssociationSemantics.set(e, "summary", value1, String.class);
-
-            //Assert.assertEquals(0, transientSession.getTransientChangesTracker().getChanges().size());
-            Assert.assertEquals(false, EntityOperations.hasChanges((TransientEntity) e));
-            assertEquals(false, EntityOperations.hasChanges((TransientEntity) e, "summary"));
-
-            transientSession.flush();
-            assertEquals(value1, PrimitiveAssociationSemantics.get(e, "summary", String.class, null));
-        } catch (Throwable ex) {
-            TransientStoreUtil.abort(ex, transientSession);
-        } finally {
-            TransientStoreUtil.commit(transientSession);
         }
     }
 
-    private void checkTextValue1Value2Value1MakesNoChanges(String value1, String value2) {
-        TransientStoreSession transientSession = store.beginSession();
-        TransientEntity e;
-        try {
-            e = store.getThreadSession().newEntity("Issue");
-            PrimitiveAssociationSemantics.setBlob(e, "description", value1);
-            transientSession.flush();
+    fun `change boolean in two transactions JT-10878`() {
+        // set boolean to true in one transaction, then do the same in another transaction
+        val e = transactional {
+            XdIssue.new()
+        }
 
-            assertEquals(value1, PrimitiveAssociationSemantics.getBlobAsString(e, "description"));
+        // cache FlagOfSchepotiev null value in transient level
+        transactional { t1 ->
+            assertThat(e.flagOfSchepotiev).isNull()
 
-            PrimitiveAssociationSemantics.setBlob(e, "description", value2);
-            PrimitiveAssociationSemantics.setBlob(e, "description", value1);
-            PrimitiveAssociationSemantics.setBlob(e, "description", value2);
-            PrimitiveAssociationSemantics.setBlob(e, "description", value1);
+            thread {
+                store.run(Runnable {
+                    // set flag to false and save to database
+                    assertThat(e.flagOfSchepotiev).isNull()
+                    e.flagOfSchepotiev = false
+                })
+            }.join()
 
-            // changes size is not relates to atual changes that were made
-            //Assert.assertEquals(0, transientSession.getTransientChangesTracker().getChanges().size());
-            assertEquals(false, EntityOperations.hasChanges((TransientEntity) e));
-            assertEquals(false, EntityOperations.hasChanges((TransientEntity) e, "description"));
+            e.flagOfSchepotiev = false
+        }
+    }
 
-            transientSession.flush();
-            assertEquals(value1, PrimitiveAssociationSemantics.getBlobAsString(e, "description"));
-        } catch (Throwable ex) {
-            TransientStoreUtil.abort(ex, transientSession);
-        } finally {
-            TransientStoreUtil.commit(transientSession);
+    @Test
+    fun checkStringValue1Value2Value1MakesNoChanges() {
+        transactional { txn ->
+            val e = XdIssue.new()
+            property.set(e, initialValue)
+            txn.flush()
+
+            assertThat(property.get(e)).isEqualTo(initialValue)
+
+            property.set(e, updateValue)
+            property.set(e, initialValue)
+            property.set(e, updateValue)
+            property.set(e, initialValue)
+
+            assertThat(e.hasChanges(property)).isFalse()
+            assertThat(e.hasChanges()).isFalse()
+
+            txn.flush()
+            assertThat(property.get(e)).isEqualTo(initialValue)
         }
     }
 }

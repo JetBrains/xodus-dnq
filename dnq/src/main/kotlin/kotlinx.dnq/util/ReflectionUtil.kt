@@ -172,6 +172,10 @@ fun <R : XdEntity> KProperty1<R, *>.getDBName(entityType: XdEntityType<R>): Stri
 
 inline fun <reified R : XdEntity> KProperty1<R, *>.getDBName() = getDBName(R::class.entityType)
 
+fun <T : XdEntity> T.hasChanges(): Boolean {
+    return reattach().hasChanges()
+}
+
 fun <T : XdEntity> T.hasChanges(property: KProperty1<T, *>): Boolean {
     return reattach().hasChanges(property.getDBName(javaClass.entityType))
 }
