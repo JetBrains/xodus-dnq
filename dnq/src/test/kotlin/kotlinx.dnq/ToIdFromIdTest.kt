@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package kotlinx.dnq;
 
+import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
 import com.jetbrains.teamsys.dnq.database.testing.TestBase;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.Entity;
