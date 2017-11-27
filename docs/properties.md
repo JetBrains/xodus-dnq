@@ -64,7 +64,7 @@ class.
 
 ```kotlin
 // Optional non-negative Byte property with database name `age`.
-var age: xdByteProp { min(0) }
+var age by xdByteProp { min(0) }
 ```
 
 ##### xdRequiredByteProp --- required byte property
@@ -77,7 +77,7 @@ of the property value among instances of the persistent class.
 
 ```kotlin
 // Unique required Byte property with database name `id`. 
-var id: xdRequiredByteProp(unique = true) 
+var id by xdRequiredByteProp(unique = true) 
 ```
 
 ##### xdNullableByteProp --- nullable byte property
@@ -87,7 +87,7 @@ var id: xdRequiredByteProp(unique = true)
 
 ```kotlin
 // Non-negative nullable Byte property with database name `salary`.
-var salary: xdNullableByteProp { min(0) }  
+var salary by xdNullableByteProp { min(0) }  
 ```
  
 #### Short
@@ -99,7 +99,7 @@ var salary: xdNullableByteProp { min(0) }
 
 ```kotlin
 // Optional non-negative Short property with database name `age`.
-var age: xdShortProp { min(0) }
+var age by xdShortProp { min(0) }
 ```
 
 ##### xdRequiredShortProp --- required short property
@@ -112,7 +112,7 @@ of the property value among instances of the persistent class.
 
 ```kotlin
 // Unique required Short property with database name `id`. 
-var id: xdRequiredShortProp(unique = true) 
+var id by xdRequiredShortProp(unique = true) 
 ```
 
 ##### xdNullableShortProp --- nullable short property
@@ -122,7 +122,7 @@ var id: xdRequiredShortProp(unique = true)
 
 ```kotlin
 // Non-negative nullable Short property with database name `salary`.
-var salary: xdNullableShortProp { min(0) }  
+var salary by xdNullableShortProp { min(0) }  
 ```
 
 #### Int
@@ -134,10 +134,10 @@ var salary: xdNullableShortProp { min(0) }
 
 ```kotlin
 // Optional non-negative Int property with database name `age`.
-var age: xdIntProp { min(0) }
+var age by xdIntProp { min(0) }
 
 // Optional Int property with database name `grade`.
-var rank: xdIntProp(dbName = "grade")
+var rank by xdIntProp(dbName = "grade")
 ```
 
 ##### xdRequiredIntProp --- required integer property
@@ -151,13 +151,13 @@ of the property value among instances of the persistent class.
 
 ```kotlin
 // Required non-negative Int property with database name `age`.
-var age: xdRequiredIntProp { min(0) }  
+var age by xdRequiredIntProp { min(0) }  
 
 // Required Int property with database name `grade`.
-var rank: xdRequiredIntProp(dbName = "grade")
+var rank by xdRequiredIntProp(dbName = "grade")
 
 // Unique required Int property with database name `id`. 
-var id: xdRequiredIntProp(unique = true) 
+var id by xdRequiredIntProp(unique = true) 
 ```
 
 ##### xdNullableIntProp --- nullable integer property
@@ -167,7 +167,7 @@ var id: xdRequiredIntProp(unique = true)
 
 ```kotlin
 // Non-negative nullable Int property with database name `salary`.
-var salary: xdNullableIntProp { min(0) }  
+var salary by xdNullableIntProp { min(0) }  
 ```
 
 #### Long
@@ -179,7 +179,7 @@ var salary: xdNullableIntProp { min(0) }
 
 ```kotlin
 // Optional non-negative Long property with database name `salary`.
-var salary: xdLongProp() { min(0) }  
+var salary by xdLongProp() { min(0) }  
 ```
 
 ##### xdRequiredLongProp --- required long property
@@ -192,7 +192,7 @@ of the property value among instances of the persistent class.
 
 ```kotlin
 // Unique required Long property with database name `id`.
-var id: xdRequiredLongProp(unique = true) 
+var id by xdRequiredLongProp(unique = true) 
 ```
 
 ##### xdNullableLongProp --- nullable long property
@@ -202,7 +202,7 @@ var id: xdRequiredLongProp(unique = true)
 
 ```kotlin
 // Non-negative nullable Long property with database name `salary`.
-var salary: xdNullableLongProp { min(0) }  
+var salary by xdNullableLongProp { min(0) }  
 ```
 
 #### Float
@@ -214,7 +214,7 @@ var salary: xdNullableLongProp { min(0) }
 
 ```kotlin
 // Optional non-negative Float property with database name `salary`.
-var salary: xdFloatProp() { min(0) }  
+var salary by xdFloatProp() { min(0) }  
 ```
 
 ##### xdRequiredFloatProp --- required float property
@@ -227,7 +227,7 @@ of the property value among instances of the persistent class.
 
 ```kotlin
 // Unique required Float property with database name `seed`.
-var seed: xdRequiredFloatProp(unique = true) 
+var seed by xdRequiredFloatProp(unique = true) 
 ```
 
 ##### xdNullableFloatProp --- nullable float property
@@ -237,7 +237,7 @@ var seed: xdRequiredFloatProp(unique = true)
 
 ```kotlin
 // Non-negative nullable Float property with database name `salary`.
-var salary: xdNullableFloatProp { min(0) }  
+var salary by xdNullableFloatProp { min(0) }  
 ```
 
 #### Double
@@ -249,7 +249,7 @@ var salary: xdNullableFloatProp { min(0) }
 
 ```kotlin
 // Optional non-negative Double property with database name `salary`.
-var salary: xdDoubleProp() { min(0) }  
+var salary by xdDoubleProp() { min(0) }  
 ```
 
 ##### xdRequiredDoubleProp --- required double property
@@ -262,7 +262,7 @@ of the property value among instances of the persistent class.
 
 ```kotlin
 // Unique required Double property with database name `seed`.
-var seed: xdRequiredDoubleProp(unique = true) 
+var seed by xdRequiredDoubleProp(unique = true) 
 ```
 
 ##### xdNullableDoubleProp --- nullable double property
@@ -272,7 +272,7 @@ var seed: xdRequiredDoubleProp(unique = true)
 
 ```kotlin
 // Non-negative nullable Double property with database name `salary`.
-var salary: xdNullableDoubleProp { min(0) }  
+var salary by xdNullableDoubleProp { min(0) }  
 ```
 
 #### Boolean
@@ -282,7 +282,7 @@ var salary: xdNullableDoubleProp { min(0) }
 
 ```kotlin
 // Optional Boolean property with database name `anonymous`.
-var isGuest: xdBooleanProp(dbName = "anonymous") 
+var isGuest by xdBooleanProp(dbName = "anonymous") 
 ```
 
 ##### xdNullableBooleanProp --- nullable boolean property
@@ -291,7 +291,7 @@ var isGuest: xdBooleanProp(dbName = "anonymous")
 
 ```kotlin
 // Nullable Boolean property with database name `isFemale`.
-var isFemale: xdNullableBooleanProp() 
+var isFemale by xdNullableBooleanProp() 
 ```
 
 #### String
@@ -306,7 +306,7 @@ you assign a value to such property all leading and trailing spaces are removed.
 
 ```kotlin
 // Optional nullable String property with database name `lastName`.
-var lastName: xdStringProp(trimmed = true)
+var lastName by xdStringProp(trimmed = true)
 ```
 
 ##### xdRequiredStringProp --- required string property
@@ -324,7 +324,7 @@ of the property value among instances of the persistent class.
 
 ```kotlin
 // Required unique String property with database name `uuid`.
-var uuid: xdRequiredStringProp(unique=true)
+var uuid by xdRequiredStringProp(unique=true)
 ```
 
 #### Joda DateTime
@@ -337,7 +337,7 @@ actually wrapping nullable Long property and is storing unix epoch timestamp.
 
 ```kotlin
 // Optional nullable DateTime property with database name `createdAt`.
-var createdAt: xdDateTimeProp()
+var createdAt by xdDateTimeProp()
 ```
 
 ##### xdRequiredDateTimeProp --- required Joda DateTime property
@@ -352,7 +352,7 @@ actually wrapping nullable Long property and is storing unix epoch timestamp.
 
 ```kotlin
 // Required not-null DateTime property with database name `createdAt`.
-var createdAt: xdRequiredDateTimeProp()
+var createdAt by xdRequiredDateTimeProp()
 ```
 
 #### Blob
@@ -365,7 +365,7 @@ but you cannot filter or sort `XdQuery` by this property.
 
 ```kotlin
 // Optional nullable InputStream property with database name `image`.
-var image: xdBlobProp()
+var image by xdBlobProp()
 ```
 
 ##### xdRequiredBlobProp --- required blob property
@@ -378,7 +378,7 @@ but you cannot filter or sort `XdQuery` by this property.
 
 ```kotlin
 // Required not-null InputStream property with database name `image`.
-var image: xdRequiredBlobProp()
+var image by xdRequiredBlobProp()
 ```
 
 #### String Blob
@@ -391,7 +391,7 @@ but you cannot filter or sort `XdQuery` by this property.
 
 ```kotlin
 // Optional nullable String property with database name `description`.
-var description: xdBlobStringProp()
+var description by xdBlobStringProp()
 ```
 
 ##### xdRequiredBlobStringProp --- required string blob property
@@ -404,7 +404,7 @@ but you cannot filter or sort `XdQuery` by this property.
 
 ```kotlin
 // Required not-null String property with database name `description`.
-var description: xdRequiredBlobStringProp()
+var description by xdRequiredBlobStringProp()
 ```
 
 
