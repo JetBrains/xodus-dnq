@@ -13,114 +13,64 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq;
+package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import com.jetbrains.teamsys.dnq.database.testing.TestBase;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityIterable;
-import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException;
-import org.junit.Test;
+import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
+import kotlinx.dnq.query.first
+import org.junit.Before
+import org.junit.Test
+import kotlin.test.assertFailsWith
 
-import static junit.framework.TestCase.assertTrue;
-import static junit.framework.TestCase.fail;
-import static org.junit.Assert.assertNotNull;
+class ToIdFromIdTest : DBTest() {
+    class XdUser(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<XdUser>("User")
 
-public class ToIdFromIdTest extends TestBase {
+        var login by xdStringProp()
+        var password by xdStringProp()
+    }
+
+    override fun registerEntityTypes() {
+        XdModel.registerNodes(XdUser)
+    }
+
+    @Before
+    fun createData() {
+        transactional {
+            XdUser.new { login = "user"; password = "user" }
+        }
+    }
 
     @Test
-    public void testPersistentEntity() {
-        createData();
-        String id = getSomeEntityId();
-        tryToRestoreById(id);
+    fun testPersistentEntity() {
+        val id = transactional {
+            XdUser.all()
+                    .first()
+                    .entityId
+                    .toString()
+        }
+
+        transactional { txn ->
+            val entity = txn.getEntity(txn.toEntityId(id))
+            assertThat(entity).isNotNull()
+        }
     }
 
     @Test
-    public void testFindByIncorrectId() {
-        createData();
-        tryToRestoreById("0-0"); //ok
-        findByIncorrectId("0-1"); // bad id!
-    }
-
-    private void findByIncorrectId(String id) {
-        TransientStoreSession transientStoreSession = store.beginSession();
-
-        try {
-
-            transientStoreSession.getEntity(transientStoreSession.toEntityId(id));
-
-            fail();
-
-        } catch (EntityRemovedInDatabaseException ignored) {
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientStoreSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientStoreSession);
+    fun `find by correct id`() {
+        transactional { txn ->
+            val entity = txn.getEntity(txn.toEntityId("0-0"))
+            assertThat(entity).isNotNull()
         }
     }
 
-    private void tryToRestoreById(String id) {
-        TransientStoreSession transientStoreSession = store.beginSession();
-
-        try {
-
-            Entity user = transientStoreSession.getEntity(transientStoreSession.toEntityId(id));
-
-            assertNotNull(user);
-
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientStoreSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientStoreSession);
+    @Test
+    fun `find by incorrect id`() {
+        transactional { txn ->
+            assertFailsWith<EntityRemovedInDatabaseException> {
+                txn.getEntity(txn.toEntityId("0-1"))
+            }
         }
     }
-
-    private String getSomeEntityId() {
-        TransientStoreSession transientStoreSession = store.beginSession();
-
-        try {
-
-            EntityIterable users = transientStoreSession.find("User", "login", "user");
-
-            assertTrue(users.size() == 1);
-
-            Entity user = users.iterator().next();
-
-            assertNotNull(user);
-
-            return user.getId().toString();
-
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientStoreSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientStoreSession);
-        }
-    }
-
-    private void createData() {
-        TransientStoreSession transientStoreSession = store.beginSession();
-
-        try {
-
-            Entity user = transientStoreSession.newEntity("User");
-            user.setProperty("login", "user");
-            user.setProperty("password", "user");
-/*
-            user = transientStoreSession.newEntity("User");
-            user.setProperty("login", "user1");
-            user.setProperty("password", "user1");
-*/
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientStoreSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientStoreSession);
-        }
-
-    }
-
 }
