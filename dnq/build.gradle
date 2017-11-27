@@ -1,3 +1,9 @@
+kotlin {
+    experimental {
+        coroutines "enable"
+    }
+}
+
 dependencies {
     compile project(':dnq-open-api')
     compile project(':dnq-transient-store')
