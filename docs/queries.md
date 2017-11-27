@@ -286,7 +286,7 @@ to the first sorting.
 XdUser.all().sortedBy(XdUser::login).sortedBy(XdUser::gender, asc = true)
 ```
 
-It is possible to entities by property of the property.
+It is possible to sort entities by property of the property.
 ```kotlin
 // Sort users by titles of their jobs
 XdUser.all().sortedBy(XdUser::job, XdJob::title)
