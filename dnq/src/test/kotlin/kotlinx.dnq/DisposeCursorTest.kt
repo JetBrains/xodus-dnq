@@ -13,17 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq;
+package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.PrimitiveAssociationSemantics;
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import com.jetbrains.teamsys.dnq.database.testing.TestBase;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.dnq.util.TestUserService;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityIterable;
-import org.junit.Test;
+import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.query.asSequence
+import kotlinx.dnq.query.isEmpty
+import org.junit.Before
+import org.junit.Test
 
 /**
  * Date: 14.12.2006
@@ -31,74 +28,62 @@ import org.junit.Test;
  *
  * @author Vadim.Gurov
  */
-public class DisposeCursorTest extends TestBase {
+class DisposeCursorTest : DBTest() {
+    class XdUser(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<XdUser>("User")
+
+        var login by xdStringProp()
+        var password by xdStringProp()
+    }
+
+    class XdIssue(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<XdIssue>("Issue")
+
+        var summary by xdStringProp()
+        var reporter by xdLink0_1(XdUser)
+    }
+
+    override fun registerEntityTypes() {
+        XdModel.registerNodes(XdUser, XdIssue)
+    }
+
+    @Before
+    fun createUsers() {
+        transactional {
+            if (XdUser.all().isEmpty) {
+                XdIssue.new {
+                    reporter = XdUser.new {
+                        login = "vadim"
+                        password = "vadim"
+                    }
+                    summary = "test issue"
+                }
+            }
+        }
+    }
+
 
     @Test
-    public void testDisposeCursor() throws Exception {
-        // 1
+    fun testDisposeCursor() {
+        transactional {
+            val user = XdUser.all()
+                    .asSequence()
+                    .firstOrNull { it.login == "vadim" && it.password == "vadim" }
 
-        createUsers();
-
-        _login_LoginForm_handler();
+            assertThat(user).isNotNull()
+        }
     }
 
     @Test
-    public void testDisposeOnLastElement() {
-        createUsers();
-
-        findUser("1", "1");
-    }
-
-    public void _login_LoginForm_handler() {
-        TransientStoreSession session = store.beginSession();
-        try {
-            TestUserService.findUser(store, "vadim", "vadim");
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, session);
-            throw new RuntimeException();
-        } finally {
-            TransientStoreUtil.commit(session);
+    fun testDisposeOnLastElement() {
+        transactional { txn ->
+            val users = store.queryEngine.intersect(
+                    txn.find("User", "login", "1"),
+                    txn.find("User", "password", "1")
+            )
+            assertThat(users).isEmpty()
         }
     }
 
-    public void createUsers() {
-        TransientStoreSession session = store.beginSession();
-        try {
-
-            if (store.getThreadSession().getAll("User").size() > 0) {
-                return;
-            }
-
-            Entity u = store.getThreadSession().newEntity("User");
-            PrimitiveAssociationSemantics.set(u, "username", (Comparable) "vadim");
-            PrimitiveAssociationSemantics.set(u, "password", (Comparable) "vadim");
-            Entity i = store.getThreadSession().newEntity("Issue");
-            DirectedAssociationSemantics.setToOne(i, "reporter", (Entity) u);
-            PrimitiveAssociationSemantics.set(i, "summary", (Comparable) "test issue");
-
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, session);
-            throw new RuntimeException();
-        } finally {
-            TransientStoreUtil.commit(session);
-        }
-    }
-
-    public void findUser(String username, String password) {
-        TransientStoreSession session = store.beginSession();
-        try {
-            Iterable<Entity> users = store.getQueryEngine().intersect(
-                    session.find("User", "login", username), session.find("User", "password", password));
-            if (!(((EntityIterable) users).isEmpty())) {
-                System.out.println("found");
-            }
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, session);
-            throw new RuntimeException();
-        } finally {
-            TransientStoreUtil.commit(session);
-        }
-
-    }
 
 }
