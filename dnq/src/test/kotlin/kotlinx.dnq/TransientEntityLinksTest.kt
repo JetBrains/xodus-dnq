@@ -13,20 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq;
+package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import com.jetbrains.teamsys.dnq.database.testing.TestBase;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.Entity;
-import org.junit.Test;
-
-import java.util.Iterator;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.entitystore.Entity
+import org.junit.Test
 
 /**
  * Date: 28.12.2006
@@ -34,89 +25,59 @@ import static org.junit.Assert.assertNotNull;
  *
  * @author Vadim.Gurov
  */
-public class TransientEntityLinksTest extends TestBase {
+class TransientEntityLinksTest : DBTest() {
+
+    class XdUser(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<XdUser>("User")
+
+        var login by xdStringProp()
+        var password by xdStringProp()
+    }
+
+    class XdIssue(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<XdIssue>("Issue")
+
+        var reporter by xdLink0_1(XdUser)
+    }
+
+    override fun registerEntityTypes() {
+        XdModel.registerNodes(XdUser, XdIssue)
+    }
 
     @Test
-    public void testTransientGetLinks() {
-        createData();
-        checkTransientGetLinks();
-        checkTransientGetLinks2();
-    }
-
-    private void createData() {
-        TransientStoreSession transientStoreSession = store.beginSession();
-
-        try {
-
-            Entity user = transientStoreSession.newEntity("User");
-            user.setProperty("login", "user");
-            user.setProperty("password", "user");
-
-            user = transientStoreSession.newEntity("User");
-            user.setProperty("login", "user1");
-            user.setProperty("password", "user1");
-
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientStoreSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientStoreSession);
+    fun testTransientGetLinks() {
+        transactional {
+            XdUser.new { login = "user"; password = "user" }
+            XdUser.new { login = "user1"; password = "user1" }
         }
 
-    }
+        transactional { txn ->
+            val user = txn
+                    .find(XdUser.entityType, XdUser::login.name, "user")
+                    .firstOrNull()
+                    ?.toXd<XdUser>()
+            assertThat(user).isNotNull()
 
-    private void checkTransientGetLinks() {
-        TransientStoreSession transientStoreSession = store.beginSession();
+            val issue = XdIssue.new { reporter = user }
+            assertThat(issue.reporter).isEqualTo(user)
+        }
 
-        try {
-            Entity user = getFirst(transientStoreSession.find("User", "login", "user"));
+        transactional { txn ->
+            val user1 = txn
+                    .find(XdUser.entityType, XdUser::login.name, "user1")
+                    .firstOrNull()
+                    ?.toXd<XdUser>()
+            assertThat(user1).isNotNull()
 
-            assertNotNull(user);
+            val issue = txn.getAll("Issue")
+                    .firstOrNull()
+                    ?.toXd<XdIssue>()
+            assertThat(issue).isNotNull()
 
-            Entity issue = transientStoreSession.newEntity("Issue");
+            issue?.reporter = user1
 
-            DirectedAssociationSemantics.setToOne(issue, "reporter", user);
-
-            assertEquals(user, AssociationSemantics.getToOne(issue, "reporter"));
-
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientStoreSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientStoreSession);
+            assertThat(issue?.reporter).isEqualTo(user1)
         }
     }
 
-    private void checkTransientGetLinks2() {
-        TransientStoreSession transientStoreSession = store.beginSession();
-
-        try {
-            Entity user1 = getFirst(transientStoreSession.find("User", "login", "user1"));
-
-            assertNotNull(user1);
-
-            Entity issue = getFirst(transientStoreSession.getAll("Issue"));
-
-            assertNotNull(issue);
-
-            DirectedAssociationSemantics.setToOne(issue, "reporter", user1);
-
-            assertEquals(user1, AssociationSemantics.getToOne(issue, "reporter"));
-
-        } catch (Throwable e) {
-            TransientStoreUtil.abort(e, transientStoreSession);
-            throw new RuntimeException("Should never be thrown.");
-        } finally {
-            TransientStoreUtil.commit(transientStoreSession);
-        }
-    }
-
-    private static Entity getFirst(Iterable<Entity> input) {
-        Iterator<Entity> iterator = input.iterator();
-        if (iterator.hasNext()) {
-            return iterator.next();
-        }
-
-        return null;
-    }
 }
