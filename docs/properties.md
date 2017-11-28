@@ -807,10 +807,11 @@ val user by xdParent(XdUser::contacts)
 val parentGroup by xdMultiParent(XdGroup::subGroups)
 val parentOfRootGroup by xdMultiParent(XdRoot::rootGroup)
 ```
+## Extension properties
 
-#### Extension property links
+#### Bidirectional links
 
-Bidirectional link can also point to Kotlin extension property on one side.
+Bidirectional link can also point to Kotlin extension property on one side.  
 
 ```kotlin
 class XdUser(entity: Entity) : XdEntity(entity) {
@@ -824,8 +825,29 @@ class SecretInfo(entity: Entity) : XdEntity(entity) {
     var user: XdUser by xdLink1(XdUser::secret)
 }
 
+// this association will be authomatically registered in XdModel together with SecretInfo type
 var XdUser.secret by xdLink1(SecretInfo::user)
 ```
+
+#### Other properties
+
+Kotlin extension properties can be used for simple properties and links. If extension properties use database 
+constraints then they should be registered in XdModel with plugins.
+
+```kotlin
+class XdUser(entity: Entity) : XdEntity(entity) {
+    companion object : XdNaturalEntityType<XdUser>()
+    var login by xdRequiredStringProp(unique = true)
+}
+
+var XdUser.name by xdRequiredStringProp()
+var XdUser.boss by xdLink1(XdSuperUser)
+
+XdModel.withPlugins(
+        SimpleModelPlugin(listOf(XdUser::name, XdUser::boss))
+)
+```
+
 
 ### isDefined and getSafe
 

@@ -70,9 +70,11 @@ performant that in-memory collection manipulations.
 ```kotlin
 // Get all users with skill greater than 2
 XdUser.all().query(XdUser::skill gt 2)
+XdUser.all().filter { it.skill gt 2 }
 
 // The same but shorter
 XdUser.query(XdUser::skill gt 2)
+XdUser.filter { it.skill gt 2 }
 ```
 
 ```kotlin
@@ -84,7 +86,12 @@ user.contacts.filterIsNotInstance(XdEmailContact)
 ```
 
 Method `query()` accepts an object of type `NodeBase`. This object defines an abstract syntax tree of filtering 
-operation expression. There is a set of predefined methods to build such trees.
+operation expression. There is a set of predefined methods to build such trees. 
+
+Method `filter()` accepts function which will be called on a "template" entity. Syntax tree of filtering operations 
+will be generated according to properties and links requested from "template" entity. As a result `filter` function 
+should access **only database backing fields of XdEntity**.  
+
 
 #### Equals
 
@@ -93,9 +100,11 @@ Filter entities with a value of the property equal to the given value.
 ```kotlin
 // Users with login "root"
 XdUser.query(XdUser::login eq "root")
+XdUser.filter { it.login eq "root" }
 
 // Users with gender equal to XdGender.FEMALE
 XdUser.query(XdUser::gender eq XdGender.FEMALE)
+XdUser.filter { it.gender eq XdGender.FEMALE }
 ```
 
 #### Not Equals
@@ -105,9 +114,11 @@ Filter entities with a value of the property not equal to the given value.
 ```kotlin
 // Users with any login but "root"
 XdUser.query(XdUser::login ne "root")
+XdUser.filter { it.login ne "root" }
 
 // Users with gender not equal to XdGender.FEMALE
 XdUser.query(XdUser::gender ne XdGender.FEMALE)
+XdUser.filter { it.gender ne XdGender.FEMALE }
 ```
 
 #### Greater than
@@ -117,6 +128,7 @@ Filter entities with a value of the property greater than given `value`.
 ```kotlin
 // Users with skill greater than 2
 XdUser.query(XdUser::skill gt 2)
+XdUser.filter { it.skill gt 2 }
 ```
 
 #### Less than
@@ -126,6 +138,7 @@ Filter entities with a value of the property less than given `value`.
 ```kotlin
 // Users with skill less than 2
 XdUser.query(XdUser::skill lt 2)
+XdUser.filter {it.skill lt 2 }
 ```
 
 #### Greater or equal
@@ -135,6 +148,7 @@ Filter entities with a value of the property greater or equal to given `value`.
 ```kotlin
 // Users with skill greater or equal to 2
 XdUser.query(XdUser::skill ge 2)
+XdUser.filter { it.skill ge 2 }
 ```
 
 #### Less or equal
@@ -144,6 +158,7 @@ Filter entities with a value of the property less or equal to given `value`.
 ```kotlin
 // Users with skill less or equal to 2
 XdUser.query(XdUser::skill le 2)
+XdUser.filter { it.skill le 2 }
 ```
 
 #### Starts with
@@ -153,6 +168,7 @@ Filter entities with a value of the String property starting with the given `val
 ```kotlin
 // Users with skill less than 2
 XdUser.query(XdUser::login startsWith "max")
+XdUser.filter { it.login startsWith "max" }
 ```
 
 #### Contains
@@ -162,6 +178,7 @@ Filter entities where one of the values of the multi-value property contains the
 ```kotlin
 // Users that have `group` among their groups.
 XdUser.query(XdUser::groups contains group)
+XdUser.filter { it.groups contains group }
 ```
 
 #### Value in range
@@ -189,6 +206,7 @@ Conjunction of the given operations.
 ```kotlin
 // Users with any login not equal to "root" and skill more than 2. 
 XdUser.query((XdUser::login ne "root") and (XdUser::skill gt 2))
+XdUser.filter { (it.login ne "root") and (it.skill gt 2) }
 ```
 
 #### Or
@@ -198,6 +216,7 @@ Disjunction of the given operations.
 ```kotlin
 // Users with login equal to "root" or skill more than 2. 
 XdUser.query((XdUser::login eq "root") or (XdUser::skill gt 2))
+XdUser.filter { (it.login eq "root") or (it.skill gt 2) }
 ```
 
 #### Filter by property of property
@@ -209,6 +228,7 @@ a property.
 ```kotlin
 // Users with verified contacts
 XdUser.query(XdUser::contact.link(XdContact::isVerified eq true))
+XdUser.filter { it.contact.isVerified eq true }
 ```
  
 ### Find or Create
@@ -226,6 +246,15 @@ class XdPerson(entity: Entity) : XdEntity(entity) {
                         (XdCompetence::person eq this) and (XdCompetence::skill eq skill)
                 )
         ) {
+            this.person = this@XdPerson
+            this.skill = skill
+        }
+        competence.level = level
+    }
+
+    fun anotherWayToSetSkillLevel(skill: XdSkill, level: Int) { 
+        // in this version only database backing fields of XdCompetence should be used in assignments in lambda
+        val competence = XdCompetence.findOrNew {
             this.person = this@XdPerson
             this.skill = skill
         }
