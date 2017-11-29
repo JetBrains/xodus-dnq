@@ -807,7 +807,8 @@ val user by xdParent(XdUser::contacts)
 val parentGroup by xdMultiParent(XdGroup::subGroups)
 val parentOfRootGroup by xdMultiParent(XdRoot::rootGroup)
 ```
-## Extension properties
+
+### Extension properties
 
 #### Bidirectional links
 
