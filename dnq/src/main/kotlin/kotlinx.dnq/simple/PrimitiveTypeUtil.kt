@@ -21,7 +21,9 @@ import kotlin.reflect.KClass
 private val FLOAT_PRECISION = 0.0001f
 private val DOUBLE_PRECISION = 0.0000001
 
-fun <V : Comparable<V>> KClass<V>.next(value: V): Comparable<*>? = when (this) {
+fun <V : Comparable<V>> KClass<V>.next(value: V) = nextRaw(value) as Comparable
+
+fun <V : Comparable<V>> KClass<V>.nextRaw(value: V): Comparable<*>? = when (this) {
     Boolean::class -> true
     Byte::class -> ((value as Number).toByte() + 1).toByte()
     Short::class -> ((value as Number).toShort() + 1).toShort()
@@ -42,7 +44,9 @@ fun <V : Comparable<V>> KClass<V>.next(value: V): Comparable<*>? = when (this) {
     else -> null
 }
 
-fun <V : Comparable<V>> KClass<V>.prev(value: V): Comparable<*>? = when (this) {
+fun <V : Comparable<V>> KClass<V>.prev(value: V) = prevRaw(value) as Comparable
+
+fun <V : Comparable<V>> KClass<V>.prevRaw(value: V): Comparable<*>? = when (this) {
     Boolean::class -> false
     Byte::class -> ((value as Number).toByte() - 1).toByte()
     Short::class -> ((value as Number).toShort() - 1).toShort()
@@ -63,7 +67,9 @@ fun <V : Comparable<V>> KClass<V>.prev(value: V): Comparable<*>? = when (this) {
     else -> null
 }
 
-fun <V : Comparable<V>> KClass<V>.maxValue(): Comparable<*>? = when (this) {
+fun <V : Comparable<V>> KClass<V>.maxValue() = maxValueRaw() as Comparable
+
+fun <V : Comparable<V>> KClass<V>.maxValueRaw(): Comparable<*>? = when (this) {
     Boolean::class -> true
     Byte::class -> Byte.MAX_VALUE
     Short::class -> Short.MAX_VALUE
@@ -74,7 +80,9 @@ fun <V : Comparable<V>> KClass<V>.maxValue(): Comparable<*>? = when (this) {
     else -> null
 }
 
-fun <V : Comparable<V>> KClass<V>.minValue(): Comparable<*>? = when (this) {
+fun <V : Comparable<V>> KClass<V>.minValue() = minValueRaw() as Comparable
+
+fun <V : Comparable<V>> KClass<V>.minValueRaw(): Comparable<*>? = when (this) {
     Boolean::class -> false
     Byte::class -> Byte.MIN_VALUE
     Short::class -> Short.MIN_VALUE

@@ -1,6 +1,6 @@
 buildscript {
-    ext.kotlin_version = '1.1.4-3'
-    ext.exodus_version = '1.0.2766'
+    ext.kotlin_version = '1.2.0'
+    ext.exodus_version = '1.1.2912'
     ext.dokka_version = '0.9.15'
 
     repositories {
@@ -14,7 +14,7 @@ buildscript {
 
 plugins {
     id 'com.github.hierynomus.license' version '0.13.1'
-    id 'org.jetbrains.kotlin.jvm' version '1.1.4'
+    id 'org.jetbrains.kotlin.jvm' version '1.2.0'
     id 'io.codearte.nexus-staging' version '0.11.0'
     id 'idea'
 }
@@ -47,7 +47,9 @@ subprojects {
     }
 
     dependencies {
-        compile "org.jetbrains.kotlin:kotlin-stdlib:1.1.4"
+        compile "org.jetbrains.kotlin:kotlin-runtime:$kotlin_version"
+        compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+        compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
         compile 'io.github.microutils:kotlin-logging:1.4.1'
 
         testCompile 'junit:junit:4.12'
