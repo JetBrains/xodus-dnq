@@ -22,19 +22,19 @@ import kotlinx.dnq.util.reattachAndGetPrimitiveValue
 import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.reflect.KProperty
 
-class XdListProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: String?) :
-        XdConstrainedProperty<R, List<T>>(
+class XdSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: String?) :
+        XdConstrainedProperty<R, Set<T>>(
                 dbPropertyName,
                 emptyList(),
                 XdPropertyRequirement.OPTIONAL,
                 PropertyType.PRIMITIVE) {
 
-    override fun getValue(thisRef: R, property: KProperty<*>): List<T> {
+    override fun getValue(thisRef: R, property: KProperty<*>): Set<T> {
         val value = thisRef.reattachAndGetPrimitiveValue<ComparableSet<T>>(property.dbName)
-        return value?.toList() ?: emptyList()
+        return value?.toSet() ?: emptySet<T>()
     }
 
-    override fun setValue(thisRef: R, property: KProperty<*>, value: List<T>) {
+    override fun setValue(thisRef: R, property: KProperty<*>, value: Set<T>) {
         val comparableSet = value
                 .takeIf { it.isNotEmpty() }
                 ?.let { ComparableSet(it) }

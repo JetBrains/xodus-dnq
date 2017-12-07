@@ -216,7 +216,7 @@ fun <R : XdEntity> xdRequiredBlobStringProp(dbName: String? = null) =
             XdTextProperty<R>(dbName)
         }
 
-fun <R: XdEntity, T: Comparable<T>> xdListProp(dbName: String? = null) =
+fun <R: XdEntity, T: Comparable<T>> xdSetProp(dbName: String? = null) =
         XdPropertyCachedProvider {
-            XdListProperty<R, T>(dbName)
+            XdSetProperty<R, T>(dbName)
         }

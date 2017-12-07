@@ -190,6 +190,34 @@ Filter entities with a value of the property matching the given range.
 XdUser.query((1..10) contains XdUser::skill)
 ```
 
+#### Set property contains value
+
+Filter entities with value of set property containing the given value.
+
+```kotlin
+class XdPost(entity: Entity): XdEntity(entity) {
+  companion object: XdNaturalEntityType<XdPost>()
+  
+  var tags by xdSetProp<XdPost, String>()
+}
+
+XdPost.query(XdPost::tags contains "Kotlin")
+```
+
+#### Set element starts with
+
+Filter entities with some element of set property starting with the given value.
+
+```kotlin
+class XdPost(entity: Entity): XdEntity(entity) {
+  companion object: XdNaturalEntityType<XdPost>()
+  
+  var tags by xdSetProp<XdPost, String>()
+}
+
+XdPost.query(XdPost::tags anyStartsWith "kot")
+```
+
 #### Not 
 
 Negation of the given operation.

@@ -2,4 +2,5 @@ rootProject.name = 'xodus-dnq'
 
 include 'dnq-open-api',
         'dnq-transient-store',
-        'dnq'
+        'dnq',
+        'java-8-time'

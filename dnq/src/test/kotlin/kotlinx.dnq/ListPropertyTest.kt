@@ -21,13 +21,13 @@ import kotlinx.dnq.query.*
 import kotlinx.dnq.util.isDefined
 import org.junit.Test
 
-class ListPropertiesTest : DBTest() {
+class SetPropertyTest : DBTest() {
 
 
     class Employee(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Employee>()
 
-        var skills by xdListProp<Employee, String>()
+        var skills by xdSetProp<Employee, String>()
     }
 
     override fun registerEntityTypes() {
@@ -49,7 +49,7 @@ class ListPropertiesTest : DBTest() {
     @Test
     fun `set and get`() {
         val employee = store.transactional {
-            Employee.new { skills = listOf("Java", "Kotlin", "Xodus-DNQ") }
+            Employee.new { skills = setOf("Java", "Kotlin", "Xodus-DNQ") }
         }
 
         store.transactional {
@@ -61,11 +61,11 @@ class ListPropertiesTest : DBTest() {
     @Test
     fun `empty list`() {
         val employee = store.transactional {
-            Employee.new { skills = listOf("Java", "Kotlin", "Xodus-DNQ") }
+            Employee.new { skills = setOf("Java", "Kotlin", "Xodus-DNQ") }
         }
 
         store.transactional {
-            employee.skills = emptyList()
+            employee.skills = emptySet()
         }
 
         store.transactional {
@@ -77,7 +77,7 @@ class ListPropertiesTest : DBTest() {
     @Test
     fun `is defined`() {
         val employee = store.transactional {
-            Employee.new { skills = listOf("Java", "Kotlin", "Xodus-DNQ") }
+            Employee.new { skills = setOf("Java", "Kotlin", "Xodus-DNQ") }
         }
 
         store.transactional {
@@ -99,7 +99,7 @@ class ListPropertiesTest : DBTest() {
     @Test
     fun `contains query`() {
         val employee = store.transactional {
-            Employee.new { skills = listOf("Java", "Kotlin", "Xodus-DNQ") }
+            Employee.new { skills = setOf("Java", "Kotlin", "Xodus-DNQ") }
         }
 
         store.transactional {
@@ -114,7 +114,7 @@ class ListPropertiesTest : DBTest() {
     @Test
     fun `anyStartsWith query`() {
         val employee = store.transactional {
-            Employee.new { skills = listOf("Java", "Kotlin", "Xodus-DNQ") }
+            Employee.new { skills = setOf("Java", "Kotlin", "Xodus-DNQ") }
         }
 
         store.transactional {

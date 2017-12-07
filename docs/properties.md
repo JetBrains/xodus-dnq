@@ -407,6 +407,16 @@ but you cannot filter or sort `XdQuery` by this property.
 var description by xdRequiredBlobStringProp()
 ```
 
+#### String List
+##### xdSetProp --- set of comparables property
+- Property type: `Set`.
+- If its value is not defined in database the property returns `emptySet()`.
+- Xodus builds index for every element of the set. So you can [query entity by any element](queries.md#set-property-contains-value).
+
+```kotlin
+// Set of strings property with database name `tags`.
+var tags by xdSetProp<XdPost, String>()
+```
 
 ### Simple property constraints
 Property constraints are checked on transaction flush. Xodus-DNQ throws `ConstraintsValidationException` 

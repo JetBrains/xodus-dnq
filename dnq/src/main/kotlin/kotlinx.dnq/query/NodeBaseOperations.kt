@@ -222,10 +222,10 @@ inline infix fun <reified T : XdEntity, reified R : Comparable<*>> KProperty1<T,
     return this.containsIn(*values.toList().toTypedArray())
 }
 
-infix inline fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, List<T>>.contains(value: T): NodeBase {
+infix inline fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, Set<T>>.contains(value: T): NodeBase {
     return eq(this.getDBName(R::class), value)
 }
 
-inline infix fun <reified R : XdEntity> KProperty1<R, List<String>>.anyStartsWith(value: String?): NodeBase {
+inline infix fun <reified R : XdEntity> KProperty1<R, Set<String>>.anyStartsWith(value: String?): NodeBase {
     return startsWith(getDBName(R::class), value)
 }
