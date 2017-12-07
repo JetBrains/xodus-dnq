@@ -128,6 +128,7 @@ abstract class DBTest {
 
     @Before
     fun setup() {
+        XdModel.hierarchy.clear()
         registerEntityTypes()
         databaseHome = File(System.getProperty("java.io.tmpdir"), "kotlinx.dnq.test")
         store = StaticStoreContainer.init(databaseHome, "testDB") {
