@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.query
 
+import jetbrains.exodus.bindings.ComparableSet
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.query.*
@@ -213,7 +214,6 @@ inline fun <reified T : XdEntity, R : Comparable<*>> KProperty1<T, R?>.containsI
     return values.fold(None as NodeBase) { tree, value -> tree or (this eq value) }
 }
 
-
 inline infix fun <reified T : XdEntity, reified R : XdEntity> KProperty1<T, R?>.inEntities(entities: Iterable<R?>): NodeBase {
     return this.containsIn(*entities.toList().toTypedArray())
 }
@@ -222,3 +222,10 @@ inline infix fun <reified T : XdEntity, reified R : Comparable<*>> KProperty1<T,
     return this.containsIn(*values.toList().toTypedArray())
 }
 
+infix inline fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, List<T>>.contains(value: T): NodeBase {
+    return eq(this.getDBName(R::class), value)
+}
+
+inline infix fun <reified R : XdEntity> KProperty1<R, List<String>>.anyStartsWith(value: String?): NodeBase {
+    return startsWith(getDBName(R::class), value)
+}

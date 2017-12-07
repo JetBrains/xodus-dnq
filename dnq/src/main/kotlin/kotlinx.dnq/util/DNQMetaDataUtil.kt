@@ -27,6 +27,7 @@ import kotlinx.dnq.simple.XdPropertyRequirement
 import kotlinx.dnq.simple.XdWrappedProperty
 import kotlinx.dnq.singleton.XdSingletonEntityType
 import kotlinx.dnq.transactional
+import java.lang.reflect.ParameterizedType
 import kotlin.reflect.jvm.javaType
 
 fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: TransientEntityStoreImpl) {
@@ -82,9 +83,16 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
         superType = node.parentNode?.entityType?.entityType
 
         propertiesMetaData = node.getAllProperties().map {
+            val simpleTypeName = it.property.returnType.javaType.let {
+                when (it) {
+                    is Class<*> -> it
+                    is ParameterizedType -> (it.rawType as Class<*>)
+                    else -> throw IllegalArgumentException("Cannot identify simple property type name")
+                }
+            }.simpleName
             SimplePropertyMetaDataImpl(
                     it.dbPropertyName,
-                    (it.property.returnType.javaType as Class<*>).simpleName
+                    simpleTypeName
             ).apply {
                 type = it.delegate.propertyType
             }
