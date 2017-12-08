@@ -50,7 +50,7 @@ subprojects {
         compile "org.jetbrains.kotlin:kotlin-runtime:$kotlin_version"
         compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
         compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
-        compile 'io.github.microutils:kotlin-logging:1.4.1'
+        compile 'io.github.microutils:kotlin-logging:1.4.7'
 
         testCompile 'junit:junit:4.12'
         testCompile 'org.slf4j:jcl-over-slf4j:1.7.21'
