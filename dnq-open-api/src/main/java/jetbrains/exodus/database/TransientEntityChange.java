@@ -23,11 +23,16 @@ import java.util.Set;
 
 public class TransientEntityChange {
 
-    private TransientEntity transientEntity;
-    private Map<String, LinkChange> changedLinksDetailed;
-    private Set<String> changedProperties;
-    private EntityChangeType changeType;
-    private TransientChangesTracker changesTracker;
+    @NotNull
+    private final TransientEntity transientEntity;
+    @Nullable
+    private final Map<String, LinkChange> changedLinksDetailed;
+    @Nullable
+    private final Set<String> changedProperties;
+    @NotNull
+    private final EntityChangeType changeType;
+    @NotNull
+    private final TransientChangesTracker changesTracker;
 
     public TransientEntityChange(@NotNull TransientChangesTracker changesTracker,
                                  @NotNull TransientEntity transientEntity,
@@ -49,6 +54,11 @@ public class TransientEntityChange {
     @NotNull
     public TransientEntity getTransientEntity() {
         return transientEntity;
+    }
+
+    @NotNull
+    public TransientChangesTracker getChangesTracker() {
+        return changesTracker;
     }
 
     public TransientEntity getSnapshotEntity() {
