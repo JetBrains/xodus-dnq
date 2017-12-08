@@ -31,23 +31,23 @@ internal fun handleChange(
 ) = when (where) {
     SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS -> when (c.changeType) {
         ADD -> listeners.visit(true) { it.addedSyncBeforeConstraints(c.transientEntity) }
-        UPDATE -> listeners.visit(true) { it.updatedSyncBeforeConstraints(c.snaphotEntity, c.transientEntity) }
-        REMOVE -> listeners.visit(true) { it.removedSyncBeforeConstraints(c.snaphotEntity) }
+        UPDATE -> listeners.visit(true) { it.updatedSyncBeforeConstraints(c.snapshotEntity, c.transientEntity) }
+        REMOVE -> listeners.visit(true) { it.removedSyncBeforeConstraints(c.snapshotEntity) }
     }
     SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS -> when (c.changeType) {
         ADD -> listeners.visit { it.addedSyncAfterConstraints(c.transientEntity) }
-        UPDATE -> listeners.visit { it.updatedSyncAfterConstraints(c.snaphotEntity, c.transientEntity) }
-        REMOVE -> listeners.visit { it.removedSyncAfterConstraints(c.snaphotEntity) }
+        UPDATE -> listeners.visit { it.updatedSyncAfterConstraints(c.snapshotEntity, c.transientEntity) }
+        REMOVE -> listeners.visit { it.removedSyncAfterConstraints(c.snapshotEntity) }
     }
     SYNC_AFTER_FLUSH -> when (c.changeType) {
         ADD -> listeners.visit { it.addedSync(c.transientEntity) }
-        UPDATE -> listeners.visit { it.updatedSync(c.snaphotEntity, c.transientEntity) }
-        REMOVE -> listeners.visit { it.removedSync(c.snaphotEntity) }
+        UPDATE -> listeners.visit { it.updatedSync(c.snapshotEntity, c.transientEntity) }
+        REMOVE -> listeners.visit { it.removedSync(c.snapshotEntity) }
     }
     ASYNC_AFTER_FLUSH -> when (c.changeType) {
         ADD -> listeners.visit { it.addedAsync(c.transientEntity) }
-        UPDATE -> listeners.visit { it.updatedAsync(c.snaphotEntity, c.transientEntity) }
-        REMOVE -> listeners.visit { it.removedAsync(c.snaphotEntity) }
+        UPDATE -> listeners.visit { it.updatedAsync(c.snapshotEntity, c.transientEntity) }
+        REMOVE -> listeners.visit { it.removedAsync(c.snapshotEntity) }
     }
 }
 

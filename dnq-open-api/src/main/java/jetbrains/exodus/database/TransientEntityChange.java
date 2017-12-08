@@ -51,6 +51,11 @@ public class TransientEntityChange {
         return transientEntity;
     }
 
+    public TransientEntity getSnapshotEntity() {
+        return changesTracker.getSnapshotEntity(transientEntity);
+    }
+
+    @Deprecated
     public TransientEntity getSnaphotEntity() {
         return changesTracker.getSnapshotEntity(transientEntity);
     }
