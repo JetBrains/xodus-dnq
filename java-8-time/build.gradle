@@ -1,0 +1,21 @@
+kotlin {
+    experimental {
+        coroutines "enable"
+    }
+}
+
+dependencies {
+    compile project(':dnq')
+    compile project(':dnq-transient-store')
+
+    compile "org.jetbrains:annotations:15.0"
+    compile "org.jetbrains.xodus:xodus-openAPI:$exodus_version"
+    compile "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
+    compile "org.jetbrains.xodus:xodus-query:$exodus_version"
+    compile "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
+    compile "org.jetbrains.xodus:xodus-utils:$exodus_version"
+
+    testCompile 'com.google.truth:truth:0.35'
+    testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
+    testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+}
