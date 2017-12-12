@@ -29,10 +29,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
+import java.time.*
 import kotlin.reflect.KMutableProperty1
 
 @RunWith(Parameterized::class)
@@ -52,6 +49,9 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
         var localDate by xdLocalDateProp()
         var localTime by xdLocalTimeProp()
         var localDateTime by xdLocalDateTimeProp()
+        var zoneOffset by xdZoneOffsetProp()
+        var offsetTime by xdOffsetTimeProp()
+        var offsetDateTime by xdOffsetDateTimeProp()
     }
 
 
@@ -66,7 +66,13 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
                 line(LocalTimeBinding, Employee, Employee::localTime,
                         { LocalTime.now() }, { LocalTime.now().plusMinutes(10) }, { LocalTime.now().minusMinutes(10) }),
                 line(LocalDateTimeBinding, Employee, Employee::localDateTime,
-                        { LocalDateTime.now() }, { LocalDateTime.now().plusMinutes(10) }, { LocalDateTime.now().minusMinutes(10) })
+                        { LocalDateTime.now() }, { LocalDateTime.now().plusMinutes(10) }, { LocalDateTime.now().minusMinutes(10) }),
+                line(ZoneOffsetBinding, Employee, Employee::zoneOffset,
+                        { ZoneOffset.UTC }, { ZoneOffset.MAX }, { ZoneOffset.MIN }),
+                line(OffsetTimeBinding, Employee, Employee::offsetTime,
+                        { OffsetTime.now() }, { OffsetTime.now().plusMinutes(10) }, { OffsetTime.now().minusMinutes(10) }),
+                line(OffsetDateTimeBinding, Employee, Employee::offsetDateTime,
+                        { OffsetDateTime.now() }, { OffsetDateTime.now().plusMinutes(10) }, { OffsetDateTime.now().minusMinutes(10) })
         )
 
         private fun <XD : XdEntity, V : Comparable<V>> line(
