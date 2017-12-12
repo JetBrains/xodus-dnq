@@ -43,7 +43,8 @@ fun <R : XdEntity> xdZonedDateTimeProp(dbName: String? = null, constraints: Cons
             XdNullableProperty<R, ZonedDateTime>(
                     ZonedDateTime::class.java,
                     dbName,
-                    constraints.collect()
+                    constraints.collect(),
+                    ZonedDateTimeBinding
             )
         }
 
@@ -54,6 +55,7 @@ fun <R : XdEntity> xdRequiredZonedDateTimeProp(unique: Boolean = false, dbName: 
                     dbName,
                     constraints.collect(),
                     if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    { e, p -> throw RequiredPropertyUndefinedException(e, p) }
+                    DEFAULT_REQUIRED,
+                    ZonedDateTimeBinding
             )
         }

@@ -18,22 +18,25 @@ package kotlinx.dnq.simple
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
+import kotlinx.dnq.simple.custom.type.XdComparableBinding
 import kotlinx.dnq.util.reattachAndGetPrimitiveValue
 import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.reflect.KProperty
 
-class XdProperty<in R : XdEntity, T : Comparable<*>>(
+class XdProperty<in R : XdEntity, T : Comparable<T>>(
         val clazz: Class<T>,
         dbPropertyName: String?,
         constraints: List<PropertyConstraint<T?>>,
         requirement: XdPropertyRequirement,
-        val default: (R, KProperty<*>) -> T
-) : XdConstrainedProperty<R, T>(
-        dbPropertyName,
-        constraints,
-        requirement,
-        PropertyType.PRIMITIVE
-) {
+        val default: (R, KProperty<*>) -> T,
+        override val binding: XdComparableBinding<T>? = null) :
+        XdCustomTypeProperty<T>,
+        XdConstrainedProperty<R, T>(
+                dbPropertyName,
+                constraints,
+                requirement,
+                PropertyType.PRIMITIVE
+        ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
         return thisRef.reattachAndGetPrimitiveValue(property.dbName) ?: default(thisRef, property)

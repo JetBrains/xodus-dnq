@@ -18,11 +18,15 @@ package kotlinx.dnq.simple
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.query.metadata.PropertyMetaData
+import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
+import kotlinx.dnq.simple.custom.type.XdComparableBinding
 import kotlinx.dnq.util.XdPropertyCachedProvider
 import kotlin.reflect.KProperty
 
 typealias Constraints<R, T> = PropertyConstraintBuilder<R, T?>.() -> Unit
+
+val DEFAULT_REQUIRED: (XdEntity, KProperty<*>) -> Nothing = { e, p -> throw RequiredPropertyUndefinedException(e, p) }
 
 fun <R : XdEntity, T : Comparable<*>> Constraints<R, T>?.collect(): List<PropertyConstraint<T?>> {
     return if (this != null) {
@@ -53,41 +57,45 @@ fun <R : XdEntity, B : Comparable<*>, T : Comparable<*>> List<PropertyConstraint
 }
 
 
-inline fun <R : XdEntity, reified T : Comparable<*>> xdCachedProp(
+inline fun <R : XdEntity, reified T : Comparable<T>> xdCachedProp(
         dbName: String? = null,
         noinline constraints: Constraints<R, T?>? = null,
         require: Boolean = false,
         unique: Boolean = false,
+        binding: XdComparableBinding<T>? = null,
         noinline default: (R, KProperty<*>) -> T) =
         XdPropertyCachedProvider {
-            xdProp(dbName, constraints, require, unique, default)
+            xdProp(dbName, constraints, require, unique, default, binding)
         }
 
-inline fun <R : XdEntity, reified T : Comparable<*>> xdNullableCachedProp(
+inline fun <R : XdEntity, reified T : Comparable<T>> xdNullableCachedProp(
         dbName: String? = null,
+        binding: XdComparableBinding<T>? = null,
         noinline constraints: Constraints<R, T?>? = null) =
         XdPropertyCachedProvider {
-            xdNullableProp(dbName, constraints)
+            xdNullableProp(dbName, constraints, binding)
         }
 
-inline fun <R : XdEntity, reified T : Comparable<*>> xdProp(
+inline fun <R : XdEntity, reified T : Comparable<T>> xdProp(
         dbName: String? = null,
         noinline constraints: Constraints<R, T?>? = null,
         require: Boolean = false,
         unique: Boolean = false,
-        noinline default: (R, KProperty<*>) -> T): XdProperty<R, T> {
+        noinline default: (R, KProperty<*>) -> T,
+        binding: XdComparableBinding<T>? = null): XdProperty<R, T> {
 
     return XdProperty(T::class.java, dbName, constraints.collect(), when {
         unique -> XdPropertyRequirement.UNIQUE
         require -> XdPropertyRequirement.REQUIRED
         else -> XdPropertyRequirement.OPTIONAL
-    }, default)
+    }, default, binding)
 }
 
-inline fun <R : XdEntity, reified T : Comparable<*>> xdNullableProp(
+inline fun <R : XdEntity, reified T : Comparable<T>> xdNullableProp(
         dbName: String? = null,
-        noinline constraints: Constraints<R, T?>? = null): XdNullableProperty<R, T> {
-    return XdNullableProperty(T::class.java, dbName, constraints.collect())
+        noinline constraints: Constraints<R, T?>? = null,
+        binding: XdComparableBinding<T>? = null): XdNullableProperty<R, T> {
+    return XdNullableProperty(T::class.java, dbName, constraints.collect(), binding)
 }
 
 fun <R : XdEntity, B, T> XdConstrainedProperty<R, B>.wrap(wrap: (B) -> T, unwrap: (T) -> B): XdWrappedProperty<R, B, T> {

@@ -41,7 +41,8 @@ fun <R : XdEntity> xdZoneOffsetProp(dbName: String? = null, constraints: Constra
             XdNullableProperty<R, ZoneOffset>(
                     ZoneOffset::class.java,
                     dbName,
-                    constraints.collect()
+                    constraints.collect(),
+                    ZoneOffsetBinding
             )
         }
 
@@ -52,6 +53,7 @@ fun <R : XdEntity> xdRequiredZoneOffsetProp(unique: Boolean = false, dbName: Str
                     dbName,
                     constraints.collect(),
                     if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    { e, p -> throw RequiredPropertyUndefinedException(e, p) }
+                    DEFAULT_REQUIRED,
+                    ZoneOffsetBinding
             )
         }

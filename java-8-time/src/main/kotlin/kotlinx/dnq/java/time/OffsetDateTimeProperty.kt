@@ -41,7 +41,8 @@ fun <R : XdEntity> xdOffsetDateTimeProp(dbName: String? = null, constraints: Con
             XdNullableProperty<R, OffsetDateTime>(
                     OffsetDateTime::class.java,
                     dbName,
-                    constraints.collect()
+                    constraints.collect(),
+                    OffsetDateTimeBinding
             )
         }
 
@@ -52,6 +53,7 @@ fun <R : XdEntity> xdRequiredOffsetDateTimeProp(unique: Boolean = false, dbName:
                     dbName,
                     constraints.collect(),
                     if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    { e, p -> throw RequiredPropertyUndefinedException(e, p) }
+                    DEFAULT_REQUIRED,
+                    OffsetDateTimeBinding
             )
         }

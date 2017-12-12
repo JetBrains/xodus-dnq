@@ -42,7 +42,8 @@ fun <R : XdEntity> xdLocalDateTimeProp(dbName: String? = null, constraints: Cons
             XdNullableProperty<R, LocalDateTime>(
                     LocalDateTime::class.java,
                     dbName,
-                    constraints.collect()
+                    constraints.collect(),
+                    LocalDateTimeBinding
             )
         }
 
@@ -53,6 +54,7 @@ fun <R : XdEntity> xdRequiredLocalDateTimeProp(unique: Boolean = false, dbName: 
                     dbName,
                     constraints.collect(),
                     if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    { e, p -> throw RequiredPropertyUndefinedException(e, p) }
+                    DEFAULT_REQUIRED,
+                    LocalDateTimeBinding
             )
         }

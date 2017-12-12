@@ -16,11 +16,12 @@
 package kotlinx.dnq.java.time
 
 import jetbrains.exodus.util.LightOutputStream
-import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.*
+import kotlinx.dnq.simple.Constraints
+import kotlinx.dnq.simple.DEFAULT_REQUIRED
 import kotlinx.dnq.simple.custom.type.*
-import kotlinx.dnq.util.XdPropertyCachedProvider
+import kotlinx.dnq.simple.xdCachedProp
+import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.Instant
 
@@ -38,21 +39,7 @@ object InstantBinding : XdComparableBinding<Instant>() {
 }
 
 fun <R : XdEntity> xdInstantProp(dbName: String? = null, constraints: Constraints<R, Instant?>? = null) =
-        XdPropertyCachedProvider {
-            XdNullableProperty<R, Instant>(
-                    Instant::class.java,
-                    dbName,
-                    constraints.collect()
-            )
-        }
+        xdNullableCachedProp(dbName, InstantBinding, constraints)
 
 fun <R : XdEntity> xdRequiredInstantProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, Instant?>? = null) =
-        XdPropertyCachedProvider {
-            XdProperty<R, Instant>(
-                    Instant::class.java,
-                    dbName,
-                    constraints.collect(),
-                    if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    { e, p -> throw RequiredPropertyUndefinedException(e, p) }
-            )
-        }
+        xdCachedProp(dbName, constraints, true, unique, InstantBinding, DEFAULT_REQUIRED)

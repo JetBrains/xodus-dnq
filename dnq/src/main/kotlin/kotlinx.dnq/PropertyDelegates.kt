@@ -28,7 +28,7 @@ fun <R : XdEntity> xdRequiredByteProp(dbName: String? = null, unique: Boolean = 
         xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0 }
 
 fun <R : XdEntity> xdNullableByteProp(dbName: String? = null, constraints: Constraints<R, Byte?>? = null) =
-        xdNullableCachedProp(dbName, constraints)
+        xdNullableCachedProp(dbName, constraints = constraints)
 
 fun <R : XdEntity> xdShortProp(dbName: String? = null, constraints: Constraints<R, Short?>? = null) =
         xdCachedProp(dbName, constraints) { _, _ -> 0 }
@@ -37,7 +37,7 @@ fun <R : XdEntity> xdRequiredShortProp(dbName: String? = null, unique: Boolean =
         xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0 }
 
 fun <R : XdEntity> xdNullableShortProp(dbName: String? = null, constraints: Constraints<R, Short?>? = null) =
-        xdNullableCachedProp(dbName, constraints)
+        xdNullableCachedProp(dbName, constraints = constraints)
 
 /**
  * Creates member property delegate for **optional** `Int` value. If database value is undefined, the property
@@ -75,7 +75,7 @@ fun <R : XdEntity> xdRequiredIntProp(dbName: String? = null, unique: Boolean = f
         xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0 }
 
 fun <R : XdEntity> xdNullableIntProp(dbName: String? = null, constraints: Constraints<R, Int?>? = null) =
-        xdNullableCachedProp(dbName, constraints)
+        xdNullableCachedProp(dbName, constraints = constraints)
 
 /**
  * Creates member property delegate for **optional** `Long` value. If database value is undefined, the property
@@ -111,7 +111,7 @@ fun <R : XdEntity> xdRequiredLongProp(dbName: String? = null, unique: Boolean = 
         xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0L }
 
 fun <R : XdEntity> xdNullableLongProp(dbName: String? = null, constraints: Constraints<R, Long?>? = null) =
-        xdNullableCachedProp(dbName, constraints)
+        xdNullableCachedProp(dbName, constraints = constraints)
 
 fun <R : XdEntity> xdFloatProp(dbName: String? = null, constraints: Constraints<R, Float?>? = null) =
         xdCachedProp(dbName, constraints) { _, _ -> 0F }
@@ -120,7 +120,7 @@ fun <R : XdEntity> xdRequiredFloatProp(dbName: String? = null, unique: Boolean =
         xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0F }
 
 fun <R : XdEntity> xdNullableFloatProp(dbName: String? = null, constraints: Constraints<R, Float?>? = null) =
-        xdNullableCachedProp(dbName, constraints)
+        xdNullableCachedProp(dbName, constraints = constraints)
 
 fun <R : XdEntity> xdDoubleProp(dbName: String? = null, constraints: Constraints<R, Double?>? = null) =
         xdCachedProp(dbName, constraints) { _, _ -> 0.0 }
@@ -129,13 +129,13 @@ fun <R : XdEntity> xdRequiredDoubleProp(dbName: String? = null, unique: Boolean 
         xdCachedProp(dbName, constraints, require = true, unique = unique) { _, _ -> 0.0 }
 
 fun <R : XdEntity> xdNullableDoubleProp(dbName: String? = null, constraints: Constraints<R, Double?>? = null) =
-        xdNullableCachedProp(dbName, constraints)
+        xdNullableCachedProp(dbName, constraints = constraints)
 
 fun <R : XdEntity> xdBooleanProp(dbName: String? = null, constraints: Constraints<R, Boolean?>? = null) =
         xdCachedProp(dbName, constraints) { _, _ -> false }
 
 fun <R : XdEntity> xdNullableBooleanProp(dbName: String? = null, constraints: Constraints<R, Boolean?>? = null) =
-        xdNullableCachedProp(dbName, constraints)
+        xdNullableCachedProp(dbName, constraints = constraints)
 
 fun <R : XdEntity> xdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: Constraints<R, String?>? = null) =
         XdPropertyCachedProvider {
@@ -159,7 +159,7 @@ fun <R : XdEntity> xdRequiredStringProp(
             constraints,
             require = true,
             unique = unique,
-            default = default ?: { e, p -> throw RequiredPropertyUndefinedException(e, p) }
+            default = default ?: DEFAULT_REQUIRED
     )
     if (trimmed) {
         prop.wrap({ it }, String::trim)
@@ -192,7 +192,7 @@ fun <R : XdEntity> xdRequiredDateTimeProp(unique: Boolean = false, dbName: Strin
                     dbName,
                     constraints.collect().wrap<R, Long, DateTime> { DateTime(it) },
                     if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    { e, p -> throw RequiredPropertyUndefinedException(e, p) }
+                    DEFAULT_REQUIRED
             ).wrap({ DateTime(it) }, { it.millis })
         }
 
