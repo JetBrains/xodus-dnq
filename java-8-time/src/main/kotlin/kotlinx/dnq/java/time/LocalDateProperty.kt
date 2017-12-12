@@ -16,11 +16,12 @@
 package kotlinx.dnq.java.time
 
 import jetbrains.exodus.util.LightOutputStream
-import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.*
+import kotlinx.dnq.simple.Constraints
+import kotlinx.dnq.simple.DEFAULT_REQUIRED
 import kotlinx.dnq.simple.custom.type.*
-import kotlinx.dnq.util.XdPropertyCachedProvider
+import kotlinx.dnq.simple.xdCachedProp
+import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.LocalDate
 
@@ -40,23 +41,7 @@ object LocalDateBinding : XdComparableBinding<LocalDate>() {
 }
 
 fun <R : XdEntity> xdLocalDateProp(dbName: String? = null, constraints: Constraints<R, LocalDate?>? = null) =
-        XdPropertyCachedProvider {
-            XdNullableProperty<R, LocalDate>(
-                    LocalDate::class.java,
-                    dbName,
-                    constraints.collect(),
-                    LocalDateBinding
-            )
-        }
+        xdNullableCachedProp(dbName, LocalDateBinding, constraints)
 
 fun <R : XdEntity> xdRequiredLocalDateProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, LocalDate?>? = null) =
-        XdPropertyCachedProvider {
-            XdProperty<R, LocalDate>(
-                    LocalDate::class.java,
-                    dbName,
-                    constraints.collect(),
-                    if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    DEFAULT_REQUIRED,
-                    LocalDateBinding
-            )
-        }
+        xdCachedProp(dbName, constraints, true, unique, LocalDateBinding, DEFAULT_REQUIRED)

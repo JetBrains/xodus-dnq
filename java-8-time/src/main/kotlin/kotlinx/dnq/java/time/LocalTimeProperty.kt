@@ -16,7 +16,6 @@
 package kotlinx.dnq.java.time
 
 import jetbrains.exodus.util.LightOutputStream
-import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.*
 import kotlinx.dnq.simple.custom.type.*
@@ -43,23 +42,7 @@ object LocalTimeBinding : XdComparableBinding<LocalTime>() {
 }
 
 fun <R : XdEntity> xdLocalTimeProp(dbName: String? = null, constraints: Constraints<R, LocalTime?>? = null) =
-        XdPropertyCachedProvider {
-            XdNullableProperty<R, LocalTime>(
-                    LocalTime::class.java,
-                    dbName,
-                    constraints.collect(),
-                    LocalTimeBinding
-            )
-        }
+        xdNullableCachedProp(dbName, LocalTimeBinding, constraints)
 
 fun <R : XdEntity> xdRequiredLocalTimeProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, LocalTime?>? = null) =
-        XdPropertyCachedProvider {
-            XdProperty<R, LocalTime>(
-                    LocalTime::class.java,
-                    dbName,
-                    constraints.collect(),
-                    if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    DEFAULT_REQUIRED,
-                    LocalTimeBinding
-            )
-        }
+        xdCachedProp(dbName, constraints, true, unique, LocalTimeBinding, DEFAULT_REQUIRED)

@@ -16,11 +16,12 @@
 package kotlinx.dnq.java.time
 
 import jetbrains.exodus.util.LightOutputStream
-import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.*
+import kotlinx.dnq.simple.Constraints
+import kotlinx.dnq.simple.DEFAULT_REQUIRED
 import kotlinx.dnq.simple.custom.type.XdComparableBinding
-import kotlinx.dnq.util.XdPropertyCachedProvider
+import kotlinx.dnq.simple.xdCachedProp
+import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.OffsetDateTime
 
@@ -37,23 +38,7 @@ object OffsetDateTimeBinding : XdComparableBinding<OffsetDateTime>() {
 }
 
 fun <R : XdEntity> xdOffsetDateTimeProp(dbName: String? = null, constraints: Constraints<R, OffsetDateTime?>? = null) =
-        XdPropertyCachedProvider {
-            XdNullableProperty<R, OffsetDateTime>(
-                    OffsetDateTime::class.java,
-                    dbName,
-                    constraints.collect(),
-                    OffsetDateTimeBinding
-            )
-        }
+        xdNullableCachedProp(dbName, OffsetDateTimeBinding, constraints)
 
 fun <R : XdEntity> xdRequiredOffsetDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, OffsetDateTime?>? = null) =
-        XdPropertyCachedProvider {
-            XdProperty<R, OffsetDateTime>(
-                    OffsetDateTime::class.java,
-                    dbName,
-                    constraints.collect(),
-                    if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    DEFAULT_REQUIRED,
-                    OffsetDateTimeBinding
-            )
-        }
+        xdCachedProp(dbName, constraints, true, unique, OffsetDateTimeBinding, DEFAULT_REQUIRED)

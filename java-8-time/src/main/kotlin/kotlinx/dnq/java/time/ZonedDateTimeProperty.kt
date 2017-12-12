@@ -16,12 +16,13 @@
 package kotlinx.dnq.java.time
 
 import jetbrains.exodus.util.LightOutputStream
-import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.*
+import kotlinx.dnq.simple.Constraints
+import kotlinx.dnq.simple.DEFAULT_REQUIRED
 import kotlinx.dnq.simple.custom.type.XdComparableBinding
 import kotlinx.dnq.simple.custom.type.readString
-import kotlinx.dnq.util.XdPropertyCachedProvider
+import kotlinx.dnq.simple.xdCachedProp
+import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -39,23 +40,7 @@ object ZonedDateTimeBinding : XdComparableBinding<ZonedDateTime>() {
 }
 
 fun <R : XdEntity> xdZonedDateTimeProp(dbName: String? = null, constraints: Constraints<R, ZonedDateTime?>? = null) =
-        XdPropertyCachedProvider {
-            XdNullableProperty<R, ZonedDateTime>(
-                    ZonedDateTime::class.java,
-                    dbName,
-                    constraints.collect(),
-                    ZonedDateTimeBinding
-            )
-        }
+        xdNullableCachedProp(dbName, ZonedDateTimeBinding, constraints)
 
 fun <R : XdEntity> xdRequiredZonedDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, ZonedDateTime?>? = null) =
-        XdPropertyCachedProvider {
-            XdProperty<R, ZonedDateTime>(
-                    ZonedDateTime::class.java,
-                    dbName,
-                    constraints.collect(),
-                    if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    DEFAULT_REQUIRED,
-                    ZonedDateTimeBinding
-            )
-        }
+        xdCachedProp(dbName, constraints, true, unique, ZonedDateTimeBinding, DEFAULT_REQUIRED)

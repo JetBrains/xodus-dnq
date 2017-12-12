@@ -16,13 +16,14 @@
 package kotlinx.dnq.java.time
 
 import jetbrains.exodus.util.LightOutputStream
-import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.*
+import kotlinx.dnq.simple.Constraints
+import kotlinx.dnq.simple.DEFAULT_REQUIRED
 import kotlinx.dnq.simple.custom.type.XdComparableBinding
 import kotlinx.dnq.simple.custom.type.readInt
 import kotlinx.dnq.simple.custom.type.writeInt
-import kotlinx.dnq.util.XdPropertyCachedProvider
+import kotlinx.dnq.simple.xdCachedProp
+import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.ZoneOffset
 
@@ -37,23 +38,7 @@ object ZoneOffsetBinding : XdComparableBinding<ZoneOffset>() {
 }
 
 fun <R : XdEntity> xdZoneOffsetProp(dbName: String? = null, constraints: Constraints<R, ZoneOffset?>? = null) =
-        XdPropertyCachedProvider {
-            XdNullableProperty<R, ZoneOffset>(
-                    ZoneOffset::class.java,
-                    dbName,
-                    constraints.collect(),
-                    ZoneOffsetBinding
-            )
-        }
+        xdNullableCachedProp(dbName, ZoneOffsetBinding, constraints)
 
 fun <R : XdEntity> xdRequiredZoneOffsetProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, ZoneOffset?>? = null) =
-        XdPropertyCachedProvider {
-            XdProperty<R, ZoneOffset>(
-                    ZoneOffset::class.java,
-                    dbName,
-                    constraints.collect(),
-                    if (unique) XdPropertyRequirement.UNIQUE else XdPropertyRequirement.REQUIRED,
-                    DEFAULT_REQUIRED,
-                    ZoneOffsetBinding
-            )
-        }
+        xdCachedProp(dbName, constraints, true, unique, ZoneOffsetBinding, DEFAULT_REQUIRED)
