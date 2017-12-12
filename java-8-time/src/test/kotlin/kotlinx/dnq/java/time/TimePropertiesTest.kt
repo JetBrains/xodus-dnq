@@ -52,6 +52,7 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
         var zoneOffset by xdZoneOffsetProp()
         var offsetTime by xdOffsetTimeProp()
         var offsetDateTime by xdOffsetDateTimeProp()
+        var zonedDateTime by xdZonedDateTimeProp()
     }
 
 
@@ -72,7 +73,9 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
                 line(OffsetTimeBinding, Employee, Employee::offsetTime,
                         { OffsetTime.now() }, { OffsetTime.now().plusMinutes(10) }, { OffsetTime.now().minusMinutes(10) }),
                 line(OffsetDateTimeBinding, Employee, Employee::offsetDateTime,
-                        { OffsetDateTime.now() }, { OffsetDateTime.now().plusMinutes(10) }, { OffsetDateTime.now().minusMinutes(10) })
+                        { OffsetDateTime.now() }, { OffsetDateTime.now().plusMinutes(10) }, { OffsetDateTime.now().minusMinutes(10) }),
+                line(ZonedDateTimeBinding, Employee, Employee::zonedDateTime,
+                        { ZonedDateTime.now() }, { ZonedDateTime.now().plusMinutes(10) }, { ZonedDateTime.now().minusMinutes(10) })
         )
 
         private fun <XD : XdEntity, V : Comparable<V>> line(
