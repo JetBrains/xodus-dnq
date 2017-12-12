@@ -20,7 +20,7 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.query.metadata.PropertyMetaData
 import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.custom.type.XdComparableBinding
+import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import kotlinx.dnq.util.XdPropertyCachedProvider
 import kotlin.reflect.KProperty
 
@@ -62,7 +62,7 @@ inline fun <R : XdEntity, reified T : Comparable<T>> xdCachedProp(
         noinline constraints: Constraints<R, T?>? = null,
         require: Boolean = false,
         unique: Boolean = false,
-        binding: XdComparableBinding<T>? = null,
+        binding: XdCustomTypeBinding<T>? = null,
         noinline default: (R, KProperty<*>) -> T) =
         XdPropertyCachedProvider {
             xdProp(dbName, constraints, require, unique, default, binding)
@@ -70,7 +70,7 @@ inline fun <R : XdEntity, reified T : Comparable<T>> xdCachedProp(
 
 inline fun <R : XdEntity, reified T : Comparable<T>> xdNullableCachedProp(
         dbName: String? = null,
-        binding: XdComparableBinding<T>? = null,
+        binding: XdCustomTypeBinding<T>? = null,
         noinline constraints: Constraints<R, T?>? = null) =
         XdPropertyCachedProvider {
             xdNullableProp(dbName, constraints, binding)
@@ -82,7 +82,7 @@ inline fun <R : XdEntity, reified T : Comparable<T>> xdProp(
         require: Boolean = false,
         unique: Boolean = false,
         noinline default: (R, KProperty<*>) -> T,
-        binding: XdComparableBinding<T>? = null): XdProperty<R, T> {
+        binding: XdCustomTypeBinding<T>? = null): XdProperty<R, T> {
 
     return XdProperty(T::class.java, dbName, constraints.collect(), when {
         unique -> XdPropertyRequirement.UNIQUE
@@ -94,7 +94,7 @@ inline fun <R : XdEntity, reified T : Comparable<T>> xdProp(
 inline fun <R : XdEntity, reified T : Comparable<T>> xdNullableProp(
         dbName: String? = null,
         noinline constraints: Constraints<R, T?>? = null,
-        binding: XdComparableBinding<T>? = null): XdNullableProperty<R, T> {
+        binding: XdCustomTypeBinding<T>? = null): XdNullableProperty<R, T> {
     return XdNullableProperty(T::class.java, dbName, constraints.collect(), binding)
 }
 

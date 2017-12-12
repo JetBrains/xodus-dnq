@@ -16,5 +16,5 @@
 package kotlinx.dnq.simple.custom.type
 
 interface XdCustomTypeProperty<V : Comparable<V>> {
-    val binding: XdComparableBinding<V>?
+    val binding: XdCustomTypeBinding<V>?
 }

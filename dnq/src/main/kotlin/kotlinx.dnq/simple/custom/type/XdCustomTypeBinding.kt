@@ -23,8 +23,8 @@ import kotlinx.dnq.transactional
 import org.jetbrains.mazine.infer.type.parameter.inferTypeParameterClass
 import java.io.ByteArrayInputStream
 
-abstract class XdComparableBinding<V : Comparable<V>> : ComparableBinding() {
-    val clazz: Class<V> = inferTypeParameterClass(XdComparableBinding::class.java, "V", javaClass)
+abstract class XdCustomTypeBinding<V : Comparable<V>> : ComparableBinding() {
+    val clazz: Class<V> = inferTypeParameterClass(XdCustomTypeBinding::class.java, "V", javaClass)
 
     fun register(store: TransientEntityStore) {
         store.transactional { txn ->

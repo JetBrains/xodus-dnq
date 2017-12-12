@@ -18,7 +18,7 @@ package kotlinx.dnq.simple
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.custom.type.XdComparableBinding
+import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
 import kotlinx.dnq.util.reattachAndGetPrimitiveValue
 import kotlinx.dnq.util.reattachAndSetPrimitiveValue
@@ -30,7 +30,7 @@ class XdProperty<in R : XdEntity, T : Comparable<T>>(
         constraints: List<PropertyConstraint<T?>>,
         requirement: XdPropertyRequirement,
         val default: (R, KProperty<*>) -> T,
-        override val binding: XdComparableBinding<T>? = null) :
+        override val binding: XdCustomTypeBinding<T>? = null) :
         XdCustomTypeProperty<T>,
         XdConstrainedProperty<R, T>(
                 dbPropertyName,

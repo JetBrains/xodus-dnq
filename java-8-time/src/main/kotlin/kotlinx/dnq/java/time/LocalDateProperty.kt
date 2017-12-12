@@ -25,7 +25,7 @@ import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.LocalDate
 
-object LocalDateBinding : XdComparableBinding<LocalDate>() {
+object LocalDateBinding : XdCustomTypeBinding<LocalDate>() {
     override fun write(stream: LightOutputStream, value: LocalDate) {
         stream.writeInt(value.year)
         stream.writeShort(value.monthValue.toShort())

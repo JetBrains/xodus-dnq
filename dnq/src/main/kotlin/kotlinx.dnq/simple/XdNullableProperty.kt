@@ -18,7 +18,7 @@ package kotlinx.dnq.simple
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.custom.type.XdComparableBinding
+import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
 import kotlinx.dnq.util.reattachAndGetPrimitiveValue
 import kotlinx.dnq.util.reattachAndSetPrimitiveValue
@@ -28,7 +28,7 @@ class XdNullableProperty<in R : XdEntity, T : Comparable<T>>(
         val clazz: Class<T>,
         dbPropertyName: String?,
         constraints: List<PropertyConstraint<T?>>,
-        override val binding: XdComparableBinding<T>? = null) :
+        override val binding: XdCustomTypeBinding<T>? = null) :
         XdCustomTypeProperty<T>,
         XdConstrainedProperty<R, T?>(
                 dbPropertyName,

@@ -19,11 +19,10 @@ import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.*
 import kotlinx.dnq.simple.custom.type.*
-import kotlinx.dnq.util.XdPropertyCachedProvider
 import java.io.ByteArrayInputStream
 import java.time.LocalTime
 
-object LocalTimeBinding : XdComparableBinding<LocalTime>() {
+object LocalTimeBinding : XdCustomTypeBinding<LocalTime>() {
 
     override fun write(stream: LightOutputStream, value: LocalTime) {
         stream.writeByte(value.hour.toByte())

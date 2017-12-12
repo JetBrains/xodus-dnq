@@ -25,7 +25,7 @@ import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.Instant
 
-object InstantBinding : XdComparableBinding<Instant>() {
+object InstantBinding : XdCustomTypeBinding<Instant>() {
     override fun write(stream: LightOutputStream, value: Instant) {
         stream.writeLong(value.epochSecond)
         stream.writeInt(value.nano)

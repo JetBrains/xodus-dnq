@@ -19,13 +19,13 @@ import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.Constraints
 import kotlinx.dnq.simple.DEFAULT_REQUIRED
-import kotlinx.dnq.simple.custom.type.XdComparableBinding
+import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import kotlinx.dnq.simple.xdCachedProp
 import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.OffsetDateTime
 
-object OffsetDateTimeBinding : XdComparableBinding<OffsetDateTime>() {
+object OffsetDateTimeBinding : XdCustomTypeBinding<OffsetDateTime>() {
 
     override fun write(stream: LightOutputStream, value: OffsetDateTime) {
         LocalDateTimeBinding.write(stream, value.toLocalDateTime())

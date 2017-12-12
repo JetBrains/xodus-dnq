@@ -19,7 +19,7 @@ import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.Constraints
 import kotlinx.dnq.simple.DEFAULT_REQUIRED
-import kotlinx.dnq.simple.custom.type.XdComparableBinding
+import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import kotlinx.dnq.simple.custom.type.readInt
 import kotlinx.dnq.simple.custom.type.writeInt
 import kotlinx.dnq.simple.xdCachedProp
@@ -27,7 +27,7 @@ import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.ZoneOffset
 
-object ZoneOffsetBinding : XdComparableBinding<ZoneOffset>() {
+object ZoneOffsetBinding : XdCustomTypeBinding<ZoneOffset>() {
     override fun write(stream: LightOutputStream, value: ZoneOffset) {
         stream.writeInt(value.totalSeconds)
     }
