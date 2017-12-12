@@ -4,6 +4,8 @@ kotlin {
     }
 }
 
+configurations { tests }
+
 dependencies {
     compile project(':dnq-open-api')
     compile project(':dnq-transient-store')
@@ -27,3 +29,10 @@ dependencies {
     testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }
+
+task testJar(type: Jar, dependsOn: testClasses) {
+    baseName = "${project.archivesBaseName}-tests"
+    from sourceSets.test.output
+}
+
+artifacts { tests testJar }
