@@ -31,6 +31,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import kotlin.reflect.KMutableProperty1
 
@@ -50,6 +51,7 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
         var instant by xdInstantProp()
         var localDate by xdLocalDateProp()
         var localTime by xdLocalTimeProp()
+        var localDateTime by xdLocalDateTimeProp()
     }
 
 
@@ -62,7 +64,9 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
                 line(LocalDateBinding, Employee, Employee::localDate,
                         { LocalDate.now() }, { LocalDate.now().plusDays(10) }, { LocalDate.now().minusDays(10) }),
                 line(LocalTimeBinding, Employee, Employee::localTime,
-                        { LocalTime.now() }, { LocalTime.now().plusMinutes(10) }, { LocalTime.now().minusMinutes(10) })
+                        { LocalTime.now() }, { LocalTime.now().plusMinutes(10) }, { LocalTime.now().minusMinutes(10) }),
+                line(LocalDateTimeBinding, Employee, Employee::localDateTime,
+                        { LocalDateTime.now() }, { LocalDateTime.now().plusMinutes(10) }, { LocalDateTime.now().minusMinutes(10) })
         )
 
         private fun <XD : XdEntity, V : Comparable<V>> line(
@@ -73,7 +77,6 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
                 greaterValue: () -> V,
                 lessValue: () -> V
         ) = arrayOf(binding, entityType, property, someValue, greaterValue, lessValue)
-
     }
 
     override fun registerEntityTypes() {
