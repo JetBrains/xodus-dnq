@@ -23,6 +23,7 @@ import kotlinx.dnq.enum.XdEnumEntityType
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.simple.*
+import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
 import kotlinx.dnq.singleton.XdSingletonEntityType
 import kotlinx.dnq.transactional
 import java.lang.reflect.ParameterizedType

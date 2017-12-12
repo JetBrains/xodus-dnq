@@ -15,7 +15,6 @@
  */
 package kotlinx.dnq.query
 
-import jetbrains.exodus.bindings.ComparableSet
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.query.*

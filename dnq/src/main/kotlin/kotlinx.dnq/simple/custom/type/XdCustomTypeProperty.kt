@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq.simple
-
-import kotlinx.dnq.simple.custom.type.XdComparableBinding
+package kotlinx.dnq.simple.custom.type
 
 interface XdCustomTypeProperty<V : Comparable<V>> {
     val binding: XdComparableBinding<V>?

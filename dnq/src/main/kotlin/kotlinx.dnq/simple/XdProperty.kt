@@ -19,6 +19,7 @@ import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.custom.type.XdComparableBinding
+import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
 import kotlinx.dnq.util.reattachAndGetPrimitiveValue
 import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.reflect.KProperty
