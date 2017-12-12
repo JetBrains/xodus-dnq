@@ -27,6 +27,7 @@ abstract class XdCustomTypeBinding<V : Comparable<V>> : ComparableBinding() {
     val clazz: Class<V> = inferTypeParameterClass(XdCustomTypeBinding::class.java, "V", javaClass)
 
     fun register(store: TransientEntityStore) {
+        XdCustomTypeBindingRegistry[clazz] = this
         store.transactional { txn ->
             val persistentStore = store.persistentStore as PersistentEntityStore
             persistentStore.registerCustomPropertyType(txn.persistentTransaction, clazz, this)
@@ -41,4 +42,9 @@ abstract class XdCustomTypeBinding<V : Comparable<V>> : ComparableBinding() {
     abstract fun write(stream: LightOutputStream, value: V)
 
     abstract fun read(stream: ByteArrayInputStream): V
+
+    abstract fun min(): V
+    abstract fun max(): V
+    abstract fun prev(value: V): V
+    abstract fun next(value: V): V
 }

@@ -36,6 +36,11 @@ object InstantBinding : XdCustomTypeBinding<Instant>() {
                 stream.readLong(), stream.readInt().toLong()
         )
     }
+
+    override fun min(): Instant = Instant.MIN
+    override fun max(): Instant = Instant.MAX
+    override fun prev(value: Instant): Instant = value.minusNanos(1)
+    override fun next(value: Instant): Instant = value.plusNanos(1)
 }
 
 fun <R : XdEntity> xdInstantProp(dbName: String? = null, constraints: Constraints<R, Instant?>? = null) =

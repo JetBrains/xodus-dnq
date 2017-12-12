@@ -24,8 +24,13 @@ import kotlinx.dnq.simple.custom.type.readString
 import kotlinx.dnq.simple.xdCachedProp
 import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
+import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.ZonedDateTime
+
+private val min = ZonedDateTime.ofLocal(LocalDateTime.MIN, ZoneOffset.UTC, ZoneOffset.UTC)
+private val max = ZonedDateTime.ofLocal(LocalDateTime.MAX, ZoneOffset.UTC, ZoneOffset.UTC)
 
 object ZonedDateTimeBinding : XdCustomTypeBinding<ZonedDateTime>() {
 
@@ -37,6 +42,11 @@ object ZonedDateTimeBinding : XdCustomTypeBinding<ZonedDateTime>() {
     override fun read(stream: ByteArrayInputStream): ZonedDateTime {
         return ZonedDateTime.of(LocalDateTimeBinding.read(stream), ZoneId.of(stream.readString()))
     }
+
+    override fun min(): ZonedDateTime = min
+    override fun max(): ZonedDateTime = max
+    override fun prev(value: ZonedDateTime): ZonedDateTime = value.minusNanos(1)
+    override fun next(value: ZonedDateTime): ZonedDateTime = value.plusNanos(1)
 }
 
 fun <R : XdEntity> xdZonedDateTimeProp(dbName: String? = null, constraints: Constraints<R, ZonedDateTime?>? = null) =

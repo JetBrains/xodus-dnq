@@ -17,8 +17,11 @@ package kotlinx.dnq.java.time
 
 import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.*
+import kotlinx.dnq.simple.Constraints
+import kotlinx.dnq.simple.DEFAULT_REQUIRED
 import kotlinx.dnq.simple.custom.type.*
+import kotlinx.dnq.simple.xdCachedProp
+import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
 import java.time.LocalTime
 
@@ -38,6 +41,11 @@ object LocalTimeBinding : XdCustomTypeBinding<LocalTime>() {
         val nano = stream.readInt()
         return LocalTime.of(hour.toInt(), minute.toInt(), second.toInt(), nano)
     }
+
+    override fun min(): LocalTime = LocalTime.MIN
+    override fun max(): LocalTime = LocalTime.MAX
+    override fun prev(value: LocalTime): LocalTime = value.minusNanos(1)
+    override fun next(value: LocalTime): LocalTime = value.plusNanos(1)
 }
 
 fun <R : XdEntity> xdLocalTimeProp(dbName: String? = null, constraints: Constraints<R, LocalTime?>? = null) =

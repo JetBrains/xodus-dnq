@@ -36,6 +36,11 @@ object LocalDateTimeBinding : XdCustomTypeBinding<LocalDateTime>() {
         val time = LocalTimeBinding.read(stream)
         return LocalDateTime.of(date, time)
     }
+
+    override fun min(): LocalDateTime = LocalDateTime.MIN
+    override fun max(): LocalDateTime = LocalDateTime.MAX
+    override fun prev(value: LocalDateTime): LocalDateTime = value.minusNanos(1)
+    override fun next(value: LocalDateTime): LocalDateTime = value.plusNanos(1)
 }
 
 fun <R : XdEntity> xdLocalDateTimeProp(dbName: String? = null, constraints: Constraints<R, LocalDateTime?>? = null) =

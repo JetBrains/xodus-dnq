@@ -35,6 +35,11 @@ object OffsetDateTimeBinding : XdCustomTypeBinding<OffsetDateTime>() {
     override fun read(stream: ByteArrayInputStream): OffsetDateTime {
         return OffsetDateTime.of(LocalDateTimeBinding.read(stream), ZoneOffsetBinding.read(stream))
     }
+
+    override fun min(): OffsetDateTime = OffsetDateTime.MIN
+    override fun max(): OffsetDateTime = OffsetDateTime.MAX
+    override fun prev(value: OffsetDateTime): OffsetDateTime = value.minusNanos(1)
+    override fun next(value: OffsetDateTime): OffsetDateTime = value.plusNanos(1)
 }
 
 fun <R : XdEntity> xdOffsetDateTimeProp(dbName: String? = null, constraints: Constraints<R, OffsetDateTime?>? = null) =

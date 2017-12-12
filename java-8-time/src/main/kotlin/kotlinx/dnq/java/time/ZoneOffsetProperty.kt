@@ -35,6 +35,18 @@ object ZoneOffsetBinding : XdCustomTypeBinding<ZoneOffset>() {
     override fun read(stream: ByteArrayInputStream): ZoneOffset {
         return ZoneOffset.ofTotalSeconds(stream.readInt())
     }
+
+    override fun min(): ZoneOffset = ZoneOffset.MIN
+
+    override fun max(): ZoneOffset = ZoneOffset.MAX
+
+    override fun prev(value: ZoneOffset): ZoneOffset {
+        return ZoneOffset.ofTotalSeconds(value.totalSeconds - 1)
+    }
+
+    override fun next(value: ZoneOffset): ZoneOffset {
+        return ZoneOffset.ofTotalSeconds(value.totalSeconds + 1)
+    }
 }
 
 fun <R : XdEntity> xdZoneOffsetProp(dbName: String? = null, constraints: Constraints<R, ZoneOffset?>? = null) =
