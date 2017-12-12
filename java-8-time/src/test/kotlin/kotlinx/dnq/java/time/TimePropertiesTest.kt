@@ -31,6 +31,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import kotlin.reflect.KMutableProperty1
 
 @RunWith(Parameterized::class)
@@ -48,6 +49,7 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
 
         var instant by xdInstantProp()
         var localDate by xdLocalDateProp()
+        var localTime by xdLocalTimeProp()
     }
 
 
@@ -58,7 +60,9 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
                 line(InstantBinding, Employee, Employee::instant,
                         { Instant.now() }, { Instant.now().plusSeconds(10) }, { Instant.now().minusSeconds(10) }),
                 line(LocalDateBinding, Employee, Employee::localDate,
-                        { LocalDate.now() }, { LocalDate.now().plusDays(10) }, { LocalDate.now().minusDays(10) })
+                        { LocalDate.now() }, { LocalDate.now().plusDays(10) }, { LocalDate.now().minusDays(10) }),
+                line(LocalTimeBinding, Employee, Employee::localTime,
+                        { LocalTime.now() }, { LocalTime.now().plusMinutes(10) }, { LocalTime.now().minusMinutes(10) })
         )
 
         private fun <XD : XdEntity, V : Comparable<V>> line(

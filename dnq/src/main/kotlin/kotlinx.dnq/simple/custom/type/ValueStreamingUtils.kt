@@ -4,6 +4,9 @@ import jetbrains.exodus.bindings.*
 import jetbrains.exodus.util.LightOutputStream
 import java.io.ByteArrayInputStream
 
+fun ByteArrayInputStream.readByte() = (this.read() and 0xFF).toByte()
+fun LightOutputStream.writeByte(value: Byte) = this.write(value.toInt())
+
 fun ByteArrayInputStream.readShort() = BindingUtils.readShort(this)
 fun LightOutputStream.writeShort(value: Short) = ShortBinding.BINDING.writeObject(this, value)
 
