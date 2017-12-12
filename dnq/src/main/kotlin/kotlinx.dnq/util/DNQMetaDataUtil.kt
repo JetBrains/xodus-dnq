@@ -16,15 +16,13 @@
 package kotlinx.dnq.util
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.query.metadata.*
 import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.enum.XdEnumEntityType
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink
-import kotlinx.dnq.simple.RequireIfConstraint
-import kotlinx.dnq.simple.XdConstrainedProperty
-import kotlinx.dnq.simple.XdPropertyRequirement
-import kotlinx.dnq.simple.XdWrappedProperty
+import kotlinx.dnq.simple.*
 import kotlinx.dnq.singleton.XdSingletonEntityType
 import kotlinx.dnq.transactional
 import java.lang.reflect.ParameterizedType
@@ -38,6 +36,7 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
 
     naturalNodes.forEach {
         val (entityTypeName, node) = it
+        entityStore.registerCustomTypes(node)
         modelMetaData.addEntityMetaData(entityTypeName, node)
         entityStore.setCachedPersistentClassInstance(entityTypeName, node.naturalPersistentClassInstance)
     }
@@ -75,6 +74,14 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
             it.get()
         }
     }
+}
+
+private fun TransientEntityStore.registerCustomTypes(node: XdHierarchyNode) {
+    node.getAllProperties()
+            .map { it.delegate }
+            .filterIsInstance<XdCustomTypeProperty<*>>()
+            .mapNotNull { it.binding }
+            .forEach { it.register(this) }
 }
 
 private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: XdHierarchyNode) {

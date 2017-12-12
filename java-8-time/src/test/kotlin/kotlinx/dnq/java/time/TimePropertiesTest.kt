@@ -22,10 +22,8 @@ import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.ne
 import kotlinx.dnq.query.query
 import kotlinx.dnq.query.toList
-import kotlinx.dnq.simple.custom.type.XdComparableBinding
 import kotlinx.dnq.util.getDBName
 import kotlinx.dnq.util.isDefined
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -34,7 +32,6 @@ import kotlin.reflect.KMutableProperty1
 
 @RunWith(Parameterized::class)
 class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
-        val binding: XdComparableBinding<V>,
         val entityType: XdEntityType<XD>,
         val property: KMutableProperty1<XD, V?>,
         val someValue: () -> V,
@@ -60,44 +57,36 @@ class TimePropertiesTest<XD : XdEntity, V : Comparable<V>>(
         @Parameterized.Parameters(name = "{1}")
         @JvmStatic
         fun data() = listOf(
-                line(InstantBinding, Employee, Employee::instant,
+                line(Employee, Employee::instant,
                         { Instant.now() }, { Instant.now().plusSeconds(10) }, { Instant.now().minusSeconds(10) }),
-                line(LocalDateBinding, Employee, Employee::localDate,
+                line(Employee, Employee::localDate,
                         { LocalDate.now() }, { LocalDate.now().plusDays(10) }, { LocalDate.now().minusDays(10) }),
-                line(LocalTimeBinding, Employee, Employee::localTime,
+                line(Employee, Employee::localTime,
                         { LocalTime.now() }, { LocalTime.now().plusMinutes(10) }, { LocalTime.now().minusMinutes(10) }),
-                line(LocalDateTimeBinding, Employee, Employee::localDateTime,
+                line(Employee, Employee::localDateTime,
                         { LocalDateTime.now() }, { LocalDateTime.now().plusMinutes(10) }, { LocalDateTime.now().minusMinutes(10) }),
-                line(ZoneOffsetBinding, Employee, Employee::zoneOffset,
+                line(Employee, Employee::zoneOffset,
                         { ZoneOffset.UTC }, { ZoneOffset.MAX }, { ZoneOffset.MIN }),
-                line(OffsetTimeBinding, Employee, Employee::offsetTime,
+                line(Employee, Employee::offsetTime,
                         { OffsetTime.now() }, { OffsetTime.now().plusMinutes(10) }, { OffsetTime.now().minusMinutes(10) }),
-                line(OffsetDateTimeBinding, Employee, Employee::offsetDateTime,
+                line(Employee, Employee::offsetDateTime,
                         { OffsetDateTime.now() }, { OffsetDateTime.now().plusMinutes(10) }, { OffsetDateTime.now().minusMinutes(10) }),
-                line(ZonedDateTimeBinding, Employee, Employee::zonedDateTime,
+                line(Employee, Employee::zonedDateTime,
                         { ZonedDateTime.now() }, { ZonedDateTime.now().plusMinutes(10) }, { ZonedDateTime.now().minusMinutes(10) })
         )
 
         private fun <XD : XdEntity, V : Comparable<V>> line(
-                binding: XdComparableBinding<V>,
                 entityType: XdEntityType<XD>,
                 property: KMutableProperty1<XD, V?>,
                 someValue: () -> V,
                 greaterValue: () -> V,
                 lessValue: () -> V
-        ) = arrayOf(binding, entityType, property, someValue, greaterValue, lessValue)
+        ) = arrayOf(entityType, property, someValue, greaterValue, lessValue)
     }
 
     override fun registerEntityTypes() {
         XdModel.registerNodes(entityType)
     }
-
-    @Before
-    fun initPropertyValueSerializer() {
-        // TODO: move to initMetaData()
-        binding.register(store)
-    }
-
 
     @Test
     fun `null by default`() {
