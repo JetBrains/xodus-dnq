@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.simple
 
+import kotlinx.dnq.simple.custom.type.XdCustomTypeBindingRegistry
 import kotlin.reflect.KClass
 
 
@@ -41,7 +42,7 @@ fun <V : Comparable<V>> KClass<V>.nextRaw(value: V): Comparable<*>? = when (this
                 .map { dValue + it }
                 .first { it != dValue }
     }
-    else -> null
+    else -> XdCustomTypeBindingRegistry[this.java]?.next(value)
 }
 
 fun <V : Comparable<V>> KClass<V>.prev(value: V) = prevRaw(value) as Comparable
@@ -64,7 +65,7 @@ fun <V : Comparable<V>> KClass<V>.prevRaw(value: V): Comparable<*>? = when (this
                 .map { dValue - it }
                 .first { it != dValue }
     }
-    else -> null
+    else -> XdCustomTypeBindingRegistry[this.java]?.prev(value)
 }
 
 fun <V : Comparable<V>> KClass<V>.maxValue() = maxValueRaw() as Comparable
@@ -77,7 +78,7 @@ fun <V : Comparable<V>> KClass<V>.maxValueRaw(): Comparable<*>? = when (this) {
     Long::class -> Long.MAX_VALUE
     Float::class -> Float.MAX_VALUE
     Double::class -> Double.MAX_VALUE
-    else -> null
+    else -> XdCustomTypeBindingRegistry[this.java]?.max()
 }
 
 fun <V : Comparable<V>> KClass<V>.minValue() = minValueRaw() as Comparable
@@ -90,5 +91,5 @@ fun <V : Comparable<V>> KClass<V>.minValueRaw(): Comparable<*>? = when (this) {
     Long::class -> Long.MIN_VALUE
     Float::class -> -Float.MAX_VALUE
     Double::class -> -Double.MAX_VALUE
-    else -> null
+    else -> XdCustomTypeBindingRegistry[this.java]?.min()
 }
