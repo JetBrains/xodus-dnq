@@ -59,7 +59,7 @@ class LocalTimePropertyTestEntity(entity: Entity) : XdEntity(entity) {
 class LocalDateTimePropertyTestEntity(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<LocalDateTimePropertyTestEntity>()
 
-    var property by xdLocalDateTimeProp()
+    var property by xdLocalDateTimeProp { isAfter({ LocalDateTime.now().minusYears(1) }) }
     var propertyRequired by xdRequiredLocalDateTimeProp()
 }
 
