@@ -116,12 +116,12 @@ val timePropertiesTestData = listOf(
                 LocalDateTimePropertyTestEntity::propertyRequired,
                 { LocalDateTime.now() }, { it.plusMinutes(10) }, { it.minusMinutes(10) }
         ),
-//        TimePropertiesTestData(
-//                ZoneOffsetPropertyTestEntity,
-//                ZoneOffsetPropertyTestEntity::property,
-//                ZoneOffsetPropertyTestEntity::propertyRequired,
-//                { ZoneOffset.UTC }, { ZoneOffset.ofHours(-2) }, { ZoneOffset.ofHours(+2) }
-//        ),
+        TimePropertiesTestData(
+                ZoneOffsetPropertyTestEntity,
+                ZoneOffsetPropertyTestEntity::property,
+                ZoneOffsetPropertyTestEntity::propertyRequired,
+                { ZoneOffset.ofHours(0) }, { ZoneOffset.ofHours(-2) }, { ZoneOffset.ofHours(+2) }
+        ),
         TimePropertiesTestData(
                 OffsetTimePropertyTestEntity,
                 OffsetTimePropertyTestEntity::property,

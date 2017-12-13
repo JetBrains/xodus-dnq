@@ -15,12 +15,12 @@
  */
 package kotlinx.dnq.java.time
 
+import jetbrains.exodus.bindings.StringBinding
 import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.Constraints
 import kotlinx.dnq.simple.DEFAULT_REQUIRED
 import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
-import kotlinx.dnq.simple.custom.type.readString
 import kotlinx.dnq.simple.xdCachedProp
 import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
@@ -40,7 +40,9 @@ object ZonedDateTimeBinding : XdCustomTypeBinding<ZonedDateTime>() {
     }
 
     override fun read(stream: ByteArrayInputStream): ZonedDateTime {
-        return ZonedDateTime.of(LocalDateTimeBinding.read(stream), ZoneId.of(stream.readString()))
+        val localDateTime = LocalDateTimeBinding.read(stream)
+        val zoneId = StringBinding.BINDING.readObject(stream)
+        return ZonedDateTime.of(localDateTime, ZoneId.of(zoneId))
     }
 
     override fun min(): ZonedDateTime = min

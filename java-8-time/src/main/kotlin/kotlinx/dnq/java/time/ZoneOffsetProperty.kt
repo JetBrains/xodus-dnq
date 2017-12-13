@@ -15,13 +15,12 @@
  */
 package kotlinx.dnq.java.time
 
+import jetbrains.exodus.bindings.IntegerBinding
 import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.Constraints
 import kotlinx.dnq.simple.DEFAULT_REQUIRED
 import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
-import kotlinx.dnq.simple.custom.type.readInt
-import kotlinx.dnq.simple.custom.type.writeInt
 import kotlinx.dnq.simple.xdCachedProp
 import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
@@ -29,23 +28,23 @@ import java.time.ZoneOffset
 
 object ZoneOffsetBinding : XdCustomTypeBinding<ZoneOffset>() {
     override fun write(stream: LightOutputStream, value: ZoneOffset) {
-        stream.writeInt(value.totalSeconds)
+        IntegerBinding.BINDING.writeObject(stream, -value.totalSeconds)
     }
 
     override fun read(stream: ByteArrayInputStream): ZoneOffset {
-        return ZoneOffset.ofTotalSeconds(stream.readInt())
+        return ZoneOffset.ofTotalSeconds(-IntegerBinding.BINDING.readObject(stream))
     }
 
-    override fun min(): ZoneOffset = ZoneOffset.MIN
+    override fun min(): ZoneOffset = ZoneOffset.MAX
 
-    override fun max(): ZoneOffset = ZoneOffset.MAX
+    override fun max(): ZoneOffset = ZoneOffset.MIN
 
     override fun prev(value: ZoneOffset): ZoneOffset {
-        return ZoneOffset.ofTotalSeconds(value.totalSeconds - 1)
+        return ZoneOffset.ofTotalSeconds(value.totalSeconds + 1)
     }
 
     override fun next(value: ZoneOffset): ZoneOffset {
-        return ZoneOffset.ofTotalSeconds(value.totalSeconds + 1)
+        return ZoneOffset.ofTotalSeconds(value.totalSeconds - 1)
     }
 }
 

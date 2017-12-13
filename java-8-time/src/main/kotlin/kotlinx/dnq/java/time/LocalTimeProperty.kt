@@ -15,6 +15,8 @@
  */
 package kotlinx.dnq.java.time
 
+import jetbrains.exodus.bindings.ByteBinding
+import jetbrains.exodus.bindings.IntegerBinding
 import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.Constraints
@@ -28,17 +30,17 @@ import java.time.LocalTime
 object LocalTimeBinding : XdCustomTypeBinding<LocalTime>() {
 
     override fun write(stream: LightOutputStream, value: LocalTime) {
-        stream.writeByte(value.hour.toByte())
-        stream.writeByte(value.minute.toByte())
-        stream.writeByte(value.second.toByte())
-        stream.writeInt(value.nano)
+        ByteBinding.BINDING.writeObject(stream, value.hour.toByte())
+        ByteBinding.BINDING.writeObject(stream, value.minute.toByte())
+        ByteBinding.BINDING.writeObject(stream, value.second.toByte())
+        IntegerBinding.BINDING.writeObject(stream, value.nano)
     }
 
     override fun read(stream: ByteArrayInputStream): LocalTime {
-        val hour = stream.readByte()
-        val minute = stream.readByte()
-        val second = stream.readByte()
-        val nano = stream.readInt()
+        val hour = ByteBinding.BINDING.readObject(stream)
+        val minute = ByteBinding.BINDING.readObject(stream)
+        val second = ByteBinding.BINDING.readObject(stream)
+        val nano = IntegerBinding.BINDING.readObject(stream)
         return LocalTime.of(hour.toInt(), minute.toInt(), second.toInt(), nano)
     }
 

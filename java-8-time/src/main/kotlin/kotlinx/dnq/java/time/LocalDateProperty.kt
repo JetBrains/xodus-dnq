@@ -15,6 +15,8 @@
  */
 package kotlinx.dnq.java.time
 
+import jetbrains.exodus.bindings.IntegerBinding
+import jetbrains.exodus.bindings.ShortBinding
 import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.Constraints
@@ -27,15 +29,15 @@ import java.time.LocalDate
 
 object LocalDateBinding : XdCustomTypeBinding<LocalDate>() {
     override fun write(stream: LightOutputStream, value: LocalDate) {
-        stream.writeInt(value.year)
-        stream.writeShort(value.monthValue.toShort())
-        stream.writeShort(value.dayOfMonth.toShort())
+        IntegerBinding.BINDING.writeObject(stream, value.year)
+        ShortBinding.BINDING.writeObject(stream, value.monthValue.toShort())
+        ShortBinding.BINDING.writeObject(stream, value.dayOfMonth.toShort())
     }
 
     override fun read(stream: ByteArrayInputStream): LocalDate {
-        val year = stream.readInt()
-        val month = stream.readShort()
-        val day = stream.readShort()
+        val year = IntegerBinding.BINDING.readObject(stream)
+        val month = ShortBinding.BINDING.readObject(stream)
+        val day = ShortBinding.BINDING.readObject(stream)
         return LocalDate.of(year, month.toInt(), day.toInt())
     }
 

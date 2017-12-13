@@ -15,11 +15,13 @@
  */
 package kotlinx.dnq.java.time
 
+import jetbrains.exodus.bindings.IntegerBinding
+import jetbrains.exodus.bindings.LongBinding
 import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.Constraints
 import kotlinx.dnq.simple.DEFAULT_REQUIRED
-import kotlinx.dnq.simple.custom.type.*
+import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import kotlinx.dnq.simple.xdCachedProp
 import kotlinx.dnq.simple.xdNullableCachedProp
 import java.io.ByteArrayInputStream
@@ -27,14 +29,14 @@ import java.time.Instant
 
 object InstantBinding : XdCustomTypeBinding<Instant>() {
     override fun write(stream: LightOutputStream, value: Instant) {
-        stream.writeLong(value.epochSecond)
-        stream.writeInt(value.nano)
+        LongBinding.BINDING.writeObject(stream, value.epochSecond)
+        IntegerBinding.BINDING.writeObject(stream, value.nano)
     }
 
     override fun read(stream: ByteArrayInputStream): Instant {
-        return Instant.ofEpochSecond(
-                stream.readLong(), stream.readInt().toLong()
-        )
+        val epochSeconds = LongBinding.BINDING.readObject(stream)
+        val nano = IntegerBinding.BINDING.readObject(stream).toLong()
+        return Instant.ofEpochSecond(epochSeconds, nano)
     }
 
     override fun min(): Instant = Instant.MIN

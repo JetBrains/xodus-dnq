@@ -33,7 +33,9 @@ object OffsetTimeBinding : XdCustomTypeBinding<OffsetTime>() {
     }
 
     override fun read(stream: ByteArrayInputStream): OffsetTime {
-        return OffsetTime.of(LocalTimeBinding.read(stream), ZoneOffsetBinding.read(stream))
+        val time = LocalTimeBinding.read(stream)
+        val offset = ZoneOffsetBinding.read(stream)
+        return OffsetTime.of(time, offset)
     }
 
     override fun min(): OffsetTime = OffsetTime.MIN
