@@ -39,7 +39,7 @@ compile 'org.jetbrains.xodus:dnq:${version}'
 ```
 
 ### Use Xodus-DNQ
-[See code in repository](https://github.com/JetBrains/xodus-dnq/blob/master/dnq/src/test/kotlin/kotlinx.dnq/SampleShortApp.kt).
+[See code in repository](https://github.com/JetBrains/xodus-dnq/blob/master/dnq/src/test/kotlin/kotlinx/dnq/sample/SampleShortApp.kt).
 ```kotlin
 // Define persistent class. It should extend XdEntity
 class XdPost(entity: Entity) : XdEntity(entity) {
