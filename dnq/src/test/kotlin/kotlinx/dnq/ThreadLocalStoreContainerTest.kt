@@ -15,14 +15,11 @@
  */
 package kotlinx.dnq
 
-import com.google.common.truth.Truth
-import com.google.common.truth.Truth.*
+import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.query.size
 import kotlinx.dnq.query.toList
-import kotlinx.dnq.sample.XdMultiStoreEntity
 import kotlinx.dnq.store.container.ThreadLocalStoreContainer
 import kotlinx.dnq.store.container.createTransientEntityStore
 import kotlinx.dnq.util.initMetaData
