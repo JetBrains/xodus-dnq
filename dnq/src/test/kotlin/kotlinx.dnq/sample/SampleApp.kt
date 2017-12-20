@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq
+package kotlinx.dnq.sample
 
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.*
 import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.enum.XdEnumEntityType
 import kotlinx.dnq.query.*
