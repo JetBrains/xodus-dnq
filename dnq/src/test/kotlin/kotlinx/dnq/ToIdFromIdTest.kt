@@ -19,6 +19,7 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import kotlinx.dnq.query.first
+import kotlinx.dnq.util.findById
 import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertFailsWith
@@ -51,25 +52,26 @@ class ToIdFromIdTest : DBTest() {
                     .toString()
         }
 
-        transactional { txn ->
-            val entity = txn.getEntity(txn.toEntityId(id))
-            assertThat(entity).isNotNull()
+        transactional {
+            val user = XdUser.findById(id)
+            assertThat(user).isNotNull()
+            assertThat(user.xdId).isEqualTo(id)
         }
     }
 
     @Test
     fun `find by correct id`() {
-        transactional { txn ->
-            val entity = txn.getEntity(txn.toEntityId("0-0"))
-            assertThat(entity).isNotNull()
+        transactional {
+            val user = XdUser.findById("0-0")
+            assertThat(user).isNotNull()
         }
     }
 
     @Test
     fun `find by incorrect id`() {
-        transactional { txn ->
+        transactional {
             assertFailsWith<EntityRemovedInDatabaseException> {
-                txn.getEntity(txn.toEntityId("0-1"))
+                XdUser.findById("0-1")
             }
         }
     }

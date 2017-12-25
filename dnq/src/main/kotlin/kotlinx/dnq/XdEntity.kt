@@ -24,6 +24,7 @@ import kotlinx.dnq.util.requireThreadSession
 
 abstract class XdEntity(val entity: Entity) {
     val entityId: EntityId get() = entity.id
+    val xdId: String get() = entityId.toString()
 
     val isNew: Boolean
         get() = reattach().isNew
