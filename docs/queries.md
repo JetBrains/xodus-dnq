@@ -65,7 +65,7 @@ XdUser.queryOf(user)
 ### Filter
 
 Xodus-DNQ provides methods for entity filtering using built-in Xodus indices. It's much more efficient and 
-performant that in-memory collection manipulations.
+performant than in-memory collection manipulations.
 
 ```kotlin
 // Get all users with skill greater than 2
