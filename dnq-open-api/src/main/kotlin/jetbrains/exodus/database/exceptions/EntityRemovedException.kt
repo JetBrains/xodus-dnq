@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.EntityStoreException;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.EntityStoreException
 
-public class EntityRemovedException extends EntityStoreException {
-
-    private TransientEntity entity;
-
-    /**
-     * @param entity transient entity that was removed in database
-     */
-    public EntityRemovedException(TransientEntity entity) {
-        super("Entity [" + entity + "] was removed by you.");
-        this.entity = entity;
-    }
-
-}
+/**
+ * @param entity transient entity that was removed in database
+ */
+class EntityRemovedException(private val entity: TransientEntity) : EntityStoreException("Entity [$entity] was removed by you.")

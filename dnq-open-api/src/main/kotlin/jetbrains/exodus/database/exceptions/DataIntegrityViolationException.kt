@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,56 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityId;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.EntityStoreException;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
+import jetbrains.exodus.entitystore.EntityStoreException
 
-public abstract class DataIntegrityViolationException extends EntityStoreException {
+abstract class DataIntegrityViolationException : EntityStoreException {
 
-    protected EntityId entityId;
-    protected transient Entity entity;
-    protected String displayMessage;
+    val entityId: EntityId?
+    val displayMessage: String
 
-    /**
-     * @param entity entity that has incoming links
-     */
-    public DataIntegrityViolationException(@NotNull String message, @Nullable String displayMessage, @NotNull Entity entity) {
-        this(message, displayMessage);
-        this.entity = entity;
-        if (entity != null) {
-            this.entityId = entity.getId();
-        }
+    open val entityFieldHandler: EntityFieldHandler?
+        get() = entityId?.let { EntityFieldHandler(it, null) }
+
+    @JvmOverloads
+    constructor(message: String, displayMessage: String = message, entity: Entity? = null) : super(message) {
+        this.displayMessage = displayMessage
+        this.entityId = entity?.id
     }
 
-    protected DataIntegrityViolationException(@NotNull String message, @NotNull Entity entity,  @NotNull Throwable cause) {
-        super(message, cause);
-        this.entityId = entity.getId();
+    @JvmOverloads
+    constructor(message: String, displayMessage: String = message, entity: Entity? = null, cause: Throwable) : super(message, cause) {
+        this.displayMessage = displayMessage
+        this.entityId = entity?.id
     }
 
-    protected DataIntegrityViolationException(@NotNull String message, @Nullable String displayMessage) {
-        super(message);
-        this.displayMessage = displayMessage != null ? displayMessage : message;
-    }
-
-    protected DataIntegrityViolationException(String message) {
-        this(message, null);
-    }
-
-    public boolean relatesTo(@NotNull TransientEntity entity, @Nullable Object fieldIdent) {
-        return entity.getId().equals(entityId);
-    }
-
-    public EntityFieldHandler getEntityFieldHandler() {
-        return entityId == null ? null : EntityFieldHandler.create(entityId, null);
-    }
-
-    public String getDisplayMessage() {
-        return displayMessage;
-    }
-
+    open fun relatesTo(entity: TransientEntity, fieldIdentity: Any?) = entity.id == entityId
 }

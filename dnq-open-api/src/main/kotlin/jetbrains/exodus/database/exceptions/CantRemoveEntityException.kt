@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,50 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.database.TransientEntity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.entitystore.Entity
 
-import java.util.Collection;
-import java.util.List;
+class CantRemoveEntityException(
+        entity: Entity,
+        displayMessage: String,
+        val entityPresentation: String,
+        val incomingLinkDescriptions: Collection<Collection<String>>
+) : DataIntegrityViolationException(buildMessage(entityPresentation, incomingLinkDescriptions), displayMessage, entity = entity) {
+    val causes get() = incomingLinkDescriptions
+}
 
-public class CantRemoveEntityException extends DataIntegrityViolationException {
-
-    private String entityPresentation;
-    private Collection<Collection<String>> incomingLinkDescriptions;
-
-
-    public CantRemoveEntityException(Entity entity, String message, String entityPrsentation, Collection<Collection<String>> descriptions) {
-        super(message, message, entity);
-        this.entityPresentation = entityPrsentation;
-        this.incomingLinkDescriptions = descriptions;
-    }
-
-    public String getEntityPresentation() {
-        return entityPresentation;
-    }
-
-    public Collection<Collection<String>> getCauses() {
-        return incomingLinkDescriptions;
-    }
-
-    public boolean relatesTo(@NotNull TransientEntity entity, @Nullable Object fieldIdent) {
-        return entity.getId().equals(entityId);
-    }
-
-    @Override
-    public String getMessage() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.getMessage());
-        for (Collection<String> description : incomingLinkDescriptions) {
-            for (String line : description) {
-                sb.append(line).append(" ");
-            }
-            sb.append("; ");
-        }
-        return sb.toString();
+private fun buildMessage(entityPresentation: String, incomingLinkDescriptions: Collection<Collection<String>>) = buildString {
+    append("Could not delete $entityPresentation, because it is referenced as: ")
+    incomingLinkDescriptions.forEach { description ->
+        description.joinTo(this, " ")
+        append("; ")
     }
 }

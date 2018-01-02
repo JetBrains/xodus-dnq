@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,28 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.database.TransientEntity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientEntity
 
-import java.util.Set;
+class OrphanChildException(entity: TransientEntity, private val parents: Set<String>) :
+        DataIntegrityViolationException("Entity [$entity] has no parent, but should have.", entity = entity) {
 
-public class OrphanChildException extends DataIntegrityViolationException {
+    override val entityFieldHandler = EntityFieldHandler.create(entity.id, parents.first())
 
-    private Set<String> parents;
-
-    public OrphanChildException(@NotNull TransientEntity entity, @NotNull Set<String> parents) {
-        super("Entity [" + entity + "] has no parent, but should have.", null, entity);
-        this.parents = parents;
-    }
-
-    public boolean relatesTo(@NotNull TransientEntity entity, @Nullable Object fieldIdent) {
-        return super.relatesTo(entity, fieldIdent) && parents.contains(fieldIdent);
-    }
-
-    public EntityFieldHandler getEntityFieldHandler() {
-        return EntityFieldHandler.create(entityId, parents.iterator().next());
+    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
+        return super.relatesTo(entity, fieldIdentity) && fieldIdentity in parents
     }
 }

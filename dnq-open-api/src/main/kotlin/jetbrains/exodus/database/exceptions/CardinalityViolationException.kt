@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,33 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.query.metadata.AssociationEndMetaData;
-import jetbrains.exodus.database.TransientEntity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.query.metadata.AssociationEndMetaData
 
-public class CardinalityViolationException extends DataIntegrityViolationException {
+class CardinalityViolationException(message: String, entity: TransientEntity, associationEndName: String) :
+        DataIntegrityViolationException(message, "Value is required", entity) {
 
-    private String associationEndName;
+    override val entityFieldHandler = EntityFieldHandler(entity.id, associationEndName)
 
-    public CardinalityViolationException(String message, @NotNull TransientEntity entity, @NotNull String name) {
-        super(message, "Value is required", entity);
-        this.associationEndName = name;
+    constructor(entity: TransientEntity, md: AssociationEndMetaData) :
+            this("Cardinality violation for [$entity.${md.name}]. Required cardinality is [${md.cardinality.getName()}]", entity, md.name)
+
+    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
+        return super.relatesTo(entity, fieldIdentity) && fieldIdentity == entityFieldHandler.fieldName
     }
-
-    public CardinalityViolationException(@NotNull TransientEntity entity, @NotNull AssociationEndMetaData md) {
-        super("Cardinality violation for [" + entity + "." + md.getName() + "]. Required cardinality is [" + md.getCardinality().getName() + "]", "Value is required", entity);
-        this.associationEndName = md.getName();
-    }
-
-    public boolean relatesTo(@NotNull TransientEntity entity, @Nullable Object fieldIdent) {
-        return super.relatesTo(entity, fieldIdent) && associationEndName.equals(fieldIdent);
-    }
-
-    public EntityFieldHandler getEntityFieldHandler() {
-        return EntityFieldHandler.create(entityId, associationEndName);
-    }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,32 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.query.metadata.Index;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.query.metadata.IndexField;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.query.metadata.Index
 
-import java.util.List;
+class UniqueIndexViolationException(
+        entity: TransientEntity,
+        index: Index
+) : SimplePropertyValidationException(
+        buildMessage(entity, index),
+        "Value should be unique",
+        entity,
+        index.fields.first().name
+)
 
-public class UniqueIndexViolationException extends SimplePropertyValidationException {
-
-    public UniqueIndexViolationException(TransientEntity entity, Index index) {
-        super("Index [" + index + "]" + " must be unique. Conflicting value: [" + formatConflict(entity, index) + "]",
-                "Value should be unique", entity, index.getFields().get(0).getName());
-    }
-
-    private static String formatConflict(TransientEntity entity, Index index){
-        StringBuilder conflict = new StringBuilder();
-        List<IndexField> fields = index.getFields();
-        for(IndexField field: fields){
-            if(field.isProperty()) {
-                conflict.append(entity.getProperty(field.getName()));
+private fun buildMessage(entity: TransientEntity, index: Index) = buildString {
+    append("Index [$index] must be unique. Conflicting value: ")
+    if (index.fields.isNotEmpty()) {
+        index.fields.joinTo(this, ", ", prefix = "[", postfix = "]") { field ->
+            if (field.isProperty) {
+                entity.getProperty(field.name).toString()
             } else {
-                conflict.append(entity.getLink(field.getName()));
+                entity.getLink(field.name).toString()
             }
-            conflict.append(", ");
         }
-        return conflict.length() > 0 ? conflict.substring(0, conflict.length() - 2) : "No accessible value";
+    } else {
+        append("No accessible value")
     }
 }

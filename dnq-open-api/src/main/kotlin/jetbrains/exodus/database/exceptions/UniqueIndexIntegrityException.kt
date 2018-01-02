@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.query.metadata.Index;
-import jetbrains.exodus.database.TransientEntity;
-import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.query.metadata.Index
 
-public class UniqueIndexIntegrityException extends DataIntegrityViolationException {
-
-    public UniqueIndexIntegrityException(@NotNull TransientEntity entity, @NotNull Index index, @NotNull Throwable cause) {
-        super("Index [" + index + "]" + " is corrupted.", entity, cause);
-    }
-}
+class UniqueIndexIntegrityException(
+        entity: TransientEntity,
+        index: Index,
+        cause: Throwable
+) : DataIntegrityViolationException("Index [$index] is corrupted", entity = entity, cause = cause)

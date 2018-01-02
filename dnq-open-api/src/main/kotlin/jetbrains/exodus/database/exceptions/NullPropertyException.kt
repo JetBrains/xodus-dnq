@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.database.TransientEntity;
+import jetbrains.exodus.database.TransientEntity
 
-public class NullPropertyException extends SimplePropertyValidationException {
-
-    public NullPropertyException(TransientEntity entity, String propertyName) {
-        super("Property [" + entity + "." + propertyName + "]" + " can't be empty.", "Value is required", entity, propertyName);
-    }
-
-}
+class NullPropertyException(
+        entity: TransientEntity,
+        propertyName: String
+) : SimplePropertyValidationException(
+        "Property [$entity.$propertyName] can't be empty.",
+        "Value is required",
+        entity,
+        propertyName
+)

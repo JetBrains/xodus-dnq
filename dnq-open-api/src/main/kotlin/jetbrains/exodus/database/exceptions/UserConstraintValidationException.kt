@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.database.TransientEntity;
-import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.entitystore.Entity
 
-public class UserConstraintValidationException extends DataIntegrityViolationException {
-
-    public UserConstraintValidationException(@NotNull String message, @NotNull TransientEntity entity) {
-        super(message, null, entity);
-    }
-
-    public UserConstraintValidationException(@NotNull String message) {
-        super(message);
-    }
-
-}
+class UserConstraintValidationException @JvmOverloads constructor(
+        message: String,
+        entity: Entity? = null
+) : DataIntegrityViolationException(message, entity = entity)

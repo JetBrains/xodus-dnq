@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,30 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.database.TransientEntity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientEntity
 
-public class SimplePropertyValidationException extends DataIntegrityViolationException {
+open class SimplePropertyValidationException(
+        message: String,
+        displayMessage: String,
+        entity: TransientEntity,
+        val propertyName: String) : DataIntegrityViolationException(message, displayMessage, entity) {
 
-    protected String propertyName;
+    override val entityFieldHandler = EntityFieldHandler.create(entity.id, propertyName)
 
-    public SimplePropertyValidationException(String message, String displayMessage, TransientEntity entity, String propertyName) {
-        super(message, displayMessage, entity);
-        this.propertyName = propertyName;
-    }
-
-    public boolean relatesTo(@NotNull TransientEntity entity, @Nullable Object fieldIdent) {
-        return super.relatesTo(entity, fieldIdent) && propertyName.equals(fieldIdent);
-    }
-
-    public EntityFieldHandler getEntityFieldHandler() {
-        return EntityFieldHandler.create(entityId, propertyName);
-    }
-
-    public String getPropertyName() {
-        return propertyName;
+    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
+        return super.relatesTo(entity, fieldIdentity) && propertyName == fieldIdentity
     }
 }

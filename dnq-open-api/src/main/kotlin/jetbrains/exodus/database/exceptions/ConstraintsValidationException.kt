@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,56 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database.exceptions;
+package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.database.TransientEntity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientEntity
 
-import java.util.Arrays;
-import java.util.Set;
+class ConstraintsValidationException(val causes: Set<DataIntegrityViolationException>) : DataIntegrityViolationException(buildMessage(causes)) {
 
-public class ConstraintsValidationException extends DataIntegrityViolationException {
+    override val entityFieldHandler get() = null
 
-    private Set<DataIntegrityViolationException> causes;
+    constructor(cause: DataIntegrityViolationException) : this(setOf(cause))
 
-    public ConstraintsValidationException(Set<DataIntegrityViolationException> causes) {
-        super("Constrains validation exception. Causes: \n" + ConstraintsValidationException.getCausesMessages(causes));
-        this.causes = causes;
+    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
+        return causes.any { it.relatesTo(entity, fieldIdentity) }
     }
+}
 
-    public ConstraintsValidationException(DataIntegrityViolationException cause) {
-        this(new HashSet<DataIntegrityViolationException>(Arrays.asList(cause)));
+private fun buildMessage(causes: Set<DataIntegrityViolationException>) = buildString {
+    append("Constrains validation exception. Causes: \n")
+    causes.forEachIndexed { i, e ->
+        append("  ${i + 1}: ${e.message}\n")
     }
-
-    private static String getCausesMessages(Set<DataIntegrityViolationException> causes) {
-        final StringBuilder sb = new StringBuilder();
-
-        int i = 1;
-        for (DataIntegrityViolationException e : causes) {
-            sb.append("  ").append(i++).append(": ").append(e.getMessage()).append("\n");
-        }
-
-        return sb.toString();
-    }
-
-    public Iterable<DataIntegrityViolationException> getCauses() {
-        return causes;
-    }
-
-    public boolean relatesTo(@NotNull TransientEntity entity, @Nullable Object fieldIdent) {
-        for (DataIntegrityViolationException e : getCauses()) {
-            if (e.relatesTo(entity, fieldIdent)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public EntityFieldHandler getEntityFieldHandler() {
-        return null;
-    }
-
 }
