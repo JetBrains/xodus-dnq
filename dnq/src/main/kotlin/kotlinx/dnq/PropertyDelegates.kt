@@ -619,8 +619,6 @@ fun <R : XdEntity> xdRequiredStringProp(
  * var createdAt by xdDateTimeProp()
  * ```
  *
- * @param trimmed if `true` value is trimmed when set, i.e. when you assign a value to such property, all leading
- *        and trailing spaces are removed. By default is `false`.
  * @param dbName name of persistent property in database. If `null` (by default) then name of the related
  *        Kotlin-property is used as the name of the property in the database.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property

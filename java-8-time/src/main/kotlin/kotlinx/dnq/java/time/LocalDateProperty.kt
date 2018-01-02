@@ -19,11 +19,8 @@ import jetbrains.exodus.bindings.IntegerBinding
 import jetbrains.exodus.bindings.ShortBinding
 import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.simple.Constraints
-import kotlinx.dnq.simple.DEFAULT_REQUIRED
-import kotlinx.dnq.simple.custom.type.*
-import kotlinx.dnq.simple.xdCachedProp
-import kotlinx.dnq.simple.xdNullableCachedProp
+import kotlinx.dnq.simple.*
+import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import java.io.ByteArrayInputStream
 import java.time.LocalDate
 
@@ -47,8 +44,48 @@ object LocalDateBinding : XdCustomTypeBinding<LocalDate>() {
     override fun next(value: LocalDate): LocalDate = value.plusDays(1)
 }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `java.time.LocalDate?`.
+ *
+ * If persistent property value is not defined in database the property returns `null`.
+ *
+ * **Sample**: optional nullable LocalDate property with database name `createdAt`.
+ * ```
+ * var createdAt by xdLocalDateProp()
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
+ *        constraints that will be checked before transaction flush.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ * @see isAfter()
+ * @see isBefore()
+ */
 fun <R : XdEntity> xdLocalDateProp(dbName: String? = null, constraints: Constraints<R, LocalDate?>? = null) =
         xdNullableCachedProp(dbName, LocalDateBinding, constraints)
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `java.time.LocalDate`.
+ *
+ * Related persistent property is required, i.e. Xodus-DNQ checks on flush that property value is defined.
+ *
+ * While persistent property value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample**: required not-null LocalDate property with database name `createdAt`.
+ * ```
+ * var createdAt by xdRequiredLocalDateProp()
+ * ```
+ *
+ * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
+ *        the persistent class. By default is `false`.
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
+ *        constraints that will be checked before transaction flush.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ * @see isAfter()
+ * @see isBefore()
+ */
 fun <R : XdEntity> xdRequiredLocalDateProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, LocalDate?>? = null) =
         xdCachedProp(dbName, constraints, true, unique, LocalDateBinding, DEFAULT_REQUIRED)
