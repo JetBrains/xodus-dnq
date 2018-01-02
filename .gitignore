@@ -7,7 +7,10 @@ build/
 *.ipr
 *.iws
 .idea/
-/out/
+*/out/
+
+### Mac OS X
+.DS_Store
 
 # virtual machine crash logs
 hs_err_pid*
