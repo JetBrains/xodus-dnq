@@ -368,6 +368,32 @@ class RequireIfConstraint<R : XdEntity, T>(val message: String?, val predicate: 
     override fun getDisplayMessage(propertyName: String?, propertyValue: T) = message ?: "required"
 }
 
+/**
+ * Adds constraint for primitive persistent property.
+ * The property value is required if the given closure returns `true`.
+ * Note that the constraint is checked only if the entity is updated.
+ *
+ * Constrains are checked on transaction flush. Xodus-DNQ throws `ConstraintsValidationException` if constraint check
+ * fails. Method `getCauses()` of `ConstraintsValidationException` returns all actual
+ * `DataIntegrityViolationException`s corresponding to data validation errors that happen during the transaction flush.
+ * ```
+ * try {
+ *     store.transactional { /* Do some database update */ }
+ * } catch(e: ConstraintsValidationException) {
+ *     e.causes.forEach { e.printStackTrace() }
+ * }
+ * ```
+ *
+ * **Sample**
+ * ```
+ * var main by xdStringProp()
+ * var dependent by xdLongProp { requireIf { main != null } }
+ * ```
+ *
+ * @param message optional error message that will be returned from
+ *        [jetbrains.exodus.database.exceptions.DataIntegrityViolationException#getDisplayMessage]
+ * @param predicate if `true` the property is required.
+ */
 fun <R : XdEntity, T> PropertyConstraintBuilder<R, T>.requireIf(message: String? = null, predicate: R.() -> Boolean) {
     constraints.add(RequireIfConstraint<R, T>(message, predicate))
 }
