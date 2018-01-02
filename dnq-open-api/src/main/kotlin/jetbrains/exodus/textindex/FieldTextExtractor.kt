@@ -13,17 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.textindex;
+package jetbrains.exodus.textindex
 
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.entitystore.Entity
 
-public interface FieldTextExtractor {
+interface FieldTextExtractor {
 
     /**
      * @param entity the entity.
      * @return for the specified entity, text of the field to be indexed.
      */
-    @Nullable
-    String getText(final Entity entity);
+    fun getText(entity: Entity): String?
 }

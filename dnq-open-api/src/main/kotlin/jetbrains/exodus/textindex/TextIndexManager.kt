@@ -13,151 +13,105 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.textindex;
+package jetbrains.exodus.textindex
 
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityId;
-import jetbrains.exodus.entitystore.EntityIterable;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
+import jetbrains.exodus.entitystore.EntityIterable
 
-import java.util.List;
+interface TextIndexManager {
 
-public interface TextIndexManager {
+    val isSuspended: Boolean
 
-    void init();
+    var useRussianStemmer: Boolean
 
-    void close();
+    var useGermanStemmer: Boolean
 
-    void clearIndex();
+    var useFrenchStemmer: Boolean
 
-    void queueUnindexedDocuments();
+    var useSpanishStemmer: Boolean
 
-    void indexDocument(@NotNull final EntityId id, boolean forceReindexing);
+    var usePortugueseStemmer: Boolean
 
-    void deleteDocument(@NotNull final EntityId id);
+    var useItalianStemmer: Boolean
 
-    @NotNull
-    EntityIterable searchFor(@Nullable final String queryString);
+    var useDutchStemmer: Boolean
 
-    @NotNull
-    EntityIterable searchFor(@Nullable final String queryString,
-                             @Nullable final String entityType);
+    val useFinnishStemmer: Boolean
 
-    @NotNull
-    EntityIterable searchFor(@Nullable final String queryString,
-                             @Nullable final String entityType,
-                             @NotNull final String field);
+    var useSwedishStemmer: Boolean
 
-    boolean matchesQuery(@NotNull final Entity entity,
-                         @NotNull final String queryString);
+    var useNorwegianStemmer: Boolean
 
-    boolean matchesQuery(@NotNull final Entity entity,
-                         @NotNull final String queryString,
-                         @NotNull final String field);
+    var useDanishStemmer: Boolean
 
-    EntityIterable findSimilar(@NotNull final Entity entity);
+    var usePolishStemmer: Boolean
 
-    void setSimilarityIgnoredField(@NotNull final String entityType, @NotNull final String field);
+    var useCzechStemmer: Boolean
 
-    long totalDocs();
+    var useGreekStemmer: Boolean
 
-    int pendingDocs();
+    var useLatvianStemmer: Boolean
 
-    void waitForPendingDocs();
+    var useArabicStemmer: Boolean
 
-    void suspendIndexing();
+    var useTurkishStemmer: Boolean
 
-    void resumeIndexing();
+    var useChineseStemmer: Boolean
 
-    boolean isSuspended();
+    var useJapaneseStemmer: Boolean
 
-    void addListener(TextIndexListener listener);
+    var useKoreanStemmer: Boolean
 
-    void removeListener(TextIndexListener listener);
+    val storeSize: Long
 
-    @NotNull
-    List<int[]> getOffsets(@NotNull final String text, @NotNull final String query);
+    fun init()
 
-    boolean getUseRussianStemmer();
+    fun close()
 
-    void setUseRussianStemmer(boolean stemming);
+    fun clearIndex()
 
-    boolean getUseGermanStemmer();
+    fun queueUnindexedDocuments()
 
-    void setUseGermanStemmer(boolean stemming);
+    fun indexDocument(id: EntityId, forceReindexing: Boolean)
 
-    boolean getUseFrenchStemmer();
+    fun deleteDocument(id: EntityId)
 
-    void setUseFrenchStemmer(boolean stemming);
+    fun searchFor(queryString: String?): EntityIterable
 
-    boolean getUseSpanishStemmer();
+    fun searchFor(queryString: String?,
+                  entityType: String?): EntityIterable
 
-    void setUseSpanishStemmer(boolean stemming);
+    fun searchFor(queryString: String?,
+                  entityType: String?,
+                  field: String): EntityIterable
 
-    boolean getUsePortugueseStemmer();
+    fun matchesQuery(entity: Entity,
+                     queryString: String): Boolean
 
-    void setUsePortugueseStemmer(boolean stemming);
+    fun matchesQuery(entity: Entity,
+                     queryString: String,
+                     field: String): Boolean
 
-    boolean getUseItalianStemmer();
+    fun findSimilar(entity: Entity): EntityIterable
 
-    void setUseItalianStemmer(boolean stemming);
+    fun setSimilarityIgnoredField(entityType: String, field: String)
 
-    boolean getUseDutchStemmer();
+    fun totalDocs(): Long
 
-    void setUseDutchStemmer(boolean stemming);
+    fun pendingDocs(): Int
 
-    boolean getUseFinnishStemmer();
+    fun waitForPendingDocs()
 
-    void setUseFinishStemmer(boolean stemming);
+    fun suspendIndexing()
 
-    boolean getUseSwedishStemmer();
+    fun resumeIndexing()
 
-    void setUseSwedishStemmer(boolean stemming);
+    fun addListener(listener: TextIndexListener)
 
-    boolean getUseNorwegianStemmer();
+    fun removeListener(listener: TextIndexListener)
 
-    void setUseNorwegianStemmer(boolean stemming);
+    fun getOffsets(text: String, query: String): List<IntArray>
 
-    boolean getUseDanishStemmer();
-
-    void setUseDanishStemmer(boolean stemming);
-
-    boolean getUsePolishStemmer();
-
-    void setUsePolishStemmer(boolean stemming);
-
-    boolean getUseCzechStemmer();
-
-    void setUseCzechStemmer(boolean stemming);
-
-    boolean getUseGreekStemmer();
-
-    void setUseGreekStemmer(boolean stemming);
-
-    boolean getUseLatvianStemmer();
-
-    void setUseLatvianStemmer(boolean stemming);
-
-    boolean getUseArabicStemmer();
-
-    void setUseArabicStemmer(boolean stemming);
-
-    boolean getUseTurkishStemmer();
-
-    void setUseTurkishStemmer(boolean stemming);
-
-    boolean getUseChineseStemmer();
-
-    void setUseChineseStemmer(boolean stemming);
-
-    boolean getUseJapaneseStemmer();
-
-    void setUseJapaneseStemmer(boolean stemming);
-
-    boolean getUseKoreanStemmer();
-
-    void setUseKoreanStemmer(boolean stemming);
-
-    long getStoreSize();
+    fun setUseFinishStemmer(stemming: Boolean)
 }

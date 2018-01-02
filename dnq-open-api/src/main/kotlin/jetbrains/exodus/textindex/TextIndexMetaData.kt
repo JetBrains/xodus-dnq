@@ -13,28 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.textindex;
+package jetbrains.exodus.textindex
 
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.entitystore.Entity
 
-public interface TextIndexMetaData {
+interface TextIndexMetaData {
 
-    @NotNull
-    String[] getIndexedEntityTypes();
+    val indexedEntityTypes: Array<String>
 
-    @Nullable
-    TextIndexEntityMetaData getEntityMetaData(@NotNull String entityType);
+    var removeWikiFunction: RemoveWikiFunction
 
-    RemoveWikiFunction getRemoveWikiFunction();
+    val versionLabel: String
 
-    void setRemoveWikiFunction(RemoveWikiFunction rwf);
+    fun getEntityMetaData(entityType: String): TextIndexEntityMetaData?
 
-    String getVersionLabel();
+    interface RemoveWikiFunction {
 
-    public interface RemoveWikiFunction {
-
-        String removeWiki(final Entity entity, final String source);
+        fun removeWiki(entity: Entity, source: String): String
     }
 }

@@ -13,18 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.textindex;
+package jetbrains.exodus.textindex
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+interface TextIndexEntityMetaData {
 
-public interface TextIndexEntityMetaData {
+    val entityType: String
 
-    @NotNull
-    String getEntityType();
+    val fieldNames: Array<String>
 
-    String[] getFieldNames();
-
-    @Nullable
-    FieldTextExtractor getFieldTextExtractor(@NotNull final String fieldName);
+    fun getFieldTextExtractor(fieldName: String): FieldTextExtractor?
 }
