@@ -13,30 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.entitystore.Entity
 
-public abstract class EntityCreator {
+abstract class EntityCreator(val type: String) {
+    /**
+     * If the result is not found, new entity will be created
+     */
+    abstract fun find(): Entity?
 
-    @NotNull
-    private final String type;
-
-    public EntityCreator(@NotNull final String type) {
-        this.type = type;
-    }
-
-    // if the result is not found, new entity will be created
-    @Nullable
-    public abstract Entity find();
-
-    public abstract void created(@NotNull final Entity entity);
-
-    @NotNull
-    public String getType() {
-        return type;
-    }
-
+    /**
+     * Handle entity creation
+     */
+    abstract fun created(entity: Entity)
 }
