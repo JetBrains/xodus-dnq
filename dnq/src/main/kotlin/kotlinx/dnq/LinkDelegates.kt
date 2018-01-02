@@ -503,71 +503,253 @@ inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1_N(
         }
 
 /**
- * Parent end [0..1] of aggregation association
+ * Gets from cache or creates a new property delegate for parent end of aggregation association
+ * with `[0..1]` cardinality.
+ * Aggregations or parent-child association are auxiliary type of links with some predefined behavior.
+ * 1. If persistent class of an entity has at least one parent link defined, it is considered to be a child entity
+ *    and it should have exactly one parent on flush.
+ * 2. On parent delete all its children are deleted as well.
+ *
+ * Resulting property has type `XdChild?`.
+ * If its value is not defined in the database the property returns `null`.
+ *
+ * **Sample:**
+ * ```
+ * val profile by xdChild0_1(XdUser::profile)
+ * ```
+ *
+ * @param XdParent type of link source.
+ * @param XdChild type of link target.
+ * @param oppositeLink property reference to a child end of the association.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdChild0_1(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null) =
+inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChild0_1(
+        oppositeLink: KProperty1<XdChild, XdParent?>,
+        dbPropertyName: String? = null) =
         XdPropertyCachedProvider {
             XdParentToOneOptionalChildLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
         }
 
 /**
- * Parent end [1] of aggregation association
+ * Gets from cache or creates a new property delegate for parent end of aggregation association
+ * with `[1]` cardinality.
+ * Xodus-DNQ checks on flush that the link points to some entity.
+ * Aggregations or parent-child association are auxiliary type of links with some predefined behavior.
+ * 1. If persistent class of an entity has at least one parent link defined, it is considered to be a child entity
+ *    and it should have exactly one parent on flush.
+ * 2. On parent delete all its children are deleted as well.
+ *
+ * Resulting property has type `XdChild`.
+ * While its value is not defined in the database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample:**
+ * ```
+ * val profile by xdChild1(XdUser::profile)
+ * ```
+ *
+ * @param XdParent type of link source.
+ * @param XdChild type of link target.
+ * @param oppositeLink property reference to a child end of the association.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdChild1(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null) =
+inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChild1(
+        oppositeLink: KProperty1<XdChild, XdParent?>,
+        dbPropertyName: String? = null) =
         XdPropertyCachedProvider {
             XdParentToOneRequiredChildLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
         }
 
 /**
- * Parent end [0..N] of aggregation association
+ * Gets from cache or creates a new read-only property delegate for parent end of aggregation association
+ * with `[0..N]` cardinality.
+ * Aggregations or parent-child association are auxiliary type of links with some predefined behavior.
+ * 1. If persistent class of an entity has at least one parent link defined, it is considered to be a child entity
+ *    and it should have exactly one parent on flush.
+ * 2. On parent delete all its children are deleted as well.
+ *
+ * Resulting property has type `XdMutableQuery<XdTarget>`.
+ * If its value is not defined in the database the property returns `XdTarget.emptyQuery()`.
+ *
+ * **Sample:**
+ * ```
+ * val subGroups by xdChildren0_N(XdGroup::parentGroup)
+ * ```
+ *
+ * @param XdParent type of link source.
+ * @param XdChild type of link target.
+ * @param oppositeLink property reference to a child end of the association.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdChildren0_N(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null) =
+inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChildren0_N(
+        oppositeLink: KProperty1<XdChild, XdParent?>,
+        dbPropertyName: String? = null) =
         XdPropertyCachedProvider {
             XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, dbPropertyName, required = false)
         }
 
 /**
- * Parent end [1..N] of aggregation association
+ * Gets from cache or creates a new read-only property delegate for parent end of aggregation association
+ * with `[1..N]` cardinality.
+ * Xodus-DNQ checks on flush that the link contains at least one entity.
+ * Aggregations or parent-child association are auxiliary type of links with some predefined behavior.
+ * 1. If persistent class of an entity has at least one parent link defined, it is considered to be a child entity
+ *    and it should have exactly one parent on flush.
+ * 2. On parent delete all its children are deleted as well.
+ *
+ * Resulting property has type `XdMutableQuery<XdTarget>`.
+ * While its value is not defined in database the property returns `XdTarget.emptyQuery()`.
+ *
+ * **Sample:**
+ * ```
+ * val contacts by xdChildren1_N(XdContact::user)
+ * ```
+ *
+ * @param XdParent type of link source.
+ * @param XdChild type of link target.
+ * @param oppositeLink property reference to a child end of the association.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
-inline fun <R : XdEntity, reified T : XdEntity> xdChildren1_N(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null) =
+inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChildren1_N(
+        oppositeLink: KProperty1<XdChild, XdParent?>,
+        dbPropertyName: String? = null) =
         XdPropertyCachedProvider {
             XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, dbPropertyName, required = true)
         }
 
 /**
- * Child end of scalar aggregation association
+ * Gets from cache or creates a new property delegate for child end of aggregation association when
+ * only one parent link is defined for persistent class.
+ * Xodus-DNQ checks on flush that the link points to some entity.
+ * Aggregations or parent-child association are auxiliary type of links with some predefined behavior.
+ * 1. If persistent class of an entity has at least one parent link defined, it is considered to be a child entity
+ *    and it should have exactly one parent on flush.
+ * 2. On parent delete all its children are deleted as well.
+ *
+ * Resulting property has type `XdParent`.
+ * While its value is not defined in the database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample:**
+ * ```
+ * val user by xdParent(XdUser::contacts)
+ * ```
+ *
+ * @param XdChild type of link source.
+ * @param XdParent type of link target.
+ * @param oppositeLink property reference to a parent end of the association.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdParent_opposite_single")
-inline fun <R : XdEntity, reified T : XdEntity> xdParent(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null) =
+inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdParent(
+        oppositeLink: KProperty1<XdParent, XdChild?>,
+        dbPropertyName: String? = null) =
         XdPropertyCachedProvider {
             XdOneChildToParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
         }
 
 /**
- * Child end of scalar aggregation association.
- * Should be used if entity has several parent links
+ * Gets from cache or creates a new property delegate for child end of aggregation association when
+ * multiple parent links are defined for persistent class.
+ * Xodus-DNQ checks on flush that this entity has exactly one parent link defined.
+ * Aggregations or parent-child association are auxiliary type of links with some predefined behavior.
+ * 1. If persistent class of an entity has at least one parent link defined, it is considered to be a child entity
+ *    and it should have exactly one parent on flush.
+ * 2. On parent delete all its children are deleted as well.
+ *
+ * Resulting property has type `XdParent?`.
+ * If its value is not defined in the database the property returns `null`.
+ *
+ * **Sample:**
+ * ```
+ * val parentGroup by xdMultiParent(XdGroup::subGroups)
+ * val parentOfRootGroup by xdMultiParent(XdRoot::rootGroup)
+ * ```
+ *
+ * @param XdChild type of link source.
+ * @param XdParent type of link target.
+ * @param oppositeLink property reference to a parent end of the association.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdMultiParent_opposite_single")
-inline fun <R : XdEntity, reified T : XdEntity> xdMultiParent(oppositeLink: KProperty1<T, R?>, dbPropertyName: String? = null) =
+inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdMultiParent(
+        oppositeLink: KProperty1<XdParent, XdChild?>,
+        dbPropertyName: String? = null) =
         XdPropertyCachedProvider {
             XdOneChildToMultiParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
         }
 
 /**
- * Child end of vector aggregation association
+ * Gets from cache or creates a new property delegate for child end of aggregation association when
+ * only one parent link is defined for persistent class.
+ * Xodus-DNQ checks on flush that the link points to some entity.
+ * Aggregations or parent-child association are auxiliary type of links with some predefined behavior.
+ * 1. If persistent class of an entity has at least one parent link defined, it is considered to be a child entity
+ *    and it should have exactly one parent on flush.
+ * 2. On parent delete all its children are deleted as well.
+ *
+ * Resulting property has type `XdParent`.
+ * While its value is not defined in the database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample:**
+ * ```
+ * val user by xdParent(XdUser::contacts)
+ * ```
+ *
+ * @param XdChild type of link source.
+ * @param XdParent type of link target.
+ * @param oppositeLink property reference to a parent end of the association.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdParent_opposite_multi")
-inline fun <R : XdEntity, reified T : XdEntity> xdParent(oppositeLink: KProperty1<T, XdMutableQuery<R>>, dbPropertyName: String? = null) =
+inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdParent(
+        oppositeLink: KProperty1<XdParent, XdMutableQuery<XdChild>>,
+        dbPropertyName: String? = null) =
         XdPropertyCachedProvider {
             XdManyChildrenToParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
         }
 
 /**
- * Child end of vector aggregation association
- * Should be used if entity has several parent links
+ * Gets from cache or creates a new property delegate for child end of aggregation association when
+ * multiple parent links are defined for persistent class.
+ * Xodus-DNQ checks on flush that this entity has exactly one parent link defined.
+ * Aggregations or parent-child association are auxiliary type of links with some predefined behavior.
+ * 1. If persistent class of an entity has at least one parent link defined, it is considered to be a child entity
+ *    and it should have exactly one parent on flush.
+ * 2. On parent delete all its children are deleted as well.
+ *
+ * Resulting property has type `XdParent?`.
+ * If its value is not defined in the database the property returns `null`.
+ *
+ * **Sample:**
+ * ```
+ * val parentGroup by xdMultiParent(XdGroup::subGroups)
+ * val parentOfRootGroup by xdMultiParent(XdRoot::rootGroup)
+ * ```
+ *
+ * @param XdChild type of link source.
+ * @param XdParent type of link target.
+ * @param oppositeLink property reference to a parent end of the association.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdMultiParent_opposite_multi")
-inline fun <R : XdEntity, reified T : XdEntity> xdMultiParent(oppositeLink: KProperty1<T, XdMutableQuery<R>>, dbPropertyName: String? = null) =
+inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdMultiParent(
+        oppositeLink: KProperty1<XdParent, XdMutableQuery<XdChild>>,
+        dbPropertyName: String? = null) =
         XdPropertyCachedProvider {
             XdManyChildrenToMultiParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
         }
