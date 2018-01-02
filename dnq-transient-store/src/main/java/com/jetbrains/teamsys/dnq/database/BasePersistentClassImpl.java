@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2017 JetBrains s.r.o.
+ * Copyright 2006 - 2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,8 +87,8 @@ public abstract class BasePersistentClassImpl implements Runnable {
             linkDescriptions.add(violation.getDescription());
         }
         final String displayName = getDisplayName(entity);
-        final String header = "Could not delete " + displayName + ", because it is referenced as: ";
-        return new CantRemoveEntityException(entity, header, displayName, linkDescriptions);
+        final String displayMessage = "Could not delete " + displayName + ", because it is referenced";
+        return new CantRemoveEntityException(entity, displayMessage, displayName, linkDescriptions);
     }
 
     public IncomingLinkViolation createIncomingLinkViolation(String linkName) {
