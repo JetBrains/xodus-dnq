@@ -56,7 +56,7 @@ fun <R : XdEntity> xdByteProp(dbName: String? = null, constraints: Constraints<R
  * @param dbName name of persistent property in database. If `null` (by default) then name of the related
  *        Kotlin-property is used as the name of the property in the database.
  * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
- *        the persistent class. By default it is `false`.
+ *        the persistent class. By default is `false`.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
  *        constraints that will be checked before transaction flush.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
@@ -123,7 +123,7 @@ fun <R : XdEntity> xdShortProp(dbName: String? = null, constraints: Constraints<
  * @param dbName name of persistent property in database. If `null` (by default) then name of the related
  *        Kotlin-property is used as the name of the property in the database.
  * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
- *        the persistent class. By default it is `false`.
+ *        the persistent class. By default is `false`.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
  *        constraints that will be checked before transaction flush.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
@@ -202,7 +202,7 @@ fun <R : XdEntity> xdIntProp(dbName: String? = null, constraints: Constraints<R,
  * @param dbName name of persistent property in database. If `null` (by default) then name of the related
  *        Kotlin-property is used as the name of the property in the database.
  * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
- *        the persistent class. By default it is `false`.
+ *        the persistent class. By default is `false`.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
  *        constraints that will be checked before transaction flush.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
@@ -274,7 +274,7 @@ fun <R : XdEntity> xdLongProp(dbName: String? = null, constraints: Constraints<R
  * @param dbName name of persistent property in database. If `null` (by default) then name of the related
  *        Kotlin-property is used as the name of the property in the database.
  * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
- *        the persistent class. By default it is `false`.
+ *        the persistent class. By default is `false`.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
  *        constraints that will be checked before transaction flush.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
@@ -341,7 +341,7 @@ fun <R : XdEntity> xdFloatProp(dbName: String? = null, constraints: Constraints<
  * @param dbName name of persistent property in database. If `null` (by default) then name of the related
  *        Kotlin-property is used as the name of the property in the database.
  * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
- *        the persistent class. By default it is `false`.
+ *        the persistent class. By default is `false`.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
  *        constraints that will be checked before transaction flush.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
@@ -408,7 +408,7 @@ fun <R : XdEntity> xdDoubleProp(dbName: String? = null, constraints: Constraints
  * @param dbName name of persistent property in database. If `null` (by default) then name of the related
  *        Kotlin-property is used as the name of the property in the database.
  * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
- *        the persistent class. By default it is `false`.
+ *        the persistent class. By default is `false`.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
  *        constraints that will be checked before transaction flush.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
@@ -439,12 +439,71 @@ fun <R : XdEntity> xdRequiredDoubleProp(dbName: String? = null, unique: Boolean 
 fun <R : XdEntity> xdNullableDoubleProp(dbName: String? = null, constraints: Constraints<R, Double?>? = null) =
         xdNullableCachedProp(dbName, constraints = constraints)
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `Boolean`.
+ *
+ * If persistent property value is not defined in database the property returns `false`.
+ *
+ * **Sample**: optional boolean property with database name `anonymous`.
+ * ```
+ * var isGuest by xdBooleanProp(dbName = "anonymous")
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
+ *        constraints that will be checked before transaction flush.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ */
 fun <R : XdEntity> xdBooleanProp(dbName: String? = null, constraints: Constraints<R, Boolean?>? = null) =
         xdCachedProp(dbName, constraints) { _, _ -> false }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `Boolean?`.
+ *
+ * If persistent property value is not defined in database the property returns `null`.
+ *
+ * **Sample**: nullable Boolean property with database name `isFemale`.
+ * ```
+ * var isFemale by xdNullableBooleanProp()
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
+ *        constraints that will be checked before transaction flush.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ */
 fun <R : XdEntity> xdNullableBooleanProp(dbName: String? = null, constraints: Constraints<R, Boolean?>? = null) =
         xdNullableCachedProp(dbName, constraints = constraints)
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `String?`.
+ *
+ * If persistent property value is not defined in database the property returns `null`.
+ *
+ * **Sample**: optional nullable String property with database name `lastName`.
+ * ```
+ * var lastName by xdStringProp(trimmed = true)
+ * ```
+ *
+ * @param trimmed if `true` value is trimmed when set, i.e. when you assign a value to such property, all leading
+ *        and trailing spaces are removed. By default is `false`.
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
+ *        constraints that will be checked before transaction flush.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ * @see regex()
+ * @see email()
+ * @see containsNone()
+ * @see alpha()
+ * @see numeric()
+ * @see alphaNumeric()
+ * @see url()
+ * @see uri()
+ * @see length()
+ */
 fun <R : XdEntity> xdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: Constraints<R, String?>? = null) =
         XdPropertyCachedProvider {
             val prop = xdNullableProp(dbName, constraints)
@@ -455,6 +514,38 @@ fun <R : XdEntity> xdStringProp(trimmed: Boolean = false, dbName: String? = null
             }
         }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `String`.
+ *
+ * Related persistent property is required, i.e. Xodus-DNQ checks on flush that property value is defined. Note that
+ * Xodus treats empty string as `null`. So empty string does not pass require check.
+ *
+ * **Sample**: required unique String property with database name `uuid`.
+ * ```
+ * var uuid by xdRequiredStringProp(unique=true)
+ * ```
+ *
+ * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
+ *        the persistent class. By default is `false`.
+ * @param trimmed if `true` value is trimmed when set, i.e. when you assign a value to such property, all leading
+ *        and trailing spaces are removed. By default is `false`.
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @param default closure that returns default value for the Kotlin-property while persistent property value is
+ *        not defined in database. By default throws `RequiredPropertyUndefinedException` on get.
+ * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
+ *        constraints that will be checked before transaction flush.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ * @see regex()
+ * @see email()
+ * @see containsNone()
+ * @see alpha()
+ * @see numeric()
+ * @see alphaNumeric()
+ * @see url()
+ * @see uri()
+ * @see length()
+ */
 fun <R : XdEntity> xdRequiredStringProp(
         unique: Boolean = false,
         trimmed: Boolean = false,
@@ -476,6 +567,38 @@ fun <R : XdEntity> xdRequiredStringProp(
     }
 }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `String`.
+ *
+ * Related persistent property is required, i.e. Xodus-DNQ checks on flush that property value is defined. Note that
+ * Xodus treats empty string as `null`. So empty string does not pass require check.
+ *
+ * **Sample**: required String property with database name `lastName` with default value Doe.
+ * ```
+ * var lastName by xdRequiredStringProp(default="Doe")
+ * ```
+ *
+ * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
+ *        the persistent class. By default is `false`.
+ * @param trimmed if `true` value is trimmed when set, i.e. when you assign a value to such property, all leading
+ *        and trailing spaces are removed. By default is `false`.
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @param default default value for the Kotlin-property while persistent property value is
+ *        not defined in database.
+ * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
+ *        constraints that will be checked before transaction flush.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ * @see regex()
+ * @see email()
+ * @see containsNone()
+ * @see alpha()
+ * @see numeric()
+ * @see alphaNumeric()
+ * @see url()
+ * @see uri()
+ * @see length()
+ */
 fun <R : XdEntity> xdRequiredStringProp(
         unique: Boolean = false,
         trimmed: Boolean = false,
@@ -484,6 +607,30 @@ fun <R : XdEntity> xdRequiredStringProp(
         constraints: Constraints<R, String?>? = null
 ) = xdRequiredStringProp(unique, trimmed, dbName, { _, _ -> default }, constraints)
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `org.joda.time.DateTime?`.
+ * Xodus does not have built-in support for date-time simple properties. This property is actually wrapping
+ * nullable Long property and is storing unix epoch timestamp.
+ *
+ * If persistent property value is not defined in database the property returns `null`.
+ *
+ * **Sample**: optional nullable DateTime property with database name `createdAt`.
+ * ```
+ * var createdAt by xdDateTimeProp()
+ * ```
+ *
+ * @param trimmed if `true` value is trimmed when set, i.e. when you assign a value to such property, all leading
+ *        and trailing spaces are removed. By default is `false`.
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
+ *        constraints that will be checked before transaction flush.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ * @see isAfter()
+ * @see isBefore()
+ * @see past()
+ * @see future()
+ */
 fun <R : XdEntity> xdDateTimeProp(dbName: String? = null, constraints: Constraints<R, DateTime?>? = null) =
         XdPropertyCachedProvider {
             XdNullableProperty<R, Long>(
@@ -493,6 +640,32 @@ fun <R : XdEntity> xdDateTimeProp(dbName: String? = null, constraints: Constrain
             ).wrap({ it?.let { DateTime(it) } }, { it?.millis })
         }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `org.joda.time.DateTime`.
+ * Xodus does not have built-in support for date-time simple properties. This property is actually wrapping
+ * nullable Long property and is storing unix epoch timestamp.
+ *
+ * Related persistent property is required, i.e. Xodus-DNQ checks on flush that property value is defined.
+ *
+ * While persistent property value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample**: required not-null DateTime property with database name `createdAt`.
+ * ```
+ * var createdAt by xdRequiredDateTimeProp()
+ * ```
+ *
+ * @param unique if `true` Xodus-DNQ checks on flush uniqueness of the property value among instances of
+ *        the persistent class. By default is `false`.
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
+ *        constraints that will be checked before transaction flush.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ * @see isAfter()
+ * @see isBefore()
+ * @see past()
+ * @see future()
+ */
 fun <R : XdEntity> xdRequiredDateTimeProp(unique: Boolean = false, dbName: String? = null, constraints: Constraints<R, DateTime?>? = null) =
         XdPropertyCachedProvider {
             XdProperty<R, Long>(
@@ -504,26 +677,115 @@ fun <R : XdEntity> xdRequiredDateTimeProp(unique: Boolean = false, dbName: Strin
             ).wrap({ DateTime(it) }, { it.millis })
         }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `InputStream?`.
+ * Xodus stores massive blobs as separate files on disk. Xodus also does not build indices for blob properties.
+ * So indices for blob properties do not consume memory but you cannot filter or sort `XdQuery` by this property.
+ *
+ * If persistent property value is not defined in database the property returns `null`.
+ *
+ * **Sample**: optional nullable InputStream property with database name `image`.
+ * ```
+ * var image by xdBlobProp()
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ */
 fun <R : XdEntity> xdBlobProp(dbName: String? = null) =
         XdPropertyCachedProvider {
             XdNullableBlobProperty<R>(dbName)
         }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `InputStream`.
+ * Xodus stores massive blobs as separate files on disk. Xodus also does not build indices for blob properties.
+ * So indices for blob properties do not consume memory but you cannot filter or sort `XdQuery` by this property.
+ *
+ * Related persistent property is required, i.e. Xodus-DNQ checks on flush that property value is defined.
+ *
+ * While persistent property value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample**: required not-null InputStream property with database name `image`.
+ * ```
+ * var image by xdRequiredBlobProp()
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ */
 fun <R : XdEntity> xdRequiredBlobProp(dbName: String? = null) =
         XdPropertyCachedProvider {
             XdBlobProperty<R>(dbName)
         }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `String?`.
+ * Xodus stores massive blobs as separate files on disk. Xodus also does not build indices for blob properties.
+ * So indices for blob properties do not consume memory but you cannot filter or sort `XdQuery` by this property.
+ *
+ * If persistent property value is not defined in database the property returns `null`.
+ *
+ * **Sample**: optional nullable String property with database name `description`.
+ * ```
+ * var description by xdBlobStringProp()
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ */
 fun <R : XdEntity> xdBlobStringProp(dbName: String? = null) =
         XdPropertyCachedProvider {
             XdNullableTextProperty<R>(dbName)
         }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `String`.
+ * Xodus stores massive blobs as separate files on disk. Xodus also does not build indices for blob properties.
+ * So indices for blob properties do not consume memory but you cannot filter or sort `XdQuery` by this property.
+ *
+ * Related persistent property is required, i.e. Xodus-DNQ checks on flush that property value is defined.
+ *
+ * While persistent property value is not defined in database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample**: required not-null String property with database name `description`.
+ * ```
+ * var description by xdRequiredBlobStringProp()
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ */
 fun <R : XdEntity> xdRequiredBlobStringProp(dbName: String? = null) =
         XdPropertyCachedProvider {
             XdTextProperty<R>(dbName)
         }
 
+/**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `Set<T>`.
+ * Xodus builds index for every element of the set. So you can query entity by any element of the set.
+ *
+ * If persistent property value is not defined in database the property returns `emptySet()`.
+ *
+ * **Sample**: set of strings property with database name `tags`.
+ * ```
+ * class XdPost(entity: Entity): XdEntity(entity) {
+ *     companion object: XdNaturalEntityType<XdPost>()
+ *     var tags by xdSetProp<XdPost, String>()
+ * }
+ *
+ * // Finds all posts that contains word "Kotlin" among the value of tags property.
+ * XdPost.query(XdPost::tags contains "Kotlin")
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ */
 fun <R : XdEntity, T : Comparable<T>> xdSetProp(dbName: String? = null) =
         XdPropertyCachedProvider {
             XdSetProperty<R, T>(dbName)
