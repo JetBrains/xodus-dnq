@@ -658,7 +658,7 @@ var directedRequiredLink by xdLink1(XdTarget)
   - `CASCADE` --- this entity is deleted as well.
 
 ```kotlin 
-var users by xdLink0_N(XdUser)
+val users by xdLink0_N(XdUser)
 ```
 
 ##### xdLink1_N<XdSource, XdTarget> --- unidirectional [1..N] association
@@ -675,7 +675,7 @@ var users by xdLink0_N(XdUser)
   - `CASCADE` --- this entity is deleted as well.
 
 ```kotlin 
-var users by xdLink1_N(XdUser)
+val users by xdLink1_N(XdUser)
 ```
 
 #### Bidirectional associations
@@ -724,7 +724,7 @@ val group by xdLink1(XdGroup::users)
 - First parameter is a reference to a property that defines the opposite end of the association.
 - Parameter `onDelete` defines what should happen to the entities on the opposite end when this entity is deleted.
   - `FAIL` (*default*) --- transaction fails, i.e. association should be deleted before this entity delete.   
-  - `CLEAR` (*default*) --- association is cleared.
+  - `CLEAR` --- association is cleared.
   - `CASCADE` --- entities on the opposite end are deleted as well.
 - Parameter `onTargetDelete` defines what should happen to this entity when one of the entities on the opposite end is deleted.
   - `FAIL` (*default*) --- transaction fails, i.e. association with the deleted entity should be removed first.   

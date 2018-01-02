@@ -22,59 +22,178 @@ import kotlinx.dnq.util.entityType
 import kotlin.reflect.KProperty1
 
 /**
- * Directed [0..1] association
+ * Gets from cache or creates a new property delegate for unidirectional persistent link with `[0..1]` cardinality.
+ *
+ * Resulting property has type `XdTarget?`.
+ * If its value is not defined in the database the property returns `null`.
+ *
+ * **Sample:**
+ * ```
+ * var supervisor by xdLink0_1(XdEmployee, "boss")
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param entityType companion object of persistent class that is an opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param onDelete defines what should happen to the entity on the opposite end when this entity is deleted:
+ *        `CLEAR` (by default): nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when the entity on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before target entity delete,
+ *        `CLEAR`: link is cleared,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
-fun <R : XdEntity, T : XdEntity> xdLink0_1(
-        entityType: XdEntityType<T>,
+fun <XdSource : XdEntity, XdTarget : XdEntity> xdLink0_1(
+        entityType: XdEntityType<XdTarget>,
         dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.CLEAR,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL) =
         XdPropertyCachedProvider {
-            XdToOneOptionalLink<R, T>(entityType, dbPropertyName, onDelete, onTargetDelete)
+            XdToOneOptionalLink<XdSource, XdTarget>(entityType, dbPropertyName, onDelete, onTargetDelete)
         }
 
 /**
- * Directed [1] association
+ * Gets from cache or creates a new property delegate for unidirectional persistent link with `[1]` cardinality.
+ * Xodus-DNQ checks on flush that the link points to some entity.
+ *
+ * Resulting property has type `XdTarget`.
+ * While its value is not defined in the database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample:**
+ * ```
+ * var skill by xdLink1(XdSkill)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param entityType companion object of persistent class that is an opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param onDelete defines what should happen to the entity on the opposite end when this entity is deleted:
+ *        `CLEAR` (by default): nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when the entity on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before target entity delete,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
-fun <R : XdEntity, T : XdEntity> xdLink1(
-        entityType: XdEntityType<T>,
+fun <XdSource : XdEntity, XdTarget : XdEntity> xdLink1(
+        entityType: XdEntityType<XdTarget>,
         dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.CLEAR,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL) =
         XdPropertyCachedProvider {
-            XdToOneRequiredLink<R, T>(entityType, dbPropertyName, onDelete, onTargetDelete)
+            XdToOneRequiredLink<XdSource, XdTarget>(entityType, dbPropertyName, onDelete, onTargetDelete)
         }
 
 /**
- * Directed [0..N] association
+ * Gets from cache or creates a new read-only property delegate for unidirectional persistent link
+ * with `[0..N]` cardinality.
+ *
+ * Resulting property has type `XdMutableQuery<XdTarget>`.
+ * If its value is not defined in the database the property returns `XdTarget.emptyQuery()`.
+ *
+ * **Sample:**
+ * ```
+ * val users by xdLink0_N(XdUser)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param entityType companion object of persistent class that is an opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param onDelete defines what should happen to the entities on the opposite end when this entity is deleted:
+ *        `CLEAR` (by default): nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when one of the entities on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link with the deleted entity should be removed before target entity delete,
+ *        `CLEAR`: link with the deleted entity is removed,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
-fun <R : XdEntity, T : XdEntity> xdLink0_N(
-        entityType: XdEntityType<T>,
+fun <XdSource : XdEntity, XdTarget : XdEntity> xdLink0_N(
+        entityType: XdEntityType<XdTarget>,
         dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.CLEAR,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL) =
         XdPropertyCachedProvider {
-            XdToManyLink<R, T>(entityType, dbPropertyName, onDelete, onTargetDelete, required = false)
+            XdToManyLink<XdSource, XdTarget>(entityType, dbPropertyName, onDelete, onTargetDelete, required = false)
         }
 
 /**
- * Directed [1..N] association
+ * Gets from cache or creates a new read-only property delegate for unidirectional persistent link
+ * with `[1..N]` cardinality.
+ * Xodus-DNQ checks on flush that the link contains at least one entity.
+ *
+ * Resulting property has type `XdMutableQuery<XdTarget>`.
+ * If its value is not defined in the database the property returns `XdTarget.emptyQuery()`.
+ *
+ * **Sample:**
+ * ```
+ * val users by xdLink1_N(XdUser)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param entityType companion object of persistent class that is an opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param onDelete defines what should happen to the entities on the opposite end when this entity is deleted:
+ *        `CLEAR` (by default): nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when one of the entities on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link with the deleted entity should be removed before target entity delete,
+ *        `CLEAR`: link with the deleted entity is removed,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
-fun <R : XdEntity, T : XdEntity> xdLink1_N(
-        entityType: XdEntityType<T>,
+fun <XdSource : XdEntity, XdTarget : XdEntity> xdLink1_N(
+        entityType: XdEntityType<XdTarget>,
         dbPropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.CLEAR,
         onTargetDelete: OnDeletePolicy = OnDeletePolicy.FAIL) =
         XdPropertyCachedProvider {
-            XdToManyLink<R, T>(entityType, dbPropertyName, onDelete, onTargetDelete, required = true)
+            XdToManyLink<XdSource, XdTarget>(entityType, dbPropertyName, onDelete, onTargetDelete, required = true)
         }
 
 /**
- * Undirected [0..1] association, opposite end is scalar
+ * Gets from cache or creates a new property delegate for bidirectional persistent link with `[0..1]` cardinality.
+ * For bidirectional associations Xodus-DNQ maintains both ends of the links. For example, if there is a bidirectional
+ * link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)`
+ * Xodus-DNQ will automatically add `user` to `group.users`.
+ *
+ * Resulting property has type `XdTarget?`.
+ * If its value is not defined in the database the property returns `null`.
+ *
+ * **Sample:**
+ * ```
+ * val next by xdLink0_1(XdElement::prev)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param oppositeLink reference to a property that defines the opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of the persistent property representing the opposite end of the link.
+ *        If `null` (by default) then name of the `oppositeLink` is used.
+ * @param onDelete defines what should happen to the entity on the opposite end when this entity is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before this entity delete.
+ *        `CLEAR`: nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when the entity on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before target entity delete,
+ *        `CLEAR`: link is cleared,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdLink0_1_opposite_single")
-inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
-        oppositeLink: KProperty1<T, R?>,
+inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink0_1(
+        oppositeLink: KProperty1<XdTarget, XdSource?>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -84,11 +203,39 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
         }
 
 /**
- * Undirected [1] association, opposite end is scalar
+ * Gets from cache or creates a new property delegate for bidirectional persistent link with `[1]` cardinality.
+ * Xodus-DNQ checks on flush that the link points to some entity.
+ * For bidirectional associations Xodus-DNQ maintains both ends of the links. For example, if there is a bidirectional
+ * link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)`
+ * Xodus-DNQ will automatically add `user` to `group.users`.
+ *
+ * Resulting property has type `XdTarget`.
+ * While its value is not defined in the database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample:**
+ * ```
+ * val profile by xdLink1(XdProfile::user)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param oppositeLink reference to a property that defines the opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of the persistent property representing the opposite end of the link.
+ *        If `null` (by default) then name of the `oppositeLink` is used.
+ * @param onDelete defines what should happen to the entity on the opposite end when this entity is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before this entity delete.
+ *        `CLEAR`: nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when the entity on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before target entity delete,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdLink1_opposite_single")
-inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
-        oppositeLink: KProperty1<T, R?>,
+inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1(
+        oppositeLink: KProperty1<XdTarget, XdSource?>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -98,11 +245,40 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
         }
 
 /**
- * Undirected [0..N] association, opposite end is scalar
+ * Gets from cache or creates a new read-only property delegate for bidirectional persistent link
+ * with `[0..N]` cardinality.
+ * For bidirectional associations Xodus-DNQ maintains both ends of the links. For example, if there is a bidirectional
+ * link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)`
+ * Xodus-DNQ will automatically add `user` to `group.users`.
+ *
+ * Resulting property has type `XdMutableQuery<XdTarget>`.
+ * If its value is not defined in the database the property returns `XdTarget.emptyQuery()`.
+ *
+ * **Sample:**
+ * ```
+ * val users by xdLink0_N(XdUser::group)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param oppositeLink reference to a property that defines the opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of the persistent property representing the opposite end of the link.
+ *        If `null` (by default) then name of the `oppositeLink` is used.
+ * @param onDelete defines what should happen to the entities on the opposite end when this entity is deleted:
+ *        `FAIL` (by default*) --- transaction fails, i.e. association should be deleted before this entity delete.
+ *        `CLEAR`: nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when one of the entities on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link with the deleted entity should be removed before target entity delete,
+ *        `CLEAR`: link with the deleted entity is removed,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdLink0_N_opposite_single")
-inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
-        oppositeLink: KProperty1<T, R?>,
+inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink0_N(
+        oppositeLink: KProperty1<XdTarget, XdSource?>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -112,11 +288,41 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
         }
 
 /**
- * Undirected [1..N] association, opposite end is scalar
+ * Gets from cache or creates a new read-only property delegate for bidirectional persistent link
+ * with `[1..N]` cardinality.
+ * Xodus-DNQ checks on flush that the link contains at least one entity.
+ * For bidirectional associations Xodus-DNQ maintains both ends of the links. For example, if there is a bidirectional
+ * link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)`
+ * Xodus-DNQ will automatically add `user` to `group.users`.
+ *
+ * Resulting property has type `XdMutableQuery<XdTarget>`.
+ * While its value is not defined in database the property returns `XdTarget.emptyQuery()`.
+ *
+ * **Sample:**
+ * ```
+ * val users by xdLink1_N(XdUser::group)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param oppositeLink reference to a property that defines the opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of the persistent property representing the opposite end of the link.
+ *        If `null` (by default) then name of the `oppositeLink` is used.
+ * @param onDelete defines what should happen to the entities on the opposite end when this entity is deleted:
+ *        `FAIL` (by default*) --- transaction fails, i.e. association should be deleted before this entity delete.
+ *        `CLEAR`: nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when one of the entities on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link with the deleted entity should be removed before target entity delete,
+ *        `CLEAR`: link with the deleted entity is removed,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdLink1_N_opposite_single")
-inline fun <R : XdEntity, reified T : XdEntity> xdLink1_N(
-        oppositeLink: KProperty1<T, R?>,
+inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1_N(
+        oppositeLink: KProperty1<XdTarget, XdSource?>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -126,11 +332,39 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1_N(
         }
 
 /**
- * Undirected [0..1] association, opposite end is vector
+ * Gets from cache or creates a new property delegate for bidirectional persistent link with `[0..1]` cardinality.
+ * For bidirectional associations Xodus-DNQ maintains both ends of the links. For example, if there is a bidirectional
+ * link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)`
+ * Xodus-DNQ will automatically add `user` to `group.users`.
+ *
+ * Resulting property has type `XdTarget?`.
+ * If its value is not defined in the database the property returns `null`.
+ *
+ * **Sample:**
+ * ```
+ * val group by xdLink0_1(XdGroup::users)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param oppositeLink reference to a property that defines the opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of the persistent property representing the opposite end of the link.
+ *        If `null` (by default) then name of the `oppositeLink` is used.
+ * @param onDelete defines what should happen to the entity on the opposite end when this entity is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before this entity delete.
+ *        `CLEAR`: nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when the entity on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before target entity delete,
+ *        `CLEAR`: link is cleared,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdLink0_1_opposite_multi")
-inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
-        oppositeLink: KProperty1<T, XdMutableQuery<R>>,
+inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink0_1(
+        oppositeLink: KProperty1<XdTarget, XdMutableQuery<XdSource>>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -140,11 +374,39 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_1(
         }
 
 /**
- * Undirected [1] association, opposite end is vector
+ * Gets from cache or creates a new property delegate for bidirectional persistent link with `[1]` cardinality.
+ * Xodus-DNQ checks on flush that the link points to some entity.
+ * For bidirectional associations Xodus-DNQ maintains both ends of the links. For example, if there is a bidirectional
+ * link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)`
+ * Xodus-DNQ will automatically add `user` to `group.users`.
+ *
+ * Resulting property has type `XdTarget`.
+ * While its value is not defined in the database the property throws `RequiredPropertyUndefinedException` on get.
+ *
+ * **Sample:**
+ * ```
+ * val group by xdLink1(XdGroup::users)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param oppositeLink reference to a property that defines the opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of the persistent property representing the opposite end of the link.
+ *        If `null` (by default) then name of the `oppositeLink` is used.
+ * @param onDelete defines what should happen to the entity on the opposite end when this entity is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before this entity delete.
+ *        `CLEAR`: nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when the entity on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link should be cleared before target entity delete,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdLink1_opposite_multi")
-inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
-        oppositeLink: KProperty1<T, XdMutableQuery<R>>,
+inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1(
+        oppositeLink: KProperty1<XdTarget, XdMutableQuery<XdSource>>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -154,11 +416,40 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink1(
         }
 
 /**
- * Undirected [0..N] association, opposite end is vector
+ * Gets from cache or creates a new read-only property delegate for bidirectional persistent link
+ * with `[0..N]` cardinality.
+ * For bidirectional associations Xodus-DNQ maintains both ends of the links. For example, if there is a bidirectional
+ * link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)`
+ * Xodus-DNQ will automatically add `user` to `group.users`.
+ *
+ * Resulting property has type `XdMutableQuery<XdTarget>`.
+ * If its value is not defined in the database the property returns `XdTarget.emptyQuery()`.
+ *
+ * **Sample:**
+ * ```
+ * val users by xdLink0_N(XdUser::groups)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param oppositeLink reference to a property that defines the opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of the persistent property representing the opposite end of the link.
+ *        If `null` (by default) then name of the `oppositeLink` is used.
+ * @param onDelete defines what should happen to the entities on the opposite end when this entity is deleted:
+ *        `FAIL` (by default*) --- transaction fails, i.e. association should be deleted before this entity delete.
+ *        `CLEAR`: nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when one of the entities on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link with the deleted entity should be removed before target entity delete,
+ *        `CLEAR`: link with the deleted entity is removed,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdLink0_N_opposite_multi")
-inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
-        oppositeLink: KProperty1<T, XdMutableQuery<R>>,
+inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink0_N(
+        oppositeLink: KProperty1<XdTarget, XdMutableQuery<XdSource>>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -168,11 +459,41 @@ inline fun <R : XdEntity, reified T : XdEntity> xdLink0_N(
         }
 
 /**
- * Undirected [1..N] association, opposite end is vector
+ * Gets from cache or creates a new read-only property delegate for bidirectional persistent link
+ * with `[1..N]` cardinality.
+ * Xodus-DNQ checks on flush that the link contains at least one entity.
+ * For bidirectional associations Xodus-DNQ maintains both ends of the links. For example, if there is a bidirectional
+ * link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)`
+ * Xodus-DNQ will automatically add `user` to `group.users`.
+ *
+ * Resulting property has type `XdMutableQuery<XdTarget>`.
+ * While its value is not defined in database the property returns `XdTarget.emptyQuery()`.
+ *
+ * **Sample:**
+ * ```
+ * val users by xdLink1_N(XdUser::groups)
+ * ```
+ *
+ * @param XdSource type of link source.
+ * @param XdTarget type of link target.
+ * @param oppositeLink reference to a property that defines the opposite end of the link.
+ * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of the persistent property representing the opposite end of the link.
+ *        If `null` (by default) then name of the `oppositeLink` is used.
+ * @param onDelete defines what should happen to the entities on the opposite end when this entity is deleted:
+ *        `FAIL` (by default*) --- transaction fails, i.e. association should be deleted before this entity delete.
+ *        `CLEAR`: nothing,
+ *        `CASCADE`: entity on the opposite end is deleted as well.
+ * @param onTargetDelete defines what should happen to this entity when one of the entities on the opposite end is deleted:
+ *        `FAIL` (by default): transaction fails, i.e. link with the deleted entity should be removed before target entity delete,
+ *        `CLEAR`: link with the deleted entity is removed,
+ *        `CASCADE`: this entity is deleted as well.
+ * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdLink1_N_opposite_multi")
-inline fun <R : XdEntity, reified T : XdEntity> xdLink1_N(
-        oppositeLink: KProperty1<T, XdMutableQuery<R>>,
+inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1_N(
+        oppositeLink: KProperty1<XdTarget, XdMutableQuery<XdSource>>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
