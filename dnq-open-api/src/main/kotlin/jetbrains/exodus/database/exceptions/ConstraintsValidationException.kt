@@ -17,7 +17,7 @@ package jetbrains.exodus.database.exceptions
 
 import jetbrains.exodus.database.TransientEntity
 
-class ConstraintsValidationException(val causes: Set<DataIntegrityViolationException>) : DataIntegrityViolationException(buildMessage(causes)) {
+open class ConstraintsValidationException(val causes: Set<DataIntegrityViolationException>) : DataIntegrityViolationException(buildMessage(causes)) {
 
     override val entityFieldHandler get() = null
 

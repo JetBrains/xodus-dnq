@@ -17,7 +17,7 @@ package jetbrains.exodus.database.exceptions
 
 import jetbrains.exodus.entitystore.Entity
 
-class UserConstraintValidationException @JvmOverloads constructor(
+open class UserConstraintValidationException @JvmOverloads constructor(
         message: String,
         entity: Entity? = null
 ) : DataIntegrityViolationException(message, entity = entity)

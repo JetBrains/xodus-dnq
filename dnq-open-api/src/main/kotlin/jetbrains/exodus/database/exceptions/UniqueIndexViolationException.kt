@@ -18,7 +18,7 @@ package jetbrains.exodus.database.exceptions
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.query.metadata.Index
 
-class UniqueIndexViolationException(
+open class UniqueIndexViolationException(
         entity: TransientEntity,
         index: Index
 ) : SimplePropertyValidationException(

@@ -17,7 +17,7 @@ package jetbrains.exodus.database.exceptions
 
 import jetbrains.exodus.entitystore.Entity
 
-class CantRemoveEntityException(
+open class CantRemoveEntityException(
         entity: Entity,
         displayMessage: String,
         val entityPresentation: String,

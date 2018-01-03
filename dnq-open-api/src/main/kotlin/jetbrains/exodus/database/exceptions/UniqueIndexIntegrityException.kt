@@ -18,7 +18,7 @@ package jetbrains.exodus.database.exceptions
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.query.metadata.Index
 
-class UniqueIndexIntegrityException(
+open class UniqueIndexIntegrityException(
         entity: TransientEntity,
         index: Index,
         cause: Throwable

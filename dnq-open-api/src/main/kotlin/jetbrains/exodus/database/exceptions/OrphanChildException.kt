@@ -17,7 +17,7 @@ package jetbrains.exodus.database.exceptions
 
 import jetbrains.exodus.database.TransientEntity
 
-class OrphanChildException(entity: TransientEntity, private val parents: Set<String>) :
+open class OrphanChildException(entity: TransientEntity, private val parents: Set<String>) :
         DataIntegrityViolationException("Entity [$entity] has no parent, but should have.", entity = entity) {
 
     override val entityFieldHandler = EntityFieldHandler.create(entity.id, parents.first())

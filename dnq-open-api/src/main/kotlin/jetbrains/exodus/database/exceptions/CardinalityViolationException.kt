@@ -18,7 +18,7 @@ package jetbrains.exodus.database.exceptions
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.query.metadata.AssociationEndMetaData
 
-class CardinalityViolationException(message: String, entity: TransientEntity, associationEndName: String) :
+open class CardinalityViolationException(message: String, entity: TransientEntity, associationEndName: String) :
         DataIntegrityViolationException(message, "Value is required", entity) {
 
     override val entityFieldHandler = EntityFieldHandler(entity.id, associationEndName)

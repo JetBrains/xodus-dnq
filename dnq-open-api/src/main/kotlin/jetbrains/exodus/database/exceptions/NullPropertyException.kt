@@ -17,7 +17,7 @@ package jetbrains.exodus.database.exceptions
 
 import jetbrains.exodus.database.TransientEntity
 
-class NullPropertyException(
+open class NullPropertyException(
         entity: TransientEntity,
         propertyName: String
 ) : SimplePropertyValidationException(
