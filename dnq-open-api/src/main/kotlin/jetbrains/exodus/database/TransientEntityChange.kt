@@ -13,75 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+class TransientEntityChange(val changesTracker: TransientChangesTracker,
+                            val transientEntity: TransientEntity,
+                            val changedProperties: Set<String>?,
+                            val changedLinksDetailed: Map<String, LinkChange>?,
+                            val changeType: EntityChangeType) {
 
-import java.util.Map;
-import java.util.Set;
+    val snapshotEntity get() = changesTracker.getSnapshotEntity(transientEntity)
 
-public class TransientEntityChange {
+    @Deprecated("Use snapshotEntity instead")
+    val snaphotEntity
+        get() = snapshotEntity
 
-    @NotNull
-    private final TransientEntity transientEntity;
-    @Nullable
-    private final Map<String, LinkChange> changedLinksDetailed;
-    @Nullable
-    private final Set<String> changedProperties;
-    @NotNull
-    private final EntityChangeType changeType;
-    @NotNull
-    private final TransientChangesTracker changesTracker;
+    @Deprecated("Use changedLinksDetailed instead")
+    val changedLinksDetaled
+        get() = changedLinksDetailed
 
-    public TransientEntityChange(@NotNull TransientChangesTracker changesTracker,
-                                 @NotNull TransientEntity transientEntity,
-                                 @Nullable Set<String> changedProperties,
-                                 @Nullable Map<String, LinkChange> changedLinksDetailed,
-                                 @NotNull EntityChangeType changeType) {
-        this.changesTracker = changesTracker;
-        this.transientEntity = transientEntity;
-        this.changedLinksDetailed = changedLinksDetailed;
-        this.changedProperties = changedProperties;
-        this.changeType = changeType;
-    }
-
-    @NotNull
-    public EntityChangeType getChangeType() {
-        return changeType;
-    }
-
-    @NotNull
-    public TransientEntity getTransientEntity() {
-        return transientEntity;
-    }
-
-    @NotNull
-    public TransientChangesTracker getChangesTracker() {
-        return changesTracker;
-    }
-
-    public TransientEntity getSnapshotEntity() {
-        return changesTracker.getSnapshotEntity(transientEntity);
-    }
-
-    @Deprecated
-    public TransientEntity getSnaphotEntity() {
-        return changesTracker.getSnapshotEntity(transientEntity);
-    }
-
-    @Nullable
-    public Map<String, LinkChange> getChangedLinksDetaled() {
-        return changedLinksDetailed;
-    }
-
-    @Nullable
-    public Set<String> getChangedProperties() {
-        return changedProperties;
-    }
-
-    public String toString() {
-        return changeType + ":" + transientEntity;
-    }
+    override fun toString() = "$changeType:$transientEntity"
 
 }

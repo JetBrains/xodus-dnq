@@ -13,23 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.entitystore.Entity
 
-import java.util.Set;
+interface IEventsMultiplexer {
+    fun flushed(session: TransientStoreSession, oldChangesTracker: TransientChangesTracker, changesDescription: Set<TransientEntityChange>)
 
-public interface IEventsMultiplexer {
-    void flushed(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker oldChangesTracker, @NotNull Set<TransientEntityChange> changesDescription);
+    fun onClose(transientEntityStore: TransientEntityStore)
 
-    void onClose(@NotNull TransientEntityStore transientEntityStore);
+    fun addListener(e: Entity, listener: IEntityListener<*>)
 
-    void addListener(@NotNull Entity e, @NotNull IEntityListener listener);
+    fun removeListener(e: Entity, listener: IEntityListener<*>)
 
-    void removeListener(@NotNull Entity e, @NotNull IEntityListener listener);
+    fun addListener(entityType: String, listener: IEntityListener<*>)
 
-    void addListener(@NotNull String entityType, @NotNull IEntityListener listener);
-
-    void removeListener(@NotNull String entityType, @NotNull IEntityListener listener);
+    fun removeListener(entityType: String, listener: IEntityListener<*>)
 }

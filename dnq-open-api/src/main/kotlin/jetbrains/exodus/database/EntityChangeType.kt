@@ -13,21 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-public enum EntityChangeType {
+enum class EntityChangeType(val type: String) {
 
     ADD("Add"),
     REMOVE("Remove"),
     UPDATE("Update");
 
-    private String name;
-
-    EntityChangeType(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
-    }
+    fun getName() = type
 }

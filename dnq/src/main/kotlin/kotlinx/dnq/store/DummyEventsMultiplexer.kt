@@ -22,7 +22,7 @@ object DummyEventsMultiplexer : IEventsMultiplexer {
     override fun flushed(
             session: TransientStoreSession,
             oldChangesTracker: TransientChangesTracker,
-            changesDescription: MutableSet<TransientEntityChange>) {
+            changesDescription: Set<TransientEntityChange>) {
         oldChangesTracker.dispose()
     }
 

@@ -13,108 +13,70 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.core.dataStructures.hash.HashSet
 
-import java.util.Set;
+class LinkChange(val linkName: String) {
+    private var _addedEntities: MutableSet<TransientEntity>? = null
+    val addedEntities get() = _addedEntities
+    val addedEntitiesSize: Int
+        get() = _addedEntities?.size ?: 0
 
-public class LinkChange {
+    private var _removedEntities: MutableSet<TransientEntity>? = null
+    val removedEntities get() = _removedEntities
+    val removedEntitiesSize: Int
+        get() = _removedEntities?.size ?: 0
 
-    private String linkName;
-    private Set<TransientEntity> addedEntities;
-    private Set<TransientEntity> removedEntities;
-    private Set<TransientEntity> deletedEntities;
+    private var _deletedEntities: MutableSet<TransientEntity>? = null
+    val deletedEntities get() = _deletedEntities
+    val deletedEntitiesSize: Int
+        get() = _deletedEntities?.size ?: 0
 
-    public LinkChange(@NotNull String linkName) {
-        this.linkName = linkName;
-    }
+    val changeType: LinkChangeType
+        get() {
+            val added = addedEntitiesSize
+            val removed = removedEntitiesSize + deletedEntitiesSize
 
-    public String getLinkName() {
-        return linkName;
-    }
-
-    public LinkChangeType getChangeType() {
-        final int added = getAddedEntitiesSize();
-        final int removed = getRemovedEntitiesSize() + getDeletedEntitiesSize();
-
-        if (added != 0 && removed == 0) return LinkChangeType.ADD;
-        if (added == 0 && removed != 0) return LinkChangeType.REMOVE;
-        if (added != 0 && removed != 0) return LinkChangeType.ADD_AND_REMOVE;
-
-        throw new IllegalStateException("No added or removed links.");
-    }
-
-    public String toString() {
-        return linkName + ":" + getChangeType();
-    }
-
-    public void addAdded(@NotNull TransientEntity e) {
-        if (removedEntities != null) {
-            if (removedEntities.remove(e)) return;
+            return when {
+                added != 0 && removed == 0 -> LinkChangeType.ADD
+                added == 0 && removed != 0 -> LinkChangeType.REMOVE
+                added != 0 && removed != 0 -> LinkChangeType.ADD_AND_REMOVE
+                else -> throw IllegalStateException("No added or removed links.")
+            }
         }
 
-        if (addedEntities == null) {
-            addedEntities = new HashSet<TransientEntity>();
-        }
 
-        addedEntities.add(e);
+    override fun toString() = "$linkName:$changeType"
+
+    fun addAdded(e: TransientEntity) {
+        if (_removedEntities?.remove(e) == true) return
+
+        val addedEntities = this._addedEntities ?:
+                HashSet<TransientEntity>().also { newSet ->
+                    this._addedEntities = newSet
+                }
+        addedEntities.add(e)
     }
 
-    public void addRemoved(@NotNull TransientEntity e) {
-        if (addedEntities != null) {
-            if (addedEntities.remove(e)) return;
-        }
+    fun addRemoved(e: TransientEntity) {
+        if (_addedEntities?.remove(e) == true) return
 
-        if (removedEntities == null) {
-            removedEntities = new HashSet<TransientEntity>();
-        }
-
-        removedEntities.add(e);
+        val removedEntities = this._removedEntities ?:
+                HashSet<TransientEntity>().also { newSet ->
+                    this._removedEntities = newSet
+                }
+        removedEntities.add(e)
     }
 
-    public void addDeleted(@NotNull TransientEntity e) {
-        if (removedEntities != null) {
-            removedEntities.remove(e);
-        }
+    fun addDeleted(e: TransientEntity) {
+        _removedEntities?.remove(e)
+        _addedEntities?.remove(e)
 
-        if (addedEntities != null) {
-            addedEntities.remove(e);
-        }
-
-        if (deletedEntities == null) {
-            deletedEntities = new HashSet<TransientEntity>();
-        }
-
-        deletedEntities.add(e);
-    }
-
-    @Nullable
-    public Set<TransientEntity> getRemovedEntities() {
-        return removedEntities;
-    }
-
-    @Nullable
-    public Set<TransientEntity> getDeletedEntities() {
-        return deletedEntities;
-    }
-
-    @Nullable
-    public Set<TransientEntity> getAddedEntities() {
-        return addedEntities;
-    }
-
-    public int getAddedEntitiesSize() {
-        return addedEntities == null ? 0 : addedEntities.size();
-    }
-
-    public int getRemovedEntitiesSize() {
-        return removedEntities == null ? 0 : removedEntities.size();
-    }
-
-    public int getDeletedEntitiesSize() {
-        return deletedEntities == null ? 0 : deletedEntities.size();
+        val deletedEntities = this._deletedEntities ?:
+                HashSet<TransientEntity>().also { newSet ->
+                    this._deletedEntities = newSet
+                }
+        deletedEntities.add(e)
     }
 }

@@ -13,22 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-public enum LinkChangeType {
+enum class LinkChangeType(val type: String) {
 
     ADD("Add"),
     REMOVE("Remove"),
     ADD_AND_REMOVE("AddAndRemove");
 
-    private String name;
-
-    LinkChangeType(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
-    }
-
+    fun getName() = type
 }
