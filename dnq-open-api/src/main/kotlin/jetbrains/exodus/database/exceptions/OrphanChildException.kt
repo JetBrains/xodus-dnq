@@ -20,7 +20,7 @@ import jetbrains.exodus.database.TransientEntity
 open class OrphanChildException(entity: TransientEntity, private val parents: Set<String>) :
         DataIntegrityViolationException("Entity [$entity] has no parent, but should have.", entity = entity) {
 
-    override val entityFieldHandler = EntityFieldHandler.create(entity.id, parents.first())
+    override val entityFieldHandler = EntityFieldHandler(entity.id, parents.first())
 
     override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
         return super.relatesTo(entity, fieldIdentity) && fieldIdentity in parents

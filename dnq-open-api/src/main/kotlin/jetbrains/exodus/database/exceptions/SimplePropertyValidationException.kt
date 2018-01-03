@@ -23,7 +23,7 @@ open class SimplePropertyValidationException(
         entity: TransientEntity,
         val propertyName: String) : DataIntegrityViolationException(message, displayMessage, entity) {
 
-    override val entityFieldHandler = EntityFieldHandler.create(entity.id, propertyName)
+    override val entityFieldHandler = EntityFieldHandler(entity.id, propertyName)
 
     override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
         return super.relatesTo(entity, fieldIdentity) && propertyName == fieldIdentity

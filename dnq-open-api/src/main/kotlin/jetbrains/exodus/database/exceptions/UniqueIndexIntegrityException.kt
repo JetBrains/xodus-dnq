@@ -22,4 +22,6 @@ open class UniqueIndexIntegrityException(
         entity: TransientEntity,
         index: Index,
         cause: Throwable
-) : DataIntegrityViolationException("Index [$index] is corrupted", entity = entity, cause = cause)
+) : DataIntegrityViolationException("Index [$index] is corrupted", entity = entity, cause = cause) {
+    override val entityFieldHandler = EntityFieldHandler(entity.id, index.fields.first().name)
+}

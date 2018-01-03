@@ -17,9 +17,10 @@ package jetbrains.exodus.database.exceptions
 
 import jetbrains.exodus.entitystore.EntityId
 
-data class EntityFieldHandler(val entityId: EntityId, val fieldName: String?) {
+data class EntityFieldHandler(val entityId: EntityId, val fieldName: String) {
     companion object {
         @JvmStatic
-        fun create(entityId: EntityId, fieldName: String?) = EntityFieldHandler(entityId, fieldName)
+        @Deprecated("User constructor instead", ReplaceWith("EntityFieldHandler(entityId, fieldName)"))
+        fun create(entityId: EntityId, fieldName: String) = EntityFieldHandler(entityId, fieldName)
     }
 }

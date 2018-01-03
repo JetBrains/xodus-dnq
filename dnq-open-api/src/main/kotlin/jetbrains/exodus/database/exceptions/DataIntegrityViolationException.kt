@@ -26,7 +26,7 @@ abstract class DataIntegrityViolationException : EntityStoreException {
     val displayMessage: String
 
     open val entityFieldHandler: EntityFieldHandler?
-        get() = entityId?.let { EntityFieldHandler(it, null) }
+        get() = null
 
     @JvmOverloads
     constructor(message: String, displayMessage: String = message, entity: Entity? = null) : super(message) {
