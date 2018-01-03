@@ -20,13 +20,17 @@ import jetbrains.exodus.query.metadata.Index
 
 open class UniqueIndexViolationException(
         entity: TransientEntity,
-        index: Index
+        val index: Index
 ) : SimplePropertyValidationException(
         buildMessage(entity, index),
         "Value should be unique",
         entity,
         index.fields.first().name
-)
+) {
+    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
+        return super.relatesTo(entity, fieldIdentity) && (fieldIdentity == null || index.fields.any { it.name == fieldIdentity })
+    }
+}
 
 private fun buildMessage(entity: TransientEntity, index: Index) = buildString {
     append("Index [$index] must be unique. Conflicting value: ")
