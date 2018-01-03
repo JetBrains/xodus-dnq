@@ -13,48 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 
-import java.util.Set;
-
-public interface TransientStoreSessionListener {
+interface TransientStoreSessionListener {
 
     /**
      * Called on session flush, only if were changes. Thread session is still available here, but it moved to last database root.
-     *
-     * @param session
-     * @param changedEntities
      */
-    void flushed(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
+    fun flushed(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>?)
 
     /**
      * Before commit or flush, only if were changes.
-     * @param session
-     * @param changedEntities
      */
-    void beforeFlushBeforeConstraints(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
+    fun beforeFlushBeforeConstraints(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>?)
 
     /**
      * Before commit or flush, only if were changes.
      * Is not allowed to have side effects, i.e. make database changes.
-     *
-     * @param session
-     * @param changedEntities
      */
-    @Deprecated
-    void beforeFlushAfterConstraints(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changedEntities);
+    @Deprecated("")
+    fun beforeFlushAfterConstraints(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>?)
 
     /**
      * After constraints if check is failed
      * Is not allowed to have side effects, i.e. make database changes.
-     *
-     * @param session
-     * @param exceptions
      */
-    void afterConstraintsFail(@NotNull TransientStoreSession session, @NotNull Set<DataIntegrityViolationException> exceptions);
-
+    fun afterConstraintsFail(session: TransientStoreSession, exceptions: @JvmSuppressWildcards Set<DataIntegrityViolationException>)
 }

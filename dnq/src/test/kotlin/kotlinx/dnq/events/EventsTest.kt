@@ -36,7 +36,7 @@ class EventsTest : DBTest() {
 
     @Before
     fun updateMultiplexer() {
-        store.eventsMultiplexer = EventsMultiplexer(createAsyncProcessor().apply(JobProcessor::start))
+        store.setEventsMultiplexer(EventsMultiplexer(createAsyncProcessor().apply(JobProcessor::start)))
     }
 
     override fun registerEntityTypes() {
@@ -67,13 +67,13 @@ class EventsTest : DBTest() {
         val goo = transactional { Goo.new() }
         val addedCount = AtomicInteger(0)
         val listener = createIncrementListener(addedCount)
-        store.eventsMultiplexer.addListener(Goo, listener)
+        store.eventsMultiplexer?.addListener(Goo, listener)
         try {
             transactional {
                 goo.content.add(Foo.new())
             }
         } finally {
-            store.eventsMultiplexer.removeListener(Goo, listener)
+            store.eventsMultiplexer?.removeListener(Goo, listener)
         }
         assertEquals(1, addedCount.get())
         transactional {
@@ -89,11 +89,11 @@ class EventsTest : DBTest() {
         val listener = createIncrementListener(addedCount)
         try {
             transactional {
-                store.eventsMultiplexer.addListener(goo, listener)
+                store.eventsMultiplexer?.addListener(goo, listener)
                 goo.content.add(Foo.new())
             }
         } finally {
-            store.eventsMultiplexer.removeListener(goo, listener)
+            store.eventsMultiplexer?.removeListener(goo, listener)
         }
         assertEquals(1, addedCount.get())
         transactional {

@@ -30,13 +30,13 @@ fun createTransientEntityStore(dbFolder: File, environmentName: String, configur
         val store = this
         val environment = Environments.newInstance(dbFolder, EnvironmentConfig().apply(configure))
         val persistentStore = PersistentEntityStoreImpl(environment, environmentName)
-        this.persistentStore = persistentStore
+        this.setPersistentStore(persistentStore)
         this.modelMetaData = ModelMetaDataImpl()
-        this.eventsMultiplexer = DummyEventsMultiplexer
-        this.queryEngine = XdQueryEngine(store).apply {
+        this.setEventsMultiplexer(DummyEventsMultiplexer)
+        this.setQueryEngine(XdQueryEngine(store).apply {
             this.sortEngine = TransientSortEngineImpl(this).apply {
                 setEntityStore(store)
             }
-        }
+        })
     }
 }

@@ -67,7 +67,7 @@ class HasChangesTest(
         }
 
         // cache FlagOfSchepotiev null value in transient level
-        transactional { t1 ->
+        transactional {
             assertThat(e.flagOfSchepotiev).isNull()
 
             thread {

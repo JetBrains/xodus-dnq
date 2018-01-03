@@ -13,105 +13,68 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityIterable;
-import jetbrains.exodus.entitystore.StoreTransaction;
-import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.StoreTransaction
 
 //TODO: rename to TransientStoreTransaction
-public interface TransientStoreSession extends StoreTransaction {
+interface TransientStoreSession : StoreTransaction {
 
-    @NotNull
-    TransientEntityStore getStore();
+    val persistentTransaction: StoreTransaction
 
-    /**
-     * Retruns internal persistent session
-     *
-     * @return
-     * @throws IllegalStateException
-     */
-    @NotNull
-    StoreTransaction getPersistentTransaction() throws IllegalStateException;
+    val transientChangesTracker: TransientChangesTracker
 
     /**
-     * Returns changes tracker
-     *
-     * @return
-     * @throws IllegalStateException
+     * True if session is opened
      */
-    @NotNull
-    TransientChangesTracker getTransientChangesTracker() throws IllegalStateException;
+    val isOpened: Boolean
+
+    /**
+     * True if session is committed
+     */
+    val isCommitted: Boolean
+
+    /**
+     * True if session is aborted
+     */
+    val isAborted: Boolean
+
+    override fun getStore(): TransientEntityStore
 
     /**
      * Creates wrapper for persistent iterable
-     *
-     * @param wrappedIterable
-     * @return
      */
-    @NotNull
-    EntityIterable createPersistentEntityIterableWrapper(@NotNull EntityIterable wrappedIterable);
+    fun createPersistentEntityIterableWrapper(wrappedIterable: EntityIterable): EntityIterable
 
-    @NotNull
-    TransientEntity newEntity(@NotNull final String entityType);
+    override fun newEntity(entityType: String): TransientEntity
 
     /**
      * Creates new wrapper for persistent entity
-     *
-     * @param persistentEntity
-     * @return
      */
-    @NotNull
-    TransientEntity newEntity(@NotNull final Entity persistentEntity);
+    fun newEntity(persistentEntity: Entity): TransientEntity
 
-    @NotNull
-    TransientEntity newEntity(@NotNull final EntityCreator creator);
+    fun newEntity(creator: EntityCreator): TransientEntity
 
     /**
      * Used by dnq to create session local copies of transient entities that come from another session
-     *
-     * @param entity
-     * @return
      */
-    @NotNull
-    TransientEntity newLocalCopy(@NotNull final TransientEntity entity);
+    fun newLocalCopy(entity: TransientEntity): TransientEntity
 
-    boolean hasChanges();
+    fun hasChanges(): Boolean
 
     /**
      * Checks if entity entity was removed in this transaction or in database
      *
-     * @param entity
      * @return true if e was removed, false if it wasn't removed at all
      */
-    boolean isRemoved(@NotNull final Entity entity);
+    fun isRemoved(entity: Entity): Boolean
 
     /**
-     * True if session is opened
-     *
-     * @return
+     * Flushes transaction without checking any constraints, without saving history and without versions check.
      */
-    boolean isOpened();
+    fun quietIntermediateCommit()
 
-    /**
-     * True if session is commited
-     *
-     * @return
-     */
-    boolean isCommitted();
-
-    /**
-     * True if session is aborted
-     *
-     * @return
-     */
-    boolean isAborted();
-
-    /**
-     * Flushes transation without checking any constraints, without saving history and without versions check.
-     */
-    void quietIntermediateCommit();
-
-    void setUpgradeHook(Runnable hook);
+    fun setUpgradeHook(hook: Runnable?)
 }

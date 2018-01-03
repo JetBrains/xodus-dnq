@@ -13,62 +13,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityStore;
-import jetbrains.exodus.query.QueryEngine;
-import jetbrains.exodus.query.metadata.ModelMetaData;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityStore
+import jetbrains.exodus.query.QueryEngine
+import jetbrains.exodus.query.metadata.ModelMetaData
 
 /**
  * Allows to suspend and resume session.
  */
-public interface TransientEntityStore extends EntityStore, EntityStoreRefactorings {
+interface TransientEntityStore : EntityStore, EntityStoreRefactorings {
 
-    EntityStore getPersistentStore();
+    val persistentStore: EntityStore
 
-    @NotNull
-    @Override
-    TransientStoreSession beginReadonlyTransaction();
+    val threadSession: TransientStoreSession?
 
-    TransientStoreSession beginSession();
+    var modelMetaData: ModelMetaData?
 
-    @Nullable
-    TransientStoreSession getThreadSession();
+    val queryEngine: QueryEngine
 
-    @Nullable
-    TransientStoreSession suspendThreadSession();
+    val isOpen: Boolean
+
+    val eventsMultiplexer: IEventsMultiplexer?
+
+    override fun beginReadonlyTransaction(): TransientStoreSession
+
+    fun beginSession(): TransientStoreSession
+
+    fun suspendThreadSession(): TransientStoreSession?
 
     /**
-     * Resumes previously suspened session
-     *
-     * @param session
+     * Resumes previously suspended session
      */
-    void resumeSession(TransientStoreSession session);
+    fun resumeSession(session: TransientStoreSession?)
 
-    void setModelMetaData(final ModelMetaData modelMetaData);
-
-    @Nullable
-    ModelMetaData getModelMetaData();
-
-    void addListener(TransientStoreSessionListener listener);
+    fun addListener(listener: TransientStoreSessionListener)
 
     /**
      * Adds listener with a priority.
      * The higher priority the earlier listener will be visited by the TransientEntityStoreImpl.forAllListeners().
      */
-    void addListener(TransientStoreSessionListener listener, int priority);
+    fun addListener(listener: TransientStoreSessionListener, priority: Int)
 
-    void removeListener(TransientStoreSessionListener listener);
+    fun removeListener(listener: TransientStoreSessionListener)
 
-    QueryEngine getQueryEngine();
-
-    Entity getCachedEnumValue(@NotNull final String className, @NotNull final String propName);
-
-    boolean isOpen();
-
-    IEventsMultiplexer getEventsMultiplexer();
+    fun getCachedEnumValue(className: String, propName: String): Entity
 
 }

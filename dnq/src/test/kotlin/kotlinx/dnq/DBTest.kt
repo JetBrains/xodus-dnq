@@ -171,14 +171,14 @@ abstract class DBTest {
 
     fun <XD : XdEntity> XdEntityType<XD>.onUpdate(mode: Where = SYNC_AFTER_FLUSH, action: (XD, XD) -> Unit): XdEntityListener<XD> {
         val listener = makeListener(mode, action)
-        store.eventsMultiplexer.addListener(this, listener)
+        store.eventsMultiplexer?.addListener(this, listener)
         typeListeners.add(this to listener)
         return listener
     }
 
     fun <XD : XdEntity> XD.onUpdate(mode: Where = SYNC_AFTER_FLUSH, action: (XD, XD) -> Unit): XdEntityListener<XD> {
         val listener = makeListener(mode, action)
-        store.eventsMultiplexer.addListener(this, listener)
+        store.eventsMultiplexer?.addListener(this, listener)
         instanceListeners.add(this to listener)
         return listener
     }
