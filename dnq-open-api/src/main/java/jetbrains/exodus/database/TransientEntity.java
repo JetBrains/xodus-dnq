@@ -18,7 +18,6 @@ package jetbrains.exodus.database;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.EntityIterable;
-import jetbrains.exodus.entitystore.EntityStore;
 import jetbrains.exodus.entitystore.PersistentEntity;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -59,18 +58,19 @@ public interface TransientEntity extends Entity {
 
     boolean hasChanges();
 
-    boolean hasChanges(String property);
+    boolean hasChanges(@NotNull String property);
 
-    boolean hasChangesExcepting(String[] properties);
+    boolean hasChangesExcepting(@NotNull String[] properties);
 
-    EntityIterable getAddedLinks(String name);
+    EntityIterable getAddedLinks(@NotNull String name);
 
-    EntityIterable getRemovedLinks(String name);
+    EntityIterable getRemovedLinks(@NotNull String name);
 
-    EntityIterable getAddedLinks(Set<String> linkNames);
+    EntityIterable getAddedLinks(@NotNull Set<String> linkNames);
 
-    EntityIterable getRemovedLinks(Set<String> linkNames);
+    EntityIterable getRemovedLinks(@NotNull Set<String> linkNames);
 
+    @NotNull
     String getDebugPresentation();
 
     @Nullable
@@ -100,5 +100,6 @@ public interface TransientEntity extends Entity {
 
     void addChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child);
 
+    @Nullable
     Entity getParent();
 }

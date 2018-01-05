@@ -823,6 +823,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
+    @NotNull
     public PersistentStoreTransaction getSnapshot() {
         return ((PersistentStoreTransaction) getPersistentTransaction()).getSnapshot();
     }
@@ -1662,6 +1663,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         });
     }
 
+    @Nullable
     public Entity getParent(@NotNull final TransientEntity child) {
         final String childToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
 

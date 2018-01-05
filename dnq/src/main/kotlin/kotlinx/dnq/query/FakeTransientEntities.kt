@@ -157,11 +157,11 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
-    override fun getAddedLinks(name: String?): EntityIterable {
+    override fun getAddedLinks(name: String): EntityIterable {
         throw unsupported()
     }
 
-    override fun getAddedLinks(linkNames: MutableSet<String>?): EntityIterable {
+    override fun getAddedLinks(linkNames: Set<String>): EntityIterable {
         throw unsupported()
     }
 
@@ -189,7 +189,7 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
-    override fun hasChangesExcepting(properties: Array<out String>?): Boolean {
+    override fun hasChangesExcepting(properties: Array<out String>): Boolean {
         throw unsupported()
     }
 
@@ -201,11 +201,11 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
-    override fun getRemovedLinks(name: String?): EntityIterable {
+    override fun getRemovedLinks(name: String): EntityIterable {
         throw unsupported()
     }
 
-    override fun getRemovedLinks(linkNames: MutableSet<String>?): EntityIterable {
+    override fun getRemovedLinks(linkNames: Set<String>): EntityIterable {
         throw unsupported()
     }
 
@@ -239,9 +239,9 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
 
     override fun hasChanges(): Boolean = false
 
-    override fun hasChanges(property: String?): Boolean = false
+    override fun hasChanges(property: String): Boolean = false
 
-    override fun getParent(): Entity {
+    override fun getParent(): Entity? {
         throw unsupported()
     }
 

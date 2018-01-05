@@ -16,25 +16,26 @@
 package jetbrains.exodus.database;
 
 import jetbrains.exodus.entitystore.Entity;
+import org.jetbrains.annotations.NotNull;
 
 public interface IEntityListener<T extends Entity> {
-    void addedAsync(T added);
-    void addedSync(T added);
-    void addedSyncAfterConstraints(T added);
-    void addedSyncBeforeConstraints(T added);
-    void updatedAsync(T old, T current);
-    void updatedSync(T old, T current);
-    void updatedSyncAfterConstraints(T old, T current);
-    void updatedSyncBeforeConstraints(T old, T current);
-    void removedAsync(T removed);
-    void removedSync(T removed);
-    void removedSyncAfterConstraints(T added);
-    void removedSyncBeforeConstraints(T removed);
+    void addedAsync(@NotNull T added);
+    void addedSync(@NotNull T added);
+    void addedSyncAfterConstraints(@NotNull T added);
+    void addedSyncBeforeConstraints(@NotNull T added);
+    void updatedAsync(@NotNull T old, @NotNull T current);
+    void updatedSync(@NotNull T old, @NotNull T current);
+    void updatedSyncAfterConstraints(@NotNull T old, @NotNull T current);
+    void updatedSyncBeforeConstraints(@NotNull T old, @NotNull T current);
+    void removedAsync(@NotNull T removed);
+    void removedSync(@NotNull T removed);
+    void removedSyncAfterConstraints(@NotNull T added);
+    void removedSyncBeforeConstraints(@NotNull T removed);
 
     @Deprecated
-    void addedSyncBeforeFlush(T added); // use addedSyncAfterConstraints
+    void addedSyncBeforeFlush(@NotNull T added); // use addedSyncAfterConstraints
     @Deprecated
-    void updatedSyncBeforeFlush(T old, T current); // use updatedSyncAfterConstraints
+    void updatedSyncBeforeFlush(@NotNull T old, @NotNull T current); // use updatedSyncAfterConstraints
     @Deprecated
-    void removedSyncBeforeFlush(T removed); // use removedSyncAfterConstraints
+    void removedSyncBeforeFlush(@NotNull T removed); // use removedSyncAfterConstraints
 }

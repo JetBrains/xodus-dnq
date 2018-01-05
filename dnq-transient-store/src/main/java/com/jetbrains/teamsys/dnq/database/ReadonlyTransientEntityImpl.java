@@ -139,7 +139,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
 
     @Override
-    public boolean hasChanges(final String property) {
+    public boolean hasChanges(@Nullable final String property) {
         if (super.hasChanges(property)) {
             return true;
         } else {
@@ -153,7 +153,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
 
     @Override
-    public boolean hasChangesExcepting(String[] properties) {
+    public boolean hasChangesExcepting(@NotNull String[] properties) {
         if (super.hasChangesExcepting(properties)) {
             return true;
         } else {
@@ -188,7 +188,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
 
     @Override
-    public EntityIterable getAddedLinks(String name) {
+    public EntityIterable getAddedLinks(@NotNull String name) {
         if (linksDetaled != null) {
             final LinkChange c = linksDetaled.get(name);
             if (c != null) {
@@ -213,7 +213,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
 
     @Override
-    public EntityIterable getRemovedLinks(String name) {
+    public EntityIterable getRemovedLinks(@NotNull String name) {
         if (linksDetaled != null) {
             final LinkChange c = linksDetaled.get(name);
             if (c != null) {
@@ -237,7 +237,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
 
     @Override
-    public EntityIterable getAddedLinks(Set<String> linkNames) {
+    public EntityIterable getAddedLinks(@NotNull Set<String> linkNames) {
         if (linksDetaled != null) {
             return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, false);
         }
@@ -245,7 +245,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     }
 
     @Override
-    public EntityIterable getRemovedLinks(Set<String> linkNames) {
+    public EntityIterable getRemovedLinks(@NotNull Set<String> linkNames) {
         if (linksDetaled != null) {
             return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, true);
         }

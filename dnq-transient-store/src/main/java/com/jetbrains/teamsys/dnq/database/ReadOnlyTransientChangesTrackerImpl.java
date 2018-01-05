@@ -43,7 +43,8 @@ public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTrac
     }
 
     @Override
-    public TransientEntityChange getChangeDescription(TransientEntity e) {
+    @NotNull
+    public TransientEntityChange getChangeDescription(@NotNull TransientEntity e) {
         throw new UnsupportedOperationException();
     }
 

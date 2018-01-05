@@ -99,7 +99,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return EntityChangeType.UPDATE;
     }
 
-    public TransientEntityChange getChangeDescription(TransientEntity e) {
+    @NotNull
+    public TransientEntityChange getChangeDescription(@NotNull TransientEntity e) {
         return new TransientEntityChange(this, e, getChangedProperties(e), getChangedLinksDetailed(e), getEntityChangeType(e));
     }
 

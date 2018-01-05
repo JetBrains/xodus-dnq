@@ -150,6 +150,7 @@ class TransientEntityImpl implements TransientEntity {
      *
      * @return debug presentation
      */
+    @NotNull
     public String getDebugPresentation() {
         return getPersistentEntity().toString();
     }
@@ -334,7 +335,7 @@ class TransientEntityImpl implements TransientEntity {
         return (changesLinks != null && !changesLinks.isEmpty()) || (changesProperties != null && !changesProperties.isEmpty());
     }
 
-    public boolean hasChanges(final String property) {
+    public boolean hasChanges(@Nullable final String property) {
         final TransientStoreSession session = getAndCheckThreadStoreSession();
         Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
         Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
@@ -342,7 +343,7 @@ class TransientEntityImpl implements TransientEntity {
         return (changesLinks != null && changesLinks.containsKey(property)) || (changesProperties != null && changesProperties.contains(property));
     }
 
-    public boolean hasChangesExcepting(String[] properties) {
+    public boolean hasChangesExcepting(@NotNull String[] properties) {
         final TransientStoreSession session = getAndCheckThreadStoreSession();
         Map<String, LinkChange> changesLinks = session.getTransientChangesTracker().getChangedLinksDetailed(this);
         Set<String> changesProperties = session.getTransientChangesTracker().getChangedProperties(this);
@@ -447,11 +448,11 @@ class TransientEntityImpl implements TransientEntity {
         };
     }
 
-    public EntityIterable getAddedLinks(final String name) {
+    public EntityIterable getAddedLinks(@NotNull final String name) {
         return getAddedRemovedLinks(name, false);
     }
 
-    public EntityIterable getRemovedLinks(final String name) {
+    public EntityIterable getRemovedLinks(@NotNull final String name) {
         return getAddedRemovedLinks(name, true);
     }
 
@@ -465,11 +466,11 @@ class TransientEntityImpl implements TransientEntity {
         );
     }
 
-    public EntityIterable getAddedLinks(final Set<String> linkNames) {
+    public EntityIterable getAddedLinks(@NotNull final Set<String> linkNames) {
         return getAddedRemovedLinks(linkNames, false);
     }
 
-    public EntityIterable getRemovedLinks(final Set<String> linkNames) {
+    public EntityIterable getRemovedLinks(@NotNull final Set<String> linkNames) {
         return getAddedRemovedLinks(linkNames, true);
     }
 
@@ -543,6 +544,7 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     @Override
+    @Nullable
     public Entity getParent() {
         return getAndCheckThreadStoreSession().getParent(this);
     }

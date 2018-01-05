@@ -27,41 +27,29 @@ public interface TransientChangesTracker {
 
     /**
      * Return description of all changes
-     *
-     * @return
      */
     @NotNull
     Set<TransientEntityChange> getChangesDescription();
 
     /**
      * Return size of the result of getChangesDescription
-     *
-     * @return
      */
     int getChangesDescriptionCount();
 
     /**
      * Return change description for given entity
-     *
-     * @param e
-     * @return
      */
-    TransientEntityChange getChangeDescription(TransientEntity e);
+    @NotNull
+    TransientEntityChange getChangeDescription(@NotNull TransientEntity e);
 
     /**
      * Returns set of changed links for given entity
-     *
-     * @param e
-     * @return
      */
     @Nullable
     Map<String, LinkChange> getChangedLinksDetailed(@NotNull TransientEntity e);
 
     /**
      * Returns set of changed properties for given entity
-     *
-     * @param e
-     * @return
      */
     @Nullable
     Set<String> getChangedProperties(@NotNull TransientEntity e);
