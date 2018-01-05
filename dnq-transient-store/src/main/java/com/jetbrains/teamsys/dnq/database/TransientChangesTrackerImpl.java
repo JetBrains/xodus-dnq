@@ -209,7 +209,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         changes.add(change);
     }
 
-    void entityChanged(TransientEntity e) {
+    void entityChanged(@NotNull TransientEntity e) {
         changedEntities.add(e);
         affectedEntityTypes.add(e.getType());
     }
@@ -236,12 +236,12 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         }
     }
 
-    public void entityAdded(TransientEntity e) {
+    public void entityAdded(@NotNull TransientEntity e) {
         entityChanged(e);
         addedEntities.add(e);
     }
 
-    public void entityRemoved(TransientEntity e) {
+    public void entityRemoved(@NotNull TransientEntity e) {
         entityChanged(e);
         removedEntities.add(e);
         List<LinkChange> changes = removedFrom.get(e);

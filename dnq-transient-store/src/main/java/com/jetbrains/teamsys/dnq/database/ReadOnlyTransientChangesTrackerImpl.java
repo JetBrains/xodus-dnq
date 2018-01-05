@@ -136,12 +136,12 @@ public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTrac
     }
 
     @Override
-    public void entityAdded(TransientEntity e) {
+    public void entityAdded(@NotNull TransientEntity e) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void entityRemoved(TransientEntity e) {
+    public void entityRemoved(@NotNull TransientEntity e) {
         throw new UnsupportedOperationException();
     }
 

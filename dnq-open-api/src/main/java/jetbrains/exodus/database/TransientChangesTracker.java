@@ -88,7 +88,7 @@ public interface TransientChangesTracker {
 
     void removePropertyChanged(@NotNull TransientEntity e, @NotNull String propertyName);
 
-    void entityAdded(TransientEntity e);
+    void entityAdded(@NotNull TransientEntity e);
 
-    void entityRemoved(TransientEntity e);
+    void entityRemoved(@NotNull TransientEntity e);
 }
