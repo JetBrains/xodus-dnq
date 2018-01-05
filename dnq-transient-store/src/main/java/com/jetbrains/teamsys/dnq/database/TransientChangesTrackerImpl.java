@@ -153,7 +153,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return addedEntities.contains(e) && removedEntities.contains(e);
     }
 
-    public void linksRemoved(@NotNull TransientEntity source, @NotNull String linkName, Iterable<Entity> links) {
+    public void linksRemoved(@NotNull TransientEntity source, @NotNull String linkName, @NotNull Iterable<Entity> links) {
         entityChanged(source);
 
         final Pair<Map<String, LinkChange>, LinkChange> lc = getLinkChange(source, linkName);
@@ -214,7 +214,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         affectedEntityTypes.add(e.getType());
     }
 
-    public void propertyChanged(TransientEntity e, String propertyName) {
+    public void propertyChanged(@NotNull TransientEntity e, @NotNull String propertyName) {
         entityChanged(e);
 
         Set<String> properties = entityToChangedProperties.get(e);
@@ -226,7 +226,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         properties.add(propertyName);
     }
 
-    public void removePropertyChanged(TransientEntity e, String propertyName) {
+    public void removePropertyChanged(@NotNull TransientEntity e, @NotNull String propertyName) {
         Set<String> properties = entityToChangedProperties.get(e);
         if (properties != null) {
             properties.remove(propertyName);

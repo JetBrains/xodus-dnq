@@ -101,37 +101,37 @@ public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTrac
     }
 
     @Override
-    public boolean isNew(TransientEntity e) {
+    public boolean isNew(@NotNull TransientEntity e) {
         return false;
     }
 
     @Override
-    public boolean isSaved(TransientEntity transientEntity) {
+    public boolean isSaved(@NotNull TransientEntity transientEntity) {
         return true;
     }
 
     @Override
-    public boolean isRemoved(TransientEntity transientEntity) {
+    public boolean isRemoved(@NotNull TransientEntity transientEntity) {
         return false;
     }
 
     @Override
-    public void linkChanged(TransientEntity source, String linkName, TransientEntity target, TransientEntity oldTarget, boolean add) {
+    public void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void linksRemoved(TransientEntity source, String linkName, Iterable<Entity> links) {
+    public void linksRemoved(@NotNull TransientEntity source, @NotNull String linkName, @NotNull Iterable<Entity> links) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void propertyChanged(TransientEntity e, String propertyName) {
+    public void propertyChanged(@NotNull TransientEntity e, @NotNull String propertyName) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void removePropertyChanged(TransientEntity e, String propertyName) {
+    public void removePropertyChanged(@NotNull TransientEntity e, @NotNull String propertyName) {
         throw new UnsupportedOperationException();
     }
 

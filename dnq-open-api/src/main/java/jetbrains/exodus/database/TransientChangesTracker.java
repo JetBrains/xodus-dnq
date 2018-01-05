@@ -74,19 +74,19 @@ public interface TransientChangesTracker {
     @NotNull
     Set<String> getAffectedEntityTypes();
 
-    boolean isNew(TransientEntity e);
+    boolean isNew(@NotNull TransientEntity e);
 
-    boolean isSaved(TransientEntity transientEntity);
+    boolean isSaved(@NotNull TransientEntity transientEntity);
 
-    boolean isRemoved(TransientEntity transientEntity);
+    boolean isRemoved(@NotNull TransientEntity transientEntity);
 
-    void linkChanged(TransientEntity source, String linkName, TransientEntity target, TransientEntity oldTarget, boolean add);
+    void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add);
 
-    void linksRemoved(TransientEntity source, String linkName, Iterable<Entity> links);
+    void linksRemoved(@NotNull TransientEntity source, @NotNull String linkName, @NotNull Iterable<Entity> links);
 
-    void propertyChanged(TransientEntity e, String propertyName);
+    void propertyChanged(@NotNull TransientEntity e, @NotNull String propertyName);
 
-    void removePropertyChanged(TransientEntity e, String propertyName);
+    void removePropertyChanged(@NotNull TransientEntity e, @NotNull String propertyName);
 
     void entityAdded(TransientEntity e);
 
