@@ -13,82 +13,67 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.PersistentStoreTransaction;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.PersistentStoreTransaction
 
-import java.util.Map;
-import java.util.Set;
-
-public interface TransientChangesTracker {
+interface TransientChangesTracker {
 
     /**
      * Return description of all changes
      */
-    @NotNull
-    Set<TransientEntityChange> getChangesDescription();
+    val changesDescription: Set<TransientEntityChange>
 
     /**
      * Return size of the result of getChangesDescription
      */
-    int getChangesDescriptionCount();
+    val changesDescriptionCount: Int
+
+    val snapshot: PersistentStoreTransaction
+
+    val changedEntities: Set<TransientEntity>
+
+    val removedEntities: Set<TransientEntity>
+
+    val affectedEntityTypes: Set<String>
 
     /**
      * Return change description for given entity
      */
-    @NotNull
-    TransientEntityChange getChangeDescription(@NotNull TransientEntity e);
+    fun getChangeDescription(e: TransientEntity): TransientEntityChange
 
     /**
      * Returns set of changed links for given entity
      */
-    @Nullable
-    Map<String, LinkChange> getChangedLinksDetailed(@NotNull TransientEntity e);
+    fun getChangedLinksDetailed(e: TransientEntity): Map<String, LinkChange>?
 
     /**
      * Returns set of changed properties for given entity
      */
-    @Nullable
-    Set<String> getChangedProperties(@NotNull TransientEntity e);
+    fun getChangedProperties(e: TransientEntity): Set<String>?
 
-    @NotNull
-    PersistentStoreTransaction getSnapshot();
+    fun getSnapshotEntity(e: TransientEntity): TransientEntity
 
-    @NotNull
-    TransientEntity getSnapshotEntity(@NotNull TransientEntity e);
+    fun upgrade(): TransientChangesTracker
 
-    @NotNull
-    TransientChangesTracker upgrade();
+    fun dispose()
 
-    void dispose();
+    fun isNew(e: TransientEntity): Boolean
 
-    @NotNull
-    Set<TransientEntity> getChangedEntities();
+    fun isSaved(transientEntity: TransientEntity): Boolean
 
-    @NotNull
-    Set<TransientEntity> getRemovedEntities();
+    fun isRemoved(transientEntity: TransientEntity): Boolean
 
-    @NotNull
-    Set<String> getAffectedEntityTypes();
+    fun linkChanged(source: TransientEntity, linkName: String, target: TransientEntity, oldTarget: TransientEntity?, add: Boolean)
 
-    boolean isNew(@NotNull TransientEntity e);
+    fun linksRemoved(source: TransientEntity, linkName: String, links: @JvmSuppressWildcards Iterable<Entity>)
 
-    boolean isSaved(@NotNull TransientEntity transientEntity);
+    fun propertyChanged(e: TransientEntity, propertyName: String)
 
-    boolean isRemoved(@NotNull TransientEntity transientEntity);
+    fun removePropertyChanged(e: TransientEntity, propertyName: String)
 
-    void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add);
+    fun entityAdded(e: TransientEntity)
 
-    void linksRemoved(@NotNull TransientEntity source, @NotNull String linkName, @NotNull Iterable<Entity> links);
-
-    void propertyChanged(@NotNull TransientEntity e, @NotNull String propertyName);
-
-    void removePropertyChanged(@NotNull TransientEntity e, @NotNull String propertyName);
-
-    void entityAdded(@NotNull TransientEntity e);
-
-    void entityRemoved(@NotNull TransientEntity e);
+    fun entityRemoved(e: TransientEntity)
 }

@@ -13,93 +13,82 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityIterable;
-import jetbrains.exodus.entitystore.PersistentEntity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.core.dataStructures.Pair
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.PersistentEntity
 
-import java.util.List;
-import java.util.Set;
+interface TransientEntity : Entity {
 
-public interface TransientEntity extends Entity {
+    val isNew: Boolean
 
-    @NotNull
-    TransientEntityStore getStore();
+    val isSaved: Boolean
 
-    boolean isNew();
+    val isRemoved: Boolean
 
-    boolean isSaved();
+    val isReadonly: Boolean
 
-    boolean isRemoved();
-
-    boolean isReadonly();
-
-    boolean isWrapper();
+    val isWrapper: Boolean
 
     /**
      * @return underlying persistent entity
      */
-    @NotNull
-    PersistentEntity getPersistentEntity();
+    val persistentEntity: PersistentEntity
 
     /**
      * Gets incoming links to entity.
      *
      * @return list of pairs of link name and an entities which is linked with the entity being deleted.
      */
-    @NotNull
-    List<Pair<String, EntityIterable>> getIncomingLinks();
+    val incomingLinks: List<Pair<String, EntityIterable>>
 
-    long getLinksSize(@NotNull final String linkName);
+    val debugPresentation: String
 
-    boolean hasChanges();
+    val parent: Entity?
 
-    boolean hasChanges(@NotNull String property);
+    override fun getStore(): TransientEntityStore
 
-    boolean hasChangesExcepting(@NotNull String[] properties);
+    fun getLinksSize(linkName: String): Long
 
-    EntityIterable getAddedLinks(@NotNull String name);
+    fun hasChanges(): Boolean
 
-    EntityIterable getRemovedLinks(@NotNull String name);
+    fun hasChanges(property: String): Boolean
 
-    EntityIterable getAddedLinks(@NotNull Set<String> linkNames);
+    fun hasChangesExcepting(properties: Array<String>): Boolean
 
-    EntityIterable getRemovedLinks(@NotNull Set<String> linkNames);
+    fun getAddedLinks(name: String): EntityIterable
 
-    @NotNull
-    String getDebugPresentation();
+    fun getRemovedLinks(name: String): EntityIterable
 
-    @Nullable
-    Comparable getPropertyOldValue(@NotNull final String propertyName);
+    fun getAddedLinks(linkNames: Set<String>): EntityIterable
 
-    void setToOne(@NotNull String linkName, @Nullable Entity target);
+    fun getRemovedLinks(linkNames: Set<String>): EntityIterable
 
-    void setManyToOne(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName, @Nullable Entity one);
+    fun getPropertyOldValue(propertyName: String): Comparable<*>?
 
-    void clearOneToMany(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName);
+    fun setToOne(linkName: String, target: Entity?)
 
-    void createManyToMany(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @NotNull Entity e2);
+    fun setManyToOne(manyToOneLinkName: String, oneToManyLinkName: String, one: Entity?)
 
-    void clearManyToMany(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName);
+    fun clearOneToMany(manyToOneLinkName: String, oneToManyLinkName: String)
 
-    void setOneToOne(@NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @Nullable Entity e2);
+    fun createManyToMany(e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity)
 
-    void removeOneToMany(@NotNull String manyToOneLinkName, @NotNull String oneToManyLinkName, @NotNull Entity many);
+    fun clearManyToMany(e1Toe2LinkName: String, e2Toe1LinkName: String)
 
-    void removeFromParent(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName);
+    fun setOneToOne(e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity?)
 
-    void removeChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName);
+    fun removeOneToMany(manyToOneLinkName: String, oneToManyLinkName: String, many: Entity)
 
-    void setChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child);
+    fun removeFromParent(parentToChildLinkName: String, childToParentLinkName: String)
 
-    void clearChildren(@NotNull String parentToChildLinkName);
+    fun removeChild(parentToChildLinkName: String, childToParentLinkName: String)
 
-    void addChild(@NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child);
+    fun setChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity)
 
-    @Nullable
-    Entity getParent();
+    fun clearChildren(parentToChildLinkName: String)
+
+    fun addChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity)
 }

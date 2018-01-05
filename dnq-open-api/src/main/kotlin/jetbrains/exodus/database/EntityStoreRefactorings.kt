@@ -13,22 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.entitystore.Entity
 
-public interface EntityStoreRefactorings {
+interface EntityStoreRefactorings {
 
-    boolean entityTypeExists(@NotNull final String entityTypeName);
+    fun entityTypeExists(entityTypeName: String): Boolean
 
-    void renameEntityTypeRefactoring(@NotNull final String oldEntityTypeName, @NotNull final String newEntityTypeName);
+    fun renameEntityTypeRefactoring(oldEntityTypeName: String, newEntityTypeName: String)
 
-    void deleteEntityTypeRefactoring(@NotNull final String entityTypeName);
+    fun deleteEntityTypeRefactoring(entityTypeName: String)
 
-    void deleteEntityRefactoring(@NotNull final Entity entity);
+    fun deleteEntityRefactoring(entity: Entity)
 
-    void deleteLinksRefactoring(@NotNull final Entity entity, @NotNull final String linkName);
+    fun deleteLinksRefactoring(entity: Entity, linkName: String)
 
-    void deleteLinkRefactoring(@NotNull final Entity entity, @NotNull final String linkName, @NotNull final Entity link);
+    fun deleteLinkRefactoring(entity: Entity, linkName: String, link: Entity)
 }

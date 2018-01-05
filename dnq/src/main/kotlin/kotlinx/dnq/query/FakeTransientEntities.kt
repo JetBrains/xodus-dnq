@@ -18,13 +18,11 @@ package kotlinx.dnq.query
 import javassist.util.proxy.MethodHandler
 import javassist.util.proxy.ProxyFactory
 import jetbrains.exodus.ByteIterable
-import jetbrains.exodus.core.dataStructures.Pair
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.PersistentEntity
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.query.LinkEqual
 import jetbrains.exodus.query.NodeBase
@@ -165,9 +163,7 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
-    override fun isNew(): Boolean {
-        throw unsupported()
-    }
+    override val isNew get() = throw unsupported()
 
     override fun removeOneToMany(manyToOneLinkName: String, oneToManyLinkName: String, many: Entity) {
         throw unsupported()
@@ -185,11 +181,9 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
-    override fun getDebugPresentation(): String {
-        throw unsupported()
-    }
+    override val debugPresentation: String get() = throw unsupported()
 
-    override fun hasChangesExcepting(properties: Array<out String>): Boolean {
+    override fun hasChangesExcepting(properties: Array<String>): Boolean {
         throw unsupported()
     }
 
@@ -209,9 +203,7 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
-    override fun getIncomingLinks(): MutableList<Pair<String, EntityIterable>> {
-        throw unsupported()
-    }
+    override val incomingLinks get() = throw unsupported()
 
     override fun setChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
         throw unsupported()
@@ -225,29 +217,25 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
-    override fun isReadonly(): Boolean = true
+    override val isReadonly get() = true
 
-    override fun isRemoved(): Boolean = false
+    override val isRemoved get() = false
 
     override fun clearManyToMany(e1Toe2LinkName: String, e2Toe1LinkName: String) {
         throw unsupported()
     }
 
-    override fun isWrapper(): Boolean = false
+    override val isWrapper get() = false
 
-    override fun isSaved(): Boolean = true
+    override val isSaved get() = true
 
-    override fun hasChanges(): Boolean = false
+    override fun hasChanges() = false
 
-    override fun hasChanges(property: String): Boolean = false
+    override fun hasChanges(property: String) = false
 
-    override fun getParent(): Entity? {
-        throw unsupported()
-    }
+    override val parent get() = throw unsupported()
 
-    override fun getPersistentEntity(): PersistentEntity {
-        throw unsupported()
-    }
+    override val persistentEntity get() = throw unsupported()
 
     override fun setManyToOne(manyToOneLinkName: String, oneToManyLinkName: String, one: Entity?) {
         throw unsupported()
@@ -333,7 +321,7 @@ internal class SearchingEntity(_type: String, _entityStore: TransientEntityStore
 
     fun deepestChild(): SearchingEntity {
         val entity = childEntity
-        if (entity != null && entity.currentNodeName != null) {
+        if (entity?.currentNodeName != null) {
             return entity.deepestChild()
         }
         return this

@@ -58,6 +58,6 @@ interface TransientEntityStore : EntityStore, EntityStoreRefactorings {
 
     fun removeListener(listener: TransientStoreSessionListener)
 
-    fun getCachedEnumValue(className: String, propName: String): Entity
+    fun getCachedEnumValue(className: String, propName: String): Entity?
 
 }

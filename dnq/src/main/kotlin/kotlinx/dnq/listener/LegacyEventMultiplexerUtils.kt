@@ -52,7 +52,7 @@ fun <XD : XdEntity> XdEntityType<XD>.removeListener(store: TransientEntityStore,
 
 fun <XD : XdEntity> XdEntityListener<XD>.asLegacyListener(): IEntityListener<Entity> = EntityListenerWrapper(this)
 
-internal class EntityListenerWrapper<XD : XdEntity>(val wrapped: XdEntityListener<XD>) : IEntityListener<Entity> {
+internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityListener<XD>) : IEntityListener<Entity> {
     override fun addedSyncBeforeConstraints(added: Entity) = wrapped.addedSyncBeforeConstraints(added.toXd())
     override fun addedSync(added: Entity) = wrapped.addedSync(added.toXd())
     override fun addedSyncAfterConstraints(added: Entity) = wrapped.addedSyncAfterConstraints(added.toXd())

@@ -13,29 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database;
+package jetbrains.exodus.database
 
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.entitystore.Entity
 
-public interface IEntityListener<T extends Entity> {
-    void addedAsync(@NotNull T added);
-    void addedSync(@NotNull T added);
-    void addedSyncAfterConstraints(@NotNull T added);
-    void addedSyncBeforeConstraints(@NotNull T added);
-    void updatedAsync(@NotNull T old, @NotNull T current);
-    void updatedSync(@NotNull T old, @NotNull T current);
-    void updatedSyncAfterConstraints(@NotNull T old, @NotNull T current);
-    void updatedSyncBeforeConstraints(@NotNull T old, @NotNull T current);
-    void removedAsync(@NotNull T removed);
-    void removedSync(@NotNull T removed);
-    void removedSyncAfterConstraints(@NotNull T added);
-    void removedSyncBeforeConstraints(@NotNull T removed);
+interface IEntityListener<T : Entity> {
+    fun addedAsync(added: T)
+    fun addedSync(added: T)
+    fun addedSyncAfterConstraints(added: T)
+    fun addedSyncBeforeConstraints(added: T)
+    fun updatedAsync(old: T, current: T)
+    fun updatedSync(old: T, current: T)
+    fun updatedSyncAfterConstraints(old: T, current: T)
+    fun updatedSyncBeforeConstraints(old: T, current: T)
+    fun removedAsync(removed: T)
+    fun removedSync(removed: T)
+    fun removedSyncAfterConstraints(added: T)
+    fun removedSyncBeforeConstraints(removed: T)
 
-    @Deprecated
-    void addedSyncBeforeFlush(@NotNull T added); // use addedSyncAfterConstraints
-    @Deprecated
-    void updatedSyncBeforeFlush(@NotNull T old, @NotNull T current); // use updatedSyncAfterConstraints
-    @Deprecated
-    void removedSyncBeforeFlush(@NotNull T removed); // use removedSyncAfterConstraints
+    @Deprecated("Implement addedSyncAfterConstraints() instead")
+    fun addedSyncBeforeFlush(added: T)
+
+    @Deprecated("Implement updatedSyncAfterConstraints() instead")
+    fun updatedSyncBeforeFlush(old: T, current: T)
+
+    @Deprecated("Implement removedSyncAfterConstraints() instead")
+    fun removedSyncBeforeFlush(removed: T)
 }
