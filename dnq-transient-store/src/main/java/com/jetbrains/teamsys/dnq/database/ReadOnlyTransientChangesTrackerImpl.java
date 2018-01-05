@@ -30,9 +30,10 @@ import java.util.Set;
 
 @SuppressWarnings("unchecked")
 public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTracker {
+    @Nullable
     private PersistentStoreTransaction snapshot;
 
-    ReadOnlyTransientChangesTrackerImpl(PersistentStoreTransaction snapshot) {
+    ReadOnlyTransientChangesTrackerImpl(@NotNull PersistentStoreTransaction snapshot) {
         this.snapshot = snapshot;
     }
 
@@ -66,7 +67,12 @@ public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTrac
     }
 
     @Override
+    @NotNull
     public PersistentStoreTransaction getSnapshot() {
+        PersistentStoreTransaction snapshot = this.snapshot;
+        if (snapshot == null) {
+            throw new IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed");
+        }
         return snapshot;
     }
 
@@ -137,7 +143,7 @@ public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTrac
 
     @Override
     public TransientChangesTracker upgrade() {
-        return new TransientChangesTrackerImpl(snapshot);
+        return new TransientChangesTrackerImpl(getSnapshot());
     }
 
     @Override

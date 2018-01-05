@@ -42,9 +42,10 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     private final Map<TransientEntity, List<LinkChange>> removedFrom = new HashMapDecorator<TransientEntity, List<LinkChange>>();
     private final Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
     private final Map<TransientEntity, Set<String>> entityToChangedProperties = new HashMapDecorator<TransientEntity, Set<String>>();
+    @Nullable
     private PersistentStoreTransaction snapshot;
 
-    TransientChangesTrackerImpl(PersistentStoreTransaction snapshot) {
+    TransientChangesTrackerImpl(@NotNull PersistentStoreTransaction snapshot) {
         this.snapshot = snapshot;
     }
 
@@ -58,14 +59,19 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return Collections.unmodifiableSet(affectedEntityTypes);
     }
 
+    @NotNull
     public PersistentStoreTransaction getSnapshot() {
+        PersistentStoreTransaction snapshot = this.snapshot;
+        if (snapshot == null) {
+            throw new IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed");
+        }
         return snapshot;
     }
 
     @Override
     public TransientEntityImpl getSnapshotEntity(TransientEntity e) {
-        final ReadOnlyPersistentEntity ro = e.getPersistentEntity().getSnapshot(snapshot);
-        return new ReadonlyTransientEntityImpl(getChangeDescription(e), ro, (TransientEntityStore) e.getStore());
+        final ReadOnlyPersistentEntity ro = e.getPersistentEntity().getSnapshot(getSnapshot());
+        return new ReadonlyTransientEntityImpl(getChangeDescription(e), ro, e.getStore());
     }
 
     @NotNull

@@ -54,6 +54,7 @@ public interface TransientChangesTracker {
     @Nullable
     Set<String> getChangedProperties(@NotNull TransientEntity e);
 
+    @NotNull
     PersistentStoreTransaction getSnapshot();
 
     TransientEntity getSnapshotEntity(TransientEntity e);
