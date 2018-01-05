@@ -57,16 +57,21 @@ public interface TransientChangesTracker {
     @NotNull
     PersistentStoreTransaction getSnapshot();
 
-    TransientEntity getSnapshotEntity(TransientEntity e);
+    @NotNull
+    TransientEntity getSnapshotEntity(@NotNull TransientEntity e);
 
+    @NotNull
     TransientChangesTracker upgrade();
 
     void dispose();
 
+    @NotNull
     Set<TransientEntity> getChangedEntities();
 
+    @NotNull
     Set<TransientEntity> getRemovedEntities();
 
+    @NotNull
     Set<String> getAffectedEntityTypes();
 
     boolean isNew(TransientEntity e);

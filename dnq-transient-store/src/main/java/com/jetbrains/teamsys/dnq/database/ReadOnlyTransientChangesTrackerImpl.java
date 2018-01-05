@@ -77,21 +77,25 @@ public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTrac
     }
 
     @Override
-    public TransientEntity getSnapshotEntity(TransientEntity e) {
+    @NotNull
+    public TransientEntity getSnapshotEntity(@NotNull TransientEntity e) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @NotNull
     public Set<TransientEntity> getChangedEntities() {
         return Collections.EMPTY_SET;
     }
 
     @Override
+    @NotNull
     public Set<TransientEntity> getRemovedEntities() {
         return Collections.EMPTY_SET;
     }
 
     @Override
+    @NotNull
     public Set<String> getAffectedEntityTypes() {
         return Collections.EMPTY_SET;
     }
@@ -142,6 +146,7 @@ public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTrac
     }
 
     @Override
+    @NotNull
     public TransientChangesTracker upgrade() {
         return new TransientChangesTrackerImpl(getSnapshot());
     }

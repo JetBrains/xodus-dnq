@@ -35,12 +35,19 @@ import java.util.*;
  */
 public final class TransientChangesTrackerImpl implements TransientChangesTracker {
 
+    @NotNull
     private final Set<TransientEntity> changedEntities = new LinkedHashSet<TransientEntity>();
+    @NotNull
     private final Set<TransientEntity> addedEntities = new LinkedHashSet<TransientEntity>();
+    @NotNull
     private final Set<TransientEntity> removedEntities = new LinkedHashSetDecorator<TransientEntity>();
+    @NotNull
     private final Set<String> affectedEntityTypes = new HashSet<String>();
+    @NotNull
     private final Map<TransientEntity, List<LinkChange>> removedFrom = new HashMapDecorator<TransientEntity, List<LinkChange>>();
+    @NotNull
     private final Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
+    @NotNull
     private final Map<TransientEntity, Set<String>> entityToChangedProperties = new HashMapDecorator<TransientEntity, Set<String>>();
     @Nullable
     private PersistentStoreTransaction snapshot;
@@ -69,7 +76,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     }
 
     @Override
-    public TransientEntityImpl getSnapshotEntity(TransientEntity e) {
+    @NotNull
+    public TransientEntityImpl getSnapshotEntity(@NotNull TransientEntity e) {
         final ReadOnlyPersistentEntity ro = e.getPersistentEntity().getSnapshot(getSnapshot());
         return new ReadonlyTransientEntityImpl(getChangeDescription(e), ro, e.getStore());
     }
@@ -91,7 +99,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     @Override
     public int getChangesDescriptionCount() {
         int addedAndRemovedCount = 0;
-        for (TransientEntity removed: removedEntities) {
+        for (TransientEntity removed : removedEntities) {
             if (addedEntities.contains(removed)) {
                 addedAndRemovedCount++;
             }
@@ -120,6 +128,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return entityToChangedProperties.get(e);
     }
 
+    @NotNull
     public Set<TransientEntity> getRemovedEntities() {
         return removedEntities;
     }
@@ -244,6 +253,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
     }
 
     @Override
+    @NotNull
     public TransientChangesTracker upgrade() {
         return this;
     }
