@@ -13,21 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.association;
+package com.jetbrains.teamsys.dnq.association
 
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.jetbrains.teamsys.dnq.database.reattachTransient
+import jetbrains.exodus.entitystore.Entity
 
 /**
- * Implements aggregation assocations management.&lt;p&gt;
+ * Implements aggregation associations management.&lt;p&gt;
  * 1-1: project.[1]leader &lt;-&gt; user.[1]leaderInProject &lt;p&gt;
  * 1-n: project[0..n].issues &lt;-&gt; issue[1].project &lt;p&gt;
  * n-n: project[0..n].assignees &lt;-&gt; user[0..n].assigneeInProjects &lt;p&gt;
  */
-public class AggregationAssociationSemantics {
+object AggregationAssociationSemantics {
 
     /**
      * 1. parent.parentToChild = child &lt;==&gt; child.childToParent = parent
@@ -38,19 +35,16 @@ public class AggregationAssociationSemantics {
      * @param childToParentLinkName child to parent link name
      * @param child                 child
      */
-    public static void setOneToOne(@Nullable Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @Nullable Entity child) {
-        parent = TransientStoreUtil.reattach((TransientEntity) parent);
-        child = TransientStoreUtil.reattach((TransientEntity) child);
+    @JvmStatic
+    fun setOneToOne(parent: Entity?, parentToChildLinkName: String, childToParentLinkName: String, child: Entity?) {
+        val txnParent = parent?.reattachTransient()
+        val txnChild = child?.reattachTransient()
 
-        if (child == null && parent == null) {
-            throw new IllegalArgumentException("Both entities can't be null.");
-        }
-        if (parent == null) {
-            ((TransientEntity) child).removeFromParent(parentToChildLinkName, childToParentLinkName);
-        } else if (/* parent != null && */ child == null) {
-            ((TransientEntity) parent).removeChild(parentToChildLinkName, childToParentLinkName);
-        } else { /* parent != null && child != null */
-            ((TransientEntity) parent).setChild(parentToChildLinkName, childToParentLinkName, child);
+        when {
+            txnParent != null && txnChild != null -> txnParent.setChild(parentToChildLinkName, childToParentLinkName, txnChild)
+            txnParent != null && txnChild == null -> txnParent.removeChild(parentToChildLinkName, childToParentLinkName)
+            txnParent == null && txnChild != null -> txnChild.removeFromParent(parentToChildLinkName, childToParentLinkName)
+            txnParent == null && txnChild == null -> throw IllegalArgumentException("Both entities can't be null.")
         }
     }
 
@@ -62,13 +56,12 @@ public class AggregationAssociationSemantics {
      * @param childToParentLinkName child to parent link name
      * @param child                 child
      */
-    public static void createOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
-        parent = TransientStoreUtil.reattach((TransientEntity) parent);
-        child = TransientStoreUtil.reattach((TransientEntity) child);
+    @JvmStatic
+    fun createOneToMany(parent: Entity, parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
+        val txnParent = parent.reattachTransient()
+        val txnChild = child.reattachTransient()
 
-        if (parent != null && child != null) {
-            ((TransientEntity) parent).addChild(parentToChildLinkName, childToParentLinkName, child);
-        }
+        txnParent.addChild(parentToChildLinkName, childToParentLinkName, txnChild)
     }
 
     /**
@@ -79,12 +72,12 @@ public class AggregationAssociationSemantics {
      * @param childToParentLinkName child to parent link name
      * @param child                 child
      */
-    public static void removeOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
-        parent = TransientStoreUtil.reattach((TransientEntity) parent);
-        child = TransientStoreUtil.reattach((TransientEntity) child);
-        if (child != null) {
-            ((TransientEntity) child).removeFromParent(parentToChildLinkName, childToParentLinkName);
-        }
+    @JvmStatic
+    fun removeOneToMany(parent: Entity, parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
+        val txnParent = parent.reattachTransient()
+        val txnChild = child.reattachTransient()
+
+        txnChild.removeFromParent(parentToChildLinkName, childToParentLinkName)
     }
 
     /**
@@ -93,13 +86,10 @@ public class AggregationAssociationSemantics {
      * @param parent                parent
      * @param parentToChildLinkName parent to child link name
      */
-    public static void clearOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName) {
-        parent = TransientStoreUtil.reattach((TransientEntity) parent);
-
-        //parent.parentToChild.clear
-        if (parent != null) {
-            ((TransientEntity) parent).clearChildren(parentToChildLinkName);
-        }
+    @JvmStatic
+    fun clearOneToMany(parent: Entity, parentToChildLinkName: String) {
+        val txnParent = parent.reattachTransient()
+        txnParent.clearChildren(parentToChildLinkName)
     }
 
     /**
@@ -111,29 +101,23 @@ public class AggregationAssociationSemantics {
      * @param childToParentLinkName child to parent link name
      * @param child                 child
      */
-    public static void setManyToOne(@Nullable Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
-        parent = TransientStoreUtil.reattach((TransientEntity) parent);
-        child = TransientStoreUtil.reattach((TransientEntity) child);
+    @JvmStatic
+    fun setManyToOne(parent: Entity?, parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
+        val txnParent = parent?.reattachTransient()
+        val txnChild = child.reattachTransient()
 
-        if (child != null) {
-            if (parent == null) {
-                ((TransientEntity) child).removeFromParent(parentToChildLinkName, childToParentLinkName);
-            } else {
-                // child.childToParent = parent
-                ((TransientEntity) parent).addChild(parentToChildLinkName, childToParentLinkName, child);
-            }
+        if (txnParent == null) {
+            txnChild.removeFromParent(parentToChildLinkName, childToParentLinkName)
+        } else {
+            // child.childToParent = parent
+            txnParent.addChild(parentToChildLinkName, childToParentLinkName, txnChild)
         }
     }
 
-    @Nullable
-    public static Entity getParent(@NotNull Entity child) {
-        child = TransientStoreUtil.reattach((TransientEntity) child);
-
-        if (child != null) {
-            return ((TransientEntity) child).getParent();
-        } else {
-            return null;
-        }
+    @JvmStatic
+    fun getParent(child: Entity): Entity? {
+        val txnChild = child.reattachTransient()
+        return txnChild.parent
     }
 
 }

@@ -13,60 +13,56 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.association;
+package com.jetbrains.teamsys.dnq.association
 
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.jetbrains.teamsys.dnq.database.reattachTransient
+import jetbrains.exodus.entitystore.Entity
 
 
-public class DirectedAssociationSemantics {
+object DirectedAssociationSemantics {
 
     /**
      * user.role = role
      * user.role = null
      */
-    public static void setToOne(@Nullable Entity source, @NotNull String linkName, @Nullable Entity target) {
-        source = TransientStoreUtil.reattach((TransientEntity) source);
-        if (source == null) return;
-
-        ((TransientEntity) source).setToOne(linkName, TransientStoreUtil.reattach((TransientEntity) target));
+    @JvmStatic
+    fun setToOne(source: Entity?, linkName: String, target: Entity?) {
+        val txnSource = source?.reattachTransient()
+        val txnTarget = target?.reattachTransient()
+        txnSource?.setToOne(linkName, txnTarget)
     }
 
     /**
      * project.users.add(user)
      */
-    public static void createToMany(@Nullable Entity source, @NotNull String linkName, @Nullable Entity target) {
-        source = TransientStoreUtil.reattach((TransientEntity) source);
-        if (source == null) return;
-        target = TransientStoreUtil.reattach((TransientEntity) target);
-        if (target == null) return;
-
-        source.addLink(linkName, target);
+    @JvmStatic
+    fun createToMany(source: Entity?, linkName: String, target: Entity?) {
+        val txnSource = source?.reattachTransient()
+        val txnTarget = target?.reattachTransient()
+        if (txnTarget != null) {
+            txnSource?.addLink(linkName, txnTarget)
+        }
     }
 
     /**
      * project.users.remove(user)
      */
-    public static void removeToMany(@Nullable Entity source, @NotNull String linkName, @Nullable Entity target) {
-        source = TransientStoreUtil.reattach((TransientEntity) source);
-        if (source == null) return;
-        target = TransientStoreUtil.reattach((TransientEntity) target);
-        if (target == null) return;
-
-        source.deleteLink(linkName, target);
+    @JvmStatic
+    fun removeToMany(source: Entity?, linkName: String, target: Entity?) {
+        val txnSource = source?.reattachTransient()
+        val txnTarget = target?.reattachTransient()
+        if (txnTarget != null) {
+            txnSource?.deleteLink(linkName, txnTarget)
+        }
     }
 
     /**
      * project.users.clear
      */
-    public static void clearToMany(@Nullable Entity source, @NotNull String linkName) {
-        source = TransientStoreUtil.reattach((TransientEntity) source);
-        if (source == null) return;
-
-        source.deleteLinks(linkName);
+    @JvmStatic
+    fun clearToMany(source: Entity?, linkName: String) {
+        val txnSource = source?.reattachTransient()
+        txnSource?.deleteLinks(linkName)
     }
 
 }

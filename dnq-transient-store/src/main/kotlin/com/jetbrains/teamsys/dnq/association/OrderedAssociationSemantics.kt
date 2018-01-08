@@ -13,61 +13,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.association;
+package com.jetbrains.teamsys.dnq.association
 
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.jetbrains.teamsys.dnq.database.reattachTransient
+import jetbrains.exodus.entitystore.Entity
 
 /**
  * User: Maxim Mazin
  */
-public class OrderedAssociationSemantics {
-    public static boolean compare(@Nullable Entity left, @Nullable Entity right, @NotNull String orderPropertyName, int cmp) {
-        left = TransientStoreUtil.reattach((TransientEntity) left);
-        right = TransientStoreUtil.reattach((TransientEntity) right);
+object OrderedAssociationSemantics {
 
-        int cmpResult;
-        if (left == null || right == null) {
-            if (left != null) {
-                cmpResult = 1;
-            } else if (right != null) {
-                cmpResult = -1;
-            } else {
-                cmpResult = 0;
-            }
-        } else {
-            Comparable leftOrder = left.getProperty(orderPropertyName);
-            Comparable rightOrder = right.getProperty(orderPropertyName);
-            cmpResult = leftOrder.compareTo(rightOrder);
+    @JvmStatic
+    fun compare(left: Entity?, right: Entity?, orderPropertyName: String, cmp: Int): Boolean {
+        val leftOrder = left?.reattachTransient()?.getProperty(orderPropertyName)
+        val rightOrder = right?.reattachTransient()?.getProperty(orderPropertyName)
+
+        val cmpResult = when {
+            leftOrder != null && rightOrder != null -> leftOrder.compareTo(rightOrder)
+            leftOrder != null && rightOrder == null -> 1
+            leftOrder == null && rightOrder != null -> -1
+            else -> 0
         }
 
-        switch (cmp) {
-            case 1:
-                return cmpResult >= 0;
-            case 2:
-                return cmpResult < 0;
-            case 3:
-                return cmpResult <= 0;
-            default:
-                return cmpResult > 0;
+        return when (cmp) {
+            1 -> cmpResult >= 0
+            2 -> cmpResult < 0
+            3 -> cmpResult <= 0
+            else -> cmpResult > 0
         }
     }
 
+    @JvmStatic
+    fun swap(left: Entity?, right: Entity?, orderPropertyName: String) {
+        val txnLeft = left?.reattachTransient()
+        val txnRight = right?.reattachTransient()
 
-    public static void swap(@Nullable Entity left, @Nullable Entity right, @NotNull String orderPropertyName) {
-        left = TransientStoreUtil.reattach((TransientEntity) left);
-        right = TransientStoreUtil.reattach((TransientEntity) right);
-
-        if (left != null && right != null) {
-            Comparable leftOrder = left.getProperty(orderPropertyName);
-            Comparable rightOrder = right.getProperty(orderPropertyName);
+        if (txnLeft != null && txnRight != null) {
+            val leftOrder = txnLeft.getProperty(orderPropertyName)
+            val rightOrder = txnRight.getProperty(orderPropertyName)
 
             if (leftOrder != null && rightOrder != null) {
-                left.setProperty(orderPropertyName, rightOrder);
-                right.setProperty(orderPropertyName, leftOrder);
+                txnLeft.setProperty(orderPropertyName, rightOrder)
+                txnRight.setProperty(orderPropertyName, leftOrder)
             }
         }
     }

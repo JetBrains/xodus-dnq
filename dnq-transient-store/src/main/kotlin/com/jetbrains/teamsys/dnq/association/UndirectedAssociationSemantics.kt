@@ -13,119 +13,106 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.association;
+package com.jetbrains.teamsys.dnq.association
 
-import com.jetbrains.teamsys.dnq.database.TransientStoreUtil;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.jetbrains.teamsys.dnq.database.reattachTransient
+import jetbrains.exodus.entitystore.Entity
 
 /**
- * Implements undirected assocations management.<p>
- * 1-1: project.[1]leader <-> user.[1]leaderInProject <p>
- * 1-n: project[0..n].issues <-> issue[1].project <p>
- * n-n: project[0..n].assignees <-> user[0..n].assigneeInProjects <p>
+ * Implements undirected associations management.
+ * - 1-1: project.[1]leader <-> user.[1]leaderInProject
+ * - 1-n: project[0..n].issues <-> issue[1].project
+ * - n-n: project[0..n].assignees <-> user[0..n].assigneeInProjects
  */
-public class UndirectedAssociationSemantics {
+object UndirectedAssociationSemantics {
 
     /**
      * 1. e1.e1Toe2LinkName = e2 <==> e2.e2Toe1LinkName = e1;
      * 2. e2.e2Toe1LinkName = null <==> e1.e1Toe1LinkName = null
      */
-    public static void setOneToOne(@Nullable Entity e1, @NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @Nullable Entity e2) {
-        e1 = TransientStoreUtil.reattach((TransientEntity) e1);
-        e2 = TransientStoreUtil.reattach((TransientEntity) e2);
+    @JvmStatic
+    fun setOneToOne(e1: Entity?, e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity?) {
+        val txnEntity1 = e1?.reattachTransient()
+        val txnEntity2 = e2?.reattachTransient()
 
-        if (e1 == null && e2 == null) {
-            throw new IllegalArgumentException("Both entities can't be null.");
-        }
-        if (e1 == null) {
-            ((TransientEntity) e2).setOneToOne(e2Toe1LinkName, e1Toe2LinkName, e1);
-        } else {
-            ((TransientEntity) e1).setOneToOne(e1Toe2LinkName, e2Toe1LinkName, e2);
+        when {
+            txnEntity1 != null -> txnEntity1.setOneToOne(e1Toe2LinkName, e2Toe1LinkName, txnEntity2)
+            txnEntity2 != null -> txnEntity2.setOneToOne(e2Toe1LinkName, e1Toe2LinkName, txnEntity1)
+            else -> throw IllegalArgumentException("Both entities can't be null")
         }
     }
 
     /**
      * one.oneToManyLinkName.add(many)
      */
-    public static void createOneToMany(@NotNull Entity one, @NotNull String oneToManyLinkName, @NotNull String manyToOneLinkName, @NotNull Entity many) {
-        one = TransientStoreUtil.reattach((TransientEntity) one);
-        many = TransientStoreUtil.reattach((TransientEntity) many);
+    @JvmStatic
+    fun createOneToMany(one: Entity, oneToManyLinkName: String, manyToOneLinkName: String, many: Entity) {
+        val txnOne = one.reattachTransient()
+        val txnMany = many.reattachTransient()
 
-        if (many != null) {
-            ((TransientEntity) many).setManyToOne(manyToOneLinkName, oneToManyLinkName, one);
-        }
+        txnMany.setManyToOne(manyToOneLinkName, oneToManyLinkName, txnOne)
     }
 
     /**
      * one.oneToManyLinkName.remove(many)
      */
-    public static void removeOneToMany(@NotNull Entity one, @NotNull String oneToManyLinkName, @NotNull String manyToOneLinkName, @NotNull Entity many) {
-        one = TransientStoreUtil.reattach((TransientEntity) one);
-        many = TransientStoreUtil.reattach((TransientEntity) many);
+    @JvmStatic
+    fun removeOneToMany(one: Entity, oneToManyLinkName: String, manyToOneLinkName: String, many: Entity) {
+        val txnOne = one.reattachTransient()
+        val txnMany = many.reattachTransient()
 
-        if (one != null && many != null) {
-            ((TransientEntity) one).removeOneToMany(manyToOneLinkName, oneToManyLinkName, many);
-        }
+        txnOne.removeOneToMany(manyToOneLinkName, oneToManyLinkName, txnMany)
     }
 
     /**
      * one.oneToManyLinkName.clear
      */
-    public static void clearOneToMany(@NotNull Entity one, @NotNull String oneToManyLinkName, @NotNull String manyToOneLinkName) {
-        one = TransientStoreUtil.reattach((TransientEntity) one);
-
-        //one.oneToManyLinkName.removeAll
-        if (one != null) {
-            ((TransientEntity) one).clearOneToMany(manyToOneLinkName, oneToManyLinkName);
-        }
+    @JvmStatic
+    fun clearOneToMany(one: Entity, oneToManyLinkName: String, manyToOneLinkName: String) {
+        val txnOne = one.reattachTransient()
+        txnOne.clearOneToMany(manyToOneLinkName, oneToManyLinkName)
     }
 
     /**
      * many.manyToOneLinkName = one
      * many.manyToOneLinkName = null
      */
-    public static void setManyToOne(@Nullable Entity one, @NotNull String oneToManyLinkName, @NotNull String manyToOneLinkName, @NotNull Entity many) {
-        one = TransientStoreUtil.reattach((TransientEntity) one);
-        many = TransientStoreUtil.reattach((TransientEntity) many);
+    @JvmStatic
+    fun setManyToOne(one: Entity?, oneToManyLinkName: String, manyToOneLinkName: String, many: Entity) {
+        val txnOne = one?.reattachTransient()
+        val txnMany = many.reattachTransient()
 
-        if (many != null) {
-            ((TransientEntity) many).setManyToOne(manyToOneLinkName, oneToManyLinkName, one);
-        }
+        txnMany.setManyToOne(manyToOneLinkName, oneToManyLinkName, txnOne)
     }
 
     /**
      * e1.e1Toe2LinkName.add(e2) <==> e2.e2Toe1LinkName.add(e1)
      */
-    public static void createManyToMany(@NotNull Entity e1, @NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @NotNull Entity e2) {
-        e1 = TransientStoreUtil.reattach((TransientEntity) e1);
-        e2 = TransientStoreUtil.reattach((TransientEntity) e2);
+    @JvmStatic
+    fun createManyToMany(e1: Entity, e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity) {
+        val txnEntity1 = e1.reattachTransient()
+        val txnEntity2 = e2.reattachTransient()
 
-        if (e1 != null && e2 != null) {
-            ((TransientEntity) e1).createManyToMany(e1Toe2LinkName, e2Toe1LinkName, e2);
-        }
+        txnEntity1.createManyToMany(e1Toe2LinkName, e2Toe1LinkName, txnEntity2)
     }
 
     /**
      * e1.e1Toe2LinkName.remove(e2) <==> e2.e2Toe1LinkName.remove(e1)
      */
-    public static void removeManyToMany(@NotNull Entity e1, @NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName, @NotNull Entity e2) {
+    @JvmStatic
+    fun removeManyToMany(e1: Entity, e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity) {
         // reattach is inside of removeToMany
-        DirectedAssociationSemantics.removeToMany(e1, e1Toe2LinkName, e2);
-        DirectedAssociationSemantics.removeToMany(e2, e2Toe1LinkName, e1);
+        DirectedAssociationSemantics.removeToMany(e1, e1Toe2LinkName, e2)
+        DirectedAssociationSemantics.removeToMany(e2, e2Toe1LinkName, e1)
     }
 
     /**
      * e1.e1Toe2LinkName.clear <==> e2.e2Toe1LinkName.clear
      */
-    public static void clearManyToMany(@NotNull Entity e1, @NotNull String e1Toe2LinkName, @NotNull String e2Toe1LinkName) {
-        e1 = TransientStoreUtil.reattach((TransientEntity) e1);
-
-        if (e1 != null) {
-            ((TransientEntity) e1).clearManyToMany(e1Toe2LinkName, e2Toe1LinkName);
-        }
+    @JvmStatic
+    fun clearManyToMany(e1: Entity, e1Toe2LinkName: String, e2Toe1LinkName: String) {
+        val txnEntity1 = e1.reattachTransient()
+        txnEntity1.clearManyToMany(e1Toe2LinkName, e2Toe1LinkName)
     }
 
 }
