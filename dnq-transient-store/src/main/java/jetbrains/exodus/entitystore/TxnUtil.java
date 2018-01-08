@@ -15,13 +15,15 @@
  */
 package jetbrains.exodus.entitystore;
 
+import org.jetbrains.annotations.NotNull;
+
 @Deprecated
 public class TxnUtil {
 
     private TxnUtil() {
     }
 
-    public static void registerTransation(PersistentEntityStoreImpl store, PersistentStoreTransaction txn) {
+    public static void registerTransaction(@NotNull PersistentEntityStoreImpl store, @NotNull PersistentStoreTransaction txn) {
         store.registerTransaction(txn);
     }
 }

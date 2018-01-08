@@ -22,19 +22,19 @@ interface TransientStoreSessionListener {
     /**
      * Called on session flush, only if were changes. Thread session is still available here, but it moved to last database root.
      */
-    fun flushed(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>?)
+    fun flushed(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>)
 
     /**
      * Before commit or flush, only if were changes.
      */
-    fun beforeFlushBeforeConstraints(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>?)
+    fun beforeFlushBeforeConstraints(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>)
 
     /**
      * Before commit or flush, only if were changes.
      * Is not allowed to have side effects, i.e. make database changes.
      */
     @Deprecated("")
-    fun beforeFlushAfterConstraints(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>?)
+    fun beforeFlushAfterConstraints(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>)
 
     /**
      * After constraints if check is failed

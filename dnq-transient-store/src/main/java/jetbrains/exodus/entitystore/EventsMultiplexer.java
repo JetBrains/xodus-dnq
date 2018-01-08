@@ -33,11 +33,13 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class EventsMultiplexer implements TransientStoreSessionListener, IEventsMultiplexer {
-    private static final ExceptionHandlerImpl EX_HANDLER = new ExceptionHandlerImpl();
     static Logger logger = LoggerFactory.getLogger(EventsMultiplexer.class);
 
+    @NotNull
     private Map<FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<>();
+    @NotNull
     private Map<String, Queue<IEntityListener>> typeToListeners = new HashMap<>();
+    @NotNull
     private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
     private boolean open = true;
     @Nullable
@@ -51,7 +53,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         this.eventsMultiplexerJobProcessor = eventsMultiplexerJobProcessor;
     }
 
-    public void flushed(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
+    public void flushed(@NotNull TransientStoreSession session, @NotNull Set<TransientEntityChange> changes) {
         // do nothing. actual job is in flushed(changesTracker)
     }
 
@@ -60,23 +62,23 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
      *
      * @param changesTracker changes tracker to dispose after async job
      */
-    public void flushed(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker changesTracker, @Nullable Set<TransientEntityChange> changes) {
+    public void flushed(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker changesTracker, @NotNull Set<TransientEntityChange> changes) {
         this.fire(session.getStore(), Where.SYNC_AFTER_FLUSH, changes);
-        this.asyncFire(session, changes, changesTracker);
+        this.asyncFire(session, changesTracker, changes);
     }
 
-    public void beforeFlushBeforeConstraints(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
+    public void beforeFlushBeforeConstraints(@NotNull TransientStoreSession session, @NotNull Set<TransientEntityChange> changes) {
         this.fire(session.getStore(), Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS, changes);
     }
 
-    public void beforeFlushAfterConstraints(@NotNull TransientStoreSession session, @Nullable Set<TransientEntityChange> changes) {
+    public void beforeFlushAfterConstraints(@NotNull TransientStoreSession session, @NotNull Set<TransientEntityChange> changes) {
         this.fire(session.getStore(), Where.SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS, changes);
     }
 
     public void afterConstraintsFail(@NotNull TransientStoreSession session, @NotNull Set<DataIntegrityViolationException> exceptions) {
     }
 
-    private void asyncFire(@NotNull TransientStoreSession session, final Set<TransientEntityChange> changes, TransientChangesTracker changesTracker) {
+    private void asyncFire(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker changesTracker, @NotNull final Set<TransientEntityChange> changes) {
         JobProcessor asyncJobProcessor = getAsyncJobProcessor();
         if (asyncJobProcessor == null) {
             changesTracker.dispose();
@@ -85,7 +87,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         }
     }
 
-    void fire(TransientEntityStore store, Where where, Set<TransientEntityChange> changes) {
+    void fire(@NotNull TransientEntityStore store, @NotNull Where where, @NotNull Set<TransientEntityChange> changes) {
         for (TransientEntityChange c : changes) {
             this.handlePerEntityChanges(where, c);
             this.handlePerEntityTypeChanges(store, where, c);
@@ -197,7 +199,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         }
     }
 
-    public boolean hasEntityListener(TransientEntity entity) {
+    public boolean hasEntityListener(@NotNull TransientEntity entity) {
         this.rwl.readLock().lock();
         try {
             return instanceToListeners.containsKey(new FullEntityId(entity.getStore(), entity.getId()));
@@ -206,7 +208,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         }
     }
 
-    private String listenerToString(final FullEntityId id, Queue<IEntityListener> listeners) {
+    private String listenerToString(@NotNull final FullEntityId id, @NotNull Queue<IEntityListener> listeners) {
         final StringBuilder builder = new StringBuilder(40);
         builder.append("Unregistered entity to listener class: ");
         id.toString(builder);
@@ -218,7 +220,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         return builder.toString();
     }
 
-    private void handlePerEntityChanges(Where where, TransientEntityChange c) {
+    private void handlePerEntityChanges(@NotNull Where where, @NotNull TransientEntityChange c) {
         final Queue<IEntityListener> listeners;
         final TransientEntity e = c.getTransientEntity();
         final FullEntityId id = new FullEntityId(e.getStore(), e.getId());
@@ -241,10 +243,10 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
         this.handleChange(where, c, listeners);
     }
 
-    private void handlePerEntityTypeChanges(TransientEntityStore store, Where where, TransientEntityChange c) {
-        ModelMetaData modelMedatData = store.getModelMetaData();
-        if (modelMedatData != null) {
-            EntityMetaData emd = modelMedatData.getEntityMetaData(c.getTransientEntity().getType());
+    private void handlePerEntityTypeChanges(@NotNull TransientEntityStore store, @NotNull Where where, @NotNull TransientEntityChange c) {
+        ModelMetaData modelMedaData = store.getModelMetaData();
+        if (modelMedaData != null) {
+            EntityMetaData emd = modelMedaData.getEntityMetaData(c.getTransientEntity().getType());
             if (emd != null) {
                 for (String type : emd.getThisAndSuperTypes()) {
                     Queue<IEntityListener> listeners;
@@ -261,7 +263,7 @@ public class EventsMultiplexer implements TransientStoreSessionListener, IEvents
     }
 
     @SuppressWarnings("unchecked")
-    private void handleChange(Where where, TransientEntityChange c, Queue listeners) {
+    private void handleChange(@NotNull Where where, @NotNull TransientEntityChange c, @Nullable Queue listeners) {
         if (listeners != null) {
             EventsMultiplexerInternalKt.handleChange(where, c, listeners);
         }
