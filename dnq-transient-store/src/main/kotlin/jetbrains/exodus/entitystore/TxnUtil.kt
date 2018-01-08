@@ -13,17 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore;
+package jetbrains.exodus.entitystore
 
-import org.jetbrains.annotations.NotNull;
+@Deprecated("")
+object TxnUtil {
 
-@Deprecated
-public class TxnUtil {
-
-    private TxnUtil() {
-    }
-
-    public static void registerTransaction(@NotNull PersistentEntityStoreImpl store, @NotNull PersistentStoreTransaction txn) {
-        store.registerTransaction(txn);
+    @JvmStatic
+    fun registerTransaction(store: PersistentEntityStoreImpl, txn: PersistentStoreTransaction) {
+        store.registerTransaction(txn)
     }
 }

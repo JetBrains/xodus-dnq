@@ -13,14 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore;
+package jetbrains.exodus.entitystore
 
-public enum Where {
-    SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS(),
-    SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS(),
-    SYNC_AFTER_FLUSH(),
-    ASYNC_AFTER_FLUSH();
-
-    Where() {
-    }
+enum class Where() {
+    SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS,
+    SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS,
+    SYNC_AFTER_FLUSH,
+    ASYNC_AFTER_FLUSH
 }

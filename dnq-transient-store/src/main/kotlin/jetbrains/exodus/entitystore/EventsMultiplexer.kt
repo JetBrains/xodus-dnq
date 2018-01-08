@@ -13,264 +13,233 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore;
+package jetbrains.exodus.entitystore
 
-import jetbrains.exodus.core.dataStructures.hash.HashMap;
-import jetbrains.exodus.core.execution.JobProcessor;
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
-import jetbrains.exodus.query.metadata.EntityMetaData;
-import jetbrains.exodus.query.metadata.ModelMetaData;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import jetbrains.exodus.core.dataStructures.hash.HashMap
+import jetbrains.exodus.core.execution.JobProcessor
+import jetbrains.exodus.database.*
+import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
+import mu.KLogging
+import java.util.*
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+class EventsMultiplexer @JvmOverloads constructor(val asyncJobProcessor: JobProcessor? = null) : TransientStoreSessionListener, IEventsMultiplexer {
+    private val instanceToListeners = HashMap<FullEntityId, Queue<IEntityListener<*>>>()
+    private val typeToListeners = HashMap<String, Queue<IEntityListener<*>>>()
+    private val rwl = ReentrantReadWriteLock()
+    private var isOpen = true
 
-public class EventsMultiplexer implements TransientStoreSessionListener, IEventsMultiplexer {
-    static Logger logger = LoggerFactory.getLogger(EventsMultiplexer.class);
+    companion object : KLogging()
 
-    @NotNull
-    private Map<FullEntityId, Queue<IEntityListener>> instanceToListeners = new HashMap<>();
-    @NotNull
-    private Map<String, Queue<IEntityListener>> typeToListeners = new HashMap<>();
-    @NotNull
-    private ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
-    private boolean open = true;
-    @Nullable
-    private final JobProcessor eventsMultiplexerJobProcessor;
-
-    public EventsMultiplexer() {
-        this(null);
-    }
-
-    public EventsMultiplexer(@Nullable JobProcessor eventsMultiplexerJobProcessor) {
-        this.eventsMultiplexerJobProcessor = eventsMultiplexerJobProcessor;
-    }
-
-    public void flushed(@NotNull TransientStoreSession session, @NotNull Set<TransientEntityChange> changes) {
+    override fun flushed(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) {
         // do nothing. actual job is in flushed(changesTracker)
     }
 
     /**
      * Called directly by transient session
      *
-     * @param changesTracker changes tracker to dispose after async job
+     * @param oldChangesTracker changes tracker to dispose after async job
      */
-    public void flushed(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker changesTracker, @NotNull Set<TransientEntityChange> changes) {
-        this.fire(session.getStore(), Where.SYNC_AFTER_FLUSH, changes);
-        this.asyncFire(session, changesTracker, changes);
+    override fun flushed(session: TransientStoreSession, oldChangesTracker: TransientChangesTracker, changesDescription: Set<TransientEntityChange>) {
+        this.fire(session.store, Where.SYNC_AFTER_FLUSH, changesDescription)
+        this.asyncFire(session, oldChangesTracker, changesDescription)
     }
 
-    public void beforeFlushBeforeConstraints(@NotNull TransientStoreSession session, @NotNull Set<TransientEntityChange> changes) {
-        this.fire(session.getStore(), Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS, changes);
+    override fun beforeFlushBeforeConstraints(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) {
+        this.fire(session.store, Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS, changedEntities)
     }
 
-    public void beforeFlushAfterConstraints(@NotNull TransientStoreSession session, @NotNull Set<TransientEntityChange> changes) {
-        this.fire(session.getStore(), Where.SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS, changes);
+    @Deprecated("")
+    override fun beforeFlushAfterConstraints(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) {
+        this.fire(session.store, Where.SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS, changedEntities)
     }
 
-    public void afterConstraintsFail(@NotNull TransientStoreSession session, @NotNull Set<DataIntegrityViolationException> exceptions) {
-    }
+    override fun afterConstraintsFail(session: TransientStoreSession, exceptions: Set<DataIntegrityViolationException>) {}
 
-    private void asyncFire(@NotNull TransientStoreSession session, @NotNull TransientChangesTracker changesTracker, @NotNull final Set<TransientEntityChange> changes) {
-        JobProcessor asyncJobProcessor = getAsyncJobProcessor();
-        if (asyncJobProcessor == null) {
-            changesTracker.dispose();
+    private fun asyncFire(session: TransientStoreSession, changesTracker: TransientChangesTracker, changes: Set<TransientEntityChange>) {
+        val asyncJobProcessor = asyncJobProcessor
+        if (asyncJobProcessor != null) {
+            asyncJobProcessor.queue(EventsMultiplexerJob(session.store, this, changes, changesTracker))
         } else {
-            asyncJobProcessor.queue(new EventsMultiplexerJob(session.getStore(), this, changes, changesTracker));
+            changesTracker.dispose()
         }
     }
 
-    void fire(@NotNull TransientEntityStore store, @NotNull Where where, @NotNull Set<TransientEntityChange> changes) {
-        for (TransientEntityChange c : changes) {
-            this.handlePerEntityChanges(where, c);
-            this.handlePerEntityTypeChanges(store, where, c);
+    internal fun fire(store: TransientEntityStore, where: Where, changes: Set<TransientEntityChange>) {
+        changes.forEach {
+            this.handlePerEntityChanges(where, it)
+            this.handlePerEntityTypeChanges(store, where, it)
         }
     }
 
-    public void addListener(@NotNull Entity e, @NotNull IEntityListener listener) {
-        if (((TransientEntity) e).isNew()) {
-            throw new IllegalStateException("Entity is not saved into database - you can't listern to it.");
+    override fun addListener(e: Entity, listener: IEntityListener<*>) {
+        if ((e as TransientEntity).isNew) {
+            throw IllegalStateException("Entity is not saved into database - you can't listen to it.")
         }
-        final FullEntityId id = new FullEntityId(e.getStore(), e.getId());
-        this.rwl.writeLock().lock();
-        try {
-            if (open) {
-                Queue<IEntityListener> listeners = this.instanceToListeners.get(id);
-                if (listeners == null) {
-                    listeners = new ConcurrentLinkedQueue<>();
-                    this.instanceToListeners.put(id, listeners);
-                }
-                listeners.add(listener);
+        val id = FullEntityId(e.store, e.getId())
+        rwl.write {
+            if (isOpen) {
+                instanceToListeners
+                        .getOrPut(id) { ConcurrentLinkedQueue() }
+                        .add(listener)
             }
-        } finally {
-            this.rwl.writeLock().unlock();
         }
     }
 
-    public void removeListener(@NotNull Entity e, @NotNull IEntityListener listener) {
-        final FullEntityId id = new FullEntityId(e.getStore(), e.getId());
-        this.rwl.writeLock().lock();
-        try {
-            final Queue<IEntityListener> listeners = this.instanceToListeners.get(id);
+    override fun removeListener(e: Entity, listener: IEntityListener<*>) {
+        val id = FullEntityId(e.store, e.id)
+        rwl.write {
+            val listeners = this.instanceToListeners[id]
             if (listeners != null) {
-                listeners.remove(listener);
-                if (listeners.size() == 0) {
-                    this.instanceToListeners.remove(id);
+                listeners.remove(listener)
+                if (listeners.isEmpty()) {
+                    this.instanceToListeners.remove(id)
                 }
             }
-        } finally {
-            this.rwl.writeLock().unlock();
         }
     }
 
-    public void addListener(@NotNull String entityType, @NotNull IEntityListener listener) {
+    override fun addListener(entityType: String, listener: IEntityListener<*>) {
         //  ensure that this code will be executed outside of transaction
-        this.rwl.writeLock().lock();
-        try {
-            if (open) {
-                Queue<IEntityListener> listeners = this.typeToListeners.get(entityType);
-                if (listeners == null) {
-                    listeners = new ConcurrentLinkedQueue<>();
-                    this.typeToListeners.put(entityType, listeners);
-                }
-                listeners.add(listener);
+        rwl.write {
+            if (isOpen) {
+                typeToListeners
+                        .getOrPut(entityType) { ConcurrentLinkedQueue() }
+                        .add(listener)
             }
-        } finally {
-            this.rwl.writeLock().unlock();
         }
     }
 
-    public void removeListener(@NotNull String entityType, @NotNull IEntityListener listener) {
-        this.rwl.writeLock().lock();
-        try {
-            if (open) {
-                Queue<IEntityListener> listeners = this.typeToListeners.get(entityType);
+    override fun removeListener(entityType: String, listener: IEntityListener<*>) {
+        rwl.write {
+            if (isOpen) {
+                val listeners = this.typeToListeners[entityType]
                 if (listeners != null) {
-                    listeners.remove(listener);
-                    if (listeners.size() == 0) {
-                        this.typeToListeners.remove(entityType);
+                    listeners.remove(listener)
+                    if (listeners.isEmpty()) {
+                        this.typeToListeners.remove(entityType)
                     }
                 }
             }
-        } finally {
-            this.rwl.writeLock().unlock();
         }
     }
 
-    public void close() {
-        if (logger.isInfoEnabled()) {
-            logger.info("Cleaning EventsMultiplexer listeners");
-        }
-        this.rwl.writeLock().lock();
-        open = false;
-        final Map<FullEntityId, Queue<IEntityListener>> notClosedListeners;
-        // clear listeners
-        try {
-            this.typeToListeners.clear();
+    fun close() {
+        logger.info { "Cleaning EventsMultiplexer listeners" }
+
+        val notClosedListeners = rwl.write {
+            isOpen = false
+
+            // clear listeners
+            this.typeToListeners.clear()
+
             // copy set
-            notClosedListeners = new java.util.HashMap<>(this.instanceToListeners);
-            instanceToListeners.clear();
-        } finally {
-            this.rwl.writeLock().unlock();
+            val notClosedListeners = HashMap<FullEntityId, Queue<IEntityListener<*>>>(this.instanceToListeners)
+            instanceToListeners.clear()
+            notClosedListeners
         }
-        for (final FullEntityId id : notClosedListeners.keySet()) {
-            if (logger.isErrorEnabled()) {
-                logger.error(listenerToString(id, notClosedListeners.get(id)));
-            }
+
+        for ((id, listener) in notClosedListeners) {
+            logger.error { listenerToString(id, listener) }
         }
     }
 
-    public void onClose(@NotNull TransientEntityStore store) {
-    }
+    override fun onClose(transientEntityStore: TransientEntityStore) {}
 
-    public boolean hasEntityListeners() {
-        this.rwl.readLock().lock();
-        try {
-            return !(instanceToListeners.isEmpty());
-        } finally {
-            this.rwl.readLock().unlock();
+    fun hasEntityListeners(): Boolean {
+        return rwl.read {
+            instanceToListeners.isNotEmpty()
         }
     }
 
-    public boolean hasEntityListener(@NotNull TransientEntity entity) {
-        this.rwl.readLock().lock();
-        try {
-            return instanceToListeners.containsKey(new FullEntityId(entity.getStore(), entity.getId()));
-        } finally {
-            this.rwl.readLock().unlock();
+    fun hasEntityListener(entity: TransientEntity): Boolean {
+        return rwl.read {
+            FullEntityId(entity.store, entity.id) in instanceToListeners
         }
     }
 
-    private String listenerToString(@NotNull final FullEntityId id, @NotNull Queue<IEntityListener> listeners) {
-        final StringBuilder builder = new StringBuilder(40);
-        builder.append("Unregistered entity to listener class: ");
-        id.toString(builder);
-        builder.append(" ->");
-        for (IEntityListener listener : listeners) {
-            builder.append(' ');
-            builder.append(listener.getClass().getName());
+    private fun listenerToString(id: FullEntityId, listeners: Queue<IEntityListener<*>>): String {
+        return buildString(40) {
+            append("Unregistered entity to listener class: ")
+            id.toString(this)
+            append(" -> ")
+            listeners.joinTo(this, " ") { it.javaClass.name }
         }
-        return builder.toString();
     }
 
-    private void handlePerEntityChanges(@NotNull Where where, @NotNull TransientEntityChange c) {
-        final Queue<IEntityListener> listeners;
-        final TransientEntity e = c.getTransientEntity();
-        final FullEntityId id = new FullEntityId(e.getStore(), e.getId());
-        if (where == Where.ASYNC_AFTER_FLUSH && c.getChangeType() == EntityChangeType.REMOVE) {
+    private fun handlePerEntityChanges(where: Where, c: TransientEntityChange) {
+        val e = c.transientEntity
+        val id = FullEntityId(e.store, e.id)
+        val listeners = if (where == Where.ASYNC_AFTER_FLUSH && c.changeType == EntityChangeType.REMOVE) {
             // unsubscribe all entity listeners, but fire them anyway
-            this.rwl.writeLock().lock();
-            try {
-                listeners = this.instanceToListeners.remove(id);
-            } finally {
-                this.rwl.writeLock().unlock();
+            rwl.write {
+                this.instanceToListeners.remove(id)
             }
         } else {
-            this.rwl.readLock().lock();
-            try {
-                listeners = this.instanceToListeners.get(id);
-            } finally {
-                this.rwl.readLock().unlock();
+            rwl.read {
+                this.instanceToListeners[id]
             }
         }
-        this.handleChange(where, c, listeners);
+        if (listeners != null) {
+            this.handleChange(where, c, listeners)
+        }
     }
 
-    private void handlePerEntityTypeChanges(@NotNull TransientEntityStore store, @NotNull Where where, @NotNull TransientEntityChange c) {
-        ModelMetaData modelMedaData = store.getModelMetaData();
-        if (modelMedaData != null) {
-            EntityMetaData emd = modelMedaData.getEntityMetaData(c.getTransientEntity().getType());
-            if (emd != null) {
-                for (String type : emd.getThisAndSuperTypes()) {
-                    Queue<IEntityListener> listeners;
-                    this.rwl.readLock().lock();
-                    try {
-                        listeners = this.typeToListeners.get(type);
-                    } finally {
-                        this.rwl.readLock().unlock();
+    private fun handlePerEntityTypeChanges(store: TransientEntityStore, where: Where, c: TransientEntityChange) {
+        store.modelMetaData
+                ?.getEntityMetaData(c.transientEntity.type)
+                ?.thisAndSuperTypes
+                ?.mapNotNull { rwl.read { this.typeToListeners[it] } }
+                ?.forEach { this.handleChange(where, c, it) }
+    }
+
+    private fun handleChange(
+            where: Where,
+            c: TransientEntityChange,
+            listeners: Queue<IEntityListener<*>>
+    ) = when (where) {
+        Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS -> when (c.changeType) {
+            EntityChangeType.ADD -> listeners.visit(true) { it.addedSyncBeforeConstraints(c.transientEntity) }
+            EntityChangeType.UPDATE -> listeners.visit(true) { it.updatedSyncBeforeConstraints(c.snapshotEntity, c.transientEntity) }
+            EntityChangeType.REMOVE -> listeners.visit(true) { it.removedSyncBeforeConstraints(c.snapshotEntity) }
+        }
+        Where.SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS -> when (c.changeType) {
+            EntityChangeType.ADD -> listeners.visit { it.addedSyncAfterConstraints(c.transientEntity) }
+            EntityChangeType.UPDATE -> listeners.visit { it.updatedSyncAfterConstraints(c.snapshotEntity, c.transientEntity) }
+            EntityChangeType.REMOVE -> listeners.visit { it.removedSyncAfterConstraints(c.snapshotEntity) }
+        }
+        Where.SYNC_AFTER_FLUSH -> when (c.changeType) {
+            EntityChangeType.ADD -> listeners.visit { it.addedSync(c.transientEntity) }
+            EntityChangeType.UPDATE -> listeners.visit { it.updatedSync(c.snapshotEntity, c.transientEntity) }
+            EntityChangeType.REMOVE -> listeners.visit { it.removedSync(c.snapshotEntity) }
+        }
+        Where.ASYNC_AFTER_FLUSH -> when (c.changeType) {
+            EntityChangeType.ADD -> listeners.visit { it.addedAsync(c.transientEntity) }
+            EntityChangeType.UPDATE -> listeners.visit { it.updatedAsync(c.snapshotEntity, c.transientEntity) }
+            EntityChangeType.REMOVE -> listeners.visit { it.removedAsync(c.snapshotEntity) }
+        }
+    }
+
+    private fun Queue<IEntityListener<*>>.visit(rethrow: Boolean = false, action: (IEntityListener<Entity>) -> Unit) {
+        for (l in this) {
+            try {
+                @Suppress("UNCHECKED_CAST")
+                action(l as IEntityListener<Entity>)
+            } catch (e: Exception) {
+                // rethrow exception only for beforeFlush listeners
+                if (rethrow) {
+                    if (e is RuntimeException) {
+                        throw e
+                    } else {
+                        throw RuntimeException(e)
                     }
-                    this.handleChange(where, c, listeners);
+                } else {
+                    logger.error(e) { "Exception while notifying entity listener." }
                 }
             }
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void handleChange(@NotNull Where where, @NotNull TransientEntityChange c, @Nullable Queue listeners) {
-        if (listeners != null) {
-            EventsMultiplexerInternalKt.handleChange(where, c, listeners);
-        }
-    }
-
-    @Nullable
-    public JobProcessor getAsyncJobProcessor() {
-        return this.eventsMultiplexerJobProcessor;
     }
 }
