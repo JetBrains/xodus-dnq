@@ -20,9 +20,9 @@ import jetbrains.exodus.entitystore.Entity
 
 /**
  * Implements aggregation associations management.&lt;p&gt;
- * 1-1: project.[1]leader &lt;-&gt; user.[1]leaderInProject &lt;p&gt;
- * 1-n: project[0..n].issues &lt;-&gt; issue[1].project &lt;p&gt;
- * n-n: project[0..n].assignees &lt;-&gt; user[0..n].assigneeInProjects &lt;p&gt;
+ * - 1-1: project.[1]leader &lt;-&gt; user.[1]leaderInProject &lt;p&gt;
+ * - 1-n: project[0..n].issues &lt;-&gt; issue[1].project &lt;p&gt;
+ * - n-n: project[0..n].assignees &lt;-&gt; user[0..n].assigneeInProjects &lt;p&gt;
  */
 object AggregationAssociationSemantics {
 
