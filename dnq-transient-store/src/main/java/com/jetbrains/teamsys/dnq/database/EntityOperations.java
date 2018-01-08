@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
 import java.util.Set;
 
 // TODO: move this class to the associations semantics package
-
 public class EntityOperations {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityOperations.class);
@@ -38,7 +37,7 @@ public class EntityOperations {
     private EntityOperations() {
     }
 
-    public static void remove(final Entity e) {
+    public static void remove(@Nullable final Entity e) {
         /* two-phase remove:
            1. call destructors
            2. remove links and entities
@@ -48,7 +47,7 @@ public class EntityOperations {
         remove(e, false, new HashSet<Entity>());
     }
 
-    static void remove(final Entity e, boolean callDestructorPhase, Set<Entity> processed) {
+    static void remove(@Nullable final Entity e, boolean callDestructorPhase, @NotNull Set<Entity> processed) {
         if (e == null || ((TransientEntity) e).isRemoved()) return;
         TransientEntity reattached = TransientStoreUtil.reattach((TransientEntity) e);
 
@@ -100,7 +99,7 @@ public class EntityOperations {
         return e != null && ((TransientEntity) e).isNew();
     }
 
-    public static boolean equals(Entity e1, Object e2) {
+    public static boolean equals(@Nullable Entity e1, @Nullable Object e2) {
         if (e1 == e2) {
             return true;
         }
@@ -116,6 +115,7 @@ public class EntityOperations {
      * @return element at position i in entities iterable
      * @deprecated slow method. for testcases only.
      */
+    @NotNull
     public static Entity getElement(@NotNull Iterable<Entity> entities, int i) {
         if (logger.isWarnEnabled()) {
             logger.warn("Slow method getElementOfMultiple() was called!");
@@ -137,13 +137,13 @@ public class EntityOperations {
         return entity != null && entity.hasChanges();
     }
 
-    public static boolean hasChanges(@NotNull TransientEntity e, String property) {
+    public static boolean hasChanges(@NotNull TransientEntity e, @NotNull String property) {
         final TransientEntity entity = TransientStoreUtil.reattach(e);
 
         return entity != null && entity.hasChanges(property);
     }
 
-    public static boolean hasChanges(@NotNull TransientEntity e, String[] properties) {
+    public static boolean hasChanges(@NotNull TransientEntity e, @NotNull String[] properties) {
         final TransientEntity entity = TransientStoreUtil.reattach(e);
 
         if (entity != null) {
@@ -154,7 +154,7 @@ public class EntityOperations {
         return false;
     }
 
-    public static boolean hasChangesExcepting(@NotNull TransientEntity e, String[] properties) {
+    public static boolean hasChangesExcepting(@NotNull TransientEntity e, @NotNull String[] properties) {
         final TransientEntity entity = TransientStoreUtil.reattach(e);
 
         return entity != null && entity.hasChangesExcepting(properties);

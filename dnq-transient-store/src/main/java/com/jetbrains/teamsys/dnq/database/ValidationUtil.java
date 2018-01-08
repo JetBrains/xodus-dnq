@@ -18,19 +18,13 @@ package com.jetbrains.teamsys.dnq.database;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.query.metadata.*;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Iterator;
 import java.util.Set;
 
-/**
- * Created by IntelliJ IDEA.
- * User: user
- * Date: 8/12/11
- * Time: 3:30 PM
- * To change this template use File | Settings | File Templates.
- */
 public class ValidationUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(ConstraintsUtil.class);
@@ -60,11 +54,11 @@ public class ValidationUtil {
         }
     }
 
-    static boolean checkCardinality(Entity e, AssociationEndMetaData md) {
+    static boolean checkCardinality(@NotNull Entity e, @NotNull AssociationEndMetaData md) {
         return checkCardinality(e, md.getCardinality(), md.getName());
     }
 
-    static boolean checkCardinality(Entity entity, AssociationEndCardinality cardinality, String associationName) {
+    static boolean checkCardinality(@NotNull Entity entity, @NotNull AssociationEndCardinality cardinality, @NotNull String associationName) {
         int size = 0;
         for (Iterator<Entity> it = entity.getLinks(associationName).iterator(); it.hasNext(); ++size) {
             Entity e = it.next();
@@ -108,7 +102,7 @@ public class ValidationUtil {
         }
     }
 
-    private static void checkProperty(Entity e, EntityMetaData emd, String name) {
+    private static void checkProperty(@NotNull Entity e, @NotNull EntityMetaData emd, @NotNull String name) {
         final PropertyMetaData pmd = emd.getPropertyMetaData(name);
         final PropertyType type;
         if (pmd == null) {
@@ -120,7 +114,7 @@ public class ValidationUtil {
         checkProperty(e, name, type);
     }
 
-    private static void checkProperty(Entity e, String name, PropertyType type) {
+    private static void checkProperty(@NotNull Entity e, @NotNull String name, @NotNull PropertyType type) {
 
         switch (type) {
             case PRIMITIVE:
@@ -146,26 +140,26 @@ public class ValidationUtil {
         }
     }
 
-    private static boolean isEmptyPrimitiveProperty(Comparable propertyValue) {
+    private static boolean isEmptyPrimitiveProperty(@Nullable Comparable propertyValue) {
         return propertyValue == null || "".equals(propertyValue);
     }
 
 
     // Error log
 
-    private static void noProperty(Entity entity, String propertyName) {
+    private static void noProperty(@NotNull Entity entity, @NotNull String propertyName) {
         logger.error("Validation: Property [" + entity + "." + propertyName + "]" + " is empty.");
     }
 
-    private static void unknownCardinality(AssociationEndCardinality cardinality) {
+    private static void unknownCardinality(@NotNull AssociationEndCardinality cardinality) {
         logger.error("Validation: Unknown cardinality [" + cardinality + "]");
     }
 
-    private static void cardinalityViolation(Entity entity, AssociationEndMetaData md) {
+    private static void cardinalityViolation(@NotNull Entity entity, @NotNull AssociationEndMetaData md) {
         logger.error("Validation: Cardinality violation for [" + entity + "." + md.getName() + "]. Required cardinality is [" + md.getCardinality().getName() + "]");
     }
 
-    private static void fakeEntityLink(Entity entity, String associationName) {
+    private static void fakeEntityLink(@Nullable Entity entity, @NotNull String associationName) {
         logger.error("Validation: Null entity in the [" + entity + "." + associationName + "]");
     }
 

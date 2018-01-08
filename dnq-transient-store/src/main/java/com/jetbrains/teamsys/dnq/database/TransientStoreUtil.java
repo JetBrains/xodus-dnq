@@ -17,7 +17,6 @@ package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.hash.LongHashSet;
 import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientEntityStore;
 import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.EntityIterable;
@@ -45,7 +44,8 @@ public class TransientStoreUtil {
     private static final Logger logger = LoggerFactory.getLogger(TransientStoreUtil.class);
     private static final LongHashSet POSTPONE_UNIQUE_INDICES = new LongHashSet(10);
 
-    public static TransientStoreSession getCurrentSession(TransientEntity e) {
+    @Nullable
+    public static TransientStoreSession getCurrentSession(@NotNull TransientEntity e) {
         return (TransientStoreSession) e.getStore().getCurrentTransaction();
     }
 
@@ -71,11 +71,9 @@ public class TransientStoreUtil {
 
     /**
      * Attach entity to current session if possible.
-     *
-     * @param entity
-     * @return
      */
     @Nullable
+    @Deprecated
     public static TransientEntity reattach(@Nullable TransientEntity entity) {
         if (entity == null) {
             return null;
@@ -98,7 +96,6 @@ public class TransientStoreUtil {
     /**
      * Checks if entity entity was removed
      *
-     * @param entity
      * @return true if e was removed, false if it wasn't removed at all
      */
     public static boolean isRemoved(@NotNull Entity entity) {
@@ -118,7 +115,7 @@ public class TransientStoreUtil {
         }
     }
 
-    public static void abort(TransientStoreSession session) {
+    public static void abort(@Nullable TransientStoreSession session) {
         if (session != null && session.isOpened()) {
             session.abort();
         }
@@ -138,11 +135,12 @@ public class TransientStoreUtil {
         throw new RuntimeException(e);
     }
 
+    @Nullable
     public static BasePersistentClassImpl getPersistentClassInstance(@NotNull final Entity entity) {
         return ((TransientEntityStoreImpl) entity.getStore()).getCachedPersistentClassInstance(entity.getType());
     }
 
-    public static int getSize(Iterable<Entity> it) {
+    public static int getSize(@Nullable Iterable<Entity> it) {
         if (it == null) {
             return 0;
         }
@@ -159,13 +157,13 @@ public class TransientStoreUtil {
             return ((Collection) it).size();
         }
         int result = 0;
-        for (Entity ignored: it) {
+        for (Entity ignored : it) {
             result++;
         }
         return result;
     }
 
-    static String toString(Set<String> strings) {
+    static String toString(@Nullable Set<String> strings) {
         if (strings == null) {
             return "";
         }
@@ -185,7 +183,7 @@ public class TransientStoreUtil {
         return sb.toString();
     }
 
-    static String toString(Map map) {
+    static String toString(@Nullable Map map) {
         if (map == null) {
             return "";
         }

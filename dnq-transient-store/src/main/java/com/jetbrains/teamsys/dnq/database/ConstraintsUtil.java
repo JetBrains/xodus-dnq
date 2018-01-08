@@ -34,6 +34,7 @@ import jetbrains.exodus.entitystore.EntityIterable;
 import jetbrains.exodus.entitystore.EntityIterator;
 import jetbrains.exodus.query.metadata.*;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +45,7 @@ class ConstraintsUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(ConstraintsUtil.class);
 
-    static boolean checkCardinality(TransientEntity e, AssociationEndMetaData md) {
+    static boolean checkCardinality(@NotNull TransientEntity e, @NotNull AssociationEndMetaData md) {
         final AssociationEndCardinality cardinality = md.getCardinality();
         if (cardinality == AssociationEndCardinality._0_n) return true;
 
@@ -52,17 +53,17 @@ class ConstraintsUtil {
         final EntityIterator iter = links.iterator();
 
         int size = 0;
-        for (; size < 2 && iter.hasNext(); iter.next(), size++);
+        for (; size < 2 && iter.hasNext(); iter.next(), size++) ;
 
         switch (cardinality) {
-        case _0_1:
-            return size <= 1;
+            case _0_1:
+                return size <= 1;
 
-        case _1:
-            return size == 1;
+            case _1:
+                return size == 1;
 
-        case _1_n:
-            return size >= 1;
+            case _1_n:
+                return size >= 1;
         }
 
         throw new IllegalArgumentException("Unknown cardinality [" + cardinality + "]");
@@ -81,7 +82,7 @@ class ConstraintsUtil {
                     for (Pair<String, EntityIterable> pair : incomingLinks) {
                         IncomingLinkViolation violation = null;
                         EntityIterator linksIterator = pair.getSecond().iterator();
-                        while (linksIterator.hasNext()){
+                        while (linksIterator.hasNext()) {
                             TransientEntity entity = ((TransientEntity) linksIterator.next());
                             if (entity == null || entity.isRemoved() || entity.getRemovedLinks(pair.getFirst()).contains(e)) {
                                 continue;
@@ -158,7 +159,7 @@ class ConstraintsUtil {
         return exceptions;
     }
 
-    static void processOnDeleteConstraints(@NotNull TransientStoreSession session, @NotNull TransientEntity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md, boolean callDestructorsPhase, Set<Entity> processed) {
+    static void processOnDeleteConstraints(@NotNull TransientStoreSession session, @NotNull TransientEntity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
         // outgoing associations
         for (AssociationEndMetaData amd : emd.getAssociationEndsMetaData()) {
             if (amd.getCascadeDelete() || amd.getClearOnDelete()) {
@@ -185,7 +186,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void processOnTargetDeleteConstraints(TransientEntity target, ModelMetaData md, String oppositeType, String linkName, TransientStoreSession session, boolean callDestructorsPhase, Set<Entity> processed) {
+    private static void processOnTargetDeleteConstraints(@NotNull TransientEntity target, @NotNull ModelMetaData md, @NotNull String oppositeType, @NotNull String linkName, @NotNull TransientStoreSession session, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
         EntityMetaData oppositeEmd = md.getEntityMetaData(oppositeType);
         if (oppositeEmd == null) {
             throw new RuntimeException("can't find metadata for entity type " + oppositeType + " as opposite to " + target.getType());
@@ -223,7 +224,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void processOnSourceDeleteConstrains(Entity e, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> processed) {
+    private static void processOnSourceDeleteConstrains(@NotNull Entity e, @NotNull AssociationEndMetaData amd, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
         switch (amd.getCardinality()) {
 
             case _0_1:
@@ -238,7 +239,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void processOnSourceDeleteConstraintForSingleLink(Entity source, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> processed) {
+    private static void processOnSourceDeleteConstraintForSingleLink(@NotNull Entity source, @NotNull AssociationEndMetaData amd, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
         Entity target = AssociationSemantics.getToOne(source, amd.getName());
         if (target != null && !EntityOperations.isRemoved(target)) {
 
@@ -250,7 +251,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void processOnSourceDeleteConstraintForMultipleLink(Entity source, AssociationEndMetaData amd, boolean callDestructorsPhase, Set<Entity> processed) {
+    private static void processOnSourceDeleteConstraintForMultipleLink(@NotNull Entity source, @NotNull AssociationEndMetaData amd, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
         for (Entity target : AssociationSemantics.getToManyList(source, amd.getName())) {
             if (EntityOperations.isRemoved(target)) continue;
 
@@ -262,7 +263,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void removeSingleLink(Entity source, AssociationEndMetaData sourceEnd, AssociationEndMetaData targetEnd, Entity target) {
+    private static void removeSingleLink(@NotNull Entity source, @NotNull AssociationEndMetaData sourceEnd, @NotNull AssociationEndMetaData targetEnd, @NotNull Entity target) {
         switch (sourceEnd.getAssociationEndType()) {
             case ParentEnd:
                 AggregationAssociationSemantics.setOneToOne(source, sourceEnd.getName(), targetEnd.getName(), null);
@@ -274,7 +275,7 @@ class ConstraintsUtil {
 
                     case _0_1:
                     case _1:
-                         AggregationAssociationSemantics.setOneToOne(target, targetEnd.getName(), sourceEnd.getName(), null);
+                        AggregationAssociationSemantics.setOneToOne(target, targetEnd.getName(), sourceEnd.getName(), null);
                         break;
 
                     case _0_n:
@@ -310,7 +311,7 @@ class ConstraintsUtil {
         }
     }
 
-    private static void removeOneLinkFromMultipleLink(Entity source, AssociationEndMetaData sourceEnd, AssociationEndMetaData targetEnd, Entity target) {
+    private static void removeOneLinkFromMultipleLink(@NotNull Entity source, @NotNull AssociationEndMetaData sourceEnd, @NotNull AssociationEndMetaData targetEnd, @NotNull Entity target) {
         switch (sourceEnd.getAssociationEndType()) {
             case ParentEnd:
                 AggregationAssociationSemantics.removeOneToMany(source, sourceEnd.getName(), targetEnd.getName(), target);
@@ -342,7 +343,7 @@ class ConstraintsUtil {
         }
     }
 
-     private static void removeLink(Entity source, Entity target, AssociationEndMetaData sourceEnd) {
+    private static void removeLink(@NotNull Entity source, @NotNull Entity target, @NotNull AssociationEndMetaData sourceEnd) {
         switch (sourceEnd.getCardinality()) {
 
             case _0_1:
@@ -355,9 +356,9 @@ class ConstraintsUtil {
                 removeOneLinkFromMultipleLink(source, sourceEnd, getOppositeEndSafely(sourceEnd), target);
                 break;
         }
-     }
+    }
 
-    private static boolean getOnTargetDeleteCascadeAtOppositeEnd(AssociationEndMetaData endMetaData) {
+    private static boolean getOnTargetDeleteCascadeAtOppositeEnd(@NotNull AssociationEndMetaData endMetaData) {
         if (endMetaData.getAssociationEndType().equals(AssociationEndType.DirectedAssociationEnd)) {
             // there is no opposite end in directed association
             return false;
@@ -365,7 +366,8 @@ class ConstraintsUtil {
         return endMetaData.getAssociationMetaData().getOppositeEnd(endMetaData).getTargetCascadeDelete();
     }
 
-    private static AssociationEndMetaData getOppositeEndSafely(AssociationEndMetaData endMetaData) {
+    @Nullable
+    private static AssociationEndMetaData getOppositeEndSafely(@NotNull AssociationEndMetaData endMetaData) {
         try {
             return endMetaData.getAssociationMetaData().getOppositeEnd(endMetaData);
         } catch (IllegalStateException ignored) {
@@ -411,7 +413,7 @@ class ConstraintsUtil {
 
                 Map<String, Iterable<PropertyConstraint>> propertyConstraints = EntityMetaDataUtils.getPropertyConstraints(e);
                 Iterable<String> suspectedProperties = getChangedPropertiesWithConstraints(tracker, e, propertyConstraints.keySet());
-                for (String propertyName: suspectedProperties) {
+                for (String propertyName : suspectedProperties) {
                     PropertyMetaData propertyMetaData = emd.getPropertyMetaData(propertyName);
                     final PropertyType type = getPropertyType(propertyMetaData);
                     Object propertyValue = getPropertyValue(e, propertyName, type);
@@ -429,19 +431,19 @@ class ConstraintsUtil {
     }
 
     @NotNull
-    private static Iterable<String> getChangedPropertiesWithConstraints(TransientChangesTracker tracker, TransientEntity e, Set<String> constraintedProperties) {
+    private static Iterable<String> getChangedPropertiesWithConstraints(@NotNull TransientChangesTracker tracker, @NotNull TransientEntity e, @Nullable Set<String> constrainedProperties) {
         Iterable<String> propertyNames = Collections.emptySet();
-        if (constraintedProperties != null && !constraintedProperties.isEmpty()) {
+        if (constrainedProperties != null && !constrainedProperties.isEmpty()) {
             // Any property has constraints
             Set<String> changedProperties = tracker.getChangedProperties(e);
             if (e.isNew()) {
-                // All properties with constriants
-                propertyNames = constraintedProperties;
+                // All properties with constraints
+                propertyNames = constrainedProperties;
             } else if (changedProperties != null && !changedProperties.isEmpty()) {
                 // Changed properties with constraints
                 Set<String> intersection = new HashSet<String>(changedProperties.size());
-                for (String changedProperty: changedProperties) {
-                    if (constraintedProperties.contains(changedProperty)) {
+                for (String changedProperty : changedProperties) {
+                    if (constrainedProperties.contains(changedProperty)) {
                         intersection.add(changedProperty);
                     }
                 }
@@ -490,7 +492,7 @@ class ConstraintsUtil {
         return errors;
     }
 
-    private static void checkProperty( Set<DataIntegrityViolationException> errors, TransientEntity entity, Set<String> changedProperties, EntityMetaData emd, String name) {
+    private static void checkProperty(@NotNull Set<DataIntegrityViolationException> errors, @NotNull TransientEntity entity, @Nullable Set<String> changedProperties, @NotNull EntityMetaData emd, @NotNull String name) {
         if (entity.isNew() || changedProperties.contains(name)) {
             final PropertyType type = getPropertyType(emd.getPropertyMetaData(name));
             final String displayName;
@@ -501,7 +503,7 @@ class ConstraintsUtil {
     }
 
     @NotNull
-    private static PropertyType getPropertyType(PropertyMetaData propertyMetaData) {
+    private static PropertyType getPropertyType(@Nullable PropertyMetaData propertyMetaData) {
         final PropertyMetaData pmd = propertyMetaData;
         final PropertyType type;
         if (pmd == null) {
@@ -513,7 +515,7 @@ class ConstraintsUtil {
         return type;
     }
 
-    private static void checkProperty(Set<DataIntegrityViolationException> errors, TransientEntity e, String name, String displayName, PropertyType type) {
+    private static void checkProperty(@NotNull Set<DataIntegrityViolationException> errors, @NotNull TransientEntity e, @NotNull String name, @NotNull String displayName, @NotNull PropertyType type) {
 
         switch (type) {
             case PRIMITIVE:
@@ -540,7 +542,8 @@ class ConstraintsUtil {
 
     }
 
-    private static Object getPropertyValue(TransientEntity e, String name, PropertyType type) {
+    @Nullable
+    private static Object getPropertyValue(@NotNull TransientEntity e, @NotNull String name, @NotNull PropertyType type) {
         switch (type) {
             case PRIMITIVE:
                 return e.getProperty(name);
@@ -554,7 +557,7 @@ class ConstraintsUtil {
 
     }
 
-    private static boolean isEmptyPrimitiveProperty(Comparable propertyValue) {
+    private static boolean isEmptyPrimitiveProperty(@Nullable Comparable propertyValue) {
         return propertyValue == null || "".equals(propertyValue);
     }
 
