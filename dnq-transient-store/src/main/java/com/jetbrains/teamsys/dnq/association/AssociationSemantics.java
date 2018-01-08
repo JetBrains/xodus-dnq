@@ -40,10 +40,6 @@ public class AssociationSemantics {
     /**
      * To one association end getter.
      * Supports nullable objects - input entity may be null
-     *
-     * @param e
-     * @param linkName
-     * @return
      */
     @Nullable
     public static Entity getToOne(@Nullable Entity e, @NotNull String linkName) {
@@ -80,11 +76,7 @@ public class AssociationSemantics {
     }
 
     /**
-     * Returns copy of {@link #getToMany(jetbrains.exodus.database.Entity, String)} iterable
-     *
-     * @param e
-     * @param linkName
-     * @return
+     * Returns copy of {@link #getToMany(Entity, String)} iterable
      */
     @NotNull
     public static List<Entity> getToManyList(@NotNull Entity e, @NotNull String linkName) {
@@ -99,10 +91,6 @@ public class AssociationSemantics {
 
     /**
      * Returns persistent iterable if possible
-     *
-     * @param e
-     * @param linkName
-     * @return
      */
     @NotNull
     public static Iterable<Entity> getToManyPersistentIterable(@NotNull Entity e, @NotNull String linkName) {
@@ -123,12 +111,8 @@ public class AssociationSemantics {
 
     /**
      * Returns links size
-     *
-     * @param e
-     * @param linkName
-     * @return
      */
-    public static long getToManySize(@NotNull Entity e, String linkName) {
+    public static long getToManySize(@NotNull Entity e, @NotNull String linkName) {
         if (e instanceof TransientEntity) {
             e = TransientStoreUtil.reattach((TransientEntity) e);
 
@@ -139,63 +123,67 @@ public class AssociationSemantics {
             return ((TransientEntity) e).getLinksSize(linkName);
         }
 
-        return e == null ? 0 : TransientStoreUtil.getSize(e.getLinks(linkName));
+        return TransientStoreUtil.getSize(e.getLinks(linkName));
     }
 
     /**
      * Returns added links
-     *
-     * @param e
-     * @param name
-     * @return
      */
-    public static EntityIterable getAddedLinks(@NotNull TransientEntity e, String name) {
+    @NotNull
+    public static EntityIterable getAddedLinks(@NotNull TransientEntity e, @NotNull String name) {
         e = TransientStoreUtil.reattach(e);
-
-        return e.getAddedLinks(name);
+        if (e != null) {
+            return e.getAddedLinks(name);
+        } else {
+            return EntityIterableBase.EMPTY;
+        }
     }
 
     /**
      * Returns removed links
-     *
-     * @param e
-     * @param name
-     * @return
      */
-    public static EntityIterable getRemovedLinks(@NotNull TransientEntity e, String name) {
+    public static EntityIterable getRemovedLinks(@NotNull TransientEntity e, @NotNull String name) {
         e = TransientStoreUtil.reattach(e);
-
-        return e.getRemovedLinks(name);
+        if (e != null) {
+            return e.getRemovedLinks(name);
+        } else {
+            return EntityIterableBase.EMPTY;
+        }
     }
 
-    public static EntityIterable getAddedLinks(@NotNull TransientEntity e, Set<String> linkNames) {
+    public static EntityIterable getAddedLinks(@NotNull TransientEntity e, @NotNull Set<String> linkNames) {
         e = TransientStoreUtil.reattach(e);
-
-        return e.getAddedLinks(linkNames);
+        if (e != null) {
+            return e.getAddedLinks(linkNames);
+        } else {
+            return EntityIterableBase.EMPTY;
+        }
     }
 
-    public static EntityIterable getRemovedLinks(@NotNull TransientEntity e, Set<String> linkNames) {
+    public static EntityIterable getRemovedLinks(@NotNull TransientEntity e, @NotNull Set<String> linkNames) {
         e = TransientStoreUtil.reattach(e);
-
-        return e.getRemovedLinks(linkNames);
+        if (e != null) {
+            return e.getRemovedLinks(linkNames);
+        } else {
+            return EntityIterableBase.EMPTY;
+        }
     }
 
     /**
      * Returns previous link value
-     *
-     * @param e
-     * @param name
-     * @return previous link value
      */
     @Nullable
     public static Entity getOldValue(@NotNull TransientEntity e, @NotNull String name) {
         if (EntityOperations.isRemoved(e)) {
-            final TransientEntityStore transientStore = (TransientEntityStore) e.getStore();
+            final TransientEntityStore transientStore = e.getStore();
             final Entity result = ((PersistentEntityStore) transientStore.getPersistentStore()).getEntity(e.getId()).getLink(name);
             if (result == null) {
                 return null;
             }
             final TransientStoreSession session = transientStore.getThreadSession();
+            if (session == null) {
+                throw new IllegalStateException("No current transient session!");
+            }
             return session.newEntity(result);
         }
         final EntityIterator itr = getRemovedLinks(e, name).iterator();

@@ -26,8 +26,6 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.io.InputStream;
 
-/**
- */
 public class PrimitiveAssociationSemantics {
 
     private static float FLOAT_PRECISION = 0.0001f;
@@ -36,10 +34,6 @@ public class PrimitiveAssociationSemantics {
     /**
      * Simple property getter.
      * Supports nullable objects - returns "null value" if input entity is null
-     *
-     * @param e
-     * @param propertyName
-     * @return
      */
     @Nullable
     public static Object get(@Nullable Entity e, @NotNull String propertyName, @Nullable Object nullValue) {
@@ -54,7 +48,7 @@ public class PrimitiveAssociationSemantics {
     }
 
     @Nullable
-    public static<T> T getOldValue(@Nullable TransientEntity e, @NotNull String propertyName, @NotNull Class<T> propertyType, @Nullable Object nullValue) {
+    public static <T> T getOldValue(@Nullable TransientEntity e, @NotNull String propertyName, @NotNull Class<T> propertyType, @Nullable Object nullValue) {
         Object res = getOldValue(e, propertyName, nullValue);
         return (T) (res == null ? getPropertyNullValue(propertyType) : res);
     }
@@ -62,10 +56,6 @@ public class PrimitiveAssociationSemantics {
     /**
      * Property old value getter, similar as #get.
      * Supports nullable objects - returns "null value" if input entity is null
-     *
-     * @param e
-     * @param propertyName
-     * @return
      */
     @Nullable
     public static Object getOldValue(@Nullable TransientEntity e, @NotNull String propertyName, @Nullable Object nullValue) {
@@ -76,18 +66,15 @@ public class PrimitiveAssociationSemantics {
     /**
      * Simple property getter.
      * Supports nullable objects - returns "null value" if input entity is null
-     *
-     * @param e
-     * @param propertyName
-     * @return
      */
     @Nullable
-    public static<T> T get(@Nullable Entity e, @NotNull String propertyName, @NotNull Class<T> propertyType, @Nullable Object nullValue) {
+    public static <T> T get(@Nullable Entity e, @NotNull String propertyName, @NotNull Class<T> propertyType, @Nullable Object nullValue) {
         final Object res = get(e, propertyName, nullValue);
         return (T) (res == null ? getPropertyNullValue(propertyType) : res);
     }
 
-    private static Object getPropertyNullValue(Class clazz) {
+    @Nullable
+    private static Object getPropertyNullValue(@NotNull Class clazz) {
         if (Integer.class.equals(clazz)) {
             return 0;
         } else if (Long.class.equals(clazz)) {
@@ -107,61 +94,69 @@ public class PrimitiveAssociationSemantics {
         return null;
     }
 
+    @Nullable
     public static Comparable set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
-        if (propertyValue == null) {
-            e.deleteProperty(propertyName);
-        } else {
-            e.setProperty(propertyName, propertyValue);
-        }
-        return propertyValue;
-    }
-
-    public static Comparable set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue, Class clazz) {
-        e = TransientStoreUtil.reattach((TransientEntity) e);
-
-        if (propertyValue == null) {
-            e.deleteProperty(propertyName);
-        } else {
-            // strict casting
-            if (Integer.class.equals(clazz)) {
-                final Integer intValue = ((Number) propertyValue).intValue();
-                e.setProperty(propertyName, intValue);
-            } else if (Long.class.equals(clazz)) {
-                final Long longValue = ((Number) propertyValue).longValue();
-                e.setProperty(propertyName, longValue);
-            } else if (Double.class.equals(clazz)) {
-                final Double doubleValue = ((Number) propertyValue).doubleValue();
-                e.setProperty(propertyName, doubleValue);
-            } else if (Float.class.equals(clazz)) {
-                final Float floatValue = ((Number) propertyValue).floatValue();
-                e.setProperty(propertyName, floatValue);
-            } else if (Short.class.equals(clazz)) {
-                final Short shortValue = ((Number) propertyValue).shortValue();
-                e.setProperty(propertyName, shortValue);
-            } else if (Byte.class.equals(clazz)) {
-                final Byte byteValue = ((Number) propertyValue).byteValue();
-                e.setProperty(propertyName, byteValue);
+        if (e != null) {
+            if (propertyValue == null) {
+                e.deleteProperty(propertyName);
             } else {
-                // boolean, string and date
                 e.setProperty(propertyName, propertyValue);
             }
         }
         return propertyValue;
     }
 
-    public static void setHashed(@NotNull Entity e, @NotNull String propertyName, String value) {
+    public static Comparable set(@NotNull Entity e, @NotNull String propertyName, @Nullable Comparable propertyValue, @Nullable Class clazz) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
-        if (value == null) {
-            e.deleteProperty(propertyName);
-        } else if (value != null) {
-            value = MessageDigestUtil.sha256(value);
-            e.setProperty(propertyName, value);
+        if (e != null) {
+            if (propertyValue == null) {
+                e.deleteProperty(propertyName);
+            } else {
+                // strict casting
+                if (Integer.class.equals(clazz)) {
+                    final Integer intValue = ((Number) propertyValue).intValue();
+                    e.setProperty(propertyName, intValue);
+                } else if (Long.class.equals(clazz)) {
+                    final Long longValue = ((Number) propertyValue).longValue();
+                    e.setProperty(propertyName, longValue);
+                } else if (Double.class.equals(clazz)) {
+                    final Double doubleValue = ((Number) propertyValue).doubleValue();
+                    e.setProperty(propertyName, doubleValue);
+                } else if (Float.class.equals(clazz)) {
+                    final Float floatValue = ((Number) propertyValue).floatValue();
+                    e.setProperty(propertyName, floatValue);
+                } else if (Short.class.equals(clazz)) {
+                    final Short shortValue = ((Number) propertyValue).shortValue();
+                    e.setProperty(propertyName, shortValue);
+                } else if (Byte.class.equals(clazz)) {
+                    final Byte byteValue = ((Number) propertyValue).byteValue();
+                    e.setProperty(propertyName, byteValue);
+                } else {
+                    // boolean, string and date
+                    e.setProperty(propertyName, propertyValue);
+                }
+            }
+        }
+        return propertyValue;
+    }
+
+    public static void setHashed(@NotNull Entity e, @NotNull String propertyName, @Nullable String value) {
+        e = TransientStoreUtil.reattach((TransientEntity) e);
+
+        if (e != null) {
+            if (value == null) {
+                e.deleteProperty(propertyName);
+            } else {
+                value = MessageDigestUtil.sha256(value);
+                e.setProperty(propertyName, value);
+            }
         }
     }
 
+    @Nullable
     public static InputStream getBlob(@NotNull Entity e, @NotNull String blobName) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
@@ -182,6 +177,7 @@ public class PrimitiveAssociationSemantics {
         return e.getBlobSize(blobName);
     }
 
+    @Nullable
     public static String getBlobAsString(@NotNull Entity e, @NotNull String blobName) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
 
@@ -192,45 +188,53 @@ public class PrimitiveAssociationSemantics {
         return e.getBlobString(blobName);
     }
 
+    @Nullable
     public static Comparable setBlob(@NotNull Entity e, @NotNull String blobName, @Nullable String blobString) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
-
-        if (blobString == null) {
-            ((TransientEntity) e).deleteBlob(blobName);
-        } else {
-            e.setBlobString(blobName, blobString);
+        if (e != null) {
+            if (blobString == null) {
+                e.deleteBlob(blobName);
+            } else {
+                e.setBlobString(blobName, blobString);
+            }
         }
         return blobString;
     }
 
+    @Nullable
     public static Comparable setBlobWithFixedNewlines(@NotNull Entity e, @NotNull String blobName, @Nullable String blobString) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
-
-        if (blobString == null) {
-            ((TransientEntity) e).deleteBlob(blobName);
-        } else {
-            final String fixed = (blobString.indexOf('\r') >= 0) ? blobString.replace("\r", "") : blobString;
-            e.setBlobString(blobName, fixed);
-            return fixed;
+        if (e != null) {
+            if (blobString == null) {
+                e.deleteBlob(blobName);
+            } else {
+                final String fixed = (blobString.indexOf('\r') >= 0) ? blobString.replace("\r", "") : blobString;
+                e.setBlobString(blobName, fixed);
+                return fixed;
+            }
         }
         return blobString;
     }
 
     public static void setBlob(@NotNull Entity e, @NotNull String blobName, @Nullable InputStream blob) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
-        if (blob == null) {
-            e.deleteBlob(blobName);
-        } else {
-            e.setBlob(blobName, blob);
+        if (e != null) {
+            if (blob == null) {
+                e.deleteBlob(blobName);
+            } else {
+                e.setBlob(blobName, blob);
+            }
         }
     }
 
     public static void setBlob(@NotNull Entity e, @NotNull String blobName, @Nullable File file) {
         e = TransientStoreUtil.reattach((TransientEntity) e);
-        if (file == null) {
-            e.deleteBlob(blobName);
-        } else {
-            e.setBlob(blobName, file);
+        if (e != null) {
+            if (file == null) {
+                e.deleteBlob(blobName);
+            } else {
+                e.setBlob(blobName, file);
+            }
         }
     }
 
@@ -265,6 +269,7 @@ public class PrimitiveAssociationSemantics {
         }
     }
 
+    @Nullable
     public static Comparable nextGreater(@NotNull final Comparable value, @NotNull final Class clazz) {
         if (Integer.class.equals(clazz)) {
             return ((Integer) value) + 1;
@@ -296,6 +301,7 @@ public class PrimitiveAssociationSemantics {
         return null;
     }
 
+    @Nullable
     public static Comparable previousLess(@NotNull final Comparable value, @NotNull final Class clazz) {
         if (Integer.class.equals(clazz)) {
             return ((Integer) value) - 1;
@@ -327,6 +333,7 @@ public class PrimitiveAssociationSemantics {
         return null;
     }
 
+    @Nullable
     public static Comparable positiveInfinity(@NotNull final Class clazz) {
         if (Integer.class.equals(clazz)) {
             return Integer.MAX_VALUE;
@@ -347,6 +354,7 @@ public class PrimitiveAssociationSemantics {
         return null;
     }
 
+    @Nullable
     public static Comparable negativeInfinity(@NotNull final Class clazz) {
         if (Integer.class.equals(clazz)) {
             return Integer.MIN_VALUE;

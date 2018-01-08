@@ -66,7 +66,9 @@ public class AggregationAssociationSemantics {
         parent = TransientStoreUtil.reattach((TransientEntity) parent);
         child = TransientStoreUtil.reattach((TransientEntity) child);
 
-        ((TransientEntity) parent).addChild(parentToChildLinkName, childToParentLinkName, child);
+        if (parent != null && child != null) {
+            ((TransientEntity) parent).addChild(parentToChildLinkName, childToParentLinkName, child);
+        }
     }
 
     /**
@@ -80,7 +82,9 @@ public class AggregationAssociationSemantics {
     public static void removeOneToMany(@NotNull Entity parent, @NotNull String parentToChildLinkName, @NotNull String childToParentLinkName, @NotNull Entity child) {
         parent = TransientStoreUtil.reattach((TransientEntity) parent);
         child = TransientStoreUtil.reattach((TransientEntity) child);
-        ((TransientEntity) child).removeFromParent(parentToChildLinkName, childToParentLinkName);
+        if (child != null) {
+            ((TransientEntity) child).removeFromParent(parentToChildLinkName, childToParentLinkName);
+        }
     }
 
     /**
@@ -93,7 +97,9 @@ public class AggregationAssociationSemantics {
         parent = TransientStoreUtil.reattach((TransientEntity) parent);
 
         //parent.parentToChild.clear
-        ((TransientEntity) parent).clearChildren(parentToChildLinkName);
+        if (parent != null) {
+            ((TransientEntity) parent).clearChildren(parentToChildLinkName);
+        }
     }
 
     /**
@@ -109,11 +115,13 @@ public class AggregationAssociationSemantics {
         parent = TransientStoreUtil.reattach((TransientEntity) parent);
         child = TransientStoreUtil.reattach((TransientEntity) child);
 
-        if (parent == null) {
-            ((TransientEntity) child).removeFromParent(parentToChildLinkName, childToParentLinkName);
-        } else {
-            // child.childToParent = parent
-            ((TransientEntity) parent).addChild(parentToChildLinkName, childToParentLinkName, child);
+        if (child != null) {
+            if (parent == null) {
+                ((TransientEntity) child).removeFromParent(parentToChildLinkName, childToParentLinkName);
+            } else {
+                // child.childToParent = parent
+                ((TransientEntity) parent).addChild(parentToChildLinkName, childToParentLinkName, child);
+            }
         }
     }
 
@@ -121,7 +129,11 @@ public class AggregationAssociationSemantics {
     public static Entity getParent(@NotNull Entity child) {
         child = TransientStoreUtil.reattach((TransientEntity) child);
 
-        return  ((TransientEntity)child).getParent();
+        if (child != null) {
+            return ((TransientEntity) child).getParent();
+        } else {
+            return null;
+        }
     }
 
 }

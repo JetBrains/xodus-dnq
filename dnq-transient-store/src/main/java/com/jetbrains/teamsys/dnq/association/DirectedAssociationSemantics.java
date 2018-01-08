@@ -22,21 +22,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 
-/**
- * 1:
- * n:
- */
 public class DirectedAssociationSemantics {
 
     /**
      * user.role = role
      * user.role = null
-     *
-     * @param source
-     * @param linkName
-     * @param target
      */
-    public static void setToOne(Entity source, @NotNull String linkName, @Nullable Entity target) {
+    public static void setToOne(@Nullable Entity source, @NotNull String linkName, @Nullable Entity target) {
         source = TransientStoreUtil.reattach((TransientEntity) source);
         if (source == null) return;
 
@@ -45,12 +37,8 @@ public class DirectedAssociationSemantics {
 
     /**
      * project.users.add(user)
-     *
-     * @param source
-     * @param linkName
-     * @param target
      */
-    public static void createToMany(Entity source, @NotNull String linkName, Entity target) {
+    public static void createToMany(@Nullable Entity source, @NotNull String linkName, @Nullable Entity target) {
         source = TransientStoreUtil.reattach((TransientEntity) source);
         if (source == null) return;
         target = TransientStoreUtil.reattach((TransientEntity) target);
@@ -61,12 +49,8 @@ public class DirectedAssociationSemantics {
 
     /**
      * project.users.remove(user)
-     *
-     * @param source
-     * @param linkName
-     * @param target
      */
-    public static void removeToMany(Entity source, @NotNull String linkName, Entity target) {
+    public static void removeToMany(@Nullable Entity source, @NotNull String linkName, @Nullable Entity target) {
         source = TransientStoreUtil.reattach((TransientEntity) source);
         if (source == null) return;
         target = TransientStoreUtil.reattach((TransientEntity) target);
@@ -77,11 +61,8 @@ public class DirectedAssociationSemantics {
 
     /**
      * project.users.clear
-     *
-     * @param source
-     * @param linkName
      */
-    public static void clearToMany(Entity source, @NotNull String linkName) {
+    public static void clearToMany(@Nullable Entity source, @NotNull String linkName) {
         source = TransientStoreUtil.reattach((TransientEntity) source);
         if (source == null) return;
 

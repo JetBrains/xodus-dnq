@@ -85,7 +85,7 @@ public class TransientStoreUtil {
             throw new IllegalStateException("There's no current session entity store.");
         }*/
 
-        TransientStoreSession s = (TransientStoreSession) ((TransientEntityStore)entity.getStore()).getThreadSession();
+        TransientStoreSession s = entity.getStore().getThreadSession();
 
         if (s == null) {
             throw new IllegalStateException("There's no current session to attach transient entity to.");
