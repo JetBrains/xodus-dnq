@@ -208,7 +208,7 @@ object ConstraintsUtil : KLogging() {
             val oppositeEnd = associationEndMetaData.oppositeEndOrNull
             if (associationEndMetaData.cascadeDelete || oppositeEnd?.targetCascadeDelete == true) {
                 EntityOperations.remove(target, callDestructorsPhase, processed)
-            } else if (!callDestructorsPhase && oppositeEnd != null) {
+            } else if (!callDestructorsPhase) {
                 removeSingleLink(source, associationEndMetaData, oppositeEnd, target)
             }
         }
@@ -217,34 +217,41 @@ object ConstraintsUtil : KLogging() {
     private fun removeSingleLink(
             source: Entity,
             sourceEnd: AssociationEndMetaData,
-            targetEnd: AssociationEndMetaData,
+            targetEnd: AssociationEndMetaData?,
             target: Entity) {
         when (sourceEnd.associationEndType) {
             AssociationEndType.ParentEnd ->
-                AggregationAssociationSemantics.setOneToOne(source, sourceEnd.name, targetEnd.name, null)
-
-            AssociationEndType.ChildEnd ->
-                // Here is cardinality check because we can remove parent-child link only from the parent side
-                when (targetEnd.cardinality) {
-                    AssociationEndCardinality._0_1,
-                    AssociationEndCardinality._1 ->
-                        AggregationAssociationSemantics.setOneToOne(target, targetEnd.name, sourceEnd.name, null)
-                    AssociationEndCardinality._0_n,
-                    AssociationEndCardinality._1_n ->
-                        AggregationAssociationSemantics.removeOneToMany(target, targetEnd.name, sourceEnd.name, source)
+                if (targetEnd != null) {
+                    AggregationAssociationSemantics.setOneToOne(source, sourceEnd.name, targetEnd.name, null)
                 }
 
-            AssociationEndType.UndirectedAssociationEnd -> when (targetEnd.cardinality) {
-                AssociationEndCardinality._0_1,
-                AssociationEndCardinality._1 ->
-                    // one to one
-                    UndirectedAssociationSemantics.setOneToOne(source, sourceEnd.name, targetEnd.name, null)
+            AssociationEndType.ChildEnd ->
+                if (targetEnd != null) {
+                    // Here is cardinality check because we can remove parent-child link only from the parent side
+                    when (targetEnd.cardinality) {
+                        AssociationEndCardinality._0_1,
+                        AssociationEndCardinality._1 ->
+                            AggregationAssociationSemantics.setOneToOne(target, targetEnd.name, sourceEnd.name, null)
+                        AssociationEndCardinality._0_n,
+                        AssociationEndCardinality._1_n ->
+                            AggregationAssociationSemantics.removeOneToMany(target, targetEnd.name, sourceEnd.name, source)
+                    }
+                }
 
-                AssociationEndCardinality._0_n,
-                AssociationEndCardinality._1_n ->
-                    // many to one
-                    UndirectedAssociationSemantics.removeOneToMany(target, targetEnd.name, sourceEnd.name, source)
-            }
+            AssociationEndType.UndirectedAssociationEnd ->
+                if (targetEnd != null) {
+                    when (targetEnd.cardinality) {
+                        AssociationEndCardinality._0_1,
+                        AssociationEndCardinality._1 ->
+                            // one to one
+                            UndirectedAssociationSemantics.setOneToOne(source, sourceEnd.name, targetEnd.name, null)
+
+                        AssociationEndCardinality._0_n,
+                        AssociationEndCardinality._1_n ->
+                            // many to one
+                            UndirectedAssociationSemantics.removeOneToMany(target, targetEnd.name, sourceEnd.name, source)
+                    }
+                }
 
             AssociationEndType.DirectedAssociationEnd ->
                 DirectedAssociationSemantics.setToOne(source, sourceEnd.name, null)
@@ -267,7 +274,7 @@ object ConstraintsUtil : KLogging() {
                     val oppositeEnd = associationEndMetaData.oppositeEndOrNull
                     if (associationEndMetaData.cascadeDelete || oppositeEnd?.targetCascadeDelete == true) {
                         EntityOperations.remove(it, callDestructorsPhase, processed)
-                    } else if (!callDestructorsPhase && oppositeEnd != null) {
+                    } else if (!callDestructorsPhase) {
                         removeOneLinkFromMultipleLink(source, associationEndMetaData, oppositeEnd, it)
                     }
                 }
@@ -276,22 +283,27 @@ object ConstraintsUtil : KLogging() {
     private fun removeOneLinkFromMultipleLink(
             source: Entity,
             sourceEnd: AssociationEndMetaData,
-            targetEnd: AssociationEndMetaData,
+            targetEnd: AssociationEndMetaData?,
             target: Entity) {
         when (sourceEnd.associationEndType) {
             AssociationEndType.ParentEnd ->
-                AggregationAssociationSemantics.removeOneToMany(source, sourceEnd.name, targetEnd.name, target)
+                if (targetEnd != null) {
+                    AggregationAssociationSemantics.removeOneToMany(source, sourceEnd.name, targetEnd.name, target)
+                }
 
-            AssociationEndType.UndirectedAssociationEnd -> when (targetEnd.cardinality) {
-                AssociationEndCardinality._0_1,
-                AssociationEndCardinality._1 ->
-                    // one to many
-                    UndirectedAssociationSemantics.removeOneToMany(source, sourceEnd.name, targetEnd.name, target)
-                AssociationEndCardinality._0_n,
-                AssociationEndCardinality._1_n ->
-                    // many to many
-                    UndirectedAssociationSemantics.removeManyToMany(source, sourceEnd.name, targetEnd.name, target)
-            }
+            AssociationEndType.UndirectedAssociationEnd ->
+                if (targetEnd != null) {
+                    when (targetEnd.cardinality) {
+                        AssociationEndCardinality._0_1,
+                        AssociationEndCardinality._1 ->
+                            // one to many
+                            UndirectedAssociationSemantics.removeOneToMany(source, sourceEnd.name, targetEnd.name, target)
+                        AssociationEndCardinality._0_n,
+                        AssociationEndCardinality._1_n ->
+                            // many to many
+                            UndirectedAssociationSemantics.removeManyToMany(source, sourceEnd.name, targetEnd.name, target)
+                    }
+                }
 
             AssociationEndType.DirectedAssociationEnd ->
                 DirectedAssociationSemantics.removeToMany(source, sourceEnd.name, target)
@@ -341,16 +353,14 @@ object ConstraintsUtil : KLogging() {
 
     private fun removeLink(source: Entity, target: Entity, sourceEnd: AssociationEndMetaData) {
         val targetEnd = sourceEnd.oppositeEndOrNull
-        if (targetEnd != null) {
-            when (sourceEnd.cardinality) {
-                AssociationEndCardinality._0_1,
-                AssociationEndCardinality._1 ->
-                    removeSingleLink(source, sourceEnd, targetEnd, target)
+        when (sourceEnd.cardinality) {
+            AssociationEndCardinality._0_1,
+            AssociationEndCardinality._1 ->
+                removeSingleLink(source, sourceEnd, targetEnd, target)
 
-                AssociationEndCardinality._0_n,
-                AssociationEndCardinality._1_n ->
-                    removeOneLinkFromMultipleLink(source, sourceEnd, targetEnd, target)
-            }
+            AssociationEndCardinality._0_n,
+            AssociationEndCardinality._1_n ->
+                removeOneLinkFromMultipleLink(source, sourceEnd, targetEnd, target)
         }
     }
 

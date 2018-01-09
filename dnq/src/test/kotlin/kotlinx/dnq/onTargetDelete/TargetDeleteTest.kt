@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.onTargetDelete
 
+import com.google.common.truth.Truth
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.first
@@ -131,6 +132,23 @@ class TargetDeleteTest : DBTest() {
         }
         transactional {
             assertEquals(e2b, first.e2)
+        }
+    }
+
+    @Test
+    fun updateAndSetNull() {
+        val (e1, e2) = transactional {
+            val e2 = E2.new()
+            val e1 = E1.new {
+                this.e2 = e2
+            }
+            e1 to e2
+        }
+        transactional {
+            e2.delete()
+        }
+        transactional {
+            Truth.assertThat(e1.e2).isNull()
         }
     }
 
