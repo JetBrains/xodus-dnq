@@ -15,16 +15,13 @@
  */
 package kotlinx.dnq.onTargetDelete
 
-import com.google.common.truth.Truth
+import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.first
-import kotlinx.dnq.query.isEmpty
-import kotlinx.dnq.query.size
-import org.junit.Assert.assertTrue
+import kotlinx.dnq.query.toList
 import org.junit.Ignore
 import org.junit.Test
-import kotlin.test.assertEquals
 
 class TargetDeleteTest : DBTest() {
 
@@ -35,15 +32,16 @@ class TargetDeleteTest : DBTest() {
     @Test
     fun simpleCascade0() {
         val a3 = transactional {
-            val a3 = A3.new()
-            A1.new { l = a3 }
+            A3.new().also { a3 ->
+                A1.new { l = a3 }
+            }
         }
         transactional {
             a3.delete()
         }
         transactional {
-            assertTrue(A1.all().isEmpty)
-            assertTrue(A3.all().isEmpty)
+            assertThat(A1.all().toList()).isEmpty()
+            assertThat(A3.all().toList()).isEmpty()
         }
     }
 
@@ -58,8 +56,8 @@ class TargetDeleteTest : DBTest() {
             }
         }
         transactional {
-            assertTrue(A1.all().isEmpty)
-            assertTrue(A3.all().isEmpty)
+            assertThat(A1.all().toList()).isEmpty()
+            assertThat(A3.all().toList()).isEmpty()
         }
     }
 
@@ -69,8 +67,8 @@ class TargetDeleteTest : DBTest() {
         transactional { A1.new { l = a2 } }
         transactional { a2.delete() }
         transactional {
-            assertEquals(0, A1.all().size())
-            assertEquals(0, A3.all().size())
+            assertThat(A1.all().toList()).isEmpty()
+            assertThat(A3.all().toList()).isEmpty()
         }
     }
 
@@ -81,10 +79,10 @@ class TargetDeleteTest : DBTest() {
         }
         transactional { b4.delete() }
         transactional {
-            assertEquals(0, B1.all().size())
-            assertEquals(0, B2.all().size())
-            assertEquals(0, B3.all().size())
-            assertEquals(0, B4.all().size())
+            assertThat(B1.all().toList()).isEmpty()
+            assertThat(B2.all().toList()).isEmpty()
+            assertThat(B3.all().toList()).isEmpty()
+            assertThat(B4.all().toList()).isEmpty()
         }
     }
 
@@ -95,9 +93,9 @@ class TargetDeleteTest : DBTest() {
         }
         transactional { c1.delete() }
         transactional {
-            assertEquals(0, C1.all().size())
-            assertEquals(1, C2.all().size())
-            assertEquals(null, C2.all().first().c1)
+            assertThat(C1.all().toList()).isEmpty()
+            assertThat(C2.all().toList()).hasSize(1)
+            assertThat(C2.all().first().c1).isNull()
         }
     }
 
@@ -113,8 +111,8 @@ class TargetDeleteTest : DBTest() {
         }
         transactional { first.delete() }
         transactional {
-            assertEquals(1, D1.all().size())
-            assertEquals(2, D2.all().size())
+            assertThat(D1.all().toList()).hasSize(1)
+            assertThat(D2.all().toList()).hasSize(2)
         }
     }
 
@@ -130,7 +128,7 @@ class TargetDeleteTest : DBTest() {
             e2a.delete()
         }
         transactional {
-            assertEquals(e2b, first.e2)
+            assertThat(first.e2).isEqualTo(e2b)
         }
     }
 
@@ -147,7 +145,7 @@ class TargetDeleteTest : DBTest() {
             e2.delete()
         }
         transactional {
-            Truth.assertThat(e1.e2).isNull()
+            assertThat(e1.e2).isNull()
         }
     }
 
@@ -163,8 +161,8 @@ class TargetDeleteTest : DBTest() {
         }
         transactional { leaf.delete() }
         transactional {
-            assertEquals(0, F1.all().size())
-            assertEquals(0, F2.all().size())
+            assertThat(F1.all().toList()).isEmpty()
+            assertThat(F2.all().toList()).isEmpty()
         }
     }
 }
