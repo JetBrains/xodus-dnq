@@ -13,194 +13,133 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.core.dataStructures.hash.LongHashSet;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityIterable;
-import jetbrains.exodus.entitystore.PersistentEntity;
-import jetbrains.exodus.entitystore.PersistentEntityStoreImpl;
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import jetbrains.exodus.query.StaticTypedEntityIterable;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
+import jetbrains.exodus.core.dataStructures.hash.LongHashSet
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.database.TransientStoreSession
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.PersistentEntity
+import jetbrains.exodus.entitystore.PersistentEntityStoreImpl
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import jetbrains.exodus.query.StaticTypedEntityIterable
 
 /**
- * Date: 18.12.2006
- * Time: 13:43:10
- *
  * @author Vadim.Gurov
  */
-public class TransientStoreUtil {
+object TransientStoreUtil {
+    private val POSTPONE_UNIQUE_INDICES = LongHashSet(10)
 
-    private static final Logger logger = LoggerFactory.getLogger(TransientStoreUtil.class);
-    private static final LongHashSet POSTPONE_UNIQUE_INDICES = new LongHashSet(10);
-
-    @Nullable
-    public static TransientStoreSession getCurrentSession(@NotNull TransientEntity e) {
-        return (TransientStoreSession) e.getStore().getCurrentTransaction();
-    }
-
-    public static boolean isPostponeUniqueIndexes() {
-        final long id = Thread.currentThread().getId();
-        synchronized (POSTPONE_UNIQUE_INDICES) {
-            return POSTPONE_UNIQUE_INDICES.contains(id);
-        }
-    }
-
-    public static void setPostponeUniqueIndexes(boolean postponeUniqueIndexes) {
-        final long id = Thread.currentThread().getId();
-        if (postponeUniqueIndexes) {
-            synchronized (POSTPONE_UNIQUE_INDICES) {
-                POSTPONE_UNIQUE_INDICES.add(id);
-            }
-        } else {
-            synchronized (POSTPONE_UNIQUE_INDICES) {
-                POSTPONE_UNIQUE_INDICES.remove(id);
+    @JvmStatic
+    var isPostponeUniqueIndexes: Boolean
+        get() {
+            val id = Thread.currentThread().id
+            synchronized(POSTPONE_UNIQUE_INDICES) {
+                return POSTPONE_UNIQUE_INDICES.contains(id)
             }
         }
+        set(postponeUniqueIndexes) {
+            val id = Thread.currentThread().id
+            if (postponeUniqueIndexes) {
+                synchronized(POSTPONE_UNIQUE_INDICES) {
+                    POSTPONE_UNIQUE_INDICES.add(id)
+                }
+            } else {
+                synchronized(POSTPONE_UNIQUE_INDICES) {
+                    POSTPONE_UNIQUE_INDICES.remove(id)
+                }
+            }
+        }
+
+    @JvmStatic
+    fun getCurrentSession(entity: TransientEntity): TransientStoreSession? {
+        return entity.store.currentTransaction as TransientStoreSession?
     }
 
     /**
      * Attach entity to current session if possible.
      */
-    @Nullable
-    @Deprecated
-    public static TransientEntity reattach(@Nullable TransientEntity entity) {
-        if (entity == null) {
-            return null;
-        }
-
-        /*if (store == null) {
-            throw new IllegalStateException("There's no current session entity store.");
-        }*/
-
-        TransientStoreSession s = entity.getStore().getThreadSession();
-
-        if (s == null) {
-            throw new IllegalStateException("There's no current session to attach transient entity to.");
-        }
-
-
-        return s.newLocalCopy(entity);
+    @JvmStatic
+    @Deprecated("Use entity.reattach() instead", ReplaceWith("entity?.reattach()", "com.jetbrains.teamsys.dnq.database.TransientEntityUtilKt.reattach"))
+    fun reattach(entity: TransientEntity?): TransientEntity? {
+        return entity?.reattach()
     }
+
 
     /**
      * Checks if entity entity was removed
      *
-     * @return true if e was removed, false if it wasn't removed at all
+     * @return true if [entity] was removed, false if it wasn't removed at all
      */
-    public static boolean isRemoved(@NotNull Entity entity) {
-        if (entity instanceof PersistentEntity) {
-            return ((PersistentEntityStoreImpl) entity.getStore()).getLastVersion(entity.getId()) < 0;
+    @JvmStatic
+    fun isRemoved(entity: Entity): Boolean {
+        return when (entity) {
+            is PersistentEntity -> {
+                val store = entity.store as PersistentEntityStoreImpl
+                store.getLastVersion(store.currentTransactionOrThrow, entity.id) < 0
+            }
+            is TransientEntity -> entity.store.threadSessionOrThrow.isRemoved(entity)
+            else -> throw IllegalArgumentException("Cannot check if entity [$entity] is removed, it is neither TransientEntity nor PersistentEntity")
         }
-        return ((TransientEntityImpl) entity).getAndCheckThreadStoreSession().isRemoved(entity);
     }
 
-    public static void commit(@Nullable TransientStoreSession s) {
-        if (s != null && s.isOpened()) {
+    @JvmStatic
+    fun commit(s: TransientStoreSession?) {
+        if (s != null && s.isOpened) {
             try {
-                s.commit();
-            } catch (Throwable e) {
-                abort(e, s);
+                s.commit()
+            } catch (e: Throwable) {
+                abort(e, s)
             }
         }
     }
 
-    public static void abort(@Nullable TransientStoreSession session) {
-        if (session != null && session.isOpened()) {
-            session.abort();
+    @JvmStatic
+    fun abort(session: TransientStoreSession?) {
+        if (session != null && session.isOpened) {
+            session.abort()
         }
     }
 
-    public static void abort(@NotNull Throwable e, @Nullable TransientStoreSession s) {
-        abort(s);
-
-        if (e instanceof Error) {
-            throw (Error) e;
+    @JvmStatic
+    fun abort(exception: Throwable, s: TransientStoreSession?) {
+        abort(s)
+        when (exception) {
+            is Error -> throw exception
+            is RuntimeException -> throw exception
+            else -> throw RuntimeException(exception)
         }
-
-        if (e instanceof RuntimeException) {
-            throw (RuntimeException) e;
-        }
-
-        throw new RuntimeException(e);
     }
 
-    @Nullable
-    public static BasePersistentClassImpl getPersistentClassInstance(@NotNull final Entity entity) {
-        return ((TransientEntityStoreImpl) entity.getStore()).getCachedPersistentClassInstance(entity.getType());
+    @JvmStatic
+    @Deprecated("Use entity.persistentClassInstance instead", ReplaceWith("entity.persistentClassInstance", "com.jetbrains.teamsys.dnq.database.TransientEntityUtilKt.getPersistentClassInstance"))
+    fun getPersistentClassInstance(entity: Entity): BasePersistentClassImpl? {
+        return (entity as TransientEntity).persistentClassInstance
     }
 
-    public static int getSize(@Nullable Iterable<Entity> it) {
-        if (it == null) {
-            return 0;
+    @JvmStatic
+    fun getSize(it: Iterable<Entity>?): Int {
+        val iterable = if (it is StaticTypedEntityIterable) it.instantiate() else it
+        return when {
+            iterable == null -> 0
+            iterable === EntityIterableBase.EMPTY -> 0
+            iterable is EntityIterable -> iterable.size().toInt()
+            iterable is Collection<*> -> (iterable as Collection<*>).size
+            else -> iterable.count()
         }
-        if (it instanceof StaticTypedEntityIterable) {
-            it = ((StaticTypedEntityIterable) it).instantiate();
-        }
-        if (it == EntityIterableBase.EMPTY) {
-            return 0;
-        }
-        if (it instanceof EntityIterable) {
-            return (int) ((EntityIterable) it).size();
-        }
-        if (it instanceof Collection) {
-            return ((Collection) it).size();
-        }
-        int result = 0;
-        for (Entity ignored : it) {
-            result++;
-        }
-        return result;
     }
 
-    static String toString(@Nullable Set<String> strings) {
-        if (strings == null) {
-            return "";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        boolean first = true;
-        for (String s : strings) {
-            if (!first) {
-                sb.append(",");
-            }
-
-            sb.append(s);
-
-            first = false;
-        }
-
-        return sb.toString();
+    @JvmStatic
+    internal fun toString(strings: Set<String>?): String {
+        return strings?.joinToString(",").orEmpty()
     }
 
-    static String toString(@Nullable Map map) {
-        if (map == null) {
-            return "";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        boolean first = true;
-        for (Object s : map.keySet()) {
-            if (!first) {
-                sb.append(",");
-            }
-
-            sb.append(s).append(":").append(map.get(s));
-
-            first = false;
-        }
-
-        return sb.toString();
+    @JvmStatic
+    internal fun toString(map: Map<*, *>?): String {
+        return map?.asSequence()
+                ?.joinToString(",") { (key, value) -> "$key:$value" }
+                .orEmpty()
     }
 
 }

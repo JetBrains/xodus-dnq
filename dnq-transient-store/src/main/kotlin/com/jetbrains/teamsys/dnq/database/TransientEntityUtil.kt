@@ -18,6 +18,8 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.PersistentEntityStore
+import jetbrains.exodus.entitystore.PersistentStoreTransaction
 
 /**
  * Attach entity to current transient session if possible.
@@ -32,4 +34,12 @@ fun Entity.reattachTransient(): TransientEntity {
 }
 
 val TransientEntityStore.threadSessionOrThrow
-    get() = threadSession ?: throw IllegalStateException("There's no current session to attach transient entity to.")
+    get() = threadSession
+            ?: throw IllegalStateException("There is no transient transaction in current thread")
+
+val PersistentEntityStore.currentTransactionOrThrow
+    get() = currentTransaction as PersistentStoreTransaction?
+            ?: throw IllegalStateException("There is no persistent transaction in current thread")
+
+val TransientEntity.persistentClassInstance: BasePersistentClassImpl?
+    get() = (store as? TransientEntityStoreImpl)?.getCachedPersistentClassInstance(type)

@@ -13,552 +13,535 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics;
-import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics;
-import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
-import jetbrains.exodus.database.LinkChange;
-import jetbrains.exodus.database.TransientChangesTracker;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.database.exceptions.CardinalityViolationException;
-import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
-import jetbrains.exodus.database.exceptions.NullPropertyException;
-import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityIterable;
-import jetbrains.exodus.entitystore.EntityIterator;
-import jetbrains.exodus.query.metadata.*;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics
+import com.jetbrains.teamsys.dnq.association.AssociationSemantics
+import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics
+import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics
+import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
+import jetbrains.exodus.database.TransientChangesTracker
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.database.TransientStoreSession
+import jetbrains.exodus.database.exceptions.CantRemoveEntityException
+import jetbrains.exodus.database.exceptions.CardinalityViolationException
+import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
+import jetbrains.exodus.database.exceptions.NullPropertyException
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.query.metadata.*
+import mu.KLogging
 
-import java.util.*;
+object ConstraintsUtil : KLogging() {
 
-@SuppressWarnings({"ThrowableInstanceNeverThrown"})
-class ConstraintsUtil {
+    @JvmStatic
+    fun checkCardinality(e: TransientEntity, md: AssociationEndMetaData): Boolean {
+        val cardinality = md.cardinality
+        if (cardinality == AssociationEndCardinality._0_n) return true
 
-    private static final Logger logger = LoggerFactory.getLogger(ConstraintsUtil.class);
+        val links = e.persistentEntity.getLinks(md.name)
 
-    static boolean checkCardinality(@NotNull TransientEntity e, @NotNull AssociationEndMetaData md) {
-        final AssociationEndCardinality cardinality = md.getCardinality();
-        if (cardinality == AssociationEndCardinality._0_n) return true;
-
-        final EntityIterable links = e.getPersistentEntity().getLinks(md.getName());
-        final EntityIterator iter = links.iterator();
-
-        int size = 0;
-        for (; size < 2 && iter.hasNext(); iter.next(), size++) ;
-
-        switch (cardinality) {
-            case _0_1:
-                return size <= 1;
-
-            case _1:
-                return size == 1;
-
-            case _1_n:
-                return size >= 1;
+        val iter = links.iterator()
+        var size = 0
+        while (size < 2 && iter.hasNext()) {
+            iter.next()
+            size++
         }
 
-        throw new IllegalArgumentException("Unknown cardinality [" + cardinality + "]");
+        return when (cardinality) {
+            AssociationEndCardinality._0_1 -> size <= 1
+            AssociationEndCardinality._1 -> size == 1
+            AssociationEndCardinality._1_n -> size >= 1
+            else -> throw IllegalArgumentException("Unknown cardinality [$cardinality]")
+        }
     }
 
-    @NotNull
-    static Set<DataIntegrityViolationException> checkIncomingLinks(@NotNull TransientChangesTracker changesTracker) {
-        final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
-
-        for (TransientEntity e : changesTracker.getChangedEntities()) {
-            if (e.isRemoved()) {
-                List<Pair<String, EntityIterable>> incomingLinks = e.getIncomingLinks();
-
-                if (incomingLinks.size() > 0) {
-                    List<IncomingLinkViolation> badIncomingLinks = new ArrayList<IncomingLinkViolation>();
-                    for (Pair<String, EntityIterable> pair : incomingLinks) {
-                        IncomingLinkViolation violation = null;
-                        EntityIterator linksIterator = pair.getSecond().iterator();
-                        while (linksIterator.hasNext()) {
-                            TransientEntity entity = ((TransientEntity) linksIterator.next());
-                            if (entity == null || entity.isRemoved() || entity.getRemovedLinks(pair.getFirst()).contains(e)) {
-                                continue;
+    @JvmStatic
+    fun checkIncomingLinks(changesTracker: TransientChangesTracker): Set<DataIntegrityViolationException> {
+        return changesTracker.changedEntities
+                .asSequence()
+                .filter { it.isRemoved }
+                .map { targetEntity ->
+                    val badIncomingLinks = targetEntity.incomingLinks
+                            .asSequence()
+                            .map { it.first to it.second }
+                            .mapNotNull { (linkName, linkedEntities) ->
+                                var incomingLinkViolation: IncomingLinkViolation? = null
+                                linkedEntities
+                                        .asSequence()
+                                        .filterIsInstance<TransientEntity>()
+                                        .filter { sourceEntity -> !sourceEntity.isRemoved && targetEntity !in sourceEntity.getRemovedLinks(linkName) }
+                                        .takeWhile { sourceEntity ->
+                                            val violation = incomingLinkViolation ?:
+                                                    createIncomingLinkViolation(sourceEntity, linkName)
+                                                            .also { newViolation ->
+                                                                incomingLinkViolation = newViolation
+                                                            }
+                                            violation.tryAddCause(sourceEntity)
+                                        }
+                                incomingLinkViolation
                             }
-                            if (violation == null) {
-                                BasePersistentClassImpl impl = TransientStoreUtil.getPersistentClassInstance(entity);
-                                violation = impl.createIncomingLinkViolation(pair.getFirst());
-                            }
-                            if (!violation.tryAddCause(entity)) break;
-                        }
+                            .toList()
+                    targetEntity to badIncomingLinks
+                }
+                .filter { (_, badIncomingLinks) -> badIncomingLinks.isNotEmpty() }
+                .map { (targetEntity, badIncomingLinks) -> createIncomingLinksException(targetEntity, badIncomingLinks) }
+                .toCollection(HashSetDecorator())
+    }
 
-                        if (violation != null) {
-                            badIncomingLinks.add(violation);
-                        }
-                    }
-                    if (badIncomingLinks.size() > 0) {
-                        exceptions.add(TransientStoreUtil.getPersistentClassInstance(e).createIncomingLinksException(badIncomingLinks, e));
+    private fun createIncomingLinkViolation(linkSource: TransientEntity, linkName: String): IncomingLinkViolation {
+        return linkSource.persistentClassInstance
+                ?.createIncomingLinkViolation(linkName)
+                ?: IncomingLinkViolation(linkName)
+    }
+
+    private fun createIncomingLinksException(targetEntity: TransientEntity, badIncomingLinks: List<IncomingLinkViolation>): DataIntegrityViolationException {
+        val persistentClassInstance = targetEntity.persistentClassInstance
+        return if (persistentClassInstance != null) {
+            persistentClassInstance.createIncomingLinksException(badIncomingLinks, targetEntity)
+        } else {
+            val linkDescriptions = badIncomingLinks.map { it.description }
+            val displayName = targetEntity.debugPresentation
+            val displayMessage = "Could not delete $displayName, because it is referenced"
+            return CantRemoveEntityException(targetEntity, displayMessage, displayName, linkDescriptions)
+        }
+    }
+
+    @JvmStatic
+    fun checkAssociationsCardinality(changesTracker: TransientChangesTracker, modelMetaData: ModelMetaData): Set<DataIntegrityViolationException> {
+        return changesTracker.changedEntities
+                .asSequence()
+                .filter { !it.isRemoved }
+                .mapNotNull { changedEntity ->
+                    val entityMetaData = modelMetaData.getEntityMetaData(changedEntity.type)
+                    if (entityMetaData != null) {
+                        changedEntity to entityMetaData
+                    } else {
+                        logger.debug { "Cannot check links cardinality for entity $changedEntity. Entity metadata for its type [${changedEntity.type}] is undefined" }
+                        null
                     }
                 }
-            }
-        }
-
-        return exceptions;
-    }
-
-    @NotNull
-    static Set<DataIntegrityViolationException> checkAssociationsCardinality(@NotNull TransientChangesTracker changesTracker, @NotNull ModelMetaData modelMetaData) {
-        Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
-
-        for (TransientEntity e : changesTracker.getChangedEntities()) {
-            if (!e.isRemoved()) {
-                // if entity is new - check cardinality of all links
-                // if entity saved - check cardinality of changed links only
-                EntityMetaData md = modelMetaData.getEntityMetaData(e.getType());
-
-                // meta-data may be null for persistent enums
-                if (e.isNew()) {
-                    // check all links of new entity
-                    for (AssociationEndMetaData aemd : md.getAssociationEndsMetaData()) {
-                        if (logger.isTraceEnabled()) {
-                            logger.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
-                        }
-
-                        if (!checkCardinality(e, aemd)) {
-                            exceptions.add(new CardinalityViolationException(e, aemd));
-                        }
-                    }
-                } else if (e.isSaved()) {
+                .flatMap { (changedEntity, entityMetaData) ->
+                    // if entity is new - check cardinality of all links
+                    // if entity saved - check cardinality of changed links only
+                    // meta-data may be null for persistent enums
                     // check only changed links of saved entity
-                    Map<String, LinkChange> changedLinks = changesTracker.getChangedLinksDetailed(e);
-                    if (changedLinks != null) {
-                        for (String changedLink : changedLinks.keySet()) {
-                            AssociationEndMetaData aemd = md.getAssociationEndMetaData(changedLink);
-
-                            if (aemd == null) {
-                                logger.debug("aemd is null. Type: [" + e.getType() + "]. Changed link: " + changedLink);
-                            } else {
-                                if (logger.isTraceEnabled()) {
-                                    logger.trace("Check cardinality [" + e.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
+                    when {
+                        changedEntity.isNew -> entityMetaData.associationEndsMetaData
+                                .asSequence()
+                                .filter { !checkCardinality(changedEntity, it) }
+                                .map { CardinalityViolationException(changedEntity, it) }
+                        changedEntity.isSaved -> changesTracker.getChangedLinksDetailed(changedEntity)
+                                ?.keys.orEmpty()
+                                .asSequence()
+                                .mapNotNull { changedLinkName ->
+                                    entityMetaData.getAssociationEndMetaData(changedLinkName)
+                                            .also { associationEndMetaData ->
+                                                if (associationEndMetaData == null) {
+                                                    logger.debug("Cannot check cardinality for link [${changedEntity.type}.$changedLinkName]. Association end metadata for it is undefined")
+                                                }
+                                            }
                                 }
-
-                                if (!checkCardinality(e, aemd)) {
-                                    exceptions.add(new CardinalityViolationException(e, aemd));
-                                }
-
-                            }
-
-                        }
+                                .filter { associationEndMetaData -> !checkCardinality(changedEntity, associationEndMetaData) }
+                                .map { associationEndMetaData -> CardinalityViolationException(changedEntity, associationEndMetaData) }
+                        else -> emptySequence()
                     }
                 }
-            }
-        }
-
-        return exceptions;
+                .toCollection(HashSetDecorator())
     }
 
-    static void processOnDeleteConstraints(@NotNull TransientStoreSession session, @NotNull TransientEntity e, @NotNull EntityMetaData emd, @NotNull ModelMetaData md, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
+    @JvmStatic
+    fun processOnDeleteConstraints(
+            session: TransientStoreSession,
+            entity: TransientEntity,
+            entityMetaData: EntityMetaData,
+            modelMetaData: ModelMetaData,
+            callDestructorsPhase: Boolean,
+            processed: MutableSet<Entity>) {
+
         // outgoing associations
-        for (AssociationEndMetaData amd : emd.getAssociationEndsMetaData()) {
-            if (amd.getCascadeDelete() || amd.getClearOnDelete()) {
-
-                if (logger.isDebugEnabled()) {
-                    if (amd.getCascadeDelete()) {
-                        logger.debug("Cascade delete targets for link [" + e + "]." + amd.getName());
+        entityMetaData.associationEndsMetaData
+                .asSequence()
+                .filter { it.cascadeDelete || it.clearOnDelete }
+                .forEach { associationEndMetaData ->
+                    if (associationEndMetaData.cascadeDelete) {
+                        logger.debug { "Cascade delete targets for link [$entity].${associationEndMetaData.name}" }
                     }
-
-                    if (amd.getClearOnDelete()) {
-                        logger.debug("Clear associations with targets for link [" + e + "]." + amd.getName());
+                    if (associationEndMetaData.clearOnDelete) {
+                        logger.debug { "Clear associations with targets for link [$entity].${associationEndMetaData.name}" }
                     }
+                    processOnSourceDeleteConstrains(entity, associationEndMetaData, callDestructorsPhase, processed)
                 }
-                processOnSourceDeleteConstrains(e, amd, callDestructorsPhase, processed);
-            }
-        }
 
         // incoming associations
-        Map<String, Set<String>> incomingAssociations = emd.getIncomingAssociations(md);
-        for (String key : incomingAssociations.keySet()) {
-            for (String linkName : incomingAssociations.get(key)) {
-                processOnTargetDeleteConstraints(e, md, key, linkName, session, callDestructorsPhase, processed);
-            }
-        }
-    }
-
-    private static void processOnTargetDeleteConstraints(@NotNull TransientEntity target, @NotNull ModelMetaData md, @NotNull String oppositeType, @NotNull String linkName, @NotNull TransientStoreSession session, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
-        EntityMetaData oppositeEmd = md.getEntityMetaData(oppositeType);
-        if (oppositeEmd == null) {
-            throw new RuntimeException("can't find metadata for entity type " + oppositeType + " as opposite to " + target.getType());
-        }
-        AssociationEndMetaData amd = oppositeEmd.getAssociationEndMetaData(linkName);
-        final EntityIterator it = session.findLinks(oppositeType, target, linkName).iterator();
-        TransientChangesTracker changesTracker = session.getTransientChangesTracker();
-        while (it.hasNext()) {
-            TransientEntity source = (TransientEntity) it.next();
-            if (source.isRemoved()) continue;
-
-            Map<String, LinkChange> changedLinks = changesTracker.getChangedLinksDetailed(source);
-            boolean linkRemoved = false;
-            if (changedLinks != null) { // changed links can be null
-                LinkChange change = changedLinks.get(linkName);
-                if (change != null) { // change can be null if current link is not changed, but some was
-                    Set<TransientEntity> removed = change.getRemovedEntities();
-                    linkRemoved = (removed == null) ? false : removed.contains(target);
+        entityMetaData.getIncomingAssociations(modelMetaData)
+                .asSequence()
+                .flatMap { (oppositeType, linkNames) ->
+                    linkNames.asSequence().map { linkName -> oppositeType to linkName }
                 }
-            }
-
-            if (!linkRemoved) {
-                if (amd.getTargetCascadeDelete()) {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("cascade delete targets for link [" + source + "]." + linkName);
-                    }
-                    EntityOperations.remove(source, callDestructorsPhase, processed);
-                } else if (amd.getTargetClearOnDelete() && !callDestructorsPhase) {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("clear associations with targets for link [" + source + "]." + linkName);
-                    }
-                    removeLink(source, target, amd);
+                .forEach { (oppositeType, linkName) ->
+                    processOnTargetDeleteConstraints(entity, modelMetaData, oppositeType, linkName, session, callDestructorsPhase, processed)
                 }
-            }
+    }
+
+    private fun processOnSourceDeleteConstrains(
+            entity: Entity,
+            associationEndMetaData: AssociationEndMetaData,
+            callDestructorsPhase: Boolean,
+            processed: MutableSet<Entity>) {
+        when (associationEndMetaData.cardinality) {
+            AssociationEndCardinality._0_1,
+            AssociationEndCardinality._1 ->
+                processOnSourceDeleteConstraintForSingleLink(entity, associationEndMetaData, callDestructorsPhase, processed)
+            AssociationEndCardinality._0_n,
+            AssociationEndCardinality._1_n ->
+                processOnSourceDeleteConstraintForMultipleLink(entity, associationEndMetaData, callDestructorsPhase, processed)
         }
     }
 
-    private static void processOnSourceDeleteConstrains(@NotNull Entity e, @NotNull AssociationEndMetaData amd, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
-        switch (amd.getCardinality()) {
-
-            case _0_1:
-            case _1:
-                processOnSourceDeleteConstraintForSingleLink(e, amd, callDestructorsPhase, processed);
-                break;
-
-            case _0_n:
-            case _1_n:
-                processOnSourceDeleteConstraintForMultipleLink(e, amd, callDestructorsPhase, processed);
-                break;
-        }
-    }
-
-    private static void processOnSourceDeleteConstraintForSingleLink(@NotNull Entity source, @NotNull AssociationEndMetaData amd, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
-        Entity target = AssociationSemantics.getToOne(source, amd.getName());
+    private fun processOnSourceDeleteConstraintForSingleLink(
+            source: Entity,
+            associationEndMetaData: AssociationEndMetaData,
+            callDestructorsPhase: Boolean,
+            processed: MutableSet<Entity>) {
+        val target = AssociationSemantics.getToOne(source, associationEndMetaData.name)
         if (target != null && !EntityOperations.isRemoved(target)) {
-
-            if (amd.getCascadeDelete() || getOnTargetDeleteCascadeAtOppositeEnd(amd)) {
-                EntityOperations.remove(target, callDestructorsPhase, processed);
-            } else if (!callDestructorsPhase) {
-                removeSingleLink(source, amd, getOppositeEndSafely(amd), target);
+            val oppositeEnd = associationEndMetaData.oppositeEndOrNull
+            if (associationEndMetaData.cascadeDelete || oppositeEnd?.targetCascadeDelete == true) {
+                EntityOperations.remove(target, callDestructorsPhase, processed)
+            } else if (!callDestructorsPhase && oppositeEnd != null) {
+                removeSingleLink(source, associationEndMetaData, oppositeEnd, target)
             }
         }
     }
 
-    private static void processOnSourceDeleteConstraintForMultipleLink(@NotNull Entity source, @NotNull AssociationEndMetaData amd, boolean callDestructorsPhase, @NotNull Set<Entity> processed) {
-        for (Entity target : AssociationSemantics.getToManyList(source, amd.getName())) {
-            if (EntityOperations.isRemoved(target)) continue;
+    private fun removeSingleLink(
+            source: Entity,
+            sourceEnd: AssociationEndMetaData,
+            targetEnd: AssociationEndMetaData,
+            target: Entity) {
+        when (sourceEnd.associationEndType) {
+            AssociationEndType.ParentEnd ->
+                AggregationAssociationSemantics.setOneToOne(source, sourceEnd.name, targetEnd.name, null)
 
-            if (amd.getCascadeDelete() || getOnTargetDeleteCascadeAtOppositeEnd(amd)) {
-                EntityOperations.remove(target, callDestructorsPhase, processed);
-            } else if (!callDestructorsPhase) {
-                removeOneLinkFromMultipleLink(source, amd, getOppositeEndSafely(amd), target);
-            }
-        }
-    }
-
-    private static void removeSingleLink(@NotNull Entity source, @NotNull AssociationEndMetaData sourceEnd, @NotNull AssociationEndMetaData targetEnd, @NotNull Entity target) {
-        switch (sourceEnd.getAssociationEndType()) {
-            case ParentEnd:
-                AggregationAssociationSemantics.setOneToOne(source, sourceEnd.getName(), targetEnd.getName(), null);
-                break;
-
-            case ChildEnd:
+            AssociationEndType.ChildEnd ->
                 // Here is cardinality check because we can remove parent-child link only from the parent side
-                switch (targetEnd.getCardinality()) {
-
-                    case _0_1:
-                    case _1:
-                        AggregationAssociationSemantics.setOneToOne(target, targetEnd.getName(), sourceEnd.getName(), null);
-                        break;
-
-                    case _0_n:
-                    case _1_n:
-                        AggregationAssociationSemantics.removeOneToMany(target, targetEnd.getName(), sourceEnd.getName(), source);
-                        break;
+                when (targetEnd.cardinality) {
+                    AssociationEndCardinality._0_1,
+                    AssociationEndCardinality._1 ->
+                        AggregationAssociationSemantics.setOneToOne(target, targetEnd.name, sourceEnd.name, null)
+                    AssociationEndCardinality._0_n,
+                    AssociationEndCardinality._1_n ->
+                        AggregationAssociationSemantics.removeOneToMany(target, targetEnd.name, sourceEnd.name, source)
                 }
-                break;
 
-            case UndirectedAssociationEnd:
-                switch (targetEnd.getCardinality()) {
+            AssociationEndType.UndirectedAssociationEnd -> when (targetEnd.cardinality) {
+                AssociationEndCardinality._0_1,
+                AssociationEndCardinality._1 ->
+                    // one to one
+                    UndirectedAssociationSemantics.setOneToOne(source, sourceEnd.name, targetEnd.name, null)
 
-                    case _0_1:
-                    case _1:
-                        // one to one
-                        UndirectedAssociationSemantics.setOneToOne(source, sourceEnd.getName(), targetEnd.getName(), null);
-                        break;
-
-                    case _0_n:
-                    case _1_n:
-                        // many to one
-                        UndirectedAssociationSemantics.removeOneToMany(target, targetEnd.getName(), sourceEnd.getName(), source);
-                        break;
-                }
-                break;
-
-            case DirectedAssociationEnd:
-                DirectedAssociationSemantics.setToOne(source, sourceEnd.getName(), null);
-                break;
-
-            default:
-                throw new IllegalArgumentException("Cascade delete is not supported for association end type [" + sourceEnd.getAssociationEndType() + "] and [..1] cardinality");
-        }
-    }
-
-    private static void removeOneLinkFromMultipleLink(@NotNull Entity source, @NotNull AssociationEndMetaData sourceEnd, @NotNull AssociationEndMetaData targetEnd, @NotNull Entity target) {
-        switch (sourceEnd.getAssociationEndType()) {
-            case ParentEnd:
-                AggregationAssociationSemantics.removeOneToMany(source, sourceEnd.getName(), targetEnd.getName(), target);
-                break;
-
-            case UndirectedAssociationEnd:
-                switch (targetEnd.getCardinality()) {
-
-                    case _0_1:
-                    case _1:
-                        // one to many
-                        UndirectedAssociationSemantics.removeOneToMany(source, sourceEnd.getName(), targetEnd.getName(), target);
-                        break;
-
-                    case _0_n:
-                    case _1_n:
-                        // many to many
-                        UndirectedAssociationSemantics.removeManyToMany(source, sourceEnd.getName(), targetEnd.getName(), target);
-                        break;
-                }
-                break;
-
-            case DirectedAssociationEnd:
-                DirectedAssociationSemantics.removeToMany(source, sourceEnd.getName(), target);
-                break;
-
-            default:
-                throw new IllegalArgumentException("Cascade delete is not supported for association end type [" + sourceEnd.getAssociationEndType() + "] and [..n] cardinality");
-        }
-    }
-
-    private static void removeLink(@NotNull Entity source, @NotNull Entity target, @NotNull AssociationEndMetaData sourceEnd) {
-        switch (sourceEnd.getCardinality()) {
-
-            case _0_1:
-            case _1:
-                removeSingleLink(source, sourceEnd, getOppositeEndSafely(sourceEnd), target);
-                break;
-
-            case _0_n:
-            case _1_n:
-                removeOneLinkFromMultipleLink(source, sourceEnd, getOppositeEndSafely(sourceEnd), target);
-                break;
-        }
-    }
-
-    private static boolean getOnTargetDeleteCascadeAtOppositeEnd(@NotNull AssociationEndMetaData endMetaData) {
-        if (endMetaData.getAssociationEndType().equals(AssociationEndType.DirectedAssociationEnd)) {
-            // there is no opposite end in directed association
-            return false;
-        }
-        return endMetaData.getAssociationMetaData().getOppositeEnd(endMetaData).getTargetCascadeDelete();
-    }
-
-    @Nullable
-    private static AssociationEndMetaData getOppositeEndSafely(@NotNull AssociationEndMetaData endMetaData) {
-        try {
-            return endMetaData.getAssociationMetaData().getOppositeEnd(endMetaData);
-        } catch (IllegalStateException ignored) {
-            return null;
-        }
-    }
-
-    @NotNull
-    static Set<DataIntegrityViolationException> checkRequiredProperties(@NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
-        Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
-
-        for (TransientEntity e : tracker.getChangedEntities()) {
-            if (!e.isRemoved()) {
-
-                EntityMetaData emd = md.getEntityMetaData(e.getType());
-
-                Set<String> requiredProperties = emd.getRequiredProperties();
-                Set<String> requiredIfProperties = EntityMetaDataUtils.getRequiredIfProperties(emd, e);
-                Set<String> changedProperties = tracker.getChangedProperties(e);
-
-                if ((requiredProperties.size() + requiredIfProperties.size() > 0 && (e.isNew() || (changedProperties != null && changedProperties.size() > 0)))) {
-                    for (String requiredPropertyName : requiredProperties) {
-                        checkProperty(errors, e, changedProperties, emd, requiredPropertyName);
-                    }
-                    for (String requiredIfPropertyName : requiredIfProperties) {
-                        checkProperty(errors, e, changedProperties, emd, requiredIfPropertyName);
-                    }
-                }
+                AssociationEndCardinality._0_n,
+                AssociationEndCardinality._1_n ->
+                    // many to one
+                    UndirectedAssociationSemantics.removeOneToMany(target, targetEnd.name, sourceEnd.name, source)
             }
-        }
 
-        return errors;
+            AssociationEndType.DirectedAssociationEnd ->
+                DirectedAssociationSemantics.setToOne(source, sourceEnd.name, null)
+
+            else ->
+                throw IllegalArgumentException("Cascade delete is not supported for association end type [${sourceEnd.associationEndType}] and [..1] cardinality")
+        }
     }
 
-    @NotNull
-    static Set<DataIntegrityViolationException> checkOtherPropertyConstraints(@NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
-        Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
+    private fun processOnSourceDeleteConstraintForMultipleLink(
+            source: Entity,
+            associationEndMetaData: AssociationEndMetaData,
+            callDestructorsPhase: Boolean,
+            processed: MutableSet<Entity>) {
+        AssociationSemantics.getToMany(source, associationEndMetaData.name)
+                .toList()
+                .asSequence()
+                .filterNot { EntityOperations.isRemoved(it) }
+                .forEach {
+                    val oppositeEnd = associationEndMetaData.oppositeEndOrNull
+                    if (associationEndMetaData.cascadeDelete || oppositeEnd?.targetCascadeDelete == true) {
+                        EntityOperations.remove(it, callDestructorsPhase, processed)
+                    } else if (!callDestructorsPhase && oppositeEnd != null) {
+                        removeOneLinkFromMultipleLink(source, associationEndMetaData, oppositeEnd, it)
+                    }
+                }
+    }
 
-        for (TransientEntity e : tracker.getChangedEntities()) {
-            if (!e.isRemoved()) {
+    private fun removeOneLinkFromMultipleLink(
+            source: Entity,
+            sourceEnd: AssociationEndMetaData,
+            targetEnd: AssociationEndMetaData,
+            target: Entity) {
+        when (sourceEnd.associationEndType) {
+            AssociationEndType.ParentEnd ->
+                AggregationAssociationSemantics.removeOneToMany(source, sourceEnd.name, targetEnd.name, target)
 
-                EntityMetaData emd = md.getEntityMetaData(e.getType());
+            AssociationEndType.UndirectedAssociationEnd -> when (targetEnd.cardinality) {
+                AssociationEndCardinality._0_1,
+                AssociationEndCardinality._1 ->
+                    // one to many
+                    UndirectedAssociationSemantics.removeOneToMany(source, sourceEnd.name, targetEnd.name, target)
+                AssociationEndCardinality._0_n,
+                AssociationEndCardinality._1_n ->
+                    // many to many
+                    UndirectedAssociationSemantics.removeManyToMany(source, sourceEnd.name, targetEnd.name, target)
+            }
 
-                Map<String, Iterable<PropertyConstraint>> propertyConstraints = EntityMetaDataUtils.getPropertyConstraints(e);
-                Iterable<String> suspectedProperties = getChangedPropertiesWithConstraints(tracker, e, propertyConstraints.keySet());
-                for (String propertyName : suspectedProperties) {
-                    PropertyMetaData propertyMetaData = emd.getPropertyMetaData(propertyName);
-                    final PropertyType type = getPropertyType(propertyMetaData);
-                    Object propertyValue = getPropertyValue(e, propertyName, type);
-                    for (PropertyConstraint constraint : propertyConstraints.get(propertyName)) {
-                        SimplePropertyValidationException exception = constraint.check(e, propertyMetaData, propertyValue);
-                        if (exception != null) {
-                            errors.add(exception);
+            AssociationEndType.DirectedAssociationEnd ->
+                DirectedAssociationSemantics.removeToMany(source, sourceEnd.name, target)
+
+            else ->
+                throw IllegalArgumentException("Cascade delete is not supported for association end type [${sourceEnd.associationEndType}] and [..n] cardinality")
+        }
+    }
+
+    private fun processOnTargetDeleteConstraints(
+            target: TransientEntity,
+            modelMetaData: ModelMetaData,
+            oppositeType: String,
+            linkName: String,
+            session: TransientStoreSession,
+            callDestructorsPhase: Boolean,
+            processed: MutableSet<Entity>) {
+
+        val oppositeEntityMetaData = modelMetaData.getEntityMetaData(oppositeType)
+                ?: throw RuntimeException("Cannot find metadata for entity type $oppositeType as opposite to ${target.type}")
+        val associationEndMetaData = oppositeEntityMetaData.getAssociationEndMetaData(linkName)
+        val changesTracker = session.transientChangesTracker
+
+        session.findLinks(oppositeType, target, linkName)
+                .asSequence()
+                .filterIsInstance<TransientEntity>()
+                .filter { !it.isRemoved }
+                .forEach { source ->
+                    val linkRemoved = changesTracker.getChangedLinksDetailed(source)
+                            // Change can be null if current link is not changed, but some was
+                            ?.get(linkName)
+                            ?.removedEntities
+                            ?.contains(target)
+                            ?: false
+
+                    if (!linkRemoved) {
+                        if (associationEndMetaData.targetCascadeDelete) {
+                            logger.debug { "Cascade delete targets for link [$source].$linkName" }
+                            EntityOperations.remove(source, callDestructorsPhase, processed)
+                        } else if (associationEndMetaData.targetClearOnDelete && !callDestructorsPhase) {
+                            logger.debug { "Clear associations with targets for link [$source].$linkName" }
+                            removeLink(source, target, associationEndMetaData)
                         }
                     }
                 }
-            }
-        }
-
-        return errors;
     }
 
-    @NotNull
-    private static Iterable<String> getChangedPropertiesWithConstraints(@NotNull TransientChangesTracker tracker, @NotNull TransientEntity e, @Nullable Set<String> constrainedProperties) {
-        Iterable<String> propertyNames = Collections.emptySet();
-        if (constrainedProperties != null && !constrainedProperties.isEmpty()) {
-            // Any property has constraints
-            Set<String> changedProperties = tracker.getChangedProperties(e);
-            if (e.isNew()) {
-                // All properties with constraints
-                propertyNames = constrainedProperties;
-            } else if (changedProperties != null && !changedProperties.isEmpty()) {
-                // Changed properties with constraints
-                Set<String> intersection = new HashSet<String>(changedProperties.size());
-                for (String changedProperty : changedProperties) {
-                    if (constrainedProperties.contains(changedProperty)) {
-                        intersection.add(changedProperty);
-                    }
-                }
-                propertyNames = intersection;
+    private fun removeLink(source: Entity, target: Entity, sourceEnd: AssociationEndMetaData) {
+        val targetEnd = sourceEnd.oppositeEndOrNull
+        if (targetEnd != null) {
+            when (sourceEnd.cardinality) {
+                AssociationEndCardinality._0_1,
+                AssociationEndCardinality._1 ->
+                    removeSingleLink(source, sourceEnd, targetEnd, target)
+
+                AssociationEndCardinality._0_n,
+                AssociationEndCardinality._1_n ->
+                    removeOneLinkFromMultipleLink(source, sourceEnd, targetEnd, target)
             }
         }
-        return propertyNames;
+    }
+
+    private val AssociationEndMetaData.oppositeEndOrNull: AssociationEndMetaData?
+        get() = if (associationEndType != AssociationEndType.DirectedAssociationEnd) {
+            associationMetaData.getOppositeEnd(this)
+        } else {
+            // there is no opposite end in directed association
+            null
+        }
+
+
+    @JvmStatic
+    fun checkRequiredProperties(
+            tracker: TransientChangesTracker,
+            modelMetaData: ModelMetaData): Set<DataIntegrityViolationException> {
+
+        return tracker.changedEntities
+                .asSequence()
+                .filter { !it.isRemoved }
+                .mapNotNull { changedEntity ->
+                    modelMetaData.getEntityMetaData(changedEntity.type)
+                            ?.let { entityMetaData -> changedEntity to entityMetaData }
+                }
+                .flatMap { (changedEntity, entityMetaData) ->
+                    val changedProperties = tracker.getChangedProperties(changedEntity)
+                    if (changedEntity.isNew || changedProperties != null && changedProperties.isNotEmpty()) {
+                        val requiredProperties = entityMetaData
+                                .requiredProperties
+                                .asSequence()
+                        val requiredIfProperties = EntityMetaDataUtils
+                                .getRequiredIfProperties(entityMetaData, changedEntity)
+                                .asSequence()
+
+                        (requiredProperties + requiredIfProperties)
+                                .mapNotNull { checkProperty(changedEntity, changedProperties, entityMetaData, it) }
+                    } else {
+                        emptySequence()
+                    }
+                }
+                .toCollection(HashSetDecorator())
+    }
+
+    @JvmStatic
+    fun checkOtherPropertyConstraints(
+            tracker: TransientChangesTracker,
+            modelMetaData: ModelMetaData): Set<DataIntegrityViolationException> {
+
+        return tracker.changedEntities
+                .asSequence()
+                .filter { !it.isRemoved }
+                .mapNotNull { changedEntity ->
+                    modelMetaData.getEntityMetaData(changedEntity.type)
+                            ?.let { entityMetaData -> changedEntity to entityMetaData }
+                }
+                .flatMap { (changedEntity, entityMetaData) ->
+                    val persistentClass = changedEntity.persistentClassInstance
+                    val propertyConstraints = persistentClass?.getPropertyConstraints().orEmpty()
+
+                    getChangedPropertiesWithConstraints(tracker, changedEntity, propertyConstraints)
+                            .mapNotNull { (propertyName, constraints) ->
+                                entityMetaData.getPropertyMetaData(propertyName)
+                                        ?.let { propertyMetaData -> Triple(propertyName, constraints, propertyMetaData) }
+                            }
+                            .flatMap { (propertyName, constraints, propertyMetaData) ->
+                                val type = getPropertyType(propertyMetaData)
+                                val propertyValue = getPropertyValue(changedEntity, propertyName, type)
+                                constraints.asSequence()
+                                        .mapNotNull { it.check(changedEntity, propertyMetaData, propertyValue) }
+                            }
+                }
+                .toCollection(HashSetDecorator())
+    }
+
+    private fun getChangedPropertiesWithConstraints(
+            tracker: TransientChangesTracker,
+            changedEntity: TransientEntity,
+            constrainedProperties: Map<String, Iterable<PropertyConstraint<Any?>>>
+    ): Sequence<Pair<String, Iterable<PropertyConstraint<Any?>>>> {
+        return if (changedEntity.isNew) {
+            // All properties with constraints
+            constrainedProperties
+                    .asSequence()
+                    .map { (key, value) -> key to value }
+        } else {
+            // Changed properties with constraints
+            tracker.getChangedProperties(changedEntity)
+                    .orEmpty()
+                    .asSequence()
+                    .mapNotNull { key -> constrainedProperties[key]?.let { value -> key to value } }
+        }
     }
 
     /**
      * Properties and associations, that are part of indexes, can't be empty
      *
      * @param tracker changes tracker
-     * @param md      model metadata
+     * @param modelMetaData      model metadata
      * @return index fields errors set
      */
-    @NotNull
-    static Set<DataIntegrityViolationException> checkIndexFields(@NotNull TransientChangesTracker tracker, @NotNull ModelMetaData md) {
-        Set<DataIntegrityViolationException> errors = new HashSetDecorator<DataIntegrityViolationException>();
+    @JvmStatic
+    fun checkIndexFields(
+            tracker: TransientChangesTracker,
+            modelMetaData: ModelMetaData
+    ): Set<DataIntegrityViolationException> {
 
-        for (TransientEntity e : tracker.getChangedEntities()) {
-            if (!e.isRemoved()) {
-
-                EntityMetaData emd = md.getEntityMetaData(e.getType());
-
-                Set<String> changedProperties = tracker.getChangedProperties(e);
-                Set<Index> indexes = emd.getIndexes();
-
-                for (Index index : indexes) {
-                    for (IndexField f : index.getFields()) {
-                        if (f.isProperty()) {
-                            if (e.isNew() || (changedProperties != null && changedProperties.size() > 0)) {
-                                checkProperty(errors, e, changedProperties, emd, f.getName());
-                            }
-                        } else {
-                            // link
-                            if (!checkCardinality(e, emd.getAssociationEndMetaData(f.getName()))) {
-                                errors.add(new CardinalityViolationException("Association [" + f.getName() + "] can't be empty, because it's part of unique constraint.", e, f.getName()));
-                            }
-                        }
-                    }
+        return tracker.changedEntities
+                .asSequence()
+                .filter { !it.isRemoved }
+                .mapNotNull { changedEntity ->
+                    modelMetaData.getEntityMetaData(changedEntity.type)
+                            ?.let { entityMetaData -> changedEntity to entityMetaData }
                 }
+                .flatMap { (changedEntity, entityMetaData) ->
+                    val changedProperties = tracker.getChangedProperties(changedEntity)
+
+                    entityMetaData.indexes
+                            .asSequence()
+                            .flatMap { index -> index.fields.asSequence() }
+                            .mapNotNull { indexField ->
+                                if (indexField.isProperty) {
+                                    if (changedEntity.isNew || changedProperties != null && changedProperties.isNotEmpty()) {
+                                        checkProperty(changedEntity, changedProperties, entityMetaData, indexField.name)
+                                    } else {
+                                        null
+                                    }
+                                } else {
+                                    // link
+                                    if (!checkCardinality(changedEntity, entityMetaData.getAssociationEndMetaData(indexField.name))) {
+                                        CardinalityViolationException("Association [${indexField.name}] cannot be empty, because it's part of unique constraint", changedEntity, indexField.name)
+                                    } else {
+                                        null
+                                    }
+                                }
+                            }
+                }
+                .toCollection(HashSetDecorator())
+    }
+
+    private fun checkProperty(
+            entity: TransientEntity,
+            changedProperties: Set<String>?,
+            entityMetaData: EntityMetaData,
+            name: String
+    ): NullPropertyException? {
+
+        return if (entity.isNew || name in changedProperties.orEmpty()) {
+            val type = getPropertyType(entityMetaData.getPropertyMetaData(name))
+            val displayName = entity.persistentClassInstance
+                    ?.getPropertyDisplayName(name)
+                    ?: name
+
+            if (isPropertyUndefined(entity, name, type)) {
+                NullPropertyException(entity, displayName)
+            } else {
+                null
             }
-        }
-
-        return errors;
-    }
-
-    private static void checkProperty(@NotNull Set<DataIntegrityViolationException> errors, @NotNull TransientEntity entity, @Nullable Set<String> changedProperties, @NotNull EntityMetaData emd, @NotNull String name) {
-        if (entity.isNew() || changedProperties.contains(name)) {
-            final PropertyType type = getPropertyType(emd.getPropertyMetaData(name));
-            final String displayName;
-            displayName = TransientStoreUtil.getPersistentClassInstance(entity).getPropertyDisplayName(name);
-
-            checkProperty(errors, entity, name, displayName, type);
-        }
-    }
-
-    @NotNull
-    private static PropertyType getPropertyType(@Nullable PropertyMetaData propertyMetaData) {
-        final PropertyMetaData pmd = propertyMetaData;
-        final PropertyType type;
-        if (pmd == null) {
-            logger.warn("Can't determine property type. Try to get property value as if it of primitive type.");
-            type = PropertyType.PRIMITIVE;
         } else {
-            type = pmd.getType();
+            null
         }
-        return type;
     }
 
-    private static void checkProperty(@NotNull Set<DataIntegrityViolationException> errors, @NotNull TransientEntity e, @NotNull String name, @NotNull String displayName, @NotNull PropertyType type) {
-
-        switch (type) {
-            case PRIMITIVE:
-                if (isEmptyPrimitiveProperty(e.getProperty(name))) {
-                    errors.add(new NullPropertyException(e, displayName));
-                }
-                break;
-
-            case BLOB:
-                if (e.getBlob(name) == null) {
-                    errors.add(new NullPropertyException(e, displayName));
-                }
-                break;
-
-            case TEXT:
-                if (isEmptyPrimitiveProperty(e.getBlobString(name))) {
-                    errors.add(new NullPropertyException(e, displayName));
-                }
-                break;
-
-            default:
-                throw new IllegalArgumentException("Unknown property type: " + name);
+    private fun getPropertyType(propertyMetaData: PropertyMetaData?): PropertyType {
+        return if (propertyMetaData != null) {
+            propertyMetaData.type
+        } else {
+            logger.warn("Cannot determine property type. Try to get property value as if it of primitive type.")
+            PropertyType.PRIMITIVE
         }
-
     }
 
-    @Nullable
-    private static Object getPropertyValue(@NotNull TransientEntity e, @NotNull String name, @NotNull PropertyType type) {
-        switch (type) {
-            case PRIMITIVE:
-                return e.getProperty(name);
-            case BLOB:
-                return e.getBlob(name);
-            case TEXT:
-                return e.getBlobString(name);
-            default:
-                throw new IllegalArgumentException("Unknown property type: " + name);
+    private fun isPropertyUndefined(entity: TransientEntity, name: String, type: PropertyType): Boolean {
+        return when (type) {
+            PropertyType.PRIMITIVE -> entity.getProperty(name).isEmptyPrimitiveProperty()
+            PropertyType.BLOB -> entity.getBlob(name) == null
+            PropertyType.TEXT -> entity.getBlobString(name).isEmptyPrimitiveProperty()
+            else -> throw IllegalArgumentException("Unknown property type: $name")
         }
-
     }
 
-    private static boolean isEmptyPrimitiveProperty(@Nullable Comparable propertyValue) {
-        return propertyValue == null || "".equals(propertyValue);
+    private fun getPropertyValue(e: TransientEntity, name: String, type: PropertyType): Any? {
+        return when (type) {
+            PropertyType.PRIMITIVE -> e.getProperty(name)
+            PropertyType.BLOB -> e.getBlob(name)
+            PropertyType.TEXT -> e.getBlobString(name)
+            else -> throw IllegalArgumentException("Unknown property type: $name")
+        }
+    }
+
+    private fun Comparable<*>?.isEmptyPrimitiveProperty(): Boolean {
+        return this == null || this == ""
     }
 
 }

@@ -13,154 +13,100 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.query.metadata.*;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.query.metadata.*
+import mu.KLogging
 
-import java.util.Iterator;
-import java.util.Set;
+object ValidationUtil : KLogging() {
 
-public class ValidationUtil {
-
-    private static final Logger logger = LoggerFactory.getLogger(ConstraintsUtil.class);
-
-
-    public static void validateEntity(@NotNull Entity entity, @NotNull ModelMetaData modelMetaData) {
-
+    @JvmStatic
+    fun validateEntity(entity: Entity, modelMetaData: ModelMetaData) {
         // 1. validate associations
-        validateAssociations(entity, modelMetaData);
+        validateAssociations(entity, modelMetaData)
 
         // 2. validate required properties
-        validateRequiredProperties(entity, modelMetaData);
+        validateRequiredProperties(entity, modelMetaData)
     }
 
 
     // Validate associations
-    static void validateAssociations(@NotNull Entity entity, @NotNull ModelMetaData modelMetaData) {
-        EntityMetaData md = modelMetaData.getEntityMetaData(entity.getType());
-        for (AssociationEndMetaData aemd : md.getAssociationEndsMetaData()) {
-            if (logger.isTraceEnabled()) {
-                logger.trace("Validate cardinality [" + entity.getType() + "." + aemd.getName() + "]. Required is [" + aemd.getCardinality().getName() + "]");
-            }
-
-            if (!checkCardinality(entity, aemd)) {
-                cardinalityViolation(entity, aemd);
+    @JvmStatic
+    internal fun validateAssociations(entity: Entity, modelMetaData: ModelMetaData) {
+        val entityMetaData = modelMetaData.getEntityMetaData(entity.type)
+        entityMetaData?.associationEndsMetaData?.forEach { associationEndMetaData ->
+            logger.trace { "Validate cardinality [${entity.type}.${associationEndMetaData.name}]. Required is [${associationEndMetaData.cardinality.getName()}]" }
+            if (!checkCardinality(entity, associationEndMetaData)) {
+                logger.error { "Validation: Cardinality violation for [$entity.${associationEndMetaData.name}]. Required cardinality is [${associationEndMetaData.cardinality.getName()}]" }
             }
         }
     }
 
-    static boolean checkCardinality(@NotNull Entity e, @NotNull AssociationEndMetaData md) {
-        return checkCardinality(e, md.getCardinality(), md.getName());
+    @JvmStatic
+    internal fun checkCardinality(e: Entity, md: AssociationEndMetaData): Boolean {
+        return checkCardinality(e, md.cardinality, md.name)
     }
 
-    static boolean checkCardinality(@NotNull Entity entity, @NotNull AssociationEndCardinality cardinality, @NotNull String associationName) {
-        int size = 0;
-        for (Iterator<Entity> it = entity.getLinks(associationName).iterator(); it.hasNext(); ++size) {
-            Entity e = it.next();
-            if (e == null) {
-                fakeEntityLink(e, associationName);
-                --size;
+    @JvmStatic
+    internal fun checkCardinality(entity: Entity, cardinality: AssociationEndCardinality, associationName: String): Boolean {
+        var size = 0
+        val it = entity.getLinks(associationName).iterator()
+        while (it.hasNext()) {
+            val e = it.next()
+            if (e != null) {
+                ++size
+            } else {
+                logger.error { "Validation: Null entity in the [$entity.$associationName]" }
             }
         }
 
-        switch (cardinality) {
-            case _0_1:
-                return size <= 1;
-
-            case _0_n:
-                return true;
-
-            case _1:
-                return size == 1;
-
-            case _1_n:
-                return size >= 1;
+        return when (cardinality) {
+            AssociationEndCardinality._0_1 -> size <= 1
+            AssociationEndCardinality._0_n -> true
+            AssociationEndCardinality._1 -> size == 1
+            AssociationEndCardinality._1_n -> size >= 1
         }
-        unknownCardinality(cardinality);
-        return false;
     }
 
 
     // Validate entity properties.
 
-    static void validateRequiredProperties(@NotNull Entity entity, @NotNull ModelMetaData mmd) {
-        EntityMetaData emd = mmd.getEntityMetaData(entity.getType());
+    @JvmStatic
+    internal fun validateRequiredProperties(entity: Entity, modelMetaData: ModelMetaData) {
+        val entityMetaData = modelMetaData.getEntityMetaData(entity.type)
 
-        Set<String> required = emd.getRequiredProperties();
-        Set<String> requiredIf = EntityMetaDataUtils.getRequiredIfProperties(emd, entity);
+        if (entityMetaData != null) {
+            entityMetaData.requiredProperties
+                    .forEach { checkProperty(entity, entityMetaData, it) }
 
-        for (String property : required) {
-            checkProperty(entity, emd, property);
-        }
-        for (String property : requiredIf) {
-            checkProperty(entity, emd, property);
+            EntityMetaDataUtils.getRequiredIfProperties(entityMetaData, entity)
+                    .forEach { checkProperty(entity, entityMetaData, it) }
         }
     }
 
-    private static void checkProperty(@NotNull Entity e, @NotNull EntityMetaData emd, @NotNull String name) {
-        final PropertyMetaData pmd = emd.getPropertyMetaData(name);
-        final PropertyType type;
-        if (pmd == null) {
-            logger.warn("Can't determine property type. Try to get property value as if it of primitive type.");
-            type = PropertyType.PRIMITIVE;
+    @JvmStatic
+    private fun checkProperty(e: Entity, emd: EntityMetaData, name: String) {
+        val pmd = emd.getPropertyMetaData(name)
+        val type = if (pmd != null) {
+            pmd.type
         } else {
-            type = pmd.getType();
+            logger.warn { "Cannot determine property type. Try to get property value as if it of primitive type." }
+            PropertyType.PRIMITIVE
         }
-        checkProperty(e, name, type);
-    }
-
-    private static void checkProperty(@NotNull Entity e, @NotNull String name, @NotNull PropertyType type) {
-
-        switch (type) {
-            case PRIMITIVE:
-                if (isEmptyPrimitiveProperty(e.getProperty(name))) {
-                    noProperty(e, name);
-                }
-                break;
-
-            case BLOB:
-                if (e.getBlob(name) == null) {
-                    noProperty(e, name);
-                }
-                break;
-
-            case TEXT:
-                if (isEmptyPrimitiveProperty(e.getBlobString(name))) {
-                    noProperty(e, name);
-                }
-                break;
-
-            default:
-                throw new IllegalArgumentException("Unknown property type: " + name);
+        val isEmpty = when (type) {
+            PropertyType.PRIMITIVE -> isEmptyPrimitiveProperty(e.getProperty(name))
+            PropertyType.BLOB -> e.getBlob(name) == null
+            PropertyType.TEXT -> isEmptyPrimitiveProperty(e.getBlobString(name))
+            else -> throw IllegalArgumentException("Unknown property type: " + name)
+        }
+        if (isEmpty) {
+            logger.error { "Validation: Property [$e.$name] is empty." }
         }
     }
 
-    private static boolean isEmptyPrimitiveProperty(@Nullable Comparable propertyValue) {
-        return propertyValue == null || "".equals(propertyValue);
+    @JvmStatic
+    private fun isEmptyPrimitiveProperty(propertyValue: Comparable<*>?): Boolean {
+        return propertyValue == null || propertyValue == ""
     }
-
-
-    // Error log
-
-    private static void noProperty(@NotNull Entity entity, @NotNull String propertyName) {
-        logger.error("Validation: Property [" + entity + "." + propertyName + "]" + " is empty.");
-    }
-
-    private static void unknownCardinality(@NotNull AssociationEndCardinality cardinality) {
-        logger.error("Validation: Unknown cardinality [" + cardinality + "]");
-    }
-
-    private static void cardinalityViolation(@NotNull Entity entity, @NotNull AssociationEndMetaData md) {
-        logger.error("Validation: Cardinality violation for [" + entity + "." + md.getName() + "]. Required cardinality is [" + md.getCardinality().getName() + "]");
-    }
-
-    private static void fakeEntityLink(@Nullable Entity entity, @NotNull String associationName) {
-        logger.error("Validation: Null entity in the [" + entity + "." + associationName + "]");
-    }
-
 }

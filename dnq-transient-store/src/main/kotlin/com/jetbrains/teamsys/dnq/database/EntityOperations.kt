@@ -13,69 +13,56 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientEntityStore;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.query.metadata.EntityMetaData;
-import jetbrains.exodus.query.metadata.ModelMetaData;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Set;
+import jetbrains.exodus.core.dataStructures.hash.HashSet
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.Entity
+import mu.KLogging
 
 // TODO: move this class to the associations semantics package
-public class EntityOperations {
+object EntityOperations : KLogging() {
 
-    private static final Logger logger = LoggerFactory.getLogger(EntityOperations.class);
-
-    private EntityOperations() {
-    }
-
-    public static void remove(@Nullable final Entity e) {
+    @JvmStatic
+    fun remove(e: Entity?) {
         /* two-phase remove:
            1. call destructors
            2. remove links and entities
         */
 
-        remove(e, true, new HashSet<Entity>());
-        remove(e, false, new HashSet<Entity>());
+        remove(e, true, HashSet())
+        remove(e, false, HashSet())
     }
 
-    static void remove(@Nullable final Entity e, boolean callDestructorPhase, @NotNull Set<Entity> processed) {
-        if (e == null || ((TransientEntity) e).isRemoved()) return;
-        TransientEntity reattached = TransientStoreUtil.reattach((TransientEntity) e);
+    @JvmStatic
+    internal fun remove(e: Entity?, callDestructorPhase: Boolean, processed: MutableSet<Entity>) {
+        if (e == null || (e as TransientEntity).isRemoved) return
+        val txnEntity = e.reattachTransient()
 
-        if (processed.contains(reattached)) return;
+        if (txnEntity in processed) return
 
-        TransientEntityStore store = (TransientEntityStore) reattached.getStore();
+        val store = txnEntity.store
 
-        ModelMetaData md = store.getModelMetaData();
-        if (md != null) {
+        val modelMetaData = store.modelMetaData
+        if (modelMetaData != null) {
             // cascade delete
-            EntityMetaData emd = md.getEntityMetaData(reattached.getType());
-            if (emd != null) {
+            val entityMetaData = modelMetaData.getEntityMetaData(txnEntity.type)
+            if (entityMetaData != null) {
                 if (callDestructorPhase) {
-                    TransientStoreUtil.getPersistentClassInstance(reattached).destructor(reattached);
+                    txnEntity.persistentClassInstance?.destructor(txnEntity)
                 }
-                processed.add(reattached);
+                processed.add(txnEntity)
                 // remove associations and cascade delete
-                TransientStoreSession storeSession = (TransientStoreSession) store.getThreadSession();
-                if (storeSession == null) {
-                    throw new IllegalStateException("No current transient session!");
-                }
-                ConstraintsUtil.processOnDeleteConstraints(storeSession, reattached, emd, md, callDestructorPhase, processed);
+                val storeSession = store.threadSessionOrThrow
+                ConstraintsUtil.processOnDeleteConstraints(storeSession, txnEntity, entityMetaData, modelMetaData, callDestructorPhase, processed)
             }
         }
 
         if (!callDestructorPhase) {
             // delete itself; the check is performed, because onDelete constraints could already delete entity 'e'
-            if (!reattached.isRemoved()) reattached.delete();
+            if (!txnEntity.isRemoved) {
+                txnEntity.delete()
+            }
         }
     }
 
@@ -85,26 +72,26 @@ public class EntityOperations {
      * @param e entity to check
      * @return true if e was removed, false if it wasn't removed at all
      */
-    @SuppressWarnings({"ConstantConditions"})
-    public static boolean isRemoved(@Nullable final Entity e) {
-        if (e == null) {
-            return true;
+    @JvmStatic
+    fun isRemoved(e: Entity?): Boolean {
+        return if (e == null) {
+            true
+        } else {
+            TransientStoreUtil.isRemoved(e)
         }
-        return TransientStoreUtil.isRemoved(e);
     }
 
-    public static boolean isNew(@Nullable Entity e) {
-        if (e == null) return false;
-        e = TransientStoreUtil.reattach((TransientEntity) e);
-        return e != null && ((TransientEntity) e).isNew();
+    @JvmStatic
+    fun isNew(e: Entity?): Boolean {
+        return e?.reattachTransient()?.isNew ?: false
     }
 
-    public static boolean equals(@Nullable Entity e1, @Nullable Object e2) {
-        if (e1 == e2) {
-            return true;
-        }
-
-        return e1 != null && e1 instanceof TransientEntity && e1.equals(e2);
+    @JvmStatic
+    fun equals(e1: Entity?, e2: Any?): Boolean {
+        if (e1 === e2) return true
+        if (e1 == null) return false
+        if (e1 !is TransientEntity) return false
+        return e1 == e2
     }
 
     /**
@@ -113,50 +100,33 @@ public class EntityOperations {
      * @param entities iterable to index
      * @param i        queried element index
      * @return element at position i in entities iterable
-     * @deprecated slow method. for testcases only.
      */
-    @NotNull
-    public static Entity getElement(@NotNull Iterable<Entity> entities, int i) {
-        if (logger.isWarnEnabled()) {
-            logger.warn("Slow method getElementOfMultiple() was called!");
-        }
-
-        int j = 0;
-        for (Entity e : entities) {
-            if (i == j++) {
-                return e;
-            }
-        }
-
-        throw new IllegalArgumentException("Out of bounds: " + i);
+    @JvmStatic
+    @Deprecated("Slow method. For TestCases only")
+    fun getElement(entities: Iterable<Entity>, i: Int): Entity {
+        logger.warn { "Slow method EntityOperations.getElement() was called!" }
+        return entities.elementAt(i)
     }
 
-    public static boolean hasChanges(@NotNull TransientEntity e) {
-        final TransientEntity entity = TransientStoreUtil.reattach(e);
-
-        return entity != null && entity.hasChanges();
+    @JvmStatic
+    fun hasChanges(e: TransientEntity): Boolean {
+        return e.reattach().hasChanges()
     }
 
-    public static boolean hasChanges(@NotNull TransientEntity e, @NotNull String property) {
-        final TransientEntity entity = TransientStoreUtil.reattach(e);
-
-        return entity != null && entity.hasChanges(property);
+    @JvmStatic
+    fun hasChanges(e: TransientEntity, property: String): Boolean {
+        return e.reattach().hasChanges(property)
     }
 
-    public static boolean hasChanges(@NotNull TransientEntity e, @NotNull String[] properties) {
-        final TransientEntity entity = TransientStoreUtil.reattach(e);
-
-        if (entity != null) {
-            for (String property : properties) {
-                if (entity.hasChanges(property)) return true;
-            }
-        }
-        return false;
+    @JvmStatic
+    fun hasChanges(e: TransientEntity, properties: Array<String>): Boolean {
+        val entity = e.reattach()
+        return properties.any { entity.hasChanges(it) }
     }
 
-    public static boolean hasChangesExcepting(@NotNull TransientEntity e, @NotNull String[] properties) {
-        final TransientEntity entity = TransientStoreUtil.reattach(e);
-
-        return entity != null && entity.hasChangesExcepting(properties);
+    @JvmStatic
+    fun hasChangesExcepting(e: TransientEntity, properties: Array<String>): Boolean {
+        val entity = e.reattach()
+        return entity.hasChangesExcepting(properties)
     }
 }
