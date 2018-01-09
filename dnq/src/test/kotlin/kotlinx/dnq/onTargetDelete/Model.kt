@@ -20,8 +20,6 @@ import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy.CASCADE
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 
-fun A1(a3: A3) = A1.new { l = a3 }
-
 class A1(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<A1>()
 

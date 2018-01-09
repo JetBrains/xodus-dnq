@@ -35,9 +35,8 @@ class TargetDeleteTest : DBTest() {
     @Test
     fun simpleCascade0() {
         val a3 = transactional {
-            A3.new().apply {
-                A1(this)
-            }
+            val a3 = A3.new()
+            A1.new { l = a3 }
         }
         transactional {
             a3.delete()
@@ -55,7 +54,7 @@ class TargetDeleteTest : DBTest() {
         transactional {
             a3.delete()
             transactional(isNew = true) {
-                A1(a3)
+                A1.new { l = a3 }
             }
         }
         transactional {
@@ -67,7 +66,7 @@ class TargetDeleteTest : DBTest() {
     @Test
     fun testCascadeWithInheritance() {
         val a2 = transactional { A2.new() }
-        transactional { A1(a2) }
+        transactional { A1.new { l = a2 } }
         transactional { a2.delete() }
         transactional {
             assertEquals(0, A1.all().size())
