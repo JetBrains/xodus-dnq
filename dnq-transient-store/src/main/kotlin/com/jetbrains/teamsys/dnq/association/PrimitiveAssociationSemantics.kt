@@ -73,13 +73,20 @@ object PrimitiveAssociationSemantics {
     @JvmStatic
     private fun getPropertyNullValue(clazz: Class<*>): Any? {
         return when (clazz) {
-            Int::class.java -> 0
-            Long::class.java -> 0.toLong()
-            Double::class.java -> 0.toDouble()
-            Float::class.java -> 0.toFloat()
-            Short::class.java -> 0.toShort()
-            Byte::class.java -> 0.toByte()
-            Boolean::class.java -> false
+            Int::class.javaPrimitiveType,
+            Int::class.javaObjectType -> 0
+            Long::class.javaPrimitiveType,
+            Long::class.javaObjectType -> 0.toLong()
+            Double::class.javaPrimitiveType,
+            Double::class.javaObjectType -> 0.toDouble()
+            Float::class.javaPrimitiveType,
+            Float::class.javaObjectType -> 0.toFloat()
+            Short::class.javaPrimitiveType,
+            Short::class.javaObjectType -> 0.toShort()
+            Byte::class.javaPrimitiveType,
+            Byte::class.javaObjectType -> 0.toByte()
+            Boolean::class.javaPrimitiveType,
+            Boolean::class.javaObjectType -> false
             else -> null
         }
     }
@@ -103,12 +110,24 @@ object PrimitiveAssociationSemantics {
         } else {
             // strict casting
             when (clazz) {
-                Int::class.java -> txnEntity.setProperty(propertyName, (propertyValue as Number).toInt())
-                Long::class.java -> txnEntity.setProperty(propertyName, (propertyValue as Number).toLong())
-                Double::class.java -> txnEntity.setProperty(propertyName, (propertyValue as Number).toDouble())
-                Float::class.java -> txnEntity.setProperty(propertyName, (propertyValue as Number).toFloat())
-                Short::class.java -> txnEntity.setProperty(propertyName, (propertyValue as Number).toShort())
-                Byte::class.java -> txnEntity.setProperty(propertyName, (propertyValue as Number).toByte())
+                Int::class.javaPrimitiveType,
+                Int::class.javaObjectType ->
+                    txnEntity.setProperty(propertyName, (propertyValue as Number).toInt())
+                Long::class.javaPrimitiveType,
+                Long::class.javaObjectType ->
+                    txnEntity.setProperty(propertyName, (propertyValue as Number).toLong())
+                Double::class.javaPrimitiveType,
+                Double::class.javaObjectType ->
+                    txnEntity.setProperty(propertyName, (propertyValue as Number).toDouble())
+                Float::class.javaPrimitiveType,
+                Float::class.javaObjectType ->
+                    txnEntity.setProperty(propertyName, (propertyValue as Number).toFloat())
+                Short::class.javaPrimitiveType,
+                Short::class.javaObjectType ->
+                    txnEntity.setProperty(propertyName, (propertyValue as Number).toShort())
+                Byte::class.javaPrimitiveType,
+                Byte::class.javaObjectType ->
+                    txnEntity.setProperty(propertyName, (propertyValue as Number).toByte())
                 else -> txnEntity.setProperty(propertyName, propertyValue) // boolean, string and date
             }
         }
@@ -210,9 +229,20 @@ object PrimitiveAssociationSemantics {
     @JvmStatic
     fun nextGreater(value: Comparable<*>, clazz: Class<*>): Comparable<*>? {
         return when (clazz) {
-            Int::class.java -> value as Int + 1
-            Long::class.java -> value as Long + 1
-            Float::class.java -> {
+            Byte::class.javaPrimitiveType,
+            Byte::class.javaObjectType ->
+                value as Byte + 1
+            Short::class.javaPrimitiveType,
+            Short::class.javaObjectType ->
+                value as Short + 1
+            Int::class.javaPrimitiveType,
+            Int::class.javaObjectType ->
+                value as Int + 1
+            Long::class.javaPrimitiveType,
+            Long::class.javaObjectType ->
+                value as Long + 1
+            Float::class.javaPrimitiveType,
+            Float::class.javaObjectType -> {
                 var result: Float
                 var addend = FLOAT_PRECISION
                 do {
@@ -221,7 +251,8 @@ object PrimitiveAssociationSemantics {
                 } while (value == result)
                 result
             }
-            Double::class.java -> {
+            Double::class.javaPrimitiveType,
+            Double::class.javaObjectType -> {
                 var result: Double
                 var addend = DOUBLE_PRECISION
                 do {
@@ -230,9 +261,9 @@ object PrimitiveAssociationSemantics {
                 } while (value == result)
                 result
             }
-            Short::class.java -> value as Short + 1
-            Byte::class.java -> value as Byte + 1
-            Boolean::class.java -> java.lang.Boolean.TRUE
+            Boolean::class.javaPrimitiveType,
+            Boolean::class.javaObjectType ->
+                java.lang.Boolean.TRUE
             else -> null
         }
     }
@@ -240,9 +271,20 @@ object PrimitiveAssociationSemantics {
     @JvmStatic
     fun previousLess(value: Comparable<*>, clazz: Class<*>): Comparable<*>? {
         return when (clazz) {
-            Int::class.java -> value as Int - 1
-            Long::class.java -> value as Long - 1
-            Float::class.java -> {
+            Byte::class.javaPrimitiveType,
+            Byte::class.javaObjectType ->
+                value as Byte - 1
+            Short::class.javaPrimitiveType,
+            Short::class.javaObjectType ->
+                value as Short - 1
+            Int::class.javaPrimitiveType,
+            Int::class.javaObjectType ->
+                value as Int - 1
+            Long::class.javaPrimitiveType,
+            Long::class.javaObjectType ->
+                value as Long - 1
+            Float::class.javaPrimitiveType,
+            Float::class.javaObjectType -> {
                 var result: Float
                 var subtrahend = FLOAT_PRECISION
                 do {
@@ -251,7 +293,8 @@ object PrimitiveAssociationSemantics {
                 } while (value == result)
                 result
             }
-            Double::class.java -> {
+            Double::class.javaPrimitiveType,
+            Double::class.javaObjectType -> {
                 var result: Double
                 var subtrahend = DOUBLE_PRECISION
                 do {
@@ -260,9 +303,9 @@ object PrimitiveAssociationSemantics {
                 } while (value == result)
                 result
             }
-            Short::class.java -> value as Short - 1
-            Byte::class.java -> value as Byte - 1
-            Boolean::class.java -> false
+            Boolean::class.javaPrimitiveType,
+            Boolean::class.javaObjectType ->
+                false
             else -> null
         }
     }
@@ -270,13 +313,27 @@ object PrimitiveAssociationSemantics {
     @JvmStatic
     fun positiveInfinity(clazz: Class<*>): Comparable<*>? {
         return when (clazz) {
-            Int::class.java -> Integer.MAX_VALUE
-            Long::class.java -> java.lang.Long.MAX_VALUE
-            Float::class.java -> java.lang.Float.MAX_VALUE
-            Double::class.java -> java.lang.Double.MAX_VALUE
-            Short::class.java -> java.lang.Short.MAX_VALUE
-            Byte::class.java -> java.lang.Byte.MAX_VALUE
-            Boolean::class.java -> true
+            Byte::class.javaPrimitiveType,
+            Byte::class.javaObjectType ->
+                java.lang.Byte.MAX_VALUE
+            Short::class.javaPrimitiveType,
+            Short::class.javaObjectType ->
+                java.lang.Short.MAX_VALUE
+            Int::class.javaPrimitiveType,
+            Int::class.javaObjectType ->
+                Integer.MAX_VALUE
+            Long::class.javaPrimitiveType,
+            Long::class.javaObjectType ->
+                java.lang.Long.MAX_VALUE
+            Float::class.javaPrimitiveType,
+            Float::class.javaObjectType ->
+                java.lang.Float.MAX_VALUE
+            Double::class.javaPrimitiveType,
+            Double::class.javaObjectType ->
+                java.lang.Double.MAX_VALUE
+            Boolean::class.javaPrimitiveType,
+            Boolean::class.javaObjectType ->
+                true
             else -> null
         }
     }
@@ -284,13 +341,27 @@ object PrimitiveAssociationSemantics {
     @JvmStatic
     fun negativeInfinity(clazz: Class<*>): Comparable<*>? {
         return when (clazz) {
-            Int::class.java -> Integer.MIN_VALUE
-            Long::class.java -> java.lang.Long.MIN_VALUE
-            Float::class.java -> -java.lang.Float.MAX_VALUE
-            Double::class.java -> -java.lang.Double.MAX_VALUE
-            Short::class.java -> java.lang.Short.MIN_VALUE
-            Byte::class.java -> java.lang.Byte.MIN_VALUE
-            Boolean::class.java -> java.lang.Boolean.FALSE
+            Byte::class.javaPrimitiveType,
+            Byte::class.javaObjectType ->
+                java.lang.Byte.MIN_VALUE
+            Short::class.javaPrimitiveType,
+            Short::class.javaObjectType ->
+                java.lang.Short.MIN_VALUE
+            Int::class.javaPrimitiveType,
+            Int::class.javaObjectType ->
+                Integer.MIN_VALUE
+            Long::class.javaPrimitiveType,
+            Long::class.javaObjectType ->
+                java.lang.Long.MIN_VALUE
+            Float::class.javaPrimitiveType,
+            Float::class.javaObjectType ->
+                -java.lang.Float.MAX_VALUE
+            Double::class.javaPrimitiveType,
+            Double::class.javaObjectType ->
+                -java.lang.Double.MAX_VALUE
+            Boolean::class.javaPrimitiveType,
+            Boolean::class.javaObjectType ->
+                java.lang.Boolean.FALSE
             else -> null
         }
     }
