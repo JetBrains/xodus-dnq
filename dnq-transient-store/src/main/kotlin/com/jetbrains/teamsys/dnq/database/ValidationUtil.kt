@@ -17,9 +17,10 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.*
-import mu.KLogging
+import mu.NamedKLogging
 
-object ValidationUtil : KLogging() {
+object ValidationUtil {
+    private val logger = NamedKLogging(ValidationUtil::class.java.name).logger
 
     @JvmStatic
     fun validateEntity(entity: Entity, modelMetaData: ModelMetaData) {

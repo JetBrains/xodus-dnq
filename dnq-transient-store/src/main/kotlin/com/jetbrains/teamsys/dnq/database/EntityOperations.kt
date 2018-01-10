@@ -18,10 +18,11 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.core.dataStructures.hash.HashSet
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
-import mu.KLogging
+import mu.NamedKLogging
 
 // TODO: move this class to the associations semantics package
-object EntityOperations : KLogging() {
+object EntityOperations {
+    private val logger = NamedKLogging(EntityOperations::class.java.name).logger
 
     @JvmStatic
     fun remove(e: Entity?) {
