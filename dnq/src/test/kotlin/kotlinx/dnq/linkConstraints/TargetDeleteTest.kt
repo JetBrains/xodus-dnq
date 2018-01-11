@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq.onTargetDelete
+package kotlinx.dnq.linkConstraints
 
 import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
