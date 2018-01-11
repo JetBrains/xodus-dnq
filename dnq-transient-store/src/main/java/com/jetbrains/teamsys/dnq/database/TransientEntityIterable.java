@@ -39,11 +39,12 @@ public class TransientEntityIterable implements EntityIterableWrapper {
 
     private static final Logger logger = LoggerFactory.getLogger(TransientEntityIterable.class);
 
+    @NotNull
     protected final Set<TransientEntity> values;
     //@NotNull private final EntityIterable source;
 
     public TransientEntityIterable(@NotNull Set<TransientEntity> values
-                                   /*@NotNull final EntityIterable source*/) {
+            /*@NotNull final EntityIterable source*/) {
         this.values = values;
         //this.source = source;
     }
@@ -115,10 +116,11 @@ public class TransientEntityIterable implements EntityIterableWrapper {
     public EntityIterable concat(@NotNull EntityIterable right) {
         if (!(right instanceof TransientEntityIterable)) {
             throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-        };
+        }
+        ;
         final HashSet<TransientEntity> result = new HashSet<TransientEntity>();
         result.addAll(values);
-        result.addAll(((TransientEntityIterable)right).values);
+        result.addAll(((TransientEntityIterable) right).values);
         return new TransientEntityIterable(result);
     }
 
@@ -187,6 +189,7 @@ public class TransientEntityIterable implements EntityIterableWrapper {
         throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
     }
 
+    @NotNull
     public EntityIterable asSortResult() {
         throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
     }
@@ -196,6 +199,7 @@ public class TransientEntityIterable implements EntityIterableWrapper {
         throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
     }
 
+    @NotNull
     public EntityIterator iterator() {
         if (logger.isTraceEnabled()) {
             logger.trace("New iterator requested for transient iterable " + this);

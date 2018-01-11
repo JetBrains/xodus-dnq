@@ -27,8 +27,9 @@ import org.jetbrains.annotations.Nullable;
  * @author Vadim.Gurov
  */
 public class PersistentEntityIterableWrapper extends EntityIterableBase implements EntityIterableWrapper {
-
+    @NotNull
     final EntityIterableBase wrappedIterable;
+    @NotNull
     protected final TransientEntityStore store;
 
     PersistentEntityIterableWrapper(@NotNull final TransientEntityStore store, @NotNull EntityIterable wrappedIterable) {
@@ -122,6 +123,7 @@ public class PersistentEntityIterableWrapper extends EntityIterableBase implemen
     }
 
     @Override
+    @NotNull
     public EntityIterable findLinks(@NotNull EntityIterable entities, @NotNull String linkName) {
         return wrappedIterable.findLinks(entities, linkName);
     }
@@ -176,6 +178,7 @@ public class PersistentEntityIterableWrapper extends EntityIterableBase implemen
         return wrappedIterable;
     }
 
+    @NotNull
     public EntityIterator iterator() {
         return new PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.getThreadSession());
     }
@@ -190,11 +193,13 @@ public class PersistentEntityIterableWrapper extends EntityIterableBase implemen
         return wrappedIterable.isEmpty();
     }
 
+    @NotNull
     private static EntityIterable throwUnsupported() {
         throw new UnsupportedOperationException("Should never be called");
     }
 
-    private static Entity wrap(TransientEntityStore store, Entity entity) {
+    @Nullable
+    private static Entity wrap(@NotNull TransientEntityStore store, @Nullable Entity entity) {
         return entity == null ? null : store.getThreadSession().newEntity(entity);
     }
 }

@@ -30,6 +30,7 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
         super(null);
     }
 
+    @NotNull
     @Override
     public EntityIterator iterator() {
         return Iterator.INSTANCE;
@@ -91,10 +92,11 @@ public class UniversalEmptyEntityIterable extends EntityIterableBase {
 
         public static final Iterator INSTANCE = new Iterator();
 
-        protected Iterator() {
+        public Iterator() {
             super(UniversalEmptyEntityIterable.INSTANCE);
         }
 
+        @Nullable
         public String currentLinkName() {
             return null;
         }

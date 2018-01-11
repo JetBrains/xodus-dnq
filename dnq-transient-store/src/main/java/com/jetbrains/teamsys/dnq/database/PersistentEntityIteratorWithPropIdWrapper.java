@@ -20,14 +20,18 @@ import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.EntityId;
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 class PersistentEntityIteratorWithPropIdWrapper implements EntityIteratorWithPropId {
 
     @NotNull
     protected final EntityIteratorWithPropId source;
+    @NotNull
     private final TransientStoreSession session;
 
-    PersistentEntityIteratorWithPropIdWrapper(@NotNull final EntityIteratorWithPropId source, final TransientStoreSession session) {
+    PersistentEntityIteratorWithPropIdWrapper(
+            @NotNull final EntityIteratorWithPropId source,
+            @NotNull final TransientStoreSession session) {
         this.source = source;
         this.session = session;
     }
@@ -36,6 +40,7 @@ class PersistentEntityIteratorWithPropIdWrapper implements EntityIteratorWithPro
         return source.hasNext();
     }
 
+    @Nullable
     public Entity next() {
         //TODO: do not save in session?
         final Entity persistentEntity = source.next();
@@ -45,6 +50,7 @@ class PersistentEntityIteratorWithPropIdWrapper implements EntityIteratorWithPro
         return session.newEntity(persistentEntity);
     }
 
+    @Nullable
     public String currentLinkName() {
         return source.currentLinkName();
     }
@@ -53,6 +59,7 @@ class PersistentEntityIteratorWithPropIdWrapper implements EntityIteratorWithPro
         source.remove();
     }
 
+    @Nullable
     public EntityId nextId() {
         return source.nextId();
     }

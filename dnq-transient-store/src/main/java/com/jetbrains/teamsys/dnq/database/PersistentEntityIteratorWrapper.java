@@ -20,14 +20,18 @@ import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.EntityId;
 import jetbrains.exodus.entitystore.EntityIterator;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class PersistentEntityIteratorWrapper implements EntityIterator {
 
     @NotNull
     protected final EntityIterator source;
+    @NotNull
     private final TransientStoreSession session;
 
-    public PersistentEntityIteratorWrapper(@NotNull final EntityIterator source, final TransientStoreSession session) {
+    public PersistentEntityIteratorWrapper(
+            @NotNull final EntityIterator source,
+            @NotNull final TransientStoreSession session) {
         this.source = source;
         this.session = session;
     }
@@ -36,6 +40,7 @@ public class PersistentEntityIteratorWrapper implements EntityIterator {
         return source.hasNext();
     }
 
+    @Nullable
     public Entity next() {
         //TODO: do not save in session?
         final Entity persistentEntity = source.next();
@@ -49,6 +54,7 @@ public class PersistentEntityIteratorWrapper implements EntityIterator {
         source.remove();
     }
 
+    @Nullable
     public EntityId nextId() {
         return source.nextId();
     }

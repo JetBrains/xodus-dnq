@@ -19,6 +19,7 @@ import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.entitystore.EntityId;
 import jetbrains.exodus.entitystore.EntityIterator;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Iterator;
 
@@ -29,10 +30,10 @@ import java.util.Iterator;
  * @author Vadim.Gurov
  */
 class TransientEntityIterator implements EntityIterator {
-
+    @NotNull
     private Iterator<TransientEntity> iter;
 
-    TransientEntityIterator(Iterator<TransientEntity> iterator) {
+    TransientEntityIterator(@NotNull Iterator<TransientEntity> iterator) {
         this.iter = iterator;
     }
 
@@ -40,6 +41,7 @@ class TransientEntityIterator implements EntityIterator {
         return iter.hasNext();
     }
 
+    @NotNull
     public Entity next() {
         return iter.next();
     }
@@ -48,6 +50,7 @@ class TransientEntityIterator implements EntityIterator {
         throw new UnsupportedOperationException("Remove from iterator is not supported by transient iterator");
     }
 
+    @NotNull
     public EntityId nextId() {
         return iter.next().getId();
     }

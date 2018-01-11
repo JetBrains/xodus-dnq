@@ -23,6 +23,7 @@ import jetbrains.exodus.entitystore.EntityIterable;
 import jetbrains.exodus.entitystore.EntityIterator;
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -35,9 +36,9 @@ class AddedOrRemovedLinksFromSetTransientEntityIterable extends TransientEntityI
     private final Set<String> linkNames;
     private final Map<String, LinkChange> changesLinks;
 
-    AddedOrRemovedLinksFromSetTransientEntityIterable(@NotNull Set<TransientEntity> values, boolean removed,
-                                                      @NotNull Set<String> linkNames,
-                                                      @NotNull Map<String, LinkChange> changesLinks) {
+    public AddedOrRemovedLinksFromSetTransientEntityIterable(@NotNull Set<TransientEntity> values, boolean removed,
+                                                             @NotNull Set<String> linkNames,
+                                                             @NotNull Map<String, LinkChange> changesLinks) {
         super(values);
         this.removed = removed;
         this.linkNames = linkNames;
@@ -45,12 +46,16 @@ class AddedOrRemovedLinksFromSetTransientEntityIterable extends TransientEntityI
     }
 
     @Override
+    @NotNull
     public EntityIterator iterator() {
         final Iterator<String> it = linkNames.iterator();
         return new EntityIteratorWithPropId() {
+            @Nullable
             private String currentLinkName;
+            @Nullable
             private Iterator<TransientEntity> currentItr;
 
+            @Nullable
             public String currentLinkName() {
                 return currentLinkName;
             }
@@ -79,6 +84,7 @@ class AddedOrRemovedLinksFromSetTransientEntityIterable extends TransientEntityI
                 return false;
             }
 
+            @Nullable
             public Entity next() {
                 if (hasNext()) {
                     return currentItr.next();
@@ -126,6 +132,7 @@ class AddedOrRemovedLinksFromSetTransientEntityIterable extends TransientEntityI
         return values.size();
     }
 
+    @NotNull
     static final EntityIterable get(@NotNull final Map<String, LinkChange> changesLinks,
                                     @NotNull final Set<String> linkNames,
                                     final boolean removed) {
