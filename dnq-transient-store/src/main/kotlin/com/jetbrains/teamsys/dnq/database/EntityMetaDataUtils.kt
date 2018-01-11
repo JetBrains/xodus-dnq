@@ -13,64 +13,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.teamsys.dnq.association.AssociationSemantics;
-import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
-import jetbrains.exodus.database.LinkChange;
-import jetbrains.exodus.database.TransientChangesTracker;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.query.metadata.EntityMetaData;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.jetbrains.teamsys.dnq.association.AssociationSemantics
+import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
+import jetbrains.exodus.database.LinkChange
+import jetbrains.exodus.database.TransientChangesTracker
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.query.metadata.EntityMetaData
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+object EntityMetaDataUtils {
 
-public class EntityMetaDataUtils {
+    @JvmStatic
+    fun getRequiredIfProperties(emd: EntityMetaData, e: Entity): Set<String> {
+        val persistentClassInstance = (e as? TransientEntity)
+                ?.persistentClassInstance
+                ?: return emptySet()
 
-    @NotNull
-    static Set<String> getRequiredIfProperties(@NotNull EntityMetaData emd, @NotNull Entity e) {
-        Set<String> result = new HashSetDecorator<String>();
-        for (String property : emd.getRequiredIfProperties(e)) {
-            BasePersistentClassImpl persistentClassInstance = TransientStoreUtil.getPersistentClassInstance(e);
-            if (persistentClassInstance != null && persistentClassInstance.isPropertyRequired(property, e)) {
-                result.add(property);
-            }
-        }
-        return result;
+        return emd.getRequiredIfProperties(e)
+                .asSequence()
+                .filter { persistentClassInstance.isPropertyRequired(it, e) }
+                .toCollection(HashSetDecorator<String>())
+
     }
 
-    @NotNull
-    static Map<String, Iterable<PropertyConstraint>> getPropertyConstraints(@NotNull Entity e) {
-        BasePersistentClassImpl persistentClass = TransientStoreUtil.getPersistentClassInstance(e);
-        return persistentClass != null ? persistentClass.getPropertyConstraints() : Collections.emptyMap();
+    @JvmStatic
+    fun getPropertyConstraints(e: Entity): Map<String, Iterable<PropertyConstraint<*>>> {
+        return (e as? TransientEntity)?.persistentClassInstance
+                ?.getPropertyConstraints()
+                .orEmpty()
     }
 
-    static boolean hasParent(@NotNull EntityMetaData emd, @NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
-        final Set<String> aggregationChildEnds = emd.getAggregationChildEnds();
-        if (e.isNew() || parentChanged(aggregationChildEnds, tracker.getChangedLinksDetailed(e))) {
-            for (String childEnd : aggregationChildEnds) {
-                if (AssociationSemantics.getToOne(e, childEnd) != null) {
-                    return true;
-                }
-            }
-            return false;
+    @JvmStatic
+    fun hasParent(emd: EntityMetaData, e: TransientEntity, tracker: TransientChangesTracker): Boolean {
+        val aggregationChildEnds = emd.aggregationChildEnds
+        return if (e.isNew || parentChanged(aggregationChildEnds, tracker.getChangedLinksDetailed(e))) {
+            aggregationChildEnds.any { AssociationSemantics.getToOne(e, it) != null }
+        } else {
+            true
         }
-        return true;
     }
 
-    private static boolean parentChanged(@NotNull Set<String> aggregationChildEnds, @Nullable Map<String, LinkChange> changedLinks) {
-        if (changedLinks == null) {
-            return false;
-        }
-        for (String childEnd : aggregationChildEnds) {
-            if (changedLinks.containsKey(childEnd)) {
-                return true;
-            }
-        }
-        return false;
+    private fun parentChanged(aggregationChildEnds: Set<String>, changedLinks: Map<String, LinkChange>?): Boolean {
+        return changedLinks != null && aggregationChildEnds.any { it in changedLinks }
     }
 }
