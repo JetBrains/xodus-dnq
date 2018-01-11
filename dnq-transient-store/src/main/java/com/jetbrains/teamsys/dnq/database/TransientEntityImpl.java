@@ -285,9 +285,10 @@ class TransientEntityImpl implements TransientEntity {
     @NotNull
     public EntityIterable getLinks(@NotNull final Collection<String> linkNames) {
         return new PersistentEntityIterableWrapper(store, getPersistentEntity().getLinks(linkNames)) {
+            @NotNull
             @Override
             public EntityIterator iterator() {
-                return new PersistentEntityIteratorWithPropIdWrapper((EntityIteratorWithPropId) wrappedIterable.iterator(),
+                return new PersistentEntityIteratorWithPropIdWrapper((EntityIteratorWithPropId) getWrappedIterable().iterator(),
                         store.getThreadSession());
             }
         };

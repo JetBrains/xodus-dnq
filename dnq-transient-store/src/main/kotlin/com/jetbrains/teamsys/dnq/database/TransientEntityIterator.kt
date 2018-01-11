@@ -13,15 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityId;
-import jetbrains.exodus.entitystore.EntityIterator;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.Iterator;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.EntityIterator
 
 /**
  * Date: 12.03.2007
@@ -29,44 +24,31 @@ import java.util.Iterator;
  *
  * @author Vadim.Gurov
  */
-class TransientEntityIterator implements EntityIterator {
-    @NotNull
-    private Iterator<TransientEntity> iter;
+internal class TransientEntityIterator(private val iter: Iterator<TransientEntity>) : EntityIterator {
 
-    TransientEntityIterator(@NotNull Iterator<TransientEntity> iterator) {
-        this.iter = iterator;
+    override fun hasNext() = iter.hasNext()
+
+    override fun next() = iter.next()
+
+    override fun remove() {
+        throw UnsupportedOperationException("Remove from iterator is not supported by transient iterator")
     }
 
-    public boolean hasNext() {
-        return iter.hasNext();
+    override fun nextId() = iter.next().id
+
+    override fun dispose(): Boolean {
+        throw UnsupportedOperationException("Transient iterator does not support disposing.")
     }
 
-    @NotNull
-    public Entity next() {
-        return iter.next();
-    }
-
-    public void remove() {
-        throw new UnsupportedOperationException("Remove from iterator is not supported by transient iterator");
-    }
-
-    @NotNull
-    public EntityId nextId() {
-        return iter.next().getId();
-    }
-
-    public boolean dispose() {
-        throw new UnsupportedOperationException("Transient iterator doesn't support disposing.");
-    }
-
-    public boolean skip(int number) {
-        while (number-- > 0 && hasNext()) {
-            next();
+    override fun skip(number: Int): Boolean {
+        var elementsLeftToSkip = number
+        while (elementsLeftToSkip-- > 0 && hasNext()) {
+            next()
         }
-        return hasNext();
+        return hasNext()
     }
 
-    public boolean shouldBeDisposed() {
-        return false; //TODO: revisit EntityIterator interface and remove these stub method
+    override fun shouldBeDisposed(): Boolean {
+        return false //TODO: revisit EntityIterator interface and remove these stub method
     }
 }

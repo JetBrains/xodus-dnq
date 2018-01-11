@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.entitystore.EntityIterable;
+import jetbrains.exodus.entitystore.EntityIterable
 
-public interface EntityIterableWrapper extends EntityIterable {
-}
+interface EntityIterableWrapper : EntityIterable

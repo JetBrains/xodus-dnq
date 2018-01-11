@@ -36,13 +36,13 @@ object AssociationSemantics {
     @JvmStatic
     fun getToMany(e: Entity?, linkName: String): Iterable<Entity> {
         return e?.reattachTransient()?.getLinks(linkName)
-                ?: UniversalEmptyEntityIterable.INSTANCE
+                ?: UniversalEmptyEntityIterable
     }
 
     @JvmStatic
     fun getToMany(e: Entity?, linkNames: Set<String>): Iterable<Entity> {
         return e?.reattachTransient()?.getLinks(linkNames)
-                ?: UniversalEmptyEntityIterable.INSTANCE
+                ?: UniversalEmptyEntityIterable
     }
 
     /**

@@ -13,61 +13,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityId;
-import jetbrains.exodus.entitystore.EntityIterator;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientStoreSession
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
+import jetbrains.exodus.entitystore.EntityIterator
 
-public class PersistentEntityIteratorWrapper implements EntityIterator {
+class PersistentEntityIteratorWrapper(
+        protected val source: EntityIterator,
+        private val session: TransientStoreSession) : EntityIterator {
 
-    @NotNull
-    protected final EntityIterator source;
-    @NotNull
-    private final TransientStoreSession session;
-
-    public PersistentEntityIteratorWrapper(
-            @NotNull final EntityIterator source,
-            @NotNull final TransientStoreSession session) {
-        this.source = source;
-        this.session = session;
+    override fun hasNext(): Boolean {
+        return source.hasNext()
     }
 
-    public boolean hasNext() {
-        return source.hasNext();
-    }
-
-    @Nullable
-    public Entity next() {
+    override fun next(): Entity? {
         //TODO: do not save in session?
-        final Entity persistentEntity = source.next();
-        if (persistentEntity == null) {
-            return null;
-        }
-        return session.newEntity(persistentEntity);
+        val persistentEntity = source.next() ?: return null
+        return session.newEntity(persistentEntity)
     }
 
-    public void remove() {
-        source.remove();
+    override fun remove() {
+        source.remove()
     }
 
-    @Nullable
-    public EntityId nextId() {
-        return source.nextId();
+    override fun nextId(): EntityId? {
+        return source.nextId()
     }
 
-    public boolean dispose() {
-        return source.dispose();
+    override fun dispose(): Boolean {
+        return source.dispose()
     }
 
-    public boolean skip(int number) {
-        return source.skip(number);
+    override fun skip(number: Int): Boolean {
+        return source.skip(number)
     }
 
-    public boolean shouldBeDisposed() {
-        return source.shouldBeDisposed();  //TODO: revisit EntityIterator interface and remove these stub method
+    override fun shouldBeDisposed(): Boolean {
+        //TODO: revisit EntityIterator interface and remove these stub method
+        return source.shouldBeDisposed()
     }
 }

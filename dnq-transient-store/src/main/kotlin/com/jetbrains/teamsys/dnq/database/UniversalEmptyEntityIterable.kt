@@ -13,113 +13,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import jetbrains.exodus.entitystore.iterate.EntityIteratorBase;
-import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
+import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import jetbrains.exodus.entitystore.iterate.EntityIteratorBase
+import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 
-public class UniversalEmptyEntityIterable extends EntityIterableBase {
+object UniversalEmptyEntityIterable : EntityIterableBase(null) {
 
-    public static final UniversalEmptyEntityIterable INSTANCE = new UniversalEmptyEntityIterable();
+    override fun iterator() = Iterator
 
-    public UniversalEmptyEntityIterable() {
-        super(null);
-    }
+    override fun getIteratorImpl(txn: PersistentStoreTransaction) = Iterator
 
-    @NotNull
-    @Override
-    public EntityIterator iterator() {
-        return Iterator.INSTANCE;
-    }
+    override fun isEmpty() = true
 
-    @NotNull
-    @Override
-    public EntityIterator getIteratorImpl(@NotNull final PersistentStoreTransaction txn) {
-        return Iterator.INSTANCE;
-    }
+    override fun size() = 0L
 
-    public boolean isEmpty() {
-        return true;
-    }
+    override fun count() = 0L
 
-    public long size() {
-        return 0;
-    }
+    override fun getRoughCount() = 0L
 
-    public long count() {
-        return 0;
-    }
+    override fun contains(entity: Entity) = false
 
-    public long getRoughCount() {
-        return 0;
-    }
+    override fun getHandleImpl() = EntityIterableBase.EMPTY.handle
 
-    public boolean contains(@NotNull Entity entity) {
-        return false;
-    }
+    override fun indexOf(entity: Entity) = -1
 
-    @NotNull
-    @Override
-    protected EntityIterableHandle getHandleImpl() {
-        return EntityIterableBase.EMPTY.getHandle();
-    }
+    override fun countImpl(txn: PersistentStoreTransaction) = 0L
 
-    @Override
-    public int indexOf(@NotNull Entity entity) {
-        return -1;
-    }
+    override fun canBeCached() = false
 
-    @Override
-    protected long countImpl(@NotNull final PersistentStoreTransaction txn) {
-        return 0;
-    }
+    override fun getSource(): EntityIterableBase = EntityIterableBase.EMPTY
 
-    public boolean canBeCached() {
-        return false;
-    }
-
-    @NotNull
-    @Override
-    public EntityIterableBase getSource() {
-        return EntityIterableBase.EMPTY;
-    }
-
-    public static class Iterator extends EntityIteratorBase implements EntityIteratorWithPropId {
-
-        public static final Iterator INSTANCE = new Iterator();
-
-        public Iterator() {
-            super(UniversalEmptyEntityIterable.INSTANCE);
-        }
-
-        @Nullable
-        public String currentLinkName() {
-            return null;
-        }
-
-        @Override
-        protected boolean hasNextImpl() {
-            return false;
-        }
-
-        @Nullable
-        @Override
-        protected EntityId nextIdImpl() {
-            return null;
-        }
-
-        public void remove() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean shouldBeDisposed() {
-            return false;
-        }
+    object Iterator : EntityIteratorBase(UniversalEmptyEntityIterable), EntityIteratorWithPropId {
+        override fun currentLinkName() = null
+        override fun hasNextImpl() = false
+        override fun nextIdImpl(): EntityId? = null
+        override fun remove() = throw UnsupportedOperationException()
+        override fun shouldBeDisposed() = false
     }
 
 }

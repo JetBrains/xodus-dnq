@@ -13,193 +13,128 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.TransientEntityStore;
-import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.EntityIterator
+import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import org.jetbrains.annotations.NotNull
+
 
 /**
  * Wrapper for persistent iterable. Handles iterator.next and delegates it to transient session.
  *
  * @author Vadim.Gurov
  */
-public class PersistentEntityIterableWrapper extends EntityIterableBase implements EntityIterableWrapper {
-    @NotNull
-    final EntityIterableBase wrappedIterable;
-    @NotNull
-    protected final TransientEntityStore store;
+open class PersistentEntityIterableWrapper(
+        protected val store: TransientEntityStore,
+        wrappedIterable: EntityIterable) :
+        EntityIterableWrapper,
+        EntityIterableBase(
+                (wrappedIterable as EntityIterableBase).source
+                        .takeIf { it !== EMPTY }
+                        ?.transaction) {
 
-    PersistentEntityIterableWrapper(@NotNull final TransientEntityStore store, @NotNull EntityIterable wrappedIterable) {
-        super(getWrappedTransaction((EntityIterableBase) wrappedIterable));
-        if (wrappedIterable instanceof PersistentEntityIterableWrapper) {
-            throw new IllegalArgumentException("Can't wrap transient entity iterable with another transient entity iterable.");
+    protected val wrappedIterable: EntityIterableBase = wrappedIterable.let {
+        if (wrappedIterable is PersistentEntityIterableWrapper) {
+            throw IllegalArgumentException("Can't wrap transient entity iterable with another transient entity iterable.")
         }
-        this.store = store;
-        this.wrappedIterable = ((EntityIterableBase) wrappedIterable).getSource();
+        (wrappedIterable as EntityIterableBase).source
     }
 
-    @Nullable
-    private static PersistentStoreTransaction getWrappedTransaction(@NotNull EntityIterableBase wrappedIterable) {
-        final EntityIterableBase source = wrappedIterable.getSource();
-        return source == EntityIterableBase.EMPTY ? null : source.getTransaction();
+    override fun size() = wrappedIterable.size()
+
+    override fun count() = wrappedIterable.count()
+
+    override fun getRoughCount() = wrappedIterable.roughCount
+
+    override fun getRoughSize() = wrappedIterable.roughSize
+
+    override fun indexOf(entity: Entity) = wrappedIterable.indexOf(entity)
+
+    override fun contains(entity: Entity) = wrappedIterable.contains(entity)
+
+    public override fun getHandleImpl() = wrappedIterable.handle
+
+    override fun intersect(right: EntityIterable): EntityIterable {
+        right as? EntityIterableBase ?: throwUnsupported()
+        return wrappedIterable.intersect(right.source)
     }
 
-    public long size() {
-        return wrappedIterable.size();
+    override fun intersectSavingOrder(right: EntityIterable): EntityIterable {
+        right as? EntityIterableBase ?: throwUnsupported()
+        return wrappedIterable.intersectSavingOrder(right.source)
     }
 
-    public long count() {
-        return wrappedIterable.count();
+    override fun union(right: EntityIterable): EntityIterable {
+        right as? EntityIterableBase ?: throwUnsupported()
+        return wrappedIterable.union(right.source)
     }
 
-    public long getRoughCount() {
-        return wrappedIterable.getRoughCount();
+    override fun minus(right: EntityIterable): EntityIterable {
+        right as? EntityIterableBase ?: throwUnsupported()
+        return wrappedIterable.minus(right.source)
     }
 
-    public long getRoughSize() {
-        return wrappedIterable.getRoughSize();
+    override fun concat(right: EntityIterable): EntityIterable {
+        right as? EntityIterableBase ?: throwUnsupported()
+        return wrappedIterable.concat(right.source)
     }
 
-    public int indexOf(@NotNull Entity entity) {
-        return wrappedIterable.indexOf(entity);
+    override fun take(number: Int): EntityIterable {
+        return wrappedIterable.take(number)
     }
 
-    public boolean contains(@NotNull Entity entity) {
-        return wrappedIterable.contains(entity);
+    override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
+        return wrappedIterable.findLinks(entities, linkName)
     }
 
-    @NotNull
-    public EntityIterableHandle getHandleImpl() {
-        return wrappedIterable.getHandle();
+    override fun distinct(): EntityIterable {
+        return wrappedIterable.distinct()
     }
 
-    @NotNull
-    public EntityIterable intersect(@NotNull EntityIterable right) {
-        if (right instanceof EntityIterableBase) {
-            return wrappedIterable.intersect(((EntityIterableBase) right).getSource());
-        }
-        return throwUnsupported();
+    override fun selectDistinct(linkName: String): EntityIterable {
+        return wrappedIterable.selectDistinct(linkName)
     }
 
-    @NotNull
-    public EntityIterable intersectSavingOrder(@NotNull EntityIterable right) {
-        if (right instanceof EntityIterableBase) {
-            return wrappedIterable.intersectSavingOrder(((EntityIterableBase) right).getSource());
-        }
-        return throwUnsupported();
+    override fun selectManyDistinct(linkName: String): EntityIterable {
+        return wrappedIterable.selectManyDistinct(linkName)
     }
 
-    @NotNull
-    public EntityIterable union(@NotNull EntityIterable right) {
-        if (right instanceof EntityIterableBase) {
-            return wrappedIterable.union(((EntityIterableBase) right).getSource());
-        }
-        return throwUnsupported();
+    override fun getFirst() = wrappedIterable.first?.wrap(store)
+
+    override fun getLast() = wrappedIterable.last?.wrap(store)
+
+    override fun reverse(): EntityIterable {
+        return wrappedIterable.reverse()
     }
 
-    @NotNull
-    public EntityIterable minus(@NotNull EntityIterable right) {
-        if (right instanceof EntityIterableBase) {
-            return wrappedIterable.minus(((EntityIterableBase) right).getSource());
-        }
-        return throwUnsupported();
+    override fun isSortResult() = wrappedIterable.isSortResult
+
+    override fun asSortResult(): EntityIterable =
+            PersistentEntityIterableWrapper(store, wrappedIterable.asSortResult())
+
+    override fun getSource(): EntityIterableBase {
+        return wrappedIterable
     }
 
-    @NotNull
-    public EntityIterable concat(@NotNull EntityIterable right) {
-        if (right instanceof EntityIterableBase) {
-            return wrappedIterable.concat(((EntityIterableBase) right).getSource());
-        }
-        return throwUnsupported();
+    override fun iterator(): EntityIterator {
+        return PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.threadSession!!)
     }
 
-    @NotNull
-    @Override
-    public EntityIterable take(int number) {
-        return wrappedIterable.take(number);
+    override fun getIteratorImpl(txn: PersistentStoreTransaction): EntityIterator {
+        throw UnsupportedOperationException("Should never be called")
     }
 
-    @Override
-    @NotNull
-    public EntityIterable findLinks(@NotNull EntityIterable entities, @NotNull String linkName) {
-        return wrappedIterable.findLinks(entities, linkName);
-    }
+    override fun isEmpty() = wrappedIterable.isEmpty
 
-    @NotNull
-    @Override
-    public EntityIterable distinct() {
-        return wrappedIterable.distinct();
-    }
+    private fun throwUnsupported(): Nothing = throw UnsupportedOperationException("Should never be called")
 
-    @NotNull
-    @Override
-    public EntityIterable selectDistinct(@NotNull String linkName) {
-        return wrappedIterable.selectDistinct(linkName);
-    }
-
-    @NotNull
-    @Override
-    public EntityIterable selectManyDistinct(@NotNull String linkName) {
-        return wrappedIterable.selectManyDistinct(linkName);
-    }
-
-    @Nullable
-    @Override
-    public Entity getFirst() {
-        return wrap(store, wrappedIterable.getFirst());
-    }
-
-    @Nullable
-    @Override
-    public Entity getLast() {
-        return wrap(store, wrappedIterable.getLast());
-    }
-
-    @NotNull
-    @Override
-    public EntityIterable reverse() {
-        return wrappedIterable.reverse();
-    }
-
-    public boolean isSortResult() {
-        return wrappedIterable.isSortResult();
-    }
-
-    @NotNull
-    public EntityIterable asSortResult() {
-        return new PersistentEntityIterableWrapper(store, wrappedIterable.asSortResult());
-    }
-
-    @NotNull
-    public EntityIterableBase getSource() {
-        return wrappedIterable;
-    }
-
-    @NotNull
-    public EntityIterator iterator() {
-        return new PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.getThreadSession());
-    }
-
-    @NotNull
-    @Override
-    public EntityIterator getIteratorImpl(@NotNull PersistentStoreTransaction txn) {
-        throw new UnsupportedOperationException("Should never be called");
-    }
-
-    public boolean isEmpty() {
-        return wrappedIterable.isEmpty();
-    }
-
-    @NotNull
-    private static EntityIterable throwUnsupported() {
-        throw new UnsupportedOperationException("Should never be called");
-    }
-
-    @Nullable
-    private static Entity wrap(@NotNull TransientEntityStore store, @Nullable Entity entity) {
-        return entity == null ? null : store.getThreadSession().newEntity(entity);
+    private fun Entity.wrap(store: TransientEntityStore): TransientEntity {
+        return store.threadSessionOrThrow.newEntity(this)
     }
 }

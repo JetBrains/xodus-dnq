@@ -13,153 +13,116 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.LinkChange;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityId;
-import jetbrains.exodus.entitystore.EntityIterable;
-import jetbrains.exodus.entitystore.EntityIterator;
-import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.LinkChange
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.EntityIterator
+import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+internal open class AddedOrRemovedLinksFromSetTransientEntityIterable(
+        values: Set<TransientEntity>,
+        private val removed: Boolean,
+        private val linkNames: Set<String>,
+        private val changesLinks: Map<String, LinkChange>) : TransientEntityIterable(values) {
 
-class AddedOrRemovedLinksFromSetTransientEntityIterable extends TransientEntityIterable {
+    override fun iterator(): EntityIterator {
+        val linkNamesIterator = linkNames.iterator()
 
-    private final boolean removed;
-    private final Set<String> linkNames;
-    private final Map<String, LinkChange> changesLinks;
+        return object : EntityIteratorWithPropId {
+            private var currentLinkName: String? = null
+            private var currentIterator: Iterator<TransientEntity>? = null
 
-    public AddedOrRemovedLinksFromSetTransientEntityIterable(@NotNull Set<TransientEntity> values, boolean removed,
-                                                             @NotNull Set<String> linkNames,
-                                                             @NotNull Map<String, LinkChange> changesLinks) {
-        super(values);
-        this.removed = removed;
-        this.linkNames = linkNames;
-        this.changesLinks = changesLinks;
-    }
-
-    @Override
-    @NotNull
-    public EntityIterator iterator() {
-        final Iterator<String> it = linkNames.iterator();
-        return new EntityIteratorWithPropId() {
-            @Nullable
-            private String currentLinkName;
-            @Nullable
-            private Iterator<TransientEntity> currentItr;
-
-            @Nullable
-            public String currentLinkName() {
-                return currentLinkName;
+            override fun currentLinkName(): String? {
+                return currentLinkName
             }
 
-            public boolean hasNext() {
-                if (currentItr != null && currentItr.hasNext()) {
-                    return true;
+            override fun hasNext(): Boolean {
+                val currentI = currentIterator
+                if (currentI != null && currentI.hasNext()) {
+                    return true
                 }
-                while (it.hasNext()) {
-                    final String linkName = it.next();
-                    final LinkChange linkChange = changesLinks.get(linkName);
+                while (linkNamesIterator.hasNext()) {
+                    val linkName = linkNamesIterator.next()
+                    val linkChange = changesLinks[linkName]
                     if (linkChange != null) {
-                        final Set<TransientEntity> current = removed ?
-                                linkChange.getRemovedEntities() :
-                                linkChange.getAddedEntities();
-                        if (current != null) {
-                            final Iterator<TransientEntity> itr = current.iterator();
+                        val changedEntities = if (removed) {
+                            linkChange.removedEntities
+                        } else {
+                            linkChange.addedEntities
+                        }
+                        if (changedEntities != null) {
+                            val itr = changedEntities.iterator()
                             if (itr.hasNext()) {
-                                currentLinkName = linkName;
-                                currentItr = itr;
-                                return true;
+                                currentLinkName = linkName
+                                currentIterator = itr
+                                return true
                             }
                         }
                     }
                 }
-                return false;
+                return false
             }
 
-            @Nullable
-            public Entity next() {
-                if (hasNext()) {
-                    return currentItr.next();
+            override fun next(): Entity {
+                val iterator = currentIterator
+                return if (hasNext() && iterator != null) {
+                    iterator.next()
+                } else {
+                    throw NoSuchElementException()
                 }
-                return null;
             }
 
-            public EntityId nextId() {
-                return next().getId();
-            }
+            override fun nextId() = next().id
 
-            public boolean skip(int number) {
-                while (number > 0) {
+            override fun skip(number: Int): Boolean {
+                var itemsToSkipLeft = number
+                while (itemsToSkipLeft > 0) {
                     if (hasNext()) {
-                        next();
-                        --number;
+                        next()
+                        --itemsToSkipLeft
                     } else {
-                        return false;
+                        return false
                     }
                 }
-                return true;
+                return true
             }
 
-            public boolean shouldBeDisposed() {
-                return false;
+            override fun shouldBeDisposed() = false
+
+            override fun dispose(): Boolean {
+                throw UnsupportedOperationException("Transient iterator does not support disposing")
             }
 
-            public boolean dispose() {
-                throw new UnsupportedOperationException("Transient iterator doesn't support disposing.");
-            }
-
-            public void remove() {
-                throw new UnsupportedOperationException("Remove from iterator is not supported by transient iterator");
-            }
-        };
-    }
-
-    @Override
-    public long size() {
-        return values.size();
-    }
-
-    @Override
-    public long count() {
-        return values.size();
-    }
-
-    @NotNull
-    static final EntityIterable get(@NotNull final Map<String, LinkChange> changesLinks,
-                                    @NotNull final Set<String> linkNames,
-                                    final boolean removed) {
-        if (changesLinks == null) {
-            return UniversalEmptyEntityIterable.INSTANCE;
-        }
-        final Set<TransientEntity> result = new HashSet<TransientEntity>();
-        if (removed) {
-            for (final String linkName : linkNames) {
-                final LinkChange linkChange = changesLinks.get(linkName);
-                final Set<TransientEntity> removedEntities;
-                if (linkChange != null && (removedEntities = linkChange.getRemovedEntities()) != null) {
-                    result.addAll(removedEntities);
-                }
-            }
-        } else {
-            for (final String linkName : linkNames) {
-                final LinkChange linkChange = changesLinks.get(linkName);
-                final Set<TransientEntity> addedEntities;
-                if (linkChange != null && (addedEntities = linkChange.getAddedEntities()) != null) {
-                    result.addAll(addedEntities);
-                }
+            override fun remove() {
+                throw UnsupportedOperationException("Remove from iterator is not supported by transient iterator")
             }
         }
-        if (result.isEmpty()) {
-            return UniversalEmptyEntityIterable.INSTANCE;
+    }
+
+    override fun size() = values.size.toLong()
+
+    override fun count() = values.size.toLong()
+
+    companion object {
+
+        @JvmStatic
+        fun get(changesLinks: Map<String, LinkChange>,
+                linkNames: Set<String>,
+                removed: Boolean): EntityIterable {
+            val changedEntities = linkNames
+                    .asSequence()
+                    .mapNotNull { changesLinks[it] }
+                    .mapNotNull { if (removed) it.removedEntities else it.addedEntities }
+                    .flatten()
+                    .toSet()
+            return if (!changedEntities.isEmpty()) {
+                AddedOrRemovedLinksFromSetTransientEntityIterable(changedEntities, removed, linkNames, changesLinks)
+            } else {
+                UniversalEmptyEntityIterable
+            }
         }
-        return new AddedOrRemovedLinksFromSetTransientEntityIterable(result, removed, linkNames, changesLinks);
     }
 }

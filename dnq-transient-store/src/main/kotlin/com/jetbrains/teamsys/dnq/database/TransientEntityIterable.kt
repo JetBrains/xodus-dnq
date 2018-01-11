@@ -13,21 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.Set;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.EntityIterator
+import jetbrains.exodus.entitystore.StoreTransaction
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import mu.KLogging
 
 /**
  * Date: 28.12.2006
@@ -35,185 +29,103 @@ import java.util.Set;
  *
  * @author Vadim.Gurov
  */
-public class TransientEntityIterable implements EntityIterableWrapper {
+open class TransientEntityIterable(protected val values: Set<TransientEntity>) : EntityIterableWrapper {
+    companion object : KLogging()
 
-    private static final Logger logger = LoggerFactory.getLogger(TransientEntityIterable.class);
-
-    @NotNull
-    protected final Set<TransientEntity> values;
-    //@NotNull private final EntityIterable source;
-
-    public TransientEntityIterable(@NotNull Set<TransientEntity> values
-            /*@NotNull final EntityIterable source*/) {
-        this.values = values;
-        //this.source = source;
+    override fun size(): Long {
+        logger.warn { "size() is requested from TransientEntityIterable!" }
+        return values.size.toLong()
     }
 
-    public long size() {
-        if (logger.isWarnEnabled()) {
-            logger.warn("size() is requested from TransientEntityIterable!");
-        }
-        return values.size();
+    override fun count(): Long {
+        logger.warn { "count() is requested from TransientEntityIterable!" }
+        return values.size.toLong()
     }
 
-    public long count() {
-        if (logger.isWarnEnabled()) {
-            logger.warn("count() is requested from TransientEntityIterable!");
-        }
-        return values.size();
+    override fun getRoughCount(): Long {
+        logger.warn { "getRoughCount() is requested from TransientEntityIterable!" }
+        return values.size.toLong()
     }
 
-    public long getRoughCount() {
-        if (logger.isWarnEnabled()) {
-            logger.warn("getRoughCount() is requested from TransientEntityIterable!");
-        }
-        return values.size();
+    override fun getRoughSize(): Long {
+        logger.warn { "getRoughSize() is requested from TransientEntityIterable!" }
+        return values.size.toLong()
     }
 
-    public long getRoughSize() {
-        if (logger.isWarnEnabled()) {
-            logger.warn("getRoughCount() is requested from TransientEntityIterable!");
-        }
-        return values.size();
+    override fun indexOf(entity: Entity) = values.indexOf(entity)
+
+    operator override fun contains(entity: Entity) = values.contains(entity)
+
+    override fun intersect(right: EntityIterable): EntityIterable =
+            throw UnsupportedOperationException("Not supported by TransientEntityIterable")
+
+    override fun intersectSavingOrder(right: EntityIterable): EntityIterable =
+            throw UnsupportedOperationException("Not supported by TransientEntityIterable")
+
+    override fun union(right: EntityIterable): EntityIterable =
+            throw UnsupportedOperationException("Not supported by TransientEntityIterable")
+
+    override fun minus(right: EntityIterable): EntityIterable =
+            throw UnsupportedOperationException("Not supported by TransientEntityIterable")
+
+    override fun concat(right: EntityIterable): EntityIterable {
+        if (right !is TransientEntityIterable) throw UnsupportedOperationException("Not supported by TransientEntityIterable")
+
+        return TransientEntityIterable(values + right.values)
     }
 
-    public int indexOf(@NotNull Entity entity) {
-        return Arrays.asList(values.toArray(new Entity[values.size()])).indexOf(entity);
+    override fun skip(number: Int): EntityIterable {
+        if (number == 0) return this
+
+        return TransientEntityIterable(
+                values.asSequence()
+                        .drop(number)
+                        .toSet()
+        )
     }
 
-    public boolean contains(@NotNull Entity entity) {
-        return values.contains(entity);
+    override fun take(number: Int): EntityIterable {
+        if (number == 0) return EntityIterableBase.EMPTY
+
+        return TransientEntityIterable(
+                values.asSequence()
+                        .take(number)
+                        .toSet()
+        )
     }
 
-    @NotNull
-    public EntityIterableHandle getHandle() {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-        //return source.getHandle();
+    override fun distinct() = this
+
+    override fun selectDistinct(linkName: String): EntityIterable =
+            throw UnsupportedOperationException("Not supported by TransientEntityIterable")
+
+    override fun selectManyDistinct(linkName: String): EntityIterable =
+            throw UnsupportedOperationException("Not supported by TransientEntityIterable")
+
+    override fun getFirst() = values.firstOrNull()
+
+    override fun getLast() = values.lastOrNull()
+
+    override fun reverse(): EntityIterable {
+        throw UnsupportedOperationException("Not supported by TransientEntityIterable")
     }
 
-    @NotNull
-    public EntityIterable intersect(@NotNull EntityIterable right) {
-        //return source.intersect(right);
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+    override fun isSortResult(): Boolean {
+        throw UnsupportedOperationException("Not supported by TransientEntityIterable")
     }
 
-    @NotNull
-    public EntityIterable intersectSavingOrder(@NotNull EntityIterable right) {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+    override fun asSortResult(): EntityIterable {
+        throw UnsupportedOperationException("Not supported by TransientEntityIterable")
     }
 
-    @NotNull
-    public EntityIterable union(@NotNull EntityIterable right) {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+    override fun iterator(): EntityIterator {
+        logger.trace { "New iterator requested for transient iterable ${this}" }
+        return TransientEntityIterator(values.iterator())
     }
 
-    @NotNull
-    public EntityIterable minus(@NotNull EntityIterable right) {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
+    override fun getTransaction(): StoreTransaction {
+        throw UnsupportedOperationException("Not supported by TransientEntityIterable")
     }
 
-    @NotNull
-    public EntityIterable concat(@NotNull EntityIterable right) {
-        if (!(right instanceof TransientEntityIterable)) {
-            throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-        }
-        ;
-        final HashSet<TransientEntity> result = new HashSet<TransientEntity>();
-        result.addAll(values);
-        result.addAll(((TransientEntityIterable) right).values);
-        return new TransientEntityIterable(result);
-    }
-
-    @NotNull
-    public EntityIterable skip(final int number) {
-        if (number == 0) return this;
-        final Iterator<TransientEntity> it = values.iterator();
-        final Set<TransientEntity> result = new LinkedHashSet<TransientEntity>();
-        for (int i = 0; i < number && it.hasNext(); ++i) {
-            it.next();
-        }
-        while (it.hasNext()) {
-            result.add(it.next());
-        }
-        return new TransientEntityIterable(result);
-    }
-
-    @NotNull
-    public EntityIterable take(final int number) {
-        if (number == 0) return EntityIterableBase.EMPTY;
-        final Iterator<TransientEntity> it = values.iterator();
-        final Set<TransientEntity> result = new LinkedHashSet<TransientEntity>();
-        for (int i = 0; i < number && it.hasNext(); ++i) {
-            result.add(it.next());
-        }
-        return new TransientEntityIterable(result);
-    }
-
-    @NotNull
-    @Override
-    public EntityIterable distinct() {
-        return this;
-    }
-
-    @NotNull
-    @Override
-    public EntityIterable selectDistinct(@NotNull String linkName) {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    @NotNull
-    @Override
-    public EntityIterable selectManyDistinct(@NotNull String linkName) {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    @Nullable
-    @Override
-    public Entity getFirst() {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    @Nullable
-    @Override
-    public Entity getLast() {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    @NotNull
-    @Override
-    public EntityIterable reverse() {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    public boolean isSortResult() {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    @NotNull
-    public EntityIterable asSortResult() {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    @NotNull
-    public EntityIterable getSource() {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    @NotNull
-    public EntityIterator iterator() {
-        if (logger.isTraceEnabled()) {
-            logger.trace("New iterator requested for transient iterable " + this);
-        }
-        return new TransientEntityIterator(values.iterator());
-    }
-
-    @NotNull
-    @Override
-    public StoreTransaction getTransaction() {
-        throw new UnsupportedOperationException("Not supported by TransientEntityIterable");
-    }
-
-    public boolean isEmpty() {
-        return size() == 0;
-    }
+    override fun isEmpty() = values.isEmpty()
 }

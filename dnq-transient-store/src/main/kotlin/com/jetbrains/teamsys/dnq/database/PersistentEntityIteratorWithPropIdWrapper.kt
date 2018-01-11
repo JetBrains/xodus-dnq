@@ -13,66 +13,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.EntityId;
-import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientStoreSession
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
+import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 
-class PersistentEntityIteratorWithPropIdWrapper implements EntityIteratorWithPropId {
+internal class PersistentEntityIteratorWithPropIdWrapper(
+        protected val source: EntityIteratorWithPropId,
+        private val session: TransientStoreSession) : EntityIteratorWithPropId {
 
-    @NotNull
-    protected final EntityIteratorWithPropId source;
-    @NotNull
-    private final TransientStoreSession session;
-
-    PersistentEntityIteratorWithPropIdWrapper(
-            @NotNull final EntityIteratorWithPropId source,
-            @NotNull final TransientStoreSession session) {
-        this.source = source;
-        this.session = session;
+    override fun hasNext(): Boolean {
+        return source.hasNext()
     }
 
-    public boolean hasNext() {
-        return source.hasNext();
-    }
-
-    @Nullable
-    public Entity next() {
+    override fun next(): Entity? {
         //TODO: do not save in session?
-        final Entity persistentEntity = source.next();
-        if (persistentEntity == null) {
-            return null;
-        }
-        return session.newEntity(persistentEntity);
+        val persistentEntity = source.next() ?: return null
+        return session.newEntity(persistentEntity)
     }
 
-    @Nullable
-    public String currentLinkName() {
-        return source.currentLinkName();
+    override fun currentLinkName(): String? {
+        return source.currentLinkName()
     }
 
-    public void remove() {
-        source.remove();
+    override fun remove() {
+        source.remove()
     }
 
-    @Nullable
-    public EntityId nextId() {
-        return source.nextId();
+    override fun nextId(): EntityId? {
+        return source.nextId()
     }
 
-    public boolean dispose() {
-        return source.dispose();
+    override fun dispose(): Boolean {
+        return source.dispose()
     }
 
-    public boolean skip(int number) {
-        return source.skip(number);
+    override fun skip(number: Int): Boolean {
+        return source.skip(number)
     }
 
-    public boolean shouldBeDisposed() {
-        return source.shouldBeDisposed();  //TODO: revisit EntityIterator interface and remove these stub method
+    override fun shouldBeDisposed(): Boolean {
+        return source.shouldBeDisposed()  //TODO: revisit EntityIterator interface and remove these stub method
     }
 }
