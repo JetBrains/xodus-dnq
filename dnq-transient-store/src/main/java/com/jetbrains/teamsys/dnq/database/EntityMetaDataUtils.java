@@ -23,17 +23,20 @@ import jetbrains.exodus.database.TransientEntity;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.query.metadata.EntityMetaData;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
 public class EntityMetaDataUtils {
 
     @NotNull
-    static Set<String> getRequiredIfProperties(EntityMetaData emd, Entity e) {
+    static Set<String> getRequiredIfProperties(@NotNull EntityMetaData emd, @NotNull Entity e) {
         Set<String> result = new HashSetDecorator<String>();
         for (String property : emd.getRequiredIfProperties(e)) {
-            if (TransientStoreUtil.getPersistentClassInstance(e).isPropertyRequired(property, e)) {
+            BasePersistentClassImpl persistentClassInstance = TransientStoreUtil.getPersistentClassInstance(e);
+            if (persistentClassInstance != null && persistentClassInstance.isPropertyRequired(property, e)) {
                 result.add(property);
             }
         }
@@ -41,9 +44,9 @@ public class EntityMetaDataUtils {
     }
 
     @NotNull
-    static Map<String, Iterable<PropertyConstraint>> getPropertyConstraints(Entity e) {
+    static Map<String, Iterable<PropertyConstraint>> getPropertyConstraints(@NotNull Entity e) {
         BasePersistentClassImpl persistentClass = TransientStoreUtil.getPersistentClassInstance(e);
-        return persistentClass.getPropertyConstraints();
+        return persistentClass != null ? persistentClass.getPropertyConstraints() : Collections.emptyMap();
     }
 
     static boolean hasParent(@NotNull EntityMetaData emd, @NotNull TransientEntity e, @NotNull TransientChangesTracker tracker) {
@@ -59,7 +62,7 @@ public class EntityMetaDataUtils {
         return true;
     }
 
-    private static boolean parentChanged(Set<String> aggregationChildEnds, Map<String, LinkChange> changedLinks) {
+    private static boolean parentChanged(@NotNull Set<String> aggregationChildEnds, @Nullable Map<String, LinkChange> changedLinks) {
         if (changedLinks == null) {
             return false;
         }
