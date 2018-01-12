@@ -241,7 +241,7 @@ private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchy
 fun getPropertyConstraints(property: XdConstrainedProperty<*, *>) =
         ((property as? XdWrappedProperty<*, *, *>)?.wrapped ?: property).constraints
 
-private fun ModelMetaDataImpl.addLink(
+fun ModelMetaDataImpl.addLink(
         sourceEntityName: String, targetEntityName: String, type: AssociationType,
 
         sourceName: String, sourceCardinality: AssociationEndCardinality,

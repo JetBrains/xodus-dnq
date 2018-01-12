@@ -32,7 +32,7 @@ class XdOneChildToMultiParentLink<R : XdEntity, T : XdEntity>(
         entityType,
         dbPropertyName,
         null,
-        AssociationEndCardinality._1,
+        AssociationEndCardinality._0_1,
         AssociationEndType.ChildEnd,
         onDelete = OnDeletePolicy.CLEAR,
         onTargetDelete = OnDeletePolicy.CASCADE
