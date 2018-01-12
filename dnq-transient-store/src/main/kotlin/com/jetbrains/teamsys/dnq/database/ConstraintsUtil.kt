@@ -79,6 +79,7 @@ object ConstraintsUtil {
                                                             }
                                             violation.tryAddCause(sourceEntity)
                                         }
+                                        .toList()
                                 incomingLinkViolation
                             }
                             .toList()
