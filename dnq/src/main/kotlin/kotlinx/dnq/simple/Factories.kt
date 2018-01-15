@@ -41,8 +41,8 @@ fun <R : XdEntity, T : Comparable<*>> Constraints<R, T>?.collect(): List<Propert
 fun <R : XdEntity, B : Comparable<*>, T : Comparable<*>> List<PropertyConstraint<T?>>.wrap(wrap: (B) -> T): List<PropertyConstraint<B?>> {
     return map { wrappedConstraint ->
         object : PropertyConstraint<B?>() {
-            override fun check(e: TransientEntity, pmd: PropertyMetaData, value: B?) =
-                    wrappedConstraint.check(e, pmd, value?.let { wrap(value) })
+            override fun check(entity: TransientEntity, propertyMetaData: PropertyMetaData, value: B?) =
+                    wrappedConstraint.check(entity, propertyMetaData, value?.let { wrap(value) })
 
             override fun isValid(value: B?) =
                     wrappedConstraint.isValid(value?.let { wrap(it) })

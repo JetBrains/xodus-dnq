@@ -13,34 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.exceptions.SimplePropertyValidationException;
-import jetbrains.exodus.query.metadata.PropertyMetaData;
-import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
+import jetbrains.exodus.query.metadata.PropertyMetaData
 
 /**
  * General constraint for simple property
  */
-public abstract class PropertyConstraint<T> {
+abstract class PropertyConstraint<in T> {
 
-    public SimplePropertyValidationException check(@NotNull TransientEntity e, @NotNull PropertyMetaData pmd, T value) {
-        SimplePropertyValidationException exception = null;
-        if (!isValid(value)) {
-            String propertyName = pmd.getName();
-            exception = new SimplePropertyValidationException(getExceptionMessage(propertyName, value), getDisplayMessage(propertyName, value), e, propertyName);
-        }
-        return exception;
+    open fun check(entity: TransientEntity, propertyMetaData: PropertyMetaData, value: T): SimplePropertyValidationException? {
+        if (isValid(value)) return null
+
+        val propertyName = propertyMetaData.name
+        return SimplePropertyValidationException(getExceptionMessage(propertyName, value), getDisplayMessage(propertyName, value), entity, propertyName)
     }
 
-    public abstract boolean isValid(T value);
+    abstract fun isValid(value: T): Boolean
 
-    @NotNull
-    public abstract String getExceptionMessage(@NotNull String propertyName, T propertyValue);
+    abstract fun getExceptionMessage(propertyName: String, propertyValue: T): String
 
-    @NotNull
-    public String getDisplayMessage(@NotNull String propertyName, T propertyValue) {
-        return getExceptionMessage(propertyName, propertyValue);
-    }
+    open fun getDisplayMessage(propertyName: String, propertyValue: T) =
+            getExceptionMessage(propertyName, propertyValue)
 }

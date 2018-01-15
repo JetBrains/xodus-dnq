@@ -13,21 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.entitystore.Entity
 
 /**
  * Creates error message by incoming Entity and EntityIterable
  */
-public interface MessageBuilder {
+interface MessageBuilder {
 
     /**
-     * @param linkedEntities - entities which have outcoming link with target
+     * @param linkedEntities - entities which have outgoing link with target
      * @param _this - entity we are trying to delete
      */
-    @NotNull
-    String build(@Nullable Iterable<Entity> linkedEntities, @Nullable Entity _this, boolean hasMore);
+    fun build(linkedEntities: Iterable<Entity>?, _this: Entity?, hasMore: Boolean): String
 }

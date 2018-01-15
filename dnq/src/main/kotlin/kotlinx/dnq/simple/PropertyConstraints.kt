@@ -347,11 +347,11 @@ fun PropertyConstraintBuilder<*, String?>.length(min: Int = 0, max: Int = Int.MA
 }
 
 class RequireIfConstraint<R : XdEntity, T>(val message: String?, val predicate: R.() -> Boolean) : PropertyConstraint<T>() {
-    override fun check(e: TransientEntity, pmd: PropertyMetaData, value: T): SimplePropertyValidationException? {
+    override fun check(entity: TransientEntity, propertyMetaData: PropertyMetaData, value: T): SimplePropertyValidationException? {
         @Suppress("UNCHECKED_CAST")
-        return if (value == null && (e.wrapper as R).predicate()) {
-            val propertyName = pmd.name
-            SimplePropertyValidationException(getExceptionMessage(propertyName, value), getDisplayMessage(propertyName, value), e, propertyName)
+        return if (value == null && (entity.wrapper as R).predicate()) {
+            val propertyName = propertyMetaData.name
+            SimplePropertyValidationException(getExceptionMessage(propertyName, value), getDisplayMessage(propertyName, value), entity, propertyName)
         } else {
             null
         }

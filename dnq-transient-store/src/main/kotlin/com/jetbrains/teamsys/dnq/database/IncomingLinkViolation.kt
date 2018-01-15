@@ -13,92 +13,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
 
-import jetbrains.exodus.core.dataStructures.NanoSet;
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.core.dataStructures.NanoSet
+import jetbrains.exodus.entitystore.Entity
+import java.util.*
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
+private const val MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW = 10
 
-public class IncomingLinkViolation {
+open class IncomingLinkViolation(val linkName: String) {
+    private val entitiesCausedViolation = ArrayList<Entity>(MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW)
+    private var hasMoreEntitiesCausedViolations = false
 
-    private static final int MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW = 10;
-
-    @NotNull
-    private String linkName;
-    @NotNull
-    private List<Entity> entitiesCausedViolation;
-    private boolean hasMoreEntitiesCausedViolations;
-
-    public IncomingLinkViolation(@NotNull String linkName) {
-        this.linkName = linkName;
-        this.entitiesCausedViolation = new ArrayList<Entity>(MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW);
-        this.hasMoreEntitiesCausedViolations = false;
-    }
-
-    @NotNull
-    public String getLinkName() {
-        return linkName;
-    }
-
-    public boolean tryAddCause(@NotNull Entity cause) {
-        if (entitiesCausedViolation.size() < MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW) {
-            entitiesCausedViolation.add(cause);
-            return true;
-        }
-        hasMoreEntitiesCausedViolations = true;
-        return false;
-    }
-
-    @NotNull
-    public Collection<String> getDescription() {
-        // default implementation
-        return createPerTypeDefaultErrorMessage(linkName + " for ");
-    }
-
-    @NotNull
-    private Collection<String> createPerTypeDefaultErrorMessage(@NotNull String linkDescription) {
-        StringBuilder entitiesDescriptionBuilder = new StringBuilder();
-        entitiesDescriptionBuilder.append(linkDescription);
-        entitiesDescriptionBuilder.append("{");
-        Iterator<Entity> iterator = entitiesCausedViolation.iterator();
-        while (iterator.hasNext()) {
-            entitiesDescriptionBuilder.append(iterator.next().toString());
-            if (iterator.hasNext()) entitiesDescriptionBuilder.append(", ");
-        }
-        if (hasMoreEntitiesCausedViolations) {
-            entitiesDescriptionBuilder.append(" and more...}");
-        } else {
-            entitiesDescriptionBuilder.append("}");
-        }
-        return new NanoSet<String>(entitiesDescriptionBuilder.toString());
-    }
-
-    @NotNull
-    final protected Collection<String> createPerInstanceErrorMessage(@NotNull MessageBuilder messageBuilder) {
-        List<String> res = new ArrayList<String>();
-        for (Entity entity : entitiesCausedViolation) {
-            res.add(messageBuilder.build(null, entity, hasMoreEntitiesCausedViolations));
-        }
-        if (hasMoreEntitiesCausedViolations) {
-            res.add("and more...");
-        }
-        return res;
-    }
-
-    @NotNull
-    final protected Collection<String> createPerTypeErrorMessage(@NotNull MessageBuilder messageBuilder) {
-        String description = messageBuilder.build(new Iterable<Entity>() {
-            @NotNull
-            public Iterator<Entity> iterator() {
-                return entitiesCausedViolation.iterator();
+    // default implementation
+    open val description: Collection<String>
+        get() = NanoSet(buildString {
+            append(linkName).append(" for {")
+            entitiesCausedViolation.joinTo(this, ", ")
+            if (hasMoreEntitiesCausedViolations) {
+                append(" and more...}")
+            } else {
+                append("}")
             }
-        }, null, hasMoreEntitiesCausedViolations);
-        return new NanoSet<String>(description);
+        })
+
+    fun tryAddCause(cause: Entity): Boolean {
+        return if (entitiesCausedViolation.size < MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW) {
+            entitiesCausedViolation.add(cause)
+            true
+        } else {
+            hasMoreEntitiesCausedViolations = true
+            false
+        }
+    }
+
+    fun createPerInstanceErrorMessage(messageBuilder: MessageBuilder): Collection<String> {
+        return entitiesCausedViolation
+                .map { messageBuilder.build(null, it, hasMoreEntitiesCausedViolations) }
+                .plus(listOfNotNull("and more...".takeIf { hasMoreEntitiesCausedViolations }))
+    }
+
+    fun createPerTypeErrorMessage(messageBuilder: MessageBuilder): Collection<String> {
+        return NanoSet(messageBuilder.build(entitiesCausedViolation, null, hasMoreEntitiesCausedViolations))
     }
 }
