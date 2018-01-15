@@ -40,8 +40,11 @@ class TransientEntityImpl implements TransientEntity {
 
     protected static final Logger logger = LoggerFactory.getLogger(TransientEntity.class);
 
+    @NotNull
     protected final TransientEntityStore store;
+    @NotNull
     private Object entity;
+    @Nullable
     private String entityType;
 
     TransientEntityImpl(@NotNull String type, @NotNull TransientEntityStore store) {
@@ -79,7 +82,8 @@ class TransientEntityImpl implements TransientEntity {
     }
 
     @NotNull
-    TransientSessionImpl getAndCheckThreadStoreSession() {
+    private TransientSessionImpl getAndCheckThreadStoreSession() {
+        // TODO: use threadSessionOrThrow
         final TransientSessionImpl result = (TransientSessionImpl) store.getThreadSession();
         if (result == null) {
             throw new IllegalStateException("No store session in current thread!");
@@ -141,7 +145,7 @@ class TransientEntityImpl implements TransientEntity {
         return getPersistentEntity().getLinkNames();
     }
 
-    public int compareTo(final Entity e) {
+    public int compareTo(@NotNull final Entity e) {
         return getPersistentEntity().compareTo(e);
     }
 
@@ -155,11 +159,12 @@ class TransientEntityImpl implements TransientEntity {
         return getPersistentEntity().toString();
     }
 
+    @NotNull
     public String toString() {
         return getDebugPresentation();
     }
 
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj == this) return true;
         if (!(obj instanceof TransientEntity)) return false;
         final TransientEntity entity = (TransientEntity) obj;
@@ -226,7 +231,8 @@ class TransientEntityImpl implements TransientEntity {
         return getPersistentEntity().getBlobString(blobName);
     }
 
-    public boolean setLink(@NotNull final String linkName, @NotNull final Entity target) {
+    public boolean setLink(@NotNull final String linkName, @Nullable final Entity target) {
+        if (target == null) return false;
         checkCardinality(linkName, this);
 
         return getAndCheckThreadStoreSession().setLink(this, linkName, (TransientEntity) target);
@@ -235,7 +241,7 @@ class TransientEntityImpl implements TransientEntity {
     private void checkCardinality(@NotNull String oneToManyLinkName, @NotNull Entity entity) {
         final AssociationEndMetaData aemd = getAssociationEndMetaData(oneToManyLinkName, entity);
         if (aemd != null && !aemd.getCardinality().isMultiple())
-            throw new IllegalArgumentException("Can not call this opperation for non-multiple association");
+            throw new IllegalArgumentException("Can not call this operation for non-multiple association");
     }
 
     @Nullable
@@ -370,7 +376,8 @@ class TransientEntityImpl implements TransientEntity {
 
     }
 
-    private EntityIterable getAddedRemovedLinks(final String name, boolean removed) {
+    @NotNull
+    private EntityIterable getAddedRemovedLinks(@NotNull final String name, boolean removed) {
         if (isNew()) return EntityIterableBase.EMPTY;
 
         Map<String, LinkChange> changesLinks = getAndCheckThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this);
@@ -395,7 +402,8 @@ class TransientEntityImpl implements TransientEntity {
         return EntityIterableBase.EMPTY;
     }
 
-    private TransientEntityIterable getAddedWrapper(final LinkChange change) {
+    @Nullable
+    private TransientEntityIterable getAddedWrapper(@NotNull final LinkChange change) {
         Set<TransientEntity> addedEntities = change.getAddedEntities();
         if (addedEntities == null) {
             return null;
@@ -413,7 +421,8 @@ class TransientEntityImpl implements TransientEntity {
         };
     }
 
-    private TransientEntityIterable getRemovedWrapper(final LinkChange change) {
+    @Nullable
+    private TransientEntityIterable getRemovedWrapper(@NotNull final LinkChange change) {
         Set<TransientEntity> removedEntities = change.getRemovedEntities();
         if (removedEntities == null) {
             return null;
@@ -431,7 +440,8 @@ class TransientEntityImpl implements TransientEntity {
         };
     }
 
-    private TransientEntityIterable getDeletedWrapper(final LinkChange change) {
+    @Nullable
+    private TransientEntityIterable getDeletedWrapper(@NotNull final LinkChange change) {
         Set<TransientEntity> deletedEntities = change.getDeletedEntities();
         if (deletedEntities == null) {
             return null;
@@ -449,15 +459,18 @@ class TransientEntityImpl implements TransientEntity {
         };
     }
 
+    @NotNull
     public EntityIterable getAddedLinks(@NotNull final String name) {
         return getAddedRemovedLinks(name, false);
     }
 
+    @NotNull
     public EntityIterable getRemovedLinks(@NotNull final String name) {
         return getAddedRemovedLinks(name, true);
     }
 
-    private EntityIterable getAddedRemovedLinks(final Set<String> linkNames, boolean removed) {
+    @NotNull
+    private EntityIterable getAddedRemovedLinks(@NotNull final Set<String> linkNames, boolean removed) {
         if (isNew()) return UniversalEmptyEntityIterable.INSTANCE;
 
         final Map<String, LinkChange> changedLinksDetailed = getAndCheckThreadStoreSession().getTransientChangesTracker().getChangedLinksDetailed(this);
@@ -467,10 +480,12 @@ class TransientEntityImpl implements TransientEntity {
         );
     }
 
+    @NotNull
     public EntityIterable getAddedLinks(@NotNull final Set<String> linkNames) {
         return getAddedRemovedLinks(linkNames, false);
     }
 
+    @NotNull
     public EntityIterable getRemovedLinks(@NotNull final Set<String> linkNames) {
         return getAddedRemovedLinks(linkNames, true);
     }
@@ -550,6 +565,7 @@ class TransientEntityImpl implements TransientEntity {
         return getAndCheckThreadStoreSession().getParent(this);
     }
 
+    @NotNull
     private EntityStore getPersistentStore() {
         return store.getPersistentStore();
     }

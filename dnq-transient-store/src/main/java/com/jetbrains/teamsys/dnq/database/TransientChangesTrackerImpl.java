@@ -107,7 +107,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return changedEntities.size() - addedAndRemovedCount;
     }
 
-    private EntityChangeType getEntityChangeType(TransientEntity e) {
+    @NotNull
+    private EntityChangeType getEntityChangeType(@NotNull TransientEntity e) {
         if (addedEntities.contains(e)) return EntityChangeType.ADD;
         if (removedEntities.contains(e)) return EntityChangeType.REMOVE;
         return EntityChangeType.UPDATE;
@@ -133,6 +134,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return removedEntities;
     }
 
+    @NotNull
     public Set<TransientEntity> getAddedEntities() {
         return addedEntities;
     }
@@ -149,7 +151,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         return !addedEntities.contains(e) && !removedEntities.contains(e);
     }
 
-    boolean wasCreatedAndRemovedInSameTransaction(@NotNull TransientEntity e) {
+    private boolean wasCreatedAndRemovedInSameTransaction(@NotNull TransientEntity e) {
         return addedEntities.contains(e) && removedEntities.contains(e);
     }
 
@@ -162,7 +164,8 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         }
     }
 
-    private Pair<Map<String, LinkChange>, LinkChange> getLinkChange(TransientEntity source, String linkName) {
+    @NotNull
+    private Pair<Map<String, LinkChange>, LinkChange> getLinkChange(@NotNull TransientEntity source, @NotNull String linkName) {
         Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(source);
         if (linksDetailed == null) {
             linksDetailed = new HashMap<String, LinkChange>();
@@ -209,7 +212,7 @@ public final class TransientChangesTrackerImpl implements TransientChangesTracke
         changes.add(change);
     }
 
-    void entityChanged(@NotNull TransientEntity e) {
+    private void entityChanged(@NotNull TransientEntity e) {
         changedEntities.add(e);
         affectedEntityTypes.add(e.getType());
     }

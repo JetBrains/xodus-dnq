@@ -16,8 +16,6 @@
 package com.jetbrains.teamsys.dnq.database;
 
 import jetbrains.exodus.core.dataStructures.StablePriorityQueue;
-import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.core.execution.locks.Latch;
 import jetbrains.exodus.database.*;
 import jetbrains.exodus.entitystore.*;
 import jetbrains.exodus.env.EnvironmentConfig;
@@ -37,28 +35,36 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * @author Vadim.Gurov
  */
-@SuppressWarnings("unused") // TODO: remove this suppression
 public class TransientEntityStoreImpl implements TransientEntityStore {
 
     private static final Logger logger = LoggerFactory.getLogger(TransientEntityStoreImpl.class);
 
+    @NotNull
     private EntityStore persistentStore;
+    @NotNull
     private QueryEngine queryEngine;
+    @Nullable
     private ModelMetaData modelMetaData;
+    @Nullable
     private IEventsMultiplexer eventsMultiplexer;
+    @NotNull
     private final Set<TransientStoreSession> sessions =
             Collections.newSetFromMap(new ConcurrentHashMap<TransientStoreSession, Boolean>(200));
+    @NotNull
     private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<>();
+    @NotNull
     private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<>();
 
     private volatile boolean open = true;
     private boolean closed = false;
-    private final Latch enumContainersLock = Latch.create();
-    private final Set<EnumContainer> initedContainers = new HashSet<>(10);
+    @NotNull
     private final Map<String, Entity> enumCache = new ConcurrentHashMap<>();
+    @NotNull
     private final Map<String, BasePersistentClassImpl> persistentClassInstanceCache = new ConcurrentHashMap<>();
+    @NotNull
     private final Map<Class, BasePersistentClassImpl> persistentClassInstances = new ConcurrentHashMap<>();
 
+    @NotNull
     final ReentrantLock flushLock = new ReentrantLock(true); // fair flushLock
 
     public TransientEntityStoreImpl() {
@@ -67,19 +73,22 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         }
     }
 
+    @NotNull
     public EntityStore getPersistentStore() {
         return persistentStore;
     }
 
+    @NotNull
     public QueryEngine getQueryEngine() {
         return queryEngine;
     }
 
+    @Nullable
     public IEventsMultiplexer getEventsMultiplexer() {
         return eventsMultiplexer;
     }
 
-    public void setEventsMultiplexer(IEventsMultiplexer eventsMultiplexer) {
+    public void setEventsMultiplexer(@Nullable IEventsMultiplexer eventsMultiplexer) {
         this.eventsMultiplexer = eventsMultiplexer;
     }
 
@@ -88,7 +97,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
      *
      * @param persistentStore persistent entity store.
      */
-    public void setPersistentStore(EntityStore persistentStore) {
+    public void setPersistentStore(@NotNull EntityStore persistentStore) {
         final EnvironmentConfig ec = ((PersistentEntityStore) persistentStore).getEnvironment().getEnvironmentConfig();
         if (ec.getEnvTxnDowngradeAfterFlush() == EnvironmentConfig.DEFAULT.getEnvTxnDowngradeAfterFlush()) {
             ec.setEnvTxnDowngradeAfterFlush(false);
@@ -104,7 +113,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
      *
      * @param queryEngine query engine.
      */
-    public void setQueryEngine(QueryEngine queryEngine) {
+    public void setQueryEngine(@NotNull QueryEngine queryEngine) {
         this.queryEngine = queryEngine;
     }
 
@@ -142,6 +151,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         throw new UnsupportedOperationException();
     }
 
+    @NotNull
     public TransientStoreSession beginSession() {
         assertOpen();
 
@@ -158,7 +168,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         return registerStoreSession(new TransientSessionImpl(this, false));
     }
 
-    public void resumeSession(TransientStoreSession session) {
+    public void resumeSession(@Nullable TransientStoreSession session) {
         if (session != null) {
             assertOpen();
 
@@ -173,7 +183,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         }
     }
 
-    public void setModelMetaData(final ModelMetaData modelMetaData) {
+    public void setModelMetaData(@Nullable final ModelMetaData modelMetaData) {
         this.modelMetaData = modelMetaData;
     }
 
@@ -200,7 +210,9 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     public void close() {
         open = false;
 
-        eventsMultiplexer.onClose(this);
+        if (eventsMultiplexer != null) {
+            eventsMultiplexer.onClose(this);
+        }
 
         logger.info("Close transient store.");
         closed = true;
@@ -314,7 +326,8 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         });
     }
 
-    private TransientStoreSession registerStoreSession(TransientStoreSession s) {
+    @NotNull
+    private TransientStoreSession registerStoreSession(@NotNull TransientStoreSession s) {
         if (!sessions.add(s)) {
             throw new IllegalArgumentException("Session is already registered.");
         }
@@ -324,7 +337,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         return s;
     }
 
-    void unregisterStoreSession(TransientStoreSession s) {
+    void unregisterStoreSession(@NotNull TransientStoreSession s) {
         if (!sessions.remove(s)) {
             throw new IllegalArgumentException("Transient session wasn't previously registered.");
         }
@@ -349,7 +362,7 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
     }
 
     @Override
-    public void addListener(TransientStoreSessionListener listener, final int priority) {
+    public void addListener(@NotNull TransientStoreSessionListener listener, final int priority) {
         listeners.push(priority, listener);
     }
 
@@ -367,41 +380,29 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         return sessions.size();
     }
 
-    public void dumpSessions(StringBuilder sb) {
+    public void dumpSessions(@NotNull StringBuilder sb) {
         for (TransientStoreSession s : sessions) {
             sb.append("\n").append(s.toString());
         }
     }
 
-    public boolean isEnumContainerInited(EnumContainer container) {
-        return initedContainers.contains(container);
-    }
-
-    public void enumContainerInited(EnumContainer container) {
-        initedContainers.add(container);
-    }
-
-    public void enumContainerLock() throws InterruptedException {
-        enumContainersLock.acquire();
-    }
-
-    public void enumContainerUnLock() {
-        enumContainersLock.release();
-    }
-
+    @Nullable
     public Entity getCachedEnumValue(@NotNull final String className, @NotNull final String propName) {
         return enumCache.get(getEnumKey(className, propName));
     }
 
     public void setCachedEnumValue(@NotNull final String className,
-                                   @NotNull final String propName, @NotNull final Entity entity) {
+                                   @NotNull final String propName,
+                                   @NotNull final Entity entity) {
         enumCache.put(getEnumKey(className, propName), entity);
     }
 
+    @Nullable
     public BasePersistentClassImpl getCachedPersistentClassInstance(@NotNull final String entityType) {
         return persistentClassInstanceCache.get(entityType);
     }
 
+    @Nullable
     public BasePersistentClassImpl getCachedPersistentClassInstance(@NotNull final Class<? extends BasePersistentClassImpl> entityType) {
         return persistentClassInstances.get(entityType);
     }
@@ -422,12 +423,13 @@ public class TransientEntityStoreImpl implements TransientEntityStore {
         if (closed) throw new IllegalStateException("Transient store is closed.");
     }
 
+    @NotNull
     public static String getEnumKey(@NotNull final String className, @NotNull final String propName) {
         return propName + '@' + className;
     }
 
     interface ListenerVisitor {
-        void visit(TransientStoreSessionListener listener);
+        void visit(@NotNull TransientStoreSessionListener listener);
     }
 
 }

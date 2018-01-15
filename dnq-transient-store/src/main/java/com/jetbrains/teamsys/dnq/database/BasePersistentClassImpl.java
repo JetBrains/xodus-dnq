@@ -29,6 +29,7 @@ import java.util.concurrent.Callable;
 public abstract class BasePersistentClassImpl implements Runnable {
     @Nullable
     protected Map<String, Iterable<PropertyConstraint>> propertyConstraints;
+    @Nullable
     protected TransientEntityStore entityStore;
 
     protected BasePersistentClassImpl() {
@@ -55,12 +56,13 @@ public abstract class BasePersistentClassImpl implements Runnable {
         return propertyConstraints != null ? propertyConstraints : Collections.<String, Iterable<PropertyConstraint>>emptyMap();
     }
 
+    @Nullable
     protected Map<String, Callable<String>> getPropertyDisplayNames() {
         return null;
     }
 
     @NotNull
-    public String getPropertyDisplayName(String name) {
+    public String getPropertyDisplayName(@NotNull String name) {
         final Map<String, Callable<String>> propertyDisplayNames = getPropertyDisplayNames();
         final Callable<String> displayName = propertyDisplayNames == null ? null : propertyDisplayNames.get(name);
         try {
@@ -70,20 +72,23 @@ public abstract class BasePersistentClassImpl implements Runnable {
         }
     }
 
-    public void destructor(Entity entity) {
+    public void destructor(@NotNull Entity entity) {
     }
 
-    public void executeBeforeFlushTrigger(Entity entity) {
+    public void executeBeforeFlushTrigger(@NotNull Entity entity) {
     }
 
-    public boolean evaluateSaveHistoryCondition(Entity entity) {
+    @Deprecated
+    public boolean evaluateSaveHistoryCondition(@NotNull Entity entity) {
         return false;
     }
 
-    public void saveHistoryCallback(Entity entity) {
+    @Deprecated
+    public void saveHistoryCallback(@NotNull Entity entity) {
     }
 
-    public DataIntegrityViolationException createIncomingLinksException(List<IncomingLinkViolation> linkViolations, final Entity entity) {
+    @NotNull
+    public DataIntegrityViolationException createIncomingLinksException(@NotNull List<IncomingLinkViolation> linkViolations, @NotNull final Entity entity) {
         List<Collection<String>> linkDescriptions = new ArrayList<Collection<String>>();
         for (IncomingLinkViolation violation : linkViolations) {
             linkDescriptions.add(violation.getDescription());
@@ -93,20 +98,24 @@ public abstract class BasePersistentClassImpl implements Runnable {
         return new CantRemoveEntityException(entity, displayMessage, displayName, linkDescriptions);
     }
 
-    public IncomingLinkViolation createIncomingLinkViolation(String linkName) {
+    @NotNull
+    public IncomingLinkViolation createIncomingLinkViolation(@NotNull String linkName) {
         return new IncomingLinkViolation(linkName);
     }
 
-    public String getDisplayName(final Entity entity) {
+    @NotNull
+    public String getDisplayName(@NotNull final Entity entity) {
         return toString(entity);
     }
 
-    public String toString(Entity entity) {
+    @NotNull
+    public String toString(@NotNull Entity entity) {
         if (entity instanceof TransientEntity) return ((TransientEntity) entity).getDebugPresentation();
         return entity.toString();
     }
 
-    public static <T> Set<T> buildSet(final T[] data) {
+    @NotNull
+    public static <T> Set<T> buildSet(@NotNull final T[] data) {
         final Set<T> result = new HashSet<T>(data.length);
         for (final T t : data) {
             result.add(t);

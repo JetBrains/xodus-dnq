@@ -42,8 +42,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 
-/**
- */
 public class TransientSessionImpl implements TransientStoreSession {
 
     protected static final Logger logger = LoggerFactory.getLogger(TransientSessionImpl.class);

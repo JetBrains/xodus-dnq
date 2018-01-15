@@ -36,7 +36,7 @@ import java.util.Set;
 
 public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
     private Boolean hasChanges = null;
-    private Map<String, LinkChange> linksDetaled;
+    private Map<String, LinkChange> linksDetailed;
     private Set<String> changedProperties;
 
     public ReadonlyTransientEntityImpl(@NotNull ReadOnlyPersistentEntity snapshot, @NotNull TransientEntityStore store) {
@@ -48,7 +48,7 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
         if (change != null) {
             this.changedProperties = change.getChangedProperties();
-            this.linksDetaled = change.getChangedLinksDetaled();
+            this.linksDetailed = change.getChangedLinksDetaled();
         }
     }
 
@@ -143,8 +143,8 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         if (super.hasChanges(property)) {
             return true;
         } else {
-            if (linksDetaled != null && linksDetaled.containsKey(property)) {
-                LinkChange change = linksDetaled.get(property);
+            if (linksDetailed != null && linksDetailed.containsKey(property)) {
+                LinkChange change = linksDetailed.get(property);
                 return change.getAddedEntitiesSize() > 0 || change.getRemovedEntitiesSize() > 0 || change.getDeletedEntitiesSize() > 0;
             }
 
@@ -157,12 +157,12 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         if (super.hasChangesExcepting(properties)) {
             return true;
         } else {
-            if (linksDetaled != null) {
-                if (linksDetaled.size() > properties.length) {
+            if (linksDetailed != null) {
+                if (linksDetailed.size() > properties.length) {
                     // by Dirichlet principle, even if 'properties' param is malformed
                     return true;
                 }
-                final Set<String> linksDetaledCopy = new HashSet<String>(linksDetaled.keySet());
+                final Set<String> linksDetaledCopy = new HashSet<String>(linksDetailed.keySet());
                 for (String property : properties) {
                     linksDetaledCopy.remove(property);
                 }
@@ -187,10 +187,11 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         }
     }
 
+    @NotNull
     @Override
     public EntityIterable getAddedLinks(@NotNull String name) {
-        if (linksDetaled != null) {
-            final LinkChange c = linksDetaled.get(name);
+        if (linksDetailed != null) {
+            final LinkChange c = linksDetailed.get(name);
             if (c != null) {
                 Set<TransientEntity> added = c.getAddedEntities();
 
@@ -212,10 +213,11 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         return EntityIterableBase.EMPTY;
     }
 
+    @NotNull
     @Override
     public EntityIterable getRemovedLinks(@NotNull String name) {
-        if (linksDetaled != null) {
-            final LinkChange c = linksDetaled.get(name);
+        if (linksDetailed != null) {
+            final LinkChange c = linksDetailed.get(name);
             if (c != null) {
                 Set<TransientEntity> removed = c.getRemovedEntities();
                 if (removed != null) {
@@ -236,27 +238,29 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         return EntityIterableBase.EMPTY;
     }
 
+    @NotNull
     @Override
     public EntityIterable getAddedLinks(@NotNull Set<String> linkNames) {
-        if (linksDetaled != null) {
-            return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, false);
+        if (linksDetailed != null) {
+            return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetailed, linkNames, false);
         }
         return UniversalEmptyEntityIterable.INSTANCE;
     }
 
+    @NotNull
     @Override
     public EntityIterable getRemovedLinks(@NotNull Set<String> linkNames) {
-        if (linksDetaled != null) {
-            return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetaled, linkNames, true);
+        if (linksDetailed != null) {
+            return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetailed, linkNames, true);
         }
         return UniversalEmptyEntityIterable.INSTANCE;
     }
 
     private void evaluateHasChanges() {
         boolean hasChanges = false;
-        if (linksDetaled != null) {
-            for (String linkName : linksDetaled.keySet()) {
-                LinkChange linkChange = linksDetaled.get(linkName);
+        if (linksDetailed != null) {
+            for (String linkName : linksDetailed.keySet()) {
+                LinkChange linkChange = linksDetailed.get(linkName);
                 if (linkChange != null) {
                     if (linkChange.getAddedEntitiesSize() > 0 || linkChange.getRemovedEntitiesSize() > 0 || linkChange.getDeletedEntitiesSize() > 0) {
                         hasChanges = true;
@@ -273,14 +277,17 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
         this.hasChanges = hasChanges;
     }
 
+    @Nullable
     private ReadOnlyPersistentEntity getSnapshotPersistentEntity(@Nullable final PersistentEntity entity) {
         return entity == null ? null : new ReadOnlyPersistentEntity(getPersistentEntity().getTransaction(), entity.getId());
     }
 
+    @NotNull
     private static IllegalStateException createReadonlyException() {
         return new IllegalStateException("Entity is readonly.");
     }
 
+    @NotNull
     private EntityIterable wrapWithReadOnlyIterable(@NotNull final EntityIterable source) {
         return source == EntityIterableBase.EMPTY ? source : new ReadOnlyIterable((EntityIterableBase) source);
     }
@@ -328,9 +335,10 @@ public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
 
     private class ReadOnlyIterator extends EntityIteratorBase {
 
+        @NotNull
         private final EntityIteratorBase source;
 
-        private ReadOnlyIterator(ReadOnlyIterable source) {
+        private ReadOnlyIterator(@NotNull ReadOnlyIterable source) {
             super(source);
             this.source = (EntityIteratorBase) source.getDecorated().iterator();
         }
