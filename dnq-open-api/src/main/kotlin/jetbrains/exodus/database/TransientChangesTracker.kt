@@ -41,25 +41,25 @@ interface TransientChangesTracker {
     /**
      * Return change description for given entity
      */
-    fun getChangeDescription(e: TransientEntity): TransientEntityChange
+    fun getChangeDescription(transientEntity: TransientEntity): TransientEntityChange
 
     /**
      * Returns set of changed links for given entity
      */
-    fun getChangedLinksDetailed(e: TransientEntity): Map<String, LinkChange>?
+    fun getChangedLinksDetailed(transientEntity: TransientEntity): Map<String, LinkChange>?
 
     /**
      * Returns set of changed properties for given entity
      */
-    fun getChangedProperties(e: TransientEntity): Set<String>?
+    fun getChangedProperties(transientEntity: TransientEntity): Set<String>?
 
-    fun getSnapshotEntity(e: TransientEntity): TransientEntity
+    fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity
 
     fun upgrade(): TransientChangesTracker
 
     fun dispose()
 
-    fun isNew(e: TransientEntity): Boolean
+    fun isNew(transientEntity: TransientEntity): Boolean
 
     fun isSaved(transientEntity: TransientEntity): Boolean
 

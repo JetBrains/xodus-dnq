@@ -13,149 +13,81 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.LinkChange;
-import jetbrains.exodus.database.TransientChangesTracker;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientEntityChange;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.PersistentStoreTransaction;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.LinkChange
+import jetbrains.exodus.database.TransientChangesTracker
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.database.TransientEntityChange
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.PersistentStoreTransaction
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+class ReadOnlyTransientChangesTrackerImpl(snapshot: PersistentStoreTransaction) : TransientChangesTracker {
 
-@SuppressWarnings("unchecked")
-public class ReadOnlyTransientChangesTrackerImpl implements TransientChangesTracker {
-    @Nullable
-    private PersistentStoreTransaction snapshot;
+    override val changesDescription: Set<TransientEntityChange>
+        get() = emptySet()
 
-    ReadOnlyTransientChangesTrackerImpl(@NotNull PersistentStoreTransaction snapshot) {
-        this.snapshot = snapshot;
+    override val changesDescriptionCount: Int
+        get() = 0
+
+    private var _snapshot: PersistentStoreTransaction? = snapshot
+    override val snapshot: PersistentStoreTransaction
+        get() = _snapshot ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
+
+    override val changedEntities: Set<TransientEntity>
+        get() = emptySet()
+
+    override val removedEntities: Set<TransientEntity>
+        get() = emptySet()
+
+    override val affectedEntityTypes: Set<String>
+        get() = emptySet()
+
+    override fun getChangeDescription(transientEntity: TransientEntity): TransientEntityChange = throw UnsupportedOperationException()
+
+    override fun getChangedLinksDetailed(transientEntity: TransientEntity): Map<String, LinkChange>? = emptyMap()
+
+    override fun getChangedProperties(transientEntity: TransientEntity): Set<String>? = emptySet()
+
+    override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity = throw UnsupportedOperationException()
+
+    override fun isNew(transientEntity: TransientEntity) = false
+
+    override fun isSaved(transientEntity: TransientEntity) = true
+
+    override fun isRemoved(transientEntity: TransientEntity) = false
+
+    override fun linkChanged(
+            source: TransientEntity,
+            linkName: String,
+            target: TransientEntity,
+            oldTarget: TransientEntity?,
+            add: Boolean
+    ) = throw UnsupportedOperationException()
+
+    override fun linksRemoved(source: TransientEntity, linkName: String, links: Iterable<Entity>): Unit =
+            throw UnsupportedOperationException()
+
+    override fun propertyChanged(e: TransientEntity, propertyName: String): Unit =
+            throw UnsupportedOperationException()
+
+    override fun removePropertyChanged(e: TransientEntity, propertyName: String): Unit =
+            throw UnsupportedOperationException()
+
+    override fun entityAdded(e: TransientEntity): Unit =
+            throw UnsupportedOperationException()
+
+    override fun entityRemoved(e: TransientEntity): Unit =
+            throw UnsupportedOperationException()
+
+    override fun upgrade(): TransientChangesTracker {
+        return TransientChangesTrackerImpl(snapshot)
     }
 
-    @NotNull
-    @Override
-    public Set<TransientEntityChange> getChangesDescription() {
-        return Collections.EMPTY_SET;
-    }
-
-    @Override
-    @NotNull
-    public TransientEntityChange getChangeDescription(@NotNull TransientEntity e) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int getChangesDescriptionCount() {
-        return 0;
-    }
-
-    @Nullable
-    @Override
-    public Map<String, LinkChange> getChangedLinksDetailed(@NotNull TransientEntity e) {
-        return Collections.EMPTY_MAP;
-    }
-
-    @Nullable
-    @Override
-    public Set<String> getChangedProperties(@NotNull TransientEntity e) {
-        return Collections.EMPTY_SET;
-    }
-
-    @Override
-    @NotNull
-    public PersistentStoreTransaction getSnapshot() {
-        PersistentStoreTransaction snapshot = this.snapshot;
-        if (snapshot == null) {
-            throw new IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed");
-        }
-        return snapshot;
-    }
-
-    @Override
-    @NotNull
-    public TransientEntity getSnapshotEntity(@NotNull TransientEntity e) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    @NotNull
-    public Set<TransientEntity> getChangedEntities() {
-        return Collections.EMPTY_SET;
-    }
-
-    @Override
-    @NotNull
-    public Set<TransientEntity> getRemovedEntities() {
-        return Collections.EMPTY_SET;
-    }
-
-    @Override
-    @NotNull
-    public Set<String> getAffectedEntityTypes() {
-        return Collections.EMPTY_SET;
-    }
-
-    @Override
-    public boolean isNew(@NotNull TransientEntity e) {
-        return false;
-    }
-
-    @Override
-    public boolean isSaved(@NotNull TransientEntity transientEntity) {
-        return true;
-    }
-
-    @Override
-    public boolean isRemoved(@NotNull TransientEntity transientEntity) {
-        return false;
-    }
-
-    @Override
-    public void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void linksRemoved(@NotNull TransientEntity source, @NotNull String linkName, @NotNull Iterable<Entity> links) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void propertyChanged(@NotNull TransientEntity e, @NotNull String propertyName) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void removePropertyChanged(@NotNull TransientEntity e, @NotNull String propertyName) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void entityAdded(@NotNull TransientEntity e) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void entityRemoved(@NotNull TransientEntity e) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    @NotNull
-    public TransientChangesTracker upgrade() {
-        return new TransientChangesTrackerImpl(getSnapshot());
-    }
-
-    @Override
-    public void dispose() {
-        if (snapshot != null) {
-            snapshot.abort();
-            snapshot = null;
+    override fun dispose() {
+        if (_snapshot != null) {
+            _snapshot!!.abort()
+            _snapshot = null
         }
     }
 }

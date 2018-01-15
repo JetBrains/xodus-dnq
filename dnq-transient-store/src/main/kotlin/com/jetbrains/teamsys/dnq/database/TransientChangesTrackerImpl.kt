@@ -13,259 +13,191 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
-import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator;
-import jetbrains.exodus.core.dataStructures.hash.HashMap;
-import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet;
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.PersistentStoreTransaction;
-import jetbrains.exodus.entitystore.ReadOnlyPersistentEntity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
+import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator
+import jetbrains.exodus.core.dataStructures.hash.HashMap
+import jetbrains.exodus.core.dataStructures.hash.HashSet
+import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet
+import jetbrains.exodus.database.*
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.PersistentStoreTransaction
 
-import java.util.*;
+import java.util.*
 
 /**
  * @author Vadim.Gurov
  */
-public final class TransientChangesTrackerImpl implements TransientChangesTracker {
+class TransientChangesTrackerImpl(_snapshot: PersistentStoreTransaction) : TransientChangesTracker {
+    private var _snapshot: PersistentStoreTransaction? = _snapshot
+    override val snapshot: PersistentStoreTransaction
+        get() = this._snapshot ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
 
-    @NotNull
-    private final Set<TransientEntity> changedEntities = new LinkedHashSet<TransientEntity>();
-    @NotNull
-    private final Set<TransientEntity> addedEntities = new LinkedHashSet<TransientEntity>();
-    @NotNull
-    private final Set<TransientEntity> removedEntities = new LinkedHashSetDecorator<TransientEntity>();
-    @NotNull
-    private final Set<String> affectedEntityTypes = new HashSet<String>();
-    @NotNull
-    private final Map<TransientEntity, List<LinkChange>> removedFrom = new HashMapDecorator<TransientEntity, List<LinkChange>>();
-    @NotNull
-    private final Map<TransientEntity, Map<String, LinkChange>> entityToChangedLinksDetailed = new HashMapDecorator<TransientEntity, Map<String, LinkChange>>();
-    @NotNull
-    private final Map<TransientEntity, Set<String>> entityToChangedProperties = new HashMapDecorator<TransientEntity, Set<String>>();
-    @Nullable
-    private PersistentStoreTransaction snapshot;
+    private val _changedEntities = LinkedHashSet<TransientEntity>()
+    override val changedEntities: Set<TransientEntity>
+        get() = _changedEntities
 
-    TransientChangesTrackerImpl(@NotNull PersistentStoreTransaction snapshot) {
-        this.snapshot = snapshot;
-    }
+    private val _addedEntities = LinkedHashSet<TransientEntity>()
+    val addedEntities: Set<TransientEntity>
+        get() = _addedEntities
 
-    @NotNull
-    public Set<TransientEntity> getChangedEntities() {
-        return changedEntities;
-    }
+    private val _removedEntities = LinkedHashSetDecorator<TransientEntity>()
+    override val removedEntities: Set<TransientEntity>
+        get() = _removedEntities
 
-    @NotNull
-    public Set<String> getAffectedEntityTypes() {
-        return Collections.unmodifiableSet(affectedEntityTypes);
-    }
+    private val _affectedEntityTypes = HashSet<String>()
+    override val affectedEntityTypes: Set<String>
+        get() = Collections.unmodifiableSet(_affectedEntityTypes)
 
-    @NotNull
-    public PersistentStoreTransaction getSnapshot() {
-        PersistentStoreTransaction snapshot = this.snapshot;
-        if (snapshot == null) {
-            throw new IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed");
-        }
-        return snapshot;
-    }
+    private val removedFrom = HashMapDecorator<TransientEntity, MutableList<LinkChange>>()
+    private val entityToChangedLinksDetailed = HashMapDecorator<TransientEntity, MutableMap<String, LinkChange>>()
+    private val entityToChangedProperties = HashMapDecorator<TransientEntity, MutableSet<String>>()
 
-    @Override
-    @NotNull
-    public TransientEntityImpl getSnapshotEntity(@NotNull TransientEntity e) {
-        final ReadOnlyPersistentEntity ro = e.getPersistentEntity().getSnapshot(getSnapshot());
-        return new ReadonlyTransientEntityImpl(getChangeDescription(e), ro, e.getStore());
-    }
+    // do not notify about RemovedNew entities - such entities was created and removed during same transaction
+    override val changesDescription: Set<TransientEntityChange>
+        get() = changedEntities
+                .filterNot { it in addedEntities && it in removedEntities }
+                .mapTo(LinkedHashSetDecorator()) {
+                    TransientEntityChange(this, it, getChangedProperties(it), getChangedLinksDetailed(it), getEntityChangeType(it))
+                }
 
-    @NotNull
-    public Set<TransientEntityChange> getChangesDescription() {
-        Set<TransientEntityChange> changesDescription = new LinkedHashSetDecorator<TransientEntityChange>();
-
-        for (TransientEntity e : getChangedEntities()) {
-            // do not notify about RemovedNew entities - such entities was created and removed during same transaction
-            if (wasCreatedAndRemovedInSameTransaction(e)) continue;
-
-            changesDescription.add(new TransientEntityChange(this, e, getChangedProperties(e), getChangedLinksDetailed(e), getEntityChangeType(e)));
+    override val changesDescriptionCount: Int
+        get() {
+            val addedAndRemovedCount = removedEntities.count { it in addedEntities }
+            return changedEntities.size - addedAndRemovedCount
         }
 
-        return changesDescription;
+    override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntityImpl {
+        val readOnlyPersistentEntity = transientEntity.persistentEntity.getSnapshot(snapshot)
+        return ReadonlyTransientEntityImpl(getChangeDescription(transientEntity), readOnlyPersistentEntity, transientEntity.store)
     }
 
-    @Override
-    public int getChangesDescriptionCount() {
-        int addedAndRemovedCount = 0;
-        for (TransientEntity removed : removedEntities) {
-            if (addedEntities.contains(removed)) {
-                addedAndRemovedCount++;
-            }
-        }
-        return changedEntities.size() - addedAndRemovedCount;
-    }
-
-    @NotNull
-    private EntityChangeType getEntityChangeType(@NotNull TransientEntity e) {
-        if (addedEntities.contains(e)) return EntityChangeType.ADD;
-        if (removedEntities.contains(e)) return EntityChangeType.REMOVE;
-        return EntityChangeType.UPDATE;
-    }
-
-    @NotNull
-    public TransientEntityChange getChangeDescription(@NotNull TransientEntity e) {
-        return new TransientEntityChange(this, e, getChangedProperties(e), getChangedLinksDetailed(e), getEntityChangeType(e));
-    }
-
-    @Nullable
-    public Map<String, LinkChange> getChangedLinksDetailed(@NotNull TransientEntity e) {
-        return entityToChangedLinksDetailed.get(e);
-    }
-
-    @Nullable
-    public Set<String> getChangedProperties(@NotNull TransientEntity e) {
-        return entityToChangedProperties.get(e);
-    }
-
-    @NotNull
-    public Set<TransientEntity> getRemovedEntities() {
-        return removedEntities;
-    }
-
-    @NotNull
-    public Set<TransientEntity> getAddedEntities() {
-        return addedEntities;
-    }
-
-    public boolean isNew(@NotNull TransientEntity e) {
-        return addedEntities.contains(e);
-    }
-
-    public boolean isRemoved(@NotNull TransientEntity e) {
-        return removedEntities.contains(e);
-    }
-
-    public boolean isSaved(@NotNull TransientEntity e) {
-        return !addedEntities.contains(e) && !removedEntities.contains(e);
-    }
-
-    private boolean wasCreatedAndRemovedInSameTransaction(@NotNull TransientEntity e) {
-        return addedEntities.contains(e) && removedEntities.contains(e);
-    }
-
-    public void linksRemoved(@NotNull TransientEntity source, @NotNull String linkName, @NotNull Iterable<Entity> links) {
-        entityChanged(source);
-
-        final Pair<Map<String, LinkChange>, LinkChange> lc = getLinkChange(source, linkName);
-        for (Entity entity : links) {
-            addRemoved(lc.getSecond(), (TransientEntity) entity);
+    private fun getEntityChangeType(transientEntity: TransientEntity): EntityChangeType {
+        return when (transientEntity) {
+            in addedEntities -> EntityChangeType.ADD
+            in removedEntities -> EntityChangeType.REMOVE
+            else -> EntityChangeType.UPDATE
         }
     }
 
-    @NotNull
-    private Pair<Map<String, LinkChange>, LinkChange> getLinkChange(@NotNull TransientEntity source, @NotNull String linkName) {
-        Map<String, LinkChange> linksDetailed = entityToChangedLinksDetailed.get(source);
-        if (linksDetailed == null) {
-            linksDetailed = new HashMap<String, LinkChange>();
-            entityToChangedLinksDetailed.put(source, linksDetailed);
-        }
-
-        LinkChange lc = linksDetailed.get(linkName);
-        if (lc == null) {
-            lc = new LinkChange(linkName);
-            linksDetailed.put(linkName, lc);
-        }
-
-        return new Pair<Map<String, LinkChange>, LinkChange>(linksDetailed, lc);
+    override fun getChangeDescription(transientEntity: TransientEntity): TransientEntityChange {
+        return TransientEntityChange(
+                this,
+                transientEntity,
+                getChangedProperties(transientEntity),
+                getChangedLinksDetailed(transientEntity),
+                getEntityChangeType(transientEntity)
+        )
     }
 
-    public void linkChanged(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target, @Nullable TransientEntity oldTarget, boolean add) {
-        entityChanged(source);
+    override fun getChangedLinksDetailed(transientEntity: TransientEntity): Map<String, LinkChange>? {
+        return entityToChangedLinksDetailed[transientEntity]
+    }
 
-        final Pair<Map<String, LinkChange>, LinkChange> pair = getLinkChange(source, linkName);
-        final LinkChange lc = pair.getSecond();
+    override fun getChangedProperties(transientEntity: TransientEntity): Set<String>? {
+        return entityToChangedProperties[transientEntity]
+    }
+
+    override fun isNew(transientEntity: TransientEntity): Boolean {
+        return transientEntity in addedEntities
+    }
+
+    override fun isRemoved(transientEntity: TransientEntity): Boolean {
+        return transientEntity in removedEntities
+    }
+
+    override fun isSaved(transientEntity: TransientEntity): Boolean {
+        return transientEntity !in addedEntities && transientEntity !in removedEntities
+    }
+
+    override fun linksRemoved(source: TransientEntity, linkName: String, links: Iterable<Entity>) {
+        entityChanged(source)
+
+        val (_, linkChange) = getLinkChange(source, linkName)
+        links.forEach {
+            addRemoved(linkChange, it as TransientEntity)
+        }
+    }
+
+    private fun getLinkChange(source: TransientEntity, linkName: String): Pair<MutableMap<String, LinkChange>, LinkChange> {
+        val linksDetailed = entityToChangedLinksDetailed.getOrPut(source) { HashMap() }
+        val linkChange = linksDetailed.getOrPut(linkName) { LinkChange(linkName) }
+        return Pair(linksDetailed, linkChange)
+    }
+
+    override fun linkChanged(source: TransientEntity, linkName: String, target: TransientEntity, oldTarget: TransientEntity?, add: Boolean) {
+        entityChanged(source)
+
+        val (linksDetailed, linkChange) = getLinkChange(source, linkName)
         if (add) {
             if (oldTarget != null) {
-                addRemoved(lc, oldTarget);
+                addRemoved(linkChange, oldTarget)
             }
-            lc.addAdded(target);
+            linkChange.addAdded(target)
         } else {
-            addRemoved(lc, target);
+            addRemoved(linkChange, target)
         }
-        if (lc.getAddedEntitiesSize() == 0 && lc.getRemovedEntitiesSize() == 0 && lc.getDeletedEntitiesSize() == 0) {
-            pair.getFirst().remove(linkName);
-            if (pair.getFirst().size() == 0) {
-                entityToChangedLinksDetailed.remove(source);
+        if (linkChange.addedEntitiesSize == 0 && linkChange.removedEntitiesSize == 0 && linkChange.deletedEntitiesSize == 0) {
+            linksDetailed.remove(linkName)
+            if (linksDetailed.isEmpty()) {
+                entityToChangedLinksDetailed.remove(source)
             }
         }
     }
 
-    private void addRemoved(@NotNull final LinkChange change, @NotNull final TransientEntity entity) {
-        change.addRemoved(entity);
-        List<LinkChange> changes = removedFrom.get(entity);
-        if (changes == null) {
-            changes = new ArrayList<LinkChange>();
-            removedFrom.put(entity, changes);
-        }
-        changes.add(change);
+    private fun addRemoved(change: LinkChange, entity: TransientEntity) {
+        change.addRemoved(entity)
+        val changes = removedFrom.getOrPut(entity) { ArrayList() }
+        changes.add(change)
     }
 
-    private void entityChanged(@NotNull TransientEntity e) {
-        changedEntities.add(e);
-        affectedEntityTypes.add(e.getType());
+    private fun entityChanged(e: TransientEntity) {
+        _changedEntities.add(e)
+        _affectedEntityTypes.add(e.type)
     }
 
-    public void propertyChanged(@NotNull TransientEntity e, @NotNull String propertyName) {
-        entityChanged(e);
+    override fun propertyChanged(e: TransientEntity, propertyName: String) {
+        entityChanged(e)
 
-        Set<String> properties = entityToChangedProperties.get(e);
-        if (properties == null) {
-            properties = new HashSet<String>();
-            entityToChangedProperties.put(e, properties);
-        }
-
-        properties.add(propertyName);
+        val properties = entityToChangedProperties.getOrPut(e) { HashSet() }
+        properties.add(propertyName)
     }
 
-    public void removePropertyChanged(@NotNull TransientEntity e, @NotNull String propertyName) {
-        Set<String> properties = entityToChangedProperties.get(e);
+    override fun removePropertyChanged(e: TransientEntity, propertyName: String) {
+        val properties = entityToChangedProperties[e]
         if (properties != null) {
-            properties.remove(propertyName);
+            properties.remove(propertyName)
             if (properties.isEmpty()) {
-                entityToChangedProperties.remove(e);
+                entityToChangedProperties.remove(e)
             }
         }
     }
 
-    public void entityAdded(@NotNull TransientEntity e) {
-        entityChanged(e);
-        addedEntities.add(e);
+    override fun entityAdded(e: TransientEntity) {
+        entityChanged(e)
+        _addedEntities.add(e)
     }
 
-    public void entityRemoved(@NotNull TransientEntity e) {
-        entityChanged(e);
-        removedEntities.add(e);
-        List<LinkChange> changes = removedFrom.get(e);
+    override fun entityRemoved(e: TransientEntity) {
+        entityChanged(e)
+        _removedEntities.add(e)
+        val changes = removedFrom[e]
         if (changes != null) {
-            for (LinkChange change : changes) {
-                change.addDeleted(e);
+            for (change in changes) {
+                change.addDeleted(e)
             }
         }
     }
 
-    @Override
-    @NotNull
-    public TransientChangesTracker upgrade() {
-        return this;
+    override fun upgrade(): TransientChangesTracker {
+        return this
     }
 
-    @Override
-    public void dispose() {
-        if (snapshot != null) {
-            snapshot.abort();
-            snapshot = null;
+    override fun dispose() {
+        if (_snapshot != null) {
+            _snapshot!!.abort()
+            _snapshot = null
         }
     }
 }

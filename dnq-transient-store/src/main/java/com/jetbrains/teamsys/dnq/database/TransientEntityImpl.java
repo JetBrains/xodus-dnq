@@ -36,7 +36,7 @@ import java.util.*;
 /**
  * @author Vadim.Gurov
  */
-class TransientEntityImpl implements TransientEntity {
+public class TransientEntityImpl implements TransientEntity {
 
     protected static final Logger logger = LoggerFactory.getLogger(TransientEntity.class);
 
