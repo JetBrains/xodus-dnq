@@ -26,5 +26,5 @@ interface MessageBuilder {
      * @param linkedEntities - entities which have outgoing link with target
      * @param _this - entity we are trying to delete
      */
-    fun build(linkedEntities: Iterable<Entity>?, _this: Entity?, hasMore: Boolean): String
+    fun build(linkedEntities: @JvmSuppressWildcards Iterable<Entity>?, _this: Entity?, hasMore: Boolean): String
 }
