@@ -21,18 +21,20 @@ import jetbrains.exodus.database.exceptions.CantRemoveEntityException;
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
 import jetbrains.exodus.entitystore.Entity;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.Callable;
 
 public abstract class BasePersistentClassImpl implements Runnable {
+    @Nullable
     protected Map<String, Iterable<PropertyConstraint>> propertyConstraints;
     protected TransientEntityStore entityStore;
 
     protected BasePersistentClassImpl() {
     }
 
-    protected Entity _constructor(final String _entityType_) {
+    protected Entity _constructor(@NotNull final String _entityType_) {
         return getEntityStore().getThreadSession().newEntity(_entityType_);
     }
 
