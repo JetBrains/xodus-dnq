@@ -361,11 +361,11 @@ class RequireIfConstraint<R : XdEntity, T>(val message: String?, val predicate: 
         throw UnsupportedOperationException()
     }
 
-    override fun getExceptionMessage(propertyName: String?, propertyValue: T): String {
+    override fun getExceptionMessage(propertyName: String, propertyValue: T): String {
         return "Value for $propertyName is required"
     }
 
-    override fun getDisplayMessage(propertyName: String?, propertyValue: T) = message ?: "required"
+    override fun getDisplayMessage(propertyName: String, propertyValue: T) = message ?: "required"
 }
 
 /**
