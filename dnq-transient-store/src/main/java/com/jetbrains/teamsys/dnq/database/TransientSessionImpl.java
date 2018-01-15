@@ -44,28 +44,38 @@ import java.util.*;
 
 public class TransientSessionImpl implements TransientStoreSession {
 
+    @NotNull
     protected static final Logger logger = LoggerFactory.getLogger(TransientSessionImpl.class);
 
     private static final String CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__";
     private static final String PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__";
 
-    protected final TransientEntityStoreImpl store;
-    protected final boolean readonly;
+    @NotNull
+    private final TransientEntityStoreImpl store;
+    private final boolean readonly;
     @Nullable
-    protected ReadonlyPersistentStoreTransaction txnWhichWasUpgraded;
-    protected Runnable upgradeHook;
-    protected State state;
-    protected boolean quietFlush = false;
+    private ReadonlyPersistentStoreTransaction txnWhichWasUpgraded;
+    @Nullable
+    private Runnable upgradeHook;
+    @NotNull
+    private State state;
+    private boolean quietFlush = false;
+    /**
+     * Make it @NotNull
+     */
     protected TransientChangesTracker changesTracker;
     // stores transient entities that were created for loaded persistent entities to avoid double loading
+    @NotNull
     private final Map<EntityId, TransientEntity> managedEntities;
+    @NotNull
     private final Queue<MyRunnable> changes = new QueueDecorator<MyRunnable>();
     private final int hashCode = (int) (Math.random() * Integer.MAX_VALUE);
     private boolean allowRunnables = true;
+    @Nullable
     private Throwable stack = null;
     private boolean flushing = false;
 
-    protected TransientSessionImpl(final TransientEntityStoreImpl store, boolean readonly) {
+    public TransientSessionImpl(@NotNull final TransientEntityStoreImpl store, boolean readonly) {
         this.store = store;
         this.readonly = readonly;
         txnWhichWasUpgraded = null;
@@ -78,23 +88,22 @@ public class TransientSessionImpl implements TransientStoreSession {
         initChangesTracker(true);
     }
 
+    @Nullable
     public Throwable getStack() {
         return stack;
     }
 
-    private TransientChangesTracker initChangesTracker(boolean readonly) {
+    private void initChangesTracker(boolean readonly) {
         if (this.changesTracker != null) changesTracker.dispose();
-        TransientChangesTracker oldChangesTracker = changesTracker;
         final PersistentStoreTransaction snapshot = getSnapshot();
         this.changesTracker = readonly ? new ReadOnlyTransientChangesTrackerImpl(snapshot) : new TransientChangesTrackerImpl(snapshot);
-
-        return oldChangesTracker;
     }
 
-    public void setQueryCancellingPolicy(QueryCancellingPolicy policy) {
+    public void setQueryCancellingPolicy(@Nullable QueryCancellingPolicy policy) {
         getPersistentTransactionInternal().setQueryCancellingPolicy(policy);
     }
 
+    @Nullable
     public QueryCancellingPolicy getQueryCancellingPolicy() {
         return getPersistentTransactionInternal().getQueryCancellingPolicy();
     }
@@ -124,7 +133,9 @@ public class TransientSessionImpl implements TransientStoreSession {
         upgradeHook = hook;
     }
 
+    @NotNull
     protected PersistentStoreTransaction getPersistentTransactionInternal() {
+        // TODO: use currentTransactionOrThrow
         return (PersistentStoreTransaction) store.getPersistentStore().getCurrentTransaction();
     }
 
@@ -146,6 +157,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
+    @NotNull
     public String toString() {
         return "transaction [" + hashCode() + "] state [" + state + "]";
     }
@@ -156,7 +168,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         return obj == this;
     }
 
@@ -177,7 +189,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         return state == State.Aborted;
     }
 
-    void assertOpen(final String action) {
+    private void assertOpen(@NotNull final String action) {
         if (state != State.Open) {
             throw new IllegalStateException("Can't " + action + " in state [" + state + "]");
         }
@@ -358,6 +370,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findIds(entityType, minValue, maxValue));
     }
 
+    @NotNull
     public EntityIterable findWithProp(@NotNull final String entityType, @NotNull final String propertyName) {
         assertOpen("findWithProp");
         return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findWithProp(entityType, propertyName));
@@ -457,11 +470,11 @@ public class TransientSessionImpl implements TransientStoreSession {
         return getPersistentTransactionInternal().getSequence(sequenceName);
     }
 
-    protected void closePersistentSession() {
+    private void closePersistentSession() {
         if (logger.isDebugEnabled()) {
             logger.debug("Close persistent session for transient session " + this);
         }
-        StoreTransaction persistentTxn = getPersistentTransactionInternal();
+        StoreTransaction persistentTxn = store.getPersistentStore().getCurrentTransaction();
         if (persistentTxn != null) {
             persistentTxn.abort();
         }
@@ -718,7 +731,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     /**
      * Checks custom flush constraints before save changes
      */
-    private void executeBeforeFlushTriggers(Set<TransientEntity> changedEntities) {
+    private void executeBeforeFlushTriggers(@NotNull Set<TransientEntity> changedEntities) {
         final ModelMetaData modelMetaData = store.getModelMetaData();
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
@@ -893,7 +906,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Nullable
-    Set<Pair<Index, List<Comparable>>> getIndexesValuesBeforeDelete(TransientEntity e) {
+    private Set<Pair<Index, List<Comparable>>> getIndexesValuesBeforeDelete(@NotNull TransientEntity e) {
         if (changesTracker.isNew(e)) return null;
 
         Set<Pair<Index, List<Comparable>>> res = null;
@@ -908,7 +921,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         return res;
     }
 
-    void deleteIndexes(TransientEntity e, @Nullable Set<Pair<Index, List<Comparable>>> indexes) {
+    private void deleteIndexes(@NotNull TransientEntity e, @Nullable Set<Pair<Index, List<Comparable>>> indexes) {
         if (indexes == null) return;
 
         final PersistentStoreTransaction persistentTransaction = (PersistentStoreTransaction) getPersistentTransaction();
@@ -922,7 +935,8 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    private List<Comparable> getIndexFieldsOriginalValues(TransientEntity e, Index index) {
+    @NotNull
+    private List<Comparable> getIndexFieldsOriginalValues(@NotNull TransientEntity e, @NotNull Index index) {
         List<Comparable> res = new ArrayList<Comparable>(index.getFields().size());
         for (IndexField f : index.getFields()) {
             if (f.isProperty()) {
@@ -935,27 +949,27 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Nullable
-    private Comparable getOriginalPropertyValue(TransientEntity e, String propertyName) {
+    private Comparable getOriginalPropertyValue(@NotNull TransientEntity e, @NotNull String propertyName) {
         return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getProperty(propertyName);
     }
 
     @Nullable
-    private ByteIterable getOriginalRawPropertyValue(TransientEntity e, String propertyName) {
+    private ByteIterable getOriginalRawPropertyValue(@NotNull TransientEntity e, @NotNull String propertyName) {
         return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getRawProperty(propertyName);
     }
 
     @Nullable
-    private String getOriginalBlobStringValue(TransientEntity e, String blobName) {
+    private String getOriginalBlobStringValue(@NotNull TransientEntity e, @NotNull String blobName) {
         return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getBlobString(blobName);
     }
 
     @Nullable
-    private InputStream getOriginalBlobValue(TransientEntity e, String blobName) {
+    private InputStream getOriginalBlobValue(@NotNull TransientEntity e, @NotNull String blobName) {
         return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getBlob(blobName);
     }
 
     @Nullable
-    private Comparable getOriginalLinkValue(TransientEntity e, String linkName) {
+    private Comparable getOriginalLinkValue(@NotNull TransientEntity e, @NotNull String linkName) {
         // get from saved changes, if not - from db
         Map<String, LinkChange> linksDetailed = changesTracker.getChangedLinksDetailed(e);
         if (linksDetailed != null) {
@@ -980,7 +994,8 @@ public class TransientSessionImpl implements TransientStoreSession {
         return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getLink(linkName);
     }
 
-    private List<Comparable> getIndexFieldsFinalValues(TransientEntity e, Index index) {
+    @NotNull
+    private List<Comparable> getIndexFieldsFinalValues(@NotNull TransientEntity e, @NotNull Index index) {
         List<Comparable> res = new ArrayList<Comparable>(index.getFields().size());
         for (IndexField f : index.getFields()) {
             if (f.isProperty()) {
@@ -993,13 +1008,13 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @Nullable
-    private Set<Index> getMetadataIndexes(TransientEntity e, String field) {
+    private Set<Index> getMetadataIndexes(@NotNull TransientEntity e, @NotNull String field) {
         EntityMetaData md = getEntityMetaData(e);
         return md == null ? null : md.getIndexes(field);
     }
 
     @Nullable
-    private EntityMetaData getEntityMetaData(TransientEntity e) {
+    private EntityMetaData getEntityMetaData(@NotNull TransientEntity e) {
         ModelMetaData mdd = store.getModelMetaData();
         return mdd == null ? null : mdd.getEntityMetaData(e.getType());
     }
@@ -1031,7 +1046,8 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    private Set<TransientEntity> getSideEffects(Set<TransientEntity> processedEntities) {
+    @NotNull
+    private Set<TransientEntity> getSideEffects(@NotNull Set<TransientEntity> processedEntities) {
         HashSet<TransientEntity> sideEffect = new HashSet<TransientEntity>(changesTracker.getChangedEntities());
         sideEffect.removeAll(processedEntities);
         return sideEffect;
@@ -1049,7 +1065,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         throw new RuntimeException(e);
     }
 
-    private void notifyFlushedListeners(TransientChangesTracker oldChangesTracker) {
+    private void notifyFlushedListeners(@NotNull TransientChangesTracker oldChangesTracker) {
         final Set<TransientEntityChange> changesDescription = Collections.unmodifiableSet(oldChangesTracker.getChangesDescription());
         if (changesDescription.isEmpty()) {
             oldChangesTracker.dispose();
@@ -1089,7 +1105,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    private void notifyBeforeFlushListeners(final Set<TransientEntityChange> changes) {
+    private void notifyBeforeFlushListeners(@Nullable final Set<TransientEntityChange> changes) {
         if (changes == null || changes.isEmpty()) return;
 
         if (logger.isDebugEnabled()) {
@@ -1142,7 +1158,7 @@ public class TransientSessionImpl implements TransientStoreSession {
     }
 
     @NotNull
-    protected TransientEntity newEntityImpl(final PersistentEntity persistent) {
+    private TransientEntity newEntityImpl(@NotNull final PersistentEntity persistent) {
         if (persistent instanceof ReadOnlyPersistentEntity) {
             return new ReadonlyTransientEntityImpl((ReadOnlyPersistentEntity) persistent, store);
         }
@@ -1383,7 +1399,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         });
     }
 
-    private boolean deleteLinkInternal(TransientEntity source, String linkName, TransientEntity target) {
+    private boolean deleteLinkInternal(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target) {
         if (source.getPersistentEntity().deleteLink(linkName, target.getPersistentEntity())) {
             changesTracker.linkChanged(source, linkName, target, null, false);
             return true;
@@ -1672,7 +1688,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         return child.getLink(childToParentLinkName);
     }
 
-    public boolean addChangeAndRun(MyRunnable change) {
+    public boolean addChangeAndRun(@NotNull MyRunnable change) {
         upgradeReadonlyTransactionIfNecessary();
         return addChange(change).run();
     }
@@ -1694,7 +1710,8 @@ public class TransientSessionImpl implements TransientStoreSession {
         }
     }
 
-    MyRunnable addChange(@NotNull final MyRunnable change) {
+    @NotNull
+    private MyRunnable addChange(@NotNull final MyRunnable change) {
         if (allowRunnables) {
             changes.offer(change);
         }
@@ -1717,6 +1734,7 @@ public class TransientSessionImpl implements TransientStoreSession {
         boolean run();
     }
 
+    @NotNull
     private PersistentEntityStoreImpl getPersistentStore() {
         return (PersistentEntityStoreImpl) store.getPersistentStore();
     }

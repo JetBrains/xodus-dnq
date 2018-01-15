@@ -20,19 +20,15 @@ import jetbrains.exodus.database.TransientStoreSession;
 import jetbrains.exodus.entitystore.Entity;
 import jetbrains.exodus.query.QueryEngine;
 import jetbrains.exodus.query.SortEngine;
+import org.jetbrains.annotations.NotNull;
 
 public class TransientSortEngineImpl extends SortEngine {
 
+    @NotNull
     private TransientEntityStore store;
 
-    public TransientSortEngineImpl() {
-    }
-
-    public TransientSortEngineImpl(QueryEngine queryEngine) {
+    public TransientSortEngineImpl(@NotNull TransientEntityStore store, @NotNull QueryEngine queryEngine) {
         super(queryEngine);
-    }
-
-    public void setEntityStore(TransientEntityStore store) {
         this.store = store;
     }
 

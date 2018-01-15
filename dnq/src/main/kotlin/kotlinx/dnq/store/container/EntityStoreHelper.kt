@@ -34,9 +34,7 @@ fun createTransientEntityStore(dbFolder: File, environmentName: String, configur
         this.modelMetaData = ModelMetaDataImpl()
         this.setEventsMultiplexer(DummyEventsMultiplexer)
         this.setQueryEngine(XdQueryEngine(store).apply {
-            this.sortEngine = TransientSortEngineImpl(this).apply {
-                setEntityStore(store)
-            }
+            this.sortEngine = TransientSortEngineImpl(store, this)
         })
     }
 }
