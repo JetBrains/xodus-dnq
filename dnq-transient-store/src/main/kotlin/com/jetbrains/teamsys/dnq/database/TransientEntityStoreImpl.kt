@@ -29,7 +29,7 @@ import java.util.concurrent.locks.ReentrantLock
 /**
  * @author Vadim.Gurov
  */
-class TransientEntityStoreImpl : TransientEntityStore {
+open class TransientEntityStoreImpl : TransientEntityStore {
 
     companion object : KLogging()
 
@@ -63,7 +63,7 @@ class TransientEntityStoreImpl : TransientEntityStore {
 
     @field:Volatile
     override var isOpen = true
-        private set
+        protected set
     private var closed = false
     private val enumCache = ConcurrentHashMap<String, Entity>()
     private val persistentClassInstanceCache = ConcurrentHashMap<String, BasePersistentClassImpl>()
