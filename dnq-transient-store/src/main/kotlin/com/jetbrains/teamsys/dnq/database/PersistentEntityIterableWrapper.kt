@@ -22,7 +22,6 @@ import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
-import org.jetbrains.annotations.NotNull
 
 
 /**
@@ -123,7 +122,7 @@ open class PersistentEntityIterableWrapper(
     }
 
     override fun iterator(): EntityIterator {
-        return PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.threadSession!!)
+        return PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.threadSessionOrThrow)
     }
 
     override fun getIteratorImpl(txn: PersistentStoreTransaction): EntityIterator {

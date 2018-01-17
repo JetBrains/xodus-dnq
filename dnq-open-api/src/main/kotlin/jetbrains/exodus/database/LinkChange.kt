@@ -47,6 +47,10 @@ class LinkChange(val linkName: String) {
         }
 
 
+    fun isNotEmpty(): Boolean {
+        return addedEntitiesSize > 0 || removedEntitiesSize > 0 || deletedEntitiesSize > 0
+    }
+
     override fun toString() = "$linkName:$changeType"
 
     fun addAdded(e: TransientEntity) {

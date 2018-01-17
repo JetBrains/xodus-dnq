@@ -13,423 +13,293 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.core.dataStructures.StablePriorityQueue;
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.env.EnvironmentConfig;
-import jetbrains.exodus.query.QueryEngine;
-import jetbrains.exodus.query.metadata.ModelMetaData;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
+import jetbrains.exodus.core.dataStructures.StablePriorityQueue
+import jetbrains.exodus.database.*
+import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.env.EnvironmentConfig
+import jetbrains.exodus.query.QueryEngine
+import jetbrains.exodus.query.metadata.ModelMetaData
+import mu.KLogging
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * @author Vadim.Gurov
  */
-public class TransientEntityStoreImpl implements TransientEntityStore {
+class TransientEntityStoreImpl : TransientEntityStore {
 
-    private static final Logger logger = LoggerFactory.getLogger(TransientEntityStoreImpl.class);
+    companion object : KLogging()
 
-    @NotNull
-    private EntityStore persistentStore;
-    @NotNull
-    private QueryEngine queryEngine;
-    @Nullable
-    private ModelMetaData modelMetaData;
-    @Nullable
-    private IEventsMultiplexer eventsMultiplexer;
-    @NotNull
-    private final Set<TransientStoreSession> sessions =
-            Collections.newSetFromMap(new ConcurrentHashMap<TransientStoreSession, Boolean>(200));
-    @NotNull
-    private final ThreadLocal<TransientStoreSession> currentSession = new ThreadLocal<>();
-    @NotNull
-    private final StablePriorityQueue<Integer, TransientStoreSessionListener> listeners = new StablePriorityQueue<>();
-
-    private volatile boolean open = true;
-    private boolean closed = false;
-    @NotNull
-    private final Map<String, Entity> enumCache = new ConcurrentHashMap<>();
-    @NotNull
-    private final Map<String, BasePersistentClassImpl> persistentClassInstanceCache = new ConcurrentHashMap<>();
-    @NotNull
-    private final Map<Class, BasePersistentClassImpl> persistentClassInstances = new ConcurrentHashMap<>();
-
-    @NotNull
-    final ReentrantLock flushLock = new ReentrantLock(true); // fair flushLock
-
-    public TransientEntityStoreImpl() {
-        if (logger.isTraceEnabled()) {
-            logger.trace("TransientEntityStoreImpl constructor called.");
-        }
-    }
-
-    @NotNull
-    public EntityStore getPersistentStore() {
-        return persistentStore;
-    }
-
-    @NotNull
-    public QueryEngine getQueryEngine() {
-        return queryEngine;
-    }
-
-    @Nullable
-    public IEventsMultiplexer getEventsMultiplexer() {
-        return eventsMultiplexer;
-    }
-
-    public void setEventsMultiplexer(@Nullable IEventsMultiplexer eventsMultiplexer) {
-        this.eventsMultiplexer = eventsMultiplexer;
-    }
+    private lateinit var _persistentStore: PersistentEntityStore
 
     /**
      * Must be injected.
-     *
-     * @param persistentStore persistent entity store.
      */
-    public void setPersistentStore(@NotNull EntityStore persistentStore) {
-        final EnvironmentConfig ec = ((PersistentEntityStore) persistentStore).getEnvironment().getEnvironmentConfig();
-        if (ec.getEnvTxnDowngradeAfterFlush() == EnvironmentConfig.DEFAULT.getEnvTxnDowngradeAfterFlush()) {
-            ec.setEnvTxnDowngradeAfterFlush(false);
-        }
-        ec.setEnvTxnReplayMaxCount(Integer.MAX_VALUE);
-        ec.setEnvTxnReplayTimeout(Long.MAX_VALUE);
-        ec.setGcUseExclusiveTransaction(true);
-        this.persistentStore = persistentStore;
-    }
-
-    /**
-     * Must be injected.
-     *
-     * @param queryEngine query engine.
-     */
-    public void setQueryEngine(@NotNull QueryEngine queryEngine) {
-        this.queryEngine = queryEngine;
-    }
-
-    @NotNull
-    public String getName() {
-        return "transient store";
-    }
-
-    @NotNull
-    public String getLocation() {
-        throw new UnsupportedOperationException("Not supported by transient store.");
-    }
-
-    @NotNull
-    @Override
-    public StoreTransaction beginTransaction() {
-        throw new UnsupportedOperationException();
-    }
-
-    @NotNull
-    @Override
-    public StoreTransaction beginExclusiveTransaction() {
-        throw new UnsupportedOperationException();
-    }
-
-    @NotNull
-    @Override
-    public TransientStoreSession beginReadonlyTransaction() {
-        return registerStoreSession(new TransientSessionImpl(this, true));
-    }
-
-    @Nullable
-    @Override
-    public StoreTransaction getCurrentTransaction() {
-        throw new UnsupportedOperationException();
-    }
-
-    @NotNull
-    public TransientStoreSession beginSession() {
-        assertOpen();
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("Begin new session");
-        }
-
-        TransientStoreSession currentSession = this.currentSession.get();
-        if (currentSession != null) {
-            logger.debug("Return session already associated with the current thread " + currentSession);
-            return currentSession;
-        }
-
-        return registerStoreSession(new TransientSessionImpl(this, false));
-    }
-
-    public void resumeSession(@Nullable TransientStoreSession session) {
-        if (session != null) {
-            assertOpen();
-
-            TransientStoreSession current = currentSession.get();
-            if (current != null) {
-                if (current != session) {
-                    throw new IllegalStateException("Another open transient session already associated with current thread.");
-                }
+    override var persistentStore: PersistentEntityStore
+        get() = _persistentStore
+        set(persistentStore) {
+            val ec = persistentStore.environment.environmentConfig
+            if (ec.envTxnDowngradeAfterFlush == EnvironmentConfig.DEFAULT.envTxnDowngradeAfterFlush) {
+                ec.envTxnDowngradeAfterFlush = false
             }
-
-            currentSession.set(session);
+            ec.envTxnReplayMaxCount = Integer.MAX_VALUE
+            ec.envTxnReplayTimeout = java.lang.Long.MAX_VALUE
+            ec.gcUseExclusiveTransaction = true
+            _persistentStore = persistentStore
         }
-    }
 
-    public void setModelMetaData(@Nullable final ModelMetaData modelMetaData) {
-        this.modelMetaData = modelMetaData;
-    }
+    /**
+     * Must be injected.
+     */
+    override lateinit var queryEngine: QueryEngine
+    override var modelMetaData: ModelMetaData? = null
+    override var eventsMultiplexer: IEventsMultiplexer? = null
+    private val sessions = Collections.newSetFromMap(ConcurrentHashMap<TransientStoreSession, Boolean>(200))
+    private val currentSession = ThreadLocal<TransientStoreSession>()
+    private val listeners = StablePriorityQueue<Int, TransientStoreSessionListener>()
 
-    @Nullable
-    public ModelMetaData getModelMetaData() {
-        return modelMetaData;
-    }
+    @field:Volatile
+    override var isOpen = true
+        private set
+    private var closed = false
+    private val enumCache = ConcurrentHashMap<String, Entity>()
+    private val persistentClassInstanceCache = ConcurrentHashMap<String, BasePersistentClassImpl>()
+    private val persistentClassInstances = ConcurrentHashMap<Class<*>, BasePersistentClassImpl>()
+
+    // fair flushLock
+    internal val flushLock = ReentrantLock(true)
 
     /**
      * It's guaranteed that current thread session is Open, if exists
-     *
-     * @return current thread session
      */
-    @Nullable
-    public TransientStoreSession getThreadSession() {
-        return currentSession.get();
+    override val threadSession: TransientStoreSession?
+        get() = currentSession.get()
+
+    private val transientSessionOrThrow: TransientSessionImpl
+        get() = threadSessionOrThrow as TransientSessionImpl
+
+    override fun getName() = "transient store"
+
+    override fun getLocation(): String {
+        throw UnsupportedOperationException("Not supported by transient store.")
     }
 
-    @Override
-    public boolean isOpen() {
-        return open;
+    override fun beginTransaction(): StoreTransaction {
+        throw UnsupportedOperationException()
     }
 
-    public void close() {
-        open = false;
+    override fun beginExclusiveTransaction(): StoreTransaction {
+        throw UnsupportedOperationException()
+    }
 
-        if (eventsMultiplexer != null) {
-            eventsMultiplexer.onClose(this);
+    override fun beginReadonlyTransaction(): TransientStoreSession {
+        return registerStoreSession(TransientSessionImpl(this, readonly = true))
+    }
+
+    override fun getCurrentTransaction(): StoreTransaction? {
+        throw UnsupportedOperationException()
+    }
+
+    override fun beginSession(): TransientStoreSession {
+        assertOpen()
+
+        logger.debug { "Begin new session" }
+
+        val currentSession = this.currentSession.get()
+        if (currentSession != null) {
+            logger.debug { "Return session already associated with the current thread $currentSession" }
+            return currentSession
         }
 
-        logger.info("Close transient store.");
-        closed = true;
+        return registerStoreSession(TransientSessionImpl(this, readonly = false))
+    }
 
-        int sessionsSize = sessions.size();
+    override fun resumeSession(session: TransientStoreSession?) {
+        if (session != null) {
+            assertOpen()
+
+            val current = currentSession.get()
+            if (current != null && current != session) {
+                throw IllegalStateException("Another open transient session is already associated with current thread")
+            }
+            currentSession.set(session)
+        }
+    }
+
+    override fun close() {
+        isOpen = false
+
+        eventsMultiplexer?.onClose(this)
+
+        logger.info { "Close transient store." }
+        closed = true
+
+        val sessionsSize = sessions.size
         if (sessionsSize > 0) {
-            logger.warn("There're " + sessionsSize + " open transient sessions. Print.");
-            if (logger.isDebugEnabled()) {
-                for (TransientStoreSession session : sessions) {
-                    TransientSessionImpl impl = session instanceof TransientSessionImpl ? (TransientSessionImpl) session : null;
-                    if (impl != null) {
-                        logger.warn("Not closed session stack trace: ", impl.getStack());
-                    }
-                }
+            logger.warn { "There're $sessionsSize open transient sessions. Print." }
+            if (logger.isDebugEnabled) {
+                sessions.asSequence()
+                        .filterIsInstance<TransientSessionImpl>()
+                        .mapNotNull { session -> session.stack }
+                        .forEach { sessionStackTrace ->
+                            logger.warn(sessionStackTrace) { "Not closed session stack trace: " }
+                        }
             }
         }
     }
 
-    public boolean entityTypeExists(@NotNull final String entityTypeName) {
-        try {
-            return ((PersistentEntityStore) persistentStore).getEntityTypeId(entityTypeName) >= 0;
-        } catch (Exception e) {
-            // ignore
+
+    override fun entityTypeExists(entityTypeName: String): Boolean {
+        return try {
+            _persistentStore.getEntityTypeId(entityTypeName) >= 0
+        } catch (e: Exception) {
+            false
         }
-        return false;
     }
 
-    public void renameEntityTypeRefactoring(@NotNull final String oldEntityTypeName, @NotNull final String newEntityTypeName) {
-        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
-
-        if (s == null) {
-            throw new IllegalStateException("No current thread session.");
+    override fun renameEntityTypeRefactoring(oldEntityTypeName: String, newEntityTypeName: String) {
+        val transientSession = transientSessionOrThrow
+        transientSession.addChangeAndRun {
+            (transientSession.persistentTransaction.store as PersistentEntityStore).renameEntityType(oldEntityTypeName, newEntityTypeName)
+            true
         }
-
-        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-            @Override
-            public boolean run() {
-                ((PersistentEntityStore) s.getPersistentTransaction().getStore()).renameEntityType(oldEntityTypeName, newEntityTypeName);
-                return true;
-            }
-        });
     }
 
-    public void deleteEntityTypeRefactoring(@NotNull final String entityTypeName) {
-        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
-
-        if (s == null) {
-            throw new IllegalStateException("No current thread session.");
+    override fun deleteEntityTypeRefactoring(entityTypeName: String) {
+        val transientSession = transientSessionOrThrow
+        transientSession.addChangeAndRun {
+            (transientSession.persistentTransaction.store as PersistentEntityStoreImpl).deleteEntityType(entityTypeName)
+            true
         }
-
-        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-            @Override
-            public boolean run() {
-                ((PersistentEntityStoreImpl) s.getPersistentTransaction().getStore()).deleteEntityType(entityTypeName);
-                return true;
-            }
-        });
     }
 
-    public void deleteEntityRefactoring(@NotNull Entity entity) {
-        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
+    override fun deleteEntityRefactoring(entity: Entity) {
+        val transientSession = transientSessionOrThrow
 
-        if (s == null) {
-            throw new IllegalStateException("No current thread session.");
-        }
-
-        final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
-        if (entity instanceof TransientEntity) {
-            s.deleteEntity((TransientEntity) entity);
+        if (entity is TransientEntity) {
+            transientSession.deleteEntity(entity)
         } else {
-            s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-                public boolean run() {
-                    persistentEntity.delete();
-                    return true;
-                }
-            });
-        }
-    }
-
-    public void deleteLinksRefactoring(@NotNull final Entity entity, @NotNull final String linkName) {
-        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
-
-        if (s == null) {
-            throw new IllegalStateException("No current thread session.");
-        }
-
-        final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
-        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-            public boolean run() {
-                persistentEntity.deleteLinks(linkName);
-                return true;
+            val persistentEntity = entity.unwrapEntity()
+            transientSession.addChangeAndRun {
+                persistentEntity.delete()
+                true
             }
-        });
-    }
-
-    public void deleteLinkRefactoring(@NotNull final Entity entity, @NotNull final String linkName, @NotNull final Entity link) {
-        final TransientSessionImpl s = (TransientSessionImpl) getThreadSession();
-
-        if (s == null) {
-            throw new IllegalStateException("No current thread session.");
         }
-
-        final Entity persistentEntity = (entity instanceof TransientEntity) ? ((TransientEntity) entity).getPersistentEntity() : entity;
-        final Entity persistentLink = (link instanceof TransientEntity) ? ((TransientEntity) link).getPersistentEntity() : link;
-
-        s.addChangeAndRun(new TransientSessionImpl.MyRunnable() {
-            public boolean run() {
-                persistentEntity.deleteLink(linkName, persistentLink);
-                return true;
-            }
-        });
     }
 
-    @NotNull
-    private TransientStoreSession registerStoreSession(@NotNull TransientStoreSession s) {
-        if (!sessions.add(s)) {
-            throw new IllegalArgumentException("Session is already registered.");
+    override fun deleteLinksRefactoring(entity: Entity, linkName: String) {
+        val transientSession = transientSessionOrThrow
+
+        val persistentEntity = entity.unwrapEntity()
+        transientSession.addChangeAndRun {
+            persistentEntity.deleteLinks(linkName)
+            true
         }
-
-        currentSession.set(s);
-
-        return s;
     }
 
-    void unregisterStoreSession(@NotNull TransientStoreSession s) {
-        if (!sessions.remove(s)) {
-            throw new IllegalArgumentException("Transient session wasn't previously registered.");
+    override fun deleteLinkRefactoring(entity: Entity, linkName: String, link: Entity) {
+        val transientSession = transientSessionOrThrow
+
+        val persistentEntity = entity.unwrapEntity()
+        val persistentLink = link.unwrapEntity()
+
+        transientSession.addChangeAndRun {
+            persistentEntity.deleteLink(linkName, persistentLink)
+            true
         }
-
-        currentSession.remove();
     }
 
-    @Nullable
-    public TransientStoreSession suspendThreadSession() {
-        assertOpen();
+    private fun Entity.unwrapEntity(): PersistentEntity {
+        return when (this) {
+            is TransientEntity -> this.persistentEntity
+            is PersistentEntity -> this
+            else -> throw IllegalArgumentException("Cannot unwrap entity")
+        }
+    }
 
-        final TransientStoreSession current = getThreadSession();
+    fun registerStoreSession(storeSession: TransientStoreSession): TransientStoreSession {
+        if (!sessions.add(storeSession)) {
+            throw IllegalArgumentException("Session is already registered.")
+        }
+        currentSession.set(storeSession)
+        return storeSession
+    }
+
+    fun unregisterStoreSession(storeSession: TransientStoreSession) {
+        if (!sessions.remove(storeSession)) {
+            throw IllegalArgumentException("Transient session wasn't previously registered.")
+        }
+        currentSession.remove()
+    }
+
+    override fun suspendThreadSession(): TransientStoreSession? {
+        assertOpen()
+
+        val current = threadSession
         if (current != null) {
-            currentSession.remove();
+            currentSession.remove()
         }
 
-        return current;
+        return current
     }
 
-    public void addListener(@NotNull TransientStoreSessionListener listener) {
-        listeners.push(0, listener);
+    override fun addListener(listener: TransientStoreSessionListener) {
+        listeners.push(0, listener)
     }
 
-    @Override
-    public void addListener(@NotNull TransientStoreSessionListener listener, final int priority) {
-        listeners.push(priority, listener);
+    override fun addListener(listener: TransientStoreSessionListener, priority: Int) {
+        listeners.push(priority, listener)
     }
 
-    public void removeListener(@NotNull TransientStoreSessionListener listener) {
-        listeners.remove(listener);
+    override fun removeListener(listener: TransientStoreSessionListener) {
+        listeners.remove(listener)
     }
 
-    void forAllListeners(@NotNull ListenerVisitor v) {
-        for (final TransientStoreSessionListener listener : listeners) {
-            v.visit(listener);
+    internal fun forAllListeners(action: (TransientStoreSessionListener) -> Unit) {
+        listeners.forEach(action)
+    }
+
+    fun sessionsCount(): Int {
+        return sessions.size
+    }
+
+    fun dumpSessions(sb: StringBuilder) {
+        sessions.joinTo(sb, "\n")
+    }
+
+    override fun getCachedEnumValue(className: String, propName: String): Entity? {
+        return enumCache[getEnumKey(className, propName)]
+    }
+
+    fun setCachedEnumValue(className: String, propName: String, entity: Entity) {
+        enumCache[getEnumKey(className, propName)] = entity
+    }
+
+    private fun getEnumKey(className: String, propName: String) = "$propName@$className"
+
+    fun getCachedPersistentClassInstance(entityType: String): BasePersistentClassImpl? {
+        return persistentClassInstanceCache[entityType]
+    }
+
+    fun getCachedPersistentClassInstance(entityType: Class<out BasePersistentClassImpl>): BasePersistentClassImpl? {
+        return persistentClassInstances[entityType]
+    }
+
+    fun setCachedPersistentClassInstance(entityType: String, instance: BasePersistentClassImpl) {
+        persistentClassInstanceCache[entityType] = instance
+        val clazz = instance.javaClass
+        if (persistentClassInstances[clazz] != null) {
+            logger.warn { "Persistent class instance already registered for: ${clazz.simpleName}" }
         }
+        persistentClassInstances[clazz] = instance
     }
 
-    public int sessionsCount() {
-        return sessions.size();
-    }
-
-    public void dumpSessions(@NotNull StringBuilder sb) {
-        for (TransientStoreSession s : sessions) {
-            sb.append("\n").append(s.toString());
-        }
-    }
-
-    @Nullable
-    public Entity getCachedEnumValue(@NotNull final String className, @NotNull final String propName) {
-        return enumCache.get(getEnumKey(className, propName));
-    }
-
-    public void setCachedEnumValue(@NotNull final String className,
-                                   @NotNull final String propName,
-                                   @NotNull final Entity entity) {
-        enumCache.put(getEnumKey(className, propName), entity);
-    }
-
-    @Nullable
-    public BasePersistentClassImpl getCachedPersistentClassInstance(@NotNull final String entityType) {
-        return persistentClassInstanceCache.get(entityType);
-    }
-
-    @Nullable
-    public BasePersistentClassImpl getCachedPersistentClassInstance(@NotNull final Class<? extends BasePersistentClassImpl> entityType) {
-        return persistentClassInstances.get(entityType);
-    }
-
-    public void setCachedPersistentClassInstance(@NotNull final String entityType, @NotNull final BasePersistentClassImpl instance) {
-        persistentClassInstanceCache.put(entityType, instance);
-        Class<? extends BasePersistentClassImpl> clazz = instance.getClass();
-        if (persistentClassInstances.get(clazz) != null) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Persistent class instance already registered for: " + clazz.getSimpleName());
-            }
-        }
-        persistentClassInstances.put(clazz, instance);
-    }
-
-    private void assertOpen() {
+    private fun assertOpen() {
         // this flag isn't even volatile, but this is legacy behavior
-        if (closed) throw new IllegalStateException("Transient store is closed.");
-    }
-
-    @NotNull
-    public static String getEnumKey(@NotNull final String className, @NotNull final String propName) {
-        return propName + '@' + className;
-    }
-
-    interface ListenerVisitor {
-        void visit(@NotNull TransientStoreSessionListener listener);
+        if (closed) throw IllegalStateException("Transient store is closed.")
     }
 
 }

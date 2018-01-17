@@ -28,7 +28,7 @@ class CompareInsideListenerTest : DBTest() {
 
     @Before
     fun updateMultiplexer() {
-        store.setEventsMultiplexer(EventsMultiplexer(createAsyncProcessor().apply(JobProcessor::start)))
+        store.eventsMultiplexer = EventsMultiplexer(createAsyncProcessor().apply(JobProcessor::start))
     }
 
     override fun registerEntityTypes() {

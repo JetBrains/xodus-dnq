@@ -27,7 +27,7 @@ class TransientEntityChange(val changesTracker: TransientChangesTracker,
     val snaphotEntity
         get() = snapshotEntity
 
-    @Deprecated("Use changedLinksDetailed instead")
+    @Deprecated("Use changedLinksDetailed instead", ReplaceWith("this.changedLinksDetailed"))
     val changedLinksDetaled
         get() = changedLinksDetailed
 

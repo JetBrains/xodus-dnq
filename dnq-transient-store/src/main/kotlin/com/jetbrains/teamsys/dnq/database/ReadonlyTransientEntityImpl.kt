@@ -13,358 +13,167 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.database.LinkChange;
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientEntityChange;
-import jetbrains.exodus.database.TransientEntityStore;
-import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase;
-import jetbrains.exodus.entitystore.iterate.EntityIterableDecoratorBase;
-import jetbrains.exodus.entitystore.iterate.EntityIteratorBase;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.database.TransientEntityChange
+import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import jetbrains.exodus.entitystore.iterate.EntityIterableDecoratorBase
+import jetbrains.exodus.entitystore.iterate.EntityIteratorBase
+import java.io.File
+import java.io.InputStream
 
-import java.io.File;
-import java.io.InputStream;
-import java.util.Collection;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
+class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: PersistentEntity, store: TransientEntityStore) : TransientEntityImpl(snapshot, store) {
 
-public class ReadonlyTransientEntityImpl extends TransientEntityImpl {
-    private Boolean hasChanges = null;
-    private Map<String, LinkChange> linksDetailed;
-    private Set<String> changedProperties;
+    constructor(snapshot: ReadOnlyPersistentEntity, store: TransientEntityStore) : this(null, snapshot, store)
 
-    public ReadonlyTransientEntityImpl(@NotNull ReadOnlyPersistentEntity snapshot, @NotNull TransientEntityStore store) {
-        this(null, snapshot, store);
+    private val hasChanges by lazy {
+        changedProperties.isNotEmpty() || changedLinks.values.any { it.isNotEmpty() }
     }
 
-    public ReadonlyTransientEntityImpl(@Nullable TransientEntityChange change, @NotNull PersistentEntity snapshot, @NotNull TransientEntityStore store) {
-        super(snapshot, store);
+    private val changedLinks = change?.changedLinksDetailed.orEmpty()
+    private val changedProperties = change?.changedProperties.orEmpty()
 
-        if (change != null) {
-            this.changedProperties = change.getChangedProperties();
-            this.linksDetailed = change.getChangedLinksDetaled();
-        }
+    override val isReadonly: Boolean
+        get() = true
+
+    override fun setProperty(propertyName: String, value: Comparable<*>): Boolean {
+        throwReadonlyException()
     }
 
-    public boolean isReadonly() {
-        return true;
+    override fun setBlob(blobName: String, blob: InputStream) {
+        throwReadonlyException()
     }
 
-    @Override
-    public boolean setProperty(@NotNull String propertyName, @NotNull Comparable value) {
-        throw createReadonlyException();
+    override fun setBlob(blobName: String, file: File) {
+        throwReadonlyException()
     }
 
-    @Override
-    public void setBlob(@NotNull String blobName, @NotNull InputStream blob) {
-        throw createReadonlyException();
+    override fun setBlobString(blobName: String, blobString: String): Boolean {
+        throwReadonlyException()
     }
 
-    @Override
-    public void setBlob(@NotNull String blobName, @NotNull File file) {
-        throw createReadonlyException();
+    override fun setLink(linkName: String, target: Entity?): Boolean {
+        throwReadonlyException()
     }
 
-    @Override
-    public boolean setBlobString(@NotNull String blobName, @NotNull String blobString) {
-        throw createReadonlyException();
+    override fun addLink(linkName: String, target: Entity): Boolean {
+        throwReadonlyException()
     }
 
-    @Override
-    public boolean setLink(@NotNull String linkName, @Nullable Entity target) {
-        throw createReadonlyException();
+    override fun deleteProperty(propertyName: String): Boolean {
+        throwReadonlyException()
     }
 
-    @Override
-    public boolean addLink(@NotNull String linkName, @NotNull Entity target) {
-        throw createReadonlyException();
+    override fun deleteBlob(blobName: String): Boolean {
+        throwReadonlyException()
     }
 
-    @Override
-    public boolean deleteProperty(@NotNull String propertyName) {
-        throw createReadonlyException();
+    override fun deleteLink(linkName: String, target: Entity): Boolean {
+        throwReadonlyException()
     }
 
-    @Override
-    public boolean deleteBlob(@NotNull String blobName) {
-        throw createReadonlyException();
+    override fun deleteLinks(linkName: String) {
+        throwReadonlyException()
     }
 
-    @Override
-    public boolean deleteLink(@NotNull String linkName, @NotNull Entity target) {
-        throw createReadonlyException();
+    override fun getLink(linkName: String): Entity? {
+        return (persistentEntity.getLink(linkName) as PersistentEntity?)
+                ?.let { linkTarget ->
+                    ReadonlyTransientEntityImpl(linkTarget.getSnapshotPersistentEntity(), store)
+                }
     }
 
-    @Override
-    public void deleteLinks(@NotNull String linkName) {
-        throw createReadonlyException();
+    override fun getLinks(linkName: String): EntityIterable {
+        return PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkName).wrapWithReadOnlyIterable())
     }
 
-    @Override
-    public Entity getLink(@NotNull String linkName) {
-        final PersistentEntity link = (PersistentEntity) getPersistentEntity().getLink(linkName);
-        return link == null ? null : new ReadonlyTransientEntityImpl(getSnapshotPersistentEntity(link), store);
+    override fun getLinks(linkNames: Collection<String>): EntityIterable {
+        throw UnsupportedOperationException()
     }
 
-    @NotNull
-    @Override
-    public EntityIterable getLinks(@NotNull String linkName) {
-        return new PersistentEntityIterableWrapper(store, wrapWithReadOnlyIterable(getPersistentEntity().getLinks(linkName)));
+    override fun delete(): Boolean {
+        throwReadonlyException()
     }
 
-    @NotNull
-    @Override
-    public EntityIterable getLinks(@NotNull final Collection<String> linkNames) {
-        throw new UnsupportedOperationException();
+    override fun hasChanges() = hasChanges
+
+    override fun hasChanges(property: String): Boolean {
+        return super.hasChanges(property)
+                || (changedLinks[property]?.isNotEmpty() ?: false)
+                || (property in changedProperties)
     }
 
-    @Override
-    public boolean delete() {
-        throw createReadonlyException();
+    override fun hasChangesExcepting(properties: Array<String>): Boolean {
+        return super.hasChangesExcepting(properties)
+                || changedLinks.size > properties.size // by Dirichlet principle, even if 'properties' param is malformed
+                || (changedLinks.keys - properties).isNotEmpty()
+                || changedProperties.size > properties.size // by Dirichlet principle, even if 'properties' param is malformed
+                || (changedProperties - properties).isNotEmpty()
     }
 
-    @Override
-    public boolean hasChanges() {
-        // lazy hasChanges evaluation
-        if (hasChanges == null) {
-            evaluateHasChanges();
-        }
-        return hasChanges;
+    override fun getAddedLinks(name: String): EntityIterable {
+        return changedLinks[name]?.addedEntities.asEntityIterable()
     }
 
-    @Override
-    public boolean hasChanges(@Nullable final String property) {
-        if (super.hasChanges(property)) {
-            return true;
+    override fun getRemovedLinks(name: String): EntityIterable {
+        return changedLinks[name]?.removedEntities.asEntityIterable()
+    }
+
+    private fun Set<TransientEntity>?.asEntityIterable(): EntityIterable {
+        return if (this != null && this.isNotEmpty()) {
+            object : TransientEntityIterable(this@asEntityIterable) {
+                override fun size() = this@asEntityIterable.size.toLong()
+                override fun count() = this@asEntityIterable.size.toLong()
+            }
         } else {
-            if (linksDetailed != null && linksDetailed.containsKey(property)) {
-                LinkChange change = linksDetailed.get(property);
-                return change.getAddedEntitiesSize() > 0 || change.getRemovedEntitiesSize() > 0 || change.getDeletedEntitiesSize() > 0;
-            }
-
-            return changedProperties != null && changedProperties.contains(property);
+            EntityIterableBase.EMPTY
         }
     }
 
-    @Override
-    public boolean hasChangesExcepting(@NotNull String[] properties) {
-        if (super.hasChangesExcepting(properties)) {
-            return true;
+    override fun getAddedLinks(linkNames: Set<String>): EntityIterable {
+        return if (changedLinks.isNotEmpty()) {
+            AddedOrRemovedLinksFromSetTransientEntityIterable.get(changedLinks, linkNames, removed = false)
         } else {
-            if (linksDetailed != null) {
-                if (linksDetailed.size() > properties.length) {
-                    // by Dirichlet principle, even if 'properties' param is malformed
-                    return true;
-                }
-                final Set<String> linksDetaledCopy = new HashSet<String>(linksDetailed.keySet());
-                for (String property : properties) {
-                    linksDetaledCopy.remove(property);
-                }
-                if (!linksDetaledCopy.isEmpty()) {
-                    return true;
-                }
-            }
-            if (changedProperties != null) {
-                if (changedProperties.size() > properties.length) {
-                    // by Dirichlet principle, even if 'properties' param is malformed
-                    return true;
-                }
-                final Set<String> propertiesDetailedCopy = new HashSet<String>(changedProperties);
-                for (String property : properties) {
-                    propertiesDetailedCopy.remove(property);
-                }
-                if (!propertiesDetailedCopy.isEmpty()) {
-                    return true;
-                }
-            }
-            return false;
+            UniversalEmptyEntityIterable
         }
     }
 
-    @NotNull
-    @Override
-    public EntityIterable getAddedLinks(@NotNull String name) {
-        if (linksDetailed != null) {
-            final LinkChange c = linksDetailed.get(name);
-            if (c != null) {
-                Set<TransientEntity> added = c.getAddedEntities();
-
-                if (added != null) {
-                    return new TransientEntityIterable(added) {
-                        @Override
-                        public long size() {
-                            return c.getAddedEntitiesSize();
-                        }
-
-                        @Override
-                        public long count() {
-                            return c.getAddedEntitiesSize();
-                        }
-                    };
-                }
-            }
-        }
-        return EntityIterableBase.EMPTY;
-    }
-
-    @NotNull
-    @Override
-    public EntityIterable getRemovedLinks(@NotNull String name) {
-        if (linksDetailed != null) {
-            final LinkChange c = linksDetailed.get(name);
-            if (c != null) {
-                Set<TransientEntity> removed = c.getRemovedEntities();
-                if (removed != null) {
-                    return new TransientEntityIterable(removed) {
-                        @Override
-                        public long size() {
-                            return c.getRemovedEntitiesSize();
-                        }
-
-                        @Override
-                        public long count() {
-                            return c.getRemovedEntitiesSize();
-                        }
-                    };
-                }
-            }
-        }
-        return EntityIterableBase.EMPTY;
-    }
-
-    @NotNull
-    @Override
-    public EntityIterable getAddedLinks(@NotNull Set<String> linkNames) {
-        if (linksDetailed != null) {
-            return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetailed, linkNames, false);
-        }
-        return UniversalEmptyEntityIterable.INSTANCE;
-    }
-
-    @NotNull
-    @Override
-    public EntityIterable getRemovedLinks(@NotNull Set<String> linkNames) {
-        if (linksDetailed != null) {
-            return AddedOrRemovedLinksFromSetTransientEntityIterable.get(linksDetailed, linkNames, true);
-        }
-        return UniversalEmptyEntityIterable.INSTANCE;
-    }
-
-    private void evaluateHasChanges() {
-        boolean hasChanges = false;
-        if (linksDetailed != null) {
-            for (String linkName : linksDetailed.keySet()) {
-                LinkChange linkChange = linksDetailed.get(linkName);
-                if (linkChange != null) {
-                    if (linkChange.getAddedEntitiesSize() > 0 || linkChange.getRemovedEntitiesSize() > 0 || linkChange.getDeletedEntitiesSize() > 0) {
-                        hasChanges = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (changedProperties != null && changedProperties.size() > 0) {
-            hasChanges = true;
-        }
-
-        this.hasChanges = hasChanges;
-    }
-
-    @Nullable
-    private ReadOnlyPersistentEntity getSnapshotPersistentEntity(@Nullable final PersistentEntity entity) {
-        return entity == null ? null : new ReadOnlyPersistentEntity(getPersistentEntity().getTransaction(), entity.getId());
-    }
-
-    @NotNull
-    private static IllegalStateException createReadonlyException() {
-        return new IllegalStateException("Entity is readonly.");
-    }
-
-    @NotNull
-    private EntityIterable wrapWithReadOnlyIterable(@NotNull final EntityIterable source) {
-        return source == EntityIterableBase.EMPTY ? source : new ReadOnlyIterable((EntityIterableBase) source);
-    }
-
-    private class ReadOnlyIterable extends EntityIterableDecoratorBase {
-
-        private ReadOnlyIterable(@NotNull final EntityIterableBase source) {
-            super(source.getTransaction(), source);
-        }
-
-        @Override
-        public boolean isSortedById() {
-            return source.isSortedById();
-        }
-
-        @Override
-        public boolean canBeCached() {
-            return false;
-        }
-
-        @NotNull
-        @Override
-        public EntityIterator getIteratorImpl(@NotNull PersistentStoreTransaction txn) {
-            return new ReadOnlyIterator(this);
-        }
-
-        @NotNull
-        @Override
-        protected EntityIterableHandle getHandleImpl() {
-            return source.getHandle();
-        }
-
-        @Nullable
-        @Override
-        public Entity getFirst() {
-            return getSnapshotPersistentEntity((PersistentEntity) source.getFirst());
-        }
-
-        @Nullable
-        @Override
-        public Entity getLast() {
-            return getSnapshotPersistentEntity((PersistentEntity) source.getLast());
+    override fun getRemovedLinks(linkNames: Set<String>): EntityIterable {
+        return if (changedLinks.isNotEmpty()) {
+            AddedOrRemovedLinksFromSetTransientEntityIterable.get(changedLinks, linkNames, removed = true)
+        } else {
+            UniversalEmptyEntityIterable
         }
     }
 
-    private class ReadOnlyIterator extends EntityIteratorBase {
+    private fun PersistentEntity.getSnapshotPersistentEntity(): ReadOnlyPersistentEntity {
+        return ReadOnlyPersistentEntity(persistentEntity.transaction, id)
+    }
 
-        @NotNull
-        private final EntityIteratorBase source;
+    private fun throwReadonlyException(): Nothing = throw IllegalStateException("Entity is readonly")
 
-        private ReadOnlyIterator(@NotNull ReadOnlyIterable source) {
-            super(source);
-            this.source = (EntityIteratorBase) source.getDecorated().iterator();
-        }
+    private fun EntityIterable.wrapWithReadOnlyIterable(): EntityIterable {
+        return if (this === EntityIterableBase.EMPTY) this else ReadOnlyIterable(this as EntityIterableBase)
+    }
 
-        @Override
-        public Entity next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-            return getSnapshotPersistentEntity((PersistentEntity) source.next());
-        }
+    private inner class ReadOnlyIterable(source: EntityIterableBase) : EntityIterableDecoratorBase(source.transaction, source) {
+        override fun isSortedById() = source.isSortedById
+        override fun canBeCached() = false
+        override fun getIteratorImpl(txn: PersistentStoreTransaction) = ReadOnlyIterator(this)
+        override fun getHandleImpl() = source.handle
+        override fun getFirst(): Entity? = (source.first as PersistentEntity?)?.getSnapshotPersistentEntity()
+        override fun getLast(): Entity? = (source.last as PersistentEntity?)?.getSnapshotPersistentEntity()
+    }
 
-        @Override
-        protected boolean hasNextImpl() {
-            return source.hasNext();
-        }
+    private inner class ReadOnlyIterator(source: ReadOnlyIterable) : EntityIteratorBase(source) {
+        private val source = source.decorated.iterator() as EntityIteratorBase
 
-        @Nullable
-        @Override
-        protected EntityId nextIdImpl() {
-            return source.nextId();
-        }
-
-        @Override
-        public boolean shouldBeDisposed() {
-            return false;
-        }
+        override fun next(): Entity? = (source.next() as PersistentEntity?)?.getSnapshotPersistentEntity()
+        override fun hasNextImpl() = source.hasNext()
+        override fun nextIdImpl() = source.nextId()
+        override fun shouldBeDisposed() = false
     }
 }

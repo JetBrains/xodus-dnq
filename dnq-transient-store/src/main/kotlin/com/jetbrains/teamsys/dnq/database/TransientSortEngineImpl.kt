@@ -13,32 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.TransientEntityStore;
-import jetbrains.exodus.database.TransientStoreSession;
-import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.query.QueryEngine;
-import jetbrains.exodus.query.SortEngine;
-import org.jetbrains.annotations.NotNull;
+import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.query.QueryEngine
+import jetbrains.exodus.query.SortEngine
 
-public class TransientSortEngineImpl extends SortEngine {
+class TransientSortEngineImpl(private val store: TransientEntityStore, queryEngine: QueryEngine) : SortEngine(queryEngine) {
 
-    @NotNull
-    private TransientEntityStore store;
-
-    public TransientSortEngineImpl(@NotNull TransientEntityStore store, @NotNull QueryEngine queryEngine) {
-        super(queryEngine);
-        this.store = store;
-    }
-
-    @Override
-    protected Entity attach(Entity entity) {
+    override fun attach(entity: Entity): Entity {
         // TODO: seems that it's needed only for compatibility
-        final TransientStoreSession threadSession = store.getThreadSession();
-        return (threadSession == null ?
-                entity :
-                threadSession.newEntity(entity)
-        );
+        return store.threadSession?.newEntity(entity) ?: entity
     }
 }

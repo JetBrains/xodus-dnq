@@ -13,114 +13,72 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.TransientEntity;
-import jetbrains.exodus.database.TransientEntityStore;
-import jetbrains.exodus.database.exceptions.CantRemoveEntityException;
-import jetbrains.exodus.database.exceptions.DataIntegrityViolationException;
-import jetbrains.exodus.entitystore.Entity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.database.exceptions.CantRemoveEntityException
+import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
+import jetbrains.exodus.entitystore.Entity
+import java.util.concurrent.Callable
 
-import java.util.*;
-import java.util.concurrent.Callable;
+abstract class BasePersistentClassImpl : Runnable {
+    @JvmField
+    var propertyConstraints: MutableMap<String, Iterable<PropertyConstraint<Any?>>>? = null
 
-public abstract class BasePersistentClassImpl implements Runnable {
-    @Nullable
-    protected Map<String, Iterable<PropertyConstraint>> propertyConstraints;
-    @Nullable
-    protected TransientEntityStore entityStore;
+    lateinit var entityStore: TransientEntityStore
 
-    protected BasePersistentClassImpl() {
+    open val propertyDisplayNames: Map<String, Callable<String>>
+        get() = emptyMap()
+
+    open protected fun _constructor(_entityType_: String): Entity {
+        return entityStore.threadSessionOrThrow.newEntity(_entityType_)
     }
 
-    protected Entity _constructor(@NotNull final String _entityType_) {
-        return getEntityStore().getThreadSession().newEntity(_entityType_);
+    open fun isPropertyRequired(name: String, entity: Entity): Boolean {
+        return false
     }
 
-    public boolean isPropertyRequired(String name, Entity entity) {
-        return false;
+    open fun getPropertyDisplayName(name: String): String {
+        val displayName = this.propertyDisplayNames[name]
+        return if (displayName != null) displayName.call() else name
     }
 
-    public TransientEntityStore getEntityStore() {
-        return entityStore;
+    open fun destructor(entity: Entity) {}
+
+    open fun executeBeforeFlushTrigger(entity: Entity) {}
+
+    @Deprecated("")
+    open fun evaluateSaveHistoryCondition(entity: Entity): Boolean {
+        return false
     }
 
-    public void setEntityStore(TransientEntityStore entityStore) {
-        this.entityStore = entityStore;
+    @Deprecated("")
+    open fun saveHistoryCallback(entity: Entity) {
     }
 
-    @NotNull
-    public Map<String, Iterable<PropertyConstraint>> getPropertyConstraints() {
-        return propertyConstraints != null ? propertyConstraints : Collections.<String, Iterable<PropertyConstraint>>emptyMap();
+    fun createIncomingLinksException(linkViolations: List<IncomingLinkViolation>, entity: Entity): DataIntegrityViolationException {
+        val linkDescriptions = linkViolations.map { it.description }
+        val displayName = getDisplayName(entity)
+        val displayMessage = "Could not delete $displayName, because it is referenced"
+        return CantRemoveEntityException(entity, displayMessage, displayName, linkDescriptions)
     }
 
-    @Nullable
-    protected Map<String, Callable<String>> getPropertyDisplayNames() {
-        return null;
+    open fun createIncomingLinkViolation(linkName: String): IncomingLinkViolation {
+        return IncomingLinkViolation(linkName)
     }
 
-    @NotNull
-    public String getPropertyDisplayName(@NotNull String name) {
-        final Map<String, Callable<String>> propertyDisplayNames = getPropertyDisplayNames();
-        final Callable<String> displayName = propertyDisplayNames == null ? null : propertyDisplayNames.get(name);
-        try {
-            return displayName == null ? name : displayName.call();
-        } catch (Exception ex) {
-            throw new RuntimeException(ex);
-        }
+    open fun getDisplayName(entity: Entity): String {
+        return toString(entity)
     }
 
-    public void destructor(@NotNull Entity entity) {
+    fun toString(entity: Entity): String {
+        return (entity as? TransientEntity)?.debugPresentation ?: entity.toString()
     }
 
-    public void executeBeforeFlushTrigger(@NotNull Entity entity) {
-    }
-
-    @Deprecated
-    public boolean evaluateSaveHistoryCondition(@NotNull Entity entity) {
-        return false;
-    }
-
-    @Deprecated
-    public void saveHistoryCallback(@NotNull Entity entity) {
-    }
-
-    @NotNull
-    public DataIntegrityViolationException createIncomingLinksException(@NotNull List<IncomingLinkViolation> linkViolations, @NotNull final Entity entity) {
-        List<Collection<String>> linkDescriptions = new ArrayList<Collection<String>>();
-        for (IncomingLinkViolation violation : linkViolations) {
-            linkDescriptions.add(violation.getDescription());
-        }
-        final String displayName = getDisplayName(entity);
-        final String displayMessage = "Could not delete " + displayName + ", because it is referenced";
-        return new CantRemoveEntityException(entity, displayMessage, displayName, linkDescriptions);
-    }
-
-    @NotNull
-    public IncomingLinkViolation createIncomingLinkViolation(@NotNull String linkName) {
-        return new IncomingLinkViolation(linkName);
-    }
-
-    @NotNull
-    public String getDisplayName(@NotNull final Entity entity) {
-        return toString(entity);
-    }
-
-    @NotNull
-    public String toString(@NotNull Entity entity) {
-        if (entity instanceof TransientEntity) return ((TransientEntity) entity).getDebugPresentation();
-        return entity.toString();
-    }
-
-    @NotNull
-    public static <T> Set<T> buildSet(@NotNull final T[] data) {
-        final Set<T> result = new HashSet<T>(data.length);
-        for (final T t : data) {
-            result.add(t);
-        }
-        return result;
+    companion object {
+        @JvmStatic
+        fun <T> buildSet(data: Array<T>) = data.toSet()
     }
 
 }

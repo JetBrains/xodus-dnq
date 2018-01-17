@@ -15,7 +15,6 @@
  */
 package jetbrains.exodus.database
 
-import jetbrains.exodus.core.dataStructures.Pair
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentEntity

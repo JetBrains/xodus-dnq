@@ -41,7 +41,7 @@ object EntityMetaDataUtils {
     @JvmStatic
     fun getPropertyConstraints(e: Entity): Map<String, Iterable<PropertyConstraint<*>>> {
         return (e as? TransientEntity)?.persistentClassInstance
-                ?.getPropertyConstraints()
+                ?.propertyConstraints
                 .orEmpty()
     }
 

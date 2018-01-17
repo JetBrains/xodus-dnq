@@ -64,7 +64,6 @@ object ConstraintsUtil {
                 .map { targetEntity ->
                     val badIncomingLinks = targetEntity.incomingLinks
                             .asSequence()
-                            .map { it.first to it.second }
                             .mapNotNull { (linkName, linkedEntities) ->
                                 var incomingLinkViolation: IncomingLinkViolation? = null
                                 linkedEntities
@@ -420,7 +419,7 @@ object ConstraintsUtil {
                 }
                 .flatMap { (changedEntity, entityMetaData) ->
                     val persistentClass = changedEntity.persistentClassInstance
-                    val propertyConstraints = persistentClass?.getPropertyConstraints().orEmpty()
+                    val propertyConstraints = persistentClass?.propertyConstraints.orEmpty()
 
                     getChangedPropertiesWithConstraints(tracker, changedEntity, propertyConstraints)
                             .mapNotNull { (propertyName, constraints) ->

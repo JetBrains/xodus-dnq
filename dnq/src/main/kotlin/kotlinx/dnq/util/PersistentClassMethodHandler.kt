@@ -34,8 +34,6 @@ class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEntityType<
     val requireIfConstraints = LinkedHashMap<String, MutableCollection<RequireIfConstraint<*, *>>>()
 
     init {
-        val propertyConstraintRegistry = getPropertyConstraintRegistry(self)
-
         val naturalProperties = getEntityProperties(xdEntityType).filter {
             isNaturalEntity(getPropertyDeclaringClass(it))
         }
@@ -52,6 +50,7 @@ class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEntityType<
                 }
 
                 if (isNotEmpty()) {
+                    val propertyConstraintRegistry = getPropertyConstraintRegistry(self)
                     propertyConstraintRegistry[property.dbPropertyName] = this
                 }
             }
@@ -93,7 +92,7 @@ class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEntityType<
         @Suppress("UNCHECKED_CAST")
         var propertyConstraints = propertyConstraintsField.get(self) as MutableMap<String, Iterable<PropertyConstraint<*>>>?
         if (propertyConstraints == null) {
-            propertyConstraints = LinkedHashMap<String, Iterable<PropertyConstraint<*>>>()
+            propertyConstraints = LinkedHashMap()
             propertyConstraintsField.set(self, propertyConstraints)
         }
         return propertyConstraints

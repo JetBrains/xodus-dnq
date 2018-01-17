@@ -13,564 +13,499 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jetbrains.teamsys.dnq.database;
+package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.ByteIterable;
-import jetbrains.exodus.ExodusException;
-import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator;
-import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator;
-import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator;
-import jetbrains.exodus.core.dataStructures.hash.HashSet;
-import jetbrains.exodus.database.*;
-import jetbrains.exodus.database.exceptions.*;
-import jetbrains.exodus.entitystore.*;
-import jetbrains.exodus.env.ReadonlyTransactionException;
-import jetbrains.exodus.query.UniqueKeyIndicesEngine;
-import jetbrains.exodus.query.metadata.EntityMetaData;
-import jetbrains.exodus.query.metadata.Index;
-import jetbrains.exodus.query.metadata.IndexField;
-import jetbrains.exodus.query.metadata.ModelMetaData;
-import jetbrains.exodus.util.ByteArraySizedInputStream;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import jetbrains.exodus.ByteIterable
+import jetbrains.exodus.ExodusException
+import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
+import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
+import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator
+import jetbrains.exodus.database.*
+import jetbrains.exodus.database.exceptions.*
+import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.env.ReadonlyTransactionException
+import jetbrains.exodus.query.metadata.EntityMetaData
+import jetbrains.exodus.query.metadata.Index
+import mu.KLogging
+import java.io.File
+import java.io.IOException
+import java.io.InputStream
+import java.util.*
+import kotlin.concurrent.withLock
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.*;
+private fun PersistentStoreTransaction.createChangesTracker(readonly: Boolean): TransientChangesTracker {
+    return if (readonly) ReadOnlyTransientChangesTrackerImpl(this) else TransientChangesTrackerImpl(this)
+}
 
-public class TransientSessionImpl implements TransientStoreSession {
+private const val CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__"
+private const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 
-    @NotNull
-    protected static final Logger logger = LoggerFactory.getLogger(TransientSessionImpl.class);
+class TransientSessionImpl(private val store: TransientEntityStoreImpl, private val readonly: Boolean) : TransientStoreSession {
+    companion object : KLogging()
 
-    private static final String CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__";
-    private static final String PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__";
+    private var txnWhichWasUpgraded: ReadonlyPersistentStoreTransaction? = null
+    private var upgradeHook: Runnable? = null
+    private var state = State.Open
 
-    @NotNull
-    private final TransientEntityStoreImpl store;
-    private final boolean readonly;
-    @Nullable
-    private ReadonlyPersistentStoreTransaction txnWhichWasUpgraded;
-    @Nullable
-    private Runnable upgradeHook;
-    @NotNull
-    private State state;
-    private boolean quietFlush = false;
-    /**
-     * Make it @NotNull
-     */
-    protected TransientChangesTracker changesTracker;
+    private var quietFlush = false
     // stores transient entities that were created for loaded persistent entities to avoid double loading
-    @NotNull
-    private final Map<EntityId, TransientEntity> managedEntities;
-    @NotNull
-    private final Queue<MyRunnable> changes = new QueueDecorator<MyRunnable>();
-    private final int hashCode = (int) (Math.random() * Integer.MAX_VALUE);
-    private boolean allowRunnables = true;
-    @Nullable
-    private Throwable stack = null;
-    private boolean flushing = false;
+    private val managedEntities = HashMapDecorator<EntityId, TransientEntity>()
+    private val changes = QueueDecorator<() -> Boolean>()
+    private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
+    private var allowRunnables = true
+    val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled) Throwable() else null
 
-    public TransientSessionImpl(@NotNull final TransientEntityStoreImpl store, boolean readonly) {
-        this.store = store;
-        this.readonly = readonly;
-        txnWhichWasUpgraded = null;
-        this.store.getPersistentStore().beginReadonlyTransaction();
-        this.state = State.Open;
-        this.managedEntities = new HashMapDecorator<EntityId, TransientEntity>();
-        if (LoggerFactory.getLogger(TransientEntityStoreImpl.class).isDebugEnabled()) {
-            stack = new Throwable();
+    private var flushing = false
+
+    override val isOpened: Boolean
+        get() = state == State.Open
+
+    override val isCommitted: Boolean
+        get() = state == State.Committed
+
+    override val isAborted: Boolean
+        get() = state == State.Aborted
+
+    private val persistentTransactionInternal: PersistentStoreTransaction
+        get() = store.persistentStore.currentTransactionOrThrow
+
+    override val persistentTransaction: PersistentStoreTransaction
+        get() {
+            assertOpen("get persistent transaction")
+            return persistentTransactionInternal
         }
-        initChangesTracker(true);
+
+    private var changesTracker: TransientChangesTracker
+    override val transientChangesTracker: TransientChangesTracker
+        get() {
+            assertOpen("get changes tracker")
+            return changesTracker
+        }
+
+    private val persistentStore: PersistentEntityStoreImpl
+        get() = store.persistentStore as PersistentEntityStoreImpl
+
+    init {
+        this.store.persistentStore.beginReadonlyTransaction()
+        this.changesTracker = snapshot.createChangesTracker(readonly = true)
     }
 
-    @Nullable
-    public Throwable getStack() {
-        return stack;
+    private fun initChangesTracker(readonly: Boolean) {
+        transientChangesTracker.dispose()
+        this.changesTracker = snapshot.createChangesTracker(readonly)
     }
 
-    private void initChangesTracker(boolean readonly) {
-        if (this.changesTracker != null) changesTracker.dispose();
-        final PersistentStoreTransaction snapshot = getSnapshot();
-        this.changesTracker = readonly ? new ReadOnlyTransientChangesTrackerImpl(snapshot) : new TransientChangesTrackerImpl(snapshot);
+    override fun getQueryCancellingPolicy(): QueryCancellingPolicy? {
+        return persistentTransactionInternal.queryCancellingPolicy
     }
 
-    public void setQueryCancellingPolicy(@Nullable QueryCancellingPolicy policy) {
-        getPersistentTransactionInternal().setQueryCancellingPolicy(policy);
+    override fun setQueryCancellingPolicy(policy: QueryCancellingPolicy?) {
+        persistentTransactionInternal.queryCancellingPolicy = policy
     }
 
-    @Nullable
-    public QueryCancellingPolicy getQueryCancellingPolicy() {
-        return getPersistentTransactionInternal().getQueryCancellingPolicy();
+    override fun getStore(): TransientEntityStore = store
+
+    override fun isIdempotent() = persistentTransaction.isIdempotent
+
+    override fun isReadonly() = readonly
+
+    override fun isFinished() = persistentTransaction.isFinished
+
+    override fun setUpgradeHook(hook: Runnable?) {
+        upgradeHook = hook
     }
 
-    @NotNull
-    public TransientEntityStore getStore() {
-        return store;
-    }
-
-    @Override
-    public boolean isIdempotent() {
-        return getPersistentTransaction().isIdempotent();
-    }
-
-    @Override
-    public boolean isReadonly() {
-        return readonly;
-    }
-
-    @Override
-    public boolean isFinished() {
-        return getPersistentTransaction().isFinished();
-    }
-
-    @Override
-    public void setUpgradeHook(@Nullable final Runnable hook) {
-        upgradeHook = hook;
-    }
-
-    @NotNull
-    protected PersistentStoreTransaction getPersistentTransactionInternal() {
-        // TODO: use currentTransactionOrThrow
-        return (PersistentStoreTransaction) store.getPersistentStore().getCurrentTransaction();
-    }
-
-    protected void upgradeReadonlyTransactionIfNecessary() {
-        final StoreTransaction currentTxn = getPersistentTransactionInternal();
-        if (!readonly && currentTxn.isReadonly()) {
-            final PersistentEntityStoreImpl persistentStore = getPersistentStore();
-            if (persistentStore.getEnvironment().getEnvironmentConfig().getEnvIsReadonly()) {
-                throw new ReadonlyTransactionException("Can't upgrade transient transaction in read-only mode");
+    private fun upgradeReadonlyTransactionIfNecessary() {
+        val currentTxn = persistentTransactionInternal
+        if (!readonly && currentTxn.isReadonly) {
+            val persistentStore = persistentStore
+            if (persistentStore.environment.environmentConfig.envIsReadonly) {
+                throw ReadonlyTransactionException("Can't upgrade transient transaction in read-only mode")
             }
-            if (upgradeHook != null) {
-                upgradeHook.run();
-            }
-            final ReadonlyPersistentStoreTransaction roTxn = (ReadonlyPersistentStoreTransaction) currentTxn;
-            final PersistentStoreTransaction newTxn = roTxn.getUpgradedTransaction();
-            TxnUtil.registerTransaction(persistentStore, newTxn); // TODO: fix package visibility
-            this.changesTracker = this.changesTracker.upgrade();
-            txnWhichWasUpgraded = roTxn;
+            upgradeHook?.run()
+            val roTxn = currentTxn as ReadonlyPersistentStoreTransaction
+            val newTxn = roTxn.upgradedTransaction
+            // TODO: fix package visibility
+            TxnUtil.registerTransaction(persistentStore, newTxn)
+            changesTracker = this.transientChangesTracker.upgrade()
+            txnWhichWasUpgraded = roTxn
         }
     }
 
-    @NotNull
-    public String toString() {
-        return "transaction [" + hashCode() + "] state [" + state + "]";
+    override fun toString(): String {
+        return "transaction [${hashCode()}] state [$state]"
     }
 
-    @Override
-    public int hashCode() {
-        return hashCode;
+    override fun hashCode(): Int {
+        return hashCode
     }
 
-    @Override
-    public boolean equals(@Nullable Object obj) {
-        return obj == this;
+    override fun equals(other: Any?) = other === this
+
+    override fun hasChanges() = changes.isNotEmpty()
+
+    private fun assertOpen(action: String) {
+        if (state != State.Open) throw IllegalStateException("Cannot $action in state [$state]")
     }
 
-    @Override
-    public boolean hasChanges() {
-        return !changes.isEmpty();
-    }
-
-    public boolean isOpened() {
-        return state == State.Open;
-    }
-
-    public boolean isCommitted() {
-        return state == State.Committed;
-    }
-
-    public boolean isAborted() {
-        return state == State.Aborted;
-    }
-
-    private void assertOpen(@NotNull final String action) {
-        if (state != State.Open) {
-            throw new IllegalStateException("Can't " + action + " in state [" + state + "]");
-        }
-    }
-
-    @NotNull
-    public EntityIterable createPersistentEntityIterableWrapper(@NotNull EntityIterable wrappedIterable) {
-        assertOpen("create wrapper");
+    override fun createPersistentEntityIterableWrapper(wrappedIterable: EntityIterable): EntityIterable {
+        assertOpen("create wrapper")
         // do not wrap twice
-        if (wrappedIterable instanceof PersistentEntityIterableWrapper) {
-            return wrappedIterable;
-        } else {
-            return new PersistentEntityIterableWrapper(store, wrappedIterable);
+        return when (wrappedIterable) {
+            is PersistentEntityIterableWrapper -> wrappedIterable
+            else -> PersistentEntityIterableWrapper(store, wrappedIterable)
         }
     }
 
-    @Override
-    public void revert() {
-        if (logger.isDebugEnabled()) {
-            logger.debug("Revert transient session " + this);
-        }
-        assertOpen("revert");
+    override fun revert() {
+        logger.debug("Revert transient session ${this}")
+        assertOpen("revert")
 
-        PersistentStoreTransaction txn = (PersistentStoreTransaction) getPersistentTransactionInternal();
-        if (!txn.isReadonly()) {
-            managedEntities.clear();
-            changes.clear();
+        if (!persistentTransactionInternal.isReadonly) {
+            managedEntities.clear()
+            changes.clear()
         }
-        closePersistentSession();
-        this.store.getPersistentStore().beginReadonlyTransaction();
-        initChangesTracker(true);
+        closePersistentSession()
+        this.store.persistentStore.beginReadonlyTransaction()
+        initChangesTracker(readonly = true)
     }
 
-    @Override
-    public boolean flush() {
-        if (store.getThreadSession() != this) {
-            throw new IllegalStateException("Can't commit session from another thread.");
-        }
+    override fun flush(): Boolean {
+        if (store.threadSession !== this) throw IllegalStateException("Cannot commit session from another thread")
 
-        if (logger.isDebugEnabled()) {
-            logger.debug("Intermidiate commit transient session " + this);
-        }
 
-        assertOpen("flush");
+        logger.debug("Intermediate commit transient session ${this}")
+
+        assertOpen("flush")
 
         if (changes.isEmpty()) {
-            logger.trace("Nothing to flush.");
+            logger.trace("Nothing to flush")
         } else {
-            flushChanges();
-            changes.clear();
+            flushChanges()
+            changes.clear()
 
-            for (TransientEntity r : changesTracker.getRemovedEntities()) {
-                managedEntities.remove(r.getId());
+            for (removedEntity in transientChangesTracker.removedEntities) {
+                managedEntities.remove(removedEntity.id)
             }
 
-            final TransientChangesTracker oldChangesTracker = changesTracker;
-            closePersistentSession();
-            this.store.getPersistentStore().beginReadonlyTransaction();
-            this.changesTracker = new ReadOnlyTransientChangesTrackerImpl(getSnapshot());
-            notifyFlushedListeners(oldChangesTracker);
+            val oldChangesTracker = changesTracker
+            closePersistentSession()
+            this.store.persistentStore.beginReadonlyTransaction()
+            this.changesTracker = ReadOnlyTransientChangesTrackerImpl(snapshot)
+            notifyFlushedListeners(oldChangesTracker)
         }
-        return true;
+        return true
     }
 
-    public boolean commit() {
+    override fun commit(): Boolean {
         // flush until no side-effects from listeners
         do {
-            flush();
-        } while (!changes.isEmpty());
+            flush()
+        } while (!changes.isEmpty())
 
         try {
-            changesTracker.dispose();
+            transientChangesTracker.dispose()
         } finally {
             try {
-                closePersistentSession();
+                closePersistentSession()
             } finally {
-                store.unregisterStoreSession(this);
-                state = State.Committed;
+                store.unregisterStoreSession(this)
+                state = State.Committed
             }
         }
-        return true;
+        return true
     }
 
-    public void abort() {
-        if (store.getThreadSession() != this) {
-            throw new IllegalStateException("Can't abort session that is not current thread session. Current thread session is [" + store.getThreadSession() + "]");
-        }
+    override fun abort() {
+        if (store.threadSession !== this)
+            throw IllegalStateException("Cannot abort session that is not current thread session. Current thread session is [${store.threadSession}]")
 
-        if (logger.isDebugEnabled()) {
-            logger.debug("Abort transient session " + this);
-        }
-        assertOpen("abort");
+        logger.debug("Abort transient session ${this}")
+
+        assertOpen("abort")
         try {
-            changesTracker.dispose();
+            transientChangesTracker.dispose()
         } finally {
             try {
-                closePersistentSession();
+                closePersistentSession()
             } finally {
-                store.unregisterStoreSession(this);
-                state = State.Aborted;
+                store.unregisterStoreSession(this)
+                state = State.Aborted
             }
         }
-    }
-
-    @NotNull
-    public StoreTransaction getPersistentTransaction() {
-        assertOpen("get persistent transaction");
-        return getPersistentTransactionInternal();
     }
 
 
     /**
      * Creates transient wrapper for existing persistent entity
-     *
-     * @param persistent
-     * @return
      */
-    @NotNull
-    public TransientEntity newEntity(@NotNull Entity persistent) {
-        if (persistent instanceof TransientEntity) {
-            throw new IllegalArgumentException("Can't create transient entity wrapper for another transient entity.");
-        }
-        assertOpen("create entity");
-        return newEntityImpl((PersistentEntity) persistent);
+    override fun newEntity(persistentEntity: Entity): TransientEntity {
+        if (persistentEntity !is PersistentEntity)
+            throw IllegalArgumentException("Cannot create transient entity wrapper for non persistent entity")
+
+        assertOpen("create entity")
+
+        return newEntityImpl(persistentEntity)
     }
 
-    @NotNull
-    public Entity getEntity(@NotNull final EntityId id) {
-        assertOpen("get entity");
-        TransientEntity e = managedEntities.get(id);
-        if (e == null) {
-            return newEntity(changesTracker.getSnapshot().getEntity(id));
-        } else {
-            return e;
-        }
+    override fun getEntity(id: EntityId): Entity {
+        assertOpen("get entity")
+
+        val managedEntity = managedEntities[id]
+        return managedEntity
+                ?: newEntity(transientChangesTracker.snapshot.getEntity(id))
     }
 
-    @NotNull
-    public EntityId toEntityId(@NotNull final String representation) {
-        assertOpen("convert to entity id");
-        return getPersistentTransactionInternal().toEntityId(representation);
+    override fun toEntityId(representation: String): EntityId {
+        assertOpen("convert to entity id")
+        return persistentTransactionInternal.toEntityId(representation)
     }
 
-    @NotNull
-    public List<String> getEntityTypes() {
-        assertOpen("get entity types");
-        return getPersistentTransactionInternal().getEntityTypes();
+    override fun getEntityTypes(): List<String> {
+        assertOpen("get entity types")
+        return persistentTransactionInternal.entityTypes
     }
 
-    @NotNull
-    public EntityIterable getAll(@NotNull final String entityType) {
-        assertOpen("getAll");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().getAll(entityType));
+    private fun wrap(action: String, entityIterable: EntityIterable): EntityIterable {
+        assertOpen(action)
+        return PersistentEntityIterableWrapper(store, entityIterable)
     }
 
-    @NotNull
-    public EntityIterable getSingletonIterable(@NotNull final Entity entity) {
-        assertOpen("getSingletonIterable");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().getSingletonIterable(((TransientEntityImpl) entity).getPersistentEntity()));
+    override fun getAll(entityType: String): EntityIterable {
+        return wrap("getAll", persistentTransactionInternal.getAll(entityType))
     }
 
-    @NotNull
-    public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable value) {
-        assertOpen("find");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().find(entityType, propertyName, value));
+    override fun getSingletonIterable(entity: Entity): EntityIterable {
+        return wrap("getSingletonIterable", persistentTransactionInternal.getSingletonIterable(
+                (entity as TransientEntityImpl).persistentEntity
+        ))
     }
 
-    @NotNull
-    public EntityIterable find(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final Comparable minValue, @NotNull final Comparable maxValue) {
-        assertOpen("find");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().find(entityType, propertyName, minValue, maxValue));
+    override fun find(entityType: String, propertyName: String, value: Comparable<*>): EntityIterable {
+        return wrap("find", persistentTransactionInternal.find(
+                entityType,
+                propertyName,
+                value
+        ))
     }
 
-    @NotNull
-    @Override
-    public EntityIterable findIds(@NotNull String entityType, long minValue, long maxValue) {
-        assertOpen("findIds");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findIds(entityType, minValue, maxValue));
+    override fun find(entityType: String, propertyName: String, minValue: Comparable<*>, maxValue: Comparable<*>): EntityIterable {
+        return wrap("find", persistentTransactionInternal.find(
+                entityType,
+                propertyName,
+                minValue,
+                maxValue
+        ))
     }
 
-    @NotNull
-    public EntityIterable findWithProp(@NotNull final String entityType, @NotNull final String propertyName) {
-        assertOpen("findWithProp");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findWithProp(entityType, propertyName));
+    override fun findIds(entityType: String, minValue: Long, maxValue: Long): EntityIterable {
+        return wrap("findIds", persistentTransactionInternal.findIds(
+                entityType,
+                minValue,
+                maxValue
+        ))
     }
 
-    @NotNull
-    public EntityIterable findStartingWith(@NotNull final String entityType, @NotNull final String propertyName, @NotNull final String value) {
-        assertOpen("startsWith");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findStartingWith(entityType, propertyName, value));
+    override fun findWithProp(entityType: String, propertyName: String): EntityIterable {
+        return wrap("findWithProp", persistentTransactionInternal.findWithProp(
+                entityType,
+                propertyName
+        ))
     }
 
-    @NotNull
-    public EntityIterable findWithBlob(@NotNull final String entityType, @NotNull final String propertyName) {
-        assertOpen("findWithBlob");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findWithBlob(entityType, propertyName));
+    override fun findStartingWith(entityType: String, propertyName: String, value: String): EntityIterable {
+        return wrap("startsWith", persistentTransactionInternal.findStartingWith(
+                entityType,
+                propertyName,
+                value
+        ))
     }
 
-    @NotNull
-    public EntityIterable findLinks(@NotNull final String entityType, @NotNull final Entity entity, @NotNull final String linkName) {
-        assertOpen("findLinks");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findLinks(entityType, entity, linkName));
+    override fun findWithBlob(entityType: String, propertyName: String): EntityIterable {
+        return wrap("findWithBlob", persistentTransactionInternal.findWithBlob(
+                entityType,
+                propertyName
+        ))
     }
 
-    @NotNull
-    public EntityIterable findLinks(@NotNull String entityType, @NotNull EntityIterable entities, @NotNull String linkName) {
-        assertOpen("findLinks");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findLinks(entityType, entities, linkName));
+    override fun findLinks(entityType: String, entity: Entity, linkName: String): EntityIterable {
+        return wrap("findLinks", persistentTransactionInternal.findLinks(
+                entityType,
+                entity,
+                linkName
+        ))
     }
 
-    @NotNull
-    public EntityIterable findWithLinks(@NotNull String entityType, @NotNull String linkName) {
-        assertOpen("findWithLinks");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().findWithLinks(entityType, linkName));
+    override fun findLinks(entityType: String, entities: EntityIterable, linkName: String): EntityIterable {
+        return wrap("findLinks", persistentTransactionInternal.findLinks(
+                entityType,
+                entities,
+                linkName
+        ))
     }
 
-    @NotNull
-    public EntityIterable findWithLinks(@NotNull String entityType,
-                                        @NotNull String linkName,
-                                        @NotNull String oppositeEntityType,
-                                        @NotNull String oppositeLinkName) {
-        assertOpen("findWithLinks");
-        return new PersistentEntityIterableWrapper(store,
-                getPersistentTransactionInternal().findWithLinks(entityType, linkName, oppositeEntityType, oppositeLinkName));
+    override fun findWithLinks(entityType: String, linkName: String): EntityIterable {
+        return wrap("findWithLinks", persistentTransactionInternal.findWithLinks(
+                entityType,
+                linkName
+        ))
     }
 
-    @NotNull
-    public EntityIterable sort(@NotNull final String entityType,
-                               @NotNull final String propertyName,
-                               final boolean ascending) {
-        assertOpen("sort");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().sort(entityType, propertyName, ascending));
+    override fun findWithLinks(entityType: String,
+                               linkName: String,
+                               oppositeEntityType: String,
+                               oppositeLinkName: String): EntityIterable {
+        return wrap("findWithLinks", persistentTransactionInternal.findWithLinks(
+                entityType,
+                linkName,
+                oppositeEntityType,
+                oppositeLinkName
+        ))
     }
 
-    @NotNull
-    public EntityIterable sort(@NotNull final String entityType,
-                               @NotNull final String propertyName,
-                               @NotNull final EntityIterable rightOrder,
-                               final boolean ascending) {
-        assertOpen("sort");
-        return new PersistentEntityIterableWrapper(store,
-                getPersistentTransactionInternal().sort(entityType, propertyName, rightOrder, ascending));
+    override fun sort(entityType: String,
+                      propertyName: String,
+                      ascending: Boolean): EntityIterable {
+        return wrap("sort", persistentTransactionInternal.sort(
+                entityType,
+                propertyName,
+                ascending
+        ))
     }
 
-    @NotNull
-    public EntityIterable sortLinks(@NotNull final String entityType,
-                                    @NotNull final EntityIterable sortedLinks,
-                                    boolean isMultiple,
-                                    @NotNull final String linkName,
-                                    final @NotNull EntityIterable rightOrder) {
-        assertOpen("sortLinks");
-        return new PersistentEntityIterableWrapper(store,
-                getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder));
+    override fun sort(entityType: String,
+                      propertyName: String,
+                      rightOrder: EntityIterable,
+                      ascending: Boolean): EntityIterable {
+        return wrap("sort", persistentTransactionInternal.sort(
+                entityType,
+                propertyName,
+                rightOrder,
+                ascending
+        ))
     }
 
-    @NotNull
-    public EntityIterable sortLinks(@NotNull final String entityType,
-                                    @NotNull final EntityIterable sortedLinks,
-                                    boolean isMultiple,
-                                    @NotNull final String linkName,
-                                    final @NotNull EntityIterable rightOrder,
-                                    @NotNull final String oppositeEntityType,
-                                    @NotNull final String oppositeLinkName) {
-        assertOpen("sortLinks");
-        return new PersistentEntityIterableWrapper(store,
-                getPersistentTransactionInternal().sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder, oppositeEntityType, oppositeLinkName));
+    override fun sortLinks(entityType: String,
+                           sortedLinks: EntityIterable,
+                           isMultiple: Boolean,
+                           linkName: String,
+                           rightOrder: EntityIterable): EntityIterable {
+        return wrap("sortLinks", persistentTransactionInternal.sortLinks(
+                entityType,
+                sortedLinks,
+                isMultiple,
+                linkName,
+                rightOrder
+        ))
     }
 
-    @NotNull
-    public EntityIterable mergeSorted(@NotNull List<EntityIterable> sorted, @NotNull Comparator<Entity> comparator) {
-        assertOpen("mergeSorted");
-        return new PersistentEntityIterableWrapper(store, getPersistentTransactionInternal().mergeSorted(sorted, comparator));
+    override fun sortLinks(entityType: String,
+                           sortedLinks: EntityIterable,
+                           isMultiple: Boolean,
+                           linkName: String,
+                           rightOrder: EntityIterable,
+                           oppositeEntityType: String,
+                           oppositeLinkName: String): EntityIterable {
+        return wrap("sortLinks", persistentTransactionInternal.sortLinks(
+                entityType,
+                sortedLinks,
+                isMultiple,
+                linkName,
+                rightOrder,
+                oppositeEntityType,
+                oppositeLinkName
+        ))
     }
 
-    @NotNull
-    public Sequence getSequence(@NotNull final String sequenceName) {
-        assertOpen("get sequence");
-        return getPersistentTransactionInternal().getSequence(sequenceName);
+    override fun mergeSorted(sorted: List<EntityIterable>, comparator: Comparator<Entity>): EntityIterable {
+        return wrap("mergeSorted", persistentTransactionInternal.mergeSorted(
+                sorted,
+                comparator
+        ))
     }
 
-    private void closePersistentSession() {
-        if (logger.isDebugEnabled()) {
-            logger.debug("Close persistent session for transient session " + this);
-        }
-        StoreTransaction persistentTxn = store.getPersistentStore().getCurrentTransaction();
-        if (persistentTxn != null) {
-            persistentTxn.abort();
-        }
-        persistentTxn = txnWhichWasUpgraded;
-        if (persistentTxn != null) {
-            persistentTxn.abort();
-            txnWhichWasUpgraded = null;
-        }
+    override fun getSequence(sequenceName: String): Sequence {
+        assertOpen("get sequence")
+        return persistentTransactionInternal.getSequence(sequenceName)
     }
 
-    public void quietIntermediateCommit() {
-        final boolean qf = quietFlush;
+    private fun closePersistentSession() {
+        logger.debug("Close persistent session for transient session ${this}")
+
+        store.persistentStore.currentTransaction?.abort()
+        txnWhichWasUpgraded?.abort()
+        txnWhichWasUpgraded = null
+    }
+
+    override fun quietIntermediateCommit() {
+        val quietFlush = quietFlush
         try {
-            this.quietFlush = true;
-            flush();
+            this.quietFlush = true
+            flush()
         } finally {
-            this.quietFlush = qf;
+            this.quietFlush = quietFlush
         }
     }
 
-    @NotNull
-    public TransientChangesTracker getTransientChangesTracker() throws IllegalStateException {
-        assertOpen("get changes tracker");
-        return changesTracker;
-    }
 
-
-    private void replayChanges() {
-        initChangesTracker(false);
-        // some of manages entities could be deleted
-        managedEntities.clear();
-
-        for (MyRunnable c : changes) {
-            c.run();
-        }
+    private fun replayChanges() {
+        initChangesTracker(readonly = false)
+        // some of managed entities could be deleted
+        managedEntities.clear()
+        changes.forEach { it() }
     }
 
     /**
      * Removes orphans (entities without parents) or returns OrphanException to throw later.
      */
-    @NotNull
-    private Set<DataIntegrityViolationException> removeOrphans() {
-        Set<DataIntegrityViolationException> orphans = new HashSetDecorator<DataIntegrityViolationException>();
-        final ModelMetaData modelMetaData = store.getModelMetaData();
+    private fun removeOrphans(): MutableSet<DataIntegrityViolationException> {
+        val orphans = HashSetDecorator<DataIntegrityViolationException>()
+        val modelMetaData = store.modelMetaData ?: return orphans
 
-        if (modelMetaData == null) {
-            return orphans;
-        }
+        transientChangesTracker.changedEntities
+                .toList()
+                .asSequence()
+                .filter { !it.isRemoved }
+                .mapNotNull { changedEntity ->
+                    modelMetaData.getEntityMetaData(changedEntity.type)
+                            ?.let { entityMetaData -> changedEntity to entityMetaData }
+                }
+                .forEach { (changedEntity, entityMetaData) ->
+                    if (entityMetaData.hasAggregationChildEnds() && !EntityMetaDataUtils.hasParent(entityMetaData, changedEntity, transientChangesTracker)) {
+                        if (entityMetaData.removeOrphan) {
+                            // has no parent - remove
+                            logger.debug("Remove orphan: $changedEntity")
 
-        for (TransientEntity e : new ArrayList<TransientEntity>(changesTracker.getChangedEntities())) {
-            if (!e.isRemoved()) {
-                EntityMetaData emd = modelMetaData.getEntityMetaData(e.getType());
-
-                if (emd != null && emd.hasAggregationChildEnds() && !EntityMetaDataUtils.hasParent(emd, e, changesTracker)) {
-                    if (emd.getRemoveOrphan()) {
-                        // has no parent - remove
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("Remove orphan: " + e);
+                            // we don't want this change to be repeated on flush
+                            deleteEntityInternal(changedEntity)
+                        } else {
+                            // has no parent, but orphans shouldn't be removed automatically - exception
+                            orphans.add(OrphanChildException(changedEntity, entityMetaData.aggregationChildEnds))
                         }
-
-                        // we don't want this change to be repeated on flush
-                        deleteEntityInternal(e);
-                    } else {
-                        // has no parent, but orphans shouldn't be removed automatically - exception
-                        orphans.add(new OrphanChildException(e, emd.getAggregationChildEnds()));
                     }
                 }
-            }
-        }
 
-        return orphans;
+        return orphans
     }
 
     /**
      * Creates new transient entity
-     *
-     * @param entityType
-     * @return
      */
-    @NotNull
-    public TransientEntity newEntity(@NotNull final String entityType) {
-        assertOpen("create entity");
-        upgradeReadonlyTransactionIfNecessary();
-        return new TransientEntityImpl(entityType, this.getStore());
+    override fun newEntity(entityType: String): TransientEntity {
+        assertOpen("create entity")
+        upgradeReadonlyTransactionIfNecessary()
+        return TransientEntityImpl(entityType, getStore())
     }
 
-    @NotNull
-    @Override
-    public TransientEntity newEntity(@NotNull final EntityCreator creator) {
-        final Entity found = creator.find();
-        if (found != null) {
-            addEntityCreator((TransientEntityImpl) found, creator);
-            return (TransientEntity) found;
+    override fun newEntity(creator: EntityCreator): TransientEntity {
+        val found = creator.find()
+        return if (found != null) {
+            addEntityCreator(found as TransientEntityImpl, creator)
+            found
+        } else {
+            upgradeReadonlyTransactionIfNecessary()
+            TransientEntityImpl(creator, getStore())
         }
-        upgradeReadonlyTransactionIfNecessary();
-        return new TransientEntityImpl(creator, this.getStore());
     }
 
     /**
@@ -579,56 +514,52 @@ public class TransientSessionImpl implements TransientStoreSession {
      * @param entity
      * @return
      */
-    @NotNull
-    public TransientEntity newLocalCopy(@NotNull final TransientEntity entity) {
-        assertOpen("create local copy");
-        if (entity.isReadonly() || entity.isWrapper()) {
-            return entity;
-        } else if (
-            // optimization: inlined entity.isRemoved()
-                changesTracker.isRemoved(entity)) {
-            EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
-            logger.warn("Entity [" + entity + "] was removed by you.");
-            throw entityRemovedException;
-        } else if (
-            // optimization: inlined entity.isNew()
-                changesTracker.isNew(entity)) {
-            final EntityId entityId = entity.getId();
-            if (managedEntities.get(entityId) == entity) {
-                // was created in this session and session wasn't reverted
-                return entity;
+    override fun newLocalCopy(entity: TransientEntity): TransientEntity {
+        assertOpen("create local copy")
+        return when {
+            entity.isReadonly || entity.isWrapper -> entity
+            transientChangesTracker.isRemoved(entity) -> {
+                // optimization: in-lined entity.isRemoved()
+                logger.warn { "Entity [$entity] was removed by you." }
+                throw EntityRemovedException(entity)
             }
-            throw new IllegalStateException("Entity in state New was not created in this session. " + entity);
-        } else if (
-            // optimization: inlined entity.isSaved()
-                changesTracker.isSaved(entity)) {
-            final EntityId entityId = entity.getId();
-            final TransientEntity localCopy = managedEntities.get(entityId);
-            if (localCopy == entity) {
+            transientChangesTracker.isNew(entity) -> {
+                // optimization: in-lined entity.isNew()
+                val entityId = entity.id
+                if (managedEntities[entityId] !== entity)
+                    throw IllegalStateException("Entity in state New was not created in this session. $entity")
+
                 // was created in this session and session wasn't reverted
-                return entity;
+                entity
             }
-            // saved entity from another session or from reverted session - load it from database by id
-            // local copy already created?
-            if (localCopy != null) {
-                if (
-                    // optimization: inlined localCopy.isRemoved()
-                        changesTracker.isRemoved(localCopy)) {
-                    EntityRemovedException entityRemovedException = new EntityRemovedException(entity);
-                    logger.warn("Local copy of entity [" + entity + "] was removed by you.");
-                    throw entityRemovedException;
+            transientChangesTracker.isSaved(entity) -> {
+                // optimization: in-lined entity.isSaved()
+                val entityId = entity.id
+                val localCopy = managedEntities[entityId]
+                if (localCopy === entity) {
+                    // was created in this session and session wasn't reverted
+                    entity
+                } else if (localCopy != null) {
+                    // saved entity from another session or from reverted session - load it from database by id
+                    // local copy already created?
+                    if (transientChangesTracker.isRemoved(localCopy)) {
+                        // optimization: in-lined localCopy.isRemoved()
+                        logger.warn { "Local copy of entity [$entity] was removed by you." }
+                        throw EntityRemovedException(entity)
+                    } else {
+                        localCopy
+                    }
+                } else {
+                    try {
+                        // load persistent entity from database by id
+                        newEntity(persistentTransactionInternal.getEntity(entityId))
+                    } catch (e: EntityRemovedInDatabaseException) {
+                        logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
+                        throw e
+                    }
                 }
-                return localCopy;
             }
-            try {
-                // load persistent entity from database by id
-                return newEntity(getPersistentTransactionInternal().getEntity(entityId));
-            } catch (EntityRemovedInDatabaseException e) {
-                logger.warn("Entity [" + entity + "] was removed in database, can't create local copy.");
-                throw e;
-            }
-        } else {
-            throw new IllegalStateException("Can't create local copy of entity (unexpected state) [" + entity + "]");
+            else -> throw IllegalStateException("Cannot create local copy of entity (unexpected state) [$entity]")
         }
     }
 
@@ -638,1104 +569,903 @@ public class TransientSessionImpl implements TransientStoreSession {
      * @param entity
      * @return true if e was removed, false if it wasn't removed at all
      */
-    public boolean isRemoved(@NotNull final Entity entity) {
-        EntityId entityId = null;
-        if (entity instanceof TransientEntity && state == State.Open) {
-            final TransientEntity transientEntity = (TransientEntity) entity;
-            if (transientEntity.isWrapper()) {
-                return transientEntity.isRemoved();
+    override fun isRemoved(entity: Entity): Boolean {
+        var entityId: EntityId? = null
+        if (entity is TransientEntity && state == State.Open) {
+            if (entity.isWrapper) {
+                return entity.isRemoved
             }
-            // transientEntity.isSaved() inlined:
-            if (changesTracker.isSaved(transientEntity)) {
+            // transientEntity.isSaved() in-lined:
+            if (transientChangesTracker.isSaved(entity)) {
                 // saved entity from another session or from reverted session
-                entityId = entity.getId();
-                final TransientEntity localCopy = managedEntities.get(entityId);
-                if (localCopy != transientEntity) {
+                entityId = entity.getId()
+                val localCopy = managedEntities[entityId]
+                if (localCopy !== entity) {
                     // local copy already created?
-                    if (localCopy != null &&
-                            // localCopy.isRemoved() inlined:
-                            changesTracker.isRemoved(localCopy)) {
-                        return true;
+                    // localCopy.isRemoved() in-lined:
+                    if (localCopy != null && transientChangesTracker.isRemoved(localCopy)) {
+                        return true
                     }
                 }
-            } else if (
-                // transientEntity.isRemoved() inlined:
-                    changesTracker.isRemoved(transientEntity)) {
-                return true;
-            } else if (transientEntity.isReadonly() ||
-                    // transientEntity.isNew() inlined:
-                    changesTracker.isNew(transientEntity)) {
-                return false;
+            } else if (transientChangesTracker.isRemoved(entity)) {
+                // transientEntity.isRemoved() in-lined:
+                return true
+            } else if (entity.isReadonly || transientChangesTracker.isNew(entity)) {
+                // transientEntity.isNew() in-lined:
+                return false
             }
         }
         // load persistent entity from database by id
         if (entityId == null) {
-            entityId = entity.getId();
+            entityId = entity.id
         }
-        final PersistentStoreTransaction persistentTxn = getPersistentTransactionInternal();
-        return getPersistentStore().getLastVersion(persistentTxn, entityId) < 0;
+        return persistentStore.getLastVersion(persistentTransactionInternal, entityId) < 0
     }
 
     /**
      * Checks constraints before save changes
      */
-    private void checkBeforeSaveChangesConstraints() {
-        final Set<DataIntegrityViolationException> exceptions = removeOrphans();
+    private fun checkBeforeSaveChangesConstraints() {
+        // 0. remove orphans
+        val exceptions = removeOrphans()
 
-        final ModelMetaData modelMetaData = store.getModelMetaData();
+        val modelMetaData = store.modelMetaData
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Quiet intermediate commit: skip before save changes constraints checking. " + this);
-            }
-            return;
+            logger.warn { "Quiet intermediate commit: skip before save changes constraints checking. ${this}" }
+            return
         }
 
-        if (logger.isTraceEnabled()) {
-            logger.trace("Check before save changes constraints. " + this);
-        }
+        logger.trace { "Check before save changes constraints. ${this}" }
 
-        // 0. check incoming links for deleted entities
-        exceptions.addAll(ConstraintsUtil.checkIncomingLinks(changesTracker));
+        // 1. check incoming links for deleted entities
+        exceptions.addAll(ConstraintsUtil.checkIncomingLinks(transientChangesTracker))
 
-        // 1. check associations cardinality
-        exceptions.addAll(ConstraintsUtil.checkAssociationsCardinality(changesTracker, modelMetaData));
+        // 2. check associations cardinality
+        exceptions.addAll(ConstraintsUtil.checkAssociationsCardinality(transientChangesTracker, modelMetaData))
 
-        // 2. check required properties
-        exceptions.addAll(ConstraintsUtil.checkRequiredProperties(changesTracker, modelMetaData));
+        // 3. check required properties
+        exceptions.addAll(ConstraintsUtil.checkRequiredProperties(transientChangesTracker, modelMetaData))
 
-        // 3. check other property constraints
-        exceptions.addAll(ConstraintsUtil.checkOtherPropertyConstraints(changesTracker, modelMetaData));
+        // 4. check other property constraints
+        exceptions.addAll(ConstraintsUtil.checkOtherPropertyConstraints(transientChangesTracker, modelMetaData))
 
-        // 4. check index fields
-        exceptions.addAll(ConstraintsUtil.checkIndexFields(changesTracker, modelMetaData));
+        // 5. check index fields
+        exceptions.addAll(ConstraintsUtil.checkIndexFields(transientChangesTracker, modelMetaData))
 
-        if (exceptions.size() != 0) {
-            ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
-            store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
-                public void visit(TransientStoreSessionListener listener) {
-                    try {
-                        listener.afterConstraintsFail(TransientSessionImpl.this, exceptions);
-                    } catch (Exception e) {
-                        if (logger.isErrorEnabled()) {
-                            logger.error("Exception while inside listener [" + listener + "]", e);
-                        }
-                        // do not rethrow exception, because we are after constaints fail
-                    }
-                }
-            });
-            throw e;
+        if (exceptions.isNotEmpty()) {
+            forAllListeners { it.afterConstraintsFail(this, exceptions) }
+            throw ConstraintsValidationException(exceptions)
         }
     }
 
     /**
      * Checks custom flush constraints before save changes
      */
-    private void executeBeforeFlushTriggers(@NotNull Set<TransientEntity> changedEntities) {
-        final ModelMetaData modelMetaData = store.getModelMetaData();
+    private fun executeBeforeFlushTriggers(changedEntities: Set<TransientEntity>) {
+        val modelMetaData = store.modelMetaData
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
-            if (logger.isDebugEnabled()) {
-                logger.warn("Quiet intermediate commit: skip before flush triggers. " + this);
-            }
-            return;
+            logger.warn("Quiet intermediate commit: skip before flush triggers. " + this)
+            return
         }
 
-        if (logger.isDebugEnabled()) {
-            logger.debug("Execute before flush triggers. " + this);
-        }
+        logger.debug { "Execute before flush triggers. ${this}" }
 
-        final Set<DataIntegrityViolationException> exceptions = new HashSetDecorator<DataIntegrityViolationException>();
-        for (TransientEntity entity : changedEntities) {
-            if (!entity.isRemoved()) {
-                EntityMetaData md = modelMetaData.getEntityMetaData(entity.getType());
-
-                // meta-data may be null for persistent enums
-                if (md != null) {
+        val exceptions = changedEntities
+                .asSequence()
+                .filter { !it.isRemoved }
+                .flatMap { entity ->
                     try {
-                        TransientStoreUtil.getPersistentClassInstance(entity).executeBeforeFlushTrigger(entity);
-                    } catch (ConstraintsValidationException cve) {
-                        for (DataIntegrityViolationException dive : cve.getCauses()) {
-                            exceptions.add(dive);
-                        }
+                        entity.persistentClassInstance?.executeBeforeFlushTrigger(entity)
+                        emptySequence<DataIntegrityViolationException>()
+                    } catch (cve: ConstraintsValidationException) {
+                        cve.causes.asSequence()
                     }
                 }
-            }
-        }
+                .toCollection(HashSetDecorator())
 
-        if (exceptions.size() != 0) {
-            ConstraintsValidationException e = new ConstraintsValidationException(exceptions);
-            throw e;
+        if (exceptions.isNotEmpty()) {
+            throw ConstraintsValidationException(exceptions)
         }
     }
 
     /**
      * Flushes changes
      */
-    private void flushChanges() {
-        if (flushing) {
-            throw new IllegalStateException("Transaction is already being flushed!");
-        }
+    private fun flushChanges() {
+        if (flushing) throw IllegalStateException("Transaction is already being flushed!")
+
         try {
-            flushing = true;
-            beforeFlush();
-            checkBeforeSaveChangesConstraints();
+            flushing = true
+            beforeFlush()
+            checkBeforeSaveChangesConstraints()
 
-            notifyBeforeFlushAfterConstraintsCheckListeners();
+            notifyBeforeFlushAfterConstraintsCheckListeners()
 
-            final StoreTransaction txn = getPersistentTransactionInternal();
-            if (txn.isIdempotent()) {
-                return;
-            }
+            val txn = persistentTransactionInternal
+            if (txn.isIdempotent) return
 
             try {
-                prepare();
-                store.flushLock.lock();
-                try {
+                prepare()
+                store.flushLock.withLock {
                     while (true) {
                         if (txn.flush()) {
-                            return;
+                            return
                         }
                         // replay changes
-                        replayChanges();
+                        replayChanges()
                         //recheck constraints against new database root
-                        checkBeforeSaveChangesConstraints();
-                        prepare();
+                        checkBeforeSaveChangesConstraints()
+                        prepare()
                     }
-                } finally {
-                    store.flushLock.unlock();
                 }
-            } catch (Throwable exception) {
-                if (logger.isInfoEnabled()) {
-                    logger.info("Catch exception in flush: " + exception.getMessage());
+            } catch (exception: Throwable) {
+                logger.info { "Catch exception in flush: ${exception.message}" }
+
+                if (exception is DataIntegrityViolationException) {
+                    txn.revert()
+                    replayChanges()
                 }
-                if (exception instanceof DataIntegrityViolationException) {
-                    txn.revert();
-                    replayChanges();
-                }
-                decodeException(exception);
-                throw new IllegalStateException("should never be thrown");
+                throw exception
             }
+
         } finally {
-            flushing = false;
+            flushing = false
         }
     }
 
-    private void prepare() {
+    private fun prepare() {
         try {
-            allowRunnables = false;
-            flushIndexes();
+            allowRunnables = false
+            flushIndexes()
         } finally {
-            allowRunnables = true;
+            allowRunnables = true
         }
 
-        if (logger.isTraceEnabled()) {
-            logger.trace("Flush persistent transaction in transient session " + this);
-        }
+        logger.trace("Flush persistent transaction in transient session ${this}")
+
     }
 
-    @NotNull
-    public PersistentStoreTransaction getSnapshot() {
-        return ((PersistentStoreTransaction) getPersistentTransaction()).getSnapshot();
+    override fun getSnapshot(): PersistentStoreTransaction {
+        return persistentTransaction.snapshot
     }
 
-    private void flushIndexes() {
-        if (TransientStoreUtil.isPostponeUniqueIndexes()) {
-            return;
-        }
+    private fun flushIndexes() {
+        if (TransientStoreUtil.isPostponeUniqueIndexes) return
 
-        List<Pair<TransientEntity, Index>> uniqueKeyDeletions = new ArrayList<Pair<TransientEntity, Index>>();
-        List<Pair<TransientEntity, Index>> uniqueKeyInsertions = new ArrayList<Pair<TransientEntity, Index>>();
+        val uniqueKeyDeletions = ArrayList<Pair<TransientEntity, Index>>()
+        val uniqueKeyInsertions = ArrayList<Pair<TransientEntity, Index>>()
 
-        for (TransientEntity e : changesTracker.getChangedEntities()) {
-            if (!e.isRemoved()) {
-                // create/update
-                Set<Index> dirtyIndeces = new HashSetDecorator<Index>();
-                final Set<String> changedProperties = changesTracker.getChangedProperties(e);
-                if (changedProperties != null) {
-                    for (String propertyName : changedProperties) {
-                        final Set<Index> indices = getMetadataIndexes(e, propertyName);
-                        if (indices != null) {
-                            dirtyIndeces.addAll(indices);
-                        }
+        transientChangesTracker.changedEntities
+                .filter { !it.isRemoved }
+                .forEach { changedEntity ->
+                    val entityMetaData = getEntityMetaData(changedEntity)
+                    if (entityMetaData != null) {
+                        // create/update
+                        val changedPropertyNames = transientChangesTracker.getChangedProperties(changedEntity).orEmpty()
+                        val changedLinkNames = transientChangesTracker.getChangedLinksDetailed(changedEntity).orEmpty()
+                        (changedPropertyNames.asSequence() + changedLinkNames.keys.asSequence())
+                                .flatMap { propertyName -> entityMetaData.getIndexes(propertyName).asSequence() }
+                                .toCollection(HashSetDecorator())
+                                .forEach { index ->
+                                    val entry = Pair(changedEntity, index)
+                                    if (!changedEntity.isNew) {
+                                        uniqueKeyDeletions.add(entry)
+                                    }
+                                    uniqueKeyInsertions.add(entry)
+                                }
                     }
                 }
 
-                final Map<String, LinkChange> changedLinksDetailed = changesTracker.getChangedLinksDetailed(e);
-                if (changedLinksDetailed != null) {
-                    for (String propertyName : changedLinksDetailed.keySet()) {
-                        final Set<Index> indices = getMetadataIndexes(e, propertyName);
-                        if (indices != null) {
-                            dirtyIndeces.addAll(indices);
-                        }
-                    }
-                }
+        val persistentTransaction = persistentTransaction
+        val ukiEngine = store.queryEngine.uniqueKeyIndicesEngine
 
-                for (Index index : dirtyIndeces) {
-                    Pair<TransientEntity, Index> entry = new Pair<TransientEntity, Index>(e, index);
-                    if (!e.isNew()) {
-                        uniqueKeyDeletions.add(entry);
-                    }
-                    uniqueKeyInsertions.add(entry);
-                }
-            }
-        }
-
-        final PersistentStoreTransaction persistentTransaction = (PersistentStoreTransaction) getPersistentTransaction();
-        final UniqueKeyIndicesEngine ukiEngine = store.getQueryEngine().getUniqueKeyIndicesEngine();
-
-        for (Pair<TransientEntity, Index> deletion : uniqueKeyDeletions) {
-            TransientEntity e = deletion.getFirst();
-            Index index = deletion.getSecond();
-            final List<Comparable> originalValues = getIndexFieldsOriginalValues(e, index);
+        for (deletion in uniqueKeyDeletions) {
+            val e = deletion.first
+            val index = deletion.second
+            val originalValues = getIndexFieldsOriginalValues(e, index)
             // ignore null values; work around for JT-43108
             if (!originalValues.contains(null)) {
-                ukiEngine.deleteUniqueKey(persistentTransaction, index, originalValues);
+                ukiEngine.deleteUniqueKey(persistentTransaction, index, originalValues)
             }
         }
 
-        for (Pair<TransientEntity, Index> insertion : uniqueKeyInsertions) {
-            TransientEntity e = insertion.getFirst();
-            Index index = insertion.getSecond();
+        for ((e, index) in uniqueKeyInsertions) {
             try {
-                ukiEngine.insertUniqueKey(persistentTransaction, index, getIndexFieldsFinalValues(e, index), e);
-            } catch (ExodusException ex) {
-                throw new ConstraintsValidationException(new UniqueIndexViolationException(e, index));
+                ukiEngine.insertUniqueKey(persistentTransaction, index, getIndexFieldsFinalValues(e, index), e)
+            } catch (ex: ExodusException) {
+                throw ConstraintsValidationException(UniqueIndexViolationException(e, index))
             }
+
         }
     }
 
-    @Nullable
-    private Set<Pair<Index, List<Comparable>>> getIndexesValuesBeforeDelete(@NotNull TransientEntity e) {
-        if (changesTracker.isNew(e)) return null;
-
-        Set<Pair<Index, List<Comparable>>> res = null;
-        final EntityMetaData emd = getEntityMetaData(e);
-        if (emd != null) {
-            for (Index index : emd.getIndexes()) {
-                if (res == null) res = new HashSet<Pair<Index, List<Comparable>>>();
-                res.add(new Pair<Index, List<Comparable>>(index, getIndexFieldsOriginalValues(e, index)));
-            }
-        }
-
-        return res;
+    private fun getIndexesValuesBeforeDelete(e: TransientEntity): Set<Pair<Index, List<Comparable<*>?>>> {
+        if (transientChangesTracker.isNew(e)) return emptySet()
+        val entityMetaData = getEntityMetaData(e) ?: return emptySet()
+        return entityMetaData.indexes
+                .map { index -> index to getIndexFieldsOriginalValues(e, index) }
+                .toSet()
     }
 
-    private void deleteIndexes(@NotNull TransientEntity e, @Nullable Set<Pair<Index, List<Comparable>>> indexes) {
-        if (indexes == null) return;
+    private fun deleteIndexes(e: TransientEntity, indexes: Set<Pair<Index, List<Comparable<*>?>>>) {
+        if (indexes.isEmpty()) return
 
-        final PersistentStoreTransaction persistentTransaction = (PersistentStoreTransaction) getPersistentTransaction();
-        final UniqueKeyIndicesEngine ukiEngine = store.getQueryEngine().getUniqueKeyIndicesEngine();
-        for (Pair<Index, List<Comparable>> index : indexes) {
+        val persistentTransaction = persistentTransaction
+        val ukiEngine = store.queryEngine.uniqueKeyIndicesEngine
+        for ((index, propertyValues) in indexes) {
             try {
-                ukiEngine.deleteUniqueKey(persistentTransaction, index.getFirst(), index.getSecond());
-            } catch (ExodusException ex) {
-                throw new ConstraintsValidationException(new UniqueIndexIntegrityException(e, index.getFirst(), ex));
+                ukiEngine.deleteUniqueKey(persistentTransaction, index, propertyValues)
+            } catch (ex: ExodusException) {
+                throw ConstraintsValidationException(UniqueIndexIntegrityException(e, index, ex))
             }
         }
     }
 
-    @NotNull
-    private List<Comparable> getIndexFieldsOriginalValues(@NotNull TransientEntity e, @NotNull Index index) {
-        List<Comparable> res = new ArrayList<Comparable>(index.getFields().size());
-        for (IndexField f : index.getFields()) {
-            if (f.isProperty()) {
-                res.add(getOriginalPropertyValue(e, f.getName()));
+    private fun getIndexFieldsOriginalValues(e: TransientEntity, index: Index): List<Comparable<*>?> {
+        return index.fields.map { field ->
+            if (field.isProperty) {
+                getOriginalPropertyValue(e, field.name)
             } else {
-                res.add(getOriginalLinkValue(e, f.getName()));
+                getOriginalLinkValue(e, field.name)
             }
         }
-        return res;
     }
 
-    @Nullable
-    private Comparable getOriginalPropertyValue(@NotNull TransientEntity e, @NotNull String propertyName) {
-        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getProperty(propertyName);
+    private fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
+        return e.persistentEntity.getSnapshot(transientChangesTracker.snapshot).getProperty(propertyName)
     }
 
-    @Nullable
-    private ByteIterable getOriginalRawPropertyValue(@NotNull TransientEntity e, @NotNull String propertyName) {
-        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getRawProperty(propertyName);
+    private fun getOriginalRawPropertyValue(e: TransientEntity, propertyName: String): ByteIterable? {
+        return e.persistentEntity.getSnapshot(transientChangesTracker.snapshot).getRawProperty(propertyName)
     }
 
-    @Nullable
-    private String getOriginalBlobStringValue(@NotNull TransientEntity e, @NotNull String blobName) {
-        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getBlobString(blobName);
+    private fun getOriginalBlobStringValue(e: TransientEntity, blobName: String): String? {
+        return e.persistentEntity.getSnapshot(transientChangesTracker.snapshot).getBlobString(blobName)
     }
 
-    @Nullable
-    private InputStream getOriginalBlobValue(@NotNull TransientEntity e, @NotNull String blobName) {
-        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getBlob(blobName);
+    private fun getOriginalBlobValue(e: TransientEntity, blobName: String): InputStream? {
+        return e.persistentEntity.getSnapshot(transientChangesTracker.snapshot).getBlob(blobName)
     }
 
-    @Nullable
-    private Comparable getOriginalLinkValue(@NotNull TransientEntity e, @NotNull String linkName) {
+    private fun getOriginalLinkValue(e: TransientEntity, linkName: String): Comparable<*>? {
         // get from saved changes, if not - from db
-        Map<String, LinkChange> linksDetailed = changesTracker.getChangedLinksDetailed(e);
-        if (linksDetailed != null) {
-            LinkChange change = linksDetailed.get(linkName);
-            if (change != null) {
-                switch (change.getChangeType()) {
-                    case ADD_AND_REMOVE:
-                    case REMOVE:
-                        if (change.getRemovedEntitiesSize() != 1) {
-                            if (change.getDeletedEntitiesSize() == 1) {
-                                return change.getDeletedEntities().iterator().next();
-                            }
-                            throw new IllegalStateException("Can't determine original link value: " + e.getType() + "." + linkName);
+        val change = transientChangesTracker.getChangedLinksDetailed(e)?.get(linkName)
+        if (change != null) {
+            when (change.changeType) {
+                LinkChangeType.ADD_AND_REMOVE,
+                LinkChangeType.REMOVE -> {
+                    return if (change.removedEntitiesSize != 1) {
+                        if (change.deletedEntitiesSize == 1) {
+                            change.deletedEntities!!.iterator().next()
+                        } else {
+                            throw IllegalStateException("Can't determine original link value: ${e.type}.$linkName")
                         }
-                        return change.getRemovedEntities().iterator().next();
-                    default:
-                        throw new IllegalStateException("Incorrect change type for link that is part of index: " + e.getType() + "." + linkName + ": " + change.getChangeType().getName());
-                }
-            }
-        }
-
-        return e.getPersistentEntity().getSnapshot(changesTracker.getSnapshot()).getLink(linkName);
-    }
-
-    @NotNull
-    private List<Comparable> getIndexFieldsFinalValues(@NotNull TransientEntity e, @NotNull Index index) {
-        List<Comparable> res = new ArrayList<Comparable>(index.getFields().size());
-        for (IndexField f : index.getFields()) {
-            if (f.isProperty()) {
-                res.add(e.getProperty(f.getName()));
-            } else {
-                res.add(e.getLink(f.getName()));
-            }
-        }
-        return res;
-    }
-
-    @Nullable
-    private Set<Index> getMetadataIndexes(@NotNull TransientEntity e, @NotNull String field) {
-        EntityMetaData md = getEntityMetaData(e);
-        return md == null ? null : md.getIndexes(field);
-    }
-
-    @Nullable
-    private EntityMetaData getEntityMetaData(@NotNull TransientEntity e) {
-        ModelMetaData mdd = store.getModelMetaData();
-        return mdd == null ? null : mdd.getEntityMetaData(e.getType());
-    }
-
-    private void beforeFlush() {
-        // notify listeners, execute before flush, if were side effects, do the same for side effects
-
-        Set<TransientEntityChange> changesDescription = changesTracker.getChangesDescription();
-        if (!changesTracker.getChangedEntities().isEmpty()) {
-            final Set<TransientEntity> processedEntities = new HashSetDecorator<TransientEntity>();
-            Set<TransientEntity> changed = getSideEffects(processedEntities);
-            while (true) {
-                final int changesSize = changesTracker.getChangedEntities().size();
-                notifyBeforeFlushListeners(Collections.unmodifiableSet(changesDescription));
-                executeBeforeFlushTriggers(changed);
-                if (changesSize == changesTracker.getChangedEntities().size()) {
-                    break;
-                }
-                processedEntities.addAll(changed);
-                changed = getSideEffects(processedEntities);
-                if (changed.isEmpty()) {
-                    break;
-                }
-                changesDescription = new HashSet<>();
-                for (TransientEntity sideEffectEntity : changed) {
-                    changesDescription.add(changesTracker.getChangeDescription(sideEffectEntity));
-                }
-            }
-        }
-    }
-
-    @NotNull
-    private Set<TransientEntity> getSideEffects(@NotNull Set<TransientEntity> processedEntities) {
-        HashSet<TransientEntity> sideEffect = new HashSet<TransientEntity>(changesTracker.getChangedEntities());
-        sideEffect.removeAll(processedEntities);
-        return sideEffect;
-    }
-
-    private static void decodeException(@NotNull Throwable e) {
-        if (e instanceof Error) {
-            throw (Error) e;
-        }
-
-        if (e instanceof RuntimeException) {
-            throw (RuntimeException) e;
-        }
-
-        throw new RuntimeException(e);
-    }
-
-    private void notifyFlushedListeners(@NotNull TransientChangesTracker oldChangesTracker) {
-        final Set<TransientEntityChange> changesDescription = Collections.unmodifiableSet(oldChangesTracker.getChangesDescription());
-        if (changesDescription.isEmpty()) {
-            oldChangesTracker.dispose();
-            return;
-        }
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("Notify flushed listeners " + this);
-        }
-
-        store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
-            public void visit(TransientStoreSessionListener listener) {
-                try {
-                    listener.flushed(TransientSessionImpl.this, changesDescription);
-                } catch (Exception e) {
-                    if (logger.isErrorEnabled()) {
-                        logger.error("Exception while inside listener [" + listener + "]", e);
+                    } else {
+                        change.removedEntities!!.iterator().next()
                     }
-                    // do not rethrow exception
                 }
+                else ->
+                    throw IllegalStateException("Incorrect change type for link that is part of index: ${e.type}.$linkName: ${change.changeType.getName()}")
             }
-        });
+        }
+
+        return e.persistentEntity.getSnapshot(transientChangesTracker.snapshot).getLink(linkName)
+    }
+
+    private fun getIndexFieldsFinalValues(e: TransientEntity, index: Index): List<Comparable<*>?> {
+        return index.fields.map { field ->
+            if (field.isProperty) {
+                e.getProperty(field.name)
+            } else {
+                e.getLink(field.name)
+            }
+        }
+    }
+
+    private fun getEntityMetaData(e: TransientEntity): EntityMetaData? {
+        return store.modelMetaData?.getEntityMetaData(e.type)
+    }
+
+    private fun beforeFlush() {
+        // notify listeners, execute before flush, if were side effects, do the same for side effects
+        var changesDescription = transientChangesTracker.changesDescription
+        if (transientChangesTracker.changedEntities.isNotEmpty()) {
+            val processedEntities = HashSetDecorator<TransientEntity>()
+            var changed = transientChangesTracker.changedEntities
+            while (true) {
+                val changesSize = transientChangesTracker.changedEntities.size
+                notifyBeforeFlushListeners(Collections.unmodifiableSet(changesDescription))
+                executeBeforeFlushTriggers(changed)
+                if (changesSize == transientChangesTracker.changedEntities.size) break
+
+                processedEntities.addAll(changed)
+                changed = transientChangesTracker.changedEntities - processedEntities
+                if (changed.isEmpty()) break
+
+                changesDescription = changed.asSequence()
+                        .map { transientChangesTracker.getChangeDescription(it) }
+                        .toSet()
+            }
+        }
+    }
+
+    private fun notifyFlushedListeners(oldChangesTracker: TransientChangesTracker) {
+        val changesDescription = Collections.unmodifiableSet(oldChangesTracker.changesDescription)
+        if (changesDescription.isEmpty()) {
+            oldChangesTracker.dispose()
+            return
+        }
+
+        logger.debug { "Notify flushed listeners $this" }
+
+        forAllListeners { it.flushed(this, changesDescription) }
 
         //explicitly notify EventsMultiplexer - it will dispose changes tracker in async job
-        final IEventsMultiplexer ep = store.getEventsMultiplexer();
+        val ep = store.eventsMultiplexer
         if (ep != null) {
             try {
-                ep.flushed(this, oldChangesTracker, changesDescription);
-            } catch (Exception e) {
-                if (logger.isErrorEnabled()) {
-                    logger.error("Exception while inside events multiplexer", e);
-                }
-                oldChangesTracker.dispose();
+                ep.flushed(this, oldChangesTracker, changesDescription)
+            } catch (e: Exception) {
+                logger.error("Exception while inside events multiplexer", e)
+
+                oldChangesTracker.dispose()
             }
+
         } else {
-            oldChangesTracker.dispose();
+            oldChangesTracker.dispose()
         }
     }
 
-    private void notifyBeforeFlushListeners(@Nullable final Set<TransientEntityChange> changes) {
-        if (changes == null || changes.isEmpty()) return;
+    private fun notifyBeforeFlushListeners(changes: Set<TransientEntityChange>?) {
+        if (changes == null || changes.isEmpty()) return
 
-        if (logger.isDebugEnabled()) {
-            logger.debug("Notify before flush listeners " + this);
-        }
-
-        store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
-            public void visit(TransientStoreSessionListener listener) {
-                try {
-                    listener.beforeFlushBeforeConstraints(TransientSessionImpl.this, changes);
-                } catch (Exception e) {
-                    if (logger.isErrorEnabled()) {
-                        logger.error("Exception while inside listener [" + listener + "]", e);
-                    }
-                    // rethrow exception, because we are before constraints check
-                    decodeException(e);
-                }
-            }
-        });
+        logger.debug("Notify before flush listeners " + this)
+        forAllListeners(rethrowException = true) { it.beforeFlushBeforeConstraints(this, changes) }
     }
 
-    @Deprecated
-    private void notifyBeforeFlushAfterConstraintsCheckListeners() {
-        final Set<TransientEntityChange> changesDescr = Collections.unmodifiableSet(changesTracker.getChangesDescription());
+    @Deprecated("")
+    private fun notifyBeforeFlushAfterConstraintsCheckListeners() {
+        val changesDescr = Collections.unmodifiableSet(transientChangesTracker.changesDescription)
 
-        if (changesDescr.isEmpty()) return;
+        if (changesDescr.isEmpty()) return
 
-        if (logger.isDebugEnabled()) {
-            logger.debug("Notify before flush after constraints check listeners " + this);
-        }
+        logger.debug("Notify before flush after constraints check listeners " + this)
 
         // check side effects in listeners
-        final int changesCount = changes.size();
-        store.forAllListeners(new TransientEntityStoreImpl.ListenerVisitor() {
-            public void visit(TransientStoreSessionListener listener) {
+        val changesCount = changes.size
+        forAllListeners { it.beforeFlushAfterConstraints(this, changesDescr) }
+
+        if (changes.size != changesCount) {
+            throw EntityStoreException("It's not allowed to change database inside listener.beforeFlushAfterConstraintsCheck() method.")
+        }
+    }
+
+    private fun newEntityImpl(persistent: PersistentEntity): TransientEntity {
+        return if (persistent is ReadOnlyPersistentEntity) {
+            ReadonlyTransientEntityImpl(persistent, store)
+        } else {
+            managedEntities.getOrPut(persistent.id) { TransientEntityImpl(persistent, getStore()) }
+        }
+    }
+
+    internal fun createEntity(transientEntity: TransientEntityImpl, type: String) {
+        val persistentEntity = persistentTransaction.newEntity(type)
+        transientEntity.persistentEntity = persistentEntity
+        managedEntities[transientEntity.id] = transientEntity
+        transientChangesTracker.entityAdded(transientEntity)
+        addChange { saveEntityInternal(persistentEntity, transientEntity) }
+    }
+
+    private fun saveEntityInternal(persistentEntity: PersistentEntity, e: TransientEntityImpl): Boolean {
+        persistentTransaction.saveEntity(persistentEntity)
+        managedEntities[e.id] = e
+        transientChangesTracker.entityAdded(e)
+        return true
+    }
+
+    internal fun createEntity(transientEntity: TransientEntityImpl, creator: EntityCreator) {
+        val persistentEntity = persistentTransaction.newEntity(creator.type)
+        transientEntity.persistentEntity = persistentEntity
+        addChange {
+            val found = creator.find()
+            if (found == null) {
+                val result = saveEntityInternal(persistentEntity, transientEntity)
                 try {
-                    listener.beforeFlushAfterConstraints(TransientSessionImpl.this, changesDescr);
-                } catch (Exception e) {
-                    if (logger.isErrorEnabled()) {
-                        logger.error("Exception while inside listener [" + listener + "]", e);
-                    }
-                    // do not rethrow exceptipon, because we are after constaints check
-                }
-            }
-        });
-
-        if (changes.size() != changesCount) {
-            throw new EntityStoreException("It's not allowed to change database inside listener.beforeFlushAfterConstraintsCheck() method.");
-        }
-    }
-
-    @NotNull
-    private TransientEntity newEntityImpl(@NotNull final PersistentEntity persistent) {
-        if (persistent instanceof ReadOnlyPersistentEntity) {
-            return new ReadonlyTransientEntityImpl((ReadOnlyPersistentEntity) persistent, store);
-        }
-        final EntityId entityId = persistent.getId();
-        TransientEntity e = managedEntities.get(entityId);
-        if (e == null) {
-            e = new TransientEntityImpl((PersistentEntity) persistent, this.getStore());
-            managedEntities.put(entityId, e);
-        }
-        return e;
-    }
-
-    void createEntity(@NotNull final TransientEntityImpl e, @NotNull String type) {
-        final PersistentEntity persistentEntity = (PersistentEntity) getPersistentTransaction().newEntity(type);
-        e.setPersistentEntity(persistentEntity);
-        managedEntities.put(e.getId(), e);
-        changesTracker.entityAdded(e);
-        addChange(new MyRunnable() {
-            public boolean run() {
-                return saveEntityInternal(persistentEntity, e);
-            }
-        });
-    }
-
-    private boolean saveEntityInternal(@NotNull final PersistentEntity persistentEntity, @NotNull final TransientEntityImpl e) {
-        getPersistentTransaction().saveEntity(persistentEntity);
-        managedEntities.put(e.getId(), e);
-        changesTracker.entityAdded(e);
-        return true;
-    }
-
-    void createEntity(@NotNull final TransientEntityImpl e, @NotNull final EntityCreator creator) {
-        final PersistentEntity persistentEntity = (PersistentEntity) getPersistentTransaction().newEntity(creator.getType());
-        e.setPersistentEntity(persistentEntity);
-        addChange(new MyRunnable() {
-            @Override
-            public boolean run() {
-                final Entity found = creator.find();
-                if (found == null) {
-                    final boolean result = saveEntityInternal(persistentEntity, e);
-                    try {
-                        allowRunnables = false;
-                        creator.created(e);
-                    } finally {
-                        allowRunnables = true;
-                    }
-                    return result;
-                }
-                e.setPersistentEntity(((TransientEntityImpl) found).getPersistentEntity());
-                return false;
-            }
-        });
-        managedEntities.put(e.getId(), e);
-        changesTracker.entityAdded(e);
-        try {
-            allowRunnables = false;
-            creator.created(e);
-        } finally {
-            allowRunnables = true;
-        }
-    }
-
-    private void addEntityCreator(@NotNull final TransientEntityImpl e, @NotNull final EntityCreator creator) {
-        addChange(new MyRunnable() {
-            @Override
-            public boolean run() {
-                final Entity found = creator.find();
-                if (found != null) {
-                    if (!found.equals(e)) {
-                        // update existing entity
-                        e.setPersistentEntity(((TransientEntityImpl) found).getPersistentEntity());
-                    }
-                    return false;
-                }
-                upgradeReadonlyTransactionIfNecessary();
-                // somebody deleted our (initially found) entity! we need to create some again
-                e.setPersistentEntity((PersistentEntity) getPersistentTransaction().newEntity(creator.getType()));
-                changesTracker.entityAdded(e);
-                try {
-                    allowRunnables = false;
-                    creator.created(e);
+                    allowRunnables = false
+                    creator.created(transientEntity)
                 } finally {
-                    allowRunnables = true;
+                    allowRunnables = true
                 }
-                return true;
-            }
-        });
-    }
-
-    boolean setProperty(@NotNull final TransientEntity e, @NotNull final String propertyName,
-                        @NotNull final Comparable propertyNewValue) {
-        return addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                return setPropertyInternal(e, propertyName, propertyNewValue);
-            }
-        });
-    }
-
-    private boolean setPropertyInternal(@NotNull final TransientEntity e, @NotNull final String propertyName,
-                                        @NotNull final Comparable propertyNewValue) {
-        if (e.getPersistentEntity().setProperty(propertyName, propertyNewValue)) {
-            final Comparable oldValue = getOriginalPropertyValue(e, propertyName);
-            if (propertyNewValue == oldValue || propertyNewValue.equals(oldValue)) {
-                changesTracker.removePropertyChanged(e, propertyName);
+                result
             } else {
-                changesTracker.propertyChanged(e, propertyName);
+                transientEntity.persistentEntity = (found as TransientEntityImpl).persistentEntity
+                false
             }
-            return true;
         }
-        return false;
-    }
-
-    boolean deleteProperty(@NotNull final TransientEntity e, @NotNull final String propertyName) {
-        return addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                return deletePropertyInternal(e, propertyName);
-            }
-        });
-    }
-
-    private boolean deletePropertyInternal(@NotNull final TransientEntity e, @NotNull final String propertyName) {
-        if (e.getPersistentEntity().deleteProperty(propertyName)) {
-            final Comparable oldValue = getOriginalPropertyValue(e, propertyName);
-            if (oldValue == null) {
-                changesTracker.removePropertyChanged(e, propertyName);
-            } else {
-                changesTracker.propertyChanged(e, propertyName);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    void setBlob(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final InputStream stream) {
-        final ByteArraySizedInputStream copy;
+        managedEntities[transientEntity.id] = transientEntity
+        transientChangesTracker.entityAdded(transientEntity)
         try {
-            copy = ((PersistentEntityStore) store.getPersistentStore()).getBlobVault().cloneStream(stream, true);
-        } catch (final IOException ioe) {
-            throw new RuntimeException(ioe);
+            allowRunnables = false
+            creator.created(transientEntity)
+        } finally {
+            allowRunnables = true
         }
-        copy.mark(Integer.MAX_VALUE);
-        addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                copy.reset();
-                e.getPersistentEntity().setBlob(blobName, copy);
-                changesTracker.propertyChanged(e, blobName);
-                return true;
-            }
-        });
     }
 
-    void setBlob(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final File file) {
-        addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                e.getPersistentEntity().setBlob(blobName, file);
-                changesTracker.propertyChanged(e, blobName);
-                return true;
-            }
-        });
-    }
-
-    boolean setBlobString(@NotNull final TransientEntity e, @NotNull final String blobName, @NotNull final String newValue) {
-        return addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                if (e.getPersistentEntity().setBlobString(blobName, newValue)) {
-                    final Comparable oldValue = getOriginalBlobStringValue(e, blobName);
-                    if (newValue == oldValue || newValue.equals(oldValue)) {
-                        changesTracker.removePropertyChanged(e, blobName);
-                    } else {
-                        changesTracker.propertyChanged(e, blobName);
-                    }
-                    return true;
+    private fun addEntityCreator(transientEntity: TransientEntityImpl, creator: EntityCreator) {
+        addChange {
+            val found = creator.find()
+            if (found != null) {
+                if (found != transientEntity) {
+                    // update existing entity
+                    transientEntity.persistentEntity = (found as TransientEntityImpl).persistentEntity
                 }
-                return false;
-            }
-        });
-    }
-
-    boolean deleteBlob(@NotNull final TransientEntity e, @NotNull final String blobName) {
-        return addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                if (e.getPersistentEntity().deleteBlob(blobName)) {
-                    final InputStream oldValue = getOriginalBlobValue(e, blobName);
-                    if (oldValue == null) {
-                        changesTracker.removePropertyChanged(e, blobName);
-                    } else {
-                        changesTracker.propertyChanged(e, blobName);
-                    }
-                    return true;
+                false
+            } else {
+                upgradeReadonlyTransactionIfNecessary()
+                // somebody deleted our (initially found) entity! we need to create some again
+                transientEntity.persistentEntity = persistentTransaction.newEntity(creator.type) as PersistentEntity
+                transientChangesTracker.entityAdded(transientEntity)
+                try {
+                    allowRunnables = false
+                    creator.created(transientEntity)
+                } finally {
+                    allowRunnables = true
                 }
-                return false;
+                true
             }
-        });
+        }
     }
 
-    boolean setLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
-        return addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                return setLinkInternal(source, linkName, target);
-            }
-        });
+    internal fun setProperty(transientEntity: TransientEntity, propertyName: String, propertyNewValue: Comparable<*>): Boolean {
+        return addChangeAndRun { setPropertyInternal(transientEntity, propertyName, propertyNewValue) }
     }
 
-    private boolean setLinkInternal(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
-        final TransientEntity oldTarget = (TransientEntity) source.getLink(linkName);
-        if (source.getPersistentEntity().setLink(linkName, target.getPersistentEntity())) {
-            changesTracker.linkChanged(source, linkName, target, oldTarget, true);
-            return true;
+    private fun setPropertyInternal(transientEntity: TransientEntity, propertyName: String, propertyNewValue: Comparable<*>): Boolean {
+        return if (transientEntity.persistentEntity.setProperty(propertyName, propertyNewValue)) {
+            val oldValue = getOriginalPropertyValue(transientEntity, propertyName)
+            if (propertyNewValue === oldValue || propertyNewValue == oldValue) {
+                transientChangesTracker.removePropertyChanged(transientEntity, propertyName)
+            } else {
+                transientChangesTracker.propertyChanged(transientEntity, propertyName)
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    internal fun deleteProperty(transientEntity: TransientEntity, propertyName: String): Boolean {
+        return addChangeAndRun { deletePropertyInternal(transientEntity, propertyName) }
+    }
+
+    private fun deletePropertyInternal(transientEntity: TransientEntity, propertyName: String): Boolean {
+        return if (transientEntity.persistentEntity.deleteProperty(propertyName)) {
+            val oldValue = getOriginalPropertyValue(transientEntity, propertyName)
+            if (oldValue == null) {
+                transientChangesTracker.removePropertyChanged(transientEntity, propertyName)
+            } else {
+                transientChangesTracker.propertyChanged(transientEntity, propertyName)
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    internal fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream) {
+        val copy = try {
+            store.persistentStore.blobVault.cloneStream(stream, true)
+        } catch (ioe: IOException) {
+            throw RuntimeException(ioe)
         }
 
-        return false;
-    }
-
-    boolean addLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
-        return addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                return addLinkInternal(source, linkName, target);
-            }
-        });
-    }
-
-    private boolean addLinkInternal(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
-        if (source.getPersistentEntity().addLink(linkName, target.getPersistentEntity())) {
-            changesTracker.linkChanged(source, linkName, target, null, true);
-            return true;
+        copy.mark(Integer.MAX_VALUE)
+        addChangeAndRun {
+            copy.reset()
+            transientEntity.persistentEntity.setBlob(blobName, copy)
+            transientChangesTracker.propertyChanged(transientEntity, blobName)
+            true
         }
-
-        return false;
     }
 
-    boolean deleteLink(@NotNull final TransientEntity source, @NotNull final String linkName, @NotNull final TransientEntity target) {
-        return addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                return deleteLinkInternal(source, linkName, target);
-            }
-        });
-    }
-
-    private boolean deleteLinkInternal(@NotNull TransientEntity source, @NotNull String linkName, @NotNull TransientEntity target) {
-        if (source.getPersistentEntity().deleteLink(linkName, target.getPersistentEntity())) {
-            changesTracker.linkChanged(source, linkName, target, null, false);
-            return true;
+    internal fun setBlob(transientEntity: TransientEntity, blobName: String, file: File) {
+        addChangeAndRun {
+            transientEntity.persistentEntity.setBlob(blobName, file)
+            transientChangesTracker.propertyChanged(transientEntity, blobName)
+            true
         }
-
-        return false;
     }
 
-    void deleteLinks(@NotNull final TransientEntity source, @NotNull final String linkName) {
-        addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                changesTracker.linksRemoved(source, linkName, source.getLinks(linkName));
-                source.getPersistentEntity().deleteLinks(linkName);
-                return true;
+    internal fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String): Boolean {
+        return addChangeAndRun {
+            if (transientEntity.persistentEntity.setBlobString(blobName, newValue)) {
+                val oldValue = getOriginalBlobStringValue(transientEntity, blobName)
+                if (newValue === oldValue || newValue == oldValue) {
+                    transientChangesTracker.removePropertyChanged(transientEntity, blobName)
+                } else {
+                    transientChangesTracker.propertyChanged(transientEntity, blobName)
+                }
+                true
+            } else {
+                false
             }
-        });
+        }
     }
 
-    boolean deleteEntity(@NotNull final TransientEntity e) {
-        return addChangeAndRun(new MyRunnable() {
-            public boolean run() {
-                return deleteEntityInternal(e);
+    internal fun deleteBlob(transientEntity: TransientEntity, blobName: String): Boolean {
+        return addChangeAndRun {
+            if (transientEntity.persistentEntity.deleteBlob(blobName)) {
+                val oldValue = getOriginalBlobValue(transientEntity, blobName)
+                if (oldValue == null) {
+                    transientChangesTracker.removePropertyChanged(transientEntity, blobName)
+                } else {
+                    transientChangesTracker.propertyChanged(transientEntity, blobName)
+                }
+                true
+            } else {
+                false
             }
-        });
+        }
     }
 
-    private boolean deleteEntityInternal(@NotNull final TransientEntity e) {
-        if (TransientStoreUtil.isPostponeUniqueIndexes()) {
-            if (e.getPersistentEntity().delete()) {
-                changesTracker.entityRemoved(e);
+    internal fun setLink(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
+        return addChangeAndRun { setLinkInternal(source, linkName, target) }
+    }
+
+    private fun setLinkInternal(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
+        val oldTarget = source.getLink(linkName) as TransientEntity?
+        return if (source.persistentEntity.setLink(linkName, target.persistentEntity)) {
+            transientChangesTracker.linkChanged(source, linkName, target, oldTarget, true)
+            true
+        } else {
+            false
+        }
+    }
+
+    internal fun addLink(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
+        return addChangeAndRun { addLinkInternal(source, linkName, target) }
+    }
+
+    private fun addLinkInternal(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
+        return if (source.persistentEntity.addLink(linkName, target.persistentEntity)) {
+            transientChangesTracker.linkChanged(source, linkName, target, null, true)
+            true
+        } else {
+            false
+        }
+    }
+
+    internal fun deleteLink(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
+        return addChangeAndRun { deleteLinkInternal(source, linkName, target) }
+    }
+
+    private fun deleteLinkInternal(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
+        return if (source.persistentEntity.deleteLink(linkName, target.persistentEntity)) {
+            transientChangesTracker.linkChanged(source, linkName, target, null, false)
+            true
+        } else {
+            false
+        }
+    }
+
+    internal fun deleteLinks(source: TransientEntity, linkName: String) {
+        addChangeAndRun {
+            transientChangesTracker.linksRemoved(source, linkName, source.getLinks(linkName))
+            source.persistentEntity.deleteLinks(linkName)
+            true
+        }
+    }
+
+    internal fun deleteEntity(transientEntity: TransientEntity): Boolean {
+        return addChangeAndRun { deleteEntityInternal(transientEntity) }
+    }
+
+    private fun deleteEntityInternal(e: TransientEntity): Boolean {
+        if (TransientStoreUtil.isPostponeUniqueIndexes) {
+            if (e.persistentEntity.delete()) {
+                transientChangesTracker.entityRemoved(e)
             }
         } else {
             // remember index values first
-            final Set<Pair<Index, List<Comparable>>> indexes = getIndexesValuesBeforeDelete(e);
-            if (e.getPersistentEntity().delete()) {
-                deleteIndexes(e, indexes);
-                changesTracker.entityRemoved(e);
+            val indexes = getIndexesValuesBeforeDelete(e)
+            if (e.persistentEntity.delete()) {
+                deleteIndexes(e, indexes)
+                transientChangesTracker.entityRemoved(e)
             }
         }
-        return true;
+        return true
     }
 
-    void setToOne(@NotNull final TransientEntity source, @NotNull final String linkName, @Nullable final TransientEntity target) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                if (target == null) {
-                    TransientEntity oldTarget = (TransientEntity) source.getLink(linkName);
-                    if (oldTarget != null) {
-                        deleteLinkInternal(source, linkName, oldTarget);
-                    }
-                } else {
-                    setLinkInternal(source, linkName, target);
-                }
-                return true;
-            }
-        });
-    }
-
-    void setManyToOne(@NotNull final TransientEntity many, @NotNull final String manyToOneLinkName,
-                      @NotNull final String oneToManyLinkName, @Nullable final TransientEntity one) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                final TransientEntity m = newLocalCopySafe(many);
-                if (m != null) {
-                    final TransientEntity o = newLocalCopySafe(one);
-                    final TransientEntity oldOne = (TransientEntity) m.getLink(manyToOneLinkName);
-                    if (oldOne != null) {
-                        deleteLinkInternal(oldOne, oneToManyLinkName, m);
-                        if (o == null) {
-                            deleteLinkInternal(m, manyToOneLinkName, oldOne);
-                        }
-                    }
-                    if (o != null) {
-                        addLinkInternal(o, oneToManyLinkName, m);
-                        setLinkInternal(m, manyToOneLinkName, o);
-                    }
-                }
-                return true;
-            }
-        });
-    }
-
-    void clearOneToMany(@NotNull final TransientEntity one, @NotNull final String manyToOneLinkName, @NotNull final String oneToManyLinkName) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                for (final Entity target : one.getLinks(oneToManyLinkName)) {
-                    final TransientEntity many = (TransientEntity) target;
-                    deleteLinkInternal(one, oneToManyLinkName, many);
-                    deleteLinkInternal(many, manyToOneLinkName, one);
-                }
-                return true;
-            }
-        });
-    }
-
-    public void createManyToMany(@NotNull final TransientEntity e1, @NotNull final String e1Toe2LinkName,
-                                 @NotNull final String e2Toe1LinkName, @NotNull final TransientEntity e2) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                addLinkInternal(e1, e1Toe2LinkName, e2);
-                addLinkInternal(e2, e2Toe1LinkName, e1);
-                return true;
-            }
-        });
-    }
-
-    public void clearManyToMany(@NotNull final TransientEntity e1, @NotNull final String e1Toe2LinkName, @NotNull final String e2Toe1LinkName) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                for (final Entity target : e1.getLinks(e1Toe2LinkName)) {
-                    final TransientEntity e2 = (TransientEntity) target;
-                    deleteLinkInternal(e1, e1Toe2LinkName, e2);
-                    deleteLinkInternal(e2, e2Toe1LinkName, e1);
-                }
-                return true;
-            }
-        });
-    }
-
-    public void setOneToOne(@NotNull final TransientEntityImpl e1, @NotNull final String e1Toe2LinkName,
-                            @NotNull final String e2Toe1LinkName, @Nullable final TransientEntity e2) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                final TransientEntity prevE2 = (TransientEntity) e1.getLink(e1Toe2LinkName);
-                if (prevE2 != null) {
-                    if (prevE2.equals(e2)) {
-                        return true;
-                    }
-                    deleteLinkInternal(prevE2, e2Toe1LinkName, e1);
-                    deleteLinkInternal(e1, e1Toe2LinkName, prevE2);
-                }
-                if (e2 != null) {
-                    final TransientEntity prevE1 = (TransientEntity) e2.getLink(e2Toe1LinkName);
-                    if (prevE1 != null) {
-                        deleteLinkInternal(prevE1, e1Toe2LinkName, e2);
-                    }
-                    setLinkInternal(e1, e1Toe2LinkName, e2);
-                    setLinkInternal(e2, e2Toe1LinkName, e1);
-                }
-                return true;
-            }
-        });
-    }
-
-    public void removeOneToMany(@NotNull final TransientEntityImpl one, @NotNull final String manyToOneLinkName,
-                                @NotNull final String oneToManyLinkName, @NotNull final TransientEntity many) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                final TransientEntity oldOne = (TransientEntity) many.getLink(manyToOneLinkName);
-                if (one.equals(oldOne)) {
-                    deleteLinkInternal(many, manyToOneLinkName, oldOne);
-                }
-                deleteLinkInternal(one, oneToManyLinkName, many);
-                return true;
-            }
-        });
-    }
-
-    public void removeFromParent(@NotNull final TransientEntity child, @NotNull final String parentToChildLinkName,
-                                 @NotNull final String childToParentLinkName) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                final TransientEntity parent = (TransientEntity) child.getLink(childToParentLinkName);
-                if (parent != null) { // may be changed or removed
-                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, child);
-                }
-                return true;
-            }
-        });
-    }
-
-    public void removeChild(@NotNull final TransientEntityImpl parent, @NotNull final String parentToChildLinkName,
-                            @NotNull final String childToParentLinkName) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                final TransientEntity child = (TransientEntity) parent.getLink(parentToChildLinkName);
-                if (child != null) { // may be changed or removed
-                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, child);
-                }
-                return true;
-            }
-        });
-    }
-
-    private void removeChildFromParentInternal(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName,
-                                               @Nullable final String childToParentLinkName, @NotNull final TransientEntity child) {
-        deleteLinkInternal(parent, parentToChildLinkName, child);
-        deletePropertyInternal(child, PARENT_TO_CHILD_LINK_NAME);
-        if (childToParentLinkName != null) {
-            deleteLinkInternal(child, childToParentLinkName, parent);
-            deletePropertyInternal(child, CHILD_TO_PARENT_LINK_NAME);
-        }
-    }
-
-    public void setChild(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName,
-                         @NotNull final String childToParentLinkName, @NotNull final TransientEntity child) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                if (removeChildFromCurrentParentInternal(child, childToParentLinkName, parentToChildLinkName, parent)) {
-                    final TransientEntity oldChild = (TransientEntity) parent.getLink(parentToChildLinkName);
-                    if (oldChild != null) {
-                        removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, oldChild);
-                    }
-                    setLinkInternal(parent, parentToChildLinkName, child);
-                    setLinkInternal(child, childToParentLinkName, parent);
-                    setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName);
-                    setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName);
-                }
-                return true;
-            }
-        });
-    }
-
-    private boolean removeChildFromCurrentParentInternal(@NotNull final TransientEntity child, @NotNull final String childToParentLinkName,
-                                                         @NotNull final String parentToChildLinkName, @NotNull final TransientEntity newParent) {
-        final String oldChildToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
-        if (oldChildToParentLinkName != null) {
-            if (childToParentLinkName.equals(oldChildToParentLinkName)) {
-                final TransientEntity oldParent = (TransientEntity) child.getLink(childToParentLinkName);
-                if (oldParent != null) {
-                    if (oldParent.equals(newParent)) {
-                        return false;
-                    }
-                    // child to parent link will be owerwritten, so don't delete it directly
-                    deleteLinkInternal(oldParent, parentToChildLinkName, child);
+    internal fun setToOne(source: TransientEntity, linkName: String, target: TransientEntity?) {
+        addChangeAndRun {
+            if (target == null) {
+                val oldTarget = source.getLink(linkName) as TransientEntity?
+                if (oldTarget != null) {
+                    deleteLinkInternal(source, linkName, oldTarget)
                 }
             } else {
-                final TransientEntity oldParent = (TransientEntity) child.getLink(oldChildToParentLinkName);
+                setLinkInternal(source, linkName, target)
+            }
+            true
+        }
+    }
+
+    internal fun setManyToOne(
+            many: TransientEntity,
+            manyToOneLinkName: String,
+            oneToManyLinkName: String,
+            one: TransientEntity?
+    ) {
+        addChangeAndRun {
+            val m = newLocalCopySafe(many)
+            if (m != null) {
+                val o = newLocalCopySafe(one)
+                val oldOne = m.getLink(manyToOneLinkName) as TransientEntity?
+                if (oldOne != null) {
+                    deleteLinkInternal(oldOne, oneToManyLinkName, m)
+                    if (o == null) {
+                        deleteLinkInternal(m, manyToOneLinkName, oldOne)
+                    }
+                }
+                if (o != null) {
+                    addLinkInternal(o, oneToManyLinkName, m)
+                    setLinkInternal(m, manyToOneLinkName, o)
+                }
+            }
+            true
+        }
+    }
+
+    internal fun clearOneToMany(one: TransientEntity, manyToOneLinkName: String, oneToManyLinkName: String) {
+        addChangeAndRun {
+            for (target in one.getLinks(oneToManyLinkName)) {
+                val many = target as TransientEntity
+                deleteLinkInternal(one, oneToManyLinkName, many)
+                deleteLinkInternal(many, manyToOneLinkName, one)
+            }
+            true
+        }
+    }
+
+    fun createManyToMany(
+            e1: TransientEntity,
+            e1Toe2LinkName: String,
+            e2Toe1LinkName: String,
+            e2: TransientEntity
+    ) {
+        addChangeAndRun {
+            addLinkInternal(e1, e1Toe2LinkName, e2)
+            addLinkInternal(e2, e2Toe1LinkName, e1)
+            true
+        }
+    }
+
+    fun clearManyToMany(e1: TransientEntity, e1Toe2LinkName: String, e2Toe1LinkName: String) {
+        addChangeAndRun {
+            for (target in e1.getLinks(e1Toe2LinkName)) {
+                val e2 = target as TransientEntity
+                deleteLinkInternal(e1, e1Toe2LinkName, e2)
+                deleteLinkInternal(e2, e2Toe1LinkName, e1)
+            }
+            true
+        }
+    }
+
+    fun setOneToOne(
+            e1: TransientEntityImpl,
+            e1Toe2LinkName: String,
+            e2Toe1LinkName: String,
+            e2: TransientEntity?
+    ) {
+        addChangeAndRun {
+            val prevE2 = e1.getLink(e1Toe2LinkName) as TransientEntity?
+            if (prevE2 == null || prevE2 != e1) {
+                if (prevE2 != null) {
+                    deleteLinkInternal(prevE2, e2Toe1LinkName, e1)
+                    deleteLinkInternal(e1, e1Toe2LinkName, prevE2)
+                }
+                if (e2 != null) {
+                    val prevE1 = e2.getLink(e2Toe1LinkName) as TransientEntity?
+                    if (prevE1 != null) {
+                        deleteLinkInternal(prevE1, e1Toe2LinkName, e2)
+                    }
+                    setLinkInternal(e1, e1Toe2LinkName, e2)
+                    setLinkInternal(e2, e2Toe1LinkName, e1)
+                }
+            }
+            true
+        }
+    }
+
+    fun removeOneToMany(
+            one: TransientEntityImpl,
+            manyToOneLinkName: String,
+            oneToManyLinkName: String,
+            many: TransientEntity
+    ) {
+        addChangeAndRun {
+            val oldOne = many.getLink(manyToOneLinkName) as TransientEntity?
+            if (one == oldOne) {
+                deleteLinkInternal(many, manyToOneLinkName, oldOne)
+            }
+            deleteLinkInternal(one, oneToManyLinkName, many)
+            true
+        }
+    }
+
+    fun removeFromParent(
+            child: TransientEntity,
+            parentToChildLinkName: String,
+            childToParentLinkName: String
+    ) {
+        addChangeAndRun {
+            val parent = child.getLink(childToParentLinkName) as TransientEntity?
+            if (parent != null) {
+                // may be changed or removed
+                removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, child)
+            }
+            true
+        }
+    }
+
+    fun removeChild(
+            parent: TransientEntityImpl,
+            parentToChildLinkName: String,
+            childToParentLinkName: String
+    ) {
+        addChangeAndRun {
+            val child = parent.getLink(parentToChildLinkName) as TransientEntity?
+            if (child != null) {
+                // may be changed or removed
+                removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, child)
+            }
+            true
+        }
+    }
+
+    private fun removeChildFromParentInternal(
+            parent: TransientEntity,
+            parentToChildLinkName: String,
+            childToParentLinkName: String?,
+            child: TransientEntity
+    ) {
+        deleteLinkInternal(parent, parentToChildLinkName, child)
+        deletePropertyInternal(child, PARENT_TO_CHILD_LINK_NAME)
+        if (childToParentLinkName != null) {
+            deleteLinkInternal(child, childToParentLinkName, parent)
+            deletePropertyInternal(child, CHILD_TO_PARENT_LINK_NAME)
+        }
+    }
+
+    fun setChild(
+            parent: TransientEntity,
+            parentToChildLinkName: String,
+            childToParentLinkName: String,
+            child: TransientEntity
+    ) {
+        addChangeAndRun {
+            if (removeChildFromCurrentParentInternal(child, childToParentLinkName, parentToChildLinkName, parent)) {
+                val oldChild = parent.getLink(parentToChildLinkName) as TransientEntity?
+                if (oldChild != null) {
+                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, oldChild)
+                }
+                setLinkInternal(parent, parentToChildLinkName, child)
+                setLinkInternal(child, childToParentLinkName, parent)
+                setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName)
+                setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName)
+            }
+            true
+        }
+    }
+
+    private fun removeChildFromCurrentParentInternal(
+            child: TransientEntity,
+            childToParentLinkName: String,
+            parentToChildLinkName: String,
+            newParent: TransientEntity
+    ): Boolean {
+        val oldChildToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
+        if (oldChildToParentLinkName != null) {
+            if (childToParentLinkName == oldChildToParentLinkName) {
+                val oldParent = child.getLink(childToParentLinkName) as TransientEntity?
                 if (oldParent != null) {
-                    final String oldParentToChildLinkName = (String) child.getProperty(PARENT_TO_CHILD_LINK_NAME);
-                    deleteLinkInternal(oldParent, oldParentToChildLinkName == null ? parentToChildLinkName : oldParentToChildLinkName, child);
-                    deleteLinkInternal(child, oldChildToParentLinkName, oldParent);
+                    if (oldParent == newParent) {
+                        return false
+                    }
+                    // child to parent link will be overwritten, so don't delete it directly
+                    deleteLinkInternal(oldParent, parentToChildLinkName, child)
+                }
+            } else {
+                val oldParent = child.getLink(oldChildToParentLinkName) as TransientEntity?
+                if (oldParent != null) {
+                    val oldParentToChildLinkName = child.getProperty(PARENT_TO_CHILD_LINK_NAME) as String?
+                    deleteLinkInternal(oldParent, oldParentToChildLinkName ?: parentToChildLinkName, child)
+                    deleteLinkInternal(child, oldChildToParentLinkName, oldParent)
                 }
             }
         }
-        return true;
+        return true
     }
 
-    public void clearChildren(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                for (final Entity child : parent.getLinks(parentToChildLinkName)) {
-                    final String childToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
-                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, (TransientEntity) child);
-                }
-                return true;
+    fun clearChildren(parent: TransientEntity, parentToChildLinkName: String) {
+        addChangeAndRun {
+            for (child in parent.getLinks(parentToChildLinkName)) {
+                val childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
+                removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, child as TransientEntity)
             }
-        });
-    }
-
-    public void addChild(@NotNull final TransientEntity parent, @NotNull final String parentToChildLinkName,
-                         @NotNull final String childToParentLinkName, @NotNull final TransientEntity child) {
-        addChangeAndRun(new MyRunnable() {
-            @Override
-            public boolean run() {
-                if (removeChildFromCurrentParentInternal(child, childToParentLinkName, parentToChildLinkName, parent)) {
-                    addLinkInternal(parent, parentToChildLinkName, child);
-                    setLinkInternal(child, childToParentLinkName, parent);
-                    setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName);
-                    setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName);
-                }
-                return true;
-            }
-        });
-    }
-
-    @Nullable
-    public Entity getParent(@NotNull final TransientEntity child) {
-        final String childToParentLinkName = (String) child.getProperty(CHILD_TO_PARENT_LINK_NAME);
-
-        if (childToParentLinkName == null) {
-            return null;
+            true
         }
-
-        return child.getLink(childToParentLinkName);
     }
 
-    public boolean addChangeAndRun(@NotNull MyRunnable change) {
-        upgradeReadonlyTransactionIfNecessary();
-        return addChange(change).run();
+    fun addChild(
+            parent: TransientEntity,
+            parentToChildLinkName: String,
+            childToParentLinkName: String,
+            child: TransientEntity
+    ) {
+        addChangeAndRun {
+            if (removeChildFromCurrentParentInternal(child, childToParentLinkName, parentToChildLinkName, parent)) {
+                addLinkInternal(parent, parentToChildLinkName, child)
+                setLinkInternal(child, childToParentLinkName, parent)
+                setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName)
+                setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName)
+            }
+            true
+        }
     }
 
-    @Override
-    public void saveEntity(@NotNull Entity entity) {
-        throw new UnsupportedOperationException();
+    fun getParent(child: TransientEntity): Entity? {
+        val childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
+                ?: return null
+        return child.getLink(childToParentLinkName)
     }
 
-    @Nullable
-    private TransientEntity newLocalCopySafe(@Nullable final TransientEntity entity) {
+    fun addChangeAndRun(change: () -> Boolean): Boolean {
+        upgradeReadonlyTransactionIfNecessary()
+        return addChange(change).invoke()
+    }
+
+    override fun saveEntity(entity: Entity) {
+        throw UnsupportedOperationException()
+    }
+
+    private fun newLocalCopySafe(entity: TransientEntity?): TransientEntity? {
         if (entity == null) {
-            return null;
+            return null
         }
         try {
-            return newLocalCopy(entity);
-        } catch (EntityRemovedInDatabaseException ignore) {
-            return null;
+            return newLocalCopy(entity)
+        } catch (ignore: EntityRemovedInDatabaseException) {
+            return null
         }
+
     }
 
-    @NotNull
-    private MyRunnable addChange(@NotNull final MyRunnable change) {
+    private fun addChange(change: () -> Boolean): () -> Boolean {
         if (allowRunnables) {
-            changes.offer(change);
+            changes.offer(change)
         }
-        return change;
+        return change
     }
 
-    enum State {
+    internal enum class State(name: String) {
         Open("open"),
         Committed("committed"),
-        Aborted("aborted");
+        Aborted("aborted")
+    }
 
-        private String name;
-
-        State(String name) {
-            this.name = name;
+    private fun forAllListeners(rethrowException: Boolean = false, event: (TransientStoreSessionListener) -> Unit) {
+        store.forAllListeners { listener ->
+            try {
+                event(listener)
+            } catch (e: Exception) {
+                logger.error(e) { "Exception while inside listener [$listener]" }
+                if (rethrowException) throw e
+            }
         }
-    }
 
-    public interface MyRunnable {
-        boolean run();
-    }
-
-    @NotNull
-    private PersistentEntityStoreImpl getPersistentStore() {
-        return (PersistentEntityStoreImpl) store.getPersistentStore();
     }
 }

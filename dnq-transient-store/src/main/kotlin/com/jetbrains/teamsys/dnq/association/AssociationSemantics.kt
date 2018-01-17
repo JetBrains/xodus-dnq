@@ -19,7 +19,6 @@ import com.jetbrains.teamsys.dnq.database.*
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.PersistentEntityStore
 
 object AssociationSemantics {
 
@@ -115,7 +114,7 @@ object AssociationSemantics {
     fun getOldValue(e: TransientEntity, name: String): Entity? {
         return if (EntityOperations.isRemoved(e)) {
             val transientStore = e.store
-            (transientStore.persistentStore as PersistentEntityStore)
+            transientStore.persistentStore
                     .getEntity(e.id)
                     .getLink(name)
                     ?.let { result ->

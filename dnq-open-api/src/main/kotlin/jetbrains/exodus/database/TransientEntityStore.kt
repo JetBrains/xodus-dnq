@@ -17,6 +17,7 @@ package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityStore
+import jetbrains.exodus.entitystore.PersistentEntityStore
 import jetbrains.exodus.query.QueryEngine
 import jetbrains.exodus.query.metadata.ModelMetaData
 
@@ -25,7 +26,7 @@ import jetbrains.exodus.query.metadata.ModelMetaData
  */
 interface TransientEntityStore : EntityStore, EntityStoreRefactorings {
 
-    val persistentStore: EntityStore
+    val persistentStore: PersistentEntityStore
 
     val threadSession: TransientStoreSession?
 
