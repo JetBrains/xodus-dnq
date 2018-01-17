@@ -61,7 +61,7 @@ abstract class BasePersistentClassImpl : Runnable {
 
     fun <T> addPropertyConstraint(propertyName: String, constraint: PropertyConstraint<T>) {
         val allConstraintsForType = _propertyConstraints ?: LinkedHashMap<String, MutableList<PropertyConstraint<Any?>>>().also { _propertyConstraints = it }
-        val constraintsForProperty = allConstraintsForType.getOrPut(propertyName) { ArrayList() }
+        val constraintsForProperty = allConstraintsForType.getOrPut(propertyName) { ArrayList(1) }
         @Suppress("UNCHECKED_CAST")
         constraintsForProperty.add(constraint as PropertyConstraint<Any?>)
     }
