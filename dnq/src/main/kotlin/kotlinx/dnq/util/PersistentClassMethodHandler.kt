@@ -16,7 +16,6 @@
 package kotlinx.dnq.util
 
 import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
-import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import javassist.util.proxy.MethodHandler
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.XdEntity
@@ -29,7 +28,7 @@ import java.lang.reflect.Method
 import java.util.*
 import kotlin.reflect.jvm.javaGetter
 
-class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEntityType<*>) : MethodHandler {
+class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: XdNaturalEntityType<*>) : MethodHandler {
     val xdEntityClass = xdEntityType.enclosingEntityClass
     val requireIfConstraints = LinkedHashMap<String, MutableCollection<RequireIfConstraint<*, *>>>()
 
@@ -38,20 +37,11 @@ class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEntityType<
             isNaturalEntity(getPropertyDeclaringClass(it))
         }
         for (property in naturalProperties) {
-            ArrayList<PropertyConstraint<*>>().run {
-                for (constraint in getPropertyConstraints(property.delegate)) {
-                    if (constraint is RequireIfConstraint<*, *>) {
-                        requireIfConstraints.getOrPut(property.dbPropertyName) {
-                            ArrayList<RequireIfConstraint<*, *>>()
-                        } += constraint
-                    } else {
-                        this += constraint
-                    }
-                }
-
-                if (isNotEmpty()) {
-                    val propertyConstraintRegistry = getPropertyConstraintRegistry(self)
-                    propertyConstraintRegistry[property.dbPropertyName] = this
+            for (constraint in getPropertyConstraints(property.delegate)) {
+                if (constraint is RequireIfConstraint<*, *>) {
+                    requireIfConstraints.getOrPut(property.dbPropertyName) { ArrayList() }.add(constraint)
+                } else {
+                    self.addPropertyConstraint(property.dbPropertyName, constraint)
                 }
             }
         }
@@ -85,18 +75,6 @@ class PersistentClassMethodHandler(self: Any, xdEntityType: XdNaturalEntityType<
     private fun isNaturalEntity(clazz: Class<*>) =
             XdEntity::class.java.isAssignableFrom(clazz) && clazz != XdEntity::class.java
                     && (clazz as Class<out XdEntity>).entityType is XdNaturalEntityType<*>
-
-    private fun getPropertyConstraintRegistry(self: Any): MutableMap<String, Iterable<PropertyConstraint<*>>> {
-        val propertyConstraintsField = BasePersistentClassImpl::class.java.getDeclaredField("propertyConstraints")
-        propertyConstraintsField.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        var propertyConstraints = propertyConstraintsField.get(self) as MutableMap<String, Iterable<PropertyConstraint<*>>>?
-        if (propertyConstraints == null) {
-            propertyConstraints = LinkedHashMap()
-            propertyConstraintsField.set(self, propertyConstraints)
-        }
-        return propertyConstraints
-    }
 
     private fun Method.isBeforeFlushCall() = name == BasePersistentClassImpl::executeBeforeFlushTrigger.name && parameterTypes.size == 1
 

@@ -23,8 +23,10 @@ import jetbrains.exodus.entitystore.Entity
 import java.util.concurrent.Callable
 
 abstract class BasePersistentClassImpl : Runnable {
-    @JvmField
-    var propertyConstraints: MutableMap<String, Iterable<PropertyConstraint<Any?>>>? = null
+    private var _propertyConstraints: MutableMap<String, MutableList<PropertyConstraint<Any?>>>? = null
+
+    val propertyConstraints: Map<String, Iterable<PropertyConstraint<Any?>>>
+        get() = _propertyConstraints.orEmpty()
 
     lateinit var entityStore: TransientEntityStore
 
@@ -55,6 +57,13 @@ abstract class BasePersistentClassImpl : Runnable {
 
     @Deprecated("")
     open fun saveHistoryCallback(entity: Entity) {
+    }
+
+    fun <T> addPropertyConstraint(propertyName: String, constraint: PropertyConstraint<T>) {
+        val allConstraintsForType = _propertyConstraints ?: LinkedHashMap<String, MutableList<PropertyConstraint<Any?>>>().also { _propertyConstraints = it }
+        val constraintsForProperty = allConstraintsForType.getOrPut(propertyName) { ArrayList() }
+        @Suppress("UNCHECKED_CAST")
+        constraintsForProperty.add(constraint as PropertyConstraint<Any?>)
     }
 
     fun createIncomingLinksException(linkViolations: List<IncomingLinkViolation>, entity: Entity): DataIntegrityViolationException {
