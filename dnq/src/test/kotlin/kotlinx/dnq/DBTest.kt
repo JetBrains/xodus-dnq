@@ -21,6 +21,7 @@ import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.core.execution.ThreadJobProcessorPool
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EventsMultiplexer
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.exodus.entitystore.Where
 import jetbrains.exodus.entitystore.Where.*
@@ -136,6 +137,10 @@ abstract class DBTest {
         }
 
         initMetaData(XdModel.hierarchy, store)
+
+        val eventsMultiplexer = EventsMultiplexer(createAsyncProcessor().apply(JobProcessor::start))
+        store.eventsMultiplexer = eventsMultiplexer
+        store.addListener(eventsMultiplexer)
     }
 
     open fun registerEntityTypes() {

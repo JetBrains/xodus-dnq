@@ -15,8 +15,6 @@
  */
 package kotlinx.dnq.events
 
-import jetbrains.exodus.core.execution.JobProcessor
-import jetbrains.exodus.entitystore.EventsMultiplexer
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.listener.XdEntityListener
@@ -27,17 +25,11 @@ import kotlinx.dnq.util.getAddedLinks
 import kotlinx.dnq.util.hasChanges
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class EventsTest : DBTest() {
-
-    @Before
-    fun updateMultiplexer() {
-        store.eventsMultiplexer = EventsMultiplexer(createAsyncProcessor().apply(JobProcessor::start))
-    }
 
     override fun registerEntityTypes() {
         XdModel.registerNodes(Foo, Goo)

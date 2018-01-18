@@ -31,6 +31,7 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.util.*
+import kotlin.collections.HashSet
 import kotlin.concurrent.withLock
 
 private fun PersistentStoreTransaction.createChangesTracker(readonly: Boolean): TransientChangesTracker {
@@ -873,7 +874,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         var changesDescription = transientChangesTracker.changesDescription
         if (transientChangesTracker.changedEntities.isNotEmpty()) {
             val processedEntities = HashSetDecorator<TransientEntity>()
-            var changed = transientChangesTracker.changedEntities
+            var changed: Set<TransientEntity> = HashSet(transientChangesTracker.changedEntities)
             while (true) {
                 val changesSize = transientChangesTracker.changedEntities.size
                 notifyBeforeFlushListeners(Collections.unmodifiableSet(changesDescription))
@@ -921,7 +922,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     private fun notifyBeforeFlushListeners(changes: Set<TransientEntityChange>?) {
         if (changes == null || changes.isEmpty()) return
 
-        logger.debug("Notify before flush listeners " + this)
+        logger.debug { "Notify before flush listeners $this" }
         forAllListeners(rethrowException = true) { it.beforeFlushBeforeConstraints(this, changes) }
     }
 

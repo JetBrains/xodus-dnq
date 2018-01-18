@@ -17,6 +17,8 @@ package kotlinx.dnq.store.container
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import com.jetbrains.teamsys.dnq.database.TransientSortEngineImpl
+import jetbrains.exodus.core.execution.JobProcessor
+import jetbrains.exodus.entitystore.EventsMultiplexer
 import jetbrains.exodus.entitystore.PersistentEntityStoreImpl
 import jetbrains.exodus.env.EnvironmentConfig
 import jetbrains.exodus.env.Environments
