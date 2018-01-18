@@ -87,6 +87,13 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         throw UnsupportedOperationException("Not supported by transient store.")
     }
 
+    override fun <T> transactional(
+            readonly: Boolean,
+            queryCancellingPolicy: QueryCancellingPolicy?,
+            isNew: Boolean,
+            block: (TransientStoreSession) -> T
+    ): T = TransientEntityStoreExt.transactional(this, readonly, queryCancellingPolicy, isNew, block)
+
     override fun beginTransaction(): StoreTransaction {
         throw UnsupportedOperationException()
     }
@@ -171,7 +178,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     override fun deleteEntityTypeRefactoring(entityTypeName: String) {
         val transientSession = transientSessionOrThrow
         transientSession.addChangeAndRun {
-            (transientSession.persistentTransaction.store as PersistentEntityStoreImpl).deleteEntityType(entityTypeName)
+            transientSession.persistentTransaction.store.deleteEntityType(entityTypeName)
             true
         }
     }

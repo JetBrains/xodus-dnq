@@ -22,7 +22,6 @@ import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.first
-import kotlinx.dnq.transactional
 import org.junit.Test
 import kotlin.test.assertFailsWith
 

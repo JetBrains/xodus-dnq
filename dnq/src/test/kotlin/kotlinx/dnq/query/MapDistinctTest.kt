@@ -18,7 +18,6 @@ package kotlinx.dnq.query
 import com.google.common.truth.Truth
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.transactional
 import org.junit.Before
 import org.junit.Test
 

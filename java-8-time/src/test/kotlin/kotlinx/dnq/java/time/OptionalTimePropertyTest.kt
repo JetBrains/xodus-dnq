@@ -19,7 +19,6 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdModel
-import kotlinx.dnq.transactional
 import kotlinx.dnq.util.isDefined
 import org.junit.Test
 import org.junit.runner.RunWith

@@ -18,7 +18,6 @@ package kotlinx.dnq.store.container
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
-import kotlinx.dnq.transactional
 
 object ThreadLocalStoreContainer : StoreContainer {
     private val storeThreadLocal = ThreadLocal<TransientEntityStore>()

@@ -21,7 +21,6 @@ import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import com.jetbrains.teamsys.dnq.database.reattachTransient
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
-import kotlinx.dnq.transactional
 import kotlinx.dnq.util.getDBName
 import kotlinx.dnq.util.getOldValue
 import org.junit.Test

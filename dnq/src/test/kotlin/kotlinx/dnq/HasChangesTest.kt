@@ -17,7 +17,6 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.run
 import kotlinx.dnq.util.hasChanges
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -71,11 +70,11 @@ class HasChangesTest(
             assertThat(e.flagOfSchepotiev).isNull()
 
             thread {
-                store.run(Runnable {
+                store.transactional {
                     // set flag to false and save to database
                     assertThat(e.flagOfSchepotiev).isNull()
                     e.flagOfSchepotiev = false
-                })
+                }
             }.join()
 
             e.flagOfSchepotiev = false

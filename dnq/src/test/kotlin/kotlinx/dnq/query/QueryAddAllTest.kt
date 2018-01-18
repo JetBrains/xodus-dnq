@@ -17,7 +17,6 @@ package kotlinx.dnq.query
 
 import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
-import kotlinx.dnq.transactional
 import org.junit.Test
 
 class QueryAddAllTest : DBTest() {

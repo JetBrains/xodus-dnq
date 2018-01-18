@@ -15,14 +15,11 @@
  */
 package kotlinx.dnq.delete
 
-
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.database.EntityOperations
 import jetbrains.exodus.entitystore.PersistentEntityId
-import jetbrains.exodus.entitystore.PersistentEntityStore
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
-import kotlinx.dnq.transactional
 import org.junit.Test
 
 class IsRemovedTest : DBTest() {
@@ -75,7 +72,7 @@ class IsRemovedTest : DBTest() {
 
             assertThat(foo3.isRemoved).isTrue()
 
-            assertThat(EntityOperations.isRemoved((store.persistentStore as PersistentEntityStore).getEntity(PersistentEntityId(0, 100)))).isTrue()
+            assertThat(EntityOperations.isRemoved(store.persistentStore.getEntity(PersistentEntityId(0, 100)))).isTrue()
         }
 
     }

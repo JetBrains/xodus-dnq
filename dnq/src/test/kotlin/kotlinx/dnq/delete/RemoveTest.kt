@@ -22,7 +22,6 @@ import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.*
-import kotlinx.dnq.transactional
 import org.junit.Test
 import kotlin.test.assertFailsWith
 

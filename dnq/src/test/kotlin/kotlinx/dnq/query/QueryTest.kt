@@ -18,7 +18,6 @@ package kotlinx.dnq.query
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.TransientEntity
 import kotlinx.dnq.DBTest
-import kotlinx.dnq.transactional
 import org.junit.Test
 import java.util.*
 import kotlin.test.assertFailsWith

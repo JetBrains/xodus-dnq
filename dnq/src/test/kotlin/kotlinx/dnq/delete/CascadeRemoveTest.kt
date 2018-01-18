@@ -20,7 +20,6 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.toList
-import kotlinx.dnq.transactional
 import org.junit.Test
 
 class CascadeRemoveTest : DBTest() {

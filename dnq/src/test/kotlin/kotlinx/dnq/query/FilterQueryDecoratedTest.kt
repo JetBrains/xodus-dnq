@@ -20,7 +20,6 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.transactional
 import org.junit.Before
 import org.junit.Test
 

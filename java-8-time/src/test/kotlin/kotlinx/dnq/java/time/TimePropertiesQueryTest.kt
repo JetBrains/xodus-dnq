@@ -22,7 +22,6 @@ import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.*
-import kotlinx.dnq.transactional
 import kotlinx.dnq.util.getDBName
 import org.junit.Test
 import org.junit.runner.RunWith

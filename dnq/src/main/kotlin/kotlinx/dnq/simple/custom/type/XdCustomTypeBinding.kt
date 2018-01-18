@@ -17,9 +17,7 @@ package kotlinx.dnq.simple.custom.type
 
 import jetbrains.exodus.bindings.ComparableBinding
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.PersistentEntityStore
 import jetbrains.exodus.util.LightOutputStream
-import kotlinx.dnq.transactional
 import org.jetbrains.mazine.infer.type.parameter.inferTypeParameterClass
 import java.io.ByteArrayInputStream
 
@@ -29,8 +27,7 @@ abstract class XdCustomTypeBinding<V : Comparable<V>> : ComparableBinding() {
     fun register(store: TransientEntityStore) {
         XdCustomTypeBindingRegistry[clazz] = this
         store.transactional { txn ->
-            val persistentStore = store.persistentStore as PersistentEntityStore
-            persistentStore.registerCustomPropertyType(txn.persistentTransaction, clazz, this)
+            store.persistentStore.registerCustomPropertyType(txn.persistentTransaction, clazz, this)
         }
     }
 

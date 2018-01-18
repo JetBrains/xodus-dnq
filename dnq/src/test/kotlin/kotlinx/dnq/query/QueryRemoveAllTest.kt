@@ -17,7 +17,6 @@ package kotlinx.dnq.query
 
 import com.google.common.truth.Truth
 import kotlinx.dnq.DBTest
-import kotlinx.dnq.transactional
 import org.junit.Test
 
 class QueryRemoveAllTest : DBTest() {

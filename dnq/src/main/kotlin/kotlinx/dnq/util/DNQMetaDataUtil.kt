@@ -22,10 +22,12 @@ import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.enum.XdEnumEntityType
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink
-import kotlinx.dnq.simple.*
+import kotlinx.dnq.simple.RequireIfConstraint
+import kotlinx.dnq.simple.XdConstrainedProperty
+import kotlinx.dnq.simple.XdPropertyRequirement
+import kotlinx.dnq.simple.XdWrappedProperty
 import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
 import kotlinx.dnq.singleton.XdSingletonEntityType
-import kotlinx.dnq.transactional
 import java.lang.reflect.ParameterizedType
 import kotlin.reflect.jvm.javaType
 

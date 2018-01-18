@@ -72,9 +72,9 @@ internal class EventsMultiplexerJob(
     @Throws(Throwable::class)
     public override fun execute() {
         try {
-            store.run(Runnable {
+            store.transactional {
                 eventsMultiplexer.fire(store, Where.ASYNC_AFTER_FLUSH, this@EventsMultiplexerJob.changes)
-            })
+            }
         } finally {
             changesTracker.dispose()
         }
