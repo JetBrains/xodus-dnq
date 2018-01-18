@@ -44,7 +44,7 @@ object PrimitiveAssociationSemantics {
     }
 
     @JvmStatic
-    fun <T> getOldValue(e: TransientEntity?, propertyName: String, propertyType: Class<T>, nullValue: Any?): T? {
+    fun <T> getOldValue(e: TransientEntity?, propertyName: String, propertyType: Class<T>?, nullValue: Any?): T? {
         val value = getOldValue(e, propertyName, nullValue)
         @Suppress("UNCHECKED_CAST")
         return (value ?: getPropertyNullValue(propertyType)) as T?
@@ -64,14 +64,14 @@ object PrimitiveAssociationSemantics {
      * Supports nullable objects - returns "null value" if input entity is null
      */
     @JvmStatic
-    fun <T> get(e: Entity?, propertyName: String, propertyType: Class<T>, nullValue: Any?): T? {
+    fun <T> get(e: Entity?, propertyName: String, propertyType: Class<T>?, nullValue: Any?): T? {
         val value = get(e, propertyName, nullValue)
         @Suppress("UNCHECKED_CAST")
         return (value ?: getPropertyNullValue(propertyType)) as T?
     }
 
     @JvmStatic
-    private fun getPropertyNullValue(clazz: Class<*>): Any? {
+    private fun getPropertyNullValue(clazz: Class<*>?): Any? {
         return when (clazz) {
             Int::class.javaPrimitiveType,
             Int::class.javaObjectType -> 0
