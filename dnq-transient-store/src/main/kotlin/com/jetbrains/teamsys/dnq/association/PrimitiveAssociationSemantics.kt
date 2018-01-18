@@ -146,18 +146,18 @@ object PrimitiveAssociationSemantics {
     }
 
     @JvmStatic
-    fun getBlob(e: Entity, blobName: String): InputStream? {
-        return e.reattachTransient().getBlob(blobName)
+    fun getBlob(e: Entity?, blobName: String): InputStream? {
+        return e?.reattachTransient()?.getBlob(blobName)
     }
 
     @JvmStatic
-    fun getBlobSize(e: Entity, blobName: String): Long {
-        return e.reattachTransient().getBlobSize(blobName)
+    fun getBlobSize(e: Entity?, blobName: String): Long {
+        return e?.reattachTransient()?.getBlobSize(blobName) ?: -1
     }
 
     @JvmStatic
-    fun getBlobAsString(e: Entity, blobName: String): String? {
-        return e.reattachTransient().getBlobString(blobName)
+    fun getBlobAsString(e: Entity?, blobName: String): String? {
+        return e?.reattachTransient()?.getBlobString(blobName)
     }
 
     @JvmStatic
