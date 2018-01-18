@@ -206,11 +206,10 @@ object ConstraintsUtil {
             processed: MutableSet<Entity>) {
         val target = AssociationSemantics.getToOne(source, associationEndMetaData.name)
         if (target != null && !EntityOperations.isRemoved(target)) {
-            val oppositeEnd = associationEndMetaData.oppositeEndOrNull
-            if (associationEndMetaData.cascadeDelete || oppositeEnd?.targetCascadeDelete == true) {
+            if (associationEndMetaData.cascadeDelete || associationEndMetaData.oppositeEndOrNull?.targetCascadeDelete == true) {
                 EntityOperations.remove(target, callDestructorsPhase, processed)
             } else if (!callDestructorsPhase) {
-                removeSingleLink(source, associationEndMetaData, oppositeEnd, target)
+                removeSingleLink(source, associationEndMetaData, associationEndMetaData.oppositeEndOrNull, target)
             }
         }
     }
@@ -272,11 +271,10 @@ object ConstraintsUtil {
                 .asSequence()
                 .filterNot { EntityOperations.isRemoved(it) }
                 .forEach {
-                    val oppositeEnd = associationEndMetaData.oppositeEndOrNull
-                    if (associationEndMetaData.cascadeDelete || oppositeEnd?.targetCascadeDelete == true) {
+                    if (associationEndMetaData.cascadeDelete || associationEndMetaData.oppositeEndOrNull?.targetCascadeDelete == true) {
                         EntityOperations.remove(it, callDestructorsPhase, processed)
                     } else if (!callDestructorsPhase) {
-                        removeOneLinkFromMultipleLink(source, associationEndMetaData, oppositeEnd, it)
+                        removeOneLinkFromMultipleLink(source, associationEndMetaData, associationEndMetaData.oppositeEndOrNull, it)
                     }
                 }
     }
