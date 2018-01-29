@@ -21,6 +21,7 @@ import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
+import jetbrains.exodus.entitystore.iterate.PropertyValueIterator
 
 object UniversalEmptyEntityIterable : EntityIterableBase(null) {
 
@@ -48,12 +49,13 @@ object UniversalEmptyEntityIterable : EntityIterableBase(null) {
 
     override fun getSource(): EntityIterableBase = EntityIterableBase.EMPTY
 
-    object Iterator : EntityIteratorBase(UniversalEmptyEntityIterable), EntityIteratorWithPropId {
+    object Iterator : EntityIteratorBase(UniversalEmptyEntityIterable), EntityIteratorWithPropId, PropertyValueIterator {
         override fun currentLinkName() = null
         override fun hasNextImpl() = false
         override fun nextIdImpl(): EntityId? = null
         override fun remove() = throw UnsupportedOperationException()
         override fun shouldBeDisposed() = false
+        override fun currentValue(): Comparable<Any>? = null
     }
 
 }
