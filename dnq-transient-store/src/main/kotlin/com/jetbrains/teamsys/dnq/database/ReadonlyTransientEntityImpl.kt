@@ -27,7 +27,7 @@ import java.io.InputStream
 
 class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: PersistentEntity, store: TransientEntityStore) : TransientEntityImpl(snapshot, store) {
 
-    constructor(snapshot: ReadOnlyPersistentEntity, store: TransientEntityStore) : this(null, snapshot, store)
+    constructor(snapshot: PersistentEntity, store: TransientEntityStore) : this(null, snapshot, store)
 
     private val hasChanges by lazy {
         changedProperties.isNotEmpty() || changedLinks.values.any { it.isNotEmpty() }

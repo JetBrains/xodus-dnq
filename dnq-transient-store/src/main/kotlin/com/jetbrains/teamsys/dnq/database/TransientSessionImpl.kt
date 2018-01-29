@@ -41,7 +41,7 @@ private fun PersistentStoreTransaction.createChangesTracker(readonly: Boolean): 
 private const val CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__"
 private const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 
-class TransientSessionImpl(private val store: TransientEntityStoreImpl, private val readonly: Boolean) : TransientStoreSession {
+class TransientSessionImpl(private val store: TransientEntityStoreImpl, private val readonly: Boolean) : TransientStoreSession, SessionQueryMixin {
     companion object : KLogging()
 
     private var txnWhichWasUpgraded: ReadonlyPersistentStoreTransaction? = null
@@ -67,7 +67,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     override val isAborted: Boolean
         get() = state == State.Aborted
 
-    private val persistentTransactionInternal: PersistentStoreTransaction
+    override val persistentTransactionInternal: PersistentStoreTransaction
         get() = store.persistentStore.currentTransactionOrThrow
 
     override val persistentTransaction: PersistentStoreTransaction
@@ -267,162 +267,9 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         return persistentTransactionInternal.entityTypes
     }
 
-    private fun wrap(action: String, entityIterable: EntityIterable): EntityIterable {
+    override fun wrap(action: String, entityIterable: EntityIterable): EntityIterable {
         assertOpen(action)
         return PersistentEntityIterableWrapper(store, entityIterable)
-    }
-
-    override fun getAll(entityType: String): EntityIterable {
-        return wrap("getAll", persistentTransactionInternal.getAll(entityType))
-    }
-
-    override fun getSingletonIterable(entity: Entity): EntityIterable {
-        return wrap("getSingletonIterable", persistentTransactionInternal.getSingletonIterable(
-                (entity as TransientEntityImpl).persistentEntity
-        ))
-    }
-
-    override fun find(entityType: String, propertyName: String, value: Comparable<*>): EntityIterable {
-        return wrap("find", persistentTransactionInternal.find(
-                entityType,
-                propertyName,
-                value
-        ))
-    }
-
-    override fun find(entityType: String, propertyName: String, minValue: Comparable<*>, maxValue: Comparable<*>): EntityIterable {
-        return wrap("find", persistentTransactionInternal.find(
-                entityType,
-                propertyName,
-                minValue,
-                maxValue
-        ))
-    }
-
-    override fun findIds(entityType: String, minValue: Long, maxValue: Long): EntityIterable {
-        return wrap("findIds", persistentTransactionInternal.findIds(
-                entityType,
-                minValue,
-                maxValue
-        ))
-    }
-
-    override fun findWithProp(entityType: String, propertyName: String): EntityIterable {
-        return wrap("findWithProp", persistentTransactionInternal.findWithProp(
-                entityType,
-                propertyName
-        ))
-    }
-
-    override fun findStartingWith(entityType: String, propertyName: String, value: String): EntityIterable {
-        return wrap("startsWith", persistentTransactionInternal.findStartingWith(
-                entityType,
-                propertyName,
-                value
-        ))
-    }
-
-    override fun findWithBlob(entityType: String, propertyName: String): EntityIterable {
-        return wrap("findWithBlob", persistentTransactionInternal.findWithBlob(
-                entityType,
-                propertyName
-        ))
-    }
-
-    override fun findLinks(entityType: String, entity: Entity, linkName: String): EntityIterable {
-        return wrap("findLinks", persistentTransactionInternal.findLinks(
-                entityType,
-                entity,
-                linkName
-        ))
-    }
-
-    override fun findLinks(entityType: String, entities: EntityIterable, linkName: String): EntityIterable {
-        return wrap("findLinks", persistentTransactionInternal.findLinks(
-                entityType,
-                entities,
-                linkName
-        ))
-    }
-
-    override fun findWithLinks(entityType: String, linkName: String): EntityIterable {
-        return wrap("findWithLinks", persistentTransactionInternal.findWithLinks(
-                entityType,
-                linkName
-        ))
-    }
-
-    override fun findWithLinks(entityType: String,
-                               linkName: String,
-                               oppositeEntityType: String,
-                               oppositeLinkName: String): EntityIterable {
-        return wrap("findWithLinks", persistentTransactionInternal.findWithLinks(
-                entityType,
-                linkName,
-                oppositeEntityType,
-                oppositeLinkName
-        ))
-    }
-
-    override fun sort(entityType: String,
-                      propertyName: String,
-                      ascending: Boolean): EntityIterable {
-        return wrap("sort", persistentTransactionInternal.sort(
-                entityType,
-                propertyName,
-                ascending
-        ))
-    }
-
-    override fun sort(entityType: String,
-                      propertyName: String,
-                      rightOrder: EntityIterable,
-                      ascending: Boolean): EntityIterable {
-        return wrap("sort", persistentTransactionInternal.sort(
-                entityType,
-                propertyName,
-                rightOrder,
-                ascending
-        ))
-    }
-
-    override fun sortLinks(entityType: String,
-                           sortedLinks: EntityIterable,
-                           isMultiple: Boolean,
-                           linkName: String,
-                           rightOrder: EntityIterable): EntityIterable {
-        return wrap("sortLinks", persistentTransactionInternal.sortLinks(
-                entityType,
-                sortedLinks,
-                isMultiple,
-                linkName,
-                rightOrder
-        ))
-    }
-
-    override fun sortLinks(entityType: String,
-                           sortedLinks: EntityIterable,
-                           isMultiple: Boolean,
-                           linkName: String,
-                           rightOrder: EntityIterable,
-                           oppositeEntityType: String,
-                           oppositeLinkName: String): EntityIterable {
-        return wrap("sortLinks", persistentTransactionInternal.sortLinks(
-                entityType,
-                sortedLinks,
-                isMultiple,
-                linkName,
-                rightOrder,
-                oppositeEntityType,
-                oppositeLinkName
-        ))
-    }
-
-    override fun mergeSorted(sorted: List<EntityIterable>, comparator: Comparator<Entity>): EntityIterable {
-        return wrap("mergeSorted", persistentTransactionInternal.mergeSorted(
-                sorted,
-                comparator
-        ))
     }
 
     override fun getSequence(sequenceName: String): Sequence {
