@@ -20,6 +20,7 @@ import kotlinx.dnq.query.FakeTransientEntity
 import kotlinx.dnq.util.XdHierarchyNode
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.parent
+import mu.KLogging
 import org.reflections.Reflections
 import org.reflections.util.ClasspathHelper
 import org.reflections.util.ConfigurationBuilder
@@ -31,7 +32,7 @@ import kotlin.reflect.full.getExtensionDelegate
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.jvmErasure
 
-object XdModel {
+object XdModel: KLogging() {
     const val JAVA_CLASSPATH = "java_classpath"
     const val WEB_CLASSPATH = "web_classpath"
 
@@ -92,6 +93,7 @@ object XdModel {
                 it.isAccessible = true
                 it.getExtensionDelegate()
             } catch (e: Throwable) {
+                logger.warn(e) {"can't get extension delegate of '$it'"}
                 null
             }
             if (delegate == null) {
