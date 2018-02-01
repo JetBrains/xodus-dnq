@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq
 
+import kotlinx.dnq.sequence.XdSequenceProperty
 import kotlinx.dnq.simple.*
 import kotlinx.dnq.util.XdPropertyCachedProvider
 import org.joda.time.DateTime
@@ -787,4 +788,32 @@ fun <R : XdEntity> xdRequiredBlobStringProp(dbName: String? = null) =
 fun <R : XdEntity, T : Comparable<T>> xdSetProp(dbName: String? = null) =
         XdPropertyCachedProvider {
             XdSetProperty<R, T>(dbName)
+        }
+
+/**
+ * Gets from cache or creates a new property delegate for Xodus [jetbrains.exodus.entitystore.Sequence].
+ * Sequences let you get unique successive non-negative long IDs. Sequences are persistent, which means that any
+ * flushed or committed transaction saves all dirty (modified) sequences which were requested by transactions
+ * created against the current EntityStore.
+ *
+ * **Sample**: sequence to generate issue number in project.
+ * ```
+ * class XdProject(entity: Entity): XdEntity(entity) {
+ *     companion object: XdNaturalEntityType<XdProject>()
+ *
+ *     var nextIssueNumber by xdSequenceProp()
+ * }
+ *
+ * // Sets unique sequential number for newIssue
+ * newIssue.number = project.nextIssueNumber.increment()
+ *
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the sequence in the database.
+ * @return property delegate to access Xodus database sequence using Kotlin-property.
+ */
+fun <R : XdEntity> xdSequenceProp(dbName: String? = null) =
+        XdPropertyCachedProvider {
+            XdSequenceProperty<R>(dbName)
         }
