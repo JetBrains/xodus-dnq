@@ -32,7 +32,7 @@ import java.util.*
 import kotlin.collections.LinkedHashMap
 import kotlin.reflect.jvm.javaGetter
 
-class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: XdNaturalEntityType<*>, xdHierarchyNode: XdHierarchyNode) : MethodHandler {
+class PersistentClassMethodHandler(self: CommonBasePersistentClass, xdEntityType: XdNaturalEntityType<*>, xdHierarchyNode: XdHierarchyNode) : MethodHandler {
     val xdEntityClass = xdEntityType.enclosingEntityClass
     val requireIfConstraints: Map<String, Collection<RequireIfConstraint<*, *>>>
     val customTargetDeletePolicies: Map<String, OnDeletePolicy>
@@ -73,14 +73,14 @@ class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: 
             if (thisMethod.isPropertyRequiredCall(args)) {
                 return isPropertyRequired(self, proceed, args)
             }
-            if (thisMethod.isCreateIncomingLinkViolationCall(args)) {
-                return createIncomingLinkViolation(args[0] as String)
-            }
             findNaturalMethod(thisMethod)?.let {
                 if (isNaturalEntity(it.declaringClass)) {
                     return invokeNaturalMethod(it, args)
                 }
             }
+        }
+        if (thisMethod.isCreateIncomingLinkViolationCall(args)) {
+            return createIncomingLinkViolation(args[0] as String)
         }
         return invokeMethod(self, proceed, args)
     }

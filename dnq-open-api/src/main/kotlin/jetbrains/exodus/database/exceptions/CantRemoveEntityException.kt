@@ -29,7 +29,7 @@ open class CantRemoveEntityException(
 private fun buildMessage(entityPresentation: String, incomingLinkDescriptions: Collection<Collection<String>>) = buildString {
     append("Could not delete $entityPresentation, because it is referenced as: ")
     incomingLinkDescriptions.forEach { description ->
-        description.joinTo(this, " ")
+        description.joinTo(this, ", ")
         append("; ")
     }
 }
