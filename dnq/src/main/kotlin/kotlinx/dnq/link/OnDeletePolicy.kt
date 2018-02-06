@@ -40,13 +40,11 @@ sealed class OnDeletePolicy {
      * Fail transaction with a custom message if entity is deleted but link still points to it.
      * One message per entity type.
      */
-    class FAIL_PER_TYPE(
-            val message: ((linkedEntities: Iterable<Entity>?, hasMore: Boolean) -> String)? = null) : OnDeletePolicy()
+    class FAIL_PER_TYPE(val message: (linkedEntities: List<Entity>, hasMore: Boolean) -> String) : OnDeletePolicy()
 
     /**
      * Fail transaction with a custom message if entity is deleted but link still points to it.
      * One message per entity.
      */
-    class FAIL_PER_ENTITY(
-            val message: ((linkedEntities: Iterable<Entity>?, entity: Entity?, hasMore: Boolean) -> String)? = null) : OnDeletePolicy()
+    class FAIL_PER_ENTITY(val message: (entity: Entity) -> String) : OnDeletePolicy()
 }

@@ -16,35 +16,50 @@
 package kotlinx.dnq.util
 
 import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
+import com.jetbrains.teamsys.dnq.database.IncomingLinkViolation
 import javassist.util.proxy.MethodHandler
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.XdModel
 import kotlinx.dnq.XdNaturalEntityType
+import kotlinx.dnq.link.OnDeletePolicy
+import com.jetbrains.teamsys.dnq.database.PerEntityIncomingLinkViolation
+import com.jetbrains.teamsys.dnq.database.PerTypeIncomingLinkViolation
 import kotlinx.dnq.simple.RequireIfConstraint
 import kotlinx.dnq.wrapper
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.*
+import kotlin.collections.LinkedHashMap
 import kotlin.reflect.jvm.javaGetter
 
-class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: XdNaturalEntityType<*>) : MethodHandler {
+class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: XdNaturalEntityType<*>, xdHierarchyNode: XdHierarchyNode) : MethodHandler {
     val xdEntityClass = xdEntityType.enclosingEntityClass
-    val requireIfConstraints = LinkedHashMap<String, MutableCollection<RequireIfConstraint<*, *>>>()
+    val requireIfConstraints: Map<String, Collection<RequireIfConstraint<*, *>>>
+    val customTargetDeletePolicies: Map<String, OnDeletePolicy>
 
     init {
-        val naturalProperties = getEntityProperties(xdEntityType).filter {
-            isNaturalEntity(getPropertyDeclaringClass(it))
-        }
+        val requireIfConstraints = LinkedHashMap<String, MutableList<RequireIfConstraint<*, *>>>()
+        val naturalProperties = xdHierarchyNode.getAllProperties()
+                .filter { isNaturalEntity(getPropertyDeclaringClass(it)) }
         for (property in naturalProperties) {
             for (constraint in getPropertyConstraints(property.delegate)) {
                 if (constraint is RequireIfConstraint<*, *>) {
-                    requireIfConstraints.getOrPut(property.dbPropertyName) { ArrayList() }.add(constraint)
+                    requireIfConstraints.getOrPut(property.dbPropertyName) { ArrayList(1) }.add(constraint)
                 } else {
                     self.addPropertyConstraint(property.dbPropertyName, constraint)
                 }
             }
         }
+        this.requireIfConstraints = requireIfConstraints
+
+        customTargetDeletePolicies = xdHierarchyNode.getAllLinks()
+                .filter { isNaturalEntity(getPropertyDeclaringClass(it)) }
+                .filter { link ->
+                    val onTargetDelete = link.delegate.onTargetDelete
+                    onTargetDelete is OnDeletePolicy.FAIL_PER_TYPE || onTargetDelete is OnDeletePolicy.FAIL_PER_ENTITY
+                }
+                .map { it.dbPropertyName to it.delegate.onTargetDelete }
+                .toMap()
     }
 
     override fun invoke(self: Any, thisMethod: Method, proceed: Method, args: Array<out Any?>): Any? {
@@ -58,6 +73,9 @@ class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: 
             if (thisMethod.isPropertyRequiredCall(args)) {
                 return isPropertyRequired(self, proceed, args)
             }
+            if (thisMethod.isCreateIncomingLinkViolationCall(args)) {
+                return createIncomingLinkViolation(args[0] as String)
+            }
             findNaturalMethod(thisMethod)?.let {
                 if (isNaturalEntity(it.declaringClass)) {
                     return invokeNaturalMethod(it, args)
@@ -67,9 +85,7 @@ class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: 
         return invokeMethod(self, proceed, args)
     }
 
-    private fun getEntityProperties(xdEntityType: XdNaturalEntityType<*>) = XdModel[xdEntityType]!!.getAllProperties()
-
-    private fun getPropertyDeclaringClass(property: XdHierarchyNode.SimpleProperty) = property.property.javaGetter!!.declaringClass
+    private fun getPropertyDeclaringClass(property: XdHierarchyNode.MetaProperty) = property.property.javaGetter!!.declaringClass
 
     @Suppress("UNCHECKED_CAST")
     private fun isNaturalEntity(clazz: Class<*>) =
@@ -98,9 +114,20 @@ class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: 
         }
         val xdEntity = (args.last() as Entity).wrapper
         val propertyName = args[0] as String
-        return requireIfConstraints.getOrElse(propertyName) { emptyList<RequireIfConstraint<*, *>>() }.any {
+        return requireIfConstraints.getOrElse(propertyName) { emptyList() }.any {
             @Suppress("UNCHECKED_CAST")
             with(xdEntity, it.predicate as XdEntity.() -> Boolean)
+        }
+    }
+
+    private fun Method.isCreateIncomingLinkViolationCall(args: Array<out Any?>) = name == BasePersistentClassImpl::createIncomingLinkViolation.name && parameterTypes.size == 1 && args[0] is String
+
+    private fun createIncomingLinkViolation(linkName: String): IncomingLinkViolation {
+        val onTargetDeletePolicy = customTargetDeletePolicies[linkName]
+        return when (onTargetDeletePolicy) {
+            is OnDeletePolicy.FAIL_PER_TYPE -> PerTypeIncomingLinkViolation(linkName, onTargetDeletePolicy.message)
+            is OnDeletePolicy.FAIL_PER_ENTITY -> PerEntityIncomingLinkViolation(linkName, onTargetDeletePolicy.message)
+            else -> IncomingLinkViolation(linkName)
         }
     }
 

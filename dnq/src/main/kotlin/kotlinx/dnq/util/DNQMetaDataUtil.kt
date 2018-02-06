@@ -164,6 +164,10 @@ fun XdHierarchyNode.getAllProperties(): Sequence<XdHierarchyNode.SimpleProperty>
     return (parentNode?.getAllProperties() ?: emptySequence()) + simpleProperties.values
 }
 
+fun XdHierarchyNode.getAllLinks(): Sequence<XdHierarchyNode.LinkProperty> {
+    return (parentNode?.getAllLinks() ?: emptySequence()) + linkProperties.values
+}
+
 private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchyNode>, entityTypeName: String, sourceEnd: XdHierarchyNode.LinkProperty) {
     when (sourceEnd.delegate.endType) {
         AssociationEndType.DirectedAssociationEnd -> {

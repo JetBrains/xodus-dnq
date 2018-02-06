@@ -28,7 +28,10 @@ open class IncomingLinkViolation(val linkName: String) {
 
     // default implementation
     open val description: Collection<String>
-        get() = NanoSet(buildString {
+        get() = buildDescription(entitiesCausedViolation, hasMoreEntitiesCausedViolations)
+
+    protected open fun buildDescription(entitiesCausedViolation: List<Entity>, hasMoreEntitiesCausedViolations: Boolean): Set<String> {
+        return setOf(buildString {
             append(linkName).append(" for {")
             entitiesCausedViolation.joinTo(this, ", ")
             if (hasMoreEntitiesCausedViolations) {
@@ -37,6 +40,7 @@ open class IncomingLinkViolation(val linkName: String) {
                 append("}")
             }
         })
+    }
 
     fun tryAddCause(cause: Entity): Boolean {
         return if (entitiesCausedViolation.size < MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW) {
