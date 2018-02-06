@@ -32,7 +32,7 @@ import java.util.*
 import kotlin.collections.LinkedHashMap
 import kotlin.reflect.jvm.javaGetter
 
-class PersistentClassMethodHandler(self: CommonBasePersistentClass, xdEntityType: XdNaturalEntityType<*>, xdHierarchyNode: XdHierarchyNode) : MethodHandler {
+class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: XdNaturalEntityType<*>, xdHierarchyNode: XdHierarchyNode) : MethodHandler {
     val xdEntityClass = xdEntityType.enclosingEntityClass
     val requireIfConstraints: Map<String, Collection<RequireIfConstraint<*, *>>>
     val customTargetDeletePolicies: Map<String, OnDeletePolicy>
@@ -79,8 +79,8 @@ class PersistentClassMethodHandler(self: CommonBasePersistentClass, xdEntityType
                 }
             }
         }
-        if (thisMethod.isCreateIncomingLinkViolationCall(args)) {
-            return createIncomingLinkViolation(args[0] as String)
+        thisMethod.ifCreateIncomingLinkViolationCall(args) { linkName ->
+            return createIncomingLinkViolation(linkName)
         }
         return invokeMethod(self, proceed, args)
     }
@@ -120,7 +120,14 @@ class PersistentClassMethodHandler(self: CommonBasePersistentClass, xdEntityType
         }
     }
 
-    private fun Method.isCreateIncomingLinkViolationCall(args: Array<out Any?>) = name == BasePersistentClassImpl::createIncomingLinkViolation.name && parameterTypes.size == 1 && args[0] is String
+    private inline fun Method.ifCreateIncomingLinkViolationCall(args: Array<out Any?>, body: (linkName: String) -> Unit) {
+        if (name == BasePersistentClassImpl::createIncomingLinkViolation.name && parameterTypes.size == 1) {
+            val linkName = args.first()
+            if (linkName is String) {
+                body(linkName)
+            }
+        }
+    }
 
     private fun createIncomingLinkViolation(linkName: String): IncomingLinkViolation {
         val onTargetDeletePolicy = customTargetDeletePolicies[linkName]

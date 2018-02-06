@@ -95,7 +95,7 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
             isUseCache = false
         }.create(emptyArray(), emptyArray()).apply {
             this as ProxyObject
-            handler = PersistentClassMethodHandler(this as CommonBasePersistentClass, xdEntityType, this@XdHierarchyNode)
+            handler = PersistentClassMethodHandler(this as BasePersistentClassImpl, xdEntityType, this@XdHierarchyNode)
         } as BasePersistentClassImpl
     }
 
