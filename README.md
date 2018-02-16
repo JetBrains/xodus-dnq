@@ -1,6 +1,7 @@
 # xodus-dnq
 [![official JetBrains project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq)
+[![Build Status](https://travis-ci.org/JetBrains/xodus-dnq.svg?branch=master)](https://travis-ci.org/JetBrains/xodus-dnq)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 ![Pure Java + Kotlin](https://img.shields.io/badge/100%25-java%2bkotlin-orange.svg)
 [![Stack Overflow](https://img.shields.io/badge/stack%20overflow-xodus--dnq-brightgreen.svg)](http://stackoverflow.com/questions/tagged/xodus-dnq)
