@@ -1,5 +1,5 @@
 buildscript {
-    ext.kotlin_version = '1.2.0'
+    ext.kotlin_version = '1.2.21'
     ext.exodus_version = '1.1.0'
     ext.dokka_version = '0.9.15'
 
@@ -14,7 +14,7 @@ buildscript {
 
 plugins {
     id 'com.github.hierynomus.license' version '0.13.1'
-    id 'org.jetbrains.kotlin.jvm' version '1.2.0'
+    id 'org.jetbrains.kotlin.jvm' version '1.2.21'
     id 'io.codearte.nexus-staging' version '0.11.0'
     id 'idea'
 }
