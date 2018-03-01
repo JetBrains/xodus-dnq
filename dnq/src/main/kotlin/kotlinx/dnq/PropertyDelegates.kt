@@ -791,6 +791,37 @@ fun <R : XdEntity, T : Comparable<T>> xdSetProp(dbName: String? = null) =
         }
 
 /**
+ * Gets from cache or creates a new property delegate for primitive persistent property of type `MutableSet<T>`.
+ * Xodus builds index for every element of the set. So you can query entity by any element of the set.
+ *
+ * If persistent property value is not defined in database the property returns empty set.
+ *
+ * Adding and removing of elements of the set are saved to the database.
+ *
+ * **Sample**: set of strings property with database name `tags`.
+ * ```
+ * class XdPost(entity: Entity): XdEntity(entity) {
+ *     companion object: XdNaturalEntityType<XdPost>()
+ *     var tags by xdMutableSetProp<XdPost, String>()
+ * }
+ *
+ * // Add tag
+ * post.tags.add("Kotlin")
+ *
+ * // Finds all posts that contains word "Kotlin" among the value of tags property.
+ * XdPost.query(XdPost::tags contains "Kotlin")
+ * ```
+ *
+ * @param dbName name of persistent property in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used as the name of the property in the database.
+ * @return property delegate to access Xodus database persistent property using Kotlin-property.
+ */
+fun <R : XdEntity, T : Comparable<T>> xdMutableSetProp(dbName: String? = null) =
+        XdPropertyCachedProvider {
+            XdMutableSetProperty<R, T>(dbName)
+        }
+
+/**
  * Gets from cache or creates a new property delegate for Xodus [jetbrains.exodus.entitystore.Sequence].
  * Sequences let you get unique successive non-negative long IDs. Sequences are persistent, which means that any
  * flushed or committed transaction saves all dirty (modified) sequences which were requested by transactions
