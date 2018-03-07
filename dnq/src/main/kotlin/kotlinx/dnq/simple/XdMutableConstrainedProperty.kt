@@ -17,16 +17,11 @@ package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
 import jetbrains.exodus.query.metadata.PropertyType
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KProperty
+import kotlin.properties.ReadWriteProperty
 
-abstract class XdConstrainedProperty<in R, T>(
-        open val dbPropertyName: String?,
-        open val constraints: List<PropertyConstraint<T?>>,
-        open val requirement: XdPropertyRequirement,
-        open val propertyType: PropertyType) : ReadOnlyProperty<R, T> {
-
-    abstract fun isDefined(thisRef: R, property: KProperty<*>): Boolean
-
-    internal val KProperty<*>.dbName get() = dbPropertyName ?: this.name
-}
+abstract class XdMutableConstrainedProperty<in R, T>(
+        dbPropertyName: String?,
+        constraints: List<PropertyConstraint<T?>>,
+        requirement: XdPropertyRequirement,
+        propertyType: PropertyType
+) : ReadWriteProperty<R, T>, XdConstrainedProperty<R, T>(dbPropertyName, constraints, requirement, propertyType)

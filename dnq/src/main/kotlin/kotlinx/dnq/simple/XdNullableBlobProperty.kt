@@ -23,7 +23,7 @@ import java.io.InputStream
 import kotlin.reflect.KProperty
 
 class XdNullableBlobProperty<in R : XdEntity>(dbPropertyName: String?) :
-        XdConstrainedProperty<R, InputStream?>(
+        XdMutableConstrainedProperty<R, InputStream?>(
                 dbPropertyName,
                 emptyList(),
                 XdPropertyRequirement.OPTIONAL,

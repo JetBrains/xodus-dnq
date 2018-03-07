@@ -35,13 +35,6 @@ class XdMutableSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: S
         return BoundMutableSet<T>(thisRef.entity, property.dbName)
     }
 
-    override fun setValue(thisRef: R, property: KProperty<*>, value: MutableSet<T>) {
-        val comparableSet = value
-                .takeIf { it.isNotEmpty() }
-                ?.let { ComparableSet(it) }
-        thisRef.reattachAndSetPrimitiveValue(property.dbName, comparableSet, ComparableSet::class.java)
-    }
-
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
         return thisRef.reattachAndGetPrimitiveValue<ComparableSet<T>>(property.dbName) != null
     }

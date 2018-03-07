@@ -24,7 +24,7 @@ import kotlinx.dnq.util.reattachAndSetBlobString
 import kotlin.reflect.KProperty
 
 class XdTextProperty<in R : XdEntity>(dbPropertyName: String?) :
-        XdConstrainedProperty<R, String>(
+        XdMutableConstrainedProperty<R, String>(
                 dbPropertyName,
                 emptyList(),
                 XdPropertyRequirement.REQUIRED,

@@ -20,10 +20,10 @@ import kotlinx.dnq.XdEntity
 import kotlin.reflect.KProperty
 
 class XdWrappedProperty<in R : XdEntity, B, T>(
-        val wrapped: XdConstrainedProperty<R, B>,
+        val wrapped: XdMutableConstrainedProperty<R, B>,
         val wrap: (B) -> T,
         val unwrap: (T) -> B) :
-        XdConstrainedProperty<R, T>(
+        XdMutableConstrainedProperty<R, T>(
                 null,
                 emptyList(),
                 XdPropertyRequirement.OPTIONAL,

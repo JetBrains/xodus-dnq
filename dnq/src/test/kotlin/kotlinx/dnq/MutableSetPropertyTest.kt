@@ -32,7 +32,7 @@ class MutableSetPropertyTest : DBTest() {
     class Employee(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Employee>()
 
-        var skills by xdMutableSetProp<Employee, String>()
+        val skills by xdMutableSetProp<Employee, String>()
     }
 
     override fun registerEntityTypes() {
@@ -54,7 +54,7 @@ class MutableSetPropertyTest : DBTest() {
     @Test
     fun `set and get`() {
         val employee = store.transactional {
-            Employee.new { skills = mutableSetOf("Java", "Kotlin", "Xodus-DNQ") }
+            Employee.new { skills.addAll(listOf("Java", "Kotlin", "Xodus-DNQ")) }
         }
 
         store.transactional {
@@ -64,25 +64,9 @@ class MutableSetPropertyTest : DBTest() {
     }
 
     @Test
-    fun `empty list`() {
-        val employee = store.transactional {
-            Employee.new { skills = mutableSetOf("Java", "Kotlin", "Xodus-DNQ") }
-        }
-
-        store.transactional {
-            employee.skills = mutableSetOf()
-        }
-
-        store.transactional {
-            assertThat(employee.skills).isEmpty()
-        }
-    }
-
-
-    @Test
     fun `is defined`() {
         val employee = store.transactional {
-            Employee.new { skills = mutableSetOf("Java", "Kotlin", "Xodus-DNQ") }
+            Employee.new { skills.addAll(listOf("Java", "Kotlin", "Xodus-DNQ")) }
         }
 
         store.transactional {
@@ -104,7 +88,7 @@ class MutableSetPropertyTest : DBTest() {
     @Test
     fun `contains query`() {
         val employee = store.transactional {
-            Employee.new { skills = mutableSetOf("Java", "Kotlin", "Xodus-DNQ") }
+            Employee.new { skills.addAll(listOf("Java", "Kotlin", "Xodus-DNQ")) }
         }
 
         store.transactional {
@@ -119,7 +103,7 @@ class MutableSetPropertyTest : DBTest() {
     @Test
     fun `anyStartsWith query`() {
         val employee = store.transactional {
-            Employee.new { skills = mutableSetOf("Java", "Kotlin", "Xodus-DNQ") }
+            Employee.new { skills.addAll(listOf("Java", "Kotlin", "Xodus-DNQ")) }
         }
 
         store.transactional {
@@ -133,7 +117,7 @@ class MutableSetPropertyTest : DBTest() {
 
     private fun createEmployee(vararg skills: String): Employee {
         return transactional {
-            Employee.new { this.skills = mutableSetOf(*skills) }
+            Employee.new { this.skills.addAll(skills) }
         }
     }
 

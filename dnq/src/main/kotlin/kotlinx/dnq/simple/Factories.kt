@@ -98,6 +98,6 @@ inline fun <R : XdEntity, reified T : Comparable<T>> xdNullableProp(
     return XdNullableProperty(T::class.java, dbName, constraints.collect(), binding)
 }
 
-fun <R : XdEntity, B, T> XdConstrainedProperty<R, B>.wrap(wrap: (B) -> T, unwrap: (T) -> B): XdWrappedProperty<R, B, T> {
+fun <R : XdEntity, B, T> XdMutableConstrainedProperty<R, B>.wrap(wrap: (B) -> T, unwrap: (T) -> B): XdWrappedProperty<R, B, T> {
     return XdWrappedProperty(this, wrap, unwrap)
 }

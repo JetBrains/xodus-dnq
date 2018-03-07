@@ -23,7 +23,7 @@ import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.reflect.KProperty
 
 class XdSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: String?) :
-        XdConstrainedProperty<R, Set<T>>(
+        XdMutableConstrainedProperty<R, Set<T>>(
                 dbPropertyName,
                 emptyList(),
                 XdPropertyRequirement.OPTIONAL,

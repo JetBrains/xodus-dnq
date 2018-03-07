@@ -32,7 +32,7 @@ class XdProperty<in R : XdEntity, T : Comparable<T>>(
         val default: (R, KProperty<*>) -> T,
         override val binding: XdCustomTypeBinding<T>? = null) :
         XdCustomTypeProperty<T>,
-        XdConstrainedProperty<R, T>(
+        XdMutableConstrainedProperty<R, T>(
                 dbPropertyName,
                 constraints,
                 requirement,

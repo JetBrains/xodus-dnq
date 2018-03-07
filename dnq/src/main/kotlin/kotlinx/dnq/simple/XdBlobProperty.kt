@@ -25,7 +25,7 @@ import kotlin.reflect.KProperty
 
 class XdBlobProperty<in R : XdEntity>(
         dbPropertyName: String?) :
-        XdConstrainedProperty<R, InputStream>(
+        XdMutableConstrainedProperty<R, InputStream>(
                 dbPropertyName,
                 emptyList(),
                 XdPropertyRequirement.REQUIRED,

@@ -16,6 +16,7 @@
 package kotlinx.dnq
 
 import jetbrains.exodus.entitystore.Entity
+import org.junit.Ignore
 import org.junit.Test
 import kotlin.system.measureTimeMillis
 
@@ -42,6 +43,7 @@ class XdPerformanceTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `estimate toXd`() {
         transactional {
             (1..1000).forEach {

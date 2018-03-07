@@ -23,7 +23,7 @@ import kotlin.reflect.KProperty
 
 class XdNullableTextProperty<in R : XdEntity>(
         dbPropertyName: String?) :
-        XdConstrainedProperty<R, String?>(
+        XdMutableConstrainedProperty<R, String?>(
                 dbPropertyName,
                 emptyList(),
                 XdPropertyRequirement.OPTIONAL,
