@@ -1,17 +1,12 @@
-import org.apache.commons.lang3.SystemUtils
-
 buildscript {
-    ext.jmhVersion = '1.20'
+    ext.jmhVersion = '1.19'
     repositories {
         maven { url 'https://plugins.gradle.org/m2/' }
-    }
-    dependencies {
-        classpath 'org.apache.commons:commons-lang3:3.5'
     }
 }
 
 plugins {
-    id 'me.champeau.gradle.jmh' version "0.3.1"
+    id 'me.champeau.gradle.jmh' version "0.4.5"
     id 'io.morethan.jmhreport' version "0.1.0"
 }
 
@@ -22,26 +17,12 @@ dependencies {
     jmh project(':dnq')
     // the following dependency is necessary for running benchmarks in IntelliJ using ide-jmh-plugin
     jmh "org.openjdk.jmh:jmh-generator-annprocess:$jmhVersion"
-    testCompile "org.openjdk.jmh:jmh-core:$jmhVersion"
     jmh 'junit:junit:4.12'
-
-    def os
-    if (SystemUtils.IS_OS_LINUX) {
-        os = "linux64"
-    } else if (SystemUtils.IS_OS_MAC_OSX) {
-        os = "osx64"
-    } else if (SystemUtils.IS_OS_WINDOWS) {
-        os = "win64"
-    }
-    if (os) {
-        jmh group: 'org.deephacks.lmdbjni', name: "lmdbjni-$os", version: '0.4.6'
-    }
 }
 
 jmh {
-    // uncomment the following line to exclude all benchmarks except Xodus Tokyo Cabinet
     jmhVersion = project.jmhVersion
-    jvmArgsPrepend '-Xmx1g -Xms1g'
+//    jvmArgsPrepend '-Xmx1g -Xms1g'
     duplicateClassesStrategy = 'warn'
     resultFormat = 'JSON'
 }

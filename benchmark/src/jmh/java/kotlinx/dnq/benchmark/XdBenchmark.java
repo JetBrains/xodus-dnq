@@ -15,11 +15,19 @@
  */
 package kotlinx.dnq.benchmark;
 
-import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.*;
 
+import java.util.concurrent.TimeUnit;
+
+@State(Scope.Thread)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class XdBenchmark {
-    @Benchmark
-    public void test() {
 
+    @Benchmark
+    @Warmup(iterations = 4, time = 1)
+    @Measurement(iterations = 6, time = 1)
+    @Fork(5)
+    public void checkHowStuffWorks() {
+        // I do literally nothing
     }
 }
