@@ -15,6 +15,8 @@
  */
 package kotlinx.dnq.benchmark;
 
+import jetbrains.exodus.entitystore.Entity;
+import kotlinx.dnq.XdModel;
 import org.openjdk.jmh.annotations.*;
 
 import java.util.concurrent.TimeUnit;
@@ -22,12 +24,25 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class XdBenchmark {
+    private XdPerformanceUtil util = new XdPerformanceUtil();
+    private Entity user;
+
+    @Setup
+    public void setup() {
+        util.initDatabase();
+        user = util.createUser();
+    }
+
+    @TearDown
+    public void tearDown() {
+        util.closeDatabase();
+    }
 
     @Benchmark
     @Warmup(iterations = 4, time = 1)
-    @Measurement(iterations = 6, time = 1)
-    @Fork(5)
-    public void checkHowStuffWorks() {
-        // I do literally nothing
+    @Measurement(iterations = 5, time = 3)
+    @Fork(4)
+    public void xdModel_toXd() {
+        XdModel.INSTANCE.toXd(user);
     }
 }

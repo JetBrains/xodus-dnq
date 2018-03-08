@@ -27,12 +27,12 @@ jmh {
     resultFormat = 'JSON'
 }
 
-task deleteEmptyBenchmarkList(type: Delete) {
-    group = 'jmh'
-    delete "$buildDir/jmh-generated-classes/META-INF/BenchmarkList"
-}
-
-jmhCompileGeneratedClasses.finalizedBy deleteEmptyBenchmarkList
+//task deleteEmptyBenchmarkList(type: Delete) {
+//    group = 'jmh'
+//    delete "$buildDir/jmh-generated-classes/META-INF/BenchmarkList"
+//}
+//
+//jmhCompileGeneratedClasses.finalizedBy deleteEmptyBenchmarkList
 
 jmhReport {
     jmhResultPath = project.file('build/reports/jmh/results.json')
