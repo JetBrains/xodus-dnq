@@ -17,9 +17,7 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.query.XdMutableQuery
-import kotlinx.dnq.query.first
-import kotlinx.dnq.query.toList
+import kotlinx.dnq.query.*
 import org.junit.Test
 
 class AssociationSimpleTest : DBTest() {
@@ -55,7 +53,7 @@ class AssociationSimpleTest : DBTest() {
     }
 
     override fun registerEntityTypes() {
-        XdModel.registerNodes(MyThing, MyThing2, MyThing3)
+        XdModel.registerNodes(MyThing, MyThing2, MyThing3, MIssue, MTag, MUser)
     }
 
     @Test
@@ -147,6 +145,57 @@ class AssociationSimpleTest : DBTest() {
         transactional {
             assertThat(t2.isRemoved).isTrue()
             assertThat(t1.tome2).isNull()
+        }
+    }
+
+
+    class MIssue(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<MIssue>()
+
+        val tags: XdMutableQuery<MTag> by xdLink0_N(MTag::issues)
+
+        fun getTags(user: MUser): XdQuery<MTag> {
+            return this.tags.query(MTag::owner eq user)
+        }
+    }
+
+    class MTag(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<MTag>()
+
+        var name by xdStringProp()
+        val issues by xdLink0_N(MIssue::tags)
+        var owner: MUser by xdLink1(MUser::tags)
+    }
+
+    class MUser(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<MUser>()
+
+        val tags by xdLink0_N(MTag::owner)
+    }
+
+    @Test
+    fun addAndAccess() {
+        val (issue, user1, user2) = transactional {
+            Triple(MIssue.new(), MUser.new(), MUser.new())
+        }
+        val tag1 = transactional {
+            MTag.new {
+                name = "tag"
+                owner = user1
+                issues.add(issue)
+                assertThat(issue.tags.first()).isEqualTo(this)
+            }
+        }
+        transactional { txn ->
+            val tag2 = MTag.new {
+                this.name = "tag2"
+                this.owner = user2
+                this.issues.add(issue)
+            }
+
+            assertThat(issue.getTags(user1)).containsExactly(tag1)
+            txn.flush()
+            assertThat(issue.getTags(user2)).containsExactly(tag2)
         }
     }
 
