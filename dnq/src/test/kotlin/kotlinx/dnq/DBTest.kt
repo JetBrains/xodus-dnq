@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq
 
+import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.core.execution.DelegatingJobProcessor
 import jetbrains.exodus.core.execution.JobProcessor
@@ -30,6 +31,8 @@ import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.listener.asLegacyListener
 import kotlinx.dnq.query.XdMutableQuery
+import kotlinx.dnq.query.XdQuery
+import kotlinx.dnq.query.toList
 import kotlinx.dnq.simple.email
 import kotlinx.dnq.simple.min
 import kotlinx.dnq.store.container.StaticStoreContainer
@@ -204,6 +207,8 @@ abstract class DBTest {
             }
         }
     }
+
+    fun <XD : XdEntity> assertThat(query: XdQuery<XD>) = assertThat(query.toList())
 
     private fun cleanUpDbDir() {
         if (databaseHome.exists() && databaseHome.isDirectory) {
