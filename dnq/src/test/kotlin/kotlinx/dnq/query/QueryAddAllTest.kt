@@ -38,7 +38,7 @@ class QueryAddAllTest : DBTest() {
     @Test
     fun `addAll(XdQuery) should add all elements`() {
         assertAddAll { users ->
-            this.users.addAll(users.asIterable().map { it.entity }.asQuery(User))
+            this.users.addAll(users.map { it.entity }.asIterable().asQuery(User))
         }
     }
 
