@@ -42,7 +42,7 @@ public class XdBenchmark {
     @Warmup(iterations = 4, time = 1)
     @Measurement(iterations = 5, time = 3)
     @Fork(4)
-    public void xdModel_toXd() {
-        XdModel.INSTANCE.toXd(user);
+    public XdPerformanceUtil.XdUser xdModel_toXd() {
+        return XdModel.INSTANCE.toXd(user);
     }
 }
