@@ -281,7 +281,7 @@ fun <T : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(property: KProperty1<
  *
  * @param asc if `true` (by default) sort in ascending order, if `false` sort in descending order.
  */
-inline fun <reified T : XdEntity, reified S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(linkProperty: KProperty1<T, S>, property: KProperty1<S, V>, asc: Boolean = true): XdQuery<T> {
+inline fun <reified T : XdEntity, reified S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(linkProperty: KProperty1<T, S?>, property: KProperty1<S, V?>, asc: Boolean = true): XdQuery<T> {
     return sortedBy(T::class, linkProperty, S::class, property, asc)
 }
 
@@ -295,7 +295,7 @@ inline fun <reified T : XdEntity, reified S : XdEntity, V : Comparable<*>?> XdQu
  *
  * @param asc if `true` (by default) sort in ascending order, if `false` sort in descending order.
  */
-fun <T : XdEntity, S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(klass: KClass<T>, linkProperty: KProperty1<T, S>, linkKlass: KClass<S>, property: KProperty1<S, V>, asc: Boolean = true): XdQuery<T> {
+fun <T : XdEntity, S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(klass: KClass<T>, linkProperty: KProperty1<T, S?>, linkKlass: KClass<S>, property: KProperty1<S, V?>, asc: Boolean = true): XdQuery<T> {
     return queryEngine.query(entityIterable, entityType.entityType, SortByLinkProperty(null, linkKlass.java.entityType.entityType, property.getDBName(linkKlass), linkProperty.getDBName(klass), asc)).asQuery(entityType)
 }
 
