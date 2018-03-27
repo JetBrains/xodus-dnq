@@ -341,8 +341,17 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
      */
     override fun newEntity(entityType: String): TransientEntity {
         assertOpen("create entity")
+        assertIsNotAbstract(entityType)
         upgradeReadonlyTransactionIfNecessary()
         return TransientEntityImpl(entityType, getStore())
+    }
+
+    private fun assertIsNotAbstract(entityType: String) {
+        store.modelMetaData?.let {
+            it.getEntityMetaData(entityType)?.let {
+                if(it.isAbstract) throw IllegalStateException("Can't instantiate abstract entity type '$entityType'")
+            }
+        }
     }
 
     override fun newEntity(creator: EntityCreator): TransientEntity {

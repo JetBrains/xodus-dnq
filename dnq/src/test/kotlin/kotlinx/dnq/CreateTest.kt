@@ -34,9 +34,20 @@ class CreateTest : DBTest() {
         }
     }
 
+    abstract class SecurityGroup(entity: Entity) : RootGroup(entity) {
+
+        companion object : XdNaturalEntityType<SecurityGroup>()
+
+        override fun constructor() {
+            super.constructor()
+            name = "security"
+        }
+
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNode(AdminGroup)
+        XdModel.registerNodes(AdminGroup, SecurityGroup)
     }
 
     @Test
@@ -53,6 +64,13 @@ class CreateTest : DBTest() {
         store.transactional {
             Truth.assertThat(User.query(User::login eq login).firstOrNull())
                     .isNotNull()
+        }
+    }
+
+    @Test(expected = Exception::class)
+    fun `creation of abstract type is not allowed`() {
+        store.transactional {
+            it.newEntity(SecurityGroup.entityType)
         }
     }
 

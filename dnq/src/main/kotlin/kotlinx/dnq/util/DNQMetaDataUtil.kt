@@ -28,6 +28,7 @@ import kotlinx.dnq.simple.XdPropertyRequirement
 import kotlinx.dnq.simple.XdWrappedProperty
 import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
 import kotlinx.dnq.singleton.XdSingletonEntityType
+import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
 import kotlin.reflect.jvm.javaType
 
@@ -91,7 +92,7 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
     addEntityMetaData(EntityMetaDataImpl().apply {
         type = entityTypeName
         superType = node.parentNode?.entityType?.entityType
-
+        isAbstract =  Modifier.isAbstract(node.entityType.javaClass.enclosingClass.modifiers)
         propertiesMetaData = node.getAllProperties().map {
             val simpleTypeName = it.property.returnType.javaType.let {
                 when (it) {
