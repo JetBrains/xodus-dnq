@@ -101,6 +101,9 @@ class FilterQueryPropertiesTest : DBTest() {
 
             User.assertThatFilterResult { it.skill lt 2 }.containsExactly(user1)
             User.assertThatFilterResult { it.skill gt 1 }.containsExactly(user2)
+
+            User.assertThatFilterResult { it.skill le 2 }.containsExactly(user1, user2)
+            User.assertThatFilterResult { it.skill ge 1 }.containsExactly(user1, user2)
         }
     }
 

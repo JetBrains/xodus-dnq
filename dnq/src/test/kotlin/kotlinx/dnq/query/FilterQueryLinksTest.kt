@@ -92,4 +92,46 @@ class FilterQueryLinksTest : DBTest() {
             assertThat(result.toList()).containsExactly(user2)
         }
     }
+
+    @Test
+    fun `simple search by contains`() {
+        store.transactional {
+
+            val user1 = User.new {
+                login = "user 1"
+                skill = 1
+            }
+            val user2 = User.new {
+                login = "user 2"
+                skill = 2
+            }
+
+            val contact1 = Contact.new {
+                email = "xxx@123.com"
+                user = user1
+            }
+            val contact2 = Contact.new {
+                email = "123@123.com"
+                user = user1
+            }
+            val contact3 = Contact.new {
+                email = "bbb@123.com"
+                user = user2
+            }
+
+
+            var result = User.filter { it.contacts contains contact1 }
+
+            assertThat(result.toList()).containsExactly(user1)
+
+            result = User.filter { it.contacts contains contact3 }
+            assertThat(result.toList()).containsExactly(user2)
+
+            result = User.filter { it.contacts containsIn listOf(contact1, contact3) }
+            assertThat(result.toList()).containsExactly(user1, user2)
+
+            result = User.filter { it.contacts containsIn listOf(contact1, contact2) }
+            assertThat(result.toList()).containsExactly(user1)
+        }
+    }
 }

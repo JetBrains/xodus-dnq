@@ -353,6 +353,11 @@ internal class SearchingEntity(_type: String, _entityStore: TransientEntityStore
         }
     }
 
+    override fun getLinks(linkName: String): EntityIterable {
+        currentNodeName = linkName
+        return EntityIterableBase.EMPTY
+    }
+
     override fun setProperty(propertyName: String, value: Comparable<Nothing>): Boolean {
         currentNodeName = propertyName
         addToNodes(PropertyEqual(propertyName, value).decorateIfNeeded())
