@@ -29,7 +29,9 @@ fun <XD : XdEntity> XdEntityType<XD>.findOrNew(findQuery: XdQuery<XD>, initNew: 
         override fun find() = findQuery.firstOrNull()?.entity
 
         override fun created(entity: Entity) {
-            wrap(entity).initNew()
+            wrap(entity).also {
+                it.constructor()
+            }.initNew()
         }
 
     }
