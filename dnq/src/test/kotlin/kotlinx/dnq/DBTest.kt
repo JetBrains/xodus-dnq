@@ -135,6 +135,20 @@ abstract class DBTest {
         XdModel.hierarchy.clear()
         registerEntityTypes()
         databaseHome = File(System.getProperty("java.io.tmpdir"), "kotlinx.dnq.test")
+        openStore()
+    }
+
+    open fun registerEntityTypes() {
+        XdModel.registerNodes(User, RootGroup, NestedGroup, Image, Contact, Team, Fellow)
+    }
+
+    @After
+    fun tearDown() {
+        closeStore()
+        cleanUpDbDir()
+    }
+
+    fun openStore() {
         store = StaticStoreContainer.init(databaseHome, "testDB") {
             envCloseForcedly = true
         }
@@ -146,12 +160,7 @@ abstract class DBTest {
         store.addListener(eventsMultiplexer)
     }
 
-    open fun registerEntityTypes() {
-        XdModel.registerNodes(User, RootGroup, NestedGroup, Image, Contact, Team, Fellow)
-    }
-
-    @After
-    fun tearDown() {
+    fun closeStore() {
         val eventsMultiplexer = store.eventsMultiplexer
         if (eventsMultiplexer != null) {
             typeListeners.forEach {
@@ -163,7 +172,6 @@ abstract class DBTest {
         }
         store.close()
         store.persistentStore.close()
-        cleanUpDbDir()
     }
 
     protected fun createAsyncProcessor(): JobProcessor {
