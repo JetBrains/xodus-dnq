@@ -19,11 +19,12 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import kotlin.concurrent.thread
 
-fun <T> TransientEntityStore.runTranAsyncAndJoin(body: (TransientStoreSession) -> T): T {
+fun <T> TransientEntityStore.runTranAsyncAndJoin(readonly: Boolean = false, body: (TransientStoreSession) -> T): T {
     var result: T? = null
     val thread = thread(start = true) {
-        result = transactional(block = body)
+        result = transactional(readonly = readonly, block = body)
     }
     thread.join()
+    @Suppress("UNCHECKED_CAST")
     return result as T
 }
