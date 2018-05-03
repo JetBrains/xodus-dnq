@@ -26,14 +26,14 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
 class XdOneToOneRequiredLink<R : XdEntity, T : XdEntity>(
-        val entityType: XdEntityType<T>,
+        oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
         dbPropertyName: String?,
         dbOppositePropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy
 ) : ReadWriteProperty<R, T>, XdLink<R, T>(
-        entityType,
+        oppositeEntityType,
         dbPropertyName,
         dbOppositePropertyName,
         AssociationEndCardinality._1,
@@ -43,9 +43,9 @@ class XdOneToOneRequiredLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val entity = thisRef.reattach().getLink(property.dbName) ?:
-                throw RequiredPropertyUndefinedException(thisRef, property)
-        return entityType.wrap(entity)
+        val entity = thisRef.reattach().getLink(property.dbName)
+                ?: throw RequiredPropertyUndefinedException(thisRef, property)
+        return oppositeEntityType.wrap(entity)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {

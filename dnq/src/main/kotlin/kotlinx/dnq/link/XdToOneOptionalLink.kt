@@ -24,12 +24,12 @@ import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 class XdToOneOptionalLink<in R : XdEntity, T : XdEntity>(
-        val entityType: XdEntityType<T>,
+        oppositeEntityType: XdEntityType<T>,
         dbPropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy
 ) : ReadWriteProperty<R, T?>, XdLink<R, T>(
-        entityType,
+        oppositeEntityType,
         dbPropertyName,
         null,
         AssociationEndCardinality._0_1,
@@ -40,7 +40,7 @@ class XdToOneOptionalLink<in R : XdEntity, T : XdEntity>(
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
         return thisRef.reattach().getLink(property.dbName)?.let { value ->
-            entityType.wrap(value)
+            oppositeEntityType.wrap(value)
         }
     }
 

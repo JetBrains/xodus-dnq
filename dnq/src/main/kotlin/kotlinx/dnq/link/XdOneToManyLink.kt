@@ -28,7 +28,7 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
 open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
-        val entityType: XdEntityType<T>,
+        oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
         dbPropertyName: String?,
         dbOppositePropertyName: String?,
@@ -36,7 +36,7 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
         onTargetDeletePolicy: OnDeletePolicy,
         required: Boolean
 ) : ReadOnlyProperty<R, XdMutableQuery<T>>, XdLink<R, T>(
-        entityType,
+        oppositeEntityType,
         dbPropertyName,
         dbOppositePropertyName,
         if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n,
@@ -46,16 +46,18 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
-        return object : XdMutableQuery<T>(entityType) {
+        return object : XdMutableQuery<T>(oppositeEntityType) {
             override val entityIterable: Iterable<Entity>
                 get() = thisRef.reattach().getLinks(property.dbName)
 
             override fun add(entity: T) {
-                entity.reattach().setManyToOne(dbOppositePropertyName ?: oppositeField.name, property.dbName, thisRef.reattach())
+                entity.reattach().setManyToOne(dbOppositePropertyName
+                        ?: oppositeField.name, property.dbName, thisRef.reattach())
             }
 
             override fun remove(entity: T) {
-                thisRef.reattach().removeOneToMany(dbOppositePropertyName ?: oppositeField.name, property.dbName, entity.reattach())
+                thisRef.reattach().removeOneToMany(dbOppositePropertyName
+                        ?: oppositeField.name, property.dbName, entity.reattach())
             }
 
             override fun clear() {

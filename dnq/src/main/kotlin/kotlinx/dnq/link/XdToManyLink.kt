@@ -27,13 +27,13 @@ import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
 open class XdToManyLink<in R : XdEntity, T : XdEntity>(
-        val entityType: XdEntityType<T>,
+        oppositeEntityType: XdEntityType<T>,
         dbPropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy,
         required: Boolean
 ) : ReadOnlyProperty<R, XdMutableQuery<T>>, XdLink<R, T>(
-        entityType,
+        oppositeEntityType,
         dbPropertyName,
         null,
         if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n,
@@ -43,7 +43,7 @@ open class XdToManyLink<in R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
-        return object : XdMutableQuery<T>(entityType) {
+        return object : XdMutableQuery<T>(oppositeEntityType) {
             override val entityIterable: Iterable<Entity>
                 get() = thisRef.reattach().getLinks(property.dbName)
 

@@ -25,11 +25,11 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
 class XdOneChildToMultiParentLink<R : XdEntity, T : XdEntity>(
-        val entityType: XdEntityType<T>,
+        oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
         dbPropertyName: String?
 ) : ReadWriteProperty<R, T?>, XdLink<R, T>(
-        entityType,
+        oppositeEntityType,
         dbPropertyName,
         null,
         AssociationEndCardinality._0_1,
@@ -40,7 +40,7 @@ class XdOneChildToMultiParentLink<R : XdEntity, T : XdEntity>(
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
         return thisRef.reattach().getLink(property.name)?.let { value ->
-            entityType.wrap(value)
+            oppositeEntityType.wrap(value)
         }
     }
 
