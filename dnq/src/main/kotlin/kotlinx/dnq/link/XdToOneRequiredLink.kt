@@ -21,7 +21,6 @@ import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.util.reattach
-import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 class XdToOneRequiredLink<in R : XdEntity, T : XdEntity>(
@@ -29,7 +28,7 @@ class XdToOneRequiredLink<in R : XdEntity, T : XdEntity>(
         dbPropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy
-) : ReadWriteProperty<R, T>, XdLink<R, T>(
+) : ScalarRequiredLink<R, T>, XdLink<R, T>(
         oppositeEntityType,
         dbPropertyName,
         null,

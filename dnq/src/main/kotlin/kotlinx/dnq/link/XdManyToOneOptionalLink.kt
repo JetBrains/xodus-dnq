@@ -21,7 +21,6 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.util.reattach
-import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -32,7 +31,7 @@ class XdManyToOneOptionalLink<R : XdEntity, T : XdEntity>(
         dbOppositePropertyName: String?,
         onDeletePolicy: OnDeletePolicy,
         onTargetDeletePolicy: OnDeletePolicy
-) : ReadWriteProperty<R, T?>, XdLink<R, T>(
+) : ScalarOptionalLink<R, T>, XdLink<R, T>(
         oppositeEntityType,
         dbPropertyName,
         dbOppositePropertyName,

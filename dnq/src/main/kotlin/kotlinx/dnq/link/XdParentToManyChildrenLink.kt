@@ -23,7 +23,6 @@ import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
 import kotlinx.dnq.util.reattach
-import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -32,7 +31,7 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
         override val oppositeField: KProperty1<T, R?>,
         dbPropertyName: String?,
         required: Boolean
-) : ReadOnlyProperty<R, XdMutableQuery<T>>, XdLink<R, T>(
+) : VectorLink<R, T>, XdLink<R, T>(
         oppositeEntityType,
         dbPropertyName,
         null,

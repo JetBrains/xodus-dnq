@@ -20,7 +20,6 @@ import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.util.reattach
-import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -28,7 +27,7 @@ class XdParentToOneOptionalChildLink<R : XdEntity, T : XdEntity>(
         oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
         dbPropertyName: String?
-) : ReadWriteProperty<R, T?>, XdLink<R, T>(
+) : ScalarOptionalLink<R, T>, XdLink<R, T>(
         oppositeEntityType,
         dbPropertyName,
         null,
