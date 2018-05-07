@@ -22,6 +22,12 @@ import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
 import org.junit.Test
+import java.util.*
+import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.concurrent.thread
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class OnTargetDeleteClearTest : DBTest() {
 
@@ -96,6 +102,7 @@ class OnTargetDeleteClearTest : DBTest() {
         companion object : XdNaturalEntityType<EApplication>()
 
         var license by xdLink0_1(ELicense, onTargetDelete = OnDeletePolicy.CLEAR)
+        var fallbackLicense by xdLink0_1(ELicense, onTargetDelete = OnDeletePolicy.CLEAR)
     }
 
     class ELicense(entity: Entity) : XdEntity(entity) {
@@ -117,6 +124,64 @@ class OnTargetDeleteClearTest : DBTest() {
         }
         transactional {
             assertThat(application.license).isEqualTo(newLicense)
+        }
+    }
+
+    @Test
+    fun `onTargetDelete=CLEAR concurrently`() {
+        fuzzyTest(Random().nextInt())
+    }
+
+    private fun fuzzyTest(seed: Int) {
+        println("seed = [$seed]")
+        val apps = (1..100).map {
+            transactional {
+                EApplication.new().apply {
+                    license = ELicense.new()
+                    fallbackLicense = ELicense.new()
+                }
+            }
+        }.shuffled(Random(seed.toLong()))
+        val errors = AtomicLong()
+        apps.forEach { app ->
+            val sema = Semaphore(0)
+            val latch = Semaphore(0)
+            thread {
+                try {
+                    transactional {
+                        sema.acquire()
+                        app.license!!.delete()
+                    }
+                } catch (t: Throwable) {
+                    errors.incrementAndGet()
+                    t.printStackTrace()
+                } finally {
+                    latch.release()
+                }
+            }
+            thread {
+                try {
+                    transactional {
+                        sema.acquire()
+                        app.fallbackLicense!!.delete()
+                    }
+                } catch (t: Throwable) {
+                    errors.incrementAndGet()
+                    t.printStackTrace()
+                } finally {
+                    latch.release()
+                }
+            }
+            sema.release(2)
+            latch.acquire(2)
+            assertEquals(0, errors.get())
+            transactional {
+                assertNull(app.license)
+                assertNull(app.fallbackLicense)
+            }
+        }
+        transactional {
+            apps.forEach { it.delete() }
         }
     }
 
