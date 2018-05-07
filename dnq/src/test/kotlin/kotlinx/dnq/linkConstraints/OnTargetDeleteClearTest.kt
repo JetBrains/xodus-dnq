@@ -21,6 +21,8 @@ import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
+import mu.KLogging
+import org.junit.Ignore
 import org.junit.Test
 import java.util.*
 import java.util.concurrent.Semaphore
@@ -30,6 +32,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class OnTargetDeleteClearTest : DBTest() {
+    companion object : KLogging()
 
     override fun registerEntityTypes() {
         XdModel.registerNodes(CLicense, CApplication, DParent, DChild, EApplication, ELicense)
@@ -127,14 +130,18 @@ class OnTargetDeleteClearTest : DBTest() {
         }
     }
 
+    @Ignore
     @Test
     fun `onTargetDelete=CLEAR concurrently`() {
-        fuzzyTest(Random().nextInt())
+        val rnd = Random(777)
+        (1..15).forEach { iteration ->
+            fuzzyTest(rnd.nextInt(), iteration)
+        }
     }
 
-    private fun fuzzyTest(seed: Int) {
-        println("seed = [$seed]")
-        val apps = (1..100).map {
+    private fun fuzzyTest(seed: Int, iteration: Int) {
+        logger.info { "seed = [$seed], iteration = [$iteration]" }
+        val apps = (1..1000).map {
             transactional {
                 EApplication.new().apply {
                     license = ELicense.new()
@@ -151,10 +158,11 @@ class OnTargetDeleteClearTest : DBTest() {
                     transactional {
                         sema.acquire()
                         app.license!!.delete()
+                        Thread.yield()
                     }
                 } catch (t: Throwable) {
                     errors.incrementAndGet()
-                    t.printStackTrace()
+                    logger.warn(t) { "License for app ${app.entityId}" }
                 } finally {
                     latch.release()
                 }
@@ -164,10 +172,11 @@ class OnTargetDeleteClearTest : DBTest() {
                     transactional {
                         sema.acquire()
                         app.fallbackLicense!!.delete()
+                        Thread.yield()
                     }
                 } catch (t: Throwable) {
                     errors.incrementAndGet()
-                    t.printStackTrace()
+                    logger.warn(t) { "Fallback license for app ${app.entityId}" }
                 } finally {
                     latch.release()
                 }
@@ -183,6 +192,8 @@ class OnTargetDeleteClearTest : DBTest() {
         transactional {
             apps.forEach { it.delete() }
         }
+        tearDown()
+        setup()
     }
 
     @Test

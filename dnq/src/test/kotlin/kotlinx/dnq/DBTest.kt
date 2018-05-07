@@ -46,8 +46,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
+import java.util.concurrent.atomic.AtomicLong
 
 abstract class DBTest {
+    companion object {
+        private val idGen = AtomicLong()
+    }
+
     lateinit var store: TransientEntityStoreImpl
     lateinit var databaseHome: File
     val typeListeners = mutableListOf<Pair<XdEntityType<*>, XdEntityListener<*>>>()
@@ -134,7 +139,7 @@ abstract class DBTest {
     fun setup() {
         XdModel.hierarchy.clear()
         registerEntityTypes()
-        databaseHome = File(System.getProperty("java.io.tmpdir"), "kotlinx.dnq.test")
+        databaseHome = File(System.getProperty("java.io.tmpdir"), "kotlinx.dnq.test.${idGen.incrementAndGet()}")
         openStore()
     }
 
