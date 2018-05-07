@@ -53,7 +53,7 @@ subprojects {
         compile 'io.github.microutils:kotlin-logging:1.4.7'
 
         testCompile 'junit:junit:4.12'
-        testCompile 'org.slf4j:jcl-over-slf4j:1.7.21'
+        testCompile 'org.slf4j:slf4j-simple:1.7.21'
     }
 
     license {
