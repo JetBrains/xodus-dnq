@@ -54,6 +54,7 @@ abstract class DBTest {
     }
 
     lateinit var store: TransientEntityStoreImpl
+    lateinit var asyncProcessor: JobProcessor
     lateinit var databaseHome: File
     val typeListeners = mutableListOf<Pair<XdEntityType<*>, XdEntityListener<*>>>()
     val instanceListeners = mutableListOf<Pair<XdEntity, XdEntityListener<*>>>()
@@ -160,7 +161,8 @@ abstract class DBTest {
 
         initMetaData(XdModel.hierarchy, store)
 
-        val eventsMultiplexer = EventsMultiplexer(createAsyncProcessor().apply(JobProcessor::start))
+        asyncProcessor = createAsyncProcessor()
+        val eventsMultiplexer = EventsMultiplexer(asyncProcessor.apply(JobProcessor::start))
         store.eventsMultiplexer = eventsMultiplexer
         store.addListener(eventsMultiplexer)
     }
