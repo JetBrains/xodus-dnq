@@ -284,11 +284,11 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
                     superclass = node.entityType.enclosingEntityClass
                     setFilter({ method -> Modifier.isAbstract(method.modifiers) })
                 }
-                val handler = MethodHandler { _, _, _, _ ->
-                    null
-                }
+                val c = factory.createClass()
+                val cons = c.getConstructor(Entity::class.java)
+
                 val ctor = { entity: Entity ->
-                    factory.create(arrayOf(Entity::class.java), arrayOf(entity), handler)
+                    cons.newInstance(entity)
                 }
                 ctor
 
