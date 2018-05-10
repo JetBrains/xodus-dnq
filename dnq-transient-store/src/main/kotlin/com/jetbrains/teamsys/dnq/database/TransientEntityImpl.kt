@@ -203,7 +203,7 @@ open class TransientEntityImpl : TransientEntity {
                 ?.getEntityMetaData(entity.type)
                 ?.getAssociationEndMetaData(linkName)
         if (associationEndMetaData != null && !associationEndMetaData.cardinality.isMultiple) {
-            throw IllegalArgumentException("Can not call this operation for non-multiple association")
+            throw IllegalArgumentException("Can not call this operation for non-multiple association [$linkName] of [$entity]")
         }
     }
 
