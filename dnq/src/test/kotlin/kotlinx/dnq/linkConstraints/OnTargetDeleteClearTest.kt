@@ -22,7 +22,6 @@ import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
 import mu.KLogging
-import org.junit.Ignore
 import org.junit.Test
 import java.util.*
 import java.util.concurrent.Semaphore
@@ -130,7 +129,6 @@ class OnTargetDeleteClearTest : DBTest() {
         }
     }
 
-    @Ignore
     @Test
     fun `onTargetDelete=CLEAR concurrently`() {
         val rnd = Random(777)
@@ -141,8 +139,9 @@ class OnTargetDeleteClearTest : DBTest() {
 
     private fun fuzzyTest(seed: Int, iteration: Int) {
         logger.info { "seed = [$seed], iteration = [$iteration]" }
+        val currentStore = store
         val apps = (1..1000).map {
-            transactional {
+            currentStore.transactional {
                 EApplication.new().apply {
                     license = ELicense.new()
                     fallbackLicense = ELicense.new()
@@ -150,33 +149,38 @@ class OnTargetDeleteClearTest : DBTest() {
             }
         }.shuffled(Random(seed.toLong()))
         val errors = AtomicLong()
+        var step = 0
         apps.forEach { app ->
             val sema = Semaphore(0)
             val latch = Semaphore(0)
             thread {
                 try {
-                    transactional {
+                    currentStore.transactional {
                         sema.acquire()
                         app.license!!.delete()
-                        Thread.yield()
                     }
                 } catch (t: Throwable) {
+                    currentStore.transactional {
+                        logger.info { "App $app, license ${app.license?.entityId}, fallbackLicense ${app.fallbackLicense?.entityId}" }
+                    }
                     errors.incrementAndGet()
-                    logger.warn(t) { "License for app ${app.entityId}" }
+                    logger.warn(t) { "License for app ${app.entityId}, step $step" }
                 } finally {
                     latch.release()
                 }
             }
             thread {
                 try {
-                    transactional {
+                    currentStore.transactional {
                         sema.acquire()
                         app.fallbackLicense!!.delete()
-                        Thread.yield()
                     }
                 } catch (t: Throwable) {
+                    currentStore.transactional {
+                        logger.info { "App $app, license ${app.license?.entityId}, fallbackLicense ${app.fallbackLicense?.entityId}" }
+                    }
                     errors.incrementAndGet()
-                    logger.warn(t) { "Fallback license for app ${app.entityId}" }
+                    logger.warn(t) { "Fallback license for app ${app.entityId}, step $step" }
                 } finally {
                     latch.release()
                 }
@@ -184,12 +188,13 @@ class OnTargetDeleteClearTest : DBTest() {
             sema.release(2)
             latch.acquire(2)
             assertEquals(0, errors.get())
-            transactional {
+            currentStore.transactional {
                 assertNull(app.license)
                 assertNull(app.fallbackLicense)
             }
+            step++
         }
-        transactional {
+        currentStore.transactional {
             apps.forEach { it.delete() }
         }
         asyncProcessor.waitForJobs(100)

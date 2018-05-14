@@ -1,6 +1,6 @@
 buildscript {
     ext.kotlin_version = '1.2.30'
-    ext.exodus_version = '1.2.3056'
+    ext.exodus_version = '1.2.3217'
     ext.dokka_version = '0.9.15'
 
     repositories {
