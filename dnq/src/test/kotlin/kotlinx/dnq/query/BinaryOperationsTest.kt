@@ -52,8 +52,24 @@ class BinaryOperationsTest : DBTest() {
         val users by xdLink0_N(UserBase::group)
     }
 
+    abstract class Shape(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Shape>()
+    }
+
+    class Line(entity: Entity) : Shape(entity) {
+        companion object : XdNaturalEntityType<Line>()
+    }
+
+    open class Ellipse(entity: Entity) : Shape(entity) {
+        companion object : XdNaturalEntityType<Ellipse>()
+    }
+
+    class Circle(entity: Entity) : Ellipse(entity) {
+        companion object : XdNaturalEntityType<Circle>()
+    }
+
     override fun registerEntityTypes() {
-        XdModel.registerNodes(User, GuestUser, Group)
+        XdModel.registerNodes(User, GuestUser, Group, Circle, Line)
     }
 
     private fun IntRange.toUsers() = map { i -> User.new(i.toString()) }
@@ -171,80 +187,74 @@ class BinaryOperationsTest : DBTest() {
 
     @Test
     fun `union of two sibling types should return query of the base type`() {
-        transactional {
-            GuestUser.new()
-            (1..10).toUsers()
-        }
-
-        val allUsers = transactional {
-            GuestUser.all() union User.all()
-        }
-
-        assertThat(allUsers.entityType.entityType).isEqualTo(UserBase.entityType)
-    }
-
-    @Test
-    fun `sorting over an union of sibling types should return the full result`() {
-        transactional {
-            GuestUser.new()
-            (1..10).toUsers()
-        }
-
-        transactional {
-            val sorted = GuestUser.all().union(User.all()).sortedBy(UserBase::name)
-            assertQuery(sorted).hasSize(11)
-        }
+        testEntityTypeOfCombination { a, b -> a union b }
     }
 
     @Test
     fun `concat of two sibling types should return query of the base type`() {
+        testEntityTypeOfCombination { a, b -> a + b }
+    }
+
+    @Test
+    fun `sorting over an union of sibling types should return the full result`() {
+        testSortingOfCombination { a, b -> a union b }
+    }
+
+    @Test
+    fun `sorting over a concat of sibling types should return the full result`() {
+        testSortingOfCombination { a, b -> a + b }
+    }
+
+    @Test
+    fun `union of unrelated types should return a query of XdEntity`() {
+        testCombinationOfUnrelatedTypes { a, b -> a union b }
+    }
+
+    @Test
+    fun `concat of unrelated types should return a query of XdEntity`() {
+        testCombinationOfUnrelatedTypes { a, b -> a + b }
+    }
+
+    @Test
+    fun `union of types from a complex hierarchy should has a correct entityType`() {
+        transactional {
+            assertThat((Circle.all() union Line.all()).entityType).isEqualTo(Shape)
+        }
+    }
+
+    private fun testEntityTypeOfCombination(combination: (XdQuery<UserBase>, XdQuery<UserBase>) -> XdQuery<UserBase>) {
         transactional {
             GuestUser.new()
             (1..10).toUsers()
         }
 
         val allUsers = transactional {
-            GuestUser.all() + User.all()
+            combination(GuestUser.all(), User.all())
         }
 
-        assertThat(allUsers.entityType.entityType).isEqualTo(UserBase.entityType)
+        assertThat(allUsers.entityType).isEqualTo(UserBase)
     }
 
-    @Test
-    fun `sorting over a concat of sibling types should return the full result`() {
+    private fun testSortingOfCombination(combination: (XdQuery<UserBase>, XdQuery<UserBase>) -> XdQuery<UserBase>) {
         transactional {
             GuestUser.new()
             (1..10).toUsers()
         }
 
         transactional {
-            val sorted = GuestUser.all().plus(User.all()).sortedBy(UserBase::name)
+            val sorted = combination(GuestUser.all(), User.all()).sortedBy(UserBase::name)
             assertQuery(sorted).hasSize(11)
         }
     }
 
-    @Test
-    fun `union of unrelated types should return a query of XdEntity`() {
+    private fun testCombinationOfUnrelatedTypes(combination: (XdQuery<XdEntity>, XdQuery<XdEntity>) -> XdQuery<XdEntity>) {
         transactional {
             Group.new()
             User.new("user")
         }
 
         transactional {
-            val union = Group.all() union User.all()
-            assertQuery(union).hasSize(2)
-        }
-    }
-
-    @Test
-    fun `concat of unrelated types should return a query of XdEntity`() {
-        transactional {
-            Group.new()
-            User.new("user")
-        }
-
-        transactional {
-            val union = Group.all() + User.all()
+            val union = combination(Group.all(), User.all())
             assertQuery(union).hasSize(2)
         }
     }
