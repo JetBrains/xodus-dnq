@@ -16,38 +16,51 @@
 package kotlinx.dnq.query
 
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import org.junit.Test
 
 class BinaryOperationsTest : DBTest() {
 
-    class User(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<User>() {
-            fun new(name: String) = new {
-                this.name = name
-            }
-        }
+    abstract class UserBase(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<UserBase>()
 
         var name by xdStringProp()
         var group: Group? by xdLink0_1(Group::users)
     }
 
+    class GuestUser(entity: Entity) : UserBase(entity) {
+        companion object : XdNaturalEntityType<GuestUser>() {
+            fun new() = new {
+                this.name = "guest"
+            }
+        }
+    }
+
+    class User(entity: Entity) : UserBase(entity) {
+        companion object : XdNaturalEntityType<User>() {
+            fun new(name: String) = new {
+                this.name = name
+            }
+        }
+    }
+
     class Group(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Group>()
 
-        val users by xdLink0_N(User::group)
+        val users by xdLink0_N(UserBase::group)
     }
 
     override fun registerEntityTypes() {
-        XdModel.registerNodes(User, Group)
+        XdModel.registerNodes(User, GuestUser, Group)
     }
 
     private fun IntRange.toUsers() = map { i -> User.new(i.toString()) }
 
-    private fun List<User>.toQuery(): XdQuery<User> {
+    private fun List<UserBase>.toQuery(): XdQuery<UserBase> {
         return toTypedArray()
-                .let { userArray -> User.queryOf(*userArray) }
+                .let { userArray -> UserBase.queryOf(*userArray) }
     }
 
     @Test
@@ -153,6 +166,60 @@ class BinaryOperationsTest : DBTest() {
 
         transactional {
             assertQuery(Group.all() union User.all().mapDistinct(User::group)).containsExactly(group)
+        }
+    }
+
+    @Test
+    fun `union of two sibling types should return query of the base type`() {
+        transactional {
+            GuestUser.new()
+            (1..10).toUsers()
+        }
+
+        val allUsers = transactional {
+            GuestUser.all() union User.all()
+        }
+
+        assertThat(allUsers.entityType.entityType).isEqualTo(UserBase.entityType)
+    }
+
+    @Test
+    fun `sorting over an union of sibling types should return the full result`() {
+        transactional {
+            GuestUser.new()
+            (1..10).toUsers()
+        }
+
+        transactional {
+            val sorted = GuestUser.all().union(User.all()).sortedBy(UserBase::name)
+            assertQuery(sorted).hasSize(11)
+        }
+    }
+
+    @Test
+    fun `concat of two sibling types should return query of the base type`() {
+        transactional {
+            GuestUser.new()
+            (1..10).toUsers()
+        }
+
+        val allUsers = transactional {
+            GuestUser.all() + User.all()
+        }
+
+        assertThat(allUsers.entityType.entityType).isEqualTo(UserBase.entityType)
+    }
+
+    @Test
+    fun `sorting over a concat of sibling types should return the full result`() {
+        transactional {
+            GuestUser.new()
+            (1..10).toUsers()
+        }
+
+        transactional {
+            val sorted = GuestUser.all().plus(User.all()).sortedBy(UserBase::name)
+            assertQuery(sorted).hasSize(11)
         }
     }
 }
