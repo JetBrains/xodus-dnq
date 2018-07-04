@@ -138,5 +138,20 @@ object XdModel: KLogging() {
         return entityConstructor(entity) as T
 
     }
+
+    fun <T : XdEntity> getCommonAncestor(typeA: XdEntityType<T>, typeB: XdEntityType<T>): XdEntityType<T>? {
+        if (typeA == typeB) return typeA
+
+        val nodeA = getOrThrow(typeA.entityType)
+        val nodeB = getOrThrow(typeB.entityType)
+
+        val parentsA = generateSequence(nodeA) { it.parentNode }.toSet()
+        generateSequence(nodeB) { it.parentNode }.forEach { node ->
+            @Suppress("UNCHECKED_CAST")
+            if (node in parentsA) return node.entityType as XdEntityType<T>
+        }
+
+        return null
+    }
 }
 

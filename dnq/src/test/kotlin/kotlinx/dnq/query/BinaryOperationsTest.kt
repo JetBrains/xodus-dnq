@@ -222,4 +222,30 @@ class BinaryOperationsTest : DBTest() {
             assertQuery(sorted).hasSize(11)
         }
     }
+
+    @Test
+    fun `union of unrelated types should return a query of XdEntity`() {
+        transactional {
+            Group.new()
+            User.new("user")
+        }
+
+        transactional {
+            val union = Group.all() union User.all()
+            assertQuery(union).hasSize(2)
+        }
+    }
+
+    @Test
+    fun `concat of unrelated types should return a query of XdEntity`() {
+        transactional {
+            Group.new()
+            User.new("user")
+        }
+
+        transactional {
+            val union = Group.all() + User.all()
+            assertQuery(union).hasSize(2)
+        }
+    }
 }
