@@ -23,17 +23,16 @@ import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
 import kotlinx.dnq.util.reattach
-import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
 open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
-        val entityType: XdEntityType<T>,
+        oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
         dbPropertyName: String?,
         required: Boolean
-) : ReadOnlyProperty<R, XdMutableQuery<T>>, XdLink<R, T>(
-        entityType,
+) : VectorLink<R, T>, XdLink<R, T>(
+        oppositeEntityType,
         dbPropertyName,
         null,
         if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n,
@@ -43,7 +42,7 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
-        return object : XdMutableQuery<T>(entityType) {
+        return object : XdMutableQuery<T>(oppositeEntityType) {
             override val entityIterable: Iterable<Entity>
                 get() = thisRef.reattach().getLinks(property.name)
 

@@ -13,13 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.textindex
+package kotlinx.dnq.link
 
-interface TextIndexEntityMetaData {
+import kotlinx.dnq.XdEntity
+import kotlinx.dnq.query.XdMutableQuery
+import kotlin.properties.ReadOnlyProperty
+import kotlin.properties.ReadWriteProperty
 
-    val entityType: String
+interface VectorLink<in R : XdEntity, T : XdEntity> : ReadOnlyProperty<R, XdMutableQuery<T>>
 
-    val fieldNames: Array<String>
+interface ScalarOptionalLink<in R : XdEntity, T : XdEntity> : ReadWriteProperty<R, T?>
 
-    fun getFieldTextExtractor(fieldName: String): FieldTextExtractor?
-}
+interface ScalarRequiredLink<in R : XdEntity, T : XdEntity> : ReadWriteProperty<R, T>

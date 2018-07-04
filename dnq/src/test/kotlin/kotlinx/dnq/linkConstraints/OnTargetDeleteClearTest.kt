@@ -21,9 +21,17 @@ import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
+import mu.KLogging
 import org.junit.Test
+import java.util.*
+import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.concurrent.thread
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class OnTargetDeleteClearTest : DBTest() {
+    companion object : KLogging()
 
     override fun registerEntityTypes() {
         XdModel.registerNodes(CLicense, CApplication, DParent, DChild, EApplication, ELicense)
@@ -96,6 +104,7 @@ class OnTargetDeleteClearTest : DBTest() {
         companion object : XdNaturalEntityType<EApplication>()
 
         var license by xdLink0_1(ELicense, onTargetDelete = OnDeletePolicy.CLEAR)
+        var fallbackLicense by xdLink0_1(ELicense, onTargetDelete = OnDeletePolicy.CLEAR)
     }
 
     class ELicense(entity: Entity) : XdEntity(entity) {
@@ -118,6 +127,79 @@ class OnTargetDeleteClearTest : DBTest() {
         transactional {
             assertThat(application.license).isEqualTo(newLicense)
         }
+    }
+
+    @Test
+    fun `onTargetDelete=CLEAR concurrently`() {
+        val rnd = Random(777)
+        (1..15).forEach { iteration ->
+            fuzzyTest(rnd.nextInt(), iteration)
+        }
+    }
+
+    private fun fuzzyTest(seed: Int, iteration: Int) {
+        logger.info { "seed = [$seed], iteration = [$iteration]" }
+        val currentStore = store
+        val apps = (1..1000).map {
+            currentStore.transactional {
+                EApplication.new().apply {
+                    license = ELicense.new()
+                    fallbackLicense = ELicense.new()
+                }
+            }
+        }.shuffled(Random(seed.toLong()))
+        val errors = AtomicLong()
+        var step = 0
+        apps.forEach { app ->
+            val sema = Semaphore(0)
+            val latch = Semaphore(0)
+            thread {
+                try {
+                    currentStore.transactional {
+                        sema.acquire()
+                        app.license!!.delete()
+                    }
+                } catch (t: Throwable) {
+                    currentStore.transactional {
+                        logger.info { "App $app, license ${app.license?.entityId}, fallbackLicense ${app.fallbackLicense?.entityId}" }
+                    }
+                    errors.incrementAndGet()
+                    logger.warn(t) { "License for app ${app.entityId}, step $step" }
+                } finally {
+                    latch.release()
+                }
+            }
+            thread {
+                try {
+                    currentStore.transactional {
+                        sema.acquire()
+                        app.fallbackLicense!!.delete()
+                    }
+                } catch (t: Throwable) {
+                    currentStore.transactional {
+                        logger.info { "App $app, license ${app.license?.entityId}, fallbackLicense ${app.fallbackLicense?.entityId}" }
+                    }
+                    errors.incrementAndGet()
+                    logger.warn(t) { "Fallback license for app ${app.entityId}, step $step" }
+                } finally {
+                    latch.release()
+                }
+            }
+            sema.release(2)
+            latch.acquire(2)
+            assertEquals(0, errors.get())
+            currentStore.transactional {
+                assertNull(app.license)
+                assertNull(app.fallbackLicense)
+            }
+            step++
+        }
+        currentStore.transactional {
+            apps.forEach { it.delete() }
+        }
+        asyncProcessor.waitForJobs(100)
+        tearDown()
+        setup()
     }
 
     @Test

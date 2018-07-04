@@ -97,4 +97,12 @@ class CompositeIndexTest : DBTest() {
             Role.new { key = "B"; name = "b" }
         }
     }
+
+    @Test(expected = ConstraintsValidationException::class)
+    fun `definition of index by property of parent entity should not be possible`() {
+        store.transactional {
+            Role.new { key = "A"; name = "a" }
+            Role.new { key = "A"; name = "a" }
+        }
+    }
 }

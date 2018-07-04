@@ -66,6 +66,11 @@ object FilteringContext {
         return withNode(PropertyRange(deepestNodeName, returnType.minValue(), returnType.prev(value)).decorateIfNeeded())
     }
 
+    infix fun <T : Comparable<T>> T?.le(value: T): XdSearchingNode {
+        val returnType = value.javaClass.kotlin
+        return withNode(PropertyRange(deepestNodeName, returnType.minValue(), value).decorateIfNeeded())
+    }
+
     infix fun <T : Comparable<T>> T?.eq(value: T?): XdSearchingNode {
         val correctedValue = value?.let {
             if (it is DateTime) {
@@ -90,6 +95,11 @@ object FilteringContext {
         return withNode(PropertyRange(deepestNodeName, returnType.next(value), returnType.maxValue()).decorateIfNeeded())
     }
 
+    infix fun <T : Comparable<T>> T?.ge(value: T): XdSearchingNode {
+        val returnType = value.javaClass.kotlin
+        return withNode(PropertyRange(deepestNodeName, value, returnType.maxValue()).decorateIfNeeded())
+    }
+
     infix fun <T : Comparable<T>> T?.between(value: kotlin.Pair<T, T>): XdSearchingNode {
         val returnType = value.first.javaClass.kotlin
         return withNode(PropertyRange(deepestNodeName, returnType.prev(value.first), returnType.next(value.second)).decorateIfNeeded())
@@ -107,8 +117,18 @@ object FilteringContext {
         return withNode(entities.fold(None as NodeBase) { tree, e -> tree or (LinkEqual(deepestNodeName, e?.entity)) })
     }
 
+    infix fun <T : XdEntity> XdQuery<T>?.contains(entity: T): XdSearchingNode {
+        size() // to call getLinks()
+        return withNode(LinkEqual(deepestNodeName, entity.entity).decorateIfNeeded())
+    }
+
     infix fun <T : Comparable<*>> T?.isIn(values: Iterable<T?>): XdSearchingNode {
         return withNode(values.fold(None as NodeBase) { tree, v -> tree or (PropertyEqual(deepestNodeName, v).decorateIfNeeded()) })
+    }
+
+    infix fun <T : XdEntity> XdQuery<T>?.containsIn(values: Iterable<T?>): XdSearchingNode {
+        size() // to call getLinks()
+        return withNode(values.fold(None as NodeBase) { tree, v -> tree or (LinkEqual(deepestNodeName, v?.entity).decorateIfNeeded()) })
     }
 
     private fun withNode(node: NodeBase): XdSearchingNode {

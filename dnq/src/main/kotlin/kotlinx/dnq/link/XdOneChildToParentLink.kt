@@ -22,16 +22,15 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.toXd
 import kotlinx.dnq.util.reattach
-import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
 class XdOneChildToParentLink<R : XdEntity, T : XdEntity>(
-        val entityType: XdEntityType<T>,
+        oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
         dbPropertyName: String?
-) : ReadWriteProperty<R, T>, XdLink<R, T>(
-        entityType,
+) : ScalarRequiredLink<R, T>, XdLink<R, T>(
+        oppositeEntityType,
         dbPropertyName,
         null,
         AssociationEndCardinality._1,

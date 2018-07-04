@@ -20,6 +20,7 @@ import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.query.addAll
 import org.junit.Test
+import java.util.*
 
 class FindOrCreateTest : DBTest() {
 
@@ -41,9 +42,15 @@ class FindOrCreateTest : DBTest() {
             }
         }
 
+        var id by xdRequiredStringProp()
         var user by xdLink1(User)
         val groups by xdLink0_N(Group)
         var groupsConvolution by xdRequiredStringProp()
+
+        override fun constructor() {
+            super.constructor()
+            id = UUID.randomUUID().toString()
+        }
     }
 
     override fun registerEntityTypes() {

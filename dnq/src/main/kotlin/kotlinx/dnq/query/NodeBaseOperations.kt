@@ -125,7 +125,7 @@ infix inline fun <reified R : XdEntity, T : Comparable<T>> ClosedRange<T>.contai
  */
 @JvmName("containsDate")
 infix inline fun <reified R : XdEntity> ClosedRange<DateTime>.contains(property: KProperty1<R, DateTime?>): NodeBase {
-    return contains(property.getDBName(R::class))
+    return (start.millis..endInclusive.millis).contains(property.getDBName(R::class))
 }
 
 /**
@@ -388,7 +388,7 @@ inline infix fun <reified T : XdEntity, reified R : Comparable<*>> KProperty1<T,
  *
  * value of `this` Set property contains the given [value].
  */
-infix inline fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, Set<T>>.contains(value: T): NodeBase {
+inline infix fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, Set<T>>.contains(value: T): NodeBase {
     return eq(this.getDBName(R::class), value)
 }
 

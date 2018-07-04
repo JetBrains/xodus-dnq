@@ -46,9 +46,15 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
+import java.util.concurrent.atomic.AtomicLong
 
 abstract class DBTest {
+    companion object {
+        private val idGen = AtomicLong()
+    }
+
     lateinit var store: TransientEntityStoreImpl
+    lateinit var asyncProcessor: JobProcessor
     lateinit var databaseHome: File
     val typeListeners = mutableListOf<Pair<XdEntityType<*>, XdEntityListener<*>>>()
     val instanceListeners = mutableListOf<Pair<XdEntity, XdEntityListener<*>>>()
@@ -134,16 +140,8 @@ abstract class DBTest {
     fun setup() {
         XdModel.hierarchy.clear()
         registerEntityTypes()
-        databaseHome = File(System.getProperty("java.io.tmpdir"), "kotlinx.dnq.test")
-        store = StaticStoreContainer.init(databaseHome, "testDB") {
-            envCloseForcedly = true
-        }
-
-        initMetaData(XdModel.hierarchy, store)
-
-        val eventsMultiplexer = EventsMultiplexer(createAsyncProcessor().apply(JobProcessor::start))
-        store.eventsMultiplexer = eventsMultiplexer
-        store.addListener(eventsMultiplexer)
+        databaseHome = File(System.getProperty("java.io.tmpdir"), "kotlinx.dnq.test.${idGen.incrementAndGet()}")
+        openStore()
     }
 
     open fun registerEntityTypes() {
@@ -152,6 +150,24 @@ abstract class DBTest {
 
     @After
     fun tearDown() {
+        closeStore()
+        cleanUpDbDir()
+    }
+
+    fun openStore() {
+        store = StaticStoreContainer.init(databaseHome, "testDB") {
+            envCloseForcedly = true
+        }
+
+        initMetaData(XdModel.hierarchy, store)
+
+        asyncProcessor = createAsyncProcessor()
+        val eventsMultiplexer = EventsMultiplexer(asyncProcessor.apply(JobProcessor::start))
+        store.eventsMultiplexer = eventsMultiplexer
+        store.addListener(eventsMultiplexer)
+    }
+
+    fun closeStore() {
         val eventsMultiplexer = store.eventsMultiplexer
         if (eventsMultiplexer != null) {
             typeListeners.forEach {
@@ -163,7 +179,6 @@ abstract class DBTest {
         }
         store.close()
         store.persistentStore.close()
-        cleanUpDbDir()
     }
 
     protected fun createAsyncProcessor(): JobProcessor {

@@ -22,16 +22,15 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.util.reattach
-import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
 class XdManyChildrenToParentLink<R : XdEntity, T : XdEntity>(
-        val entityType: XdEntityType<T>,
+        oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, XdMutableQuery<R>>,
         dbPropertyName: String?
-) : ReadWriteProperty<R, T>, XdLink<R, T>(
-        entityType,
+) : ScalarRequiredLink<R, T>, XdLink<R, T>(
+        oppositeEntityType,
         dbPropertyName,
         null,
         AssociationEndCardinality._1,
@@ -41,10 +40,10 @@ class XdManyChildrenToParentLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val parent = thisRef.reattach().getLink(property.name) ?:
-                throw RequiredPropertyUndefinedException(thisRef, property)
+        val parent = thisRef.reattach().getLink(property.name)
+                ?: throw RequiredPropertyUndefinedException(thisRef, property)
 
-        return entityType.wrap(parent)
+        return oppositeEntityType.wrap(parent)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {

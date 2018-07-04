@@ -1,4 +1,5 @@
-# xodus-dnq
+# ![Xodus-DNQ](docs/images/XodusDNQ.png)
+ 
 [![official JetBrains project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq)
 [![Build Status](https://travis-ci.org/JetBrains/xodus-dnq.svg?branch=master)](https://travis-ci.org/JetBrains/xodus-dnq)
