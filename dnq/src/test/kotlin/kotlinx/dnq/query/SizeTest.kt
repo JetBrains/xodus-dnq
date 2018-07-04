@@ -41,25 +41,25 @@ class SizeTest : DBTest() {
             val issue = Issue.new()
 
             issue.links.add(IssueLink.new())
-            assertThat(issue.links).hasSize(1)
+            assertQuery(issue.links).hasSize(1)
 
             txn.flush()
-            assertThat(issue.links).hasSize(1)
+            assertQuery(issue.links).hasSize(1)
 
             issue
         }
         transactional {
-            assertThat(issue.links).hasSize(1)
+            assertQuery(issue.links).hasSize(1)
         }
         transactional { txn ->
             issue.links.clear()
-            assertThat(issue.links).isEmpty()
+            assertQuery(issue.links).isEmpty()
 
             txn.flush()
-            assertThat(issue.links).isEmpty()
+            assertQuery(issue.links).isEmpty()
         }
         transactional {
-            assertThat(issue.links).isEmpty()
+            assertQuery(issue.links).isEmpty()
         }
     }
 }

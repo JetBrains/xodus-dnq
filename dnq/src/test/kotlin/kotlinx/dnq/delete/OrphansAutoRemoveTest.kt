@@ -64,7 +64,7 @@ class OrphansAutoRemoveTest : DBTest() {
             Cell.new()
         }
         transactional {
-            assertThat(Cell.all()).isEmpty()
+            assertQuery(Cell.all()).isEmpty()
         }
     }
 
@@ -80,7 +80,7 @@ class OrphansAutoRemoveTest : DBTest() {
             // children will be deleted successively as orphans
         }
         transactional {
-            assertThat(Cell.all()).isEmpty()
+            assertQuery(Cell.all()).isEmpty()
         }
     }
 

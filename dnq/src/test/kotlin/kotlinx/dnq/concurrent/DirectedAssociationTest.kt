@@ -83,7 +83,7 @@ class DirectedAssociationTest : DBTest() {
         }
 
         transactional {
-            assertThat(phone.buttons).hasSize(4)
+            assertQuery(phone.buttons).hasSize(4)
         }
     }
 

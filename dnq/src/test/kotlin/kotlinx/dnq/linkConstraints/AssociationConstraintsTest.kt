@@ -103,19 +103,19 @@ class AssociationConstraintsTest : DBTest() {
     fun `on delete children should be cascade deleted`() {
         val user = transactional { prepare() }
         transactional {
-            assertThat(User.all()).hasSize(1)
-            assertThat(UserProfile.all()).hasSize(1)
-            assertThat(Role.all()).hasSize(1)
-            assertThat(Issue.all()).hasSize(1)
+            assertQuery(User.all()).hasSize(1)
+            assertQuery(UserProfile.all()).hasSize(1)
+            assertQuery(Role.all()).hasSize(1)
+            assertQuery(Issue.all()).hasSize(1)
 
             assertThat(Issue.all().first().user).isEqualTo(User.all().first())
             user.delete()
         }
         transactional {
-            assertThat(User.all()).isEmpty()
-            assertThat(UserProfile.all()).isEmpty()
-            assertThat(Role.all()).hasSize(1)
-            assertThat(Issue.all()).hasSize(1)
+            assertQuery(User.all()).isEmpty()
+            assertQuery(UserProfile.all()).isEmpty()
+            assertQuery(Role.all()).hasSize(1)
+            assertQuery(Issue.all()).hasSize(1)
 
             assertThat(Issue.all().first().user).isNull()
         }
@@ -129,7 +129,7 @@ class AssociationConstraintsTest : DBTest() {
             user.delete()
         }
         transactional {
-            assertThat(UserProfile.all()).isEmpty()
+            assertQuery(UserProfile.all()).isEmpty()
         }
     }
 

@@ -57,7 +57,7 @@ class SortedByTest : DBTest() {
     @Test
     fun `sort by int property ascending`() {
         transactional {
-            assertThat(User.all().sortedBy(User::login, asc = true))
+            assertQuery(User.all().sortedBy(User::login, asc = true))
                     .containsExactlyElementsIn(users.sortedBy { it.login })
                     .inOrder()
         }
@@ -66,7 +66,7 @@ class SortedByTest : DBTest() {
     @Test
     fun `sort by int property descending`() {
         transactional {
-            assertThat(User.all().sortedBy(User::login, asc = false))
+            assertQuery(User.all().sortedBy(User::login, asc = false))
                     .containsExactlyElementsIn(users.sortedByDescending { it.login })
                     .inOrder()
         }
@@ -75,7 +75,7 @@ class SortedByTest : DBTest() {
     @Test
     fun `sort by property of a link ascending`() {
         transactional {
-            assertThat(User.all().sortedBy(User::badge, Badge::name, asc = true))
+            assertQuery(User.all().sortedBy(User::badge, Badge::name, asc = true))
                     .containsExactlyElementsIn(users.sortedBy { it.badge?.name })
                     .inOrder()
         }
@@ -84,7 +84,7 @@ class SortedByTest : DBTest() {
     @Test
     fun `sort by property of a link descending`() {
         transactional {
-            assertThat(User.all().sortedBy(User::badge, Badge::name, asc = false))
+            assertQuery(User.all().sortedBy(User::badge, Badge::name, asc = false))
                     .containsExactlyElementsIn(users.sortedByDescending { it.badge?.name })
                     .inOrder()
         }

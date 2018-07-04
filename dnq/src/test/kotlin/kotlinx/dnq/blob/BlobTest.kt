@@ -70,7 +70,7 @@ class BlobTest : DBTest() {
         }
 
         transactional {
-            assertThat(User.query(User::bio ne null)).containsExactly(user)
+            assertQuery(User.query(User::bio ne null)).containsExactly(user)
         }
     }
 

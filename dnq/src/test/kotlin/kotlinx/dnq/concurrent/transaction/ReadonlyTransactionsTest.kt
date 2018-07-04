@@ -56,12 +56,12 @@ class ReadonlyTransactionsTest : DBTest() {
     fun `WD-2049 Nested read-only transactions fail`() {
         transactional(readonly = true) {
             transactional(readonly = true) {
-                assertThat(Something.all()).hasSize(count)
+                assertQuery(Something.all()).hasSize(count)
 
             }
             val i = Something.all().iterator().asSequence().count()
             assertThat(i).isEqualTo(count)
-            assertThat(Something.all()).hasSize(count)
+            assertQuery(Something.all()).hasSize(count)
         }
     }
 

@@ -92,7 +92,7 @@ class SophisticatedTargetDeleteTest : DBTest() {
             a.delete()
         }
         transactional {
-            assertThat(UserData.all()).hasSize(1)
+            assertQuery(UserData.all()).hasSize(1)
         }
     }
 }

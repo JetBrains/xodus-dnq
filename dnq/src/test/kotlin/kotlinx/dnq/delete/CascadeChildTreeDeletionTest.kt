@@ -65,8 +65,8 @@ class CascadeChildTreeDeletionTest : DBTest() {
             System.out.println("A1 :    O    : " + A1.all().size())
             System.out.println("B1 :  X   O  : " + B1.all().size())
             System.out.println("C1 : O O     : " + C1.all().size())
-            assertThat(B1.all()).hasSize(1)
-            assertThat(C1.all()).isEmpty()
+            assertQuery(B1.all()).hasSize(1)
+            assertQuery(C1.all()).isEmpty()
         }
     }
 }

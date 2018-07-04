@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq
 
+import com.google.common.truth.IterableSubject
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.core.execution.DelegatingJobProcessor
@@ -223,7 +224,7 @@ abstract class DBTest {
         }
     }
 
-    fun <XD : XdEntity> assertThat(query: XdQuery<XD>) = assertThat(query.toList())
+    fun <XD : XdEntity> assertQuery(query: XdQuery<XD>): IterableSubject = assertThat(query.toList())
 
     private fun cleanUpDbDir() {
         if (databaseHome.exists() && databaseHome.isDirectory) {

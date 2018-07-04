@@ -60,14 +60,14 @@ class BinaryOperationsTest : DBTest() {
             val someUsers = pack1.toQuery()
             val otherUsers = pack2.toQuery()
 
-            assertThat(someUsers union otherUsers).hasSize(200)
-            assertThat(User.all() union someUsers).hasSize(200)
-            assertThat(User.all() union otherUsers).hasSize(200)
-            assertThat(User.all() union User.all()).hasSize(200)
-            assertThat(User.emptyQuery() union someUsers).hasSize(100)
-            assertThat(someUsers union User.emptyQuery()).hasSize(100)
-            assertThat(someUsers union someUsers).hasSize(100)
-            assertThat(someUsers union otherUsers.first()).hasSize(101)
+            assertQuery(someUsers union otherUsers).hasSize(200)
+            assertQuery(User.all() union someUsers).hasSize(200)
+            assertQuery(User.all() union otherUsers).hasSize(200)
+            assertQuery(User.all() union User.all()).hasSize(200)
+            assertQuery(User.emptyQuery() union someUsers).hasSize(100)
+            assertQuery(someUsers union User.emptyQuery()).hasSize(100)
+            assertQuery(someUsers union someUsers).hasSize(100)
+            assertQuery(someUsers union otherUsers.first()).hasSize(101)
         }
     }
 
@@ -81,13 +81,13 @@ class BinaryOperationsTest : DBTest() {
             val someUsers = (pack1 + pack2.take(10)).toQuery()
             val otherUsers = (pack1.take(10) + pack2).toQuery()
 
-            assertThat(someUsers intersect otherUsers).hasSize(20)
-            assertThat(User.all() intersect someUsers).hasSize(110)
-            assertThat(User.all() intersect otherUsers).hasSize(110)
-            assertThat(someUsers intersect someUsers).hasSize(110)
-            assertThat(User.all() intersect User.all() exclude User.all().first()).hasSize(199)
-            assertThat(User.emptyQuery() intersect someUsers).hasSize(0)
-            assertThat(someUsers intersect User.emptyQuery()).hasSize(0)
+            assertQuery(someUsers intersect otherUsers).hasSize(20)
+            assertQuery(User.all() intersect someUsers).hasSize(110)
+            assertQuery(User.all() intersect otherUsers).hasSize(110)
+            assertQuery(someUsers intersect someUsers).hasSize(110)
+            assertQuery(User.all() intersect User.all() exclude User.all().first()).hasSize(199)
+            assertQuery(User.emptyQuery() intersect someUsers).hasSize(0)
+            assertQuery(someUsers intersect User.emptyQuery()).hasSize(0)
         }
     }
 
@@ -101,13 +101,13 @@ class BinaryOperationsTest : DBTest() {
             val someUsers = (pack1 + pack2.take(10)).toQuery()
             val otherUsers = (pack1.take(10) + pack2).toQuery()
 
-            assertThat(someUsers exclude otherUsers).hasSize(90)
-            assertThat(User.all() exclude someUsers).hasSize(90)
-            assertThat(User.all() exclude otherUsers).hasSize(90)
-            assertThat(someUsers exclude someUsers).hasSize(0)
-            assertThat(someUsers exclude User.emptyQuery()).hasSize(110)
-            assertThat(User.emptyQuery() exclude someUsers).hasSize(0)
-            assertThat(User.all() exclude User.query(User::name eq "2")).hasSize(199)
+            assertQuery(someUsers exclude otherUsers).hasSize(90)
+            assertQuery(User.all() exclude someUsers).hasSize(90)
+            assertQuery(User.all() exclude otherUsers).hasSize(90)
+            assertQuery(someUsers exclude someUsers).hasSize(0)
+            assertQuery(someUsers exclude User.emptyQuery()).hasSize(110)
+            assertQuery(User.emptyQuery() exclude someUsers).hasSize(0)
+            assertQuery(User.all() exclude User.query(User::name eq "2")).hasSize(199)
         }
     }
 
@@ -122,10 +122,10 @@ class BinaryOperationsTest : DBTest() {
             val someUsers = (pack1 + pack2.take(10)).toQuery()
             val otherUsers = (pack1.take(10) + pack2).toQuery()
 
-            assertThat(someUsers intersect otherUsers).hasSize(20)
-            assertThat(User.all() intersect someUsers).hasSize(110)
-            assertThat(User.all() intersect otherUsers).hasSize(110)
-            assertThat(someUsers.query(User::name startsWith "1").query(User::name startsWith "10")).hasSize(11)
+            assertQuery(someUsers intersect otherUsers).hasSize(20)
+            assertQuery(User.all() intersect someUsers).hasSize(110)
+            assertQuery(User.all() intersect otherUsers).hasSize(110)
+            assertQuery(someUsers.query(User::name startsWith "1").query(User::name startsWith "10")).hasSize(11)
         }
     }
 
@@ -138,7 +138,7 @@ class BinaryOperationsTest : DBTest() {
             }
         }
         transactional {
-            assertThat(Group.all() intersect User.all().mapDistinct(User::group)).containsExactly(group)
+            assertQuery(Group.all() intersect User.all().mapDistinct(User::group)).containsExactly(group)
         }
     }
 
@@ -152,7 +152,7 @@ class BinaryOperationsTest : DBTest() {
         }
 
         transactional {
-            assertThat(Group.all() union User.all().mapDistinct(User::group)).containsExactly(group)
+            assertQuery(Group.all() union User.all().mapDistinct(User::group)).containsExactly(group)
         }
     }
 }
