@@ -50,7 +50,7 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
             get() = delegate.dbPropertyName ?: property.name
     }
 
-    val entityConstructor = entityType.entityConstructor
+    val entityConstructor by lazy { entityType.entityConstructor }
 
     val children = mutableListOf<XdHierarchyNode>()
     val simpleProperties = LinkedHashMap<String, SimpleProperty>()
