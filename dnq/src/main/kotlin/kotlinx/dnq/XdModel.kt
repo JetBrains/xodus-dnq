@@ -26,7 +26,6 @@ import org.reflections.util.ClasspathHelper
 import org.reflections.util.ConfigurationBuilder
 import java.net.URL
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import javax.servlet.ServletContext
 import kotlin.reflect.full.extensionReceiverParameter
 import kotlin.reflect.full.getExtensionDelegate
@@ -40,10 +39,6 @@ object XdModel: KLogging() {
     private val monitor = Object()
     private val scannedLocations = HashSet<String>()
     val hierarchy = HashMap<String, XdHierarchyNode>()
-
-    private data class CacheKey(val entityTypeA: String, val entityTypeB: String)
-    private data class CacheValue(val node: XdHierarchyNode?)
-    private val commonAncestorCache = ConcurrentHashMap<CacheKey, CacheValue>()
 
     operator fun get(entityType: XdEntityType<*>) = get(entityType.entityType)
 
@@ -84,7 +79,6 @@ object XdModel: KLogging() {
     }
 
     fun registerNode(entityType: XdEntityType<*>): XdHierarchyNode = hierarchy.getOrPut(entityType.entityType) {
-        commonAncestorCache.clear()
 
         val parentNode = entityType.parent?.let { registerNode(it) }
         XdHierarchyNode(entityType, parentNode)
@@ -146,32 +140,19 @@ object XdModel: KLogging() {
 
     }
 
-    internal fun <T : XdEntity> getCommonAncestor(typeA: XdEntityType<T>, typeB: XdEntityType<T>): XdEntityType<T>? {
+    fun <T : XdEntity> getCommonAncestor(typeA: XdEntityType<T>, typeB: XdEntityType<T>): XdEntityType<T>? {
         if (typeA == typeB) return typeA
 
         val nodeA = getOrThrow(typeA.entityType)
         val nodeB = getOrThrow(typeB.entityType)
 
-        val parentNode = when {
-            nodeA.parentNode == nodeB -> nodeB
-            nodeB.parentNode == nodeA -> nodeA
-            nodeB.parentNode != null && nodeA.parentNode == nodeB.parentNode -> nodeA.parentNode
-            else -> null
-        }
-        if (parentNode != null) {
-            return parentNode.asEntityType()
+        val parentsA = generateSequence(nodeA) { it.parentNode }.toSet()
+        generateSequence(nodeB) { it.parentNode }.forEach { node ->
+            @Suppress("UNCHECKED_CAST")
+            if (node in parentsA) return node.entityType as XdEntityType<T>
         }
 
-        val cached = commonAncestorCache.getOrPut(CacheKey(typeA.entityType, typeB.entityType)) {
-            val parentsA = generateSequence(nodeA) { it.parentNode }.toSet()
-            generateSequence(nodeB) { it.parentNode }.forEach { node ->
-                if (node in parentsA) return@getOrPut CacheValue(node)
-            }
-
-            return@getOrPut CacheValue(null)
-        }
-
-        return cached.node?.asEntityType()
+        return null
     }
 
     private fun <T : XdEntity> XdHierarchyNode.asEntityType(): XdEntityType<T>? {
