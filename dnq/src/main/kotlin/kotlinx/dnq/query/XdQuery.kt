@@ -158,8 +158,8 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
  *
  * Null elements are ignored, e.g. `queryOf(null)` returns an empty query.
  */
-inline fun <reified T : XdEntity> XdEntityType<T>.queryOf(elements: List<T?>) : XdQuery<T> {
-    return queryOf(*elements.toTypedArray())
+inline fun <reified T : XdEntity> XdEntityType<T>.queryOf(elements: Iterable<T?>) : XdQuery<T> {
+    return queryOf(*elements.toList().toTypedArray())
 }
 
 /**
