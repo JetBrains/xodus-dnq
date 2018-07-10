@@ -29,33 +29,70 @@ class LinksTypeTest : DBTest() {
         val leaf by xdLink0_1(Leaf)
     }
 
-    class Leaf(entity: Entity) : XdEntity(entity) {
+    open class PrimitiveLeaf(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<PrimitiveLeaf>()
+    }
+
+    open class Leaf(entity: Entity) : PrimitiveLeaf(entity) {
         companion object : XdNaturalEntityType<Leaf>()
+    }
+
+    class SuperLeaf(entity: Entity) : Leaf(entity) {
+        companion object : XdNaturalEntityType<SuperLeaf>()
     }
 
     class Team(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Team>()
     }
 
-
     private val team by lazy { Team.new { } }
     private val root by lazy { Root.new { } }
 
     override fun registerEntityTypes() {
-        XdModel.registerNodes(Root, Leaf, Team)
+        XdModel.registerNodes(Root, Leaf, Team, PrimitiveLeaf, SuperLeaf)
     }
 
-    @Test//(expected = Exception::class)
+    @Test(expected = Exception::class)
     fun `one to many link type constraint`() {
         store.transactional {
             root.entity.addLink(Root::leafs.getDBName(), team.entity)
         }
     }
 
-    @Test//(expected = Exception::class)
+    @Test(expected = Exception::class)
+    fun `one to many link type constraint 2`() {
+        store.transactional {
+            root.entity.addLink(Root::leafs.getDBName(), PrimitiveLeaf.new {  }.entity)
+        }
+    }
+
+    @Test
+    fun `one to many link type constraint is ok`() {
+        store.transactional {
+            root.entity.addLink(Root::leafs.getDBName(), SuperLeaf.new {}.entity)
+            root.entity.addLink(Root::leafs.getDBName(), Leaf.new {}.entity)
+        }
+    }
+
+    @Test(expected = Exception::class)
     fun `one to one link type constraint`() {
         store.transactional {
             (root.entity as TransientEntity).setToOne(Root::leaf.getDBName(), team.entity)
+        }
+    }
+
+    @Test(expected = Exception::class)
+    fun `one to one link type constraint 2`() {
+        store.transactional {
+            (root.entity as TransientEntity).setToOne(Root::leaf.getDBName(), PrimitiveLeaf.new {}.entity)
+        }
+    }
+
+    @Test
+    fun `one to one link type constraint is ok`() {
+        store.transactional {
+            (root.entity as TransientEntity).setToOne(Root::leaf.getDBName(), SuperLeaf.new {}.entity)
+            (root.entity as TransientEntity).setToOne(Root::leaf.getDBName(), Leaf.new {}.entity)
         }
     }
 }

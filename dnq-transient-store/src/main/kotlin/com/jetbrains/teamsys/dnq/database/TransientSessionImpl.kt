@@ -349,7 +349,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     private fun assertIsNotAbstract(entityType: String) {
         store.modelMetaData?.let {
             it.getEntityMetaData(entityType)?.let {
-                if(it.isAbstract) throw IllegalStateException("Can't instantiate abstract entity type '$entityType'")
+                if (it.isAbstract) throw IllegalStateException("Can't instantiate abstract entity type '$entityType'")
             }
         }
     }
@@ -974,6 +974,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
 
     private fun setLinkInternal(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
         val oldTarget = source.getLink(linkName) as TransientEntity?
+        assertLinkTypeIsSupported(source, linkName, target)
         return if (source.persistentEntity.setLink(linkName, target.persistentEntity)) {
             transientChangesTracker.linkChanged(source, linkName, target, oldTarget, true)
             true
@@ -987,11 +988,24 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     }
 
     private fun addLinkInternal(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
+        assertLinkTypeIsSupported(source, linkName, target)
         return if (source.persistentEntity.addLink(linkName, target.persistentEntity)) {
             transientChangesTracker.linkChanged(source, linkName, target, null, true)
             true
         } else {
             false
+        }
+    }
+
+    private fun assertLinkTypeIsSupported(source: TransientEntity, linkName: String, target: TransientEntity) {
+        store.modelMetaData?.let {
+            val linkMetaData = it.getEntityMetaData(source.type)?.getAssociationEndMetaData(linkName)
+            if (linkMetaData != null) {
+                val thisAndSubTypes = linkMetaData.oppositeEntityMetaData.allSubTypes + linkMetaData.oppositeEntityMetaData.type
+                if (!thisAndSubTypes.contains(target.type)) {
+                    throw IllegalStateException("'${source.type}.$linkName' can contain only '${thisAndSubTypes.joinToString()}' types. '${target.type}' type is not supported.")
+                }
+            }
         }
     }
 

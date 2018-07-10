@@ -33,7 +33,7 @@ abstract class BasePersistentClassImpl : Runnable {
     open val propertyDisplayNames: Map<String, Callable<String>>
         get() = emptyMap()
 
-    open protected fun _constructor(_entityType_: String): Entity {
+    protected open fun _constructor(_entityType_: String): Entity {
         return entityStore.threadSessionOrThrow.newEntity(_entityType_)
     }
 

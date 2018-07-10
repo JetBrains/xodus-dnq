@@ -22,6 +22,7 @@ import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
 import jetbrains.exodus.database.exceptions.UniqueIndexViolationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.*
+import kotlinx.dnq.simple.email
 import kotlinx.dnq.simple.regex
 import kotlinx.dnq.simple.requireIf
 import kotlinx.dnq.util.getOldValue
@@ -58,15 +59,25 @@ class PropertiesTest : DBTest() {
         var login by xdRequiredStringProp(trimmed = true, unique = true)
         var skill by xdRequiredIntProp()
         var registered by xdDateTimeProp()
-        val contacts by xdLink0_N(Contact::user)
+        val contacts by xdLink0_N(EmployeeContact::employee)
         var supervisor by xdLink0_1(Employee, "boss")
         var hireDate by xdRequiredDateTimeProp()
         var iq by xdByteProp()
     }
 
+    class EmployeeContact(entity: Entity) : XdEntity(entity) {
+
+        companion object : XdNaturalEntityType<EmployeeContact>()
+
+        var employee: Employee by xdLink1(Employee::contacts)
+
+        var email by xdRequiredStringProp() { email() }
+    }
+
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNodes(Derived, Employee)
+        XdModel.registerNodes(Derived, Employee, EmployeeContact)
     }
 
     @Test
@@ -220,7 +231,7 @@ class PropertiesTest : DBTest() {
                 hireDate = DateTime.now().minusHours(1)
                 iq = 80
             }.apply {
-                contacts.add(Contact.new { email = "some@mail.com" })
+                contacts.add(EmployeeContact.new { email = "some@mail.com" })
             }
 
             // has changes before save
