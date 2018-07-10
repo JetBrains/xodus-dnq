@@ -79,6 +79,7 @@ object XdModel: KLogging() {
     }
 
     fun registerNode(entityType: XdEntityType<*>): XdHierarchyNode = hierarchy.getOrPut(entityType.entityType) {
+
         val parentNode = entityType.parent?.let { registerNode(it) }
         XdHierarchyNode(entityType, parentNode)
     }
@@ -137,6 +138,26 @@ object XdModel: KLogging() {
         @Suppress("UNCHECKED_CAST")
         return entityConstructor(entity) as T
 
+    }
+
+    fun <T : XdEntity> getCommonAncestor(typeA: XdEntityType<T>, typeB: XdEntityType<T>): XdEntityType<T>? {
+        if (typeA == typeB) return typeA
+
+        val nodeA = getOrThrow(typeA.entityType)
+        val nodeB = getOrThrow(typeB.entityType)
+
+        val parentsA = generateSequence(nodeA) { it.parentNode }.toSet()
+        generateSequence(nodeB) { it.parentNode }.forEach { node ->
+            @Suppress("UNCHECKED_CAST")
+            if (node in parentsA) return node.entityType as XdEntityType<T>
+        }
+
+        return null
+    }
+
+    private fun <T : XdEntity> XdHierarchyNode.asEntityType(): XdEntityType<T>? {
+        @Suppress("UNCHECKED_CAST")
+        return this.entityType as? XdEntityType<T>
     }
 }
 

@@ -57,56 +57,56 @@ class DateQueriesTest : DBTest() {
     @Test
     fun equals() {
         transactional {
-            assertThat(Issue.query(Issue::created eq DateTime.now())).hasSize(0)
+            assertQuery(Issue.query(Issue::created eq DateTime.now())).hasSize(0)
         }
     }
 
     @Test
     fun range() {
         transactional {
-            assertThat(Issue.query((i1.created.hourOfDay().roundFloorCopy()..i2.created.hourOfDay().roundCeilingCopy()) contains Issue::created)).hasSize(2)
+            assertQuery(Issue.query((i1.created.hourOfDay().roundFloorCopy()..i2.created.hourOfDay().roundCeilingCopy()) contains Issue::created)).hasSize(2)
         }
     }
 
     @Test
     fun `less or equal`() {
         transactional {
-            assertThat(Issue.query(Issue::created le momentBetween)).hasSize(1)
+            assertQuery(Issue.query(Issue::created le momentBetween)).hasSize(1)
         }
     }
 
     @Test
     fun `greater or equal`() {
         transactional {
-            assertThat(Issue.query(Issue::created ge momentBetween)).hasSize(1)
+            assertQuery(Issue.query(Issue::created ge momentBetween)).hasSize(1)
         }
     }
 
     @Test
     fun `greater than now`() {
         transactional {
-            assertThat(Issue.query(Issue::created gt DateTime.now())).hasSize(0)
+            assertQuery(Issue.query(Issue::created gt DateTime.now())).hasSize(0)
         }
     }
 
     @Test
     fun `less than now`() {
         transactional {
-            assertThat(Issue.query(Issue::created lt DateTime.now())).hasSize(2)
+            assertQuery(Issue.query(Issue::created lt DateTime.now())).hasSize(2)
         }
     }
 
     @Test
     fun `less than moment between`() {
         transactional {
-            assertThat(Issue.query(Issue::created lt momentBetween)).containsExactly(i1)
+            assertQuery(Issue.query(Issue::created lt momentBetween)).containsExactly(i1)
         }
     }
 
     @Test
     fun `greater than moment between`() {
         transactional {
-            assertThat(Issue.query(Issue::created gt momentBetween)).containsExactly(i2)
+            assertQuery(Issue.query(Issue::created gt momentBetween)).containsExactly(i2)
         }
     }
 }
