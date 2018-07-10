@@ -22,6 +22,7 @@ import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.XdModel
 import kotlinx.dnq.session
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.getDBName
@@ -165,7 +166,8 @@ infix fun <T : XdEntity> XdQuery<T>.intersect(that: XdQuery<T>): XdQuery<T> {
  */
 infix fun <T : XdEntity> XdQuery<T>.union(that: XdQuery<T>): XdQuery<T> {
     val result = queryEngine.union(this.entityIterable, that.entityIterable)
-    return XdQueryImpl(result, this.entityType)
+    val commonAncestor = XdModel.getCommonAncestor(this.entityType, that.entityType)
+    return XdQueryImpl(result, commonAncestor ?: this.entityType)
 }
 
 /**
@@ -180,7 +182,8 @@ infix fun <T : XdEntity> XdQuery<T>.union(that: T?): XdQuery<T> {
  */
 operator fun <T : XdEntity> XdQuery<T>.plus(that: XdQuery<T>): XdQuery<T> {
     val result = queryEngine.concat(this.entityIterable, that.entityIterable)
-    return XdQueryImpl(result, this.entityType)
+    val commonAncestor = XdModel.getCommonAncestor(this.entityType, that.entityType)
+    return XdQueryImpl(result, commonAncestor ?: this.entityType)
 }
 
 /**

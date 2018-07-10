@@ -97,9 +97,9 @@ class UndirectedAssociationTest : DBTest() {
             passport
         }
         transactional {
-            assertThat(vadeg.foreignPassports).containsExactly(passport)
-            assertThat(pavleg.foreignPassports).isEmpty()
-            assertThat(slaveg.foreignPassports).isEmpty()
+            assertQuery(vadeg.foreignPassports).containsExactly(passport)
+            assertQuery(pavleg.foreignPassports).isEmpty()
+            assertQuery(slaveg.foreignPassports).isEmpty()
         }
     }
 
@@ -118,7 +118,7 @@ class UndirectedAssociationTest : DBTest() {
             }
         }
         transactional {
-            assertThat(vadeg.foreignPassports).isEmpty()
+            assertQuery(vadeg.foreignPassports).isEmpty()
         }
     }
 
@@ -140,9 +140,9 @@ class UndirectedAssociationTest : DBTest() {
             passport
         }
         transactional {
-            assertThat(vadeg.foreignPassports).isEmpty()
+            assertQuery(vadeg.foreignPassports).isEmpty()
             assertThat(passport.citizen).isEqualTo(slaveg)
-            assertThat(slaveg.foreignPassports).containsExactly(passport)
+            assertQuery(slaveg.foreignPassports).containsExactly(passport)
         }
     }
 
@@ -162,7 +162,7 @@ class UndirectedAssociationTest : DBTest() {
             }
         }
         transactional {
-            assertThat(vadeg.homes).isEmpty()
+            assertQuery(vadeg.homes).isEmpty()
         }
     }
 }

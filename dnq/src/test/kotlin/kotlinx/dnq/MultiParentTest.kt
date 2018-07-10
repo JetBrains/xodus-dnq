@@ -50,7 +50,7 @@ class MultiParentTest : DBTest() {
             Pair(message, messageContent)
         }
         transactional {
-            assertThat(MessageContent.all()).containsExactly(messageContent)
+            assertQuery(MessageContent.all()).containsExactly(messageContent)
         }
         val editedMessageContent = transactional {
             val editedMessageContent = MessageContent.new()
@@ -58,13 +58,13 @@ class MultiParentTest : DBTest() {
             editedMessageContent
         }
         transactional {
-            assertThat(MessageContent.all()).containsExactly(messageContent, editedMessageContent)
+            assertQuery(MessageContent.all()).containsExactly(messageContent, editedMessageContent)
         }
         transactional {
             message.messageContent = editedMessageContent
         }
         transactional {
-            assertThat(MessageContent.all()).containsExactly(editedMessageContent)
+            assertQuery(MessageContent.all()).containsExactly(editedMessageContent)
             assertThat(messageContent.isRemoved).isTrue()
         }
     }

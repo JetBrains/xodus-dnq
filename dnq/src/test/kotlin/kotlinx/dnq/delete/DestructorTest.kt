@@ -120,12 +120,12 @@ class DestructorTest : DBTest() {
             val instance = CustomFieldInstance.new()
             clazz.instances.add(instance)
             assertThat(instance.clazz).isEqualTo(clazz)
-            assertThat(clazz.instances).containsExactly(instance)
+            assertQuery(clazz.instances).containsExactly(instance)
             Pair(clazz, instance)
         }
         transactional {
             assertThat(instance.clazz).isEqualTo(clazz)
-            assertThat(clazz.instances).containsExactly(instance)
+            assertQuery(clazz.instances).containsExactly(instance)
         }
         transactional {
             clazz.delete()

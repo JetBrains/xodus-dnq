@@ -97,16 +97,16 @@ class DeleteCycleTest : DBTest() {
             Pair(pc1, pc2)
         }
         transactional {
-            assertThat(PC1.all()).hasSize(1)
-            assertThat(PC2.all()).hasSize(1)
+            assertQuery(PC1.all()).hasSize(1)
+            assertQuery(PC2.all()).hasSize(1)
         }
         transactional {
             pc1.delete()
             pc2.delete()
         }
         transactional {
-            assertThat(PC1.all()).isEmpty()
-            assertThat(PC2.all()).isEmpty()
+            assertQuery(PC1.all()).isEmpty()
+            assertQuery(PC2.all()).isEmpty()
         }
     }
 
@@ -122,9 +122,9 @@ class DeleteCycleTest : DBTest() {
             Triple(pc1, pc2, pc3)
         }
         transactional {
-            assertThat(PCC1.all()).hasSize(1)
-            assertThat(PCC2.all()).hasSize(1)
-            assertThat(PCC3.all()).hasSize(1)
+            assertQuery(PCC1.all()).hasSize(1)
+            assertQuery(PCC2.all()).hasSize(1)
+            assertQuery(PCC3.all()).hasSize(1)
         }
         transactional {
             pc1.delete()
@@ -132,9 +132,9 @@ class DeleteCycleTest : DBTest() {
             pc3.delete()
         }
         transactional {
-            assertThat(PCC1.all()).isEmpty()
-            assertThat(PCC2.all()).isEmpty()
-            assertThat(PCC3.all()).isEmpty()
+            assertQuery(PCC1.all()).isEmpty()
+            assertQuery(PCC2.all()).isEmpty()
+            assertQuery(PCC3.all()).isEmpty()
         }
     }
 
@@ -147,7 +147,7 @@ class DeleteCycleTest : DBTest() {
             }
         }
         transactional {
-            assertThat(PC3.all()).hasSize(num)
+            assertQuery(PC3.all()).hasSize(num)
         }
         transactional { txn ->
             for (i in 0 until num) {
@@ -156,7 +156,7 @@ class DeleteCycleTest : DBTest() {
             }
         }
         transactional {
-            assertThat(PC3.all()).isEmpty()
+            assertQuery(PC3.all()).isEmpty()
         }
     }
 
@@ -169,13 +169,13 @@ class DeleteCycleTest : DBTest() {
             }
         }
         transactional {
-            assertThat(PC3.all()).hasSize(num)
+            assertQuery(PC3.all()).hasSize(num)
         }
         transactional {
             PC3.all().toList().forEach { it.delete() }
         }
         transactional {
-            assertThat(PC3.all()).isEmpty()
+            assertQuery(PC3.all()).isEmpty()
         }
     }
 
@@ -188,7 +188,7 @@ class DeleteCycleTest : DBTest() {
             }
         }
         transactional {
-            assertThat(PC3.all()).hasSize(num)
+            assertQuery(PC3.all()).hasSize(num)
         }
         transactional { txn ->
             bulkDelete(txn, PC3.all())
@@ -213,7 +213,7 @@ class DeleteCycleTest : DBTest() {
             }
         }
         transactional {
-            assertThat(Driver.all()).isEmpty()
+            assertQuery(Driver.all()).isEmpty()
         }
 
         // reopen env

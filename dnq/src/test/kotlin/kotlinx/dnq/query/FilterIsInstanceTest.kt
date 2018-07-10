@@ -45,7 +45,7 @@ class FilterIsInstanceTest : DBTest() {
         }
 
         transactional {
-            assertThat(Parent.all().filterIsInstance(Child)).hasSize(2)
+            assertQuery(Parent.all().filterIsInstance(Child)).hasSize(2)
         }
     }
 
@@ -58,7 +58,7 @@ class FilterIsInstanceTest : DBTest() {
         }
 
         transactional {
-            assertThat(Parent.all().filterIsNotInstance(Child)).hasSize(1)
+            assertQuery(Parent.all().filterIsNotInstance(Child)).hasSize(1)
         }
     }
 
@@ -71,7 +71,7 @@ class FilterIsInstanceTest : DBTest() {
         }
 
         transactional {
-            assertThat(Parent.all().filterIsInstance(Parent)).hasSize(3)
+            assertQuery(Parent.all().filterIsInstance(Parent)).hasSize(3)
         }
     }
 
@@ -84,7 +84,7 @@ class FilterIsInstanceTest : DBTest() {
         }
 
         transactional {
-            assertThat(Parent.all().filterIsNotInstance(Parent)).isEmpty()
+            assertQuery(Parent.all().filterIsNotInstance(Parent)).isEmpty()
         }
     }
 }

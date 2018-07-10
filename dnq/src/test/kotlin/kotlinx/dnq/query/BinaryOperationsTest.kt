@@ -16,38 +16,67 @@
 package kotlinx.dnq.query
 
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import org.junit.Test
 
 class BinaryOperationsTest : DBTest() {
 
-    class User(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<User>() {
-            fun new(name: String) = new {
-                this.name = name
-            }
-        }
+    abstract class UserBase(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<UserBase>()
 
         var name by xdStringProp()
         var group: Group? by xdLink0_1(Group::users)
     }
 
+    class GuestUser(entity: Entity) : UserBase(entity) {
+        companion object : XdNaturalEntityType<GuestUser>() {
+            fun new() = new {
+                this.name = "guest"
+            }
+        }
+    }
+
+    class User(entity: Entity) : UserBase(entity) {
+        companion object : XdNaturalEntityType<User>() {
+            fun new(name: String) = new {
+                this.name = name
+            }
+        }
+    }
+
     class Group(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Group>()
 
-        val users by xdLink0_N(User::group)
+        val users by xdLink0_N(UserBase::group)
+    }
+
+    abstract class Shape(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Shape>()
+    }
+
+    class Line(entity: Entity) : Shape(entity) {
+        companion object : XdNaturalEntityType<Line>()
+    }
+
+    open class Ellipse(entity: Entity) : Shape(entity) {
+        companion object : XdNaturalEntityType<Ellipse>()
+    }
+
+    class Circle(entity: Entity) : Ellipse(entity) {
+        companion object : XdNaturalEntityType<Circle>()
     }
 
     override fun registerEntityTypes() {
-        XdModel.registerNodes(User, Group)
+        XdModel.registerNodes(User, GuestUser, Group, Circle, Line)
     }
 
     private fun IntRange.toUsers() = map { i -> User.new(i.toString()) }
 
-    private fun List<User>.toQuery(): XdQuery<User> {
+    private fun List<UserBase>.toQuery(): XdQuery<UserBase> {
         return toTypedArray()
-                .let { userArray -> User.queryOf(*userArray) }
+                .let { userArray -> UserBase.queryOf(*userArray) }
     }
 
     @Test
@@ -60,14 +89,14 @@ class BinaryOperationsTest : DBTest() {
             val someUsers = pack1.toQuery()
             val otherUsers = pack2.toQuery()
 
-            assertThat(someUsers union otherUsers).hasSize(200)
-            assertThat(User.all() union someUsers).hasSize(200)
-            assertThat(User.all() union otherUsers).hasSize(200)
-            assertThat(User.all() union User.all()).hasSize(200)
-            assertThat(User.emptyQuery() union someUsers).hasSize(100)
-            assertThat(someUsers union User.emptyQuery()).hasSize(100)
-            assertThat(someUsers union someUsers).hasSize(100)
-            assertThat(someUsers union otherUsers.first()).hasSize(101)
+            assertQuery(someUsers union otherUsers).hasSize(200)
+            assertQuery(User.all() union someUsers).hasSize(200)
+            assertQuery(User.all() union otherUsers).hasSize(200)
+            assertQuery(User.all() union User.all()).hasSize(200)
+            assertQuery(User.emptyQuery() union someUsers).hasSize(100)
+            assertQuery(someUsers union User.emptyQuery()).hasSize(100)
+            assertQuery(someUsers union someUsers).hasSize(100)
+            assertQuery(someUsers union otherUsers.first()).hasSize(101)
         }
     }
 
@@ -81,13 +110,13 @@ class BinaryOperationsTest : DBTest() {
             val someUsers = (pack1 + pack2.take(10)).toQuery()
             val otherUsers = (pack1.take(10) + pack2).toQuery()
 
-            assertThat(someUsers intersect otherUsers).hasSize(20)
-            assertThat(User.all() intersect someUsers).hasSize(110)
-            assertThat(User.all() intersect otherUsers).hasSize(110)
-            assertThat(someUsers intersect someUsers).hasSize(110)
-            assertThat(User.all() intersect User.all() exclude User.all().first()).hasSize(199)
-            assertThat(User.emptyQuery() intersect someUsers).hasSize(0)
-            assertThat(someUsers intersect User.emptyQuery()).hasSize(0)
+            assertQuery(someUsers intersect otherUsers).hasSize(20)
+            assertQuery(User.all() intersect someUsers).hasSize(110)
+            assertQuery(User.all() intersect otherUsers).hasSize(110)
+            assertQuery(someUsers intersect someUsers).hasSize(110)
+            assertQuery(User.all() intersect User.all() exclude User.all().first()).hasSize(199)
+            assertQuery(User.emptyQuery() intersect someUsers).hasSize(0)
+            assertQuery(someUsers intersect User.emptyQuery()).hasSize(0)
         }
     }
 
@@ -101,13 +130,13 @@ class BinaryOperationsTest : DBTest() {
             val someUsers = (pack1 + pack2.take(10)).toQuery()
             val otherUsers = (pack1.take(10) + pack2).toQuery()
 
-            assertThat(someUsers exclude otherUsers).hasSize(90)
-            assertThat(User.all() exclude someUsers).hasSize(90)
-            assertThat(User.all() exclude otherUsers).hasSize(90)
-            assertThat(someUsers exclude someUsers).hasSize(0)
-            assertThat(someUsers exclude User.emptyQuery()).hasSize(110)
-            assertThat(User.emptyQuery() exclude someUsers).hasSize(0)
-            assertThat(User.all() exclude User.query(User::name eq "2")).hasSize(199)
+            assertQuery(someUsers exclude otherUsers).hasSize(90)
+            assertQuery(User.all() exclude someUsers).hasSize(90)
+            assertQuery(User.all() exclude otherUsers).hasSize(90)
+            assertQuery(someUsers exclude someUsers).hasSize(0)
+            assertQuery(someUsers exclude User.emptyQuery()).hasSize(110)
+            assertQuery(User.emptyQuery() exclude someUsers).hasSize(0)
+            assertQuery(User.all() exclude User.query(User::name eq "2")).hasSize(199)
         }
     }
 
@@ -122,10 +151,10 @@ class BinaryOperationsTest : DBTest() {
             val someUsers = (pack1 + pack2.take(10)).toQuery()
             val otherUsers = (pack1.take(10) + pack2).toQuery()
 
-            assertThat(someUsers intersect otherUsers).hasSize(20)
-            assertThat(User.all() intersect someUsers).hasSize(110)
-            assertThat(User.all() intersect otherUsers).hasSize(110)
-            assertThat(someUsers.query(User::name startsWith "1").query(User::name startsWith "10")).hasSize(11)
+            assertQuery(someUsers intersect otherUsers).hasSize(20)
+            assertQuery(User.all() intersect someUsers).hasSize(110)
+            assertQuery(User.all() intersect otherUsers).hasSize(110)
+            assertQuery(someUsers.query(User::name startsWith "1").query(User::name startsWith "10")).hasSize(11)
         }
     }
 
@@ -138,7 +167,7 @@ class BinaryOperationsTest : DBTest() {
             }
         }
         transactional {
-            assertThat(Group.all() intersect User.all().mapDistinct(User::group)).containsExactly(group)
+            assertQuery(Group.all() intersect User.all().mapDistinct(User::group)).containsExactly(group)
         }
     }
 
@@ -152,7 +181,81 @@ class BinaryOperationsTest : DBTest() {
         }
 
         transactional {
-            assertThat(Group.all() union User.all().mapDistinct(User::group)).containsExactly(group)
+            assertQuery(Group.all() union User.all().mapDistinct(User::group)).containsExactly(group)
+        }
+    }
+
+    @Test
+    fun `union of two sibling types should return query of the base type`() {
+        testEntityTypeOfCombination { a, b -> a union b }
+    }
+
+    @Test
+    fun `concat of two sibling types should return query of the base type`() {
+        testEntityTypeOfCombination { a, b -> a + b }
+    }
+
+    @Test
+    fun `sorting over an union of sibling types should return the full result`() {
+        testSortingOfCombination { a, b -> a union b }
+    }
+
+    @Test
+    fun `sorting over a concat of sibling types should return the full result`() {
+        testSortingOfCombination { a, b -> a + b }
+    }
+
+    @Test
+    fun `union of unrelated types should return a query of XdEntity`() {
+        testCombinationOfUnrelatedTypes { a, b -> a union b }
+    }
+
+    @Test
+    fun `concat of unrelated types should return a query of XdEntity`() {
+        testCombinationOfUnrelatedTypes { a, b -> a + b }
+    }
+
+    @Test
+    fun `union of types from a complex hierarchy should has a correct entityType`() {
+        transactional {
+            assertThat((Circle.all() union Line.all()).entityType).isEqualTo(Shape)
+        }
+    }
+
+    private fun testEntityTypeOfCombination(combination: (XdQuery<UserBase>, XdQuery<UserBase>) -> XdQuery<UserBase>) {
+        transactional {
+            GuestUser.new()
+            (1..10).toUsers()
+        }
+
+        val allUsers = transactional {
+            combination(GuestUser.all(), User.all())
+        }
+
+        assertThat(allUsers.entityType).isEqualTo(UserBase)
+    }
+
+    private fun testSortingOfCombination(combination: (XdQuery<UserBase>, XdQuery<UserBase>) -> XdQuery<UserBase>) {
+        transactional {
+            GuestUser.new()
+            (1..10).toUsers()
+        }
+
+        transactional {
+            val sorted = combination(GuestUser.all(), User.all()).sortedBy(UserBase::name)
+            assertQuery(sorted).hasSize(11)
+        }
+    }
+
+    private fun testCombinationOfUnrelatedTypes(combination: (XdQuery<XdEntity>, XdQuery<XdEntity>) -> XdQuery<XdEntity>) {
+        transactional {
+            Group.new()
+            User.new("user")
+        }
+
+        transactional {
+            val union = combination(Group.all(), User.all())
+            assertQuery(union).hasSize(2)
         }
     }
 }

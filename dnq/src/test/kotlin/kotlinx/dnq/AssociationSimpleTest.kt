@@ -137,7 +137,7 @@ class AssociationSimpleTest : DBTest() {
         }
         transactional {
             t1.tome2 = t2
-            assertThat(t2.tome1).containsExactly(t1)
+            assertQuery(t2.tome1).containsExactly(t1)
             transactional(isNew = true) {
                 t2.delete()
             }
@@ -193,9 +193,9 @@ class AssociationSimpleTest : DBTest() {
                 this.issues.add(issue)
             }
 
-            assertThat(issue.getTags(user1)).containsExactly(tag1)
+            assertQuery(issue.getTags(user1)).containsExactly(tag1)
             txn.flush()
-            assertThat(issue.getTags(user2)).containsExactly(tag2)
+            assertQuery(issue.getTags(user2)).containsExactly(tag2)
         }
     }
 

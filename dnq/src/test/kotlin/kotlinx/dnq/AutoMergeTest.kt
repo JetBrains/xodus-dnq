@@ -55,7 +55,7 @@ class AutoMergeTest : DBTest() {
             Pair(i1, i2)
         }
         transactional {
-            assertThat(p.issues).containsExactly(i1, i2)
+            assertQuery(p.issues).containsExactly(i1, i2)
         }
     }
 }

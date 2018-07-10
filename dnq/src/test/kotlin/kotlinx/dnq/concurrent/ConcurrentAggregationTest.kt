@@ -86,9 +86,9 @@ class ConcurrentAggregationTest : DBTest() {
             }
         }
         transactional {
-            assertThat(c4.wheels).containsExactly(wheel1)
-            assertThat(astra.wheels).isEmpty()
-            assertThat(focus.wheels).isEmpty()
+            assertQuery(c4.wheels).containsExactly(wheel1)
+            assertQuery(astra.wheels).isEmpty()
+            assertQuery(focus.wheels).isEmpty()
         }
     }
 
@@ -107,7 +107,7 @@ class ConcurrentAggregationTest : DBTest() {
             focus
         }
         transactional {
-            assertThat(focus.wheels).hasSize(4)
+            assertQuery(focus.wheels).hasSize(4)
         }
     }
 }
