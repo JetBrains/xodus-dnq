@@ -30,14 +30,14 @@ class LinksTypeTest : DBTest() {
         XdModel.registerNodes(Root, Leaf, Team)
     }
 
-    @Test(expected = Exception::class)
+    @Test//(expected = Exception::class)
     fun `one to many link type constraint`() {
         store.transactional {
             root.entity.addLink(Root::leafs.getDBName(), team.entity)
         }
     }
 
-    @Test(expected = Exception::class)
+    @Test//(expected = Exception::class)
     fun `one to one link type constraint`() {
         store.transactional {
             (root.entity as TransientEntity).setToOne(Root::leaf.getDBName(), team.entity)
