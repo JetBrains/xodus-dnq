@@ -154,6 +154,15 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
 }
 
 /**
+ * Builds a query of given elements.
+ *
+ * Null elements are ignored, e.g. `queryOf(null)` returns an empty query.
+ */
+inline fun <reified T : XdEntity> XdEntityType<T>.queryOf(elements: Iterable<T?>) : XdQuery<T> {
+    return queryOf(*elements.toList().toTypedArray())
+}
+
+/**
  * Returns a new query containing all results that are contained by both `this` and [that] queries.
  */
 infix fun <T : XdEntity> XdQuery<T>.intersect(that: XdQuery<T>): XdQuery<T> {

@@ -400,3 +400,30 @@ inline infix fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, Set<T>>
 inline infix fun <reified R : XdEntity> KProperty1<R, Set<String>>.anyStartsWith(value: String?): NodeBase {
     return startsWith(getDBName(R::class), value)
 }
+
+/**
+ * Returns new [NodeBase] representing filter:
+ *
+ * value of `this` vector property is not empty
+ * ### Sample
+ * ```
+ * XdUser.query(XdUser::details.isNotEmpty())
+ * ```
+ */
+inline fun <reified XD : XdEntity, V : XdEntity> KProperty1<XD, XdQuery<V>>.isNotEmpty(): NodeBase {
+    val entityType = XD::class.entityType
+    return LinkNotNull(this.getDBName(entityType))
+}
+
+/**
+ * Returns new [NodeBase] representing filter:
+ *
+ * value of `this` vector property is empty
+ * ### Sample
+ * ```
+ * XdUser.query(XdUser::details.isEmpty())
+ * ```
+ */
+inline fun <reified XD : XdEntity, V : XdEntity> KProperty1<XD, XdQuery<V>>.isEmpty(): NodeBase {
+    return not(isNotEmpty())
+}
