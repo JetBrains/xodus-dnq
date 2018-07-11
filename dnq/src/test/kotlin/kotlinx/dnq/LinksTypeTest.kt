@@ -49,6 +49,7 @@ class LinksTypeTest : DBTest() {
     private val root by lazy { Root.new { } }
 
     override fun registerEntityTypes() {
+        System.setProperty("xodus.dnq.links.assertTypes", "true")
         XdModel.registerNodes(Root, Leaf, Team, PrimitiveLeaf, SuperLeaf)
     }
 

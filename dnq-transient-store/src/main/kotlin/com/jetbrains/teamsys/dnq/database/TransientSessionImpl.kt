@@ -54,6 +54,9 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     private val changes = QueueDecorator<() -> Boolean>()
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     private var allowRunnables = true
+
+    private val assertLinkTypes = "true" == System.getProperty("xodus.dnq.links.assertTypes")
+
     val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled) Throwable() else null
 
     private var flushing = false
@@ -998,12 +1001,14 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     }
 
     private fun assertLinkTypeIsSupported(source: TransientEntity, linkName: String, target: TransientEntity) {
-        store.modelMetaData?.let {
-            val linkMetaData = it.getEntityMetaData(source.type)?.getAssociationEndMetaData(linkName)
-            if (linkMetaData != null) {
-                val subTypes = linkMetaData.oppositeEntityMetaData.allSubTypes
-                if (target.type != linkMetaData.oppositeEntityMetaData.type && !subTypes.contains(target.type)) {
-                    throw IllegalStateException("'${source.type}.$linkName' can contain only '${subTypes.joinToString()}' types. '${target.type}' type is not supported.")
+        if (assertLinkTypes) {
+            store.modelMetaData?.let {
+                val linkMetaData = it.getEntityMetaData(source.type)?.getAssociationEndMetaData(linkName)
+                if (linkMetaData != null) {
+                    val subTypes = linkMetaData.oppositeEntityMetaData.allSubTypes
+                    if (target.type != linkMetaData.oppositeEntityMetaData.type && !subTypes.contains(target.type)) {
+                        throw IllegalStateException("'${source.type}.$linkName' can contain only '${subTypes.joinToString()}' types. '${target.type}' type is not supported.")
+                    }
                 }
             }
         }
