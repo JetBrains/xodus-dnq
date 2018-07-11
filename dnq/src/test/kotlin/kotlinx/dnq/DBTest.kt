@@ -234,7 +234,7 @@ abstract class DBTest {
         if (databaseHome.exists() && databaseHome.isDirectory) {
             Files.walkFileTree(databaseHome.toPath(), object : SimpleFileVisitor<Path>() {
                 override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
-                    Files.delete(file)
+                    file.tryDelete()
                     return FileVisitResult.CONTINUE
                 }
 
@@ -247,10 +247,16 @@ abstract class DBTest {
 
                 override fun postVisitDirectory(dir: Path, e: IOException?): FileVisitResult {
                     if (e != null) return handleException(e)
-                    Files.delete(dir)
+                    dir.tryDelete()
                     return FileVisitResult.CONTINUE
                 }
             })
         }
+    }
+
+    private fun Path.tryDelete() = try {
+        Files.delete(this)
+    } catch (ex: IOException) {
+        ex.printStackTrace()
     }
 }
