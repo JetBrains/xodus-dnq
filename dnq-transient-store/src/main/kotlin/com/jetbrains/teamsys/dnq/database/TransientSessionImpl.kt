@@ -42,7 +42,10 @@ private const val CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__"
 private const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 
 class TransientSessionImpl(private val store: TransientEntityStoreImpl, private val readonly: Boolean) : TransientStoreSession, SessionQueryMixin {
-    companion object : KLogging()
+
+    companion object : KLogging() {
+        private val assertLinkTypes = "true" == System.getProperty("xodus.dnq.links.assertTypes")
+    }
 
     private var txnWhichWasUpgraded: ReadonlyPersistentStoreTransaction? = null
     private var upgradeHook: Runnable? = null
@@ -54,8 +57,6 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     private val changes = QueueDecorator<() -> Boolean>()
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     private var allowRunnables = true
-
-    private val assertLinkTypes = "true" == System.getProperty("xodus.dnq.links.assertTypes")
 
     val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled) Throwable() else null
 
