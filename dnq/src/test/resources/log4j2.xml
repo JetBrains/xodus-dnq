@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration packages="jetbrains.hub.server.maintenance.logging">
+
+    <Appenders>
+        <Console name="CONSOLE" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{ABSOLUTE} %-5p [%-30.30c{1}] %m%n"/>
+        </Console>
+        <Async name="ASYNC">
+            <AppenderRef ref="CONSOLE"/>
+            <Blocking>false</Blocking>
+        </Async>
+    </Appenders>
+
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="ASYNC"/>
+        </Root>
+    </Loggers>
+
+</Configuration>
