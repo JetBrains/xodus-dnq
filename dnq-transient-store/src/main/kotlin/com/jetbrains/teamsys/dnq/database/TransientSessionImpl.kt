@@ -47,6 +47,12 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         private val assertLinkTypes = "true" == System.getProperty("xodus.dnq.links.assertTypes")
     }
 
+    init {
+        if (store.modelMetaData?.entitiesMetaData?.firstOrNull() == null) {
+            logger.warn { "model MetaData is not set for store ${store.persistentStore.location}." }
+        }
+    }
+
     private var txnWhichWasUpgraded: ReadonlyPersistentStoreTransaction? = null
     private var upgradeHook: Runnable? = null
     private var state = State.Open
