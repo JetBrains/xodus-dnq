@@ -76,7 +76,7 @@ class ToIdFromIdTest : DBTest() {
         }
     }
 
-//    @Test
+    @Test
     fun `find by incorrect id with non-existing entity type`() {
         transactional {
             assertFailsWith<EntityRemovedInDatabaseException> {
