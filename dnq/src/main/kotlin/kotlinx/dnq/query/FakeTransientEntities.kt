@@ -15,7 +15,6 @@
  */
 package kotlinx.dnq.query
 
-import javassist.util.proxy.MethodHandler
 import javassist.util.proxy.ProxyFactory
 import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.database.TransientEntity
@@ -29,6 +28,7 @@ import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.PropertyEqual
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdModel
+import kotlinx.dnq.XdNaturalWrapper
 import kotlinx.dnq.util.XdHierarchyNode
 import kotlinx.dnq.util.enclosingEntityClass
 import org.joda.time.DateTime
@@ -275,7 +275,11 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
 
     fun <T : XdEntity> toXdHandlingAbstraction(): T {
         val node = XdModel.getOrThrow(type)
-
+        val entityType = node.entityType
+        if (entityType is XdNaturalWrapper) {
+            @Suppress("UNCHECKED_CAST")
+            return entityType.naturalWrap(this) as T
+        }
         val entityConstructor = node.entityConstructor
         // this is abstract type. lets create fake implementation.
         if (entityConstructor == null) {

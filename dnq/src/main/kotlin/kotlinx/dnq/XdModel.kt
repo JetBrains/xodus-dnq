@@ -32,7 +32,7 @@ import kotlin.reflect.full.getExtensionDelegate
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.jvmErasure
 
-object XdModel: KLogging() {
+object XdModel : KLogging() {
     const val JAVA_CLASSPATH = "java_classpath"
     const val WEB_CLASSPATH = "web_classpath"
 
@@ -94,7 +94,7 @@ object XdModel: KLogging() {
                 it.isAccessible = true
                 it.getExtensionDelegate()
             } catch (e: Throwable) {
-                logger.warn(e) {"can't get extension delegate of '$it'"}
+                logger.warn(e) { "can't get extension delegate of '$it'" }
                 null
             }
             if (delegate == null) {
@@ -131,6 +131,11 @@ object XdModel: KLogging() {
             return entity.toXdHandlingAbstraction()
         }
         val xdHierarchyNode = getOrThrow(entity.type)
+        val entityType = xdHierarchyNode.entityType
+        if (entityType is XdNaturalWrapper) {
+            @Suppress("UNCHECKED_CAST")
+            return entityType.naturalWrap(entity) as T
+        }
 
         val entityConstructor = xdHierarchyNode.entityConstructor
                 ?: throw UnsupportedOperationException("Constructor for the type ${entity.type} is not found")
