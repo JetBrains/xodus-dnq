@@ -15,17 +15,35 @@
  */
 package kotlinx.dnq.util
 
+import jetbrains.exodus.core.dataStructures.ConcurrentObjectCache
 import kotlinx.dnq.XdEntity
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KProperty
 
 class XdPropertyCachedProvider<out D>(private val create: () -> D) {
+
     companion object {
-        val cache = ConcurrentHashMap<KProperty<*>, Any>()
+
+        private val cache = ConcurrentObjectCache<KPropertyHolder, Any>(2000)
+
+        private class KPropertyHolder(val prop: KProperty<*>) {
+
+            override fun hashCode(): Int {
+                return System.identityHashCode(prop)
+            }
+
+            override fun equals(other: Any?): Boolean {
+                return other is KPropertyHolder && prop === other.prop
+            }
+        }
     }
 
     operator fun provideDelegate(thisRef: XdEntity?, prop: KProperty<*>): D {
+        val key = KPropertyHolder(prop)
+        val instance = cache.get(key) ?: return create()!!.also {
+            cache.put(key, it)
+        }
+
         @Suppress("UNCHECKED_CAST")
-        return cache.getOrPut(prop, create) as D
+        return instance as D
     }
 }
