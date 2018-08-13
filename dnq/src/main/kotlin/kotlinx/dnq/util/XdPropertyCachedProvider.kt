@@ -39,8 +39,8 @@ class XdPropertyCachedProvider<out D>(private val create: () -> D) {
 
     operator fun provideDelegate(thisRef: XdEntity?, prop: KProperty<*>): D {
         val key = KPropertyHolder(prop)
-        val instance = cache.get(key) ?: return create()!!.also {
-            cache.put(key, it)
+        val instance = cache.getObject(key) ?: return (create()).also {
+            cache.cacheObject(key, it!!)
         }
 
         @Suppress("UNCHECKED_CAST")
