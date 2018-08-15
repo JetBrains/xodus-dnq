@@ -23,7 +23,9 @@ class XdPropertyCachedProvider<out D>(private val create: () -> D) {
 
     companion object {
 
-        private val cache = ConcurrentObjectCache<KPropertyHolder, Any>(2000)
+        private val cacheSize = System.getProperty("kotlinx.dnq.delegateProvider.cacheSize", "2000").toInt()
+
+        private val cache = ConcurrentObjectCache<KPropertyHolder, Any>(cacheSize)
 
         private class KPropertyHolder(val prop: KProperty<*>) {
 
