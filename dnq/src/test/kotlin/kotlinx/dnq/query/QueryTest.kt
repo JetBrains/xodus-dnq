@@ -20,6 +20,7 @@ import jetbrains.exodus.database.TransientEntity
 import kotlinx.dnq.DBTest
 import org.junit.Test
 import java.util.*
+import kotlin.Comparator
 import kotlin.test.assertFailsWith
 
 class QueryTest : DBTest() {
@@ -94,6 +95,27 @@ class QueryTest : DBTest() {
         store.transactional {
             assertThat(User.all().drop(1).entityIterable.iterator().next()).isInstanceOf(TransientEntity::class.java)
             assertThat(User.all().take(1).entityIterable.iterator().next()).isInstanceOf(TransientEntity::class.java)
+        }
+    }
+
+//    @Test
+    fun `reverse should return reversed query of TransientEntities`() {
+        store.transactional {
+            (1..2).forEach {
+                User.new {
+                    login = "user$it"
+                    skill = 5
+                }
+            }
+        }
+
+        store.transactional {
+            assertThat(User.all().reversed().toList()).isStrictlyOrdered(object: Comparator<User>{
+                override fun compare(o1: User, o2: User): Int {
+                    return (o1.entity.id.localId - o2.entity.id.localId).toInt()
+                }
+
+            })
         }
     }
 }

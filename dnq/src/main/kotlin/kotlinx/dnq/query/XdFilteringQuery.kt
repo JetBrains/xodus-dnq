@@ -131,6 +131,16 @@ object FilteringContext {
         return withNode(values.fold(None as NodeBase) { tree, v -> tree or (LinkEqual(deepestNodeName, v?.entity).decorateIfNeeded()) })
     }
 
+    fun <T : XdEntity> XdQuery<T>?.isEmpty(): XdSearchingNode {
+        size() // to call getLinks()
+        return withNode(LinkEqual(deepestNodeName, null).decorateIfNeeded())
+    }
+
+    fun <T : XdEntity> XdQuery<T>?.isNotEmpty(): XdSearchingNode {
+        size() // to call getLinks()
+        return withNode(LinkNotNull(deepestNodeName).decorateIfNeeded())
+    }
+
     private fun withNode(node: NodeBase): XdSearchingNode {
         return node.let {
             SearchingEntity.get().nodes.add(it)

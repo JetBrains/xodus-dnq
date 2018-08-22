@@ -42,12 +42,15 @@ class FilterQueryLinksTest : DBTest() {
                 email = "123@test.com"
             }
             Contact.new {
-                user = user2
+                user = user1
                 email = "123@test.com"
             }
 
             assertThat(Contact.filter { it.user = user1 }.first()).isEqualTo(contact1)
             assertThat(Contact.filter { it.user eq user1 }.first()).isEqualTo(contact1)
+
+            assertThat(User.filter { it.contacts.isNotEmpty() }.toList()).containsExactly(user1)
+            assertThat(User.filter { it.contacts.isEmpty() }.toList()).containsExactly(user2)
         }
     }
 

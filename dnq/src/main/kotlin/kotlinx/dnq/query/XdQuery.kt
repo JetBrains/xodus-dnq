@@ -158,7 +158,7 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
  *
  * Null elements are ignored, e.g. `queryOf(null)` returns an empty query.
  */
-inline fun <reified T : XdEntity> XdEntityType<T>.queryOf(elements: Iterable<T?>) : XdQuery<T> {
+inline fun <reified T : XdEntity> XdEntityType<T>.queryOf(elements: Iterable<T?>): XdQuery<T> {
     return queryOf(*elements.toList().toTypedArray())
 }
 
@@ -601,6 +601,19 @@ fun <T : XdEntity> XdQuery<T>.any(node: NodeBase): Boolean {
  * Returns `true` if query has no results.
  */
 fun <T : XdEntity> XdQuery<T>.none() = isEmpty
+
+/**
+ * Reverses elements in query
+ */
+fun <T : XdEntity> XdQuery<T>.reversed(): XdQuery<T> {
+    val engine = queryEngine
+    val iterable = engine.toEntityIterable(entityIterable)
+    return if (iterable is EntityIterableBase) {
+        XdQueryImpl(wrap(iterable.source.reverse()), entityType)
+    } else {
+        XdQueryImpl(entityIterable.reversed(), entityType)
+    }
+}
 
 /**
  * Returns `true` if query has no results matching the given [node] predicate.
