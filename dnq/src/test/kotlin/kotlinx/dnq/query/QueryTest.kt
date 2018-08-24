@@ -98,7 +98,7 @@ class QueryTest : DBTest() {
         }
     }
 
-//    @Test
+    @Test
     fun `reverse should return reversed query of TransientEntities`() {
         store.transactional {
             (1..2).forEach {
@@ -112,7 +112,7 @@ class QueryTest : DBTest() {
         store.transactional {
             assertThat(User.all().reversed().toList()).isStrictlyOrdered(object: Comparator<User>{
                 override fun compare(o1: User, o2: User): Int {
-                    return (o1.entity.id.localId - o2.entity.id.localId).toInt()
+                    return (o2.entity.id.localId - o1.entity.id.localId).toInt()
                 }
 
             })
