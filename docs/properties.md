@@ -500,7 +500,7 @@ var badPassword by xdStringProp { length(min = 5, max = 10) }
 ```
 
 #### Require if
-Checks that property value is defined if provided closure returns `true`. 
+Checks that property value is defined if provided closure returns `true`. Triggers only if the property is changed.
 
 ```kotlin
 var main by xdStringProp()

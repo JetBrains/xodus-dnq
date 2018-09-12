@@ -371,7 +371,7 @@ class RequireIfConstraint<R : XdEntity, T>(val message: String?, val predicate: 
 /**
  * Adds constraint for primitive persistent property.
  * The property value is required if the given closure returns `true`.
- * Note that the constraint is checked only if the entity is updated.
+ * Note that the constraint is checked only if **the property** is updated.
  *
  * Constrains are checked on transaction flush. Xodus-DNQ throws `ConstraintsValidationException` if constraint check
  * fails. Method `getCauses()` of `ConstraintsValidationException` returns all actual
