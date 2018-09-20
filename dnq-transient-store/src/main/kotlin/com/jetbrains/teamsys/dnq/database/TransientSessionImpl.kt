@@ -1345,8 +1345,11 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             try {
                 event(listener)
             } catch (e: Exception) {
-                logger.error(e) { "Exception while inside listener [$listener]" }
-                if (rethrowException) throw e
+                if (rethrowException) {
+                    throw e
+                } else {
+                    logger.error(e) { "Exception while inside listener [$listener]" }
+                }
             }
         }
 
