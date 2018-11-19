@@ -48,7 +48,7 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     naturalNodes.forEach {
         val (entityTypeName, node) = it
         node.linkProperties.values.forEach { sourceEnd ->
-            modelMetaData.addLinkMetaData(hierarchy, entityTypeName, sourceEnd)
+            modelMetaData.addLinkMetaData(hierarchy, entityTypeName, sourceEnd, node)
         }
     }
 
@@ -169,7 +169,7 @@ fun XdHierarchyNode.getAllLinks(): Sequence<XdHierarchyNode.LinkProperty> {
     return (parentNode?.getAllLinks() ?: emptySequence()) + linkProperties.values
 }
 
-private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchyNode>, entityTypeName: String, sourceEnd: XdHierarchyNode.LinkProperty) {
+private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchyNode>, entityTypeName: String, sourceEnd: XdHierarchyNode.LinkProperty, sourceNode: XdHierarchyNode) {
     when (sourceEnd.delegate.endType) {
         AssociationEndType.DirectedAssociationEnd -> {
             addLink(
@@ -239,8 +239,31 @@ private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchy
             }
 
         }
-        AssociationEndType.ChildEnd -> {
-            // Ignore
+        AssociationEndType.ChildEnd -> { // only add when natural child has a legacy parent
+            val targetEnd = getTargetEnd(hierarchy, sourceEnd.delegate)
+            if (targetEnd != null && sourceNode.entityType is XdNaturalEntityType) {
+                val oppositeType = hierarchy[sourceEnd.delegate.oppositeEntityType.entityType]?.entityType
+                if (oppositeType != null && oppositeType !is XdNaturalEntityType) {
+                    addLink(
+                            sourceEntityName = entityTypeName,
+                            targetEntityName = sourceEnd.delegate.oppositeEntityType.entityType,
+                            type = AssociationType.Aggregation,
+
+                            sourceName = sourceEnd.dbPropertyName,
+                            sourceCardinality = sourceEnd.delegate.cardinality,
+                            sourceCascadeDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                            sourceClearOnDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                            sourceTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                            sourceTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
+
+                            targetName = targetEnd.dbPropertyName,
+                            targetCardinality = targetEnd.delegate.cardinality,
+                            targetCascadeDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                            targetClearOnDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                            targetTargetCascadeDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                            targetTargetClearOnDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR)
+                }
+            }
         }
     }
 }
