@@ -47,7 +47,7 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
 
     naturalNodes.forEach {
         val (entityTypeName, node) = it
-        node.linkProperties.values.forEach { sourceEnd ->
+        node.getAllLinks().forEach { sourceEnd ->
             modelMetaData.addLinkMetaData(hierarchy, entityTypeName, sourceEnd)
         }
     }
