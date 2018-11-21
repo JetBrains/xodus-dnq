@@ -1,9 +1,3 @@
-kotlin {
-    experimental {
-        coroutines "enable"
-    }
-}
-
 configurations { tests }
 
 dependencies {
@@ -25,6 +19,7 @@ dependencies {
     compile "javax.servlet:javax.servlet-api:3.0.1"
     compile 'com.github.mazine:infer-hierarchy-type-parameter:1.1.0'
 
+    testCompile project(':dnq')
     testCompile 'com.google.truth:truth:0.35'
     testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"

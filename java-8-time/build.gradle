@@ -1,9 +1,3 @@
-kotlin {
-    experimental {
-        coroutines "enable"
-    }
-}
-
 dependencies {
     compile project(':dnq')
     compile project(':dnq-transient-store')
@@ -15,6 +9,7 @@ dependencies {
     compile "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
     compile "org.jetbrains.xodus:xodus-utils:$exodus_version"
 
+    testCompile project(':java-8-time')
     testCompile project(path: ':dnq', configuration: 'tests')
     testCompile 'com.google.truth:truth:0.35'
     testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'

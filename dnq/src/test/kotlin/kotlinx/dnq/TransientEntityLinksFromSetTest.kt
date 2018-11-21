@@ -23,7 +23,6 @@ import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 import org.junit.Test
-import kotlin.coroutines.experimental.buildSequence
 
 class TransientEntityLinksFromSetTest : DBTest() {
 
@@ -103,7 +102,7 @@ class TransientEntityLinksFromSetTest : DBTest() {
             txn.transientChangesTracker.getSnapshotEntity(this)
 
     private fun Iterable<Entity>.toNamesAndEntities(): List<Pair<String, Entity?>> {
-        return buildSequence {
+        return sequence {
             val iterator = iterator() as EntityIteratorWithPropId
             yieldAll(iterator.asSequence().map { iterator.currentLinkName() to it })
             yield(iterator.currentLinkName() to null)
