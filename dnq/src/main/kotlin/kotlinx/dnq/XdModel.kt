@@ -44,6 +44,10 @@ object XdModel : KLogging() {
 
     operator fun get(entityType: String) = hierarchy[entityType]
 
+    fun scanPackages(packages: Array<String>) = scanClasspath(JAVA_CLASSPATH) {
+        forPackages(*packages)
+    }
+
     /**
      * Scans Java classpath for XdEntity types
      */
