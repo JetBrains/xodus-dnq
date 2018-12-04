@@ -44,7 +44,7 @@ private const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 class TransientSessionImpl(private val store: TransientEntityStoreImpl, private val readonly: Boolean) : TransientStoreSession, SessionQueryMixin {
 
     companion object : KLogging() {
-        private val assertLinkTypes = "true" == System.getProperty("xodus.dnq.links.assertTypes")
+        private val assertLinkTypes = "true" == System.getProperty("xodus.dnq.links.assertTypes", "true")
     }
 
     init {

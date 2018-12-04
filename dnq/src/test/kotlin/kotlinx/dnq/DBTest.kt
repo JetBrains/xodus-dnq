@@ -52,10 +52,6 @@ import java.util.concurrent.atomic.AtomicLong
 abstract class DBTest {
     companion object {
         private val idGen = AtomicLong()
-
-        init {
-            System.setProperty("xodus.dnq.links.assertTypes", "true");
-        }
     }
 
     lateinit var store: TransientEntityStoreImpl
