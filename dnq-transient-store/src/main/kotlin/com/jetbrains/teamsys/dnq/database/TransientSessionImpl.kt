@@ -1014,7 +1014,8 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
                 if (linkMetaData != null) {
                     val subTypes = linkMetaData.oppositeEntityMetaData.allSubTypes
                     if (target.type != linkMetaData.oppositeEntityMetaData.type && !subTypes.contains(target.type)) {
-                        throw IllegalStateException("'${source.type}.$linkName' can contain only '${subTypes.joinToString()}' types. '${target.type}' type is not supported.")
+                        val allowed = (subTypes + target.type).joinToString()
+                        throw IllegalStateException("'${source.type}.$linkName' can contain only '$allowed' types. '${target.type}' type is not supported.")
                     }
                 }
             }
