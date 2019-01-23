@@ -1,74 +1,84 @@
-if (project.hasProperty("ossrhUser") && project.hasProperty("ossrhPassword")) {
+if (project.hasProperty('ossrhUser') && project.hasProperty('ossrhPassword')) {
 
-    // https://github.com/Codearte/gradle-nexus-staging-plugin
+    // https://github.com/Codearte/gradle-nexus-staging-plugin to close and promote from Nexus staging to maven central
     nexusStaging {
         username = ossrhUser
         password = ossrhPassword
         delayBetweenRetriesInMillis = 30000
-        stagingProfileId = "89ee7caa6631c4"
-    }
-
-    // https://github.com/marcphilipp/nexus-publish-plugin
-    nexusPublishing {
-        packageGroup = rootProject.nexusStaging.packageGroup
-        stagingProfileId = rootProject.nexusStaging.stagingProfileId
-        username = rootProject.nexusStaging.username
-        password = rootProject.nexusStaging.password
+        stagingProfileId = '89ee7caa6631c4'
     }
 
     subprojects {
-        apply plugin: 'maven'
         apply plugin: 'signing'
-
-        signing {
-            sign configurations.archives
-        }
-
-        // OSSRH publication
-        uploadArchives {
-            repositories {
-                mavenDeployer {
-                    // POM signature
-                    beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-                    // Target repository
-                    repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2") {
-                        authentication(userName: ossrhUser, password: ossrhPassword)
+        apply plugin: 'de.marcphilipp.nexus-publish'
+        
+        publishing {
+            publications {
+                mavenJava(MavenPublication) {
+                    from components.java
+                    artifact(sourceJar) {
+                        classifier = 'sources'
                     }
-                    pom.project {
-                        name project.name
-                        description 'Data definition and queries Kotlin DSL over Xodus'
-                        packaging 'jar'
-                        url 'https://github.com/JetBrains/xodus-dnq'
-
-                        scm {
-                            connection 'scm:git:https://github.com/JetBrains/xodus-dnq.git'
-                            developerConnection 'scm:git@github.com:JetBrains/xodus-dnq.git'
-                            url 'https://github.com/JetBrains/xodus-dnq'
-                        }
-
+                    artifact(javadocJar) {
+                        classifier = 'javadoc'
+                    }
+                    pom {
+                        name = project.name
+                        description = 'Data definition and queries Kotlin DSL over Xodus'
+                        url = 'https://github.com/JetBrains/xodus-dnq'
                         licenses {
                             license {
-                                name 'Apache 2.0'
-                                url 'http://www.apache.org/licenses/'
-                                distribution 'repo'
+                                name = 'Apache 2.0'
+                                url = 'http://www.apache.org/licenses/'
+                                distribution = 'repo'
                             }
                         }
-
                         developers {
                             developer {
-                                id 'JetBrains'
-                                name 'JetBrains Team'
-                                organization 'JetBrains s.r.o'
-                                organizationUrl 'http://www.jetbrains.com'
+                                id = 'JetBrains'
+                                name = 'JetBrains Team'
+                                organization = 'JetBrains s.r.o'
+                                organizationUrl = 'http://www.jetbrains.com'
                             }
+                        }
+                        scm {
+                            connection = 'scm:git:https://github.com/JetBrains/xodus-dnq.git'
+                            developerConnection = 'scm:git@github.com:JetBrains/xodus-dnq.git'
+                            url = 'https://github.com/JetBrains/xodus-dnq'
                         }
                     }
                 }
             }
+            repositories {
+                maven {
+                    url 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
+                    credentials {
+                        username ossrhUser
+                        password ossrhPassword
+                    }
+                }
+            }
+        }
+
+        signing {
+            sign publishing.publications.mavenJava
+        }
+
+        /**
+         * https://github.com/marcphilipp/nexus-publish-plugin to avoid https://github.com/Codearte/gradle-nexus-staging-plugin/issues/77
+         * which is relevant for TeamCity as well. publishMavenJavaPublicationToNexusRepository task is recommended, since
+         * publishToNexus produces duplicates in Nexus staging.
+         */
+        nexusPublishing {
+            packageGroup = rootProject.nexusStaging.packageGroup
+            stagingProfileId = rootProject.nexusStaging.stagingProfileId
+            username = rootProject.nexusStaging.username
+            password = rootProject.nexusStaging.password
         }
     }
 }
 
+// publish snapshot versions to any repo you'd like to see it in 
 if (project.project.hasProperty("publishTo")) {
     subprojects {
         apply plugin: 'maven-publish'
@@ -84,7 +94,7 @@ if (project.project.hasProperty("publishTo")) {
                     from components.java
 
                     artifact sourceJar {
-                        classifier "sources"
+                        classifier 'sources'
                     }
                 }
             }
