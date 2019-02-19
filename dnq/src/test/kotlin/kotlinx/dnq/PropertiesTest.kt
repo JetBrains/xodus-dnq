@@ -172,6 +172,23 @@ class PropertiesTest : DBTest() {
     }
 
     @Test
+    fun required_if_condition_changed() {
+        val derived = store.transactional {
+            Derived.new().apply {
+                requiredBaseProp = "test"
+            }
+        }
+        val e = assertFailsWith<ConstraintsValidationException> {
+            store.transactional {
+                derived.enabled = true
+            }
+        }
+
+        assertThat(e.causes.filterIsInstance<NullPropertyException>().map { it.propertyName })
+                .containsExactly(Base::requiredIfBaseProp.name, Derived::requiredIfDerivedProp.name)
+    }
+
+    @Test
     fun constraints() {
         val e = assertFailsWith<ConstraintsValidationException> {
             store.transactional {

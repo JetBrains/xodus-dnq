@@ -392,10 +392,12 @@ object ConstraintsUtil {
                                 .asSequence()
                         val requiredIfProperties = EntityMetaDataUtils
                                 .getRequiredIfProperties(entityMetaData, changedEntity)
-                                .asSequence()
+
+                        val changedAndRequiredIfProperties = if (requiredIfProperties.isEmpty()) changedProperties else ((changedProperties
+                                ?: hashSetOf()) + requiredIfProperties)
 
                         (requiredProperties + requiredIfProperties)
-                                .mapNotNull { checkProperty(changedEntity, changedProperties, entityMetaData, it) }
+                                .mapNotNull { checkProperty(changedEntity, changedAndRequiredIfProperties, entityMetaData, it) }
                     } else {
                         emptySequence()
                     }
