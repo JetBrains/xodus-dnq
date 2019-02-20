@@ -394,7 +394,7 @@ object ConstraintsUtil {
                                 .getRequiredIfProperties(entityMetaData, changedEntity)
 
                         val changedAndRequiredIfProperties = if (requiredIfProperties.isEmpty()) changedProperties else ((changedProperties
-                                ?: hashSetOf()) + requiredIfProperties)
+                                ?: emptySet()) + requiredIfProperties)
 
                         (requiredProperties + requiredIfProperties)
                                 .mapNotNull { checkProperty(changedEntity, changedAndRequiredIfProperties, entityMetaData, it) }
