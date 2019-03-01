@@ -81,7 +81,7 @@ object FilteringContext {
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.le(value: T): XdSearchingNode {
         val returnType = value.javaClass.kotlin
-        return withNode(PropertyRange(deepestNodeName, returnType.minValue(), value).decorateIfNeeded())
+        return withNode(PropertyRange(deepestNodeName, returnType.minValue(), value.rawValue()).decorateIfNeeded())
     }
 
     @DnqFilterDsl
@@ -115,7 +115,7 @@ object FilteringContext {
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.ge(value: T): XdSearchingNode {
         val returnType = value.javaClass.kotlin
-        return withNode(PropertyRange(deepestNodeName, value, returnType.maxValue()).decorateIfNeeded())
+        return withNode(PropertyRange(deepestNodeName, value.rawValue(), returnType.maxValue()).decorateIfNeeded())
     }
 
     @DnqFilterDsl
@@ -167,6 +167,12 @@ object FilteringContext {
         size() // to call getLinks()
         return withNode(LinkNotNull(deepestNodeName).decorateIfNeeded())
     }
+
+
+    private fun <V : Comparable<V>> V.rawValue(): Comparable<*> {
+        return if (this is DateTime) millis else this
+    }
+
 
     private fun withNode(node: NodeBase): XdSearchingNode {
         return node.let {

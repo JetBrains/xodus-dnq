@@ -251,6 +251,12 @@ class FilterQueryPropertiesTest : DBTest() {
         }
         store.transactional {
             User.assertThatFilterResult { it.registered eq date }.hasSize(1)
+            User.assertThatFilterResult { it.registered le date }.hasSize(1)
+            User.assertThatFilterResult { it.registered ge date }.hasSize(1)
+
+            User.assertThatFilterResult { it.registered lt date }.hasSize(0)
+            User.assertThatFilterResult { it.registered gt date }.hasSize(0)
+
             User.assertThatFilterResult { it.registered eq null }.hasSize(1)
         }
     }
