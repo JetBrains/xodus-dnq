@@ -17,7 +17,10 @@ package kotlinx.dnq.query
 
 import com.google.common.truth.IterableSubject
 import com.google.common.truth.Truth.assertThat
-import kotlinx.dnq.*
+import kotlinx.dnq.DBTest
+import kotlinx.dnq.XdEntity
+import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.xdStringProp
 import org.joda.time.DateTime
 import org.junit.Test
 
@@ -28,7 +31,7 @@ class FilterQueryPropertiesTest : DBTest() {
     @Test
     fun `firstOrNull should return null if nothing found`() {
         store.transactional {
-            assertThat(User.filter {}.firstOrNull()).isNull()
+            assertThat(User.all().filterUnsafe {}.firstOrNull()).isNull()
         }
     }
 
@@ -275,7 +278,7 @@ class FilterQueryPropertiesTest : DBTest() {
 
 
     private fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: FilteringContext.(T) -> Unit): IterableSubject {
-        return assertThat(this.filter(clause).toList())
+        return assertThat(this.all().filterUnsafe(clause).toList())
     }
 }
 

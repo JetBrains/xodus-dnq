@@ -46,7 +46,7 @@ class FilterQueryLinksTest : DBTest() {
                 email = "123@test.com"
             }
 
-            assertThat(Contact.filter { it.user = user1 }.first()).isEqualTo(contact1)
+            assertThat(Contact.all().filterUnsafe { it.user = user1 }.first()).isEqualTo(contact1)
             assertThat(Contact.filter { it.user eq user1 }.first()).isEqualTo(contact1)
 
             assertThat(User.filter { it.contacts.isNotEmpty() }.toList()).containsExactly(user1)
@@ -67,7 +67,7 @@ class FilterQueryLinksTest : DBTest() {
                 supervisor = user1
             }
 
-            var result = User.filter { it.supervisor = user1 }
+            var result = User.all().filterUnsafe { it.supervisor = user1 }
             assertThat(result.toList()).containsExactly(user2)
 
             result = User.filter { it.supervisor eq user1 }
@@ -88,7 +88,7 @@ class FilterQueryLinksTest : DBTest() {
                 fellow = user1
             }
 
-            var result = User.filter { it.fellow = user1 }
+            var result = User.all().filterUnsafe  { it.fellow = user1 }
             assertThat(result.toList()).containsExactly(user2)
 
             result = User.filter { it.fellow eq user1 }

@@ -138,6 +138,6 @@ class FilterQueryDecoratedTest : DBTest() {
     }
 
     fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: FilteringContext.(T) -> Unit): IterableSubject {
-        return assertThat(this.filter(clause).toList())
+        return assertThat(this.all().filterUnsafe(clause).toList())
     }
 }
