@@ -137,7 +137,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             val roTxn = currentTxn as ReadonlyPersistentStoreTransaction
             val newTxn = roTxn.upgradedTransaction
             // TODO: fix package visibility
-            TxnUtil.registerTransaction(persistentStore, newTxn)
+            persistentStore.registerTransaction(newTxn)
             changesTracker = this.transientChangesTracker.upgrade()
             txnWhichWasUpgraded = roTxn
         }
