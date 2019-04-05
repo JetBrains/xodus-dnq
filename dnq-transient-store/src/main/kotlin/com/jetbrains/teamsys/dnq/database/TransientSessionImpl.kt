@@ -52,6 +52,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         if (store.modelMetaData?.entitiesMetaData?.firstOrNull() == null) {
             logger.warn { "model MetaData is not set for store ${store.persistentStore.location}." }
         }
+        this.store.persistentStore.beginReadonlyTransaction()
     }
 
     private var txnWhichWasUpgraded: ReadonlyPersistentStoreTransaction? = null
@@ -86,7 +87,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             return persistentTransactionInternal
         }
 
-    private var changesTracker: TransientChangesTracker
+    private var changesTracker = snapshot.createChangesTracker(readonly = true)
     override val transientChangesTracker: TransientChangesTracker
         get() {
             assertOpen("get changes tracker")
@@ -95,11 +96,6 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
 
     private val persistentStore: PersistentEntityStoreImpl
         get() = store.persistentStore as PersistentEntityStoreImpl
-
-    init {
-        this.store.persistentStore.beginReadonlyTransaction()
-        this.changesTracker = snapshot.createChangesTracker(readonly = true)
-    }
 
     private fun initChangesTracker(readonly: Boolean) {
         transientChangesTracker.dispose()
