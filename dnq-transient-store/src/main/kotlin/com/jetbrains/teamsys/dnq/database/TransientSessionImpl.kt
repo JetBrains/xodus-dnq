@@ -246,22 +246,18 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     override fun newEntity(persistentEntity: Entity): TransientEntity {
         if (persistentEntity !is PersistentEntity)
             throw IllegalArgumentException("Cannot create transient entity wrapper for non persistent entity")
-
         assertOpen("create entity")
-
-        return newEntityImpl(persistentEntity)
+        return newEntityImpl(persistentEntity).also { addLoadedId(persistentEntity.id) }
     }
 
     override fun getEntity(id: EntityId): Entity {
         assertOpen("get entity")
-        return newEntity(
-                if (id in loadedIds) {
-                    persistentStore.getEntity(id)
-                } else {
-                    transientChangesTracker.snapshot.getEntity(id).also {
-                        addLoadedId(id)
-                    }
-                })
+        if (id in loadedIds) {
+            return newEntityImpl(persistentStore.getEntity(id))
+        }
+        return newEntityImpl(transientChangesTracker.snapshot.getEntity(id).also {
+            addLoadedId(id)
+        })
     }
 
     override fun toEntityId(representation: String): EntityId {
@@ -1282,10 +1278,10 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         if (entity == null) {
             return null
         }
-        try {
-            return newLocalCopy(entity)
+        return try {
+            newLocalCopy(entity)
         } catch (ignore: EntityRemovedInDatabaseException) {
-            return null
+            null
         }
 
     }
