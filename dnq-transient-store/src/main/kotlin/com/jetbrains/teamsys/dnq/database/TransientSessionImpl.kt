@@ -190,11 +190,9 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             flushChanges()
             changes.clear()
 
-            for (removedEntity in transientChangesTracker.removedEntities) {
-                loadedIds.remove(removedEntity.id)
-            }
+            loadedIds = EntityIdSetFactory.newSet()
 
-            val oldChangesTracker = changesTracker
+            val oldChangesTracker = transientChangesTracker
             closePersistentSession()
             this.store.persistentStore.beginReadonlyTransaction()
             this.changesTracker = ReadOnlyTransientChangesTrackerImpl(snapshot)

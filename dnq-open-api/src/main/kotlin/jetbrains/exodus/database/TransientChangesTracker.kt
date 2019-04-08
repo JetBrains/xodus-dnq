@@ -34,8 +34,6 @@ interface TransientChangesTracker {
 
     val changedEntities: Set<TransientEntity>
 
-    val removedEntities: Set<TransientEntity>
-
     val affectedEntityTypes: Set<String>
 
     /**

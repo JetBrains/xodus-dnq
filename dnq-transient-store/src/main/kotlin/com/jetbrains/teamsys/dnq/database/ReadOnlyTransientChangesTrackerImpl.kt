@@ -36,9 +36,6 @@ class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: PersistentStore
     override val changedEntities: Set<TransientEntity>
         get() = emptySet()
 
-    override val removedEntities: Set<TransientEntity>
-        get() = emptySet()
-
     override val affectedEntityTypes: Set<String>
         get() = emptySet()
 
