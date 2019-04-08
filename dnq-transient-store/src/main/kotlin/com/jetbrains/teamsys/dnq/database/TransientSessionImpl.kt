@@ -255,7 +255,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     override fun getEntity(id: EntityId): Entity {
         assertOpen("get entity")
         return newEntity(
-                if (loadedIds.contains(id)) {
+                if (id in loadedIds) {
                     persistentStore.getEntity(id)
                 } else {
                     transientChangesTracker.snapshot.getEntity(id).also {
@@ -380,11 +380,17 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
      */
     override fun newLocalCopy(entity: TransientEntity): TransientEntity {
         assertOpen("create local copy")
+        val tracker = transientChangesTracker
         return when {
             entity.isReadonly || entity.isWrapper -> entity
-            transientChangesTracker.isSaved(entity) -> {
+            tracker.isRemoved(entity) -> {
+                logger.warn { "Entity [$entity] was removed by you." }
+                throw EntityRemovedException(entity)
+            }
+            tracker.isNew(entity) -> entity
+            else -> {
                 val entityId = entity.id
-                if (loadedIds.contains(entityId)) {
+                if (entityId in loadedIds) {
                     return entity
                 }
                 try {
@@ -397,12 +403,6 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
                     throw e
                 }
             }
-            transientChangesTracker.isRemoved(entity) -> {
-                logger.warn { "Entity [$entity] was removed by you." }
-                throw EntityRemovedException(entity)
-            }
-            transientChangesTracker.isNew(entity) -> entity
-            else -> throw IllegalStateException("Cannot create local copy of entity (unexpected state) [$entity]")
         }
     }
 
@@ -759,7 +759,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
 
         if (changesDescr.isEmpty()) return
 
-        logger.debug("Notify before flush after constraints check listeners " + this)
+        logger.debug { "Notify before flush after constraints check listeners $this" }
 
         // check side effects in listeners
         val changesCount = changes.size
