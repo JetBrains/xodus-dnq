@@ -23,28 +23,26 @@ import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.iterate.EntityIdSet
+import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 
 import java.util.*
 
 /**
  * @author Vadim.Gurov
  */
-class TransientChangesTrackerImpl(_snapshot: PersistentStoreTransaction) : TransientChangesTracker {
-    private var _snapshot: PersistentStoreTransaction? = _snapshot
+class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransaction?) : TransientChangesTracker {
     override val snapshot: PersistentStoreTransaction
-        get() = this._snapshot ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
+        get() = _snapshot
+                ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
 
     private val _changedEntities = LinkedHashSet<TransientEntity>()
     override val changedEntities: Set<TransientEntity>
         get() = _changedEntities
 
-    private val _addedEntities = LinkedHashSet<TransientEntity>()
-    val addedEntities: Set<TransientEntity>
-        get() = _addedEntities
+    private var addedEntities = EntityIdSetFactory.newSet()
 
-    private val _removedEntities = LinkedHashSetDecorator<TransientEntity>()
-    override val removedEntities: Set<TransientEntity>
-        get() = _removedEntities
+    private var removedEntities: EntityIdSet = EntityIdSetFactory.newSet()
 
     private val _affectedEntityTypes = HashSet<String>()
     override val affectedEntityTypes: Set<String>
@@ -57,7 +55,7 @@ class TransientChangesTrackerImpl(_snapshot: PersistentStoreTransaction) : Trans
     // do not notify about RemovedNew entities - such entities was created and removed during same transaction
     override val changesDescription: Set<TransientEntityChange>
         get() = changedEntities
-                .filterNot { it in addedEntities && it in removedEntities }
+                .filterNot { it.id in addedEntities && it.id in removedEntities }
                 .mapTo(LinkedHashSetDecorator()) {
                     TransientEntityChange(this, it, getChangedProperties(it), getChangedLinksDetailed(it), getEntityChangeType(it))
                 }
@@ -74,7 +72,7 @@ class TransientChangesTrackerImpl(_snapshot: PersistentStoreTransaction) : Trans
     }
 
     private fun getEntityChangeType(transientEntity: TransientEntity): EntityChangeType {
-        return when (transientEntity) {
+        return when (transientEntity.id) {
             in addedEntities -> EntityChangeType.ADD
             in removedEntities -> EntityChangeType.REMOVE
             else -> EntityChangeType.UPDATE
@@ -100,15 +98,16 @@ class TransientChangesTrackerImpl(_snapshot: PersistentStoreTransaction) : Trans
     }
 
     override fun isNew(transientEntity: TransientEntity): Boolean {
-        return transientEntity in addedEntities
+        return transientEntity.id in addedEntities
     }
 
     override fun isRemoved(transientEntity: TransientEntity): Boolean {
-        return transientEntity in removedEntities
+        return transientEntity.id in removedEntities
     }
 
     override fun isSaved(transientEntity: TransientEntity): Boolean {
-        return transientEntity !in addedEntities && transientEntity !in removedEntities
+        val id = transientEntity.id
+        return id !in addedEntities && id !in removedEntities
     }
 
     override fun linksRemoved(source: TransientEntity, linkName: String, links: Iterable<Entity>) {
@@ -176,12 +175,12 @@ class TransientChangesTrackerImpl(_snapshot: PersistentStoreTransaction) : Trans
 
     override fun entityAdded(e: TransientEntity) {
         entityChanged(e)
-        _addedEntities.add(e)
+        addedEntities = addedEntities.add(e.id)
     }
 
     override fun entityRemoved(e: TransientEntity) {
         entityChanged(e)
-        _removedEntities.add(e)
+        removedEntities = removedEntities.add(e.id)
         val changes = removedFrom[e]
         if (changes != null) {
             for (change in changes) {
@@ -195,8 +194,8 @@ class TransientChangesTrackerImpl(_snapshot: PersistentStoreTransaction) : Trans
     }
 
     override fun dispose() {
-        if (_snapshot != null) {
-            _snapshot!!.abort()
+        _snapshot?.let {
+            it.abort()
             _snapshot = null
         }
     }

@@ -17,12 +17,13 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.ExodusException
-import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.*
 import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.iterate.EntityIdSet
+import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.query.metadata.EntityMetaData
 import jetbrains.exodus.query.metadata.Index
@@ -51,6 +52,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         if (store.modelMetaData?.entitiesMetaData?.firstOrNull() == null) {
             logger.warn { "model MetaData is not set for store ${store.persistentStore.location}." }
         }
+        this.store.persistentStore.beginReadonlyTransaction()
     }
 
     private var txnWhichWasUpgraded: ReadonlyPersistentStoreTransaction? = null
@@ -58,8 +60,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     private var state = State.Open
 
     private var quietFlush = false
-    // stores transient entities that were created for loaded persistent entities to avoid double loading
-    private val managedEntities = HashMapDecorator<EntityId, TransientEntity>()
+    private var loadedIds: EntityIdSet = EntityIdSetFactory.newSet()
     private val changes = QueueDecorator<() -> Boolean>()
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     private var allowRunnables = true
@@ -86,7 +87,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             return persistentTransactionInternal
         }
 
-    private var changesTracker: TransientChangesTracker
+    private var changesTracker = snapshot.createChangesTracker(readonly = true)
     override val transientChangesTracker: TransientChangesTracker
         get() {
             assertOpen("get changes tracker")
@@ -95,11 +96,6 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
 
     private val persistentStore: PersistentEntityStoreImpl
         get() = store.persistentStore as PersistentEntityStoreImpl
-
-    init {
-        this.store.persistentStore.beginReadonlyTransaction()
-        this.changesTracker = snapshot.createChangesTracker(readonly = true)
-    }
 
     private fun initChangesTracker(readonly: Boolean) {
         transientChangesTracker.dispose()
@@ -136,8 +132,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             upgradeHook?.run()
             val roTxn = currentTxn as ReadonlyPersistentStoreTransaction
             val newTxn = roTxn.upgradedTransaction
-            // TODO: fix package visibility
-            TxnUtil.registerTransaction(persistentStore, newTxn)
+            persistentStore.registerTransaction(newTxn)
             changesTracker = this.transientChangesTracker.upgrade()
             txnWhichWasUpgraded = roTxn
         }
@@ -173,7 +168,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         assertOpen("revert")
 
         if (!persistentTransactionInternal.isReadonly) {
-            managedEntities.clear()
+            loadedIds = EntityIdSetFactory.newSet()
             changes.clear()
         }
         closePersistentSession()
@@ -195,11 +190,9 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             flushChanges()
             changes.clear()
 
-            for (removedEntity in transientChangesTracker.removedEntities) {
-                managedEntities.remove(removedEntity.id)
-            }
+            loadedIds = EntityIdSetFactory.newSet()
 
-            val oldChangesTracker = changesTracker
+            val oldChangesTracker = transientChangesTracker
             closePersistentSession()
             this.store.persistentStore.beginReadonlyTransaction()
             this.changesTracker = ReadOnlyTransientChangesTrackerImpl(snapshot)
@@ -253,18 +246,18 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     override fun newEntity(persistentEntity: Entity): TransientEntity {
         if (persistentEntity !is PersistentEntity)
             throw IllegalArgumentException("Cannot create transient entity wrapper for non persistent entity")
-
         assertOpen("create entity")
-
-        return newEntityImpl(persistentEntity)
+        return newEntityImpl(persistentEntity).also { addLoadedId(persistentEntity.id) }
     }
 
     override fun getEntity(id: EntityId): Entity {
         assertOpen("get entity")
-
-        val managedEntity = managedEntities[id]
-        return managedEntity
-                ?: newEntity(transientChangesTracker.snapshot.getEntity(id))
+        if (id in loadedIds) {
+            return newEntityImpl(persistentStore.getEntity(id))
+        }
+        return newEntityImpl(transientChangesTracker.snapshot.getEntity(id).also {
+            addLoadedId(id)
+        })
     }
 
     override fun toEntityId(representation: String): EntityId {
@@ -309,7 +302,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     private fun replayChanges() {
         initChangesTracker(readonly = false)
         // some of managed entities could be deleted
-        managedEntities.clear()
+        loadedIds = EntityIdSetFactory.newSet()
         changes.forEach { it() }
     }
 
@@ -383,50 +376,29 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
      */
     override fun newLocalCopy(entity: TransientEntity): TransientEntity {
         assertOpen("create local copy")
+        val tracker = transientChangesTracker
         return when {
             entity.isReadonly || entity.isWrapper -> entity
-            transientChangesTracker.isRemoved(entity) -> {
-                // optimization: in-lined entity.isRemoved()
+            tracker.isRemoved(entity) -> {
                 logger.warn { "Entity [$entity] was removed by you." }
                 throw EntityRemovedException(entity)
             }
-            transientChangesTracker.isNew(entity) -> {
-                // optimization: in-lined entity.isNew()
+            tracker.isNew(entity) -> entity
+            else -> {
                 val entityId = entity.id
-                if (managedEntities[entityId] !== entity)
-                    throw IllegalStateException("Entity in state New was not created in this session. $entity")
-
-                // was created in this session and session wasn't reverted
-                entity
-            }
-            transientChangesTracker.isSaved(entity) -> {
-                // optimization: in-lined entity.isSaved()
-                val entityId = entity.id
-                val localCopy = managedEntities[entityId]
-                if (localCopy === entity) {
-                    // was created in this session and session wasn't reverted
-                    entity
-                } else if (localCopy != null) {
-                    // saved entity from another session or from reverted session - load it from database by id
-                    // local copy already created?
-                    if (transientChangesTracker.isRemoved(localCopy)) {
-                        // optimization: in-lined localCopy.isRemoved()
-                        logger.warn { "Local copy of entity [$entity] was removed by you." }
-                        throw EntityRemovedException(entity)
-                    } else {
-                        localCopy
+                if (entityId in loadedIds) {
+                    return entity
+                }
+                try {
+                    // load persistent entity from database by id
+                    newEntity(persistentTransactionInternal.getEntity(entityId)).also {
+                        addLoadedId(entityId)
                     }
-                } else {
-                    try {
-                        // load persistent entity from database by id
-                        newEntity(persistentTransactionInternal.getEntity(entityId))
-                    } catch (e: EntityRemovedInDatabaseException) {
-                        logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
-                        throw e
-                    }
+                } catch (e: EntityRemovedInDatabaseException) {
+                    logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
+                    throw e
                 }
             }
-            else -> throw IllegalStateException("Cannot create local copy of entity (unexpected state) [$entity]")
         }
     }
 
@@ -437,36 +409,21 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
      * @return true if e was removed, false if it wasn't removed at all
      */
     override fun isRemoved(entity: Entity): Boolean {
-        var entityId: EntityId? = null
         if (entity is TransientEntity && state == State.Open) {
             if (entity.isWrapper) {
                 return entity.isRemoved
             }
-            // transientEntity.isSaved() in-lined:
-            if (transientChangesTracker.isSaved(entity)) {
-                // saved entity from another session or from reverted session
-                entityId = entity.getId()
-                val localCopy = managedEntities[entityId]
-                if (localCopy !== entity) {
-                    // local copy already created?
-                    // localCopy.isRemoved() in-lined:
-                    if (localCopy != null && transientChangesTracker.isRemoved(localCopy)) {
-                        return true
-                    }
-                }
-            } else if (transientChangesTracker.isRemoved(entity)) {
-                // transientEntity.isRemoved() in-lined:
+            if (transientChangesTracker.isRemoved(entity)) {
                 return true
             } else if (entity.isReadonly || transientChangesTracker.isNew(entity)) {
-                // transientEntity.isNew() in-lined:
                 return false
             }
         }
-        // load persistent entity from database by id
-        if (entityId == null) {
-            entityId = entity.id
-        }
-        return persistentStore.getLastVersion(persistentTransactionInternal, entityId) < 0
+        return persistentStore.getLastVersion(persistentTransactionInternal, entity.id) < 0
+    }
+
+    private fun addLoadedId(id: EntityId) {
+        loadedIds = loadedIds.add(id)
     }
 
     /**
@@ -798,7 +755,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
 
         if (changesDescr.isEmpty()) return
 
-        logger.debug("Notify before flush after constraints check listeners " + this)
+        logger.debug { "Notify before flush after constraints check listeners $this" }
 
         // check side effects in listeners
         val changesCount = changes.size
@@ -813,21 +770,21 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         return if (persistent is ReadOnlyPersistentEntity) {
             ReadonlyTransientEntityImpl(persistent, store)
         } else {
-            managedEntities.getOrPut(persistent.id) { TransientEntityImpl(persistent, getStore()) }
+            TransientEntityImpl(persistent, getStore())
         }
     }
 
     internal fun createEntity(transientEntity: TransientEntityImpl, type: String) {
         val persistentEntity = persistentTransaction.newEntity(type)
         transientEntity.persistentEntity = persistentEntity
-        managedEntities[transientEntity.id] = transientEntity
+        addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(transientEntity)
         addChange { saveEntityInternal(persistentEntity, transientEntity) }
     }
 
     private fun saveEntityInternal(persistentEntity: PersistentEntity, e: TransientEntityImpl): Boolean {
         persistentTransaction.saveEntity(persistentEntity)
-        managedEntities[e.id] = e
+        addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(e)
         return true
     }
@@ -851,7 +808,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
                 false
             }
         }
-        managedEntities[transientEntity.id] = transientEntity
+        addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(transientEntity)
         try {
             allowRunnables = false
@@ -873,7 +830,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             } else {
                 upgradeReadonlyTransactionIfNecessary()
                 // somebody deleted our (initially found) entity! we need to create some again
-                transientEntity.persistentEntity = persistentTransaction.newEntity(creator.type) as PersistentEntity
+                transientEntity.persistentEntity = persistentTransaction.newEntity(creator.type)
                 transientChangesTracker.entityAdded(transientEntity)
                 try {
                     allowRunnables = false
@@ -1321,10 +1278,10 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         if (entity == null) {
             return null
         }
-        try {
-            return newLocalCopy(entity)
+        return try {
+            newLocalCopy(entity)
         } catch (ignore: EntityRemovedInDatabaseException) {
-            return null
+            null
         }
 
     }
@@ -1336,10 +1293,10 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         return change
     }
 
-    internal enum class State(name: String) {
-        Open("open"),
-        Committed("committed"),
-        Aborted("aborted")
+    internal enum class State {
+        Open,
+        Committed,
+        Aborted
     }
 
     private fun forAllListeners(rethrowException: Boolean = false, event: (TransientStoreSessionListener) -> Unit) {
