@@ -111,11 +111,14 @@ class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransact
     }
 
     override fun linksRemoved(source: TransientEntity, linkName: String, links: Iterable<Entity>) {
-        entityChanged(source)
-
-        val (_, linkChange) = getLinkChange(source, linkName)
-        links.forEach {
-            addRemoved(linkChange, it as TransientEntity)
+        links.iterator().let {
+            if (it.hasNext()) {
+                entityChanged(source)
+                val (_, linkChange) = getLinkChange(source, linkName)
+                do {
+                    addRemoved(linkChange, it.next() as TransientEntity)
+                } while (it.hasNext())
+            }
         }
     }
 
