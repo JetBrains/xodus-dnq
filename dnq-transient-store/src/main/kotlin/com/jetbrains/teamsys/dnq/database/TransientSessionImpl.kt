@@ -24,7 +24,6 @@ import jetbrains.exodus.database.exceptions.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
-import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.query.metadata.EntityMetaData
 import jetbrains.exodus.query.metadata.Index
 import mu.KLogging
@@ -126,15 +125,14 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         val currentTxn = persistentTransactionInternal
         if (!readonly && currentTxn.isReadonly) {
             val persistentStore = persistentStore
-            if (persistentStore.environment.environmentConfig.envIsReadonly) {
-                throw ReadonlyTransactionException("Can't upgrade transient transaction in read-only mode")
+            if (!persistentStore.environment.environmentConfig.envIsReadonly) {
+                upgradeHook?.run()
+                val roTxn = currentTxn as ReadonlyPersistentStoreTransaction
+                val newTxn = roTxn.upgradedTransaction
+                persistentStore.registerTransaction(newTxn)
+                changesTracker = this.transientChangesTracker.upgrade()
+                txnWhichWasUpgraded = roTxn
             }
-            upgradeHook?.run()
-            val roTxn = currentTxn as ReadonlyPersistentStoreTransaction
-            val newTxn = roTxn.upgradedTransaction
-            persistentStore.registerTransaction(newTxn)
-            changesTracker = this.transientChangesTracker.upgrade()
-            txnWhichWasUpgraded = roTxn
         }
     }
 
