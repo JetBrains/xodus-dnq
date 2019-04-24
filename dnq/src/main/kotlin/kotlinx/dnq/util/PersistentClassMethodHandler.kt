@@ -17,20 +17,23 @@ package kotlinx.dnq.util
 
 import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
 import com.jetbrains.teamsys.dnq.database.IncomingLinkViolation
+import com.jetbrains.teamsys.dnq.database.PerEntityIncomingLinkViolation
+import com.jetbrains.teamsys.dnq.database.PerTypeIncomingLinkViolation
 import javassist.util.proxy.MethodHandler
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.link.OnDeletePolicy
-import com.jetbrains.teamsys.dnq.database.PerEntityIncomingLinkViolation
-import com.jetbrains.teamsys.dnq.database.PerTypeIncomingLinkViolation
 import kotlinx.dnq.simple.RequireIfConstraint
 import kotlinx.dnq.wrapper
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.LinkedHashMap
 import kotlin.reflect.jvm.javaGetter
+
+private val xdMethodCache = ConcurrentHashMap<Method, Method?>()
 
 class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: XdNaturalEntityType<*>, xdHierarchyNode: XdHierarchyNode) : MethodHandler {
     val xdEntityClass = xdEntityType.enclosingEntityClass
@@ -139,11 +142,13 @@ class PersistentClassMethodHandler(self: BasePersistentClassImpl, xdEntityType: 
     }
 
     private fun findNaturalMethod(method: Method): Method? {
-        val xdArgTypes = method.parameterTypes.let { Arrays.copyOf(it, it.size - 1) }
-        return try {
-            xdEntityClass.getMethod(method.name, *xdArgTypes)
-        } catch (e: NoSuchMethodException) {
-            null
+        return xdMethodCache.getOrPut(method) {
+            val xdArgTypes = method.parameterTypes.let { it.copyOf(it.size - 1) }
+            return try {
+                xdEntityClass.getMethod(method.name, *xdArgTypes)
+            } catch (e: NoSuchMethodException) {
+                null
+            }
         }
     }
 

@@ -101,10 +101,8 @@ object XdModel : KLogging() {
                 logger.warn(e) { "can't get extension delegate of '$it'" }
                 null
             }
-            if (delegate == null) {
-                throw UnsupportedOperationException("Property $it cannot be registered because it is not extension property. " +
-                        "Not extension properties are registered based on XdEntities fields")
-            }
+            delegate ?: throw UnsupportedOperationException("Property $it cannot be registered because it is not extension property. " +
+                    "Not extension properties are registered based on XdEntities fields")
             val receiverClass = it.extensionReceiverParameter?.type?.jvmErasure?.java
             if (receiverClass != null && XdEntity::class.java.isAssignableFrom(receiverClass)) {
                 @Suppress("UNCHECKED_CAST")
