@@ -123,7 +123,7 @@ object XdModel : KLogging() {
 
     @Deprecated("Use toXd(entity) instead. May be removed after 01.09.2017", ReplaceWith("toXd(entity)"))
     fun wrap(entity: Entity): XdEntity {
-        val hierarchyNode = XdModel.getOrThrow(entity.type)
+        val hierarchyNode = getOrThrow(entity.type)
         return hierarchyNode.entityType.wrap(entity)
     }
 
