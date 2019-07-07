@@ -29,7 +29,7 @@ if (project.hasProperty('ossrhUser') && project.hasProperty('ossrhPassword')) {
                         licenses {
                             license {
                                 name = 'Apache 2.0'
-                                url = 'http://www.apache.org/licenses/'
+                                url = 'https://www.apache.org/licenses/'
                                 distribution = 'repo'
                             }
                         }
@@ -38,7 +38,7 @@ if (project.hasProperty('ossrhUser') && project.hasProperty('ossrhPassword')) {
                                 id = 'JetBrains'
                                 name = 'JetBrains Team'
                                 organization = 'JetBrains s.r.o'
-                                organizationUrl = 'http://www.jetbrains.com'
+                                organizationUrl = 'https://www.jetbrains.com'
                             }
                         }
                         scm {
