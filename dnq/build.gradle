@@ -14,7 +14,7 @@ dependencies {
     compile "org.jetbrains.xodus:xodus-utils:$exodus_version"
     
     compile "org.reflections:reflections:0.9.10"
-    compile 'com.google.guava:guava:22.0'
+    compile 'com.google.guava:guava:28.0-jre'
     compile "org.javassist:javassist:3.23.1-GA"
     compile "javax.servlet:javax.servlet-api:3.0.1"
     compile 'com.github.mazine:infer-hierarchy-type-parameter:1.2.0'
