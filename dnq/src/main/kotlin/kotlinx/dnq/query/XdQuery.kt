@@ -547,6 +547,51 @@ fun <T : XdEntity> XdQuery<T>.firstOrNull(node: NodeBase): T? {
 }
 
 /**
+ * Returns the last result of the query.
+ * @throws [NoSuchElementException] if the query is empty.
+ */
+fun <T : XdEntity> XdQuery<T>.last(): T {
+    return lastOrNull() ?: throw NoSuchElementException("Query is empty.")
+}
+
+/**
+ * Returns the last result of the query that match the given [node] predicate.
+ *
+ * @param node object that defines an abstract syntax tree of filtering predicate expression.
+ * @throws [NoSuchElementException] if the query is empty.
+ * @see query
+ */
+fun <T : XdEntity> XdQuery<T>.last(node: NodeBase): T {
+    return query(node).last()
+}
+
+/**
+ * Returns the last result of the query, or `null` if the query is empty.
+ */
+fun <T : XdEntity> XdQuery<T>.lastOrNull(): T? {
+    val it = queryEngine.toEntityIterable(entityIterable)
+    return if (it is EntityIterableBase) {
+        it.source.last?.let {
+            entityType.entityStore.session.newEntity(it)
+        }
+    } else {
+        it.lastOrNull()
+    }?.let {
+        entityType.wrap(it)
+    }
+}
+
+/**
+ * Returns the last result of the query that match the given [node] predicate, or `null` if no result match the predicate.
+ *
+ * @param node object that defines an abstract syntax tree of filtering predicate expression.
+ * @see query
+ */
+fun <T : XdEntity> XdQuery<T>.lastOrNull(node: NodeBase): T? {
+    return query(node).lastOrNull()
+}
+
+/**
  * Returns the single query result, or throws an exception if the query is empty or has more than one result.
  */
 fun <T : XdEntity> XdQuery<T>.single(): T {

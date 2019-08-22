@@ -23,6 +23,7 @@ import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.first
+import kotlinx.dnq.query.last
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -109,6 +110,7 @@ class AssociationConstraintsTest : DBTest() {
             assertQuery(Issue.all()).hasSize(1)
 
             assertThat(Issue.all().first().user).isEqualTo(User.all().first())
+            assertThat(Issue.all().last().user).isEqualTo(User.all().last())
             user.delete()
         }
         transactional {
