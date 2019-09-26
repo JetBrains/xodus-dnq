@@ -170,11 +170,13 @@ fun XdHierarchyNode.getAllLinks(): Sequence<XdHierarchyNode.LinkProperty> {
 }
 
 private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchyNode>, entityTypeName: String, sourceEnd: XdHierarchyNode.LinkProperty, sourceNode: XdHierarchyNode) {
+    val oppositeEntityType = sourceEnd.delegate.oppositeEntityType
+
     when (sourceEnd.delegate.endType) {
         AssociationEndType.DirectedAssociationEnd -> {
             addLink(
                     sourceEntityName = entityTypeName,
-                    targetEntityName = sourceEnd.delegate.oppositeEntityType.entityType,
+                    targetEntityName = oppositeEntityType.entityType,
                     type = AssociationType.Directed,
 
                     sourceName = sourceEnd.dbPropertyName,
@@ -193,11 +195,15 @@ private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchy
         }
         AssociationEndType.UndirectedAssociationEnd -> {
             val targetEnd = getTargetEnd(hierarchy, sourceEnd.delegate)
-            val targetEntityType = sourceEnd.delegate.oppositeEntityType.entityType
-            if (targetEnd != null && (entityTypeName < targetEntityType || (entityTypeName == targetEntityType && sourceEnd.dbPropertyName <= targetEnd.dbPropertyName))) {
+            val targetEntityType = oppositeEntityType.entityType
+            val sourceEntityType = sourceNode.entityType
+            if (targetEnd != null && (entityTypeName < targetEntityType ||
+                            (entityTypeName == targetEntityType && sourceEnd.dbPropertyName <= targetEnd.dbPropertyName) ||
+                            (oppositeEntityType !is XdNaturalEntityType && sourceEntityType is XdNaturalEntityType))
+            ) {
                 addLink(
                         sourceEntityName = entityTypeName,
-                        targetEntityName = sourceEnd.delegate.oppositeEntityType.entityType,
+                        targetEntityName = oppositeEntityType.entityType,
                         type = AssociationType.Undirected,
 
                         sourceName = sourceEnd.dbPropertyName,
@@ -220,7 +226,7 @@ private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchy
             if (targetEnd != null) {
                 addLink(
                         sourceEntityName = entityTypeName,
-                        targetEntityName = sourceEnd.delegate.oppositeEntityType.entityType,
+                        targetEntityName = oppositeEntityType.entityType,
                         type = AssociationType.Aggregation,
 
                         sourceName = sourceEnd.dbPropertyName,
@@ -242,10 +248,10 @@ private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchy
         AssociationEndType.ChildEnd -> { // only add when natural child has a legacy parent
             val targetEnd = getTargetEnd(hierarchy, sourceEnd.delegate)
             if (targetEnd != null && sourceNode.entityType is XdNaturalEntityType) {
-                val oppositeType = hierarchy[sourceEnd.delegate.oppositeEntityType.entityType]?.entityType
+                val oppositeType = hierarchy[oppositeEntityType.entityType]?.entityType
                 if (oppositeType != null && oppositeType !is XdNaturalEntityType) {
                     addLink(
-                            sourceEntityName = sourceEnd.delegate.oppositeEntityType.entityType,
+                            sourceEntityName = oppositeEntityType.entityType,
                             targetEntityName = entityTypeName,
                             type = AssociationType.Aggregation,
 
