@@ -925,6 +925,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
                     transientChangesTracker.removePropertyChanged(transientEntity, blobName)
                 } else {
                     transientChangesTracker.propertyChanged(transientEntity, blobName)
+                    oldValue.close()
                 }
                 true
             } else {
