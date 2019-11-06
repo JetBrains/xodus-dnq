@@ -19,7 +19,7 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.creator.findOrNew
-import kotlinx.dnq.enum.XdEnumEntityType
+import kotlinx.dnq.XdEnumEntityType
 import kotlinx.dnq.query.*
 import kotlinx.dnq.simple.email
 import kotlinx.dnq.store.container.StaticStoreContainer

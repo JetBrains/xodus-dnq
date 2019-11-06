@@ -17,7 +17,6 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.enum.XdEnumEntityType
 import kotlinx.dnq.query.toList
 import org.junit.Test
 

@@ -13,13 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq.enum
+package kotlinx.dnq
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.database.TransientStoreSession
-import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.XdEnumEntity
-import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.firstOrNull
 import kotlinx.dnq.query.query

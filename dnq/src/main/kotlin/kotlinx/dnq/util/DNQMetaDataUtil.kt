@@ -19,7 +19,7 @@ import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.query.metadata.*
 import kotlinx.dnq.XdNaturalEntityType
-import kotlinx.dnq.enum.XdEnumEntityType
+import kotlinx.dnq.XdEnumEntityType
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.simple.RequireIfConstraint
