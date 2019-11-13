@@ -180,6 +180,7 @@ abstract class DBTest {
         }
         store.close()
         store.persistentStore.close()
+        store.persistentStore.environment.close()
     }
 
     protected fun createAsyncProcessor(): JobProcessor {
