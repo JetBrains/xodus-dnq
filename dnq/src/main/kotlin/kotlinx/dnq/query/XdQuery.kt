@@ -252,6 +252,17 @@ fun <T : XdEntity> XdEntityType<T>.query(node: NodeBase): XdQuery<T> {
 }
 
 /**
+ * Represents an iterable as a query.
+ * Should be used when queries are mixed with custom iterables to make query tree optimization possible.
+ *
+ * @param it arbitrary iterable of entities.
+ * @see query
+ */
+fun <T : XdEntity> XdEntityType<T>.query(it: Iterable<Entity>): XdQuery<T> {
+    return all().query(IterableDecorator(it))
+}
+
+/**
  * Returns a new query containing all results of `this` query that are instances of the given [entityType].
  */
 fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S>): XdQuery<S> {
@@ -426,7 +437,8 @@ fun <T : XdEntity> XdQuery<T>.distinct(): XdQuery<T> {
  * Returns a new query containing distinct values of the property [dbFieldName] of each result of `this` query.
  */
 fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(dbFieldName: String, targetEntityType: XdEntityType<T>): XdQuery<T> {
-    return queryEngine.selectDistinct(entityIterable, dbFieldName).filterNotNull(targetEntityType).asQuery(targetEntityType)
+    return queryEngine.query(targetEntityType.entityType,
+            IterableDecorator(queryEngine.selectDistinct(entityIterable, dbFieldName).filterNotNull(targetEntityType))).asQuery(targetEntityType)
 }
 
 private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterable<Entity> {
@@ -448,7 +460,8 @@ fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(field: KProperty1<S, T?>
  * Returns a new query of all elements yielded from values of property [dbFieldName] of each result of `this` query.
  */
 fun <S : XdEntity, T : XdEntity> XdQuery<S>.flatMapDistinct(dbFieldName: String, targetEntityType: XdEntityType<T>): XdQuery<T> {
-    return queryEngine.selectManyDistinct(entityIterable, dbFieldName).filterNotNull(targetEntityType).asQuery(targetEntityType)
+    return queryEngine.query(targetEntityType.entityType,
+            IterableDecorator(queryEngine.selectManyDistinct(entityIterable, dbFieldName).filterNotNull(targetEntityType))).asQuery(targetEntityType)
 }
 
 /**
