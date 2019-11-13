@@ -91,6 +91,8 @@ class ThreadLocalStoreContainerTest {
     private fun deleteStore(store: TransientEntityStore) {
         store.close()
         store.persistentStore.close()
+        store.persistentStore.environment.clear()
+        store.persistentStore.environment.close()
     }
 
     @Test
