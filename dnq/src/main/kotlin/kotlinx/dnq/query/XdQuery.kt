@@ -158,6 +158,7 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
  *
  * Null elements are ignored, e.g. `queryOf(null)` returns an empty query.
  */
+@Deprecated("Instead use <T : XdEntity> XdEntityType<T>.query(elements: Iterable<T?>)")
 inline fun <reified T : XdEntity> XdEntityType<T>.queryOf(elements: Iterable<T?>): XdQuery<T> {
     return queryOf(*elements.toList().toTypedArray())
 }
@@ -258,8 +259,19 @@ fun <T : XdEntity> XdEntityType<T>.query(node: NodeBase): XdQuery<T> {
  * @param it arbitrary iterable of entities.
  * @see query
  */
-fun <T : XdEntity> XdEntityType<T>.query(it: Iterable<Entity>): XdQuery<T> {
+inline fun <reified T : XdEntity> XdEntityType<T>.queryEntities(it: Iterable<Entity>): XdQuery<T> {
     return all().query(IterableDecorator(it))
+}
+
+/**
+ * Represents an iterable as a query.
+ * Should be used when queries are mixed with custom iterables to make query tree optimization possible.
+ *
+ * @param it arbitrary iterable of entities.
+ * @see query
+ */
+inline fun <reified T : XdEntity> XdEntityType<T>.query(it: Iterable<T?>): XdQuery<T> {
+    return all().query(IterableDecorator(it.filterNotNull().map { it.entity }))
 }
 
 /**
