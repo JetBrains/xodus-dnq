@@ -126,7 +126,11 @@ fun <T : XdEntity> XdEntityType<T>.emptyQuery(): XdQuery<T> {
     return XdQueryImpl(it, this)
 }
 
-private fun <T : XdEntity> XdEntityType<T>.singleton(element: Entity?): Iterable<Entity> {
+fun <T : XdEntity> XdEntityType<T>.singleton(element: T?): XdQuery<T> {
+    return queryEntities(singletonOf(element?.entity))
+}
+
+private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterable<Entity> {
     if (element == null) {
         return EntityIterableBase.EMPTY
     }
@@ -145,7 +149,7 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
     val queryEngine = entityStore.queryEngine
     val union = elements.fold<T?, Iterable<Entity>>(EntityIterableBase.EMPTY) { union, element ->
         if (element != null) {
-            queryEngine.union(union, singleton(element.entity))
+            queryEngine.union(union, singletonOf(element.entity))
         } else {
             union
         }
@@ -259,7 +263,7 @@ fun <T : XdEntity> XdEntityType<T>.query(node: NodeBase): XdQuery<T> {
  * @param it arbitrary iterable of entities.
  * @see query
  */
-inline fun <reified T : XdEntity> XdEntityType<T>.queryEntities(it: Iterable<Entity>): XdQuery<T> {
+fun <T : XdEntity> XdEntityType<T>.queryEntities(it: Iterable<Entity>): XdQuery<T> {
     return all().query(IterableDecorator(it))
 }
 
