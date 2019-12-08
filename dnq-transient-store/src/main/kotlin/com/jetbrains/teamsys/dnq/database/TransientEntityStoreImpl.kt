@@ -141,7 +141,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
 
         eventsMultiplexer?.onClose(this)
 
-        logger.info { "Close transient store." }
+        logger.debug { "Close transient store." }
         closed = true
 
         val sessionsSize = sessions.size

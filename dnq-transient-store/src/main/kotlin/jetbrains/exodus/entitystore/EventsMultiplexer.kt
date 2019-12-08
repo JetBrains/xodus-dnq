@@ -128,7 +128,7 @@ open class EventsMultiplexer @JvmOverloads constructor(val asyncJobProcessor: Jo
     }
 
     fun close() {
-        logger.info { "Cleaning EventsMultiplexer listeners" }
+        logger.debug { "Cleaning EventsMultiplexer listeners" }
 
         val notClosedListeners = rwl.write {
             isOpen = false
