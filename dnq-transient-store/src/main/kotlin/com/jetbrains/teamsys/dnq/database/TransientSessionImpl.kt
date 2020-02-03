@@ -24,6 +24,7 @@ import jetbrains.exodus.database.exceptions.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
+import jetbrains.exodus.env.TransactionFinishedException
 import jetbrains.exodus.query.metadata.EntityMetaData
 import jetbrains.exodus.query.metadata.Index
 import mu.KLogging
@@ -732,10 +733,8 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
                 ep.flushed(this, oldChangesTracker, changesDescription)
             } catch (e: Exception) {
                 logger.error("Exception while inside events multiplexer", e)
-
                 oldChangesTracker.dispose()
             }
-
         } else {
             oldChangesTracker.dispose()
         }
@@ -1307,7 +1306,11 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
                 if (rethrowException) {
                     throw e
                 } else {
-                    logger.error(e) { "Exception while inside listener [$listener]" }
+                    if (e is TransactionFinishedException && e.trace != null) {
+                        logger.error(e.trace) { "Transaction was early finished inside listener" }
+                    } else {
+                        logger.error(e) { "Exception inside listener [$listener]" }
+                    }
                 }
             }
         }
