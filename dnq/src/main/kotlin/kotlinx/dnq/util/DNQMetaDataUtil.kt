@@ -60,7 +60,7 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
             node.linkProperties.forEach {
                 if (it.value.property == extension) {
                     // will add all data to sub types automatically
-                    modelMetaData.addLinkMetaData(hierarchy, node.entityType.entityType, property, node)
+                    modelMetaData.addLinkMetaData(hierarchy, node.entityType.entityType, it.value, node)
                 }
             }
         }
