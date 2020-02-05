@@ -39,6 +39,7 @@ object XdModel : KLogging() {
     private val monitor = Object()
     private val scannedLocations = HashSet<String>()
     val hierarchy = HashMap<String, XdHierarchyNode>()
+    internal val plugins = ArrayList<XdModelPlugin>()
 
     operator fun get(entityType: XdEntityType<*>) = get(entityType.entityType)
 
@@ -93,6 +94,7 @@ object XdModel : KLogging() {
     }
 
     private fun installPlugin(plugin: XdModelPlugin) {
+        plugins.add(plugin)
         plugin.typeExtensions.forEach {
             val delegate = try {
                 it.isAccessible = true

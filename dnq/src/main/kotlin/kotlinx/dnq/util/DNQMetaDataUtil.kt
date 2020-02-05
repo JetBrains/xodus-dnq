@@ -18,8 +18,9 @@ package kotlinx.dnq.util
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.query.metadata.*
-import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.XdEnumEntityType
+import kotlinx.dnq.XdModel
+import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink
 import kotlinx.dnq.simple.RequireIfConstraint
@@ -78,7 +79,27 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
             it.get()
         }
     }
+    val deprecatedNodes = hierarchy.filter {
+        it.value.entityType !is XdNaturalEntityType<*>
+    }
+    XdModel.plugins.flatMap { it.typeExtensions }.forEach { extension ->
+        deprecatedNodes.values.forEach { node ->
+            node.linkProperties.forEach {
+                if (it.value.property == extension) {
+                    processNodeExplicitly(hierarchy, node, modelMetaData, it.value)
+                }
+            }
+        }
+    }
 }
+
+private fun processNodeExplicitly(hierarchy: Map<String, XdHierarchyNode>, node: XdHierarchyNode, modelMetaData: ModelMetaDataImpl, property: XdHierarchyNode.LinkProperty) {
+    modelMetaData.addLinkMetaData(hierarchy, node.entityType.entityType, property, node)
+    node.children.forEach { child ->
+        processNodeExplicitly(hierarchy, child, modelMetaData, property)
+    }
+}
+
 
 private fun TransientEntityStore.registerCustomTypes(node: XdHierarchyNode) {
     node.getAllProperties()
