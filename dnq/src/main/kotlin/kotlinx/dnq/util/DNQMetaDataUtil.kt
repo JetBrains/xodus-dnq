@@ -52,6 +52,19 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
             modelMetaData.addLinkMetaData(hierarchy, entityTypeName, sourceEnd, node)
         }
     }
+    val deprecatedNodes = hierarchy.filter {
+        it.value.entityType !is XdNaturalEntityType<*>
+    }
+    XdModel.plugins.flatMap { it.typeExtensions }.forEach { extension ->
+        deprecatedNodes.values.forEach { node ->
+            node.linkProperties.forEach {
+                if (it.value.property == extension) {
+                    // will add all data to sub types automatically
+                    modelMetaData.addLinkMetaData(hierarchy, node.entityType.entityType, property, node)
+                }
+            }
+        }
+    }
 
     /**
      * This explicitly prepares all data structures within model metadata. If we don't invoke
@@ -78,25 +91,6 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
         }.filterIsInstance<XdSingletonEntityType<*>>().forEach {
             it.get()
         }
-    }
-    val deprecatedNodes = hierarchy.filter {
-        it.value.entityType !is XdNaturalEntityType<*>
-    }
-    XdModel.plugins.flatMap { it.typeExtensions }.forEach { extension ->
-        deprecatedNodes.values.forEach { node ->
-            node.linkProperties.forEach {
-                if (it.value.property == extension) {
-                    processNodeExplicitly(hierarchy, node, modelMetaData, it.value)
-                }
-            }
-        }
-    }
-}
-
-private fun processNodeExplicitly(hierarchy: Map<String, XdHierarchyNode>, node: XdHierarchyNode, modelMetaData: ModelMetaDataImpl, property: XdHierarchyNode.LinkProperty) {
-    modelMetaData.addLinkMetaData(hierarchy, node.entityType.entityType, property, node)
-    node.children.forEach { child ->
-        processNodeExplicitly(hierarchy, child, modelMetaData, property)
     }
 }
 
