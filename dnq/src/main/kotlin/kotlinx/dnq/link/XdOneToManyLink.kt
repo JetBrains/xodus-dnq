@@ -16,6 +16,8 @@
 package kotlinx.dnq.link
 
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.query.LinkEqual
+import jetbrains.exodus.query.TreeKeepingEntityIterable
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
@@ -47,22 +49,26 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(oppositeEntityType) {
             override val entityIterable: Iterable<Entity>
-                get() = thisRef.reattach().getLinks(property.dbName)
+                get() = try {
+                    TreeKeepingEntityIterable(null, oppositeEntityType.entityType, LinkEqual(oppositeLinkName(), thisRef.reattach()), oppositeEntityType.entityStore.queryEngine)
+                } catch (_: UnsupportedOperationException) {
+                    // to support weird FakeTransientEntity
+                    thisRef.reattach().getLinks(property.dbName)
+                }
 
             override fun add(entity: T) {
-                entity.reattach().setManyToOne(dbOppositePropertyName
-                        ?: oppositeField.name, property.dbName, thisRef.reattach())
+                entity.reattach().setManyToOne(oppositeLinkName(), property.dbName, thisRef.reattach())
             }
 
             override fun remove(entity: T) {
-                thisRef.reattach().removeOneToMany(dbOppositePropertyName
-                        ?: oppositeField.name, property.dbName, entity.reattach())
+                thisRef.reattach().removeOneToMany(oppositeLinkName(), property.dbName, entity.reattach())
             }
 
             override fun clear() {
-                thisRef.reattach().clearOneToMany(dbOppositePropertyName ?: oppositeField.name, property.dbName)
+                thisRef.reattach().clearOneToMany(oppositeLinkName(), property.dbName)
             }
 
+            private fun oppositeLinkName() = dbOppositePropertyName ?: oppositeField.name
         }
     }
 

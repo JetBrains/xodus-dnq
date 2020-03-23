@@ -16,6 +16,8 @@
 package kotlinx.dnq.link
 
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.query.LinkEqual
+import jetbrains.exodus.query.TreeKeepingEntityIterable
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
@@ -44,7 +46,12 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(oppositeEntityType) {
             override val entityIterable: Iterable<Entity>
-                get() = thisRef.reattach().getLinks(property.name)
+                get() = try {
+                    TreeKeepingEntityIterable(null, oppositeEntityType.entityType, LinkEqual(oppositeField.name, thisRef.reattach()), oppositeEntityType.entityStore.queryEngine)
+                } catch (_: UnsupportedOperationException) {
+                    // to support weird FakeTransientEntity
+                    thisRef.reattach().getLinks(property.name)
+                }
 
             override fun add(entity: T) {
                 thisRef.reattach().addChild(property.name, oppositeField.name, entity.reattach())
