@@ -17,8 +17,14 @@ package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import java.math.BigInteger
 
 interface TransientChangesTracker {
+
+    /**
+     * Hash function of all changes.
+     */
+    val changesHash: BigInteger
 
     /**
      * Return description of all changes

@@ -21,8 +21,12 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityChange
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import java.math.BigInteger
 
 class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransaction?) : TransientChangesTracker {
+
+    override val changesHash: BigInteger
+        get() = BigInteger.ZERO
 
     override val changesDescription: Set<TransientEntityChange>
         get() = emptySet()
@@ -31,7 +35,8 @@ class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: PersistentStore
         get() = 0
 
     override val snapshot: PersistentStoreTransaction
-        get() = _snapshot ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
+        get() = _snapshot
+                ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
 
     override val changedEntities: Set<TransientEntity>
         get() = emptySet()

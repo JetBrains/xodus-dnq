@@ -25,6 +25,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
+import java.math.BigInteger
 
 import java.util.*
 
@@ -51,6 +52,34 @@ class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransact
     private val removedFrom = HashMapDecorator<TransientEntity, MutableList<LinkChange>>()
     private val entityToChangedLinksDetailed = HashMapDecorator<TransientEntity, MutableMap<String, LinkChange>>()
     private val entityToChangedProperties = HashMapDecorator<TransientEntity, MutableSet<String>>()
+
+    // do not take into consideration RemovedNew entities - such entities was created and removed during same transaction
+    override val changesHash: BigInteger
+        get() = changedEntities
+                .filterNot { it.id in addedEntities && it.id in removedEntities }
+                .sortedBy { it.id }
+                .fold(BigInteger.ZERO) { hc, entity ->
+                    var h = hc.applyHashCoode(entity.id).applyHashCoode(getEntityChangeType(entity))
+                    getChangedProperties(entity)?.sorted()?.forEach { propertyName ->
+                        h = h.applyHashCoode(propertyName)
+                    }
+                    getChangedLinksDetailed(entity)?.values?.sortedBy { it.linkName }?.forEach { linkChange ->
+                        h = h.applyHashCoode(linkChange.changeType)
+                        h = h.applyHashCoode(linkChange.addedEntitiesSize)
+                        h = h.applyHashCoode(linkChange.removedEntitiesSize)
+                        h = h.applyHashCoode(linkChange.deletedEntitiesSize)
+                        linkChange.addedEntities?.map { it.id }?.sorted()?.forEach { id ->
+                            h = h.applyHashCoode(id)
+                        }
+                        linkChange.removedEntities?.map { it.id }?.sorted()?.forEach { id ->
+                            h = h.applyHashCoode(id)
+                        }
+                        linkChange.deletedEntities?.map { it.id }?.sorted()?.forEach { id ->
+                            h = h.applyHashCoode(id)
+                        }
+                    }
+                    h
+                }
 
     // do not notify about RemovedNew entities - such entities was created and removed during same transaction
     override val changesDescription: Set<TransientEntityChange>
@@ -202,4 +231,15 @@ class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransact
             _snapshot = null
         }
     }
+}
+
+// 2^256 - 1
+private val mod = (BigInteger.ONE shl 256) - BigInteger.ONE
+
+// Eighth Mersenne prime
+private val eighthMersennePrime = (BigInteger.ONE shl 31) - BigInteger.ONE
+
+private fun BigInteger.applyHashCoode(o: Any): BigInteger {
+    val h = if (o is Enum<*>) o.ordinal else o.hashCode()
+    return ((this * eighthMersennePrime) + BigInteger.valueOf(h.toLong())) and mod
 }
