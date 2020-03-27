@@ -59,23 +59,23 @@ class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransact
                 .filterNot { it.id in addedEntities && it.id in removedEntities }
                 .sortedBy { it.id }
                 .fold(BigInteger.ZERO) { hc, entity ->
-                    var h = hc.applyHashCoode(entity.id).applyHashCoode(getEntityChangeType(entity))
+                    var h = hc.applyHashCode(entity.id).applyHashCode(getEntityChangeType(entity))
                     getChangedProperties(entity)?.sorted()?.forEach { propertyName ->
-                        h = h.applyHashCoode(propertyName)
+                        h = h.applyHashCode(propertyName)
                     }
                     getChangedLinksDetailed(entity)?.values?.sortedBy { it.linkName }?.forEach { linkChange ->
-                        h = h.applyHashCoode(linkChange.changeType)
-                        h = h.applyHashCoode(linkChange.addedEntitiesSize)
-                        h = h.applyHashCoode(linkChange.removedEntitiesSize)
-                        h = h.applyHashCoode(linkChange.deletedEntitiesSize)
+                        h = h.applyHashCode(linkChange.changeType)
+                        h = h.applyHashCode(linkChange.addedEntitiesSize)
+                        h = h.applyHashCode(linkChange.removedEntitiesSize)
+                        h = h.applyHashCode(linkChange.deletedEntitiesSize)
                         linkChange.addedEntities?.map { it.id }?.sorted()?.forEach { id ->
-                            h = h.applyHashCoode(id)
+                            h = h.applyHashCode(id)
                         }
                         linkChange.removedEntities?.map { it.id }?.sorted()?.forEach { id ->
-                            h = h.applyHashCoode(id)
+                            h = h.applyHashCode(id)
                         }
                         linkChange.deletedEntities?.map { it.id }?.sorted()?.forEach { id ->
-                            h = h.applyHashCoode(id)
+                            h = h.applyHashCode(id)
                         }
                     }
                     h
@@ -239,7 +239,7 @@ private val mod = (BigInteger.ONE shl 256) - BigInteger.ONE
 // Eighth Mersenne prime
 private val eighthMersennePrime = (BigInteger.ONE shl 31) - BigInteger.ONE
 
-private fun BigInteger.applyHashCoode(o: Any): BigInteger {
+private fun BigInteger.applyHashCode(o: Any): BigInteger {
     val h = if (o is Enum<*>) o.ordinal else o.hashCode()
     return ((this * eighthMersennePrime) + BigInteger.valueOf(h.toLong())) and mod
 }
