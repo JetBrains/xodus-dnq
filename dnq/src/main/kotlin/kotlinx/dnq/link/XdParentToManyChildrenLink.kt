@@ -47,7 +47,13 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
         return object : XdMutableQuery<T>(oppositeEntityType) {
             override val entityIterable: Iterable<Entity>
                 get() = try {
-                    TreeKeepingEntityIterable(null, oppositeEntityType.entityType, LinkEqual(oppositeField.name, thisRef.reattach()), oppositeEntityType.entityStore.queryEngine)
+                    val queryEngine = oppositeEntityType.entityStore.queryEngine
+                    val oppositeType = oppositeEntityType.entityType
+                    if (queryEngine.modelMetaData.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
+                        thisRef.reattach().getLinks(property.name)
+                    } else {
+                        TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.name, thisRef.reattach()), queryEngine)
+                    }
                 } catch (_: UnsupportedOperationException) {
                     // to support weird FakeTransientEntity
                     thisRef.reattach().getLinks(property.name)

@@ -49,12 +49,19 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(oppositeEntityType) {
             override val entityIterable: Iterable<Entity>
-                get() = try {
-                    TreeKeepingEntityIterable(null, oppositeEntityType.entityType, LinkEqual(oppositeLinkName(), thisRef.reattach()), oppositeEntityType.entityStore.queryEngine)
-                } catch (_: UnsupportedOperationException) {
-                    // to support weird FakeTransientEntity
-                    thisRef.reattach().getLinks(property.dbName)
-                }
+                get() =
+                    try {
+                        val queryEngine = oppositeEntityType.entityStore.queryEngine
+                        val oppositeType = oppositeEntityType.entityType
+                        if (queryEngine.modelMetaData.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
+                            thisRef.reattach().getLinks(property.dbName)
+                        } else {
+                            TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeLinkName(), thisRef.reattach()), queryEngine)
+                        }
+                    } catch (_: UnsupportedOperationException) {
+                        // to support weird FakeTransientEntity
+                        thisRef.reattach().getLinks(property.dbName)
+                    }
 
             override fun add(entity: T) {
                 thisRef.reattach().createManyToMany(property.dbName, oppositeLinkName(), entity.reattach())
