@@ -33,7 +33,7 @@ open class TransientEntityImpl : TransientEntity {
     private val store: TransientEntityStore
     private var persistentEntityId: PersistentEntityId? = null
     private var readOnlyPersistentEntity: ReadOnlyPersistentEntity? = null
-    private val entityType: String by lazy { persistentEntity.type }
+    private val entityType: String by lazy(LazyThreadSafetyMode.NONE) { persistentEntity.type }
 
     override var persistentEntity: PersistentEntity
         get() = readOnlyPersistentEntity
