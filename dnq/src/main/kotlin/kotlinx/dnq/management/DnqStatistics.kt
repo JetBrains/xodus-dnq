@@ -6,7 +6,7 @@ import mu.KLogging
 import java.lang.management.ManagementFactory
 import javax.management.ObjectName
 
-const val OBJECT_NAME_PREFIX = "kotlinx.dnq: type=DnqMBean"
+const val OBJECT_NAME_PREFIX = "kotlinx.dnq: type=DnqStatistics"
 
 class DnqStatistics : DnqStatisticsMBean {
 
@@ -14,6 +14,7 @@ class DnqStatistics : DnqStatisticsMBean {
 
     override val delegatesCacheSize: Int
         get() = XdPropertyCachedProvider.cache.size()
+
     override val delegatesCacheHitRate: String
         get() = ObjectCacheBase.formatHitRate(XdPropertyCachedProvider.cache.hitRate())
 
