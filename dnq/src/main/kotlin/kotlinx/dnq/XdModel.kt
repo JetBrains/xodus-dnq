@@ -16,6 +16,7 @@
 package kotlinx.dnq
 
 import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.management.DnqStatistics
 import kotlinx.dnq.query.FakeTransientEntity
 import kotlinx.dnq.util.XdHierarchyNode
 import kotlinx.dnq.util.entityType
@@ -47,6 +48,10 @@ object XdModel : KLogging() {
 
     fun scanPackages(packages: Array<String>) = scanClasspath(JAVA_CLASSPATH) {
         forPackages(*packages)
+    }
+
+    fun exposeJMX(applicationName: String) {
+        DnqStatistics().register(applicationName)
     }
 
     /**
@@ -103,13 +108,15 @@ object XdModel : KLogging() {
                 logger.warn(e) { "can't get extension delegate of '$it'" }
                 null
             }
-            delegate ?: throw UnsupportedOperationException("Property $it cannot be registered because it is not extension property. " +
-                    "Not extension properties are registered based on XdEntities fields")
+            delegate
+                    ?: throw UnsupportedOperationException("Property $it cannot be registered because it is not extension property. " +
+                            "Not extension properties are registered based on XdEntities fields")
             val receiverClass = it.extensionReceiverParameter?.type?.jvmErasure?.java
             if (receiverClass != null && XdEntity::class.java.isAssignableFrom(receiverClass)) {
                 @Suppress("UNCHECKED_CAST")
                 val entityType = (receiverClass as Class<XdEntity>).entityType
-                get(entityType)?.process(it, delegate) ?: throw UnsupportedOperationException("Property $it cannot be registered because of unknown delegate")
+                get(entityType)?.process(it, delegate)
+                        ?: throw UnsupportedOperationException("Property $it cannot be registered because of unknown delegate")
             } else {
                 throw UnsupportedOperationException("Property $it cannot be registered because receiver of incorrect receiver class $receiverClass")
             }
@@ -162,11 +169,6 @@ object XdModel : KLogging() {
         }
 
         return null
-    }
-
-    private fun <T : XdEntity> XdHierarchyNode.asEntityType(): XdEntityType<T>? {
-        @Suppress("UNCHECKED_CAST")
-        return this.entityType as? XdEntityType<T>
     }
 }
 

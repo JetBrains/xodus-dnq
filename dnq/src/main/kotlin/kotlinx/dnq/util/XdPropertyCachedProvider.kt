@@ -25,9 +25,9 @@ class XdPropertyCachedProvider<out D>(private val create: () -> D) {
 
         private val cacheSize = System.getProperty("kotlinx.dnq.delegateProvider.cacheSize", "2000").toInt()
 
-        private val cache = ConcurrentObjectCache<KPropertyHolder, Any>(cacheSize, 2)
+        internal val cache = ConcurrentObjectCache<KPropertyHolder, Any>(cacheSize, 2)
 
-        private class KPropertyHolder(val prop: KProperty<*>) {
+        internal class KPropertyHolder(val prop: KProperty<*>) {
 
             override fun hashCode(): Int {
                 return System.identityHashCode(prop)
@@ -41,7 +41,7 @@ class XdPropertyCachedProvider<out D>(private val create: () -> D) {
 
     operator fun provideDelegate(thisRef: XdEntity?, prop: KProperty<*>): D {
         val key = KPropertyHolder(prop)
-        val instance = cache.getObject(key) ?: return (create()).also {
+        val instance = cache.tryKey(key) ?: return (create()).also {
             cache.cacheObject(key, it!!)
         }
 
