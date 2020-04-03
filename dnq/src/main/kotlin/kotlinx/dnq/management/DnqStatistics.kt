@@ -15,7 +15,6 @@
  */
 package kotlinx.dnq.management
 
-import jetbrains.exodus.core.dataStructures.ObjectCacheBase
 import kotlinx.dnq.util.XdPropertyCachedProvider
 import mu.KLogging
 import java.lang.management.ManagementFactory
@@ -30,8 +29,8 @@ class DnqStatistics : DnqStatisticsMBean {
     override val delegatesCacheSize: Int
         get() = XdPropertyCachedProvider.cache.size()
 
-    override val delegatesCacheHitRate: String
-        get() = ObjectCacheBase.formatHitRate(XdPropertyCachedProvider.cache.hitRate())
+    override val delegatesCacheHitRate: Float
+        get() = XdPropertyCachedProvider.cache.hitRate()
 
     fun register(applicationName: String) {
         try {
