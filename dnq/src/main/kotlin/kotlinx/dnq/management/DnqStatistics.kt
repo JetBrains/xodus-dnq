@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.management
 
+import kotlinx.dnq.XdModel
 import kotlinx.dnq.util.XdPropertyCachedProvider
 import mu.KLogging
 import java.lang.management.ManagementFactory
@@ -31,6 +32,12 @@ class DnqStatistics : DnqStatisticsMBean {
 
     override val delegatesCacheHitRate: Float
         get() = XdPropertyCachedProvider.cache.hitRate()
+
+    override val toXdCacheSize: Int
+        get() = XdModel.toXdCache.size()
+
+    override val toXdCacheHitRate: Float
+        get() = XdModel.toXdCache.hitRate()
 
     fun register(applicationName: String) {
         try {

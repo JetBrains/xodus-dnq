@@ -15,6 +15,8 @@
  */
 package kotlinx.dnq
 
+import com.jetbrains.teamsys.dnq.database.TransientEntityImpl
+import jetbrains.exodus.core.dataStructures.ConcurrentObjectCache
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.management.DnqStatistics
 import kotlinx.dnq.query.FakeTransientEntity
@@ -41,6 +43,9 @@ object XdModel : KLogging() {
     private val scannedLocations = HashSet<String>()
     val hierarchy = HashMap<String, XdHierarchyNode>()
     internal val plugins = ArrayList<XdModelPlugin>()
+    internal val toXdCache = ConcurrentObjectCache<TransientEntityImpl, XdEntity>(
+            System.getProperty("kotlinx.dnq.model.toXdCacheSize", "10000").toInt(),
+            2)
 
     operator fun get(entityType: XdEntityType<*>) = get(entityType.entityType)
 
@@ -136,25 +141,39 @@ object XdModel : KLogging() {
         return hierarchyNode.entityType.wrap(entity)
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun <T : XdEntity> toXd(entity: Entity): T {
         // this is hack to support abstract type in XdEntityType.filter {} api
         if (entity is FakeTransientEntity) {
             return entity.toXdHandlingAbstraction()
         }
+
+        if (entity is TransientEntityImpl && !entity.isReadonly /* filter entities created over snapshot transaction */) {
+            toXdCache.tryKey(entity)?.let {
+                return it as T
+            }
+        }
+
         val xdHierarchyNode = getOrThrow(entity.type)
         val entityType = xdHierarchyNode.entityType
         if (entityType is XdNaturalWrapper) {
-            @Suppress("UNCHECKED_CAST")
-            return entityType.naturalWrap(entity) as T
+            return entityType.naturalWrap(entity).asCached as T
         }
 
         val entityConstructor = xdHierarchyNode.entityConstructor
                 ?: throw UnsupportedOperationException("Constructor for the type ${entity.type} is not found")
 
-        @Suppress("UNCHECKED_CAST")
-        return entityConstructor(entity) as T
+        return entityConstructor(entity).asCached as T
 
     }
+
+    private val XdEntity.asCached: XdEntity
+        get() {
+            if (entity is TransientEntityImpl && !entity.isReadonly  /* filter entities created over snapshot transaction */) {
+                toXdCache.cacheObject(entity, this)
+            }
+            return this
+        }
 
     fun <T : XdEntity> getCommonAncestor(typeA: XdEntityType<T>, typeB: XdEntityType<T>): XdEntityType<T>? {
         if (typeA == typeB) return typeA

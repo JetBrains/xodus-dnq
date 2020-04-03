@@ -19,5 +19,7 @@ interface DnqStatisticsMBean {
 
     val delegatesCacheSize: Int
     val delegatesCacheHitRate: Float
+    val toXdCacheSize: Int
+    val toXdCacheHitRate: Float
 
 }
