@@ -16,7 +16,8 @@
 package kotlinx.dnq
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityImpl
-import jetbrains.exodus.core.dataStructures.ConcurrentObjectCache
+import jetbrains.exodus.core.dataStructures.LongObjectCacheBase
+import jetbrains.exodus.core.dataStructures.SoftConcurrentLongObjectCache
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.management.DnqStatistics
 import kotlinx.dnq.query.FakeTransientEntity
@@ -43,9 +44,8 @@ object XdModel : KLogging() {
     private val scannedLocations = HashSet<String>()
     val hierarchy = HashMap<String, XdHierarchyNode>()
     internal val plugins = ArrayList<XdModelPlugin>()
-    internal val toXdCache = ConcurrentObjectCache<TransientEntityImpl, XdEntity>(
-            System.getProperty("kotlinx.dnq.model.toXdCacheSize", "10000").toInt(),
-            2)
+    private val toXdCache: LongObjectCacheBase<ToXdCachedValue> =
+            SoftConcurrentLongObjectCache(System.getProperty("kotlinx.dnq.model.toXdCacheSize", "10000").toInt())
 
     operator fun get(entityType: XdEntityType<*>) = get(entityType.entityType)
 
@@ -149,8 +149,10 @@ object XdModel : KLogging() {
         }
 
         if (entity is TransientEntityImpl && !entity.isReadonly /* filter entities created over snapshot transaction */) {
-            toXdCache.tryKey(entity)?.let {
-                return it as T
+            toXdCache.tryKey(entity.cacheKey)?.let { cachedValue ->
+                if (cachedValue.entity == entity) {
+                    return cachedValue.xdEntity as T
+                }
             }
         }
 
@@ -167,14 +169,6 @@ object XdModel : KLogging() {
 
     }
 
-    private val XdEntity.asCached: XdEntity
-        get() {
-            if (entity is TransientEntityImpl && !entity.isReadonly  /* filter entities created over snapshot transaction */) {
-                toXdCache.cacheObject(entity, this)
-            }
-            return this
-        }
-
     fun <T : XdEntity> getCommonAncestor(typeA: XdEntityType<T>, typeB: XdEntityType<T>): XdEntityType<T>? {
         if (typeA == typeB) return typeA
 
@@ -189,5 +183,21 @@ object XdModel : KLogging() {
 
         return null
     }
+
+    val toXdCacheSize: Int get() = toXdCache.size()
+
+    val toXdCacheHitRate: Float get() = toXdCache.hitRate()
+
+    private val XdEntity.asCached: XdEntity
+        get() {
+            if (entity is TransientEntityImpl && !entity.isReadonly  /* filter entities created over snapshot transaction */) {
+                toXdCache.cacheObject(entity.cacheKey, ToXdCachedValue(entity, this))
+            }
+            return this
+        }
+
+    private val TransientEntityImpl.cacheKey get() = (store.persistentStore.hashCode() shl 32) + persistentEntity.hashCode().toLong()
+
+    private class ToXdCachedValue(val entity: TransientEntityImpl, val xdEntity: XdEntity)
 }
 

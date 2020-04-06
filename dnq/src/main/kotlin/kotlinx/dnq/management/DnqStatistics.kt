@@ -34,10 +34,10 @@ class DnqStatistics : DnqStatisticsMBean {
         get() = XdPropertyCachedProvider.cache.hitRate()
 
     override val toXdCacheSize: Int
-        get() = XdModel.toXdCache.size()
+        get() = XdModel.toXdCacheSize
 
     override val toXdCacheHitRate: Float
-        get() = XdModel.toXdCache.hitRate()
+        get() = XdModel.toXdCacheHitRate
 
     fun register(applicationName: String) {
         try {
