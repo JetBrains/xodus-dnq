@@ -25,6 +25,7 @@ import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
 import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -60,7 +61,8 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
                 }
 
             override fun add(entity: T) {
-                thisRef.reattach().addChild(property.name, oppositeField.name, entity.reattach())
+                val session = thisRef.threadSessionOrThrow
+                thisRef.reattach(session).addChild(property.name, oppositeField.name, entity.reattach(session))
             }
 
             override fun remove(entity: T) {

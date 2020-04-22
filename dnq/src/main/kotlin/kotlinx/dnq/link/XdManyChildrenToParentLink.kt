@@ -22,6 +22,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -47,7 +48,8 @@ class XdManyChildrenToParentLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        value.reattach().addChild(oppositeField.name, property.name, thisRef.reattach())
+        val session = value.threadSessionOrThrow
+        value.reattach(session).addChild(oppositeField.name, property.name, thisRef.reattach(session))
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {

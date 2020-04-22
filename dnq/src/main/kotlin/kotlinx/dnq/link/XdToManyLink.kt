@@ -23,6 +23,7 @@ import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
 import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 
 open class XdToManyLink<in R : XdEntity, T : XdEntity>(
@@ -47,11 +48,13 @@ open class XdToManyLink<in R : XdEntity, T : XdEntity>(
                 get() = thisRef.reattach().getLinks(property.dbName)
 
             override fun add(entity: T) {
-                thisRef.reattach().addLink(property.dbName, entity.reattach())
+                val session = thisRef.threadSessionOrThrow
+                thisRef.reattach(session).addLink(property.dbName, entity.reattach(session))
             }
 
             override fun remove(entity: T) {
-                thisRef.reattach().deleteLink(property.dbName, entity.reattach())
+                val session = thisRef.threadSessionOrThrow
+                thisRef.reattach(session).deleteLink(property.dbName, entity.reattach(session))
             }
 
             override fun clear() {

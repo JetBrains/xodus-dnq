@@ -16,6 +16,7 @@
 package com.jetbrains.teamsys.dnq.association
 
 import com.jetbrains.teamsys.dnq.database.reattachTransient
+import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
 import jetbrains.exodus.entitystore.Entity
 
 /**
@@ -58,8 +59,9 @@ object AggregationAssociationSemantics {
      */
     @JvmStatic
     fun createOneToMany(parent: Entity, parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
-        val txnParent = parent.reattachTransient()
-        val txnChild = child.reattachTransient()
+        val session = parent.threadSessionOrThrow
+        val txnParent = parent.reattachTransient(session)
+        val txnChild = child.reattachTransient(session)
 
         txnParent.addChild(parentToChildLinkName, childToParentLinkName, txnChild)
     }
@@ -74,8 +76,9 @@ object AggregationAssociationSemantics {
      */
     @JvmStatic
     fun removeOneToMany(parent: Entity, parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
-        val txnParent = parent.reattachTransient()
-        val txnChild = child.reattachTransient()
+        val session = parent.threadSessionOrThrow
+        val txnParent = parent.reattachTransient(session)
+        val txnChild = child.reattachTransient(session)
 
         txnChild.removeFromParent(parentToChildLinkName, childToParentLinkName)
     }
@@ -103,8 +106,9 @@ object AggregationAssociationSemantics {
      */
     @JvmStatic
     fun setManyToOne(parent: Entity?, parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
-        val txnParent = parent?.reattachTransient()
-        val txnChild = child.reattachTransient()
+        val session = child.threadSessionOrThrow
+        val txnParent = parent?.reattachTransient(session)
+        val txnChild = child.reattachTransient(session)
 
         if (txnParent == null) {
             txnChild.removeFromParent(parentToChildLinkName, childToParentLinkName)

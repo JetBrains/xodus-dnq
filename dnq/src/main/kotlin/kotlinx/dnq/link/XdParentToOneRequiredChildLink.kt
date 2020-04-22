@@ -21,6 +21,7 @@ import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -46,7 +47,8 @@ class XdParentToOneRequiredChildLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        thisRef.reattach().setChild(property.name, oppositeField.name, value.reattach())
+        val session = thisRef.threadSessionOrThrow
+        thisRef.reattach(session).setChild(property.name, oppositeField.name, value.reattach(session))
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {

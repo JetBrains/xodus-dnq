@@ -21,6 +21,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -48,12 +49,13 @@ class XdManyToOneOptionalLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
+        val session = thisRef.threadSessionOrThrow
         if (value != null) {
-            thisRef.reattach().setManyToOne(property.dbName, dbOppositePropertyName
-                    ?: oppositeField.name, value.reattach())
+            thisRef.reattach(session).setManyToOne(property.dbName, dbOppositePropertyName
+                    ?: oppositeField.name, value.reattach(session))
         } else {
-            getValue(thisRef, property)?.reattach()?.removeOneToMany(property.dbName, dbOppositePropertyName
-                    ?: oppositeField.name, thisRef.reattach())
+            getValue(thisRef, property)?.reattach(session)?.removeOneToMany(property.dbName, dbOppositePropertyName
+                    ?: oppositeField.name, thisRef.reattach(session))
         }
     }
 

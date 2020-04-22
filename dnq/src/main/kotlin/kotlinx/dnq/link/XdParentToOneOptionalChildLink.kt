@@ -20,6 +20,7 @@ import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -44,8 +45,9 @@ class XdParentToOneOptionalChildLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        val parent = thisRef.reattach()
-        val child = value?.reattach()
+        val session = thisRef.threadSessionOrThrow
+        val parent = thisRef.reattach(session)
+        val child = value?.reattach(session)
         if (child != null) {
             parent.setChild(property.name, oppositeField.name, child)
         } else {

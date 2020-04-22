@@ -18,12 +18,15 @@ package kotlinx.dnq.util
 import com.jetbrains.teamsys.dnq.database.reattachTransient
 import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
 import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentEntityStore
 import kotlinx.dnq.XdEntity
 import java.io.InputStream
 
-fun XdEntity.reattach() = entity.reattachTransient()
+fun XdEntity.reattach(session: TransientStoreSession? = null) = entity.reattachTransient()
+
+val XdEntity.threadSessionOrThrow: TransientStoreSession get() = entity.threadSessionOrThrow
 
 fun <T : Comparable<*>> XdEntity.reattachAndGetPrimitiveValue(propertyName: String): T? {
     @Suppress("UNCHECKED_CAST")

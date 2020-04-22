@@ -17,6 +17,7 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentEntityStore
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
@@ -24,13 +25,15 @@ import jetbrains.exodus.entitystore.PersistentStoreTransaction
 /**
  * Attach entity to current transient session if possible.
  */
-fun TransientEntity.reattach(): TransientEntity {
-    val s = store.threadSessionOrThrow
+fun TransientEntity.reattach(session: TransientStoreSession? = null): TransientEntity {
+    val s = session ?: store.threadSessionOrThrow
     return s.newLocalCopy(this)
 }
 
-fun Entity.reattachTransient(): TransientEntity {
-    return (this as TransientEntity).reattach()
+val Entity.threadSessionOrThrow: TransientStoreSession get() = (this as TransientEntity).store.threadSessionOrThrow
+
+fun Entity.reattachTransient(session: TransientStoreSession? = null): TransientEntity {
+    return (this as TransientEntity).reattach(session)
 }
 
 val TransientEntityStore.threadSessionOrThrow

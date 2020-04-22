@@ -16,6 +16,7 @@
 package com.jetbrains.teamsys.dnq.association
 
 import com.jetbrains.teamsys.dnq.database.reattachTransient
+import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
 import jetbrains.exodus.entitystore.Entity
 
 /**
@@ -47,8 +48,9 @@ object UndirectedAssociationSemantics {
      */
     @JvmStatic
     fun createOneToMany(one: Entity, oneToManyLinkName: String, manyToOneLinkName: String, many: Entity) {
-        val txnOne = one.reattachTransient()
-        val txnMany = many.reattachTransient()
+        val session = one.threadSessionOrThrow
+        val txnOne = one.reattachTransient(session)
+        val txnMany = many.reattachTransient(session)
 
         txnMany.setManyToOne(manyToOneLinkName, oneToManyLinkName, txnOne)
     }
@@ -58,8 +60,9 @@ object UndirectedAssociationSemantics {
      */
     @JvmStatic
     fun removeOneToMany(one: Entity, oneToManyLinkName: String, manyToOneLinkName: String, many: Entity) {
-        val txnOne = one.reattachTransient()
-        val txnMany = many.reattachTransient()
+        val session = one.threadSessionOrThrow
+        val txnOne = one.reattachTransient(session)
+        val txnMany = many.reattachTransient(session)
 
         txnOne.removeOneToMany(manyToOneLinkName, oneToManyLinkName, txnMany)
     }
@@ -79,8 +82,9 @@ object UndirectedAssociationSemantics {
      */
     @JvmStatic
     fun setManyToOne(one: Entity?, oneToManyLinkName: String, manyToOneLinkName: String, many: Entity) {
-        val txnOne = one?.reattachTransient()
-        val txnMany = many.reattachTransient()
+        val session = many.threadSessionOrThrow
+        val txnOne = one?.reattachTransient(session)
+        val txnMany = many.reattachTransient(session)
 
         txnMany.setManyToOne(manyToOneLinkName, oneToManyLinkName, txnOne)
     }
@@ -90,8 +94,9 @@ object UndirectedAssociationSemantics {
      */
     @JvmStatic
     fun createManyToMany(e1: Entity, e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity) {
-        val txnEntity1 = e1.reattachTransient()
-        val txnEntity2 = e2.reattachTransient()
+        val session = e1.threadSessionOrThrow
+        val txnEntity1 = e1.reattachTransient(session)
+        val txnEntity2 = e2.reattachTransient(session)
 
         txnEntity1.createManyToMany(e1Toe2LinkName, e2Toe1LinkName, txnEntity2)
     }
