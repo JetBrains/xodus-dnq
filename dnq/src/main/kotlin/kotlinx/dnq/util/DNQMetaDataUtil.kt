@@ -73,23 +73,26 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
      */
     modelMetaData.prepare()
 
-    entityStore.transactional { txn ->
-        naturalNodes.values.asSequence().map {
-            it.entityType
-        }.filterIsInstance<XdEnumEntityType<*>>().forEach {
-            it.initEnumValues(txn)
-        }
+    // JT-57205: we should be able to start in read-only mode
+    if (!entityStore.persistentStore.environment.environmentConfig.envIsReadonly) {
+        entityStore.transactional { txn ->
+            naturalNodes.values.asSequence().map {
+                it.entityType
+            }.filterIsInstance<XdEnumEntityType<*>>().forEach {
+                it.initEnumValues(txn)
+            }
 
-        naturalNodes.values.asSequence().map {
-            it.entityType
-        }.filterIsInstance<XdNaturalEntityType<*>>().forEach {
-            it.initEntityType()
-        }
+            naturalNodes.values.asSequence().map {
+                it.entityType
+            }.filterIsInstance<XdNaturalEntityType<*>>().forEach {
+                it.initEntityType()
+            }
 
-        naturalNodes.values.asSequence().map {
-            it.entityType
-        }.filterIsInstance<XdSingletonEntityType<*>>().forEach {
-            it.get()
+            naturalNodes.values.asSequence().map {
+                it.entityType
+            }.filterIsInstance<XdSingletonEntityType<*>>().forEach {
+                it.get()
+            }
         }
     }
 }
