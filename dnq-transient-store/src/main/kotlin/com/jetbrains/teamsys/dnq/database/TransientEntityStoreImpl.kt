@@ -156,6 +156,8 @@ open class TransientEntityStoreImpl : TransientEntityStore {
                         }
             }
         }
+        _persistentStore.close()
+        _persistentStore.environment.close()
     }
 
 

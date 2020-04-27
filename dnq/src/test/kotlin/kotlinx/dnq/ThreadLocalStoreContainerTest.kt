@@ -57,8 +57,8 @@ class ThreadLocalStoreContainerTest {
 
     @After
     fun tearDown() {
-        deleteStore(store1)
-        deleteStore(store2)
+        store1.close()
+        store2.close()
         if (databaseHome.exists() && databaseHome.isDirectory) {
             Files.walkFileTree(databaseHome.toPath(), object : SimpleFileVisitor<Path>() {
                 override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
@@ -86,13 +86,6 @@ class ThreadLocalStoreContainerTest {
         val store = createTransientEntityStore(File(databaseHome, name), "testDB") { envCloseForcedly = true }
         initMetaData(XdModel.hierarchy, store)
         return store
-    }
-
-    private fun deleteStore(store: TransientEntityStore) {
-        store.close()
-        store.persistentStore.close()
-        store.persistentStore.environment.clear()
-        store.persistentStore.environment.close()
     }
 
     @Test
