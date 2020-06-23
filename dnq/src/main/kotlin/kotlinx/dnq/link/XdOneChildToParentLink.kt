@@ -22,6 +22,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.toXd
 import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.reattachAndGetLink
 import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -41,7 +42,7 @@ class XdOneChildToParentLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        return thisRef.reattach().getLink(property.name)?.toXd()
+        return thisRef.reattachAndGetLink(property.name)?.toXd()
                 ?: throw RequiredPropertyUndefinedException(thisRef, property)
     }
 
@@ -51,7 +52,7 @@ class XdOneChildToParentLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattach().getLink(property.name) != null
+        return thisRef.reattachAndGetLink(property.name) != null
     }
 }
 

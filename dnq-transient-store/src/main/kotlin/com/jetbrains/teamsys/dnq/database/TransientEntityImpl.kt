@@ -16,10 +16,7 @@
 package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.ByteIterable
-import jetbrains.exodus.database.EntityCreator
-import jetbrains.exodus.database.LinkChange
-import jetbrains.exodus.database.TransientEntity
-import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
@@ -224,11 +221,12 @@ open class TransientEntityImpl : TransientEntity {
         return PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkName))
     }
 
-    override fun getLink(linkName: String): Entity? {
+    override fun getLink(linkName: String): Entity? = getLink(linkName, null)
+
+    fun getLink(linkName: String, session: TransientStoreSession? = null): Entity? {
         val link = this.persistentEntity.getLink(linkName) ?: return null
-        val session = threadSessionOrThrow
-        return session.newEntity(link)
-                .takeUnless { session.transientChangesTracker.isRemoved(it) }
+        val s = session ?: store.threadSessionOrThrow
+        return s.newEntity(link).takeUnless { s.transientChangesTracker.isRemoved(it) }
     }
 
     override fun getLinks(linkNames: Collection<String>): EntityIterable {

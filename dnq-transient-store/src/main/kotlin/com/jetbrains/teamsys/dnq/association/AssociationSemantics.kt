@@ -28,8 +28,11 @@ object AssociationSemantics {
      */
     @JvmStatic
     fun getToOne(e: Entity?, linkName: String): Entity? {
-        // nullable objects support
-        return e?.reattachTransient()?.getLink(linkName)
+        return if (e == null) null
+        else {
+            val session = e.threadSessionOrThrow
+            e.reattachTransient(session).getLinkEx(linkName, session)
+        }
     }
 
     @JvmStatic

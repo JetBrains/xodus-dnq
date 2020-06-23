@@ -46,3 +46,6 @@ val PersistentEntityStore.currentTransactionOrThrow
 
 val TransientEntity.persistentClassInstance: BasePersistentClassImpl?
     get() = (store as? TransientEntityStoreImpl)?.getCachedPersistentClassInstance(type)
+
+fun TransientEntity.getLinkEx(linkName: String, session: TransientStoreSession) =
+        if (this is TransientEntityImpl) getLink(linkName, session) else getLink(linkName)

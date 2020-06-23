@@ -21,6 +21,7 @@ import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.reattachAndGetLink
 import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -43,7 +44,7 @@ class XdOneToOneRequiredLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val entity = thisRef.reattach().getLink(property.dbName)
+        val entity = thisRef.reattachAndGetLink(property.dbName)
                 ?: throw RequiredPropertyUndefinedException(thisRef, property)
         return oppositeEntityType.wrap(entity)
     }
@@ -55,7 +56,7 @@ class XdOneToOneRequiredLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattach().getLink(property.dbName) != null
+        return thisRef.reattachAndGetLink(property.dbName) != null
     }
 }
 

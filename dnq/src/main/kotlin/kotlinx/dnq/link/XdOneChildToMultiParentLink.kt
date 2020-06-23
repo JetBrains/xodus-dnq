@@ -20,6 +20,7 @@ import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.util.reattach
+import kotlinx.dnq.util.reattachAndGetLink
 import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -39,7 +40,7 @@ class XdOneChildToMultiParentLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return thisRef.reattach().getLink(property.name)?.let { value ->
+        return thisRef.reattachAndGetLink(property.name)?.let { value ->
             oppositeEntityType.wrap(value)
         }
     }

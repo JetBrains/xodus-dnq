@@ -15,16 +15,18 @@
  */
 package kotlinx.dnq.util
 
+import com.jetbrains.teamsys.dnq.database.getLinkEx
 import com.jetbrains.teamsys.dnq.database.reattachTransient
 import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
+import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentEntityStore
 import kotlinx.dnq.XdEntity
 import java.io.InputStream
 
-fun XdEntity.reattach(session: TransientStoreSession? = null) = entity.reattachTransient()
+fun XdEntity.reattach(session: TransientStoreSession? = null) = entity.reattachTransient(session)
 
 val XdEntity.threadSessionOrThrow: TransientStoreSession get() = entity.threadSessionOrThrow
 
@@ -106,4 +108,9 @@ fun XdEntity.getOldLinkValue(linkName: String): TransientEntity? {
     } else {
         getRemovedLinks(linkName).firstOrNull() as TransientEntity?
     }
+}
+
+fun XdEntity.reattachAndGetLink(linkName: String): Entity? {
+    val session = threadSessionOrThrow
+    return reattach(session).getLinkEx(linkName, session)
 }
