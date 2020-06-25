@@ -256,19 +256,35 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     }
 
     override fun addListener(listener: TransientStoreSessionListener) {
-        listeners.push(0, listener)
+        addListener(listener, 0)
     }
 
     override fun addListener(listener: TransientStoreSessionListener, priority: Int) {
-        listeners.push(priority, listener)
+        withListeners {
+            push(priority, listener)
+        }
     }
 
     override fun removeListener(listener: TransientStoreSessionListener) {
-        listeners.remove(listener)
+        withListeners {
+            remove(listener)
+        }
     }
 
     internal fun forAllListeners(action: (TransientStoreSessionListener) -> Unit) {
-        listeners.forEach(action)
+        withListeners {
+            toList()
+        }.forEach(action)
+    }
+
+
+    private fun <T> withListeners(action: StablePriorityQueue<Int, TransientStoreSessionListener>.() -> T): T {
+        listeners.lock()
+        try {
+            return action(listeners)
+        } finally {
+            listeners.unlock()
+        }
     }
 
     fun sessionsCount(): Int {
