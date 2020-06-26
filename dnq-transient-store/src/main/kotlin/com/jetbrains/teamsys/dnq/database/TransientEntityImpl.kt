@@ -223,7 +223,7 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun getLink(linkName: String): Entity? = getLink(linkName, null)
 
-    fun getLink(linkName: String, session: TransientStoreSession? = null): Entity? {
+    open fun getLink(linkName: String, session: TransientStoreSession? = null): Entity? {
         val link = this.persistentEntity.getLink(linkName) ?: return null
         val s = session ?: store.threadSessionOrThrow
         return s.newEntity(link).takeUnless { s.transientChangesTracker.isRemoved(it) }

@@ -18,6 +18,7 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityChange
 import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIterableDecoratorBase
@@ -84,6 +85,10 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: Pers
                 ?.let { linkTarget ->
                     ReadonlyTransientEntityImpl(linkTarget.getSnapshotPersistentEntity(), store)
                 }
+    }
+
+    override fun getLink(linkName: String, session: TransientStoreSession?): Entity? {
+        return getLink(linkName)
     }
 
     override fun getLinks(linkName: String): EntityIterable {
