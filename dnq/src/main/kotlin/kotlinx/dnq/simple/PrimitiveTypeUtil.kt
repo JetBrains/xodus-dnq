@@ -46,7 +46,7 @@ fun <V : Comparable<V>> KClass<V>.nextRaw(value: V): Comparable<*>? = when (this
                 .first { it != dValue }
     }
     DateTime::class -> {
-        max((value as DateTime).millis + 1, Long.MAX_VALUE)
+        (value as DateTime).millis + 1
     }
     else -> XdCustomTypeBindingRegistry[this.java]?.next(value)
 }
@@ -72,7 +72,7 @@ fun <V : Comparable<V>> KClass<V>.prevRaw(value: V): Comparable<*>? = when (this
                 .first { it != dValue }
     }
     DateTime::class -> {
-        min((value as DateTime).millis - 1, 0)
+        max((value as DateTime).millis - 1, 0)
     }
     else -> XdCustomTypeBindingRegistry[this.java]?.prev(value)
 }
