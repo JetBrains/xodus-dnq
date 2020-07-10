@@ -264,6 +264,9 @@ fun <T : XdEntity> XdEntityType<T>.query(node: NodeBase): XdQuery<T> {
  * @see query
  */
 fun <T : XdEntity> XdEntityType<T>.queryEntities(it: Iterable<Entity>): XdQuery<T> {
+    if (it is Collection && it.isEmpty()) {
+        return emptyQuery()
+    }
     return all().query(IterableDecorator(it))
 }
 
@@ -275,6 +278,9 @@ fun <T : XdEntity> XdEntityType<T>.queryEntities(it: Iterable<Entity>): XdQuery<
  * @see query
  */
 inline fun <reified T : XdEntity> XdEntityType<T>.query(it: Iterable<T?>): XdQuery<T> {
+    if (it is Collection && it.isEmpty()) {
+        return emptyQuery()
+    }
     return all().query(IterableDecorator(it.filterNotNull().map { it.entity }))
 }
 
@@ -460,7 +466,8 @@ fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(dbFieldName: String, tar
 private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterable<Entity> {
     val entityTypeName = entityType.entityType
     val queryEngine = entityType.entityStore.queryEngine
-    val staticTypedIterable = this as? StaticTypedEntityIterable ?: StaticTypedIterableDecorator(entityTypeName, this, queryEngine)
+    val staticTypedIterable = this as? StaticTypedEntityIterable
+            ?: StaticTypedIterableDecorator(entityTypeName, this, queryEngine)
     return ExcludeNullStaticTypedEntityIterable(entityTypeName, staticTypedIterable, queryEngine)
 }
 
