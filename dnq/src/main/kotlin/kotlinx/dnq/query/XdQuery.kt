@@ -27,6 +27,7 @@ import kotlinx.dnq.session
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.getDBName
 import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.javaType
@@ -189,6 +190,26 @@ infix fun <T : XdEntity> XdQuery<T>.union(that: XdQuery<T>): XdQuery<T> {
  */
 infix fun <T : XdEntity> XdQuery<T>.union(that: T?): XdQuery<T> {
     return this union entityType.queryOf(that)
+}
+
+/**
+ * Creates balanced union tree of queries returned by `queryFun` for each element of `this`.
+ */
+fun <T : XdEntity, S : XdEntity> Iterable<S>.unionEach(entityType: XdEntityType<T>, queryFun: (S) -> XdQuery<T>): XdQuery<T> {
+    val queryList = ArrayList<XdQuery<T>>().apply { this@unionEach.mapTo(this, queryFun) }
+    var i = 0
+    while (i < queryList.lastIndex) {
+        queryList.add(queryList[i].union(queryList[i + 1]))
+        i += 2
+    }
+    return queryList.lastOrNull() ?: entityType.emptyQuery()
+}
+
+/**
+ * Creates balanced union tree of queries returned by `queryFun` for each element of `this`.
+ */
+fun <T : XdEntity, S : XdEntity> XdQuery<S>.unionEach(entityType: XdEntityType<T>, queryFun: (S) -> XdQuery<T>): XdQuery<T> {
+    return asIterable().unionEach(entityType, queryFun)
 }
 
 /**
