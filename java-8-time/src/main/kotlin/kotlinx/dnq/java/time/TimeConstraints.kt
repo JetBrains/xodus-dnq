@@ -48,8 +48,8 @@ fun <V> PropertyConstraintBuilder<*, V?>.isAfter(time: () -> V, message: String 
               V : Temporal {
 
     constraints.add(object : PropertyConstraint<V?>() {
-        override fun isValid(propertyValue: V?): Boolean {
-            return propertyValue == null || propertyValue > time()
+        override fun isValid(value: V?): Boolean {
+            return value == null || value > time()
         }
 
         override fun getExceptionMessage(propertyName: String, propertyValue: V?) =
@@ -88,8 +88,8 @@ fun <V> PropertyConstraintBuilder<*, V?>.isBefore(time: () -> V, message: String
               V : Temporal {
 
     constraints.add(object : PropertyConstraint<V?>() {
-        override fun isValid(propertyValue: V?): Boolean {
-            return propertyValue == null || propertyValue < time()
+        override fun isValid(value: V?): Boolean {
+            return value == null || value < time()
         }
 
         override fun getExceptionMessage(propertyName: String, propertyValue: V?) =
