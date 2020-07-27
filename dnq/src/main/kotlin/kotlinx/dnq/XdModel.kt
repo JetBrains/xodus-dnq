@@ -28,6 +28,7 @@ import mu.KLogging
 import org.reflections.Reflections
 import org.reflections.util.ClasspathHelper
 import org.reflections.util.ConfigurationBuilder
+import java.io.File
 import java.net.URL
 import java.util.*
 import javax.servlet.ServletContext
@@ -63,7 +64,7 @@ object XdModel : KLogging() {
      * Scans Java classpath for XdEntity types
      */
     fun scanJavaClasspath() = scanClasspath(JAVA_CLASSPATH) {
-        addUrls(ClasspathHelper.forJavaClassPath())
+        addUrls(ClasspathHelper.forJavaClassPath().filter { File(it.toURI()).exists() })
     }
 
     fun scanWebClasspath(servletContext: ServletContext) = scanClasspath(WEB_CLASSPATH) {
