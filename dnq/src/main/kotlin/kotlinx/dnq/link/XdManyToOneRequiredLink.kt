@@ -52,8 +52,7 @@ class XdManyToOneRequiredLink<R : XdEntity, T : XdEntity>(
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
         val session = thisRef.threadSessionOrThrow
-        thisRef.reattach(session).setManyToOne(property.dbName, dbOppositePropertyName
-                ?: oppositeField.name, value.reattach(session))
+        thisRef.reattach(session).setManyToOne(property.dbName, oppositeField.oppositeDbName, value.reattach(session))
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {

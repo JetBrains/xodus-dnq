@@ -33,11 +33,12 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
         oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
         dbPropertyName: String?,
+        dbOppositePropertyName: String?,
         required: Boolean
 ) : VectorLink<R, T>, XdLink<R, T>(
         oppositeEntityType,
         dbPropertyName,
-        null,
+        dbOppositePropertyName,
         if (required) AssociationEndCardinality._1_n else AssociationEndCardinality._0_n,
         AssociationEndType.ParentEnd,
         onDelete = OnDeletePolicy.CASCADE,
@@ -51,26 +52,26 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
                     val queryEngine = oppositeEntityType.entityStore.queryEngine
                     val oppositeType = oppositeEntityType.entityType
                     if (queryEngine.modelMetaData.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
-                        thisRef.reattach().getLinks(property.name)
+                        thisRef.reattach().getLinks(property.dbName)
                     } else {
-                        TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.name, thisRef.reattach()), queryEngine)
+                        TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.oppositeDbName, thisRef.reattach()), queryEngine)
                     }
                 } catch (_: UnsupportedOperationException) {
                     // to support weird FakeTransientEntity
-                    thisRef.reattach().getLinks(property.name)
+                    thisRef.reattach().getLinks(property.dbName)
                 }
 
             override fun add(entity: T) {
                 val session = thisRef.threadSessionOrThrow
-                thisRef.reattach(session).addChild(property.name, oppositeField.name, entity.reattach(session))
+                thisRef.reattach(session).addChild(property.dbName, oppositeField.oppositeDbName, entity.reattach(session))
             }
 
             override fun remove(entity: T) {
-                entity.reattach().removeFromParent(property.name, oppositeField.name)
+                entity.reattach().removeFromParent(property.dbName, oppositeField.oppositeDbName)
             }
 
             override fun clear() {
-                thisRef.reattach().clearChildren(property.name)
+                thisRef.reattach().clearChildren(property.dbName)
             }
         }
     }

@@ -523,13 +523,16 @@ inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1_N(
  * @param oppositeLink property reference to a child end of the association.
  * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
  *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of opposite persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
  * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChild0_1(
         oppositeLink: KProperty1<XdChild, XdParent?>,
-        dbPropertyName: String? = null) =
+        dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null) =
         XdPropertyCachedProvider {
-            XdParentToOneOptionalChildLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
+            XdParentToOneOptionalChildLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName)
         }
 
 /**
@@ -554,13 +557,16 @@ inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChild0_1(
  * @param oppositeLink property reference to a child end of the association.
  * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
  *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of opposite persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
  * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChild1(
         oppositeLink: KProperty1<XdChild, XdParent?>,
-        dbPropertyName: String? = null) =
+        dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null) =
         XdPropertyCachedProvider {
-            XdParentToOneRequiredChildLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
+            XdParentToOneRequiredChildLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName)
         }
 
 /**
@@ -584,13 +590,16 @@ inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChild1(
  * @param oppositeLink property reference to a child end of the association.
  * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
  *        Kotlin-property is used.
+ * @param dbPropertyName name of opposite persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
  * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChildren0_N(
         oppositeLink: KProperty1<XdChild, XdParent?>,
-        dbPropertyName: String? = null) =
+        dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null) =
         XdPropertyCachedProvider {
-            XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, dbPropertyName, required = false)
+            XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, required = false)
         }
 
 /**
@@ -615,13 +624,16 @@ inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChildren0_N(
  * @param oppositeLink property reference to a child end of the association.
  * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
  *        Kotlin-property is used.
+ * @param dbPropertyName name of opposite persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
  * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChildren1_N(
         oppositeLink: KProperty1<XdChild, XdParent?>,
-        dbPropertyName: String? = null) =
+        dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null) =
         XdPropertyCachedProvider {
-            XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, dbPropertyName, required = true)
+            XdParentToManyChildrenLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName, required = true)
         }
 
 /**
@@ -646,14 +658,17 @@ inline fun <XdParent : XdEntity, reified XdChild : XdEntity> xdChildren1_N(
  * @param oppositeLink property reference to a parent end of the association.
  * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
  *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of opposite persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
  * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdParent_opposite_single")
 inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdParent(
         oppositeLink: KProperty1<XdParent, XdChild?>,
-        dbPropertyName: String? = null) =
+        dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null) =
         XdPropertyCachedProvider {
-            XdOneChildToParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
+            XdOneChildToParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName)
         }
 
 /**
@@ -679,14 +694,17 @@ inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdParent(
  * @param oppositeLink property reference to a parent end of the association.
  * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
  *        Kotlin-property is used.
+ * @param dbPropertyName name of opposite persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
  * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdMultiParent_opposite_single")
 inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdMultiParent(
         oppositeLink: KProperty1<XdParent, XdChild?>,
-        dbPropertyName: String? = null) =
+        dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null) =
         XdPropertyCachedProvider {
-            XdOneChildToMultiParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
+            XdOneChildToMultiParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName)
         }
 
 /**
@@ -709,6 +727,8 @@ inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdMultiParent(
  * @param XdChild type of link source.
  * @param XdParent type of link target.
  * @param oppositeLink property reference to a parent end of the association.
+ * @param dbOppositePropertyName name of opposite persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
  * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
  *        Kotlin-property is used.
  * @return property delegate to access Xodus database persistent link using Kotlin-property.
@@ -716,9 +736,10 @@ inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdMultiParent(
 @JvmName("xdParent_opposite_multi")
 inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdParent(
         oppositeLink: KProperty1<XdParent, XdMutableQuery<XdChild>>,
-        dbPropertyName: String? = null) =
+        dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null) =
         XdPropertyCachedProvider {
-            XdManyChildrenToParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
+            XdManyChildrenToParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName)
         }
 
 /**
@@ -744,14 +765,17 @@ inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdParent(
  * @param oppositeLink property reference to a parent end of the association.
  * @param dbPropertyName name of persistent link in database. If `null` (by default) then name of the related
  *        Kotlin-property is used.
+ * @param dbOppositePropertyName name of opposite persistent link in database. If `null` (by default) then name of the related
+ *        Kotlin-property is used.
  * @return property delegate to access Xodus database persistent link using Kotlin-property.
  */
 @JvmName("xdMultiParent_opposite_multi")
 inline fun <XdChild : XdEntity, reified XdParent : XdEntity> xdMultiParent(
         oppositeLink: KProperty1<XdParent, XdMutableQuery<XdChild>>,
-        dbPropertyName: String? = null) =
+        dbPropertyName: String? = null,
+        dbOppositePropertyName: String? = null) =
         XdPropertyCachedProvider {
-            XdManyChildrenToMultiParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName)
+            XdManyChildrenToMultiParentLink(entityTypeCompanion(), oppositeLink, dbPropertyName, dbOppositePropertyName)
         }
 
 inline fun <reified T : XdEntity> entityTypeCompanion(): XdEntityType<T> = T::class.entityType

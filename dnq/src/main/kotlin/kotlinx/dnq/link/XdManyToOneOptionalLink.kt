@@ -52,11 +52,15 @@ class XdManyToOneOptionalLink<R : XdEntity, T : XdEntity>(
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
         val session = thisRef.threadSessionOrThrow
         if (value != null) {
-            thisRef.reattach(session).setManyToOne(property.dbName, dbOppositePropertyName
-                    ?: oppositeField.name, value.reattach(session))
+            thisRef.reattach(session).setManyToOne(property.dbName, oppositeField.oppositeDbName, value.reattach(session))
         } else {
-            getValue(thisRef, property)?.reattach(session)?.removeOneToMany(property.dbName, dbOppositePropertyName
-                    ?: oppositeField.name, thisRef.reattach(session))
+            getValue(thisRef, property)
+                    ?.reattach(session)
+                    ?.removeOneToMany(
+                            property.dbName,
+                            oppositeField.oppositeDbName,
+                            thisRef.reattach(session)
+                    )
         }
     }
 

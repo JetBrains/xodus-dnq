@@ -57,7 +57,7 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
                         if (queryEngine.modelMetaData.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
-                            TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeLinkName(), thisRef.reattach()), queryEngine)
+                            TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.oppositeDbName, thisRef.reattach()), queryEngine)
                         }
                     } catch (_: UnsupportedOperationException) {
                         // to support weird FakeTransientEntity
@@ -66,20 +66,19 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
 
             override fun add(entity: T) {
                 val session = thisRef.threadSessionOrThrow
-                thisRef.reattach(session).createManyToMany(property.dbName, oppositeLinkName(), entity.reattach(session))
+                thisRef.reattach(session).createManyToMany(property.dbName, oppositeField.oppositeDbName, entity.reattach(session))
             }
 
             override fun remove(entity: T) {
                 val session = thisRef.threadSessionOrThrow
                 thisRef.reattach(session).deleteLink(property.dbName, entity.reattach(session))
-                entity.reattach(session).deleteLink(oppositeLinkName(), thisRef.reattach(session))
+                entity.reattach(session).deleteLink(oppositeField.oppositeDbName, thisRef.reattach(session))
             }
 
             override fun clear() {
-                thisRef.reattach().clearManyToMany(property.dbName, oppositeLinkName())
+                thisRef.reattach().clearManyToMany(property.dbName, oppositeField.oppositeDbName)
             }
 
-            private fun oppositeLinkName() = dbOppositePropertyName ?: oppositeField.name
         }
     }
 

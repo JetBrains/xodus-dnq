@@ -30,11 +30,12 @@ import kotlin.reflect.KProperty1
 class XdManyChildrenToParentLink<R : XdEntity, T : XdEntity>(
         oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, XdMutableQuery<R>>,
-        dbPropertyName: String?
+        dbPropertyName: String?,
+        dbOppositePropertyName: String?
 ) : ScalarRequiredLink<R, T>, XdLink<R, T>(
         oppositeEntityType,
         dbPropertyName,
-        null,
+        dbOppositePropertyName,
         AssociationEndCardinality._1,
         AssociationEndType.ChildEnd,
         onDelete = OnDeletePolicy.CLEAR,
@@ -42,7 +43,7 @@ class XdManyChildrenToParentLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val parent = thisRef.reattachAndGetLink(property.name)
+        val parent = thisRef.reattachAndGetLink(property.dbName)
                 ?: throw RequiredPropertyUndefinedException(thisRef, property)
 
         return oppositeEntityType.wrap(parent)
@@ -50,7 +51,8 @@ class XdManyChildrenToParentLink<R : XdEntity, T : XdEntity>(
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
         val session = value.threadSessionOrThrow
-        value.reattach(session).addChild(oppositeField.name, property.name, thisRef.reattach(session))
+        value.reattach(session).addChild( oppositeField.oppositeDbName, property.dbName, thisRef.reattach(session)
+        )
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {

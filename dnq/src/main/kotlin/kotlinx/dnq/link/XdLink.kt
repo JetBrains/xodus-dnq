@@ -31,7 +31,8 @@ abstract class XdLink<in R, out T : XdEntity>(
     open val oppositeField: KProperty1<*, *>?
         get() = null
 
-    internal val KProperty<*>.dbName get() = dbPropertyName ?: name
+    protected val KProperty<*>.dbName get() = dbPropertyName ?: name
+    protected val KProperty<*>.oppositeDbName get() = dbOppositePropertyName ?: name
 
     abstract fun isDefined(thisRef: R, property: KProperty<*>): Boolean
 }

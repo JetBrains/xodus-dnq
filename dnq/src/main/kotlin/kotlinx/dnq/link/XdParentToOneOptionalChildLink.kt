@@ -28,11 +28,12 @@ import kotlin.reflect.KProperty1
 class XdParentToOneOptionalChildLink<R : XdEntity, T : XdEntity>(
         oppositeEntityType: XdEntityType<T>,
         override val oppositeField: KProperty1<T, R?>,
-        dbPropertyName: String?
+        dbPropertyName: String?,
+        dbOppositePropertyName: String?
 ) : ScalarOptionalLink<R, T>, XdLink<R, T>(
         oppositeEntityType,
         dbPropertyName,
-        null,
+        dbOppositePropertyName,
         AssociationEndCardinality._0_1,
         AssociationEndType.ParentEnd,
         onDelete = OnDeletePolicy.CASCADE,
@@ -40,7 +41,7 @@ class XdParentToOneOptionalChildLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return thisRef.reattachAndGetLink(property.name)?.let { value ->
+        return thisRef.reattachAndGetLink(property.dbName)?.let { value ->
             oppositeEntityType.wrap(value)
         }
     }
@@ -50,9 +51,9 @@ class XdParentToOneOptionalChildLink<R : XdEntity, T : XdEntity>(
         val parent = thisRef.reattach(session)
         val child = value?.reattach(session)
         if (child != null) {
-            parent.setChild(property.name, oppositeField.name, child)
+            parent.setChild(property.dbName, oppositeField.oppositeDbName, child)
         } else {
-            parent.removeChild(property.name, oppositeField.name)
+            parent.removeChild(property.dbName, oppositeField.oppositeDbName)
         }
     }
 

@@ -50,8 +50,7 @@ class XdOneToOneOptionalLink<R : XdEntity, T : XdEntity>(
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
         val session = thisRef.threadSessionOrThrow
-        thisRef.reattach(session).setOneToOne(property.dbName, dbOppositePropertyName
-                ?: oppositeField.name, value?.reattach(session))
+        thisRef.reattach(session).setOneToOne(property.dbName, oppositeField.oppositeDbName, value?.reattach(session))
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null
