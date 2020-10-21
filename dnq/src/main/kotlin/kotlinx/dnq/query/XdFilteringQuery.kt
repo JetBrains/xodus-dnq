@@ -195,7 +195,7 @@ internal fun NodeBase.decorateIfNeeded(): NodeBase {
     var result = this
     var temp = child.parentEntity
     while (temp != null) {
-        result = LinksEqualDecorator(temp.currentNodeName, result, temp.childEntity!!.type)
+        result = LinksEqualDecorator(temp.currentNodeName!!, result, temp.childEntity!!.type)
         temp = temp.parentEntity
     }
     return result
