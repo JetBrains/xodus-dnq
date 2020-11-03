@@ -12,7 +12,8 @@ dependencies {
     compile "org.jetbrains.xodus:xodus-query:$exodus_version"
     compile "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
     compile "org.jetbrains.xodus:xodus-utils:$exodus_version"
-    
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+
     compile "org.reflections:reflections:0.9.10"
     compile 'com.google.guava:guava:28.0-jre'
     compile "org.javassist:javassist:3.23.1-GA"
