@@ -25,6 +25,9 @@ import java.io.ByteArrayInputStream
 import java.time.Instant
 
 object InstantBinding : XdCustomTypeBinding<Instant>() {
+
+    override val clazz = Instant::class.java
+
     override fun write(stream: LightOutputStream, value: Instant) {
         LongBinding.BINDING.writeObject(stream, value.epochSecond)
         IntegerBinding.BINDING.writeObject(stream, value.nano)

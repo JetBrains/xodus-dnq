@@ -21,8 +21,12 @@ import kotlinx.dnq.simple.*
 import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import java.io.ByteArrayInputStream
 import java.time.LocalDateTime
+import java.time.ZonedDateTime
 
 object LocalDateTimeBinding : XdCustomTypeBinding<LocalDateTime>() {
+
+    override val clazz = LocalDateTime::class.java
+
     override fun write(stream: LightOutputStream, value: LocalDateTime) {
         LocalDateBinding.write(stream, value.toLocalDate())
         LocalTimeBinding.write(stream, value.toLocalTime())

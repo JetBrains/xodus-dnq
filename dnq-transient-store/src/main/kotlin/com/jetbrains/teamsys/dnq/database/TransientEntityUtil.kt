@@ -44,8 +44,8 @@ val PersistentEntityStore.currentTransactionOrThrow
     get() = currentTransaction as PersistentStoreTransaction?
             ?: throw IllegalStateException("There is no persistent transaction in current thread")
 
-val TransientEntity.persistentClassInstance: BasePersistentClassImpl?
-    get() = (store as? TransientEntityStoreImpl)?.getCachedPersistentClassInstance(type)
+val TransientEntity.lifecycle: EntityLifecycle?
+    get() = (store as? TransientEntityStoreImpl)?.entityLifecycle
 
 fun TransientEntity.getLinkEx(linkName: String, session: TransientStoreSession) =
         if (this is TransientEntityImpl) getLink(linkName, session) else getLink(linkName)

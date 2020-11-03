@@ -16,7 +16,6 @@
 package com.jetbrains.teamsys.dnq.database
 
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics
-import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.database.LinkChange
 import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientEntity
@@ -27,22 +26,10 @@ object EntityMetaDataUtils {
 
     @JvmStatic
     fun getRequiredIfProperties(emd: EntityMetaData, e: Entity): Set<String> {
-        val persistentClassInstance = (e as? TransientEntity)
-                ?.persistentClassInstance
+        val lifecycle = (e as? TransientEntity)
+                ?.lifecycle
                 ?: return emptySet()
-
-        return emd.getRequiredIfProperties(e)
-                .asSequence()
-                .filter { persistentClassInstance.isPropertyRequired(it, e) }
-                .toCollection(HashSetDecorator<String>())
-
-    }
-
-    @JvmStatic
-    fun getPropertyConstraints(e: Entity): Map<String, Iterable<PropertyConstraint<*>>> {
-        return (e as? TransientEntity)?.persistentClassInstance
-                ?.propertyConstraints
-                .orEmpty()
+        return lifecycle.getRequiredIfProperties(emd, e)
     }
 
     @JvmStatic

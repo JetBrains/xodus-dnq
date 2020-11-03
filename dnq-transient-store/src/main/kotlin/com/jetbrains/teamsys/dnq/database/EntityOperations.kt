@@ -50,7 +50,7 @@ object EntityOperations {
             val entityMetaData = modelMetaData.getEntityMetaData(txnEntity.type)
             if (entityMetaData != null) {
                 if (callDestructorPhase) {
-                    txnEntity.persistentClassInstance?.destructor(txnEntity)
+                    txnEntity.lifecycle?.onRemove(txnEntity)
                 }
                 processed.add(txnEntity)
                 // remove associations and cascade delete

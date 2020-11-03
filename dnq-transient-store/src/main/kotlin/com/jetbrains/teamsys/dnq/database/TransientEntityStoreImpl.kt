@@ -35,6 +35,8 @@ open class TransientEntityStoreImpl : TransientEntityStore {
 
     private lateinit var _persistentStore: PersistentEntityStore
 
+    var entityLifecycle: EntityLifecycle? = null
+
     /**
      * Must be injected.
      */
@@ -66,8 +68,6 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         protected set
     private var closed = false
     private val enumCache = ConcurrentHashMap<String, Entity>()
-    private val persistentClassInstanceCache = ConcurrentHashMap<String, BasePersistentClassImpl>()
-    private val persistentClassInstances = ConcurrentHashMap<Class<*>, BasePersistentClassImpl>()
 
     // fair flushLock
     internal val flushLock = ReentrantLock(true)
@@ -304,23 +304,6 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     }
 
     private fun getEnumKey(className: String, propName: String) = "$propName@$className"
-
-    fun getCachedPersistentClassInstance(entityType: String): BasePersistentClassImpl? {
-        return persistentClassInstanceCache[entityType]
-    }
-
-    fun getCachedPersistentClassInstance(entityType: Class<out BasePersistentClassImpl>): BasePersistentClassImpl? {
-        return persistentClassInstances[entityType]
-    }
-
-    fun setCachedPersistentClassInstance(entityType: String, instance: BasePersistentClassImpl) {
-        persistentClassInstanceCache[entityType] = instance
-        val clazz = instance.javaClass
-        if (persistentClassInstances[clazz] != null) {
-            logger.warn { "Persistent class instance already registered for: ${clazz.simpleName}" }
-        }
-        persistentClassInstances[clazz] = instance
-    }
 
     private fun assertOpen() {
         // this flag isn't even volatile, but this is legacy behavior

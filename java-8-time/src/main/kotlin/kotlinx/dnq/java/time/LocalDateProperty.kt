@@ -23,8 +23,12 @@ import kotlinx.dnq.simple.*
 import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import java.io.ByteArrayInputStream
 import java.time.LocalDate
+import java.time.OffsetTime
 
 object LocalDateBinding : XdCustomTypeBinding<LocalDate>() {
+
+    override val clazz = LocalDate::class.java
+
     override fun write(stream: LightOutputStream, value: LocalDate) {
         IntegerBinding.BINDING.writeObject(stream, value.year)
         ShortBinding.BINDING.writeObject(stream, value.monthValue.toShort())

@@ -31,6 +31,8 @@ private val max = ZonedDateTime.ofLocal(LocalDateTime.MAX, ZoneOffset.UTC, ZoneO
 
 object ZonedDateTimeBinding : XdCustomTypeBinding<ZonedDateTime>() {
 
+    override val clazz = ZonedDateTime::class.java
+
     override fun write(stream: LightOutputStream, value: ZonedDateTime) {
         LocalDateTimeBinding.write(stream, value.toLocalDateTime())
         stream.writeString(value.zone.id)

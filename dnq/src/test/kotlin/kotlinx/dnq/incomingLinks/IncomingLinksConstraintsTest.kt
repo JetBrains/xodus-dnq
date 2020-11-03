@@ -46,7 +46,7 @@ class IncomingLinksConstraintsTest : DBTest() {
         })
     }
 
-    class XdUser(entity: Entity) : XdEntity(entity) {
+    class XdUser(entity: Entity) : XdEntity(entity), NamedXdEntity {
 
         companion object : XdNaturalEntityType<XdUser>()
 
@@ -54,7 +54,7 @@ class IncomingLinksConstraintsTest : DBTest() {
 
         val comments by xdLink0_N(XdComment::author)
 
-        val displayName get() = getOldValue(XdUser::login) ?: login
+        override val displayName get() = getOldValue(XdUser::login) ?: login
     }
 
     override fun registerEntityTypes() {

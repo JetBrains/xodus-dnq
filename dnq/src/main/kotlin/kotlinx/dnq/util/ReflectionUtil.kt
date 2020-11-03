@@ -35,11 +35,6 @@ import kotlin.reflect.full.companionObjectInstance
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.jvmName
 
-
-@Deprecated("Use inferTypeParameters(baseClass, this) instead", ReplaceWith("inferTypeParameters(baseClass, this).values.toTypedArray()", "org.jetbrains.mazine.infer.type.parameter.inferTypeParameters"))
-fun <B, T : B> Class<T>.inferTypeParameters(baseClass: Class<B>) =
-        org.jetbrains.mazine.infer.type.parameter.inferTypeParameters(baseClass, this).values.toTypedArray()
-
 internal val <T : XdEntity> XdEntityType<T>.enclosingEntityClass: Class<out T>
     get() {
         val entityTypeClass = this.javaClass

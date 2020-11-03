@@ -15,14 +15,18 @@
  */
 package kotlinx.dnq.util
 
-import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
-import javassist.util.proxy.ProxyFactory
-import javassist.util.proxy.ProxyObject
-import kotlinx.dnq.*
+import com.jetbrains.teamsys.dnq.database.IncomingLinkViolation
+import com.jetbrains.teamsys.dnq.database.PerEntityIncomingLinkViolation
+import com.jetbrains.teamsys.dnq.database.PerTypeIncomingLinkViolation
+import com.jetbrains.teamsys.dnq.database.PropertyConstraint
+import kotlinx.dnq.XdEntity
+import kotlinx.dnq.XdEntityType
+import kotlinx.dnq.XdModel
+import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.link.XdLink
+import kotlinx.dnq.simple.RequireIfConstraint
 import kotlinx.dnq.simple.XdConstrainedProperty
 import java.lang.reflect.Field
-import java.lang.reflect.Method
 import java.util.*
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
@@ -56,6 +60,11 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
     val simpleProperties = LinkedHashMap<String, SimpleProperty>()
     val linkProperties = LinkedHashMap<String, LinkProperty>()
 
+    val customTargetDeletePolicies: Map<String, OnDeletePolicy>
+
+    val requireIfConstraints = LinkedHashMap<String, MutableList<RequireIfConstraint<*, *>>>()
+    val propertyConstraints = LinkedHashMap<String, MutableList<PropertyConstraint<*>>>()
+
     init {
         parentNode?.children?.add(this)
 
@@ -63,6 +72,25 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
         if (ctor != null) {
             initProperties(ctor(FakeEntity))
         }
+
+        val naturalProperties = getAllProperties()
+
+        for (property in naturalProperties) {
+            for (constraint in getPropertyConstraints(property.delegate)) {
+                when (constraint) {
+                    is RequireIfConstraint<*, *> -> requireIfConstraints.getOrPut(property.dbPropertyName) { ArrayList(1) }.add(constraint)
+                    else -> propertyConstraints.getOrPut(property.dbPropertyName) { ArrayList(1) }.add(constraint)
+                }
+            }
+        }
+        customTargetDeletePolicies = getAllLinks()
+                .filter { link ->
+                    val onTargetDelete = link.delegate.onTargetDelete
+                    onTargetDelete is OnDeletePolicy.FAIL_PER_TYPE || onTargetDelete is OnDeletePolicy.FAIL_PER_ENTITY
+                }
+                .map { it.dbPropertyName to it.delegate.onTargetDelete }
+                .toMap()
+
     }
 
     override fun toString(): String {
@@ -83,27 +111,13 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
         }
     }
 
-    val naturalPersistentClassInstance by lazy {
-        val xdEntityType = entityType as? XdNaturalEntityType<*>
-                ?: throw UnsupportedOperationException("This property is available only for XdNaturalEntityType")
-
-        val persistentClass = this.findLegacyEntitySuperclass()?.legacyClass ?: CommonBasePersistentClass::class.java
-
-        ProxyFactory().apply {
-            superclass = persistentClass
-            setFilter { isNotFinalize(it) }
-            isUseCache = false
-        }.create(emptyArray(), emptyArray()).apply {
-            this as ProxyObject
-            handler = PersistentClassMethodHandler(this as BasePersistentClassImpl, xdEntityType, this@XdHierarchyNode)
-        } as BasePersistentClassImpl
+    fun createIncomingLinkViolation(linkName: String): IncomingLinkViolation {
+        return when (val onTargetDeletePolicy = customTargetDeletePolicies[linkName]) {
+            is OnDeletePolicy.FAIL_PER_TYPE -> PerTypeIncomingLinkViolation(linkName, onTargetDeletePolicy.message)
+            is OnDeletePolicy.FAIL_PER_ENTITY -> PerEntityIncomingLinkViolation(linkName, onTargetDeletePolicy.message)
+            else -> IncomingLinkViolation(linkName)
+        }
     }
-
-    private fun findLegacyEntitySuperclass(): XdLegacyClassHolder<*, *>? = this.entityType.let {
-        it as? XdLegacyClassHolder<*, *> ?: this.parentNode?.findLegacyEntitySuperclass()
-    }
-
-    private fun isNotFinalize(method: Method) = !method.parameterTypes.isEmpty() || method.name != "finalize"
 
     fun resolveMetaProperty(prop: KProperty1<*, *>): MetaProperty? {
         return simpleProperties[prop.name]
@@ -133,7 +147,8 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
                         null
                     }
                     if (extensionDelegate != null && extensionDelegate is XdLink<*, *>) {
-                        val presented = XdModel[delegate.oppositeEntityType] ?: XdModel.registerNode(delegate.oppositeEntityType)
+                        val presented = XdModel[delegate.oppositeEntityType]
+                                ?: XdModel.registerNode(delegate.oppositeEntityType)
                         presented.linkProperties[oppositeField.name] = LinkProperty(oppositeField, extensionDelegate)
                     }
                 }

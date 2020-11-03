@@ -470,18 +470,18 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         val modelMetaData = store.modelMetaData
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
-            logger.warn("Quiet intermediate commit: skip before flush triggers. " + this)
+            logger.warn("Quiet intermediate commit: skip before flush triggers. $this")
             return
         }
 
-        logger.debug { "Execute before flush triggers. ${this}" }
+        logger.debug { "Execute before flush triggers. $this" }
 
         val exceptions = changedEntities
                 .asSequence()
                 .filter { !it.isRemoved }
                 .flatMap { entity ->
                     try {
-                        entity.persistentClassInstance?.executeBeforeFlushTrigger(entity)
+                        entity.lifecycle?.onBeforeFlush(entity)
                         emptySequence<DataIntegrityViolationException>()
                     } catch (cve: ConstraintsValidationException) {
                         cve.causes.asSequence()

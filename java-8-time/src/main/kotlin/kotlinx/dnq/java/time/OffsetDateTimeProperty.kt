@@ -21,8 +21,11 @@ import kotlinx.dnq.simple.*
 import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import java.io.ByteArrayInputStream
 import java.time.OffsetDateTime
+import java.time.ZonedDateTime
 
 object OffsetDateTimeBinding : XdCustomTypeBinding<OffsetDateTime>() {
+
+    override val clazz = OffsetDateTime::class.java
 
     override fun write(stream: LightOutputStream, value: OffsetDateTime) {
         LocalDateTimeBinding.write(stream, value.toLocalDateTime())

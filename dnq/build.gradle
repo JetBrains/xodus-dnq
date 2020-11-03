@@ -18,7 +18,6 @@ dependencies {
     compile 'com.google.guava:guava:28.0-jre'
     compile "org.javassist:javassist:3.23.1-GA"
     compile "javax.servlet:javax.servlet-api:3.0.1"
-    compile 'com.github.mazine:infer-hierarchy-type-parameter:1.2.0'
 
     testCompile project(':dnq')
     testCompile 'com.google.truth:truth:0.35'

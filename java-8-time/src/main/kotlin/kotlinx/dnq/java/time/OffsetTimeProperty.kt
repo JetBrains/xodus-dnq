@@ -24,6 +24,8 @@ import java.time.OffsetTime
 
 object OffsetTimeBinding : XdCustomTypeBinding<OffsetTime>() {
 
+    override val clazz = OffsetTime::class.java
+
     override fun write(stream: LightOutputStream, value: OffsetTime) {
         LocalTimeBinding.write(stream, value.toLocalTime())
         ZoneOffsetBinding.write(stream, value.offset)

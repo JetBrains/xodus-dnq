@@ -26,6 +26,8 @@ import java.time.LocalTime
 
 object LocalTimeBinding : XdCustomTypeBinding<LocalTime>() {
 
+    override val clazz = LocalTime::class.java
+
     override fun write(stream: LightOutputStream, value: LocalTime) {
         ByteBinding.BINDING.writeObject(stream, value.hour.toByte())
         ByteBinding.BINDING.writeObject(stream, value.minute.toByte())

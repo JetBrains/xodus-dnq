@@ -18,11 +18,11 @@ package kotlinx.dnq.simple.custom.type
 import jetbrains.exodus.bindings.ComparableBinding
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.util.LightOutputStream
-import org.jetbrains.mazine.infer.type.parameter.inferTypeParameterClass
 import java.io.ByteArrayInputStream
 
 abstract class XdCustomTypeBinding<V : Comparable<V>> : ComparableBinding() {
-    val clazz: Class<V> = inferTypeParameterClass(XdCustomTypeBinding::class.java, "V", javaClass)
+
+    abstract val clazz: Class<V>
 
     fun register(store: TransientEntityStore) {
         XdCustomTypeBindingRegistry[clazz] = this

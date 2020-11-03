@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package kotlinx.dnq.util
+package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.database.BasePersistentClassImpl
+interface NamedXdEntity {
 
-open class CommonBasePersistentClass : BasePersistentClassImpl() {
-    override fun run() = Unit
+    val displayName: String
+
 }

@@ -113,12 +113,6 @@ object TransientStoreUtil {
     }
 
     @JvmStatic
-    @Deprecated("Use entity.persistentClassInstance instead", ReplaceWith("entity.persistentClassInstance", "com.jetbrains.teamsys.dnq.database.TransientEntityUtilKt.getPersistentClassInstance"))
-    fun getPersistentClassInstance(entity: Entity): BasePersistentClassImpl? {
-        return (entity as TransientEntity).persistentClassInstance
-    }
-
-    @JvmStatic
     fun getSize(it: Iterable<Entity>?): Int {
         val iterable = if (it is StaticTypedEntityIterable) it.instantiate() else it
         return when {

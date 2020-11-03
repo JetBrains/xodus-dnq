@@ -71,8 +71,8 @@ object ConstraintsUtil {
                                         .filterIsInstance<TransientEntity>()
                                         .filter { sourceEntity -> !sourceEntity.isRemoved && targetEntity !in sourceEntity.getRemovedLinks(linkName) }
                                         .takeWhile { sourceEntity ->
-                                            val violation = incomingLinkViolation ?:
-                                                    createIncomingLinkViolation(sourceEntity, linkName)
+                                            val violation = incomingLinkViolation
+                                                    ?: createIncomingLinkViolation(sourceEntity, linkName)
                                                             .also { newViolation ->
                                                                 incomingLinkViolation = newViolation
                                                             }
@@ -90,15 +90,15 @@ object ConstraintsUtil {
     }
 
     private fun createIncomingLinkViolation(linkSource: TransientEntity, linkName: String): IncomingLinkViolation {
-        return linkSource.persistentClassInstance
-                ?.createIncomingLinkViolation(linkName)
+        return linkSource.lifecycle
+                ?.createIncomingLinkViolation(linkName, linkSource)
                 ?: IncomingLinkViolation(linkName)
     }
 
     private fun createIncomingLinksException(targetEntity: TransientEntity, badIncomingLinks: List<IncomingLinkViolation>): DataIntegrityViolationException {
-        val persistentClassInstance = targetEntity.persistentClassInstance
-        return if (persistentClassInstance != null) {
-            persistentClassInstance.createIncomingLinksException(badIncomingLinks, targetEntity)
+        val lifecycle = targetEntity.lifecycle
+        return if (lifecycle != null) {
+            lifecycle.createIncomingLinksException(badIncomingLinks, targetEntity)
         } else {
             val linkDescriptions = badIncomingLinks.map { it.description }
             val displayName = targetEntity.debugPresentation
@@ -418,8 +418,7 @@ object ConstraintsUtil {
                             ?.let { entityMetaData -> changedEntity to entityMetaData }
                 }
                 .flatMap { (changedEntity, entityMetaData) ->
-                    val persistentClass = changedEntity.persistentClassInstance
-                    val propertyConstraints = persistentClass?.propertyConstraints.orEmpty()
+                    val propertyConstraints = changedEntity.lifecycle?.propertyConstraints(changedEntity).orEmpty()
 
                     getChangedPropertiesWithConstraints(tracker, changedEntity, propertyConstraints)
                             .mapNotNull { (propertyName, constraints) ->
@@ -430,7 +429,10 @@ object ConstraintsUtil {
                                 val type = getPropertyType(propertyMetaData)
                                 val propertyValue = getPropertyValue(changedEntity, propertyName, type)
                                 constraints.asSequence()
-                                        .mapNotNull { it.check(changedEntity, propertyMetaData, propertyValue) }
+                                        .mapNotNull {
+                                            it as PropertyConstraint<Any?>
+                                            it.check(changedEntity, propertyMetaData, propertyValue)
+                                        }
                             }
                 }
                 .toCollection(HashSetDecorator())
@@ -439,8 +441,8 @@ object ConstraintsUtil {
     private fun getChangedPropertiesWithConstraints(
             tracker: TransientChangesTracker,
             changedEntity: TransientEntity,
-            constrainedProperties: Map<String, Iterable<PropertyConstraint<Any?>>>
-    ): Sequence<Pair<String, Iterable<PropertyConstraint<Any?>>>> {
+            constrainedProperties: Map<String, Iterable<PropertyConstraint<*>>>
+    ): Sequence<Pair<String, Iterable<PropertyConstraint<*>>>> {
         return if (changedEntity.isNew) {
             // All properties with constraints
             constrainedProperties
@@ -510,12 +512,9 @@ object ConstraintsUtil {
 
         return if (entity.isNew || name in changedProperties.orEmpty()) {
             val type = getPropertyType(entityMetaData.getPropertyMetaData(name))
-            val displayName = entity.persistentClassInstance
-                    ?.getPropertyDisplayName(name)
-                    ?: name
 
             if (isPropertyUndefined(entity, name, type)) {
-                NullPropertyException(entity, displayName)
+                NullPropertyException(entity, name)
             } else {
                 null
             }

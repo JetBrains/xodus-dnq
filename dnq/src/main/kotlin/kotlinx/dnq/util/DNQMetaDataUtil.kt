@@ -29,6 +29,7 @@ import kotlinx.dnq.simple.XdPropertyRequirement
 import kotlinx.dnq.simple.XdWrappedProperty
 import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
 import kotlinx.dnq.singleton.XdSingletonEntityType
+import kotlinx.dnq.store.EntityLifecycleImpl
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
 import kotlin.reflect.jvm.javaType
@@ -43,7 +44,6 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
         val (entityTypeName, node) = it
         entityStore.registerCustomTypes(node)
         modelMetaData.addEntityMetaData(entityTypeName, node)
-        entityStore.setCachedPersistentClassInstance(entityTypeName, node.naturalPersistentClassInstance)
     }
 
     naturalNodes.forEach {
@@ -65,6 +65,7 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
             }
         }
     }
+    entityStore.entityLifecycle = EntityLifecycleImpl()
 
     /**
      * This explicitly prepares all data structures within model metadata. If we don't invoke
