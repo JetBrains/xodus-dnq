@@ -1308,7 +1308,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
                 } else {
                     logger.error(e) { "Exception inside listener [$listener]" }
                     if (e is TransactionFinishedException && e.trace != null) {
-                        logger.error(e.trace) { "Transaction was early finished inside listener" }
+                        logger.error { "Transaction was early finished inside listener: ${e.trace}" }
                     }
                 }
             }
