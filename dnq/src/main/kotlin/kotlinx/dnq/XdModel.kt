@@ -21,6 +21,8 @@ import jetbrains.exodus.core.dataStructures.SoftConcurrentLongObjectCache
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.management.DnqStatistics
 import kotlinx.dnq.query.FakeTransientEntity
+import kotlinx.dnq.singleton.SingletonEntitiesCacheImpl
+import kotlinx.dnq.singleton.XdSingletonEntitiesCache
 import kotlinx.dnq.util.XdHierarchyNode
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.parent
@@ -43,6 +45,11 @@ object XdModel : KLogging() {
 
     private val monitor = Object()
     private val scannedLocations = HashSet<String>()
+
+    var singletonEntitiesCache: XdSingletonEntitiesCache = SingletonEntitiesCacheImpl(
+            System.getProperty("kotlinx.dnq.model.singletonEntitiesCache", "200").toInt()
+    )
+
     val hierarchy = HashMap<String, XdHierarchyNode>()
     internal val plugins = ArrayList<XdModelPlugin>()
     private val toXdCache: LongObjectCacheBase<ToXdCachedValue> =
@@ -98,6 +105,10 @@ object XdModel : KLogging() {
 
         val parentNode = entityType.parent?.let { registerNode(it) }
         XdHierarchyNode(entityType, parentNode)
+    }
+
+    fun withPlugins(cache: XdSingletonEntitiesCache) {
+        singletonEntitiesCache = cache
     }
 
     fun withPlugins(modelPlugins: XdModelPlugins) {
