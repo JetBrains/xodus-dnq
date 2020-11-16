@@ -107,10 +107,6 @@ object XdModel : KLogging() {
         XdHierarchyNode(entityType, parentNode)
     }
 
-    fun withSingletonEntitiesCache(cache: XdSingletonEntitiesCache) {
-        singletonEntitiesCache = cache
-    }
-
     fun withPlugins(modelPlugins: XdModelPlugins) {
         modelPlugins.plugins.forEach { installPlugin(it) }
     }
