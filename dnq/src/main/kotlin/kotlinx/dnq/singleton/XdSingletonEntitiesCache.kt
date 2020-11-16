@@ -16,22 +16,8 @@
 package kotlinx.dnq.singleton
 
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.XdModel
-import kotlinx.dnq.XdNaturalEntityType
-import kotlinx.dnq.query.firstOrNull
-import kotlinx.dnq.store.container.StaticStoreContainer
-import kotlinx.dnq.store.container.StoreContainer
 
+interface XdSingletonEntitiesCache {
 
-abstract class XdSingletonEntityType<XD : XdEntity>(entityTypeName: String? = null, storeContainer: StoreContainer = StaticStoreContainer) :
-        XdNaturalEntityType<XD>(entityTypeName, storeContainer) {
-
-    fun get() = XdModel.singletonEntitiesCache.getOrPut(this) {
-        all().firstOrNull() ?: new {
-            initSingleton()
-        }
-    }
-
-    protected abstract fun XD.initSingleton()
-
+    fun <XD : XdEntity> getOrPut(type: XdSingletonEntityType<XD>, findOrNew: () -> XD): XD
 }
