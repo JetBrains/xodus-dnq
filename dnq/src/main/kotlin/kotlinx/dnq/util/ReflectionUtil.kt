@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.util
 
+import jetbrains.exodus.core.dataStructures.SoftConcurrentObjectCache
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
@@ -108,17 +109,7 @@ fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: 
 
 private fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, property: KProperty1<R, T>, entityClass: Class<R>?): Boolean {
     // do all this fuzzy stuff only if the property is open and the entity class is open too
-    val realProperty = if (property.isFinal || entityClass?.kotlin?.isFinal ?: false) {
-        property
-    } else {
-        this.javaClass.kotlin.memberProperties.single { it.name == property.name }
-    }
-
-    val realEntityType = if (realProperty == property) {
-        entityType
-    } else {
-        this.javaClass.entityType
-    }
+    val (realProperty, realEntityType) = javaClass.getPropertyMeta(property, entityType, entityClass)
 
     val metaProperty = XdModel.getOrThrow(realEntityType.entityType).resolveMetaProperty(realProperty)
 
@@ -137,6 +128,35 @@ private fun <R : XdEntity, T : Any?> R.isDefined(entityType: XdEntityType<R>, pr
         else -> throw UnsupportedOperationException("Type ${metaProperty.javaClass} of meta " +
                 "property ${realEntityType.entityType}#${metaProperty.property} is not supported")
     }
+}
+
+private val propertiesCache by lazy(LazyThreadSafetyMode.NONE) {
+    SoftConcurrentObjectCache<String, Pair<KProperty1<*, Any?>, XdEntityType<*>>>(XdModel.hierarchy.size * 10)
+}
+
+@Suppress("UNCHECKED_CAST")
+private fun <R : XdEntity, T : Any?> Class<R>.getPropertyMeta(
+        property: KProperty1<R, T>,
+        xdEntityType: XdEntityType<R>,
+        entityClass: Class<R>?): Pair<KProperty1<R, Any?>, XdEntityType<R>> {
+    val key = simpleName + "|" + property.name + "|" + xdEntityType.javaClass.simpleName + "|" + entityClass?.simpleName
+    val cached = propertiesCache.tryKey(key)
+    if (cached == null) {
+        val realProperty = if (property.isFinal || entityClass?.kotlin?.isFinal == true) {
+            property
+        } else {
+            kotlin.memberProperties.single { it.name == property.name }
+        }
+        val realEntityType: XdEntityType<R> = if (realProperty == property) {
+            xdEntityType
+        } else {
+            entityType
+        }
+        val pair = realProperty to realEntityType
+        propertiesCache.cacheObject(key, pair)
+        return pair
+    }
+    return cached as Pair<KProperty1<R, Any?>, XdEntityType<R>>
 }
 
 /**
