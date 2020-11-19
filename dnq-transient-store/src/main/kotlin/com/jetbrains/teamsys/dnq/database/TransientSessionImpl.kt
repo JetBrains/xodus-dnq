@@ -280,6 +280,11 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         return persistentTransactionInternal.getSequence(sequenceName)
     }
 
+    override fun getSequence(sequenceName: String, initialValue: Long): Sequence {
+        assertOpen("get sequence")
+        return persistentTransactionInternal.getSequence(sequenceName, initialValue)
+    }
+
     private fun closePersistentSession() {
         logger.debug("Close persistent session for transient session ${this}")
 
