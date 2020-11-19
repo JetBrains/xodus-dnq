@@ -84,7 +84,15 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
+    override fun deleteLink(linkName: String, targetId: EntityId): Boolean {
+        throw unsupported()
+    }
+
     override fun setLink(linkName: String, target: Entity?): Boolean {
+        throw unsupported()
+    }
+
+    override fun setLink(linkName: String, targetId: EntityId): Boolean {
         throw unsupported()
     }
 
@@ -119,6 +127,10 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
     }
 
     override fun addLink(linkName: String, target: Entity): Boolean {
+        throw unsupported()
+    }
+
+    override fun addLink(linkName: String, targetId: EntityId): Boolean {
         throw unsupported()
     }
 

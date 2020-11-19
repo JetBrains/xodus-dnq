@@ -191,8 +191,11 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun setLink(linkName: String, target: Entity?): Boolean {
         if (target == null) return false
-        assertIsMultipleLink(this, linkName)
         return threadSessionOrThrow.setLink(this, linkName, target as TransientEntity)
+    }
+
+    override fun setLink(linkName: String, targetId: EntityId): Boolean {
+        return threadSessionOrThrow.run { setLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
     }
 
     private fun assertIsMultipleLink(entity: Entity, linkName: String) {
@@ -209,8 +212,17 @@ open class TransientEntityImpl : TransientEntity {
         return threadSessionOrThrow.addLink(this, linkName, target as TransientEntity)
     }
 
+    override fun addLink(linkName: String, targetId: EntityId): Boolean {
+        assertIsMultipleLink(this, linkName)
+        return threadSessionOrThrow.run { addLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
+    }
+
     override fun deleteLink(linkName: String, target: Entity): Boolean {
         return threadSessionOrThrow.deleteLink(this, linkName, target as TransientEntity)
+    }
+
+    override fun deleteLink(linkName: String, targetId: EntityId): Boolean {
+        return threadSessionOrThrow.run { deleteLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
     }
 
     override fun deleteLinks(linkName: String) {

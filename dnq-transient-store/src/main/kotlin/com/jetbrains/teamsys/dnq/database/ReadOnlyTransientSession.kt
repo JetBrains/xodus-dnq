@@ -110,6 +110,10 @@ class ReadOnlyTransientSession(
         return persistentTransactionInternal.getSequence(sequenceName)
     }
 
+    override fun getSequence(sequenceName: String, initialValue: Long): Sequence {
+        return persistentTransactionInternal.getSequence(sequenceName, initialValue)
+    }
+
     override fun setQueryCancellingPolicy(policy: QueryCancellingPolicy?) {
         persistentTransactionInternal.queryCancellingPolicy = policy
     }
