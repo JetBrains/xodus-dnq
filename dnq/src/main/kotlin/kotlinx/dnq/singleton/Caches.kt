@@ -19,7 +19,7 @@ import jetbrains.exodus.core.dataStructures.SoftConcurrentLongObjectCache
 import jetbrains.exodus.database.TransientEntityStore
 import kotlinx.dnq.XdEntity
 
-val <XD : XdEntity> XdSingletonEntityType<XD>.cacheKey get() = (entityStore.hashCode() shl 32) + hashCode().toLong()
+val <XD : XdEntity> XdSingletonEntityType<XD>.cacheKey get() = (entityStore.hashCode().toLong() shl 32) + hashCode().toLong()
 
 object SingletonEntitiesNoCacheImpl : XdSingletonEntitiesCache {
 
