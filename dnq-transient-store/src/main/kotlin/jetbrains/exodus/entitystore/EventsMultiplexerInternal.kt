@@ -21,55 +21,35 @@ import jetbrains.exodus.database.TransientEntityChange
 import jetbrains.exodus.database.TransientEntityStore
 
 internal class FullEntityId(store: EntityStore, id: EntityId) {
+
     private val storeHashCode: Int = System.identityHashCode(store)
     private val entityTypeId: Int = id.typeId
     private val entityLocalId: Long = id.localId
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) {
-            return true
-        }
-        if (other !is FullEntityId) {
-            return false
-        }
-        if (storeHashCode != other.storeHashCode) {
-            return false
-        }
-        return if (entityLocalId != other.entityLocalId) {
-            false
-        } else entityTypeId == other.entityTypeId
-    }
+    override fun equals(other: Any?) = (this === other) ||
+            (other is FullEntityId && storeHashCode == other.storeHashCode &&
+                    entityLocalId == other.entityLocalId && entityTypeId == other.entityTypeId)
 
     override fun hashCode(): Int {
         var result = storeHashCode
-        result = 31 * result + entityTypeId
-        result = 31 * result + (entityLocalId xor (entityLocalId shr 32)).toInt()
+        result = 31 * result + entityTypeId + 1
+        result = 31 * result + ((entityLocalId + 1) xor (entityLocalId shr 32)).toInt()
         return result
     }
 
-    override fun toString(): String {
-        val builder = StringBuilder(10)
-        toString(builder)
-        return builder.toString()
+    override fun toString() = buildString(20) {
+        toString(this)
     }
 
-    fun toString(builder: StringBuilder) {
-        builder.append(entityTypeId)
-        builder.append('-')
-        builder.append(entityLocalId)
-        builder.append('@')
-        builder.append(storeHashCode)
-    }
+    fun toString(builder: StringBuilder) =
+            builder.append(entityTypeId).append('-').append(entityLocalId).append('@').append(storeHashCode)
 }
 
-internal class EventsMultiplexerJob(
-        private val store: TransientEntityStore,
-        private val eventsMultiplexer: EventsMultiplexer,
-        private val changes: Set<TransientEntityChange>,
-        private val changesTracker: TransientChangesTracker
-) : Job() {
+internal class EventsMultiplexerJob(private val store: TransientEntityStore,
+                                    private val eventsMultiplexer: EventsMultiplexer,
+                                    private val changes: Set<TransientEntityChange>,
+                                    private val changesTracker: TransientChangesTracker) : Job() {
 
-    @Throws(Throwable::class)
     public override fun execute() {
         try {
             store.transactional {
@@ -82,7 +62,5 @@ internal class EventsMultiplexerJob(
 
     override fun getName() = "Async events from EventMultiplexer"
 
-    override fun getGroup(): String {
-        return changesTracker.snapshot.getStore().location
-    }
+    override fun getGroup() = store.location
 }
