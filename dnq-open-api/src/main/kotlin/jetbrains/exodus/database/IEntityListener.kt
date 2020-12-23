@@ -30,13 +30,4 @@ interface IEntityListener<T : Entity> {
     fun removedSync(removed: T)
     fun removedSyncAfterConstraints(added: T)
     fun removedSyncBeforeConstraints(removed: T)
-
-    @Deprecated("Implement addedSyncAfterConstraints() instead")
-    fun addedSyncBeforeFlush(added: T)
-
-    @Deprecated("Implement updatedSyncAfterConstraints() instead")
-    fun updatedSyncBeforeFlush(old: T, current: T)
-
-    @Deprecated("Implement removedSyncAfterConstraints() instead")
-    fun removedSyncBeforeFlush(removed: T)
 }

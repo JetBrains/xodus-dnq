@@ -70,8 +70,4 @@ internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityList
 
     override fun hashCode() = wrapped.hashCode()
     override fun equals(other: Any?) = other is EntityListenerWrapper<*> && wrapped == other.wrapped
-
-    override fun addedSyncBeforeFlush(added: Entity) = wrapped.addedSyncBeforeFlush(added.toXd())
-    override fun updatedSyncBeforeFlush(old: Entity, current: Entity) = wrapped.updatedSyncBeforeFlush(old.toXd(), current.toXd())
-    override fun removedSyncBeforeFlush(removed: Entity) = wrapped.removedSyncBeforeFlush(removed.toXd())
 }
