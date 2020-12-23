@@ -53,6 +53,15 @@ internal interface SessionQueryMixin : TransientStoreSession {
         ))
     }
 
+    override fun findContaining(entityType: String, propertyName: String, value: String, ignoreCase: Boolean): EntityIterable {
+        return wrap("findContaining", persistentTransactionInternal.findContaining(
+                entityType,
+                propertyName,
+                value,
+                ignoreCase
+        ))
+    }
+
     override fun findIds(entityType: String, minValue: Long, maxValue: Long): EntityIterable {
         return wrap("findIds", persistentTransactionInternal.findIds(
                 entityType,
