@@ -510,8 +510,6 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             beforeFlush()
             checkBeforeSaveChangesConstraints()
 
-            notifyBeforeFlushAfterConstraintsCheckListeners()
-
             val txn = persistentTransactionInternal
             if (txn.isIdempotent) return
 
@@ -750,23 +748,6 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
 
         logger.debug { "Notify before flush listeners $this" }
         forAllListeners(rethrowException = true) { it.beforeFlushBeforeConstraints(this, changes) }
-    }
-
-    @Deprecated("")
-    private fun notifyBeforeFlushAfterConstraintsCheckListeners() {
-        val changesDescr = Collections.unmodifiableSet(transientChangesTracker.changesDescription)
-
-        if (changesDescr.isEmpty()) return
-
-        logger.debug { "Notify before flush after constraints check listeners $this" }
-
-        // check side effects in listeners
-        val changesCount = changes.size
-        forAllListeners { it.beforeFlushAfterConstraints(this, changesDescr) }
-
-        if (changes.size != changesCount) {
-            throw EntityStoreException("It's not allowed to change database inside listener.beforeFlushAfterConstraintsCheck() method.")
-        }
     }
 
     private fun newEntityImpl(persistent: PersistentEntity): TransientEntity {

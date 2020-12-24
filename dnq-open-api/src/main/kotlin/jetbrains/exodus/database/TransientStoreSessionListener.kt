@@ -30,13 +30,6 @@ interface TransientStoreSessionListener {
     fun beforeFlushBeforeConstraints(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>)
 
     /**
-     * Before commit or flush, only if were changes.
-     * Is not allowed to have side effects, i.e. make database changes.
-     */
-    @Deprecated("")
-    fun beforeFlushAfterConstraints(session: TransientStoreSession, changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>)
-
-    /**
      * After constraints if check is failed
      * Is not allowed to have side effects, i.e. make database changes.
      */

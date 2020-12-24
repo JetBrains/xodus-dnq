@@ -36,10 +36,8 @@ abstract class XdEntity(val entity: Entity) {
         EntityOperations.remove(entity)
     }
 
-    // FIXME: this trigger is fired only for natural entities, should it be called for legacy entities also?
     open fun beforeFlush() {}
 
-    // FIXME: this trigger is fired only for natural entities, should it be called for legacy entities also?
     open fun destructor() {}
 
     open fun constructor() {}

@@ -15,7 +15,6 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.exceptions.CantRemoveEntityException
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.EntityMetaData

@@ -53,11 +53,6 @@ open class EventsMultiplexer @JvmOverloads constructor(val asyncJobProcessor: Jo
         this.fire(session.store, Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS, changedEntities)
     }
 
-    @Deprecated("")
-    override fun beforeFlushAfterConstraints(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) {
-        this.fire(session.store, Where.SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS, changedEntities)
-    }
-
     override fun afterConstraintsFail(session: TransientStoreSession, exceptions: Set<DataIntegrityViolationException>) {}
 
     private fun asyncFire(session: TransientStoreSession, changesTracker: TransientChangesTracker, changes: Set<TransientEntityChange>) {

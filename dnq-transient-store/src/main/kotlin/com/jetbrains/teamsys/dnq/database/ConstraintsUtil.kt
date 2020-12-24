@@ -29,10 +29,9 @@ import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.database.exceptions.NullPropertyException
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.*
-import mu.NamedKLogging
+import mu.KLogging
 
-object ConstraintsUtil {
-    private val logger = NamedKLogging(ConstraintsUtil::class.java.name).logger
+object ConstraintsUtil: KLogging() {
 
     @JvmStatic
     fun checkCardinality(e: TransientEntity, md: AssociationEndMetaData): Boolean {
