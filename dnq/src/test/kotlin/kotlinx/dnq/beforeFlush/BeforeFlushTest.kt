@@ -113,45 +113,6 @@ class BeforeFlushTest : DBTest() {
     }
 
     @Test
-    fun beforeFlushListenerIsCalledBeforeFlush() {
-
-        store.transactional { txn ->
-            val pin = Pin.new()
-            txn.flush()
-            pin.screw()
-
-            var gotIt = false
-            store.eventsMultiplexer?.addListener(pin, object : XdEntityListener<Pin> {
-                override fun updatedSyncAfterConstraints(old: Pin, current: Pin) {
-                    gotIt = true
-                }
-            })
-            assertThat(gotIt).isFalse()
-            txn.flush()
-            assertThat(gotIt).isTrue()
-        }
-    }
-
-    @Test
-    fun cantFlushFromBeforeFlush() {
-        store.transactional { txn ->
-            val car = Car.new()
-            txn.flush()
-            var gotIt = false
-            store.eventsMultiplexer?.addListener(car, object : XdEntityListener<Car> {
-                override fun updatedSyncAfterConstraints(old: Car, current: Car) {
-                    txn.flush()
-                    gotIt = true
-                }
-            })
-            assertThat(gotIt).isFalse()
-            car.name = "hohoho"
-            txn.flush()
-            assertThat(gotIt).isFalse()
-        }
-    }
-
-    @Test
     fun sideEffectsFromListener() {
         store.transactional { txn ->
             val tire = Tire.new()

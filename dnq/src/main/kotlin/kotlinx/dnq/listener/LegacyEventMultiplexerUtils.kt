@@ -55,16 +55,13 @@ fun <XD : XdEntity> XdEntityListener<XD>.asLegacyListener(): IEntityListener<Ent
 internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityListener<XD>) : IEntityListener<Entity> {
     override fun addedSyncBeforeConstraints(added: Entity) = wrapped.addedSyncBeforeConstraints(added.toXd())
     override fun addedSync(added: Entity) = wrapped.addedSync(added.toXd())
-    override fun addedSyncAfterConstraints(added: Entity) = wrapped.addedSyncAfterConstraints(added.toXd())
     override fun addedAsync(added: Entity) = wrapped.addedAsync(added.toXd())
 
     override fun updatedSyncBeforeConstraints(old: Entity, current: Entity) = wrapped.updatedSyncBeforeConstraints(old.toXd(), current.toXd())
-    override fun updatedSyncAfterConstraints(old: Entity, current: Entity) = wrapped.updatedSyncAfterConstraints(old.toXd(), current.toXd())
     override fun updatedSync(old: Entity, current: Entity) = wrapped.updatedSync(old.toXd(), current.toXd())
     override fun updatedAsync(old: Entity, current: Entity) = wrapped.updatedAsync(old.toXd(), current.toXd())
 
     override fun removedSyncBeforeConstraints(removed: Entity) = wrapped.removedSyncBeforeConstraints(removed.toXd())
-    override fun removedSyncAfterConstraints(added: Entity) = wrapped.removedSyncAfterConstraints(added.toXd())
     override fun removedSync(removed: Entity) = wrapped.removedSync(removed.toXd())
     override fun removedAsync(removed: Entity) = wrapped.removedAsync(removed.toXd())
 

@@ -210,9 +210,6 @@ abstract class DBTest {
 
     private fun <XD : XdEntity> makeListener(mode: Where, action: (XD, XD) -> Unit): XdEntityListener<XD> {
         return when (mode) {
-            SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS -> object : XdEntityListener<XD> {
-                override fun updatedSyncAfterConstraints(old: XD, current: XD) = action(old, current)
-            }
             SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS -> object : XdEntityListener<XD> {
                 override fun updatedSyncBeforeConstraints(old: XD, current: XD) = action(old, current)
             }

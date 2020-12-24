@@ -190,11 +190,6 @@ open class EventsMultiplexer @JvmOverloads constructor(val asyncJobProcessor: Jo
             EntityChangeType.UPDATE -> listeners.visit(true) { it.updatedSyncBeforeConstraints(c.snapshotEntity, c.transientEntity) }
             EntityChangeType.REMOVE -> listeners.visit(true) { it.removedSyncBeforeConstraints(c.snapshotEntity) }
         }
-        Where.SYNC_BEFORE_FLUSH_AFTER_CONSTRAINTS -> when (c.changeType) {
-            EntityChangeType.ADD -> listeners.visit { it.addedSyncAfterConstraints(c.transientEntity) }
-            EntityChangeType.UPDATE -> listeners.visit { it.updatedSyncAfterConstraints(c.snapshotEntity, c.transientEntity) }
-            EntityChangeType.REMOVE -> listeners.visit { it.removedSyncAfterConstraints(c.snapshotEntity) }
-        }
         Where.SYNC_AFTER_FLUSH -> when (c.changeType) {
             EntityChangeType.ADD -> listeners.visit { it.addedSync(c.transientEntity) }
             EntityChangeType.UPDATE -> listeners.visit { it.updatedSync(c.snapshotEntity, c.transientEntity) }

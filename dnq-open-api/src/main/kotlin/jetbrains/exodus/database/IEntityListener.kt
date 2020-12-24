@@ -20,14 +20,11 @@ import jetbrains.exodus.entitystore.Entity
 interface IEntityListener<T : Entity> {
     fun addedAsync(added: T)
     fun addedSync(added: T)
-    fun addedSyncAfterConstraints(added: T)
     fun addedSyncBeforeConstraints(added: T)
     fun updatedAsync(old: T, current: T)
     fun updatedSync(old: T, current: T)
-    fun updatedSyncAfterConstraints(old: T, current: T)
     fun updatedSyncBeforeConstraints(old: T, current: T)
     fun removedAsync(removed: T)
     fun removedSync(removed: T)
-    fun removedSyncAfterConstraints(added: T)
     fun removedSyncBeforeConstraints(removed: T)
 }
