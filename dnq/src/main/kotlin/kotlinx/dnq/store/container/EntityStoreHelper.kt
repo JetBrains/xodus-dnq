@@ -21,7 +21,7 @@ import jetbrains.exodus.entitystore.PersistentEntityStoreImpl
 import jetbrains.exodus.env.EnvironmentConfig
 import jetbrains.exodus.env.Environments
 import jetbrains.exodus.query.metadata.ModelMetaDataImpl
-import kotlinx.dnq.store.DummyEventsMultiplexer
+import kotlinx.dnq.store.DummyTransientChangesMultiplexer
 import kotlinx.dnq.store.XdQueryEngine
 import java.io.File
 
@@ -32,7 +32,7 @@ fun createTransientEntityStore(dbFolder: File, environmentName: String, configur
         val persistentStore = PersistentEntityStoreImpl(environment, environmentName)
         this.persistentStore = persistentStore
         this.modelMetaData = ModelMetaDataImpl()
-        this.eventsMultiplexer = DummyEventsMultiplexer
+        this.changesMultiplexer = DummyTransientChangesMultiplexer
         this.queryEngine = XdQueryEngine(store).apply {
             this.sortEngine = TransientSortEngineImpl(store, this)
         }

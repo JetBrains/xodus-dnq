@@ -58,7 +58,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
      */
     override lateinit var queryEngine: QueryEngine
     override var modelMetaData: ModelMetaData? = null
-    override var eventsMultiplexer: IEventsMultiplexer? = null
+    override var changesMultiplexer: ITransientChangesMultiplexer? = null
     private val sessions = Collections.newSetFromMap(ConcurrentHashMap<TransientStoreSession, Boolean>(200))
     private val currentSession = ThreadLocal<TransientStoreSession>()
     private val listeners = StablePriorityQueue<Int, TransientStoreSessionListener>()
@@ -139,7 +139,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     override fun close() {
         isOpen = false
 
-        eventsMultiplexer?.onClose(this)
+        changesMultiplexer?.onClose(this)
 
         logger.debug { "Close transient store." }
         closed = true

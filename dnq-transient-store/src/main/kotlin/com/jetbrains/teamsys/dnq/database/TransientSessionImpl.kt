@@ -730,7 +730,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
         forAllListeners { it.flushed(this, changesDescription) }
 
         //explicitly notify EventsMultiplexer - it will dispose changes tracker in async job
-        val ep = store.eventsMultiplexer
+        val ep = store.changesMultiplexer
         if (ep != null) {
             try {
                 ep.flushed(this, oldChangesTracker, changesDescription)

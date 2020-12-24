@@ -17,7 +17,7 @@ package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.Entity
 
-interface IEventsMultiplexer {
+interface ITransientChangesMultiplexer {
     fun flushed(session: TransientStoreSession, oldChangesTracker: TransientChangesTracker, changesDescription: Set<TransientEntityChange>)
 
     fun onClose(transientEntityStore: TransientEntityStore)

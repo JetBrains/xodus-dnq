@@ -30,7 +30,7 @@ import jetbrains.exodus.entitystore.Where.*
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
-import kotlinx.dnq.listener.asLegacyListener
+import kotlinx.dnq.listener.asNativeListener
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.query.toList
@@ -164,18 +164,18 @@ abstract class DBTest {
 
         asyncProcessor = createAsyncProcessor()
         val eventsMultiplexer = TransientChangesMultiplexer(asyncProcessor.apply(JobProcessor::start))
-        store.eventsMultiplexer = eventsMultiplexer
+        store.changesMultiplexer = eventsMultiplexer
         store.addListener(eventsMultiplexer)
     }
 
     fun closeStore() {
-        val eventsMultiplexer = store.eventsMultiplexer
+        val eventsMultiplexer = store.changesMultiplexer
         if (eventsMultiplexer != null) {
             typeListeners.forEach {
-                eventsMultiplexer.removeListener(it.first.entityType, it.second.asLegacyListener())
+                eventsMultiplexer.removeListener(it.first.entityType, it.second.asNativeListener())
             }
             instanceListeners.forEach {
-                eventsMultiplexer.removeListener(it.first.entity, it.second.asLegacyListener())
+                eventsMultiplexer.removeListener(it.first.entity, it.second.asNativeListener())
             }
         }
         store.close()
@@ -196,14 +196,14 @@ abstract class DBTest {
 
     fun <XD : XdEntity> XdEntityType<XD>.onUpdate(mode: Where = SYNC_AFTER_FLUSH, action: (XD, XD) -> Unit): XdEntityListener<XD> {
         val listener = makeListener(mode, action)
-        store.eventsMultiplexer?.addListener(this, listener)
+        store.changesMultiplexer?.addListener(this, listener)
         typeListeners.add(this to listener)
         return listener
     }
 
     fun <XD : XdEntity> XD.onUpdate(mode: Where = SYNC_AFTER_FLUSH, action: (XD, XD) -> Unit): XdEntityListener<XD> {
         val listener = makeListener(mode, action)
-        store.eventsMultiplexer?.addListener(this, listener)
+        store.changesMultiplexer?.addListener(this, listener)
         instanceListeners.add(this to listener)
         return listener
     }

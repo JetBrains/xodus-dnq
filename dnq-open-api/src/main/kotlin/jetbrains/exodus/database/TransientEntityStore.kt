@@ -37,7 +37,7 @@ interface TransientEntityStore : EntityStore, EntityStoreRefactorings {
 
     val isOpen: Boolean
 
-    val eventsMultiplexer: IEventsMultiplexer?
+    val changesMultiplexer: ITransientChangesMultiplexer?
 
     override fun beginReadonlyTransaction(): TransientStoreSession
 

@@ -59,13 +59,13 @@ class EventsTest : DBTest() {
         val goo = transactional { Goo.new() }
         val addedCount = AtomicInteger(0)
         val listener = createIncrementListener(addedCount)
-        store.eventsMultiplexer?.addListener(Goo, listener)
+        store.changesMultiplexer?.addListener(Goo, listener)
         try {
             transactional {
                 goo.content.add(Foo.new())
             }
         } finally {
-            store.eventsMultiplexer?.removeListener(Goo, listener)
+            store.changesMultiplexer?.removeListener(Goo, listener)
         }
         assertEquals(1, addedCount.get())
         transactional {
@@ -81,11 +81,11 @@ class EventsTest : DBTest() {
         val listener = createIncrementListener(addedCount)
         try {
             transactional {
-                store.eventsMultiplexer?.addListener(goo, listener)
+                store.changesMultiplexer?.addListener(goo, listener)
                 goo.content.add(Foo.new())
             }
         } finally {
-            store.eventsMultiplexer?.removeListener(goo, listener)
+            store.changesMultiplexer?.removeListener(goo, listener)
         }
         assertEquals(1, addedCount.get())
         transactional {

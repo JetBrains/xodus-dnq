@@ -16,41 +16,41 @@
 package kotlinx.dnq.listener
 
 import jetbrains.exodus.database.IEntityListener
-import jetbrains.exodus.database.IEventsMultiplexer
+import jetbrains.exodus.database.ITransientChangesMultiplexer
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.toXd
 
-fun <XD : XdEntity> IEventsMultiplexer.addListener(entityType: XdEntityType<XD>, listener: XdEntityListener<XD>) {
-    this.addListener(entityType.entityType, listener.asLegacyListener())
+fun <XD : XdEntity> ITransientChangesMultiplexer.addListener(entityType: XdEntityType<XD>, listener: XdEntityListener<XD>) {
+    this.addListener(entityType.entityType, listener.asNativeListener())
 }
 
-fun <XD : XdEntity> IEventsMultiplexer.removeListener(entityType: XdEntityType<XD>, listener: XdEntityListener<XD>) {
-    this.removeListener(entityType.entityType, listener.asLegacyListener())
+fun <XD : XdEntity> ITransientChangesMultiplexer.removeListener(entityType: XdEntityType<XD>, listener: XdEntityListener<XD>) {
+    this.removeListener(entityType.entityType, listener.asNativeListener())
 }
 
-fun <XD : XdEntity> IEventsMultiplexer.addListener(xd: XD, listener: XdEntityListener<XD>) {
-    this.addListener(xd.entity, listener.asLegacyListener())
+fun <XD : XdEntity> ITransientChangesMultiplexer.addListener(xd: XD, listener: XdEntityListener<XD>) {
+    this.addListener(xd.entity, listener.asNativeListener())
 }
 
-fun <XD : XdEntity> IEventsMultiplexer.removeListener(xd: XD, listener: XdEntityListener<XD>) {
-    this.removeListener(xd.entity, listener.asLegacyListener())
+fun <XD : XdEntity> ITransientChangesMultiplexer.removeListener(xd: XD, listener: XdEntityListener<XD>) {
+    this.removeListener(xd.entity, listener.asNativeListener())
 }
 
 fun <XD : XdEntity> XdEntityType<XD>.addListener(store: TransientEntityStore, listener: XdEntityListener<XD>) {
-    val eventsMultiplexer = store.eventsMultiplexer
+    val eventsMultiplexer = store.changesMultiplexer
             ?: throw IllegalStateException("Cannot access eventsMultiplexer")
 
     eventsMultiplexer.addListener(this, listener)
 }
 
 fun <XD : XdEntity> XdEntityType<XD>.removeListener(store: TransientEntityStore, listener: XdEntityListener<XD>) {
-    store.eventsMultiplexer?.removeListener(this, listener)
+    store.changesMultiplexer?.removeListener(this, listener)
 }
 
-fun <XD : XdEntity> XdEntityListener<XD>.asLegacyListener(): IEntityListener<Entity> = EntityListenerWrapper(this)
+fun <XD : XdEntity> XdEntityListener<XD>.asNativeListener(): IEntityListener<Entity> = EntityListenerWrapper(this)
 
 internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityListener<XD>) : IEntityListener<Entity> {
     override fun addedSyncBeforeConstraints(added: Entity) = wrapped.addedSyncBeforeConstraints(added.toXd())

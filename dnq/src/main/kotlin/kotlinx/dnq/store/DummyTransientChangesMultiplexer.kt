@@ -18,7 +18,7 @@ package kotlinx.dnq.store
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.Entity
 
-object DummyEventsMultiplexer : IEventsMultiplexer {
+object DummyTransientChangesMultiplexer : ITransientChangesMultiplexer {
     override fun flushed(
             session: TransientStoreSession,
             oldChangesTracker: TransientChangesTracker,

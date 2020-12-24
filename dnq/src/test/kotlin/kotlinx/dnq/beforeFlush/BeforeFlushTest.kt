@@ -117,7 +117,7 @@ class BeforeFlushTest : DBTest() {
         store.transactional { txn ->
             val tire = Tire.new()
             txn.flush()
-            store.eventsMultiplexer?.addListener(tire, object : XdEntityListener<Tire> {
+            store.changesMultiplexer?.addListener(tire, object : XdEntityListener<Tire> {
                 override fun updatedSyncBeforeConstraints(old: Tire, current: Tire) {
                     // create a car for our tire, expect that car before flush is called and tire is rotated
                     val car = Car.new()
@@ -146,7 +146,7 @@ class BeforeFlushTest : DBTest() {
 
             assertThat(tire.rotating).isFalse()
             car.name = "mmc"
-            store.eventsMultiplexer?.addListener(tire, object : XdEntityListener<Tire> {
+            store.changesMultiplexer?.addListener(tire, object : XdEntityListener<Tire> {
                 override fun updatedSync(old: Tire, current: Tire) {
                     gotIt = true
                 }
