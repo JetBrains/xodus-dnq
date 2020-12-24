@@ -26,7 +26,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-open class EventsMultiplexer @JvmOverloads constructor(val asyncJobProcessor: JobProcessor? = null) : TransientStoreSessionListener, IEventsMultiplexer {
+open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobProcessor: JobProcessor? = null) : TransientStoreSessionListener, IEventsMultiplexer {
 
     private val instanceToListeners = HashMap<FullEntityId, Queue<IEntityListener<*>>>()
     private val typeToListeners = HashMap<String, Queue<IEntityListener<*>>>()
@@ -58,7 +58,7 @@ open class EventsMultiplexer @JvmOverloads constructor(val asyncJobProcessor: Jo
     private fun asyncFire(session: TransientStoreSession, changesTracker: TransientChangesTracker, changes: Set<TransientEntityChange>) {
         val asyncJobProcessor = asyncJobProcessor
         if (asyncJobProcessor != null) {
-            asyncJobProcessor.queue(EventsMultiplexerJob(session.store, this, changes, changesTracker))
+            asyncJobProcessor.queue(TransientChangesMultiplexerJob(session.store, this, changes, changesTracker))
         } else {
             changesTracker.dispose()
         }

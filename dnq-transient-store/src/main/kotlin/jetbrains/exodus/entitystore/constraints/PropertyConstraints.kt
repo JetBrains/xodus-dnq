@@ -78,12 +78,12 @@ class notBlank(var message: String = "shouldn't be blank") : PropertyConstraint<
 }
 
 open class url(var message: String = "is not a valid URL") : PropertyConstraint<String?>() {
-    override fun isValid(propertyValue: String?): Boolean {
-        if (propertyValue == null) {
+    override fun isValid(value: String?): Boolean {
+        if (value == null) {
             return true
         }
         return try {
-            URL(propertyValue)
+            URL(value)
             true
         } catch (e: MalformedURLException) {
             false
@@ -175,7 +175,7 @@ internal fun containsNone(value: String?, vararg searchChars: Char): Boolean {
 
     val length = value.length
     val lastIndex = length - 1
-    val searchRange = 0 until searchChars.size
+    val searchRange = searchChars.indices
     val lastSearchIndex = searchChars.size - 1
 
     (0 until length).forEach { i ->

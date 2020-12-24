@@ -16,7 +16,7 @@
 package kotlinx.dnq.events
 
 import jetbrains.exodus.core.execution.JobProcessor
-import jetbrains.exodus.entitystore.EventsMultiplexer
+import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import org.junit.Assert.assertTrue
@@ -28,7 +28,7 @@ class CompareInsideListenerTest : DBTest() {
 
     @Before
     fun updateMultiplexer() {
-        store.eventsMultiplexer = EventsMultiplexer(createAsyncProcessor().apply(JobProcessor::start))
+        store.eventsMultiplexer = TransientChangesMultiplexer(createAsyncProcessor().apply(JobProcessor::start))
     }
 
     override fun registerEntityTypes() {

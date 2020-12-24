@@ -23,7 +23,7 @@ import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.core.execution.ThreadJobProcessorPool
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EventsMultiplexer
+import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.exodus.entitystore.Where
 import jetbrains.exodus.entitystore.Where.*
@@ -163,7 +163,7 @@ abstract class DBTest {
         initMetaData(XdModel.hierarchy, store)
 
         asyncProcessor = createAsyncProcessor()
-        val eventsMultiplexer = EventsMultiplexer(asyncProcessor.apply(JobProcessor::start))
+        val eventsMultiplexer = TransientChangesMultiplexer(asyncProcessor.apply(JobProcessor::start))
         store.eventsMultiplexer = eventsMultiplexer
         store.addListener(eventsMultiplexer)
     }

@@ -45,15 +45,15 @@ internal class FullEntityId(store: EntityStore, id: EntityId) {
             builder.append(entityTypeId).append('-').append(entityLocalId).append('@').append(storeHashCode)
 }
 
-internal class EventsMultiplexerJob(private val store: TransientEntityStore,
-                                    private val eventsMultiplexer: EventsMultiplexer,
-                                    private val changes: Set<TransientEntityChange>,
-                                    private val changesTracker: TransientChangesTracker) : Job() {
+internal class TransientChangesMultiplexerJob(private val store: TransientEntityStore,
+                                              private val transientChangesMultiplexer: TransientChangesMultiplexer,
+                                              private val changes: Set<TransientEntityChange>,
+                                              private val changesTracker: TransientChangesTracker) : Job() {
 
     public override fun execute() {
         try {
             store.transactional {
-                eventsMultiplexer.fire(store, Where.ASYNC_AFTER_FLUSH, this@EventsMultiplexerJob.changes)
+                transientChangesMultiplexer.fire(store, Where.ASYNC_AFTER_FLUSH, this@TransientChangesMultiplexerJob.changes)
             }
         } finally {
             changesTracker.dispose()
