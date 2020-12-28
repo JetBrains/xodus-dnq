@@ -30,7 +30,7 @@ import jetbrains.exodus.entitystore.Where.*
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
-import kotlinx.dnq.listener.asNativeListener
+import kotlinx.dnq.listener.asEntityListener
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.query.toList
@@ -172,10 +172,10 @@ abstract class DBTest {
         val eventsMultiplexer = store.changesMultiplexer
         if (eventsMultiplexer != null) {
             typeListeners.forEach {
-                eventsMultiplexer.removeListener(it.first.entityType, it.second.asNativeListener())
+                eventsMultiplexer.removeListener(it.first.entityType, it.second.asEntityListener())
             }
             instanceListeners.forEach {
-                eventsMultiplexer.removeListener(it.first.entity, it.second.asNativeListener())
+                eventsMultiplexer.removeListener(it.first.entity, it.second.asEntityListener())
             }
         }
         store.close()

@@ -24,19 +24,19 @@ import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.toXd
 
 fun <XD : XdEntity> ITransientChangesMultiplexer.addListener(entityType: XdEntityType<XD>, listener: XdEntityListener<XD>) {
-    this.addListener(entityType.entityType, listener.asNativeListener())
+    this.addListener(entityType.entityType, listener.asEntityListener())
 }
 
 fun <XD : XdEntity> ITransientChangesMultiplexer.removeListener(entityType: XdEntityType<XD>, listener: XdEntityListener<XD>) {
-    this.removeListener(entityType.entityType, listener.asNativeListener())
+    this.removeListener(entityType.entityType, listener.asEntityListener())
 }
 
 fun <XD : XdEntity> ITransientChangesMultiplexer.addListener(xd: XD, listener: XdEntityListener<XD>) {
-    this.addListener(xd.entity, listener.asNativeListener())
+    this.addListener(xd.entity, listener.asEntityListener())
 }
 
 fun <XD : XdEntity> ITransientChangesMultiplexer.removeListener(xd: XD, listener: XdEntityListener<XD>) {
-    this.removeListener(xd.entity, listener.asNativeListener())
+    this.removeListener(xd.entity, listener.asEntityListener())
 }
 
 fun <XD : XdEntity> XdEntityType<XD>.addListener(store: TransientEntityStore, listener: XdEntityListener<XD>) {
@@ -50,7 +50,7 @@ fun <XD : XdEntity> XdEntityType<XD>.removeListener(store: TransientEntityStore,
     store.changesMultiplexer?.removeListener(this, listener)
 }
 
-fun <XD : XdEntity> XdEntityListener<XD>.asNativeListener(): IEntityListener<Entity> = EntityListenerWrapper(this)
+fun <XD : XdEntity> XdEntityListener<XD>.asEntityListener(): IEntityListener<Entity> = EntityListenerWrapper(this)
 
 internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityListener<XD>) : IEntityListener<Entity> {
     override fun addedSyncBeforeConstraints(added: Entity) = wrapped.addedSyncBeforeConstraints(added.toXd())

@@ -13,8 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database
+package jetbrains.exodus.entitystore.listeners
 
-import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.database.EntityChangeType
 
-interface IEntityListener<T : Entity> : DNQListener<T>
+data class ListenerInvocation(
+        val highAddress: Long,
+        val entityType: String,
+        val listenerKey: String,
+        val changeType: EntityChangeType,
+        val params: List<String>
+)

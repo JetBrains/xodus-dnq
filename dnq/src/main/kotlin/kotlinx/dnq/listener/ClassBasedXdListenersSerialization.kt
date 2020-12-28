@@ -16,20 +16,14 @@
 package kotlinx.dnq.listener
 
 import jetbrains.exodus.database.DNQListener
-import kotlinx.dnq.XdEntity
+import jetbrains.exodus.entitystore.listeners.ClassBasedListenersSerialization
 
-interface XdEntityListener<in XD : XdEntity> : DNQListener<XD> {
+class ClassBasedXdListenersSerialization : ClassBasedListenersSerialization() {
 
-    override fun addedSyncBeforeConstraints(added: XD) = Unit
-    override fun addedSync(added: XD) = Unit
-    override fun addedAsync(added: XD) = Unit
-
-    override fun updatedSyncBeforeConstraints(old: XD, current: XD) = Unit
-    override fun updatedSync(old: XD, current: XD) = Unit
-    override fun updatedAsync(old: XD, current: XD) = Unit
-
-    override fun removedSyncBeforeConstraints(removed: XD) = Unit
-    override fun removedSync(removed: XD) = Unit
-    override fun removedAsync(removed: XD) = Unit
-
+    override fun getKey(listener: DNQListener<*>): String {
+        if (listener is EntityListenerWrapper<*>) {
+            return super.getKey(listener.wrapped)
+        }
+        return super.getKey(listener)
+    }
 }

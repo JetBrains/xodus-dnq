@@ -19,6 +19,7 @@ import jetbrains.exodus.core.dataStructures.hash.HashMap
 import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
+import jetbrains.exodus.entitystore.listeners.AsyncListenersReplication
 import mu.KLogging
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -29,9 +30,10 @@ import kotlin.concurrent.write
 open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobProcessor: JobProcessor? = null) : TransientStoreSessionListener, ITransientChangesMultiplexer {
 
     private val instanceToListeners = HashMap<FullEntityId, Queue<IEntityListener<*>>>()
-    private val typeToListeners = HashMap<String, Queue<IEntityListener<*>>>()
+    internal val typeToListeners = HashMap<String, Queue<IEntityListener<*>>>()
     private val rwl = ReentrantReadWriteLock()
     private var isOpen = true
+    var asyncListenersReplication: AsyncListenersReplication? = null
 
     companion object : KLogging()
 
@@ -196,9 +198,9 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
             EntityChangeType.REMOVE -> listeners.visit { it.removedSync(c.snapshotEntity) }
         }
         Where.ASYNC_AFTER_FLUSH -> when (c.changeType) {
-            EntityChangeType.ADD -> listeners.visit { it.addedAsync(c.transientEntity) }
-            EntityChangeType.UPDATE -> listeners.visit { it.updatedAsync(c.snapshotEntity, c.transientEntity) }
-            EntityChangeType.REMOVE -> listeners.visit { it.removedAsync(c.snapshotEntity) }
+            EntityChangeType.ADD -> listeners.visitAsync(c) { it.addedAsync(c.transientEntity) }
+            EntityChangeType.UPDATE -> listeners.visitAsync(c) { it.updatedAsync(c.snapshotEntity, c.transientEntity) }
+            EntityChangeType.REMOVE -> listeners.visitAsync(c) { it.removedAsync(c.snapshotEntity) }
         }
     }
 
@@ -218,6 +220,21 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
                 } else {
                     logger.error(e) { "Exception while notifying entity listener." }
                 }
+            }
+        }
+    }
+
+    private fun Queue<IEntityListener<*>>.visitAsync(c: TransientEntityChange, action: (IEntityListener<Entity>) -> Unit) {
+        for (l in this) {
+            try {
+                @Suppress("UNCHECKED_CAST")
+                action(l as IEntityListener<Entity>)
+
+                // TODO what if code above will fail with exception?
+                asyncListenersReplication?.replicate(c, l)
+            } catch (e: Exception) {
+                // rethrow exception only for beforeFlush listeners
+                logger.error(e) { "Exception while notifying entity listener." }
             }
         }
     }
