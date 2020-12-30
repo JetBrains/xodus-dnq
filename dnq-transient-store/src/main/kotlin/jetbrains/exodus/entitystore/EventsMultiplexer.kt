@@ -16,6 +16,7 @@
 package jetbrains.exodus.entitystore
 
 import jetbrains.exodus.core.dataStructures.hash.HashMap
+import jetbrains.exodus.core.dataStructures.hash.HashSet
 import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
@@ -30,6 +31,7 @@ open class EventsMultiplexer @JvmOverloads constructor(val asyncJobProcessor: Jo
 
     private val instanceToListeners = HashMap<FullEntityId, Queue<IEntityListener<*>>>()
     private val typeToListeners = HashMap<String, Queue<IEntityListener<*>>>()
+    private val notAsyncStores = HashSet<TransientEntityStore>()
     private val rwl = ReentrantReadWriteLock()
     private var isOpen = true
 
@@ -60,10 +62,15 @@ open class EventsMultiplexer @JvmOverloads constructor(val asyncJobProcessor: Jo
 
     override fun afterConstraintsFail(session: TransientStoreSession, exceptions: Set<DataIntegrityViolationException>) {}
 
+    fun disableAsyncFor(store: TransientEntityStore) {
+        rwl.write { notAsyncStores.add(store) }
+    }
+
     private fun asyncFire(session: TransientStoreSession, changesTracker: TransientChangesTracker, changes: Set<TransientEntityChange>) {
+        val store = session.store
         val asyncJobProcessor = asyncJobProcessor
-        if (asyncJobProcessor != null) {
-            asyncJobProcessor.queue(EventsMultiplexerJob(session.store, this, changes, changesTracker))
+        if (asyncJobProcessor != null && rwl.read { store !in notAsyncStores }) {
+            asyncJobProcessor.queue(EventsMultiplexerJob(store, this, changes, changesTracker))
         } else {
             changesTracker.dispose()
         }
@@ -148,7 +155,9 @@ open class EventsMultiplexer @JvmOverloads constructor(val asyncJobProcessor: Jo
         }
     }
 
-    override fun onClose(transientEntityStore: TransientEntityStore) {}
+    override fun onClose(transientEntityStore: TransientEntityStore) {
+        rwl.write { notAsyncStores.remove(transientEntityStore) }
+    }
 
     private fun listenerToString(id: FullEntityId, listeners: Queue<IEntityListener<*>>): String {
         return buildString(40) {
