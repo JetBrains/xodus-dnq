@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2020 JetBrains s.r.o.
+ * Copyright 2006 - 2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.creator.findOrNew
-import kotlinx.dnq.XdEnumEntityType
 import kotlinx.dnq.query.*
 import kotlinx.dnq.simple.email
 import kotlinx.dnq.store.container.StaticStoreContainer

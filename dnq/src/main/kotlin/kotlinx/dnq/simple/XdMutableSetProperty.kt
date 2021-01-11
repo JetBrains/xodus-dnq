@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2020 JetBrains s.r.o.
+ * Copyright 2006 - 2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.util.reattachAndGetPrimitiveValue
-import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.reflect.KProperty
 
 class XdMutableSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: String?) :
