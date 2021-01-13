@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2020 JetBrains s.r.o.
+ * Copyright 2006 - 2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import jetbrains.exodus.bindings.IntegerBinding
 import jetbrains.exodus.util.LightOutputStream
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.*
-import kotlinx.dnq.simple.custom.type.*
+import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import java.io.ByteArrayInputStream
 import java.time.LocalTime
 

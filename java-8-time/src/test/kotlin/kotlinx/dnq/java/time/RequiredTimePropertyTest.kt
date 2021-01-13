@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2020 JetBrains s.r.o.
+ * Copyright 2006 - 2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@ package kotlinx.dnq.java.time
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
-import kotlinx.dnq.*
+import kotlinx.dnq.DBTest
+import kotlinx.dnq.RequiredPropertyUndefinedException
+import kotlinx.dnq.XdEntity
+import kotlinx.dnq.XdModel
 import kotlinx.dnq.util.isDefined
 import org.junit.Test
 import org.junit.runner.RunWith
