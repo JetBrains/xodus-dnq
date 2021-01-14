@@ -52,7 +52,7 @@ internal class TransientChangesMultiplexerJob(private val store: TransientEntity
 
     public override fun execute() {
         try {
-            store.transactional {
+            store.transactional(readonly = true) {
                 transientChangesMultiplexer.fire(store, Where.ASYNC_AFTER_FLUSH, this@TransientChangesMultiplexerJob.changes)
             }
         } finally {
