@@ -54,7 +54,9 @@ class TxnDiffChangesTracker(override val snapshot: PersistentStoreTransaction,
 
     override fun hasPropertyChanges(transientEntity: TransientEntity, propName: String): Boolean {
         val oldValue = getPropertyOldValue(transientEntity, propName)
-        val newValue = getSnapshotEntity(current, transientEntity).getProperty(propName)
+        val newValue = getSnapshotEntity(current, transientEntity).run {
+            getProperty(propName) ?: getBlobString(propName)
+        }
         if (oldValue === newValue) return false
         if (oldValue == null || newValue == null) return true
         return oldValue != newValue
@@ -67,7 +69,9 @@ class TxnDiffChangesTracker(override val snapshot: PersistentStoreTransaction,
     }
 
     override fun getPropertyOldValue(transientEntity: TransientEntity, propName: String): Comparable<*>? =
-            getSnapshotEntity(snapshot, transientEntity).getProperty(propName)
+            getSnapshotEntity(snapshot, transientEntity).run {
+                getProperty(propName) ?: getBlobString(propName)
+            }
 
     override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity = throwUnsupported()
 

@@ -57,7 +57,9 @@ class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: PersistentStore
     override fun hasLinkChanges(transientEntity: TransientEntity, linkName: String) = false
 
     override fun getPropertyOldValue(transientEntity: TransientEntity, propName: String): Comparable<*>? =
-            transientEntity.persistentEntity.getSnapshot(snapshot).getProperty(propName)
+            transientEntity.persistentEntity.getSnapshot(snapshot).run {
+                getProperty(propName) ?: getBlobString(propName)
+            }
 
     override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity = throw UnsupportedOperationException()
 
