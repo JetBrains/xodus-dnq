@@ -50,6 +50,15 @@ class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: PersistentStore
 
     override fun getChangedProperties(transientEntity: TransientEntity): Set<String>? = emptySet()
 
+    override fun hasChanges(transientEntity: TransientEntity) = false
+
+    override fun hasPropertyChanges(transientEntity: TransientEntity, propName: String) = false
+
+    override fun hasLinkChanges(transientEntity: TransientEntity, linkName: String) = false
+
+    override fun getPropertyOldValue(transientEntity: TransientEntity, propName: String): Comparable<*>? =
+            transientEntity.persistentEntity.getSnapshot(snapshot).getProperty(propName)
+
     override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity = throw UnsupportedOperationException()
 
     override fun isNew(transientEntity: TransientEntity) = false

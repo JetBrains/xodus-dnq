@@ -57,6 +57,14 @@ interface TransientChangesTracker {
      */
     fun getChangedProperties(transientEntity: TransientEntity): Set<String>?
 
+    fun hasChanges(transientEntity: TransientEntity): Boolean
+
+    fun hasPropertyChanges(transientEntity: TransientEntity, propName: String): Boolean
+
+    fun hasLinkChanges(transientEntity: TransientEntity, linkName: String): Boolean
+
+    fun getPropertyOldValue(transientEntity: TransientEntity, propName: String): Comparable<*>?
+
     fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity
 
     fun upgrade(): TransientChangesTracker

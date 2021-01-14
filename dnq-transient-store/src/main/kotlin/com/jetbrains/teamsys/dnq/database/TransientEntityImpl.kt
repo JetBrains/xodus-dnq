@@ -149,8 +149,7 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun getPropertyOldValue(propertyName: String): Comparable<*>? {
-        val snapshot = threadSessionOrThrow.transientChangesTracker.snapshot
-        return persistentEntity.getSnapshot(snapshot).getProperty(propertyName)
+        return threadSessionOrThrow.transientChangesTracker.getPropertyOldValue(this, propertyName)
     }
 
     override fun setProperty(propertyName: String, value: Comparable<*>): Boolean {
@@ -262,19 +261,14 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun hasChanges(): Boolean {
         if (isNew) return true
-        val session = threadSessionOrThrow
-        val changesProperties = session.transientChangesTracker.getChangedProperties(this).orEmpty()
-        val changesLinks = session.transientChangesTracker.getChangedLinksDetailed(this).orEmpty()
-
-        return changesLinks.isNotEmpty() || changesProperties.isNotEmpty()
+        return threadSessionOrThrow.transientChangesTracker.hasChanges(this)
     }
 
     override fun hasChanges(property: String): Boolean {
-        val session = threadSessionOrThrow
-        val changedLinks = session.transientChangesTracker.getChangedLinksDetailed(this).orEmpty()
-        val changedProperties = session.transientChangesTracker.getChangedProperties(this).orEmpty()
-
-        return property in changedLinks || property in changedProperties
+        return threadSessionOrThrow.transientChangesTracker.run {
+            hasPropertyChanges(this@TransientEntityImpl, property) ||
+                    hasLinkChanges(this@TransientEntityImpl, property)
+        }
     }
 
     override fun hasChangesExcepting(properties: Array<String>): Boolean {

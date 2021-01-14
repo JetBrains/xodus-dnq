@@ -126,6 +126,18 @@ class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransact
         return entityToChangedProperties[transientEntity]
     }
 
+    override fun hasChanges(transientEntity: TransientEntity): Boolean =
+            !getChangedProperties(transientEntity).isNullOrEmpty() || !getChangedLinksDetailed(transientEntity).isNullOrEmpty()
+
+    override fun hasPropertyChanges(transientEntity: TransientEntity, propName: String): Boolean =
+            getChangedProperties(transientEntity).orEmpty().contains(propName)
+
+    override fun hasLinkChanges(transientEntity: TransientEntity, linkName: String): Boolean =
+            getChangedLinksDetailed(transientEntity).orEmpty().containsKey(linkName)
+
+    override fun getPropertyOldValue(transientEntity: TransientEntity, propName: String): Comparable<*>? =
+            transientEntity.persistentEntity.getSnapshot(snapshot).getProperty(propName)
+
     override fun isNew(transientEntity: TransientEntity): Boolean {
         return transientEntity.id in addedEntities
     }
