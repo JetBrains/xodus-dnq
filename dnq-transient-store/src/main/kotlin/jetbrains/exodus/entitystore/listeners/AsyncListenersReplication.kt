@@ -31,7 +31,7 @@ abstract class AsyncListenersReplication(val listenersSerialization: TransientLi
         )
     }
 
-    open fun replay(bacth: ListenerInvocationsBatch) {
+    open fun replay(batch: ListenerInvocationsBatch) {
         //TODO
     }
 
