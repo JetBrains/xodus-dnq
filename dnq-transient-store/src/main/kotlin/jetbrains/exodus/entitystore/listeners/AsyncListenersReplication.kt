@@ -16,17 +16,20 @@
 package jetbrains.exodus.entitystore.listeners
 
 import jetbrains.exodus.database.*
+import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.StoreTransaction
 import java.util.concurrent.ConcurrentHashMap
 
-abstract class AsyncListenersReplication(val listenersSerialization: TransientListenersSerialization, val transport: ListenerInvocationTransport) {
+abstract class AsyncListenersReplication(val listenersSerialization: TransientListenersSerialization,
+                                         val transport: ListenerInvocationTransport) {
 
     protected open val listenersMetaData = ConcurrentHashMap<String, ListenerMataData>()
 
     fun newCollector(changesTracker: TransientChangesTracker, session: TransientStoreSession): ListenerInvocationsCollector {
-        val currentHighAddress = session.transientChangesTracker.snapshot.environmentTransaction.highAddress
+        val currentHighAddress = session.highAddress
         return ListenerInvocationsCollector(
                 replication = this,
-                startHighAddress = changesTracker.snapshot.environmentTransaction.highAddress,
+                startHighAddress = changesTracker.snapshot.highAddress,
                 endHighAddress = currentHighAddress
         )
     }
@@ -56,3 +59,11 @@ data class ListenerMataData(
         val hasAsyncRemoved: Boolean,
         val hasAsyncUpdated: Boolean
 )
+
+private val StoreTransaction.highAddress
+    get() =
+        if (this is TransientStoreSession)
+            (persistentTransaction as PersistentStoreTransaction).environmentTransaction.highAddress
+        else {
+            (this as PersistentStoreTransaction).environmentTransaction.highAddress
+        }
