@@ -15,38 +15,27 @@
  */
 package jetbrains.exodus.entitystore.listeners
 
-import jetbrains.exodus.database.DNQListener
-import jetbrains.exodus.database.EntityChangeType
-import jetbrains.exodus.database.IEntityListener
-import jetbrains.exodus.database.TransientEntityChange
+import jetbrains.exodus.database.*
 import java.util.concurrent.ConcurrentHashMap
 
-abstract class AsyncListenersReplication(protected val listenersSerialization: TransientListenersSerialization, protected val transport: ListenerInvocationTransport) {
+abstract class AsyncListenersReplication(val listenersSerialization: TransientListenersSerialization, val transport: ListenerInvocationTransport) {
 
     protected open val listenersMetaData = ConcurrentHashMap<String, ListenerMataData>()
 
-    open fun replicate(change: TransientEntityChange, listener: IEntityListener<*>) {
-        if (!logNeed(change, listener)) {
-            return
-        }
-        val entityType = change.transientEntity.type
-        val highAddress = change.changesTracker.snapshot.environmentTransaction.highAddress
-        val entityId = change.transientEntity.id.toString()
-        transport.send(
-                ListenerInvocation(
-                        highAddress = highAddress,
-                        changeType = change.changeType,
-                        entityType = entityType,
-                        listenerKey = listenersSerialization.getKey(listener),
-                        params = listOf(entityId)
-                )
+    fun newCollector(changesTracker: TransientChangesTracker, session: TransientStoreSession): ListenerInvocationsCollector {
+        val currentHighAddress = session.transientChangesTracker.snapshot.environmentTransaction.highAddress
+        return ListenerInvocationsCollector(
+                replication = this,
+                startHighAddress = changesTracker.snapshot.environmentTransaction.highAddress,
+                endHighAddress = currentHighAddress
         )
     }
 
-    open fun replay(invocation: ListenerInvocation) {
+    open fun replay(bacth: ListenerInvocationsBatch) {
+        //TODO
     }
 
-    protected open fun logNeed(change: TransientEntityChange, listener: IEntityListener<*>): Boolean {
+    open fun logNeed(change: TransientEntityChange, listener: IEntityListener<*>): Boolean {
         val cachedMetadata = listenersMetaData.getOrPut(listener.metadataKey) {
             listener.metadata
         }
@@ -60,9 +49,10 @@ abstract class AsyncListenersReplication(protected val listenersSerialization: T
     abstract val DNQListener<*>.metadataKey: String
     abstract val DNQListener<*>.metadata: ListenerMataData
 
-    inner class ListenerMataData(
-            val hasAsyncAdded: Boolean,
-            val hasAsyncRemoved: Boolean,
-            val hasAsyncUpdated: Boolean
-    )
 }
+
+data class ListenerMataData(
+        val hasAsyncAdded: Boolean,
+        val hasAsyncRemoved: Boolean,
+        val hasAsyncUpdated: Boolean
+)

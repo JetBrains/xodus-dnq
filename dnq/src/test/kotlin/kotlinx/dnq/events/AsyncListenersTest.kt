@@ -19,8 +19,8 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.database.EntityChangeType
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
-import jetbrains.exodus.entitystore.listeners.ListenerInvocation
 import jetbrains.exodus.entitystore.listeners.ListenerInvocationTransport
+import jetbrains.exodus.entitystore.listeners.ListenerInvocationsBatch
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.listener.AsyncXdListenersReplication
@@ -61,11 +61,15 @@ class AsyncListenersTest : DBTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        assertThat(transport.invocations.size).isEqualTo(1)
-        with(transport.invocations.first()) {
-            assertThat(entityType).isEqualTo("Bar")
-            assertThat(changeType).isEqualTo(EntityChangeType.UPDATE)
-            assertThat(params).isEqualTo(listOf(bar.xdId))
+        assertThat(transport.invocations.size).isEqualTo(2)
+        with(transport.invocations.first { it.invocations.isNotEmpty() }) {
+            assertThat(startHighAddress).isGreaterThan(0)
+            assertThat(endHighAddress).isGreaterThan(0)
+            assertThat(invocations.size).isEqualTo(1)
+            with(invocations.first()) {
+                assertThat(changeType).isEqualTo(EntityChangeType.UPDATE)
+                assertThat(entityId.toString()).isEqualTo(bar.xdId)
+            }
         }
     }
 
@@ -82,9 +86,13 @@ class AsyncListenersTest : DBTest() {
 
         assertThat(transport.invocations.size).isEqualTo(1)
         with(transport.invocations.first()) {
-            assertThat(entityType).isEqualTo("Bar")
-            assertThat(changeType).isEqualTo(EntityChangeType.ADD)
-            assertThat(params).isEqualTo(listOf(bar.xdId))
+            assertThat(startHighAddress).isGreaterThan(0)
+            assertThat(endHighAddress).isGreaterThan(0)
+            assertThat(invocations.size).isEqualTo(1)
+            with(invocations.first()) {
+                assertThat(changeType).isEqualTo(EntityChangeType.ADD)
+                assertThat(entityId.toString()).isEqualTo(bar.xdId)
+            }
         }
     }
 
@@ -100,11 +108,15 @@ class AsyncListenersTest : DBTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        assertThat(transport.invocations.size).isEqualTo(1)
-        with(transport.invocations.first()) {
-            assertThat(entityType).isEqualTo("Bar")
-            assertThat(changeType).isEqualTo(EntityChangeType.REMOVE)
-            assertThat(params).isEqualTo(listOf(bar.xdId))
+        assertThat(transport.invocations.size).isEqualTo(2)
+        with(transport.invocations.first { it.invocations.isNotEmpty() }) {
+            assertThat(startHighAddress).isGreaterThan(0)
+            assertThat(endHighAddress).isGreaterThan(0)
+            assertThat(invocations.size).isEqualTo(1)
+            with(invocations.first()) {
+                assertThat(changeType).isEqualTo(EntityChangeType.REMOVE)
+                assertThat(entityId.toString()).isEqualTo(bar.xdId)
+            }
         }
     }
 
@@ -117,9 +129,9 @@ class AsyncListenersTest : DBTest() {
 
 private class InMemoryTransport : ListenerInvocationTransport {
 
-    internal val invocations = Collections.synchronizedList(arrayListOf<ListenerInvocation>())
+    internal val invocations = Collections.synchronizedList(arrayListOf<ListenerInvocationsBatch>())
 
-    override fun send(invocation: ListenerInvocation) {
+    override fun send(invocation: ListenerInvocationsBatch) {
         invocations.add(invocation)
     }
 

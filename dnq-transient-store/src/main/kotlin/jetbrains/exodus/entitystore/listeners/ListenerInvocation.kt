@@ -16,11 +16,10 @@
 package jetbrains.exodus.entitystore.listeners
 
 import jetbrains.exodus.database.EntityChangeType
+import jetbrains.exodus.entitystore.EntityId
 
 data class ListenerInvocation(
-        val highAddress: Long,
-        val entityType: String,
         val listenerKey: String,
         val changeType: EntityChangeType,
-        val params: List<String>
+        val entityId: EntityId
 )

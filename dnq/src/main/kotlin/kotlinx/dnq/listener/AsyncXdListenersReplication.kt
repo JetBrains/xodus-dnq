@@ -18,6 +18,7 @@ package kotlinx.dnq.listener
 import jetbrains.exodus.database.DNQListener
 import jetbrains.exodus.entitystore.listeners.AsyncListenersReplication
 import jetbrains.exodus.entitystore.listeners.ListenerInvocationTransport
+import jetbrains.exodus.entitystore.listeners.ListenerMataData
 import jetbrains.exodus.entitystore.listeners.TransientListenersSerialization
 import java.lang.reflect.Method
 import kotlin.reflect.KClass

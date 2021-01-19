@@ -19,6 +19,7 @@ import jetbrains.exodus.database.DNQListener
 import jetbrains.exodus.database.IEntityListener
 import jetbrains.exodus.database.ITransientChangesMultiplexer
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
+import jetbrains.exodus.env.Environment
 
 interface TransientListenersSerialization {
 
@@ -28,7 +29,7 @@ interface TransientListenersSerialization {
 }
 
 
-open class ClassBasedListenersSerialization : TransientListenersSerialization {
+open class ClassBasedListenersSerialization() : TransientListenersSerialization {
 
     override fun getKey(listener: DNQListener<*>): String {
         return listener.javaClass.name
@@ -36,8 +37,9 @@ open class ClassBasedListenersSerialization : TransientListenersSerialization {
 
     override fun getListener(invocation: ListenerInvocation, changesMultiplexer: ITransientChangesMultiplexer): IEntityListener<*>? {
         if (changesMultiplexer is TransientChangesMultiplexer) {
-            val currentListeners = changesMultiplexer.typeToListeners[invocation.entityType]
-            return currentListeners?.first { getKey(it) == invocation.listenerKey }
+            TODO("convert typeId to typeName")
+//            val currentListeners = changesMultiplexer.typeToListeners[invocation.entityId.typeId]
+//            return currentListeners?.first { getKey(it) == invocation.listenerKey }
         }
         return null
     }

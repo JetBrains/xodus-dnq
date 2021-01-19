@@ -17,5 +17,5 @@ package jetbrains.exodus.entitystore.listeners
 
 interface ListenerInvocationTransport {
 
-    fun send(invocation: ListenerInvocation)
+    fun send(invocation: ListenerInvocationsBatch)
 }
