@@ -21,6 +21,7 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityChange
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.PersistentEntity
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import java.math.BigInteger
 
@@ -73,7 +74,8 @@ class TxnDiffChangesTracker(override val snapshot: PersistentStoreTransaction,
                 getProperty(propName) ?: getBlobString(propName)
             }
 
-    override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity = throwUnsupported()
+    override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity =
+            ReadonlyTransientEntityImpl(getSnapshotEntity(snapshot, transientEntity), transientEntity.store)
 
     override fun upgrade(): TransientChangesTracker = throwUnsupported()
 
@@ -106,7 +108,7 @@ class TxnDiffChangesTracker(override val snapshot: PersistentStoreTransaction,
     private fun getLinksValues(snapshot: PersistentStoreTransaction, transientEntity: TransientEntity, linkName: String): EntityIterable =
             getSnapshotEntity(snapshot, transientEntity).getLinks(linkName)
 
-    private fun getSnapshotEntity(snapshot: PersistentStoreTransaction, transientEntity: TransientEntity): Entity =
+    private fun getSnapshotEntity(snapshot: PersistentStoreTransaction, transientEntity: TransientEntity): PersistentEntity =
             transientEntity.persistentEntity.getSnapshot(snapshot)
 }
 
