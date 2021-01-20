@@ -16,18 +16,22 @@
 package kotlinx.dnq.listener
 
 import jetbrains.exodus.database.DNQListener
+import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.listeners.AsyncListenersReplication
 import jetbrains.exodus.entitystore.listeners.ListenerInvocationTransport
 import jetbrains.exodus.entitystore.listeners.ListenerMataData
 import jetbrains.exodus.entitystore.listeners.TransientListenersSerialization
 import java.lang.reflect.Method
 import kotlin.reflect.KClass
+import kotlin.reflect.KFunction
 import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.jvm.javaMethod
 
-open class AsyncXdListenersReplication(listenersSerialization: TransientListenersSerialization,
-                                       transport: ListenerInvocationTransport) : AsyncListenersReplication(listenersSerialization, transport) {
+open class AsyncXdListenersReplication(multiplexer: TransientChangesMultiplexer,
+                                       listenersSerialization: TransientListenersSerialization,
+                                       transport: ListenerInvocationTransport)
+    : AsyncListenersReplication(multiplexer, listenersSerialization, transport) {
 
     override val DNQListener<*>.metadataKey: String
         get() {
@@ -41,15 +45,15 @@ open class AsyncXdListenersReplication(listenersSerialization: TransientListener
         get() {
             if (this is EntityListenerWrapper<*>) {
                 return ListenerMataData(
-                        hasAsyncAdded = hasOverride(wrapped, XdEntityListener<*>::addedAsync.javaMethod!!),
-                        hasAsyncUpdated = hasOverride(wrapped, XdEntityListener<*>::updatedAsync.javaMethod!!),
-                        hasAsyncRemoved = hasOverride(wrapped, XdEntityListener<*>::removedAsync.javaMethod!!)
+                        hasAsyncAdded = hasOverride(wrapped, XdEntityListener<*>::addedAsync.method),
+                        hasAsyncUpdated = hasOverride(wrapped, XdEntityListener<*>::updatedAsync.method),
+                        hasAsyncRemoved = hasOverride(wrapped, XdEntityListener<*>::removedAsync.method)
                 )
             }
             return ListenerMataData(
-                    hasAsyncAdded = hasOverride(this, DNQListener<*>::addedAsync.javaMethod!!),
-                    hasAsyncUpdated = hasOverride(this, DNQListener<*>::updatedAsync.javaMethod!!),
-                    hasAsyncRemoved = hasOverride(this, DNQListener<*>::removedAsync.javaMethod!!)
+                    hasAsyncAdded = hasOverride(this, DNQListener<*>::addedAsync.method),
+                    hasAsyncUpdated = hasOverride(this, DNQListener<*>::updatedAsync.method),
+                    hasAsyncRemoved = hasOverride(this, DNQListener<*>::removedAsync.method)
             )
         }
 
@@ -58,5 +62,6 @@ open class AsyncXdListenersReplication(listenersSerialization: TransientListener
         return kclass.memberFunctions.first { it.name == method.name } in kclass.declaredFunctions
     }
 
+    private val KFunction<*>.method get() = requireNotNull(javaMethod)
 }
 

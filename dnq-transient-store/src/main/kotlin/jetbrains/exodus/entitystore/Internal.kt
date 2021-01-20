@@ -53,8 +53,9 @@ internal class TransientChangesMultiplexerJob(private val store: TransientEntity
     public override fun execute() {
         try {
             store.transactional(readonly = true) {
-                val collector = transientChangesMultiplexer.asyncListenersReplication?.newCollector(changesTracker, it)
-                transientChangesMultiplexer.fire(store, Where.ASYNC_AFTER_FLUSH, this@TransientChangesMultiplexerJob.changes, collector)
+                val invocations = transientChangesMultiplexer.asyncListenersReplication?.newInvocations(changesTracker, it)
+                transientChangesMultiplexer.fire(store,
+                        Where.ASYNC_AFTER_FLUSH, this@TransientChangesMultiplexerJob.changes, invocations)
             }
         } finally {
             changesTracker.dispose()

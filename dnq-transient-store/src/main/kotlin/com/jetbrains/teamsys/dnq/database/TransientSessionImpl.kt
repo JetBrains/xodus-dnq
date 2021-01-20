@@ -35,14 +35,21 @@ import java.util.*
 import kotlin.collections.HashSet
 import kotlin.concurrent.withLock
 
-private fun PersistentStoreTransaction.createChangesTracker(readonly: Boolean): TransientChangesTracker {
+private fun PersistentStoreTransaction.createChangesTracker(readonly: Boolean,
+                                                            currentAddress: Long): TransientChangesTracker {
+    if (currentAddress >= 0) {
+        return TxnDiffChangesTracker(this, this.store.beginTransactionAt(currentAddress))
+    }
     return if (readonly) ReadOnlyTransientChangesTrackerImpl(this) else TransientChangesTrackerImpl(this)
 }
 
 private const val CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__"
 private const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 
-class TransientSessionImpl(private val store: TransientEntityStoreImpl, private val readonly: Boolean) : TransientStoreSession, SessionQueryMixin {
+class TransientSessionImpl(private val store: TransientEntityStoreImpl,
+                           private val readonly: Boolean,
+                           private val snapshotAddress: Long = Long.MIN_VALUE,
+                           private val currentAddress: Long = Long.MIN_VALUE) : TransientStoreSession, SessionQueryMixin {
 
     companion object : KLogging() {
         private val assertLinkTypes = "true" == System.getProperty("xodus.dnq.links.assertTypes", "true")
@@ -87,7 +94,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
             return persistentTransactionInternal
         }
 
-    private var changesTracker = snapshot.createChangesTracker(readonly = true)
+    private var changesTracker = snapshot.createChangesTracker(readonly = true, currentAddress = currentAddress)
     override val transientChangesTracker: TransientChangesTracker
         get() {
             assertOpen("get changes tracker")
@@ -99,7 +106,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
 
     private fun initChangesTracker(readonly: Boolean) {
         transientChangesTracker.dispose()
-        this.changesTracker = snapshot.createChangesTracker(readonly)
+        this.changesTracker = snapshot.createChangesTracker(readonly, currentAddress)
     }
 
     override fun getQueryCancellingPolicy(): QueryCancellingPolicy? {
@@ -555,7 +562,10 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl, private 
     }
 
     override fun getSnapshot(): PersistentStoreTransaction {
-        return persistentTransaction.snapshot
+        return if (snapshotAddress == Long.MIN_VALUE)
+            persistentTransaction.snapshot
+        else
+            persistentStore.beginTransactionAt(snapshotAddress)
     }
 
     private fun flushIndexes() {

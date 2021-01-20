@@ -41,7 +41,8 @@ class AsyncListenersTest : DBTest() {
         store.changesMultiplexer = TransientChangesMultiplexer(
                 asyncJobProcessor = createAsyncProcessor().apply(JobProcessor::start)
         ).also {
-            it.asyncListenersReplication = AsyncXdListenersReplication(ClassBasedXdListenersSerialization(), transport)
+            it.asyncListenersReplication = AsyncXdListenersReplication(
+                    it, ClassBasedXdListenersSerialization(), transport)
         }
     }
 

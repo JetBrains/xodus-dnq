@@ -15,19 +15,19 @@
  */
 package jetbrains.exodus.entitystore.listeners
 
+import jetbrains.exodus.database.EntityChangeType
 import jetbrains.exodus.database.IEntityListener
 import jetbrains.exodus.database.TransientEntityChange
+import jetbrains.exodus.entitystore.EntityId
 
-class ListenerInvocationsCollector(
-        private val replication: AsyncListenersReplication,
-        private val startHighAddress: Long,
-        private val endHighAddress: Long
-) {
+class ListenerInvocations(private val replication: AsyncListenersReplication,
+                          private val startHighAddress: Long,
+                          private val endHighAddress: Long) {
 
     private val invocations: MutableList<ListenerInvocation> = arrayListOf()
 
     fun addInvocation(change: TransientEntityChange, listener: IEntityListener<*>) {
-        if (!replication.logNeed(change, listener)) {
+        if (!replication.shouldReplicate(change, listener)) {
             return
         }
         val entityId = change.transientEntity.id
@@ -40,7 +40,7 @@ class ListenerInvocationsCollector(
         )
     }
 
-    fun flushBatch() {
+    fun send() {
         val batch = ListenerInvocationsBatch(
                 startHighAddress = startHighAddress,
                 endHighAddress = endHighAddress,
@@ -50,8 +50,10 @@ class ListenerInvocationsCollector(
     }
 }
 
-data class ListenerInvocationsBatch(
-        val startHighAddress: Long,
-        val endHighAddress: Long,
-        val invocations: MutableList<ListenerInvocation> = arrayListOf()
-)
+data class ListenerInvocation(val listenerKey: String,
+                              val changeType: EntityChangeType,
+                              val entityId: EntityId)
+
+data class ListenerInvocationsBatch(val startHighAddress: Long,
+                                    val endHighAddress: Long,
+                                    val invocations: List<ListenerInvocation>)

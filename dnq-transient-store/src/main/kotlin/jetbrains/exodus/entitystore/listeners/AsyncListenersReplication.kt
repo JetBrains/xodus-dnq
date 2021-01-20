@@ -15,30 +15,55 @@
  */
 package jetbrains.exodus.entitystore.listeners
 
+import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import com.jetbrains.teamsys.dnq.database.TransientSessionImpl
 import jetbrains.exodus.database.*
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
-import jetbrains.exodus.entitystore.StoreTransaction
+import jetbrains.exodus.entitystore.*
 import java.util.concurrent.ConcurrentHashMap
 
-abstract class AsyncListenersReplication(val listenersSerialization: TransientListenersSerialization,
+abstract class AsyncListenersReplication(val multiplexer: TransientChangesMultiplexer,
+                                         val listenersSerialization: TransientListenersSerialization,
                                          val transport: ListenerInvocationTransport) {
 
     protected open val listenersMetaData = ConcurrentHashMap<String, ListenerMataData>()
 
-    fun newCollector(changesTracker: TransientChangesTracker, session: TransientStoreSession): ListenerInvocationsCollector {
+    fun newInvocations(changesTracker: TransientChangesTracker, session: TransientStoreSession): ListenerInvocations {
         val currentHighAddress = session.highAddress
-        return ListenerInvocationsCollector(
+        return ListenerInvocations(
                 replication = this,
                 startHighAddress = changesTracker.snapshot.highAddress,
                 endHighAddress = currentHighAddress
         )
     }
 
-    open fun replay(batch: ListenerInvocationsBatch) {
-        //TODO
+    fun receive(store: TransientEntityStoreImpl, batch: ListenerInvocationsBatch) {
+        val txn = TransientSessionImpl(store,
+                readonly = true,
+                snapshotAddress = batch.startHighAddress,
+                currentAddress = batch.endHighAddress)
+        store.registerStoreSession(txn)
+        try {
+            batch.invocations.forEach {
+                val listener = listenersSerialization.getListener(it, multiplexer, txn)
+                (listener as? IEntityListener<Entity>)?.run {
+                    val currentEntity = txn.newEntity(store.persistentStore.getEntity(it.entityId) as PersistentEntity)
+                    when (it.changeType) {
+                        EntityChangeType.ADD -> addedAsync(currentEntity)
+                        EntityChangeType.REMOVE -> removedAsync(currentEntity)
+                        else -> {
+                            val snapshotEntity = txn.transientChangesTracker.getSnapshotEntity(currentEntity)
+                            updatedAsync(snapshotEntity, currentEntity)
+                        }
+                    }
+
+                } ?: throw IllegalStateException("Can't find listener for listenerKey=${it.listenerKey}")
+            }
+        } finally {
+            txn.abort()
+        }
     }
 
-    open fun logNeed(change: TransientEntityChange, listener: IEntityListener<*>): Boolean {
+    open fun shouldReplicate(change: TransientEntityChange, listener: IEntityListener<*>): Boolean {
         val cachedMetadata = listenersMetaData.getOrPut(listener.metadataKey) {
             listener.metadata
         }
@@ -54,11 +79,9 @@ abstract class AsyncListenersReplication(val listenersSerialization: TransientLi
 
 }
 
-data class ListenerMataData(
-        val hasAsyncAdded: Boolean,
-        val hasAsyncRemoved: Boolean,
-        val hasAsyncUpdated: Boolean
-)
+data class ListenerMataData(val hasAsyncAdded: Boolean,
+                            val hasAsyncRemoved: Boolean,
+                            val hasAsyncUpdated: Boolean)
 
 private val StoreTransaction.highAddress
     get() =

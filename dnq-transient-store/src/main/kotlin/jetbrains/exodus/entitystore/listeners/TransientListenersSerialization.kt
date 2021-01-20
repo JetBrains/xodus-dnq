@@ -17,7 +17,6 @@ package jetbrains.exodus.entitystore.listeners
 
 import jetbrains.exodus.database.DNQListener
 import jetbrains.exodus.database.IEntityListener
-import jetbrains.exodus.database.ITransientChangesMultiplexer
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 
@@ -26,26 +25,23 @@ interface TransientListenersSerialization {
     fun getKey(listener: DNQListener<*>): String
 
     fun getListener(invocation: ListenerInvocation,
-                    changesMultiplexer: ITransientChangesMultiplexer,
+                    changesMultiplexer: TransientChangesMultiplexer,
                     session: TransientStoreSession): IEntityListener<*>?
 }
 
 
-open class ClassBasedListenersSerialization() : TransientListenersSerialization {
+open class ClassBasedListenersSerialization : TransientListenersSerialization {
 
     override fun getKey(listener: DNQListener<*>): String {
         return listener.javaClass.name
     }
 
     override fun getListener(invocation: ListenerInvocation,
-                             changesMultiplexer: ITransientChangesMultiplexer,
+                             changesMultiplexer: TransientChangesMultiplexer,
                              session: TransientStoreSession): IEntityListener<*>? {
-        if (changesMultiplexer is TransientChangesMultiplexer) {
-            val typeId = invocation.entityId.typeId
-            val currentListeners = changesMultiplexer.typeToListeners[
-                    session.store.persistentStore.getEntityType(typeId)]
-            return currentListeners?.first { getKey(it) == invocation.listenerKey }
-        }
-        return null
+        val typeId = invocation.entityId.typeId
+        val currentListeners = changesMultiplexer.typeToListeners[
+                session.store.persistentStore.getEntityType(typeId)]
+        return currentListeners?.first { getKey(it) == invocation.listenerKey }
     }
 }
