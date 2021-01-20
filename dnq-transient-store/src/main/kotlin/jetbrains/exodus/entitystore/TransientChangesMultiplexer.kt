@@ -242,7 +242,6 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
                 @Suppress("UNCHECKED_CAST")
                 action(l as IEntityListener<Entity>)
 
-                // TODO what if code above will fail with exception?
                 collector?.addInvocation(c, l)
             } catch (e: Exception) {
                 // rethrow exception only for beforeFlush listeners
