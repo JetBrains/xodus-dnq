@@ -50,7 +50,7 @@ fun main(args: Array<String>) {
     // Initialize Xodus persistent storage
     val xodusStore = StaticStoreContainer.init(
             dbFolder = File(System.getProperty("user.home"), ".xodus-dnq-blog-db"),
-            environmentName = "db"
+            entityStoreName = "db"
     )
 
     // Initialize Xodus-DNQ metadata

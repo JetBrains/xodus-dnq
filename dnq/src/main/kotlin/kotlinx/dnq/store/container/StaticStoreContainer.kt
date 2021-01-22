@@ -31,8 +31,8 @@ object StaticStoreContainer : StoreContainer {
             this._store = value
         }
 
-    fun init(dbFolder: File, environmentName: String, configure: EnvironmentConfig.() -> Unit = {}): TransientEntityStoreImpl {
-        val store = createTransientEntityStore(dbFolder, environmentName, configure)
+    fun init(dbFolder: File, entityStoreName: String, primary: Boolean = true, configure: EnvironmentConfig.() -> Unit = {}): TransientEntityStoreImpl {
+        val store = createTransientEntityStore(dbFolder, entityStoreName, primary, configure)
         this.store = store
         return store
     }

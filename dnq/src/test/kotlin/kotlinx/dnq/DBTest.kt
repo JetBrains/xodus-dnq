@@ -23,8 +23,8 @@ import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.core.execution.ThreadJobProcessorPool
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
+import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.Where
 import jetbrains.exodus.entitystore.Where.*
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
@@ -178,9 +178,11 @@ abstract class DBTest {
                 eventsMultiplexer.removeListener(it.first.entity, it.second.asEntityListener())
             }
         }
-        store.close()
-        store.persistentStore.close()
-        store.persistentStore.environment.close()
+        with(store) {
+            close()
+            persistentStore.close()
+            persistentStore.environment.close()
+        }
     }
 
     protected fun createAsyncProcessor(): JobProcessor {

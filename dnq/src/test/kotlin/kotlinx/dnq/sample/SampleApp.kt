@@ -83,7 +83,7 @@ fun initXodus(): TransientEntityStore {
 
     val store = StaticStoreContainer.init(
             dbFolder = databaseHome,
-            environmentName = "db"
+            entityStoreName = "db"
     )
 
     initMetaData(XdModel.hierarchy, store)

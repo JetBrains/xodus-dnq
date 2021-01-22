@@ -36,17 +36,18 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
-class AsyncListenersTest : DBTest() {
+open class AsyncListenersTest : DBTest() {
 
-    private val transport = InMemoryTransport()
+    protected val transport = InMemoryTransport()
+    protected lateinit var replication: AsyncListenersReplication
 
     @Before
     fun updateMultiplexer() {
         store.changesMultiplexer = TransientChangesMultiplexer(
                 asyncJobProcessor = createAsyncProcessor().apply(JobProcessor::start)
         ).also {
-            it.asyncListenersReplication = AsyncXdListenersReplication(
-                    it, ClassBasedXdListenersSerialization(), transport)
+            replication = AsyncXdListenersReplication(it, ClassBasedXdListenersSerialization(), transport)
+            it.asyncListenersReplication = replication
         }
     }
 
@@ -66,7 +67,7 @@ class AsyncListenersTest : DBTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        val batchList = transport.invocations[store] ?: throw NullPointerException()
+        val batchList = transport.invocations[store.location] ?: throw NullPointerException()
         assertThat(batchList.size).isEqualTo(2)
         with((batchList).first { it.invocations.isNotEmpty() }) {
             assertThat(startHighAddress).isGreaterThan(0)
@@ -90,7 +91,7 @@ class AsyncListenersTest : DBTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        val batchList = transport.invocations[store] ?: throw NullPointerException()
+        val batchList = transport.invocations[store.location] ?: throw NullPointerException()
         assertThat(batchList.size).isEqualTo(1)
         with((batchList).first()) {
             assertThat(startHighAddress).isGreaterThan(0)
@@ -115,7 +116,7 @@ class AsyncListenersTest : DBTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        val batchList = transport.invocations[store] ?: throw NullPointerException()
+        val batchList = transport.invocations[store.location] ?: throw NullPointerException()
         assertThat(batchList.size).isEqualTo(2)
         with((batchList).first { it.invocations.isNotEmpty() }) {
             assertThat(startHighAddress).isGreaterThan(0)
@@ -132,26 +133,26 @@ class AsyncListenersTest : DBTest() {
     fun cleanupTransport() {
         transport.cleanup()
     }
-
 }
 
 class InMemoryTransport : ListenerInvocationTransport {
 
-    val invocations = ConcurrentHashMap<TransientEntityStore, MutableList<ListenerInvocationsBatch>>()
-    val receivers = ConcurrentHashMap<TransientEntityStore, Pair<AsyncListenersReplication, Thread>>()
+    val invocations = ConcurrentHashMap<String, MutableList<ListenerInvocationsBatch>>()
+    val receivers = ConcurrentHashMap<String, Pair<AsyncListenersReplication, Thread>>()
 
     override fun send(store: TransientEntityStore, invocations: ListenerInvocationsBatch) {
-        this.invocations.getOrPut(store) {
+        this.invocations.getOrPut(store.location) {
             Collections.synchronizedList(arrayListOf())
         }.add(invocations)
     }
 
     override fun addReceiver(store: TransientEntityStore, replication: AsyncListenersReplication) {
-        receivers[store] = replication to thread {
-            while (receivers[store] != null) {
-                invocations[store]?.toTypedArray()?.forEach {
+        val location = store.location
+        receivers[location] = replication to thread {
+            while (receivers[location] != null) {
+                invocations[location]?.toTypedArray()?.forEach {
                     replication.receive(store, it)
-                    invocations[store]?.remove(it)
+                    invocations[location]?.remove(it)
                 }
             }
         }

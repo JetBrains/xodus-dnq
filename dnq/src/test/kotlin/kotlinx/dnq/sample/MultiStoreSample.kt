@@ -34,10 +34,10 @@ fun main(args: Array<String>) {
     XdModel.registerNodes(XdMultiStoreEntity)
 
     val userHome = File(System.getProperty("user.home"))
-    val store1 = createTransientEntityStore(dbFolder = File(userHome, "tmp/repo1"), environmentName = "repo1")
+    val store1 = createTransientEntityStore(dbFolder = File(userHome, "tmp/repo1"), entityStoreName = "repo1")
     initMetaData(XdModel.hierarchy, store1)
 
-    val store2 = createTransientEntityStore(dbFolder = File(userHome, "tmp/repo2"), environmentName = "repo1")
+    val store2 = createTransientEntityStore(dbFolder = File(userHome, "tmp/repo2"), entityStoreName = "repo1")
     initMetaData(XdModel.hierarchy, store2)
 
     ThreadLocalStoreContainer.transactional(store1) {
