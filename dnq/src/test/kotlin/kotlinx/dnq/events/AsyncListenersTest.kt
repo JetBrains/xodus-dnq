@@ -18,7 +18,9 @@ package kotlinx.dnq.events
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.database.EntityChangeType
+import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
+import jetbrains.exodus.entitystore.listeners.AsyncListenersReplication
 import jetbrains.exodus.entitystore.listeners.ListenerInvocationTransport
 import jetbrains.exodus.entitystore.listeners.ListenerInvocationsBatch
 import kotlinx.dnq.DBTest
@@ -31,6 +33,8 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.thread
 
 class AsyncListenersTest : DBTest() {
 
@@ -62,8 +66,9 @@ class AsyncListenersTest : DBTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        assertThat(transport.invocations.size).isEqualTo(2)
-        with(transport.invocations.first { it.invocations.isNotEmpty() }) {
+        val batchList = transport.invocations[store] ?: throw NullPointerException()
+        assertThat(batchList.size).isEqualTo(2)
+        with((batchList).first { it.invocations.isNotEmpty() }) {
             assertThat(startHighAddress).isGreaterThan(0)
             assertThat(endHighAddress).isGreaterThan(0)
             assertThat(invocations.size).isEqualTo(1)
@@ -85,8 +90,9 @@ class AsyncListenersTest : DBTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        assertThat(transport.invocations.size).isEqualTo(1)
-        with(transport.invocations.first()) {
+        val batchList = transport.invocations[store] ?: throw NullPointerException()
+        assertThat(batchList.size).isEqualTo(1)
+        with((batchList).first()) {
             assertThat(startHighAddress).isGreaterThan(0)
             assertThat(endHighAddress).isGreaterThan(0)
             assertThat(invocations.size).isEqualTo(1)
@@ -109,8 +115,9 @@ class AsyncListenersTest : DBTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        assertThat(transport.invocations.size).isEqualTo(2)
-        with(transport.invocations.first { it.invocations.isNotEmpty() }) {
+        val batchList = transport.invocations[store] ?: throw NullPointerException()
+        assertThat(batchList.size).isEqualTo(2)
+        with((batchList).first { it.invocations.isNotEmpty() }) {
             assertThat(startHighAddress).isGreaterThan(0)
             assertThat(endHighAddress).isGreaterThan(0)
             assertThat(invocations.size).isEqualTo(1)
@@ -128,16 +135,32 @@ class AsyncListenersTest : DBTest() {
 
 }
 
-private class InMemoryTransport : ListenerInvocationTransport {
+class InMemoryTransport : ListenerInvocationTransport {
 
-    internal val invocations = Collections.synchronizedList(arrayListOf<ListenerInvocationsBatch>())
+    val invocations = ConcurrentHashMap<TransientEntityStore, MutableList<ListenerInvocationsBatch>>()
+    val receivers = ConcurrentHashMap<TransientEntityStore, Pair<AsyncListenersReplication, Thread>>()
 
-    override fun send(invocation: ListenerInvocationsBatch) {
-        invocations.add(invocation)
+    override fun send(store: TransientEntityStore, invocations: ListenerInvocationsBatch) {
+        this.invocations.getOrPut(store) {
+            Collections.synchronizedList(arrayListOf())
+        }.add(invocations)
+    }
+
+    override fun addReceiver(store: TransientEntityStore, replication: AsyncListenersReplication) {
+        receivers[store] = replication to thread {
+            while (receivers[store] != null) {
+                invocations[store]?.toTypedArray()?.forEach {
+                    replication.receive(store, it)
+                    invocations[store]?.remove(it)
+                }
+            }
+        }
     }
 
     fun cleanup() {
         invocations.clear()
+        val pairs = receivers.values.toList()
+        receivers.clear()
+        pairs.forEach { it.second.join() }
     }
-
 }

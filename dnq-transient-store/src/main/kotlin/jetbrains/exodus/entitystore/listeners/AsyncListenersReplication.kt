@@ -21,7 +21,7 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import java.util.concurrent.ConcurrentHashMap
 
-abstract class AsyncListenersReplication(val multiplexer: TransientChangesMultiplexer,
+abstract class AsyncListenersReplication(private val multiplexer: TransientChangesMultiplexer,
                                          val listenersSerialization: TransientListenersSerialization,
                                          val transport: ListenerInvocationTransport) {
 
@@ -36,7 +36,8 @@ abstract class AsyncListenersReplication(val multiplexer: TransientChangesMultip
         )
     }
 
-    fun receive(store: TransientEntityStoreImpl, batch: ListenerInvocationsBatch) {
+    fun receive(store: TransientEntityStore, batch: ListenerInvocationsBatch) {
+        store as TransientEntityStoreImpl
         val txn = TransientSessionImpl(store,
                 readonly = true,
                 snapshotAddress = batch.startHighAddress,

@@ -15,7 +15,11 @@
  */
 package jetbrains.exodus.entitystore.listeners
 
+import jetbrains.exodus.database.TransientEntityStore
+
 interface ListenerInvocationTransport {
 
-    fun send(invocation: ListenerInvocationsBatch)
+    fun send(store: TransientEntityStore, invocations: ListenerInvocationsBatch)
+
+    fun addReceiver(store: TransientEntityStore, replication: AsyncListenersReplication)
 }

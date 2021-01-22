@@ -82,7 +82,7 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
             this.handlePerEntityChanges(where, it, collector)
             this.handlePerEntityTypeChanges(store, where, it, collector)
         }
-        collector?.send()
+        collector?.send(store)
     }
 
     override fun addListener(e: Entity, listener: IEntityListener<*>) {

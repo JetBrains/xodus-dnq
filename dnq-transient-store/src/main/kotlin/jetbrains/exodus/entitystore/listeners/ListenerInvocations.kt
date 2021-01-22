@@ -18,6 +18,7 @@ package jetbrains.exodus.entitystore.listeners
 import jetbrains.exodus.database.EntityChangeType
 import jetbrains.exodus.database.IEntityListener
 import jetbrains.exodus.database.TransientEntityChange
+import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.EntityId
 
 class ListenerInvocations(private val replication: AsyncListenersReplication,
@@ -40,13 +41,13 @@ class ListenerInvocations(private val replication: AsyncListenersReplication,
         )
     }
 
-    fun send() {
+    fun send(store: TransientEntityStore) {
         val batch = ListenerInvocationsBatch(
                 startHighAddress = startHighAddress,
                 endHighAddress = endHighAddress,
                 invocations = invocations
         )
-        replication.transport.send(batch)
+        replication.transport.send(store, batch)
     }
 }
 
