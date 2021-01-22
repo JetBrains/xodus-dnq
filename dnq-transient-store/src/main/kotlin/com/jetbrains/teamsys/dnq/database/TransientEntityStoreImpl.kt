@@ -81,11 +81,9 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     private val transientSessionOrThrow: TransientSessionImpl
         get() = threadSessionOrThrow as TransientSessionImpl
 
-    override fun getName() = "transient store"
+    override fun getName() = persistentStore.name
 
-    override fun getLocation(): String {
-        throw UnsupportedOperationException("Not supported by transient store.")
-    }
+    override fun getLocation(): String = persistentStore.location
 
     override fun <T> transactional(
             readonly: Boolean,
