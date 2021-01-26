@@ -19,6 +19,7 @@ import jetbrains.exodus.core.dataStructures.StablePriorityQueue
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.env.EnvironmentConfig
+import jetbrains.exodus.env.EnvironmentImpl
 import jetbrains.exodus.query.QueryEngine
 import jetbrains.exodus.query.metadata.ModelMetaData
 import mu.KLogging
@@ -219,14 +220,6 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         }
     }
 
-    private fun Entity.unwrapEntity(): PersistentEntity {
-        return when (this) {
-            is TransientEntity -> this.persistentEntity
-            is PersistentEntity -> this
-            else -> throw IllegalArgumentException("Cannot unwrap entity")
-        }
-    }
-
     fun registerStoreSession(storeSession: TransientStoreSession): TransientStoreSession {
         if (!sessions.add(storeSession)) {
             throw IllegalArgumentException("Session is already registered.")
@@ -275,19 +268,10 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         }.forEach(action)
     }
 
-
-    private fun <T> withListeners(action: StablePriorityQueue<Int, TransientStoreSessionListener>.() -> T): T {
-        listeners.lock()
-        try {
-            return action(listeners)
-        } finally {
-            listeners.unlock()
-        }
-    }
-
     fun sessionsCount(): Int {
         return sessions.size
     }
+
 
     fun dumpSessions(sb: StringBuilder) {
         sessions.joinTo(sb, "\n")
@@ -301,11 +285,36 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         enumCache[getEnumKey(className, propName)] = entity
     }
 
+    /**
+     * Wait until underlying highAddress gets this value
+     */
+    fun waitForPendingChanges(highAddress: Long) {
+        while ((_persistentStore.environment as EnvironmentImpl).log.highAddress < highAddress) {
+            Thread.sleep(100)
+        }
+    }
+
+    private fun Entity.unwrapEntity(): PersistentEntity {
+        return when (this) {
+            is TransientEntity -> this.persistentEntity
+            is PersistentEntity -> this
+            else -> throw IllegalArgumentException("Cannot unwrap entity")
+        }
+    }
+
+    private fun <T> withListeners(action: StablePriorityQueue<Int, TransientStoreSessionListener>.() -> T): T {
+        listeners.lock()
+        try {
+            return action(listeners)
+        } finally {
+            listeners.unlock()
+        }
+    }
+
     private fun getEnumKey(className: String, propName: String) = "$propName@$className"
 
     private fun assertOpen() {
         // this flag isn't even volatile, but this is legacy behavior
         if (closed) throw IllegalStateException("Transient store is closed.")
     }
-
 }

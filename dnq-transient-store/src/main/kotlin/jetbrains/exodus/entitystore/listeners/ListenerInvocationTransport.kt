@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.entitystore.listeners
 
+import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.database.TransientEntityStore
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -25,6 +26,8 @@ interface ListenerInvocationTransport {
     fun send(store: TransientEntityStore, invocations: ListenerInvocationsBatch)
 
     fun addReceiver(store: TransientEntityStore, replication: AsyncListenersReplication)
+
+    fun waitForPendingInvocations(store: TransientEntityStore)
 }
 
 class InMemoryTransport : ListenerInvocationTransport {
@@ -43,10 +46,23 @@ class InMemoryTransport : ListenerInvocationTransport {
         receivers[location] = replication to thread {
             while (receivers[location] != null) {
                 invocations[location]?.toTypedArray()?.forEach {
+                    (store as TransientEntityStoreImpl).waitForPendingChanges(it.endHighAddress)
                     replication.receive(store, it)
-                    invocations[location]?.remove(it)
+                    invocations[location]?.run {
+                        remove(it)
+                        if (isEmpty()) {
+                            invocations.remove(location)
+                        }
+                    }
                 }
             }
+        }
+    }
+
+    override fun waitForPendingInvocations(store: TransientEntityStore) {
+        val location = store.location
+        while (invocations[location] != null) {
+            Thread.sleep(100)
         }
     }
 

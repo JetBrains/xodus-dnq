@@ -16,43 +16,12 @@
 package kotlinx.dnq.events
 
 import com.google.common.truth.Truth.assertThat
-import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.database.EntityChangeType
-import jetbrains.exodus.entitystore.TransientChangesMultiplexer
-import jetbrains.exodus.entitystore.listeners.AsyncListenersReplication
-import jetbrains.exodus.entitystore.listeners.InMemoryTransport
-import jetbrains.exodus.entitystore.listeners.ListenerInvocationTransport
-import kotlinx.dnq.DBTest
-import kotlinx.dnq.XdModel
-import kotlinx.dnq.listener.AsyncXdListenersReplication
-import kotlinx.dnq.listener.ClassBasedXdListenersSerialization
 import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
-import org.junit.After
-import org.junit.Before
 import org.junit.Test
 
-open class AsyncListenersTest : DBTest() {
-
-    protected lateinit var transport: ListenerInvocationTransport
-    protected lateinit var replication: AsyncListenersReplication
-
-    @Before
-    fun updateMultiplexer() {
-        transport = getListenersInvocationTransport()
-        store.changesMultiplexer = TransientChangesMultiplexer(
-                asyncJobProcessor = createAsyncProcessor().apply(JobProcessor::start)
-        ).also {
-            replication = AsyncXdListenersReplication(it, ClassBasedXdListenersSerialization(), transport)
-            it.asyncListenersReplication = replication
-        }
-    }
-
-    protected fun getListenersInvocationTransport(): ListenerInvocationTransport = InMemoryTransport()
-
-    override fun registerEntityTypes() {
-        XdModel.registerNodes(Bar)
-    }
+open class AsyncListenersTest : AsyncListenersBaseTest() {
 
     @Test
     fun `updated invocation replicated`() {
@@ -130,21 +99,6 @@ open class AsyncListenersTest : DBTest() {
                     assertThat(changeType).isEqualTo(EntityChangeType.REMOVE)
                     assertThat(entityId.toString()).isEqualTo(bar.xdId)
                 }
-            }
-        }
-    }
-
-    @After
-    fun cleanupTransport() {
-        forInMemoryTransport { transport ->
-            transport.cleanup()
-        }
-    }
-
-    private fun forInMemoryTransport(action: (InMemoryTransport) -> Unit) {
-        transport.let {
-            if (it is InMemoryTransport) {
-                action(it)
             }
         }
     }

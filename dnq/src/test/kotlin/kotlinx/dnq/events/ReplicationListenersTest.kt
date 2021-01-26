@@ -16,11 +16,16 @@
 package kotlinx.dnq.events
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import jetbrains.exodus.io.DataReaderWriterProvider
+import kotlinx.dnq.listener.XdEntityListener
+import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.store.container.createTransientEntityStore
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
+import org.junit.Test
 
-class ReplicationListenersTest : AsyncListenersTest() {
+class ReplicationListenersTest : AsyncListenersBaseTest() {
 
     private lateinit var secondaryStore: TransientEntityStoreImpl
 
@@ -30,11 +35,62 @@ class ReplicationListenersTest : AsyncListenersTest() {
                 dbFolder = databaseHome,
                 entityStoreName = "testDB",
                 primary = false) {
-            logDataReaderWriterProvider = "jetbrains.exodus.io.WatchingFileDataReaderWriterProvider"
+            logDataReaderWriterProvider = DataReaderWriterProvider.WATCHING_READER_WRITER_PROVIDER
+            isGcEnabled = false
             envCloseForcedly = true
         }
         secondaryStore.changesMultiplexer = store.changesMultiplexer
         transport.addReceiver(secondaryStore, replication)
+    }
+
+    @Test
+    fun `updated invoked`() {
+        var invocations = 0
+        Bar.addListener(store, object : XdEntityListener<Bar> {
+            override fun updatedAsync(old: Bar, current: Bar) {
+                /*if (current.hasChanges(Bar::bar)) {
+                    ++invocations
+                }
+                if (current.getOldValue(Bar::bar).isNullOrEmpty()) {
+                    ++invocations
+                }*/
+                ++invocations
+            }
+        })
+        val bar = transactional { Bar.new() }
+        transactional { bar.bar = "xxx" }
+
+        `wait for pending invocations`()
+        assertEquals(2, invocations)
+    }
+
+    @Test
+    fun `added invoked`() {
+        var invocations = 0
+        Bar.addListener(store, object : XdEntityListener<Bar> {
+            override fun addedAsync(added: Bar) {
+                ++invocations
+            }
+        })
+        transactional { Bar.new() }
+
+        `wait for pending invocations`()
+        assertEquals(2, invocations)
+    }
+
+    @Test
+    fun `removed invoked`() {
+        var invocations = 0
+        Bar.addListener(store, object : XdEntityListener<Bar> {
+            override fun removedAsync(removed: Bar) {
+                ++invocations
+            }
+        })
+        val bar = transactional { Bar.new() }
+        transactional { bar.delete() }
+
+        `wait for pending invocations`()
+        assertEquals(2, invocations)
     }
 
     @After
@@ -44,5 +100,10 @@ class ReplicationListenersTest : AsyncListenersTest() {
             persistentStore.close()
             persistentStore.environment.close()
         }
+    }
+
+    private fun `wait for pending invocations`() {
+        asyncProcessor.waitForJobs(100)
+        transport.waitForPendingInvocations(secondaryStore)
     }
 }
