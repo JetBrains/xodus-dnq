@@ -16,10 +16,44 @@
 package jetbrains.exodus.entitystore.listeners
 
 import jetbrains.exodus.database.TransientEntityStore
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.thread
 
 interface ListenerInvocationTransport {
 
     fun send(store: TransientEntityStore, invocations: ListenerInvocationsBatch)
 
     fun addReceiver(store: TransientEntityStore, replication: AsyncListenersReplication)
+}
+
+class InMemoryTransport : ListenerInvocationTransport {
+
+    val invocations = ConcurrentHashMap<String, MutableList<ListenerInvocationsBatch>>()
+    val receivers = ConcurrentHashMap<String, Pair<AsyncListenersReplication, Thread>>()
+
+    override fun send(store: TransientEntityStore, invocations: ListenerInvocationsBatch) {
+        this.invocations.getOrPut(store.location) {
+            Collections.synchronizedList(arrayListOf())
+        }.add(invocations)
+    }
+
+    override fun addReceiver(store: TransientEntityStore, replication: AsyncListenersReplication) {
+        val location = store.location
+        receivers[location] = replication to thread {
+            while (receivers[location] != null) {
+                invocations[location]?.toTypedArray()?.forEach {
+                    replication.receive(store, it)
+                    invocations[location]?.remove(it)
+                }
+            }
+        }
+    }
+
+    fun cleanup() {
+        invocations.clear()
+        val pairs = receivers.values.toList()
+        receivers.clear()
+        pairs.forEach { it.second.join() }
+    }
 }
