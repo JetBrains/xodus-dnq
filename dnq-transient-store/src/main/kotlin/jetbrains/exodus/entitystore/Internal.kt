@@ -15,6 +15,9 @@
  */
 package jetbrains.exodus.entitystore
 
+import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import com.jetbrains.teamsys.dnq.database.TransientSessionImpl
+import com.jetbrains.teamsys.dnq.database.highAddress
 import jetbrains.exodus.core.execution.Job
 import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientEntityChange
@@ -52,10 +55,19 @@ internal class TransientChangesMultiplexerJob(private val store: TransientEntity
 
     public override fun execute() {
         try {
-            store.transactional(readonly = true) {
-                val invocations = transientChangesMultiplexer.asyncListenersReplication?.newInvocations(changesTracker, it)
-                transientChangesMultiplexer.fire(store,
-                        Where.ASYNC_AFTER_FLUSH, this@TransientChangesMultiplexerJob.changes, invocations)
+            store.run {
+                this as TransientEntityStoreImpl
+                val txn = TransientSessionImpl(store = this, readonly = true,
+                        snapshotAddress = changesTracker.snapshot.highAddress,
+                        currentAddress = persistentStore.computeInReadonlyTransaction { it.highAddress })
+                registerStoreSession(txn)
+                try {
+                    val invocations = transientChangesMultiplexer.asyncListenersReplication?.newInvocations(changesTracker, txn)
+                    transientChangesMultiplexer.fire(store,
+                            Where.ASYNC_AFTER_FLUSH, this@TransientChangesMultiplexerJob.changes, invocations)
+                } finally {
+                    txn.abort()
+                }
             }
         } finally {
             changesTracker.dispose()

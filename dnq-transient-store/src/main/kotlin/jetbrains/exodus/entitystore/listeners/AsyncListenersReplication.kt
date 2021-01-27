@@ -17,8 +17,11 @@ package jetbrains.exodus.entitystore.listeners
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import com.jetbrains.teamsys.dnq.database.TransientSessionImpl
+import com.jetbrains.teamsys.dnq.database.highAddress
 import jetbrains.exodus.database.*
-import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.PersistentEntity
+import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import java.util.concurrent.ConcurrentHashMap
 
 abstract class AsyncListenersReplication(private val multiplexer: TransientChangesMultiplexer,
@@ -83,11 +86,3 @@ abstract class AsyncListenersReplication(private val multiplexer: TransientChang
 data class ListenerMataData(val hasAsyncAdded: Boolean,
                             val hasAsyncRemoved: Boolean,
                             val hasAsyncUpdated: Boolean)
-
-private val StoreTransaction.highAddress
-    get() =
-        if (this is TransientStoreSession)
-            (persistentTransaction as PersistentStoreTransaction).environmentTransaction.highAddress
-        else {
-            (this as PersistentStoreTransaction).environmentTransaction.highAddress
-        }

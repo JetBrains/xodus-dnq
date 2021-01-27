@@ -318,3 +318,11 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         if (closed) throw IllegalStateException("Transient store is closed.")
     }
 }
+
+val StoreTransaction.highAddress
+    get() =
+        if (this is TransientStoreSession)
+            (persistentTransaction as PersistentStoreTransaction).environmentTransaction.highAddress
+        else {
+            (this as PersistentStoreTransaction).environmentTransaction.highAddress
+        }
