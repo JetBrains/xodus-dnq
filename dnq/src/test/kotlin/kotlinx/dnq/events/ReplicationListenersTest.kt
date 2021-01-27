@@ -20,6 +20,8 @@ import jetbrains.exodus.io.DataReaderWriterProvider
 import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.store.container.createTransientEntityStore
+import kotlinx.dnq.util.getOldValue
+import kotlinx.dnq.util.hasChanges
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -46,22 +48,28 @@ class ReplicationListenersTest : AsyncListenersBaseTest() {
     @Test
     fun `updated invoked`() {
         var invocations = 0
+        val bar = transactional { Bar.new() }
         Bar.addListener(store, object : XdEntityListener<Bar> {
             override fun updatedAsync(old: Bar, current: Bar) {
-                /*if (current.hasChanges(Bar::bar)) {
+                if (old.hasChanges(Bar::bar)) {
+                    ++invocations
+                }
+                if (old.getOldValue(Bar::bar).isNullOrEmpty()) {
+                    ++invocations
+                }
+                if (current.hasChanges(Bar::bar)) {
                     ++invocations
                 }
                 if (current.getOldValue(Bar::bar).isNullOrEmpty()) {
                     ++invocations
-                }*/
+                }
                 ++invocations
             }
         })
-        val bar = transactional { Bar.new() }
         transactional { bar.bar = "xxx" }
 
         `wait for pending invocations`()
-        assertEquals(2, invocations)
+        assertEquals(10, invocations)
     }
 
     @Test

@@ -81,11 +81,13 @@ class TxnDiffChangesTracker(override val snapshot: PersistentStoreTransaction,
 
     override fun dispose() = snapshot.abort()
 
-    override fun isNew(transientEntity: TransientEntity): Boolean = throwUnsupported()
+    override fun isNew(transientEntity: TransientEntity) =
+            getLastVersion(snapshot, transientEntity) != getLastVersion(current, transientEntity)
 
-    override fun isSaved(transientEntity: TransientEntity): Boolean = throwUnsupported()
+    override fun isSaved(transientEntity: TransientEntity) =
+            getLastVersion(current, transientEntity) >= 0
 
-    override fun isRemoved(transientEntity: TransientEntity): Boolean = throwUnsupported()
+    override fun isRemoved(transientEntity: TransientEntity) = !isSaved(transientEntity)
 
     override fun linkChanged(source: TransientEntity,
                              linkName: String,
@@ -105,11 +107,17 @@ class TxnDiffChangesTracker(override val snapshot: PersistentStoreTransaction,
 
     override fun entityRemoved(e: TransientEntity) = throwUnsupported<Unit>()
 
-    private fun getLinksValues(snapshot: PersistentStoreTransaction, transientEntity: TransientEntity, linkName: String): EntityIterable =
-            getSnapshotEntity(snapshot, transientEntity).getLinks(linkName)
+    companion object {
 
-    private fun getSnapshotEntity(snapshot: PersistentStoreTransaction, transientEntity: TransientEntity): PersistentEntity =
-            transientEntity.persistentEntity.getSnapshot(snapshot)
+        private fun getLastVersion(snapshot: PersistentStoreTransaction, transientEntity: TransientEntity) =
+                snapshot.store.getLastVersion(snapshot, transientEntity.id)
+
+        private fun getLinksValues(snapshot: PersistentStoreTransaction, transientEntity: TransientEntity, linkName: String): EntityIterable =
+                getSnapshotEntity(snapshot, transientEntity).getLinks(linkName)
+
+        private fun getSnapshotEntity(snapshot: PersistentStoreTransaction, transientEntity: TransientEntity): PersistentEntity =
+                transientEntity.persistentEntity.getSnapshot(snapshot)
+    }
 }
 
 private inline fun <reified T> throwUnsupported(): T {
