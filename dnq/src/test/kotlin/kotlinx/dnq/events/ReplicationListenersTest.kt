@@ -47,58 +47,67 @@ class ReplicationListenersTest : AsyncListenersBaseTest() {
 
     @Test
     fun `updated invoked`() {
-        var invocations = 0
+        var count = 0
         val bar = transactional { Bar.new() }
         Bar.addListener(store, object : XdEntityListener<Bar> {
             override fun updatedAsync(old: Bar, current: Bar) {
                 if (old.hasChanges(Bar::bar)) {
-                    ++invocations
+                    ++count
                 }
                 if (old.getOldValue(Bar::bar).isNullOrEmpty()) {
-                    ++invocations
+                    ++count
                 }
                 if (current.hasChanges(Bar::bar)) {
-                    ++invocations
+                    ++count
                 }
                 if (current.getOldValue(Bar::bar).isNullOrEmpty()) {
-                    ++invocations
+                    ++count
                 }
-                ++invocations
+                ++count
             }
         })
         transactional { bar.bar = "xxx" }
 
         `wait for pending invocations`()
-        assertEquals(10, invocations)
+        assertEquals(10, count)
     }
 
     @Test
     fun `added invoked`() {
-        var invocations = 0
+        var count = 0
         Bar.addListener(store, object : XdEntityListener<Bar> {
             override fun addedAsync(added: Bar) {
-                ++invocations
+                ++count
+                if (added.isNew) {
+                    ++count
+                }
             }
         })
         transactional { Bar.new() }
 
         `wait for pending invocations`()
-        assertEquals(2, invocations)
+        assertEquals(4, count)
     }
 
     @Test
     fun `removed invoked`() {
-        var invocations = 0
+        var count = 0
+        val bar = transactional { Bar.new().apply { bar = "xxx" } }
         Bar.addListener(store, object : XdEntityListener<Bar> {
             override fun removedAsync(removed: Bar) {
-                ++invocations
+                ++count
+                if (removed.isRemoved) {
+                    ++count
+                }
+                if (removed.getOldValue(Bar::bar) == "xxx") {
+                    ++count
+                }
             }
         })
-        val bar = transactional { Bar.new() }
         transactional { bar.delete() }
 
         `wait for pending invocations`()
-        assertEquals(2, invocations)
+        assertEquals(6, count)
     }
 
     @After
