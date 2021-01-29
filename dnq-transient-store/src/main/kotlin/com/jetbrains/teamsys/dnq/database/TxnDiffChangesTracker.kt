@@ -79,7 +79,10 @@ class TxnDiffChangesTracker(override val snapshot: PersistentStoreTransaction,
 
     override fun upgrade(): TransientChangesTracker = throwUnsupported()
 
-    override fun dispose() = snapshot.abort()
+    override fun dispose() {
+        snapshot.abort()
+        current.abort()
+    }
 
     override fun isNew(transientEntity: TransientEntity) =
             getLastVersion(snapshot, transientEntity) < 0 && getLastVersion(current, transientEntity) >= 0
