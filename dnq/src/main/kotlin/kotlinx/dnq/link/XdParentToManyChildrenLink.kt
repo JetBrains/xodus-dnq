@@ -24,6 +24,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
+import kotlinx.dnq.util.isReadOnly
 import kotlinx.dnq.util.reattach
 import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
@@ -51,7 +52,7 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
                 get() = try {
                     val queryEngine = oppositeEntityType.entityStore.queryEngine
                     val oppositeType = oppositeEntityType.entityType
-                    if (queryEngine.modelMetaData.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
+                    if (thisRef.isReadOnly || queryEngine.modelMetaData.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                         thisRef.reattach().getLinks(property.dbName)
                     } else {
                         TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.oppositeDbName, thisRef.reattach()), queryEngine)

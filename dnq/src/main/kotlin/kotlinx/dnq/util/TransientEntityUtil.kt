@@ -114,3 +114,5 @@ fun XdEntity.reattachAndGetLink(linkName: String): Entity? {
     val session = threadSessionOrThrow
     return reattach(session).getLinkEx(linkName, session)
 }
+
+val XdEntity.isReadOnly: Boolean get() = (entity as TransientEntity).isReadonly
