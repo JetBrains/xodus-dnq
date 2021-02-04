@@ -30,7 +30,7 @@ open class AsyncListenersTest : AsyncListenersBaseTest() {
             }
         })
 
-        val bar = transactional { Bar.new() }
+        val bar = transactional { ExtraBar.new() }
         transactional { bar.bar = "xxx" }
 
         asyncProcessor.waitForJobs(100)
@@ -57,7 +57,7 @@ open class AsyncListenersTest : AsyncListenersBaseTest() {
             }
         })
 
-        val bar = transactional { Bar.new() }
+        val bar = transactional { ExtraBar.new() }
 
         asyncProcessor.waitForJobs(100)
 
@@ -83,7 +83,7 @@ open class AsyncListenersTest : AsyncListenersBaseTest() {
             }
         })
 
-        val bar = transactional { Bar.new() }
+        val bar = transactional { ExtraBar.new() }
         transactional { bar.delete() }
 
         asyncProcessor.waitForJobs(100)

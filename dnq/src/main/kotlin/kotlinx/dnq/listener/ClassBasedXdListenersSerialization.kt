@@ -16,14 +16,38 @@
 package kotlinx.dnq.listener
 
 import jetbrains.exodus.database.DNQListener
+import jetbrains.exodus.database.IEntityListener
+import jetbrains.exodus.database.TransientStoreSession
+import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.listeners.ClassBasedListenersSerialization
+import jetbrains.exodus.entitystore.listeners.ListenerInvocation
+import kotlinx.dnq.XdModel
+import kotlinx.dnq.util.XdHierarchyNode
 
-class ClassBasedXdListenersSerialization : ClassBasedListenersSerialization() {
+open class ClassBasedXdListenersSerialization : ClassBasedListenersSerialization() {
 
     override fun getKey(listener: DNQListener<*>): String {
         if (listener is EntityListenerWrapper<*>) {
             return super.getKey(listener.wrapped)
         }
         return super.getKey(listener)
+    }
+
+    override fun getListener(invocation: ListenerInvocation, changesMultiplexer: TransientChangesMultiplexer, session: TransientStoreSession): IEntityListener<*>? {
+        val typeId = invocation.entityId.typeId
+        val entityType = session.store.persistentStore.getEntityType(typeId)
+        var typeHierarchy: XdHierarchyNode? = XdModel[entityType]
+                ?: throw IllegalStateException("Can't find XdEntityType for $entityType")
+        var listener: IEntityListener<*>? = null
+        while (typeHierarchy != null && listener == null) {
+            listener = changesMultiplexer.findListener(typeHierarchy, invocation.listenerKey)
+            typeHierarchy = typeHierarchy.parentNode
+        }
+        return null
+    }
+
+    private fun TransientChangesMultiplexer.findListener(typeHierarchy: XdHierarchyNode, listenerKey: String): IEntityListener<*>? {
+        val currentListeners = typeToListeners[typeHierarchy.entityType.entityType]
+        return currentListeners?.first { getKey(it) == listenerKey }
     }
 }

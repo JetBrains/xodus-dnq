@@ -32,7 +32,7 @@ import kotlin.concurrent.write
 open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobProcessor: JobProcessor? = null) : TransientStoreSessionListener, ITransientChangesMultiplexer {
 
     private val instanceToListeners = HashMap<FullEntityId, Queue<IEntityListener<*>>>()
-    internal val typeToListeners = HashMap<String, Queue<IEntityListener<*>>>()
+    val typeToListeners = HashMap<String, Queue<IEntityListener<*>>>()
     private val notAsyncStores = HashSet<TransientEntityStore>()
     private val rwl = ReentrantReadWriteLock()
     private var isOpen = true

@@ -33,7 +33,7 @@ abstract class AsyncListenersBaseTest : DBTest() {
     protected lateinit var replication: AsyncListenersReplication
 
     override fun registerEntityTypes() {
-        XdModel.registerNodes(Bar)
+        XdModel.registerNodes(Bar, ExtraBar)
     }
 
     @Before
