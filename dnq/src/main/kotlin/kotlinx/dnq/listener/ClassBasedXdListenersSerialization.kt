@@ -43,7 +43,7 @@ open class ClassBasedXdListenersSerialization : ClassBasedListenersSerialization
             listener = changesMultiplexer.findListener(typeHierarchy, invocation.listenerKey)
             typeHierarchy = typeHierarchy.parentNode
         }
-        return null
+        return listener
     }
 
     private fun TransientChangesMultiplexer.findListener(typeHierarchy: XdHierarchyNode, listenerKey: String): IEntityListener<*>? {
