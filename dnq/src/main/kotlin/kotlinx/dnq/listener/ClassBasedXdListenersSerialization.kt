@@ -48,6 +48,6 @@ open class ClassBasedXdListenersSerialization : ClassBasedListenersSerialization
 
     private fun TransientChangesMultiplexer.findListener(typeHierarchy: XdHierarchyNode, listenerKey: String): IEntityListener<*>? {
         val currentListeners = typeToListeners[typeHierarchy.entityType.entityType]
-        return currentListeners?.first { getKey(it) == listenerKey }
+        return currentListeners?.firstOrNull { getKey(it) == listenerKey }
     }
 }
