@@ -22,6 +22,7 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentEntity
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
+import jetbrains.exodus.env.EnvironmentImpl
 import java.util.concurrent.ConcurrentHashMap
 
 abstract class AsyncListenersReplication(private val multiplexer: TransientChangesMultiplexer,
@@ -30,7 +31,10 @@ abstract class AsyncListenersReplication(private val multiplexer: TransientChang
 
     protected open val listenersMetaData = ConcurrentHashMap<String, ListenerMataData>()
 
-    fun newInvocations(changesTracker: TransientChangesTracker, session: TransientStoreSession): ListenerInvocations {
+    fun newInvocations(changesTracker: TransientChangesTracker, session: TransientSessionImpl): ListenerInvocations? {
+        if ((session.store.persistentStore.environment as EnvironmentImpl).log.config.readerWriterProvider?.isReadonly == true) {
+            return null
+        }
         val currentHighAddress = session.highAddress
         return ListenerInvocations(
                 replication = this,
