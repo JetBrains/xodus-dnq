@@ -73,6 +73,17 @@ class ReplicationListenersTest : AsyncListenersBaseTest() {
     }
 
     @Test
+    fun `listener inheritance should be checked`() {
+        val bar = transactional { Bar.new() }
+        val listener = SuperBarListener()
+        Bar.addListener(store, listener)
+        transactional { bar.bar = "xxx" }
+
+        `wait for pending invocations`()
+        assertEquals(10, listener.count)
+    }
+
+    @Test
     fun `added invoked`() {
         var count = 0
         Bar.addListener(store, object : XdEntityListener<Bar> {
@@ -124,3 +135,23 @@ class ReplicationListenersTest : AsyncListenersBaseTest() {
         transport.waitForPendingInvocations(secondaryStore)
     }
 }
+
+open class BarListener(var count: Int) : XdEntityListener<Bar> {
+    override fun updatedAsync(old: Bar, current: Bar) {
+        if (old.hasChanges(Bar::bar)) {
+            ++count
+        }
+        if (old.getOldValue(Bar::bar).isNullOrEmpty()) {
+            ++count
+        }
+        if (current.hasChanges(Bar::bar)) {
+            ++count
+        }
+        if (current.getOldValue(Bar::bar).isNullOrEmpty()) {
+            ++count
+        }
+        ++count
+    }
+}
+
+open class SuperBarListener : BarListener(0)

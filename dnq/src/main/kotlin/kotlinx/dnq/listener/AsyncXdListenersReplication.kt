@@ -22,7 +22,6 @@ import jetbrains.exodus.entitystore.listeners.ListenerInvocationTransport
 import jetbrains.exodus.entitystore.listeners.ListenerMataData
 import jetbrains.exodus.entitystore.listeners.TransientListenersSerialization
 import java.lang.reflect.Method
-import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.memberFunctions
@@ -58,8 +57,14 @@ open class AsyncXdListenersReplication(multiplexer: TransientChangesMultiplexer,
         }
 
     private fun hasOverride(listener: DNQListener<*>, method: Method): Boolean {
-        val kclass: KClass<DNQListener<*>> = listener.javaClass.kotlin
-        return kclass.memberFunctions.first { it.name == method.name } in kclass.declaredFunctions
+        var clazz: Class<*>? = listener.javaClass
+        var hasOverride = false
+        while (clazz != null && !hasOverride) {
+            val kclass = clazz.kotlin
+            hasOverride = kclass.memberFunctions.firstOrNull { it.name == method.name } in kclass.declaredFunctions
+            clazz = clazz.superclass
+        }
+        return hasOverride
     }
 
     private val KFunction<*>.method get() = requireNotNull(javaMethod)
