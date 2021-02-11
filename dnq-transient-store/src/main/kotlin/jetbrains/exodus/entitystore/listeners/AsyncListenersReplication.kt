@@ -23,6 +23,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentEntity
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.env.EnvironmentImpl
+import mu.KLogging
 import java.util.concurrent.ConcurrentHashMap
 
 abstract class AsyncListenersReplication(private val multiplexer: TransientChangesMultiplexer,
@@ -54,16 +55,19 @@ abstract class AsyncListenersReplication(private val multiplexer: TransientChang
             batch.invocations.forEach {
                 val listener = listenersSerialization.getListener(it, multiplexer, txn)
                 (listener as? IEntityListener<Entity>)?.run {
-                    val currentEntity = txn.newEntity(store.persistentStore.getEntity(it.entityId) as PersistentEntity)
-                    when (it.changeType) {
-                        EntityChangeType.ADD -> addedAsync(currentEntity)
-                        EntityChangeType.REMOVE -> removedAsync(currentEntity)
-                        else -> {
-                            val snapshotEntity = txn.transientChangesTracker.getSnapshotEntity(currentEntity)
-                            updatedAsync(snapshotEntity, currentEntity)
+                    try {
+                        val currentEntity = txn.newEntity(store.persistentStore.getEntity(it.entityId) as PersistentEntity)
+                        when (it.changeType) {
+                            EntityChangeType.ADD -> addedAsync(currentEntity)
+                            EntityChangeType.REMOVE -> removedAsync(currentEntity)
+                            else -> {
+                                val snapshotEntity = txn.transientChangesTracker.getSnapshotEntity(currentEntity)
+                                updatedAsync(snapshotEntity, currentEntity)
+                            }
                         }
+                    } catch (t: Throwable) {
+                        logger.error(t) { "Exception during listener invocation:listenerKey=${it.listenerKey} entityId=${it.entityId} changeType=${it.changeType}" }
                     }
-
                 } ?: throw IllegalStateException("Can't find listener for listenerKey=${it.listenerKey}")
             }
         } finally {
@@ -84,6 +88,8 @@ abstract class AsyncListenersReplication(private val multiplexer: TransientChang
 
     abstract val DNQListener<*>.metadataKey: String
     abstract val DNQListener<*>.metadata: ListenerMataData
+
+    companion object : KLogging()
 
 }
 
