@@ -37,7 +37,7 @@ open class AsyncListenersTest : AsyncListenersBaseTest() {
 
         forInMemoryTransport { transport ->
             val batchList = transport.invocations[store.location] ?: throw NullPointerException()
-            assertThat(batchList.size).isEqualTo(2)
+            assertThat(batchList.size).isEqualTo(1)
             with((batchList).first { it.invocations.isNotEmpty() }) {
                 assertThat(startHighAddress).isGreaterThan(0)
                 assertThat(endHighAddress).isGreaterThan(0)
@@ -90,7 +90,7 @@ open class AsyncListenersTest : AsyncListenersBaseTest() {
 
         forInMemoryTransport { transport ->
             val batchList = transport.invocations[store.location] ?: throw NullPointerException()
-            assertThat(batchList.size).isEqualTo(2)
+            assertThat(batchList.size).isEqualTo(1)
             with((batchList).first { it.invocations.isNotEmpty() }) {
                 assertThat(startHighAddress).isGreaterThan(0)
                 assertThat(endHighAddress).isGreaterThan(0)
