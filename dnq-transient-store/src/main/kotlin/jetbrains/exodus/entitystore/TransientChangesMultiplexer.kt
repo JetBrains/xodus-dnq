@@ -77,12 +77,12 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
     internal fun fire(store: TransientEntityStore,
                       where: Where,
                       changes: Set<TransientEntityChange>,
-                      collector: ListenerInvocations? = null) {
+                      invocations: ListenerInvocations? = null) {
         changes.forEach {
-            this.handlePerEntityChanges(where, it, collector)
-            this.handlePerEntityTypeChanges(store, where, it, collector)
+            this.handlePerEntityChanges(where, it, invocations)
+            this.handlePerEntityTypeChanges(store, where, it, invocations)
         }
-        collector?.send(store)
+        invocations?.send(store)
     }
 
     override fun addListener(e: Entity, listener: IEntityListener<*>) {
@@ -170,7 +170,9 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
         }
     }
 
-    private fun handlePerEntityChanges(where: Where, c: TransientEntityChange, collector: ListenerInvocations?) {
+    private fun handlePerEntityChanges(where: Where,
+                                       c: TransientEntityChange,
+                                       invocations: ListenerInvocations?) {
         val e = c.transientEntity
         val id = FullEntityId(e.store, e.id)
         val listeners = if (where == Where.ASYNC_AFTER_FLUSH && c.changeType == EntityChangeType.REMOVE) {
@@ -184,16 +186,18 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
             }
         }
         if (listeners != null) {
-            this.handleChange(where, c, listeners, collector)
+            this.handleChange(where, c, listeners, invocations)
         }
     }
 
-    private fun handlePerEntityTypeChanges(store: TransientEntityStore, where: Where, c: TransientEntityChange, collector: ListenerInvocations?) {
+    private fun handlePerEntityTypeChanges(store: TransientEntityStore,
+                                           where: Where, c: TransientEntityChange,
+                                           invocations: ListenerInvocations?) {
         store.modelMetaData
                 ?.getEntityMetaData(c.transientEntity.type)
                 ?.thisAndSuperTypes
                 ?.mapNotNull { rwl.read { this.typeToListeners[it] } }
-                ?.forEach { this.handleChange(where, c, it, collector) }
+                ?.forEach { this.handleChange(where, c, it, invocations) }
     }
 
     private fun handleChange(

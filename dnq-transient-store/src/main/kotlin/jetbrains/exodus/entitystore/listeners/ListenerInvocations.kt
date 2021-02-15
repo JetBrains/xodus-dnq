@@ -42,12 +42,14 @@ class ListenerInvocations(private val replication: AsyncListenersReplication,
     }
 
     fun send(store: TransientEntityStore) {
-        val batch = ListenerInvocationsBatch(
-                startHighAddress = startHighAddress,
-                endHighAddress = endHighAddress,
-                invocations = invocations
-        )
-        replication.transport.send(store, batch)
+        if (invocations.isNotEmpty()) {
+            val batch = ListenerInvocationsBatch(
+                    startHighAddress = startHighAddress,
+                    endHighAddress = endHighAddress,
+                    invocations = invocations
+            )
+            replication.transport.send(store, batch)
+        }
     }
 }
 
