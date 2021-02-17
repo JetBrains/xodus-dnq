@@ -289,7 +289,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
      * Wait until underlying highAddress gets this value
      */
     fun waitForPendingChanges(highAddress: Long) {
-        while ((_persistentStore.environment as EnvironmentImpl).log.highAddress < highAddress) {
+        while ((_persistentStore.environment as EnvironmentImpl).log.tip.approvedHighAddress < highAddress) {
             Thread.sleep(100)
         }
     }
