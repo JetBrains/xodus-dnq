@@ -19,6 +19,7 @@ import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.io.DataReaderWriterProvider
 import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
+import kotlinx.dnq.query.toList
 import kotlinx.dnq.store.container.createTransientEntityStore
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.hasChanges
@@ -26,6 +27,10 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 class ReplicationListenersTest : AsyncListenersBaseTest() {
 
@@ -81,6 +86,44 @@ class ReplicationListenersTest : AsyncListenersBaseTest() {
 
         `wait for pending invocations`()
         assertEquals(10, listener.count)
+    }
+
+    @Test
+    fun `links should be visible`() {
+        var count = 0
+        val listener = object : XdEntityListener<Goo> {
+            override fun addedAsync(added: Goo) {
+                added.content.toList().forEach {
+                    println(it.intField)
+                    count++
+                }
+            }
+        }
+
+        Goo.addListener(store, listener)
+        val pool = Executors.newCachedThreadPool()
+        var task = 0
+        repeat(10) {
+            pool.submit {
+                task++
+                transactional {
+                    var i = 0
+                    repeat(10) {
+                        Foo.new { intField = i++ }
+                    }
+                    it.flush()
+                    Goo.new {
+                        repeat(10) {
+                            content.add(Foo.new { intField = i++ })
+                        }
+                    }
+                }
+            }
+        }
+        pool.shutdown()
+        pool.awaitTermination(10, TimeUnit.MINUTES)
+        `wait for pending invocations`()
+        assertEquals(200, count)
     }
 
     @Test
