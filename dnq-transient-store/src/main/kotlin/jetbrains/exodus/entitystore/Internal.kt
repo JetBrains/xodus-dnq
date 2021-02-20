@@ -22,6 +22,8 @@ import jetbrains.exodus.core.execution.Job
 import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientEntityChange
 import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.entitystore.listeners.ListenerInvocations
+import jetbrains.exodus.env.EnvironmentImpl
 
 internal class FullEntityId(store: EntityStore, id: EntityId) {
 
@@ -55,16 +57,24 @@ internal class TransientChangesMultiplexerJob(private val store: TransientEntity
 
     public override fun execute() {
         try {
-            store.run {
-                this as TransientEntityStoreImpl
-                val txn = TransientSessionImpl(store = this, readonly = true,
-                        snapshotAddress = changesTracker.snapshot.highAddress,
-                        currentAddress = persistentStore.computeInReadonlyTransaction { it.highAddress })
+            (store as TransientEntityStoreImpl).run {
+                val isPrimary = (persistentStore.environment as EnvironmentImpl).log.config.readerWriterProvider?.isReadonly != true
+                val snapshotAddress = changesTracker.snapshot.highAddress
+                val currentAddress = persistentStore.computeInReadonlyTransaction { it.highAddress }
+                val txn = TransientSessionImpl(
+                        store = this,
+                        readonly = true,
+                        snapshotAddress = snapshotAddress,
+                        currentAddress = currentAddress)
                 registerStoreSession(txn)
                 try {
-                    val invocations = transientChangesMultiplexer.asyncListenersReplication?.newInvocations(changesTracker, txn)
-                    transientChangesMultiplexer.fire(store,
-                            Where.ASYNC_AFTER_FLUSH, this@TransientChangesMultiplexerJob.changes, invocations)
+                    transientChangesMultiplexer.run {
+                        var invocations: ListenerInvocations? = null
+                        if (isPrimary) {
+                            invocations = asyncListenersReplication?.newInvocations(snapshotAddress, currentAddress)
+                        }
+                        fire(store, Where.ASYNC_AFTER_FLUSH, changes, invocations)
+                    }
                 } finally {
                     txn.abort()
                 }
