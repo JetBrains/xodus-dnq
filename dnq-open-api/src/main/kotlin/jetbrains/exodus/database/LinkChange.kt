@@ -15,9 +15,10 @@
  */
 package jetbrains.exodus.database
 
-import jetbrains.exodus.core.dataStructures.hash.HashSet
+import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet
 
 class LinkChange(val linkName: String) {
+
     private var _addedEntities: MutableSet<TransientEntity>? = null
     val addedEntities get() = _addedEntities
     val addedEntitiesSize: Int
@@ -56,20 +57,18 @@ class LinkChange(val linkName: String) {
     fun addAdded(e: TransientEntity) {
         if (_removedEntities?.remove(e) == true) return
 
-        val addedEntities = this._addedEntities ?:
-                HashSet<TransientEntity>().also { newSet ->
-                    this._addedEntities = newSet
-                }
+        val addedEntities = this._addedEntities ?: LinkedHashSet<TransientEntity>().also { newSet ->
+            this._addedEntities = newSet
+        }
         addedEntities.add(e)
     }
 
     fun addRemoved(e: TransientEntity) {
         if (_addedEntities?.remove(e) == true) return
 
-        val removedEntities = this._removedEntities ?:
-                HashSet<TransientEntity>().also { newSet ->
-                    this._removedEntities = newSet
-                }
+        val removedEntities = this._removedEntities ?: LinkedHashSet<TransientEntity>().also { newSet ->
+            this._removedEntities = newSet
+        }
         removedEntities.add(e)
     }
 
@@ -77,10 +76,9 @@ class LinkChange(val linkName: String) {
         _removedEntities?.remove(e)
         _addedEntities?.remove(e)
 
-        val deletedEntities = this._deletedEntities ?:
-                HashSet<TransientEntity>().also { newSet ->
-                    this._deletedEntities = newSet
-                }
+        val deletedEntities = this._deletedEntities ?: LinkedHashSet<TransientEntity>().also { newSet ->
+            this._deletedEntities = newSet
+        }
         deletedEntities.add(e)
     }
 }
