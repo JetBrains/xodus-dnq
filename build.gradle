@@ -35,6 +35,8 @@ allprojects {
     repositories {
         mavenCentral()
         maven { url 'https://jetbrains.bintray.com/xodus' }
+        // necessary for dokka 1.4.30
+        maven { url "https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven" }
     }
 }
 
