@@ -44,7 +44,11 @@ infix fun NodeBase.and(that: NodeBase): NodeBase = And(this, that)
 /**
  * Returns new [NodeBase] representing disjunction of `this` and [that] nodes.
  */
-infix fun NodeBase.or(that: NodeBase): NodeBase = Or(this, that)
+infix fun NodeBase.or(that: NodeBase): NodeBase = when {
+    this is None -> that
+    that is None -> this
+    else -> Or(this, that)
+}
 
 /**
  * Returns new [NodeBase] representing filter:
@@ -351,7 +355,7 @@ object None : NodeBase() {
 
     override fun getClone(): NodeBase = this
 
-    override fun instantiate(entityType: String?, queryEngine: QueryEngine?, metaData: ModelMetaData?): MutableIterable<Entity> {
+    override fun instantiate(entityType: String?, queryEngine: QueryEngine?, metaData: ModelMetaData?, context: InstantiateContext): MutableIterable<Entity> {
         return EntityIterableBase.EMPTY
     }
 
