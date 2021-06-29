@@ -64,8 +64,8 @@ class TxnDiffChangesTracker(override val snapshot: PersistentStoreTransaction,
     }
 
     override fun hasLinkChanges(transientEntity: TransientEntity, linkName: String): Boolean {
-        val oldLinks = getLinksValues(snapshot, transientEntity, linkName).toList()
-        val newLinks = getLinksValues(current, transientEntity, linkName).toList()
+        val oldLinks = getLinksValues(snapshot, transientEntity, linkName).asSequence()
+        val newLinks = getLinksValues(current, transientEntity, linkName).asSequence()
         return oldLinks.zip(newLinks).any { it.first != it.second }
     }
 
