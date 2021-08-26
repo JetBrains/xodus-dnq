@@ -1,11 +1,11 @@
 # ![Xodus-DNQ](docs/images/XodusDNQ.png)
  
-[![official JetBrains project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+[![official JetBrains project](https://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.xodus/dnq)
 [![Build Status](https://travis-ci.org/JetBrains/xodus-dnq.svg?branch=master)](https://travis-ci.org/JetBrains/xodus-dnq)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 ![Pure Java + Kotlin](https://img.shields.io/badge/100%25-java%2bkotlin-orange.svg)
-[![Stack Overflow](https://img.shields.io/badge/stack%20overflow-xodus--dnq-brightgreen.svg)](http://stackoverflow.com/questions/tagged/xodus-dnq)
+[![Stack Overflow](https://img.shields.io/badge/stack%20overflow-xodus--dnq-brightgreen.svg)](https://stackoverflow.com/questions/tagged/xodus-dnq)
 
 Xodus-DNQ is a Kotlin library that contains the data definition language and queries for 
 [Xodus](https://github.com/JetBrains/xodus), a transactional schema-less embedded database. 
@@ -107,5 +107,5 @@ fun main(args: Array<String>) {
 ## Find out more
 - [Read documentation](https://jetbrains.github.io/xodus-dnq)
 - [Report an issue](https://github.com/JetBrains/xodus-dnq/issues/new)
-- [Ask question at Stack Overflow](http://stackoverflow.com/questions/tagged/xodus-dnq)
+- [Ask question at Stack Overflow](https://stackoverflow.com/questions/tagged/xodus-dnq)
 - [Learn more about Xodus](https://github.com/JetBrains/xodus)

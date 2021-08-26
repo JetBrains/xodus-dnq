@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ * https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -203,14 +203,14 @@ class CustomConstraintsTest : DBTest() {
     @Test
     fun url_ok() {
         assertViolatesNothing {
-            url = "http://www.jetbrains.com/youtrack"
+            url = "https://www.jetbrains.com/youtrack"
         }
     }
 
     @Test
     fun url_bad() {
         assertViolates("is not a valid URL") {
-            url = "http//www.jetbrains.com/youtrack"
+            url = "https//www.jetbrains.com/youtrack"
         }
     }
 
