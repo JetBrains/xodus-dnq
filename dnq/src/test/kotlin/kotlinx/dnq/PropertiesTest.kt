@@ -16,6 +16,7 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.database.exceptions.NullPropertyException
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
@@ -316,8 +317,7 @@ class PropertiesTest : DBTest() {
                 user.login
             }
             val pattern = "Required field login of User\\[\\d+-\\d+] is undefined"
-            assertThat(e.message)
-                    .named("exception message")
+            assertWithMessage("exception message").that(e.message)
                     .matches(pattern)
             txn.revert()
         }

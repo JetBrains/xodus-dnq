@@ -11,7 +11,7 @@ dependencies {
 
     testCompile project(':java-8-time')
     testCompile project(path: ':dnq', configuration: 'tests')
-    testCompile 'com.google.truth:truth:0.35'
+    testCompile "com.google.truth:truth:$google_truth_version"
     testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }

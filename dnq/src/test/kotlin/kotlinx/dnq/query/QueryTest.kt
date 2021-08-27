@@ -108,7 +108,7 @@ class QueryTest : DBTest() {
         }
 
         store.transactional {
-            assertThat(User.all().reversed().toList()).isStrictlyOrdered(object: Comparator<User>{
+            assertThat(User.all().reversed().toList()).isInStrictOrder(object: Comparator<User>{
                 override fun compare(o1: User, o2: User): Int {
                     return (o2.entity.id.localId - o1.entity.id.localId).toInt()
                 }

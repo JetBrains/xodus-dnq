@@ -56,7 +56,7 @@ class ToKotlinCollectionTest : DBTest() {
         assertToCollectionOperation {
             val destination = LinkedList<Thing>()
             assertThat(it.toCollection(destination)).apply {
-                isSameAs(destination)
+                isSameInstanceAs(destination)
             }
         }
     }

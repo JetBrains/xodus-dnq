@@ -17,6 +17,7 @@ package kotlinx.dnq
 
 import com.google.common.truth.IterableSubject
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.anyStartsWith
 import kotlinx.dnq.query.contains
@@ -124,8 +125,7 @@ class MutableSetPropertyTest : DBTest() {
     private fun Employee.updateSkills(expectModification: Boolean = true, operation: MutableSet<String>.() -> Unit) = apply {
         transactional {
             this.skills.operation()
-            assertThat(this.hasChanges(Employee::skills))
-                    .named("skills are updated")
+            assertWithMessage("skills are updated").that(this.hasChanges(Employee::skills))
                     .isEqualTo(expectModification)
         }
     }
