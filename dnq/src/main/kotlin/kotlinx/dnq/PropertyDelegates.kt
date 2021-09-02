@@ -475,6 +475,7 @@ fun <R : XdEntity> xdBooleanProp(dbName: String? = null, constraints: Constraint
  *        constraints that will be checked before transaction flush.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
  */
+@Deprecated("Since 2.0.0 works as xdBooleanProp()", ReplaceWith("xdBooleanProp()"), DeprecationLevel.ERROR)
 fun <R : XdEntity> xdNullableBooleanProp(dbName: String? = null, constraints: Constraints<R, Boolean?>? = null) =
         xdNullableCachedProp(dbName, constraints = constraints)
 

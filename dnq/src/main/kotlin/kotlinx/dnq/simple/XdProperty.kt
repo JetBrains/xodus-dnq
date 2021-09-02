@@ -40,7 +40,11 @@ class XdProperty<in R : XdEntity, T : Comparable<T>>(
         ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        return thisRef.reattachAndGetPrimitiveValue(property.dbName) ?: default(thisRef, property)
+        val result: T? = thisRef.reattachAndGetPrimitiveValue(property.dbName)
+        if (isBoolean) {
+            return (result != null) as T
+        }
+        return result ?: default(thisRef, property)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
@@ -48,6 +52,9 @@ class XdProperty<in R : XdEntity, T : Comparable<T>>(
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
+        if (isBoolean) return true
         return thisRef.reattachAndGetPrimitiveValue<T>(property.dbName) != null
     }
+
+    val isBoolean: Boolean get() = clazz == java.lang.Boolean::class.java
 }

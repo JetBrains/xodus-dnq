@@ -37,7 +37,8 @@ class XdNullableProperty<in R : XdEntity, T : Comparable<T>>(
                 PropertyType.PRIMITIVE) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return thisRef.reattachAndGetPrimitiveValue(property.dbName)
+        val result: T? = thisRef.reattachAndGetPrimitiveValue(property.dbName)
+        return if (clazz == Boolean::class.java) (result != null) as T else result
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {

@@ -30,8 +30,8 @@ class IsDefinedTest : DBTest() {
                 skill = 1
             }
             assertThat(user.isDefined(User::name)).isFalse()
-            assertThat(user.isDefined(User::isGuest)).isFalse()
-            assertThat(user.isDefined(User::isMale)).isFalse()
+            assertThat(user.isDefined(User::isGuest)).isTrue()
+            assertThat(user.isDefined(User::isMale)).isTrue()
             assertThat(user.isDefined(User::registered)).isFalse()
         }
     }

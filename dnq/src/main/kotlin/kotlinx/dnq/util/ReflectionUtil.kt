@@ -81,6 +81,7 @@ val <T : XdEntity> XdEntityType<T>.entityConstructor: ((Entity) -> T)?
  * xd-properties like xdLink1, xdLink1_N, xdRequired and so on, that will throw on access if the value is undefined.
  * As for simple property types, only Iterable, Sequence and Array inheritors are supported. Calling this function
  * for any other "massive" property type will result in the true value.
+ * As of 2.0.0, for Boolean properties, it always returns `true`.
  */
 inline fun <reified T : XdEntity, V : Any?> T.isDefined(property: KProperty1<T, V>): Boolean {
     return isDefined(T::class.java, property)

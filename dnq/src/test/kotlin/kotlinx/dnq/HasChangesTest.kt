@@ -35,7 +35,7 @@ class HasChangesTest(
 
         var summary by xdStringProp()
         var description by xdBlobStringProp()
-        var flagOfSchepotiev by xdNullableBooleanProp()
+        var flagOfSchepotiev by xdBooleanProp()
     }
 
     override fun registerEntityTypes() {
@@ -65,19 +65,21 @@ class HasChangesTest(
             XdIssue.new()
         }
 
-        // cache FlagOfSchepotiev null value in transient level
         transactional {
-            assertThat(e.flagOfSchepotiev).isNull()
+            assertThat(e.flagOfSchepotiev).isFalse()
 
             thread {
                 store.transactional {
                     // set flag to false and save to database
                     assertThat(e.flagOfSchepotiev).isNull()
-                    e.flagOfSchepotiev = false
+                    e.flagOfSchepotiev = true
                 }
             }.join()
 
-            e.flagOfSchepotiev = false
+            e.flagOfSchepotiev = true
+        }
+        transactional(readonly = true) {
+            assertThat(e.flagOfSchepotiev).isTrue()
         }
     }
 
