@@ -63,7 +63,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         set(value) {
             field = value
             if (value is TransientStoreSessionListener) {
-                addListener(value, Int.MIN_VALUE)
+                addListener(value, Int.MAX_VALUE)
             }
         }
 
