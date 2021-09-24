@@ -60,6 +60,13 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     override lateinit var queryEngine: QueryEngine
     override var modelMetaData: ModelMetaData? = null
     override var changesMultiplexer: ITransientChangesMultiplexer? = null
+        set(value) {
+            field = value
+            if (value is TransientStoreSessionListener) {
+                addListener(value, Int.MIN_VALUE)
+            }
+        }
+
     private val sessions = Collections.newSetFromMap(ConcurrentHashMap<TransientStoreSession, Boolean>(200))
     private val currentSession = ThreadLocal<TransientStoreSession>()
     private val listeners = StablePriorityQueue<Int, TransientStoreSessionListener>()
@@ -252,6 +259,9 @@ open class TransientEntityStoreImpl : TransientEntityStore {
 
     override fun addListener(listener: TransientStoreSessionListener, priority: Int) {
         withListeners {
+            if (any { it == listener }) {
+                throw IllegalStateException("$listener is already registered as a listener")
+            }
             push(priority, listener)
         }
     }

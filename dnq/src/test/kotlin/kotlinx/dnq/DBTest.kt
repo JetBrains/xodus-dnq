@@ -163,9 +163,8 @@ abstract class DBTest {
         initMetaData(XdModel.hierarchy, store)
 
         asyncProcessor = createAsyncProcessor()
-        val eventsMultiplexer = TransientChangesMultiplexer(asyncProcessor.apply(JobProcessor::start))
-        store.changesMultiplexer = eventsMultiplexer
-        store.addListener(eventsMultiplexer)
+        val changesMultiplexer = TransientChangesMultiplexer(asyncProcessor.apply(JobProcessor::start))
+        store.changesMultiplexer = changesMultiplexer
     }
 
     fun closeStore() {
