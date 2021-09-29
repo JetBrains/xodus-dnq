@@ -54,7 +54,7 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                 get() = try {
                     val queryEngine = oppositeEntityType.entityStore.queryEngine
                     val oppositeType = oppositeEntityType.entityType
-                    if (thisRef.isReadOnly || queryEngine.modelMetaData.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
+                    if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                         thisRef.reattach().getLinks(property.dbName)
                     } else {
                         TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.oppositeDbName, thisRef.reattach()), queryEngine)
