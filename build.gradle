@@ -83,6 +83,10 @@ subprojects {
         }
     }
 
+    compileKotlin {
+        kotlinOptions.freeCompilerArgs += ["-XXLanguage:+NewInference"]
+    }
+
     test {
         minHeapSize = '512m'
         maxHeapSize = '512m'
