@@ -25,20 +25,20 @@ import mu.KLogging
 import java.util.concurrent.ConcurrentHashMap
 
 abstract class AsyncListenersReplication(private val multiplexer: TransientChangesMultiplexer,
-                                         val listenersSerialization: TransientListenersSerialization,
-                                         val transport: ListenerInvocationTransport) {
+                                         val listenersSerialization: TransientListenersSerialization) {
 
     protected open val listenersMetaData = ConcurrentHashMap<String, ListenerMataData>()
 
-    fun newInvocations(snapshotAddress: Long, currentAddress: Long): ListenerInvocations {
+    open fun newInvocations(transport: ListenerInvocationTransport, snapshotAddress: Long, currentAddress: Long): ListenerInvocations {
         return ListenerInvocations(
                 replication = this,
+                transport = transport,
                 startHighAddress = snapshotAddress,
                 endHighAddress = currentAddress
         )
     }
 
-    fun receive(store: TransientEntityStore, batch: ListenerInvocationsBatch) {
+    open fun receive(store: TransientEntityStore, batch: ListenerInvocationsBatch) {
         store as TransientEntityStoreImpl
         val txn = TransientSessionImpl(store,
                 readonly = true,

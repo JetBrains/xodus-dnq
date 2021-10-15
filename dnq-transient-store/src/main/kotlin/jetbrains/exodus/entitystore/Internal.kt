@@ -71,7 +71,8 @@ internal class TransientChangesMultiplexerJob(private val store: TransientEntity
                     transientChangesMultiplexer.run {
                         var invocations: ListenerInvocations? = null
                         if (isPrimary) {
-                            invocations = asyncListenersReplication?.newInvocations(snapshotAddress, currentAddress)
+                            val t = transport ?: throw IllegalStateException("transport is not set")
+                            invocations = asyncListenersReplication?.newInvocations(t, snapshotAddress, currentAddress)
                         }
                         fire(store, Where.ASYNC_AFTER_FLUSH, changes, invocations)
                     }

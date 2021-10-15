@@ -22,6 +22,7 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.EntityId
 
 class ListenerInvocations(private val replication: AsyncListenersReplication,
+                          private val transport: ListenerInvocationTransport,
                           private val startHighAddress: Long,
                           private val endHighAddress: Long) {
 
@@ -41,14 +42,14 @@ class ListenerInvocations(private val replication: AsyncListenersReplication,
         )
     }
 
-    fun send(store: TransientEntityStore) {
+    fun send() {
         if (invocations.isNotEmpty()) {
             val batch = ListenerInvocationsBatch(
                     startHighAddress = startHighAddress,
                     endHighAddress = endHighAddress,
                     invocations = invocations
             )
-            replication.transport.send(store, batch)
+            transport.send(batch)
         }
     }
 }

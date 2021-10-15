@@ -35,8 +35,7 @@ open class AsyncListenersTest : AsyncListenersBaseTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        forInMemoryTransport { transport ->
-            val batchList = transport.invocations[store.location] ?: throw NullPointerException()
+        assertInvocations { batchList ->
             assertThat(batchList.size).isEqualTo(1)
             with((batchList).first { it.invocations.isNotEmpty() }) {
                 assertThat(startHighAddress).isGreaterThan(0)
@@ -61,8 +60,7 @@ open class AsyncListenersTest : AsyncListenersBaseTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        forInMemoryTransport { transport ->
-            val batchList = transport.invocations[store.location] ?: throw NullPointerException()
+        assertInvocations { batchList ->
             assertThat(batchList.size).isEqualTo(1)
             with((batchList).first()) {
                 assertThat(startHighAddress).isGreaterThan(0)
@@ -88,8 +86,7 @@ open class AsyncListenersTest : AsyncListenersBaseTest() {
 
         asyncProcessor.waitForJobs(100)
 
-        forInMemoryTransport { transport ->
-            val batchList = transport.invocations[store.location] ?: throw NullPointerException()
+        assertInvocations { batchList ->
             assertThat(batchList.size).isEqualTo(1)
             with((batchList).first { it.invocations.isNotEmpty() }) {
                 assertThat(startHighAddress).isGreaterThan(0)

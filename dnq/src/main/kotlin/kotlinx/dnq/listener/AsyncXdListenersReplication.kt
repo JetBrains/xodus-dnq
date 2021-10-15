@@ -28,9 +28,8 @@ import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.jvm.javaMethod
 
 open class AsyncXdListenersReplication(multiplexer: TransientChangesMultiplexer,
-                                       listenersSerialization: TransientListenersSerialization,
-                                       transport: ListenerInvocationTransport)
-    : AsyncListenersReplication(multiplexer, listenersSerialization, transport) {
+                                       listenersSerialization: TransientListenersSerialization)
+    : AsyncListenersReplication(multiplexer, listenersSerialization) {
 
     override val DNQListener<*>.metadataKey: String
         get() {

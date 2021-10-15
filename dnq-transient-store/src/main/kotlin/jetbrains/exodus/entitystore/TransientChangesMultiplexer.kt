@@ -21,6 +21,7 @@ import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.listeners.AsyncListenersReplication
+import jetbrains.exodus.entitystore.listeners.ListenerInvocationTransport
 import jetbrains.exodus.entitystore.listeners.ListenerInvocations
 import mu.KLogging
 import java.util.*
@@ -37,6 +38,7 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
     private val rwl = ReentrantReadWriteLock()
     private var isOpen = true
     var asyncListenersReplication: AsyncListenersReplication? = null
+    var transport: ListenerInvocationTransport? = null
 
     companion object : KLogging()
 
@@ -82,7 +84,7 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
             this.handlePerEntityChanges(where, it, invocations)
             this.handlePerEntityTypeChanges(store, where, it, invocations)
         }
-        invocations?.send(store)
+        invocations?.send()
     }
 
     override fun addListener(e: Entity, listener: IEntityListener<*>) {

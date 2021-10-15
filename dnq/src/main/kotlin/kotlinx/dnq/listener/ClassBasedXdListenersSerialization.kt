@@ -26,6 +26,8 @@ import kotlinx.dnq.util.XdHierarchyNode
 
 open class ClassBasedXdListenersSerialization : ClassBasedListenersSerialization() {
 
+    companion object : ClassBasedXdListenersSerialization()
+
     override fun getKey(listener: DNQListener<*>): String {
         if (listener is EntityListenerWrapper<*>) {
             return super.getKey(listener.wrapped)

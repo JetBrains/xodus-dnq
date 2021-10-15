@@ -16,60 +16,65 @@
 package jetbrains.exodus.entitystore.listeners
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
-import jetbrains.exodus.database.TransientEntityStore
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.concurrent.thread
+import jetbrains.exodus.core.dataStructures.Priority
+import jetbrains.exodus.core.execution.Job
+import jetbrains.exodus.entitystore.TransientChangesMultiplexer
+import mu.KLogging
 
 interface ListenerInvocationTransport {
 
-    fun send(store: TransientEntityStore, invocations: ListenerInvocationsBatch)
+    fun send(batch: ListenerInvocationsBatch)
 
-    fun addReceiver(store: TransientEntityStore, replication: AsyncListenersReplication)
+    fun addReceiver(replication: AsyncListenersReplication)
 
-    fun waitForPendingInvocations(store: TransientEntityStore)
+    fun waitForPendingInvocations()
 }
 
-class InMemoryTransport : ListenerInvocationTransport {
+abstract class AbstractInvocationTransport(
+    val store: TransientEntityStoreImpl,
+    val changesMultiplexer: TransientChangesMultiplexer
+) : ListenerInvocationTransport {
 
-    val invocations = ConcurrentHashMap<String, MutableList<ListenerInvocationsBatch>>()
-    val receivers = ConcurrentHashMap<String, Pair<AsyncListenersReplication, Thread>>()
+    companion object : KLogging()
 
-    override fun send(store: TransientEntityStore, invocations: ListenerInvocationsBatch) {
-        this.invocations.getOrPut(store.location) {
-            Collections.synchronizedList(arrayListOf())
-        }.add(invocations)
-    }
+    private var replication: AsyncListenersReplication? = null
 
-    override fun addReceiver(store: TransientEntityStore, replication: AsyncListenersReplication) {
+    override fun send(batch: ListenerInvocationsBatch) {
+        val processor = changesMultiplexer.asyncJobProcessor
         val location = store.location
-        receivers[location] = replication to thread {
-            while (receivers[location] != null) {
-                invocations[location]?.toTypedArray()?.forEach {
-                    (store as TransientEntityStoreImpl).waitForPendingChanges(it.endHighAddress)
-                    replication.receive(store, it)
-                    invocations[location]?.run {
-                        remove(it)
-                        if (isEmpty()) {
-                            invocations.remove(location)
+        val replication = replication
+        if (processor != null && replication != null) {
+            object : Job(processor) {
+
+                override fun execute() {
+                    store.waitForPendingChanges(batch.endHighAddress)
+                    try {
+                        logger.info { "SECONDARY($location): receive batch" }
+                        batch.invocations.forEach {
+                            logger.info { "SECONDARY($location): calling ${it.entityId} ${it.changeType} ${it.listenerKey}" }
                         }
+                        replication.receive(store, batch)
+                    } catch (e: Exception) {
+                        logger.error("Can't replicate listeners invocations", e)
                     }
                 }
-            }
+
+            }.queue(Priority.normal)
         }
     }
 
-    override fun waitForPendingInvocations(store: TransientEntityStore) {
-        val location = store.location
-        while (invocations[location] != null) {
-            Thread.sleep(100)
-        }
+    override fun addReceiver(replication: AsyncListenersReplication) {
+        this.replication = replication
     }
 
-    fun cleanup() {
-        invocations.clear()
-        val pairs = receivers.values.toList()
-        receivers.clear()
-        pairs.forEach { it.second.join() }
+    override fun waitForPendingInvocations() {
+        changesMultiplexer.asyncJobProcessor?.waitForJobs(100)
     }
+}
+
+open class InMemoryTransport(store: TransientEntityStoreImpl, changesMultiplexer: TransientChangesMultiplexer) :
+    AbstractInvocationTransport(store, changesMultiplexer) {
+
+    companion object : KLogging()
+
 }

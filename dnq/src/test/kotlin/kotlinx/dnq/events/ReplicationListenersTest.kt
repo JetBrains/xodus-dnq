@@ -45,7 +45,6 @@ class ReplicationListenersTest : AsyncListenersBaseTest() {
             envCloseForcedly = true
         }
         secondaryStore.changesMultiplexer = store.changesMultiplexer
-        transport.addReceiver(secondaryStore, replication)
     }
 
     @Test
@@ -173,7 +172,7 @@ class ReplicationListenersTest : AsyncListenersBaseTest() {
 
     private fun `wait for pending invocations`() {
         asyncProcessor.waitForJobs(100)
-        transport.waitForPendingInvocations(secondaryStore)
+        multiplexer.transport?.waitForPendingInvocations()
     }
 }
 
