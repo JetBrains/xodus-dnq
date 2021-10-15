@@ -17,10 +17,10 @@ package kotlinx.dnq.listener
 
 import jetbrains.exodus.database.DNQListener
 import jetbrains.exodus.database.IEntityListener
+import jetbrains.exodus.database.ListenerInvocation
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.listeners.ClassBasedListenersSerialization
-import jetbrains.exodus.entitystore.listeners.ListenerInvocation
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.util.XdHierarchyNode
 

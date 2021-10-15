@@ -24,13 +24,13 @@ import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import mu.KLogging
 import java.util.concurrent.ConcurrentHashMap
 
-abstract class AsyncListenersReplication(private val multiplexer: TransientChangesMultiplexer,
-                                         val listenersSerialization: TransientListenersSerialization) {
+abstract class AsyncListenersReplicationImpl(private val multiplexer: TransientChangesMultiplexer,
+                                             val listenersSerialization: TransientListenersSerialization) : AsyncListenersReplication {
 
     protected open val listenersMetaData = ConcurrentHashMap<String, ListenerMataData>()
 
-    open fun newInvocations(transport: ListenerInvocationTransport, snapshotAddress: Long, currentAddress: Long): ListenerInvocations {
-        return ListenerInvocations(
+    override fun newInvocations(transport: ListenerInvocationTransport, snapshotAddress: Long, currentAddress: Long): ListenerInvocationsImpl {
+        return ListenerInvocationsImpl(
                 replication = this,
                 transport = transport,
                 startHighAddress = snapshotAddress,
@@ -38,7 +38,7 @@ abstract class AsyncListenersReplication(private val multiplexer: TransientChang
         )
     }
 
-    open fun receive(store: TransientEntityStore, batch: ListenerInvocationsBatch) {
+    override fun receive(store: TransientEntityStore, batch: ListenerInvocationsBatch) {
         store as TransientEntityStoreImpl
         val txn = TransientSessionImpl(store,
                 readonly = true,
@@ -69,7 +69,7 @@ abstract class AsyncListenersReplication(private val multiplexer: TransientChang
         }
     }
 
-    open fun shouldReplicate(change: TransientEntityChange, listener: IEntityListener<*>): Boolean {
+    override fun shouldReplicate(change: TransientEntityChange, listener: IEntityListener<*>): Boolean {
         val cachedMetadata = listenersMetaData.getOrPut(listener.metadataKey) {
             listener.metadata
         }

@@ -15,13 +15,11 @@
  */
 package kotlinx.dnq.events
 
-import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.core.execution.JobProcessor
+import jetbrains.exodus.database.ListenerInvocationsBatch
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.MultiplexerBuilder
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.listeners.InMemoryTransport
-import jetbrains.exodus.entitystore.listeners.ListenerInvocationsBatch
 import jetbrains.exodus.entitystore.listeners.TransientListenersSerialization
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
@@ -33,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 abstract class AsyncListenersBaseTest : DBTest() {
 
-    protected lateinit var multiplexer: TransientChangesMultiplexer
+    private lateinit var multiplexer: TransientChangesMultiplexer
     private lateinit var replication: SavingStateAsyncListenersReplication
 
     override fun registerEntityTypes() {
@@ -42,18 +40,11 @@ abstract class AsyncListenersBaseTest : DBTest() {
 
     @Before
     fun updateMultiplexer() {
-        multiplexer = MultiplexerBuilder.new(store)
-            .jobProcessor(createAsyncProcessor().apply(JobProcessor::start))
-            .transport { store, multiplexer ->
-                InMemoryTransport(store as TransientEntityStoreImpl, multiplexer)
-            }
-            .replication{ _, multiplexer ->
-                SavingStateAsyncListenersReplication(multiplexer, ClassBasedXdListenersSerialization).also {
-                    replication = it
-                }
-            }
-            .build()
-
+        multiplexer = store.changesMultiplexer as TransientChangesMultiplexer
+        replication = SavingStateAsyncListenersReplication(multiplexer, ClassBasedXdListenersSerialization)
+        multiplexer.asyncListenersReplication = replication
+        store.invocationTransport = InMemoryTransport(store, multiplexer)
+        store.invocationTransport?.addReceiver(replication)
     }
 
     @After
@@ -62,7 +53,7 @@ abstract class AsyncListenersBaseTest : DBTest() {
     }
 
     protected fun assertInvocations(action: (Collection<ListenerInvocationsBatch>) -> Unit) {
-        multiplexer.transport?.waitForPendingInvocations()
+        store.invocationTransport?.waitForPendingInvocations()
         action(replication.invocations)
     }
 }

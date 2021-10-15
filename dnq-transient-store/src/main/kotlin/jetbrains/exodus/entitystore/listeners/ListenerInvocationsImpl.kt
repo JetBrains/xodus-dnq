@@ -15,20 +15,17 @@
  */
 package jetbrains.exodus.entitystore.listeners
 
-import jetbrains.exodus.database.EntityChangeType
-import jetbrains.exodus.database.IEntityListener
-import jetbrains.exodus.database.TransientEntityChange
-import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.EntityId
 
-class ListenerInvocations(private val replication: AsyncListenersReplication,
-                          private val transport: ListenerInvocationTransport,
-                          private val startHighAddress: Long,
-                          private val endHighAddress: Long) {
+class ListenerInvocationsImpl(private val replication: AsyncListenersReplicationImpl,
+                              private val transport: ListenerInvocationTransport,
+                              private val startHighAddress: Long,
+                              private val endHighAddress: Long) : ListenerInvocations {
 
     private val invocations: MutableList<ListenerInvocation> = arrayListOf()
 
-    fun addInvocation(change: TransientEntityChange, listener: IEntityListener<*>) {
+    override fun addInvocation(change: TransientEntityChange, listener: IEntityListener<*>) {
         if (!replication.shouldReplicate(change, listener)) {
             return
         }
@@ -42,7 +39,7 @@ class ListenerInvocations(private val replication: AsyncListenersReplication,
         )
     }
 
-    fun send() {
+    override fun send() {
         if (invocations.isNotEmpty()) {
             val batch = ListenerInvocationsBatch(
                     startHighAddress = startHighAddress,
@@ -53,11 +50,3 @@ class ListenerInvocations(private val replication: AsyncListenersReplication,
         }
     }
 }
-
-data class ListenerInvocation(val listenerKey: String,
-                              val changeType: EntityChangeType,
-                              val entityId: EntityId)
-
-data class ListenerInvocationsBatch(val startHighAddress: Long,
-                                    val endHighAddress: Long,
-                                    val invocations: List<ListenerInvocation>)

@@ -22,7 +22,7 @@ import jetbrains.exodus.core.execution.Job
 import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientEntityChange
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.listeners.ListenerInvocations
+import jetbrains.exodus.entitystore.listeners.ListenerInvocationsImpl
 import jetbrains.exodus.env.EnvironmentImpl
 
 internal class FullEntityId(store: EntityStore, id: EntityId) {
@@ -69,9 +69,9 @@ internal class TransientChangesMultiplexerJob(private val store: TransientEntity
                 registerStoreSession(txn)
                 try {
                     transientChangesMultiplexer.run {
-                        var invocations: ListenerInvocations? = null
+                        var invocations: ListenerInvocationsImpl? = null
                         if (isPrimary) {
-                            val t = transport ?: throw IllegalStateException("transport is not set")
+                            val t = store.invocationTransport ?: throw IllegalStateException("transport is not set")
                             invocations = asyncListenersReplication?.newInvocations(t, snapshotAddress, currentAddress)
                         }
                         fire(store, Where.ASYNC_AFTER_FLUSH, changes, invocations)

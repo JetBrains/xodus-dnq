@@ -17,8 +17,7 @@ package kotlinx.dnq.listener
 
 import jetbrains.exodus.database.DNQListener
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
-import jetbrains.exodus.entitystore.listeners.AsyncListenersReplication
-import jetbrains.exodus.entitystore.listeners.ListenerInvocationTransport
+import jetbrains.exodus.entitystore.listeners.AsyncListenersReplicationImpl
 import jetbrains.exodus.entitystore.listeners.ListenerMataData
 import jetbrains.exodus.entitystore.listeners.TransientListenersSerialization
 import java.lang.reflect.Method
@@ -29,7 +28,7 @@ import kotlin.reflect.jvm.javaMethod
 
 open class AsyncXdListenersReplication(multiplexer: TransientChangesMultiplexer,
                                        listenersSerialization: TransientListenersSerialization)
-    : AsyncListenersReplication(multiplexer, listenersSerialization) {
+    : AsyncListenersReplicationImpl(multiplexer, listenersSerialization) {
 
     override val DNQListener<*>.metadataKey: String
         get() {

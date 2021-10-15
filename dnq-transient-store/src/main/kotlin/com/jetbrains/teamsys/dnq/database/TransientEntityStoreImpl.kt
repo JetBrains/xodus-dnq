@@ -67,6 +67,8 @@ open class TransientEntityStoreImpl : TransientEntityStore {
             }
         }
 
+    override var invocationTransport: ListenerInvocationTransport? = null
+
     private val sessions = Collections.newSetFromMap(ConcurrentHashMap<TransientStoreSession, Boolean>(200))
     private val currentSession = ThreadLocal<TransientStoreSession>()
     private val listeners = StablePriorityQueue<Int, TransientStoreSessionListener>()

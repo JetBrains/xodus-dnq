@@ -172,7 +172,7 @@ class ReplicationListenersTest : AsyncListenersBaseTest() {
 
     private fun `wait for pending invocations`() {
         asyncProcessor.waitForJobs(100)
-        multiplexer.transport?.waitForPendingInvocations()
+        store.invocationTransport?.waitForPendingInvocations()
     }
 }
 

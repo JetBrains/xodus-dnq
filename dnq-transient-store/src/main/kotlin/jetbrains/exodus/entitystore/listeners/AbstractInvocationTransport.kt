@@ -18,17 +18,11 @@ package jetbrains.exodus.entitystore.listeners
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import jetbrains.exodus.core.dataStructures.Priority
 import jetbrains.exodus.core.execution.Job
+import jetbrains.exodus.database.AsyncListenersReplication
+import jetbrains.exodus.database.ListenerInvocationTransport
+import jetbrains.exodus.database.ListenerInvocationsBatch
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import mu.KLogging
-
-interface ListenerInvocationTransport {
-
-    fun send(batch: ListenerInvocationsBatch)
-
-    fun addReceiver(replication: AsyncListenersReplication)
-
-    fun waitForPendingInvocations()
-}
 
 abstract class AbstractInvocationTransport(
     val store: TransientEntityStoreImpl,
@@ -47,20 +41,25 @@ abstract class AbstractInvocationTransport(
             object : Job(processor) {
 
                 override fun execute() {
-                    store.waitForPendingChanges(batch.endHighAddress)
-                    try {
-                        logger.info { "SECONDARY($location): receive batch" }
-                        batch.invocations.forEach {
-                            logger.info { "SECONDARY($location): calling ${it.entityId} ${it.changeType} ${it.listenerKey}" }
+                    receive {
+                        store.waitForPendingChanges(batch.endHighAddress)
+                        try {
+                            logger.info { "SECONDARY($location): receive batch" }
+                            batch.invocations.forEach {
+                                logger.info { "SECONDARY($location): calling ${it.entityId} ${it.changeType} ${it.listenerKey}" }
+                            }
+                            replication.receive(store, batch)
+                        } catch (e: Exception) {
+                            logger.error("Can't replicate listeners invocations", e)
                         }
-                        replication.receive(store, batch)
-                    } catch (e: Exception) {
-                        logger.error("Can't replicate listeners invocations", e)
                     }
                 }
-
             }.queue(Priority.normal)
         }
+    }
+
+    open fun receive(send: () -> Unit) {
+        send()
     }
 
     override fun addReceiver(replication: AsyncListenersReplication) {

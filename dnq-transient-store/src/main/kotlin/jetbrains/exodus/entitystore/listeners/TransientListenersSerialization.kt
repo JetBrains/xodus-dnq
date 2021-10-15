@@ -17,6 +17,7 @@ package jetbrains.exodus.entitystore.listeners
 
 import jetbrains.exodus.database.DNQListener
 import jetbrains.exodus.database.IEntityListener
+import jetbrains.exodus.database.ListenerInvocation
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 
