@@ -77,7 +77,6 @@ object AggregationAssociationSemantics {
     @JvmStatic
     fun removeOneToMany(parent: Entity, parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
         val session = parent.threadSessionOrThrow
-        val txnParent = parent.reattachTransient(session)
         val txnChild = child.reattachTransient(session)
 
         txnChild.removeFromParent(parentToChildLinkName, childToParentLinkName)
