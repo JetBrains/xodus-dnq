@@ -760,7 +760,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl,
     }
 
     private fun newEntityImpl(persistent: PersistentEntity): TransientEntity {
-        return if (persistent is ReadOnlyPersistentEntity) {
+        return if (readonly || persistent is ReadOnlyPersistentEntity) {
             ReadonlyTransientEntityImpl(persistent, store)
         } else {
             TransientEntityImpl(persistent, getStore())
@@ -1277,7 +1277,6 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl,
         } catch (ignore: EntityRemovedInDatabaseException) {
             null
         }
-
     }
 
     private fun addChange(change: () -> Boolean): () -> Boolean {

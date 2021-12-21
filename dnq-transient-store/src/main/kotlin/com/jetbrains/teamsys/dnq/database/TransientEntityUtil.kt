@@ -26,6 +26,7 @@ import jetbrains.exodus.entitystore.PersistentStoreTransaction
  * Attach entity to current transient session if possible.
  */
 fun TransientEntity.reattach(session: TransientStoreSession? = null): TransientEntity {
+    if (isReadonly || isWrapper) return this
     val s = session ?: store.threadSessionOrThrow
     return s.newLocalCopy(this)
 }
@@ -38,14 +39,14 @@ fun Entity.reattachTransient(session: TransientStoreSession? = null): TransientE
 
 val TransientEntityStore.threadSessionOrThrow
     get() = threadSession
-            ?: throw IllegalStateException("There is no transient transaction in current thread")
+        ?: throw IllegalStateException("There is no transient transaction in current thread")
 
 val PersistentEntityStore.currentTransactionOrThrow
     get() = currentTransaction as PersistentStoreTransaction?
-            ?: throw IllegalStateException("There is no persistent transaction in current thread")
+        ?: throw IllegalStateException("There is no persistent transaction in current thread")
 
 val TransientEntity.lifecycle: EntityLifecycle?
     get() = (store as? TransientEntityStoreImpl)?.entityLifecycle
 
 fun TransientEntity.getLinkEx(linkName: String, session: TransientStoreSession) =
-        if (this is TransientEntityImpl) getLink(linkName, session) else getLink(linkName)
+    if (this is TransientEntityImpl) getLink(linkName, session) else getLink(linkName)
