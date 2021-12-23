@@ -760,7 +760,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl,
     }
 
     private fun newEntityImpl(persistent: PersistentEntity): TransientEntity {
-        return if (readonly || persistent is ReadOnlyPersistentEntity) {
+        return if (persistent is ReadOnlyPersistentEntity) {
             ReadonlyTransientEntityImpl(persistent, store)
         } else {
             TransientEntityImpl(persistent, getStore())
