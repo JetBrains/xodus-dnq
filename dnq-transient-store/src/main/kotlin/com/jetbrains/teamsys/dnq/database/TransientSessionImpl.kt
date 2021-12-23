@@ -402,9 +402,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl,
                 }
                 try {
                     // load persistent entity from database by id
-                    newEntity(persistentTransactionInternal.getEntity(entityId)).also {
-                        addLoadedId(entityId)
-                    }
+                    newEntityImpl(persistentTransactionInternal.getEntity(entityId))
                 } catch (e: EntityRemovedInDatabaseException) {
                     logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
                     throw e
