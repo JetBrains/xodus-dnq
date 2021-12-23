@@ -22,6 +22,7 @@ import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.util.reattach
 import kotlinx.dnq.util.reattachAndGetLink
+import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -47,8 +48,9 @@ class XdManyChildrenToMultiParentLink<R : XdEntity, T : XdEntity>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        val parent = value?.reattach()
-        val child = thisRef.reattach()
+        val session = thisRef.threadSessionOrThrow
+        val parent = value?.reattach(session)
+        val child = thisRef.reattach(session)
         if (parent == null) {
             child.removeFromParent(oppositeField.oppositeDbName, property.dbName)
         } else {
