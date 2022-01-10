@@ -93,7 +93,7 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
     }
 
     override fun toString(): String {
-        return "${this.javaClass.simpleName}(${entityType.entityType})"
+        return "${this::class.java.simpleName}(${entityType.entityType})"
     }
 
     private var arePropertiesInited = false
