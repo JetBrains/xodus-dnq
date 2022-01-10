@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2021 JetBrains s.r.o.
+ * Copyright 2006 - 2022 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 package jetbrains.exodus.database
-
-import jetbrains.exodus.database.IEntityListener
-import jetbrains.exodus.database.TransientEntityChange
 
 interface ListenerInvocations {
     fun addInvocation(change: TransientEntityChange, listener: IEntityListener<*>)
