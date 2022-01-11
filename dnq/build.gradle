@@ -14,9 +14,7 @@ dependencies {
     compile "org.jetbrains.xodus:xodus-utils:$exodus_version"
     compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
 
-    compile "org.reflections:reflections:0.9.11"
-    // 0.9.12 cannot be used until the following is fixed: https://github.com/ronmamo/reflections/issues/273
-    //compile "org.reflections:reflections:0.9.12"
+    compile "org.reflections:reflections:0.10.2"
     compile "javax.servlet:javax.servlet-api:3.0.1"
 
     testCompile project(':dnq')
