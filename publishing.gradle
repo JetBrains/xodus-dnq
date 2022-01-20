@@ -85,8 +85,8 @@ if (project.hasProperty('ossrhUser') && project.hasProperty('ossrhPassword')) {
     }
 }
 
-// publish snapshot versions to any repo you'd like to see it in 
-if (project.project.hasProperty("publishTo")) {
+// publish snapshot versions to any repo you'd like to see them in
+if (project.hasProperty("publishTo")) {
     subprojects {
         apply plugin: 'maven-publish'
 
@@ -94,6 +94,12 @@ if (project.project.hasProperty("publishTo")) {
             repositories {
                 maven {
                     url project.publishTo
+                    if (project.hasProperty("publishUsername")) {
+                        credentials {
+                            username = project.publishUsername
+                            password = project.publishPassword
+                        }
+                    }
                 }
             }
             publications {
