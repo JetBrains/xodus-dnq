@@ -86,7 +86,7 @@ object XdModel : KLogging() {
         addUrls(*urls)
     }
 
-    private fun scanClasspath(locationID: String, configure: ConfigurationBuilder.() -> Unit) = synchronized(monitor) {
+    fun scanClasspath(locationID: String, configure: ConfigurationBuilder.() -> Unit) = synchronized(monitor) {
         if (locationID in scannedLocations) return
         scannedLocations.add(locationID)
 
