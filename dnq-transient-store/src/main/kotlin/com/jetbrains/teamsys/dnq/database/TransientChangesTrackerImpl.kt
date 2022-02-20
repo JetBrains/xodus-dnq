@@ -58,6 +58,7 @@ class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransact
         get() = changedEntities
                 .filterNot { it.id in addedEntities && it.id in removedEntities }
                 .sortedBy { it.id }
+                .filter { e -> entityToChangedProperties[e].isNotEmpty || entityToChangedLinksDetailed[e].isNotEmpty }
                 .fold(BigInteger.ZERO) { hc, entity ->
                     var h = hc.applyHashCode(entity.id).applyHashCode(getEntityChangeType(entity))
                     getChangedProperties(entity)?.sorted()?.forEach { propertyName ->
@@ -252,6 +253,10 @@ private val mod = (BigInteger.ONE shl 256) - BigInteger.ONE
 private val eighthMersennePrime = (BigInteger.ONE shl 31) - BigInteger.ONE
 
 private fun BigInteger.applyHashCode(o: Any): BigInteger {
-    val h = if (o is Enum<*>) o.ordinal else o.hashCode()
+    val h = if (o is Enum<*>) (o.ordinal + 1) else o.hashCode()
     return ((this * eighthMersennePrime) + BigInteger.valueOf(h.toLong())) and mod
 }
+
+private val MutableMap<String, LinkChange>?.isNotEmpty: Boolean get() = this != null && isNotEmpty()
+
+private val Set<String>?.isNotEmpty: Boolean get() = this != null && isNotEmpty()
