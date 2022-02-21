@@ -59,7 +59,7 @@ class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransact
                 .filterNot { it.id in addedEntities && it.id in removedEntities }
                 .sortedBy { it.id }
                 .filter { e -> entityToChangedProperties[e].isNotEmpty || entityToChangedLinksDetailed[e].isNotEmpty }
-                .fold(BigInteger.ZERO) { hc, entity ->
+                .fold(BigInteger.ONE) { hc, entity ->
                     var h = hc.applyHashCode(entity.id).applyHashCode(getEntityChangeType(entity))
                     getChangedProperties(entity)?.sorted()?.forEach { propertyName ->
                         h = h.applyHashCode(propertyName)
