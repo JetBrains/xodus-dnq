@@ -252,11 +252,11 @@ private val mod = (BigInteger.ONE shl 256) - BigInteger.ONE
 // Eighth Mersenne prime
 private val eighthMersennePrime = (BigInteger.ONE shl 31) - BigInteger.ONE
 
-private fun BigInteger.applyHashCode(o: Any): BigInteger {
-    val h = if (o is Enum<*>) (o.ordinal + 1) else o.hashCode()
-    return ((this * eighthMersennePrime) + BigInteger.valueOf(h.toLong())) and mod
-}
-
 private val MutableMap<String, LinkChange>?.isNotEmpty: Boolean get() = this != null && isNotEmpty()
 
 private val Set<String>?.isNotEmpty: Boolean get() = this != null && isNotEmpty()
+
+fun BigInteger.applyHashCode(o: Any): BigInteger {
+    val h = if (o is Enum<*>) (o.ordinal + 1) else o.hashCode()
+    return ((this * eighthMersennePrime) + BigInteger.valueOf(h.toLong())) and mod
+}
