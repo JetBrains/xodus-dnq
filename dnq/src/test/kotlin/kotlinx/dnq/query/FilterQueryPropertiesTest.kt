@@ -180,6 +180,26 @@ class FilterQueryPropertiesTest : DBTest() {
     }
 
     @Test
+    fun `should search by contains`(){
+        val (user1, user2, user3) = store.transactional {
+            Triple(User.new {
+                login = "tap-tap"
+                skill = 1
+            }, User.new {
+                login = "tEST2"
+                skill = 2
+            }, User.new {
+                login = "test3"
+                skill = 7
+            })
+        }
+        store.transactional {
+            User.assertThatFilterResult { it.login contains "est" }
+                .containsExactly(user2, user3)
+        }
+    }
+
+    @Test
     fun `should search by required fields`() {
         store.transactional {
             val user1 = User.new {

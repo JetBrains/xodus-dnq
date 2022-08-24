@@ -130,6 +130,11 @@ object FilteringContext {
     }
 
     @DnqFilterDsl
+    infix fun String?.contains(value: String?): XdSearchingNode {
+        return withNode(PropertyContains(deepestNodeName, value ?: "", true).decorateIfNeeded())
+    }
+
+    @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.ne(value: T?): XdSearchingNode {
         return withNode(UnaryNot(PropertyEqual(deepestNodeName, value).decorateIfNeeded()))
     }
