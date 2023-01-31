@@ -32,7 +32,7 @@ idea {
 allprojects {
     sourceCompatibility = 1.8
     group = 'org.jetbrains.xodus'
-    version = '2.0.' +(project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev'
+    version = '2.0.' + ((project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev')
 
     repositories {
         mavenCentral()
