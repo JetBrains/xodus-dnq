@@ -32,7 +32,8 @@ idea {
 allprojects {
     sourceCompatibility = 1.8
     group = 'org.jetbrains.xodus'
-    version = (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev'
+
+    version = '1.3' + (project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev'
 
     repositories {
         mavenCentral()
@@ -47,7 +48,7 @@ subprojects {
     apply plugin: 'kotlin'
     apply plugin: 'license'
     apply plugin: 'org.jetbrains.dokka'
-    
+
     dependencies {
         compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
         compile 'io.github.microutils:kotlin-logging:1.5.4'
