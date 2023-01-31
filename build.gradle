@@ -33,7 +33,7 @@ allprojects {
     sourceCompatibility = 1.8
     group = 'org.jetbrains.xodus'
 
-    version = '1.3.' + ((project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev')
+    version = '1.5.' + ((project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev')
 
     repositories {
         mavenCentral()
