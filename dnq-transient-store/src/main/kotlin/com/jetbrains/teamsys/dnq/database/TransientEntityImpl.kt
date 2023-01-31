@@ -168,8 +168,9 @@ open class TransientEntityImpl : TransientEntity {
         return persistentEntity.getBlobSize(blobName)
     }
 
-    override fun setBlob(blobName: String, blob: InputStream) {
-        threadSessionOrThrow.setBlob(this, blobName, blob)
+    override fun setBlob(blobName: String, blob: InputStream) : InputStream {
+        return threadSessionOrThrow.setBlob(this, blobName, blob)
+
     }
 
     override fun setBlob(blobName: String, file: File) {

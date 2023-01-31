@@ -64,7 +64,7 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
-    override fun setBlob(blobName: String, blob: InputStream) {
+    override fun setBlob(blobName: String, blob: InputStream) : InputStream {
         throw unsupported()
     }
 

@@ -44,7 +44,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: Pers
         throwReadonlyException()
     }
 
-    override fun setBlob(blobName: String, blob: InputStream) {
+    override fun setBlob(blobName: String, blob: InputStream) : InputStream {
         throwReadonlyException()
     }
 
