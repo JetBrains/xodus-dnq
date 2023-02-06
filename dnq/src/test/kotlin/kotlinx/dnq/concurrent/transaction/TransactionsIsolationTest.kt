@@ -23,8 +23,10 @@ import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.query
 import kotlinx.dnq.query.size
 import kotlinx.dnq.query.startsWith
+import kotlinx.dnq.util.findById
 import org.junit.Test
 import java.lang.Integer.max
+import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
 class TransactionsIsolationTest : DBTest() {
@@ -36,6 +38,7 @@ class TransactionsIsolationTest : DBTest() {
         }
 
         var sometext by xdStringProp()
+        var value by xdLongProp()
     }
 
     private val init = 3
@@ -47,6 +50,95 @@ class TransactionsIsolationTest : DBTest() {
 
     override fun registerEntityTypes() {
         XdModel.registerNode(Something)
+    }
+
+    @Test
+    fun testIncr() {
+        val newSomething = transactional {
+            Something.new()
+        }
+
+        val entityId = newSomething.xdId
+
+        val latch = CountDownLatch(1)
+        val threads = mutableListOf<Thread>()
+
+        for (i in 0..12) {
+            threads.add(thread {
+                transactional {
+                    val something = Something.findById(entityId)
+                    latch.await()
+                    something.value++
+                }
+            })
+        }
+
+        latch.countDown()
+
+        for (t in threads) {
+            t.join()
+        }
+
+        transactional {
+            val something = Something.findById(entityId)
+            println("Result of increment by 12 threads ${something.value}")
+        }
+    }
+
+    @Test
+    fun testInvariant() {
+        val newSomething = transactional {
+            Something.new()
+        }
+
+        val entityId = newSomething.xdId
+
+        val firstGroup = CountDownLatch(1)
+        val secondGroup = CountDownLatch(1)
+
+        val threads = mutableListOf<Thread>()
+        for (i in 0..6) {
+            threads.add(thread {
+                transactional {
+                    val something = Something.findById(entityId)
+                    firstGroup.await()
+                    something.value = 500
+                }
+            })
+        }
+
+        for (i in 0..6) {
+            threads.add(thread {
+                transactional {
+                    val something = Something.findById(entityId)
+                    secondGroup.await()
+                    if (something.value < 500)
+                        something.value--
+                }
+            })
+        }
+
+        Thread.sleep(1_000)
+
+        firstGroup.countDown()
+
+        Thread.sleep(1_000)
+
+        transactional {
+            val something = Something.findById(entityId)
+            println("First value seen by user ${something.value}")
+        }
+
+        secondGroup.countDown()
+
+        for (t in threads) {
+            t.join()
+        }
+
+        transactional {
+            val something = Something.findById(entityId)
+            println("Second value seen by user ${something.value}")
+        }
     }
 
     @Test
@@ -64,9 +156,9 @@ class TransactionsIsolationTest : DBTest() {
         var e1: Throwable? = null
         var e2: Throwable? = null
         var e3: Throwable? = null
-        t1.setUncaughtExceptionHandler { _, e ->  e1 = e}
-        t2.setUncaughtExceptionHandler { _, e ->  e2 = e}
-        t3.setUncaughtExceptionHandler { _, e ->  e3 = e}
+        t1.setUncaughtExceptionHandler { _, e -> e1 = e }
+        t2.setUncaughtExceptionHandler { _, e -> e2 = e }
+        t3.setUncaughtExceptionHandler { _, e -> e3 = e }
 
         t2.start()
         t3.start()
@@ -114,10 +206,10 @@ class TransactionsIsolationTest : DBTest() {
                 transactional { txn ->
                     val size = getSize()
                     Something.all()
-                            .asSequence()
-                            .take(max(size - init, 0))
-                            .toList()
-                            .forEach { it.delete() }
+                        .asSequence()
+                        .take(max(size - init, 0))
+                        .toList()
+                        .forEach { it.delete() }
                     txn.flush()
                 }
                 Thread.yield()
@@ -131,7 +223,7 @@ class TransactionsIsolationTest : DBTest() {
                 transactional { txn ->
                     val size = getSize()
                     (0 until dif + init - size)
-                            .forEach { Something.new("something $it") }
+                        .forEach { Something.new("something $it") }
                     txn.flush()
                 }
                 Thread.yield()
