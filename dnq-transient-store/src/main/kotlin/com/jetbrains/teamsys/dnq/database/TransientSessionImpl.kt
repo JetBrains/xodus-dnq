@@ -893,21 +893,14 @@ class TransientSessionImpl(
         }
     }
 
-    internal fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream) : InputStream {
-        var bufferedStream: InputStream = if (stream !is BufferedInputStream) {
-            BufferedInputStream(stream)
-        } else {
-            stream
-        }
-
-        bufferedStream.mark(max(store.persistentStore.config.maxInPlaceBlobSize + 1, IOUtil.DEFAULT_BUFFER_SIZE))
+    internal fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream): InputStream {
+        var entityStream = stream;
         addChangeAndRun {
-            bufferedStream.reset()
-            bufferedStream = transientEntity.persistentEntity.setBlob(blobName, bufferedStream)
+            entityStream = transientEntity.persistentEntity.setBlob(blobName, entityStream)
             transientChangesTracker.propertyChanged(transientEntity, blobName)
             true
         }
-        return bufferedStream
+        return entityStream
     }
 
     internal fun setBlob(transientEntity: TransientEntity, blobName: String, file: File) {
