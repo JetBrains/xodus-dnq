@@ -535,6 +535,7 @@ class TransientSessionImpl(
                 prepare()
                 store.flushLock.withLock {
                     while (true) {
+                        txn.checkInvalidateBlobsFlag()
                         if (txn.flush()) {
                             return
                         }
@@ -903,14 +904,11 @@ class TransientSessionImpl(
                 } catch (e: IOException) {
                     //ignore
                 }
+
+                entityStream.mark(max(IOUtil.DEFAULT_BUFFER_SIZE, store.persistentStore.config.maxInPlaceBlobSize + 1))
             }
 
             entityStream = transientEntity.persistentEntity.setBlob(blobName, entityStream)
-
-            if (entityStream is BufferedInputStream) {
-                entityStream.mark(Int.MAX_VALUE)
-            }
-
             transientChangesTracker.propertyChanged(transientEntity, blobName)
             true
         }

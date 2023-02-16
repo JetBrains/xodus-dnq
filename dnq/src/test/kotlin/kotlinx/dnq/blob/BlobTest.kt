@@ -76,12 +76,30 @@ class BlobTest : DBTest() {
 
     @Test
     fun blobReplay() {
+        store.persistentStore.config.maxInPlaceBlobSize = 0
+
         val user = transactional {
             transactional(isNew = true) { User.new() }
             User.new { this.photo = sampleBlob }
         }
         transactional {
-            assertThat(user.photo?.readBytes()).isEqualTo(sampleBlob.readBytes())
+            user.photo?.use { photo ->
+                assertThat(photo.readBytes()).isEqualTo(sampleBlob.readBytes())
+            }
+
+        }
+    }
+
+    @Test
+    fun embeddedBlobReplay() {
+        val user = transactional {
+            transactional(isNew = true) { User.new() }
+            User.new { this.photo = sampleBlob }
+        }
+        transactional {
+            user.photo?.use { photo ->
+                assertThat(photo.readBytes()).isEqualTo(sampleBlob.readBytes())
+            }
         }
     }
 }
