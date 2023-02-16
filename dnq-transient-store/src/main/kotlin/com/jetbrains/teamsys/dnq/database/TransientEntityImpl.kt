@@ -20,6 +20,7 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
+import java.io.BufferedInputStream
 import java.io.File
 import java.io.InputStream
 
@@ -34,8 +35,8 @@ open class TransientEntityImpl : TransientEntity {
 
     override var persistentEntity: PersistentEntity
         get() = readOnlyPersistentEntity
-                ?: persistentEntityId?.let { (persistentStore as PersistentEntityStoreImpl).getEntity(it) }
-                ?: throwWrappedPersistentEntityUndefined()
+            ?: persistentEntityId?.let { (persistentStore as PersistentEntityStoreImpl).getEntity(it) }
+            ?: throwWrappedPersistentEntityUndefined()
         set(persistentEntity) {
             if (persistentEntity is ReadOnlyPersistentEntity) {
                 persistentEntityId = null
@@ -77,13 +78,13 @@ open class TransientEntityImpl : TransientEntity {
             val session = threadSessionOrThrow
             return session.store.modelMetaData?.let { modelMetaData ->
                 modelMetaData.getEntityMetaData(type)
-                        ?.getIncomingAssociations(modelMetaData)
-                        ?.asSequence()
-                        ?.flatMap { (entityType, linkNames) ->
-                            linkNames.asSequence().map { linkName ->
-                                linkName to session.findLinks(entityType, this, linkName)
-                            }
+                    ?.getIncomingAssociations(modelMetaData)
+                    ?.asSequence()
+                    ?.flatMap { (entityType, linkNames) ->
+                        linkNames.asSequence().map { linkName ->
+                            linkName to session.findLinks(entityType, this, linkName)
                         }
+                    }
             }?.toList().orEmpty()
         }
 
@@ -114,8 +115,8 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun getId(): EntityId {
         return readOnlyPersistentEntity?.id
-                ?: persistentEntityId
-                ?: throwWrappedPersistentEntityUndefined()
+            ?: persistentEntityId
+            ?: throwWrappedPersistentEntityUndefined()
     }
 
     override fun toIdString() = id.toString()
@@ -161,14 +162,27 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun getBlob(blobName: String): InputStream? {
-        return persistentEntity.getBlob(blobName)
+        val stream = persistentEntity.getBlob(blobName)
+
+        if (stream != null) {
+            val bufferedStream = if (stream is BufferedInputStream) {
+                stream
+            } else {
+                BufferedInputStream(stream)
+            }
+
+            bufferedStream.mark(Int.MAX_VALUE)
+            return bufferedStream
+        }
+
+        return null
     }
 
     override fun getBlobSize(blobName: String): Long {
         return persistentEntity.getBlobSize(blobName)
     }
 
-    override fun setBlob(blobName: String, blob: InputStream) : InputStream {
+    override fun setBlob(blobName: String, blob: InputStream): InputStream {
         return threadSessionOrThrow.setBlob(this, blobName, blob)
 
     }
@@ -195,13 +209,19 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun setLink(linkName: String, targetId: EntityId): Boolean {
-        return threadSessionOrThrow.run { setLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
+        return threadSessionOrThrow.run {
+            setLink(
+                this@TransientEntityImpl,
+                linkName,
+                getEntity(targetId) as TransientEntity
+            )
+        }
     }
 
     private fun assertIsMultipleLink(entity: Entity, linkName: String) {
         val associationEndMetaData = store.modelMetaData
-                ?.getEntityMetaData(entity.type)
-                ?.getAssociationEndMetaData(linkName)
+            ?.getEntityMetaData(entity.type)
+            ?.getAssociationEndMetaData(linkName)
         if (associationEndMetaData != null && !associationEndMetaData.cardinality.isMultiple) {
             throw IllegalArgumentException("Can not call this operation for non-multiple association [$linkName] of [$entity]")
         }
@@ -214,7 +234,13 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun addLink(linkName: String, targetId: EntityId): Boolean {
         assertIsMultipleLink(this, linkName)
-        return threadSessionOrThrow.run { addLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
+        return threadSessionOrThrow.run {
+            addLink(
+                this@TransientEntityImpl,
+                linkName,
+                getEntity(targetId) as TransientEntity
+            )
+        }
     }
 
     override fun deleteLink(linkName: String, target: Entity): Boolean {
@@ -222,7 +248,13 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun deleteLink(linkName: String, targetId: EntityId): Boolean {
-        return threadSessionOrThrow.run { deleteLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
+        return threadSessionOrThrow.run {
+            deleteLink(
+                this@TransientEntityImpl,
+                linkName,
+                getEntity(targetId) as TransientEntity
+            )
+        }
     }
 
     override fun deleteLinks(linkName: String) {
@@ -244,8 +276,8 @@ open class TransientEntityImpl : TransientEntity {
     override fun getLinks(linkNames: Collection<String>): EntityIterable {
         return object : PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkNames)) {
             override fun iterator() = PersistentEntityIteratorWithPropIdWrapper(
-                    wrappedIterable.iterator() as EntityIteratorWithPropId,
-                    store.threadSessionOrThrow
+                wrappedIterable.iterator() as EntityIteratorWithPropId,
+                store.threadSessionOrThrow
             )
         }
     }
@@ -291,25 +323,25 @@ open class TransientEntityImpl : TransientEntity {
         if (isNew) return EntityIterableBase.EMPTY
 
         return threadSessionOrThrow.transientChangesTracker
-                .getChangedLinksDetailed(this)
-                ?.get(name)
-                ?.let { linkChange ->
-                    if (removed) {
-                        concat(getRemovedWrapper(linkChange), getDeletedWrapper(linkChange))
-                    } else {
-                        getAddedWrapper(linkChange)
-                    }
+            .getChangedLinksDetailed(this)
+            ?.get(name)
+            ?.let { linkChange ->
+                if (removed) {
+                    concat(getRemovedWrapper(linkChange), getDeletedWrapper(linkChange))
+                } else {
+                    getAddedWrapper(linkChange)
                 }
-                ?: EntityIterableBase.EMPTY
+            }
+            ?: EntityIterableBase.EMPTY
     }
 
     private fun concat(left: TransientEntityIterable?, right: TransientEntityIterable?) =
-            when {
-                left != null && right != null -> left.concat(right)
-                left != null && right == null -> left
-                left == null && right != null -> right
-                else -> null
-            }
+        when {
+            left != null && right != null -> left.concat(right)
+            left != null && right == null -> left
+            left == null && right != null -> right
+            else -> null
+        }
 
     private fun getAddedWrapper(change: LinkChange): TransientEntityIterable? {
         val addedEntities = change.addedEntities ?: return null
@@ -420,5 +452,6 @@ open class TransientEntityImpl : TransientEntity {
         threadSessionOrThrow.addChild(this, parentToChildLinkName, childToParentLinkName, child as TransientEntity)
     }
 
-    private fun throwWrappedPersistentEntityUndefined(): Nothing = throw IllegalStateException("Cannot get wrapped persistent entity")
+    private fun throwWrappedPersistentEntityUndefined(): Nothing =
+        throw IllegalStateException("Cannot get wrapped persistent entity")
 }

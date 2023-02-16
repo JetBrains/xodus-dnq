@@ -895,11 +895,26 @@ class TransientSessionImpl(
 
     internal fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream): InputStream {
         var entityStream = stream;
+
         addChangeAndRun {
+            if (entityStream is BufferedInputStream) {
+                try {
+                    entityStream.reset()
+                } catch (e: IOException) {
+                    //ignore
+                }
+            }
+
             entityStream = transientEntity.persistentEntity.setBlob(blobName, entityStream)
+
+            if (entityStream is BufferedInputStream) {
+                entityStream.mark(Int.MAX_VALUE)
+            }
+
             transientChangesTracker.propertyChanged(transientEntity, blobName)
             true
         }
+
         return entityStream
     }
 
