@@ -75,6 +75,32 @@ class BlobTest : DBTest() {
     }
 
     @Test
+    fun textReplay() {
+        store.persistentStore.config.maxInPlaceBlobSize = 0
+
+        val user = transactional {
+            transactional(isNew = true) { User.new() }
+            User.new { bio = "born in 1900" }
+        }
+
+        transactional {
+            assertThat(user.bio).isEqualTo("born in 1900")
+        }
+    }
+
+    @Test
+    fun embeddedTextReplay() {
+        val user = transactional {
+            transactional(isNew = true) { User.new() }
+            User.new { bio = "born in 1900" }
+        }
+
+        transactional {
+            assertThat(user.bio).isEqualTo("born in 1900")
+        }
+    }
+
+    @Test
     fun blobReplay() {
         store.persistentStore.config.maxInPlaceBlobSize = 0
 
