@@ -162,29 +162,15 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun getBlob(blobName: String): InputStream? {
-        val stream = persistentEntity.getBlob(blobName)
-
-        if (stream != null) {
-            val bufferedStream = if (stream is BufferedInputStream) {
-                stream
-            } else {
-                BufferedInputStream(stream)
-            }
-
-            bufferedStream.mark(Int.MAX_VALUE)
-            return bufferedStream
-        }
-
-        return null
+        return persistentEntity.getBlob(blobName)
     }
 
     override fun getBlobSize(blobName: String): Long {
         return persistentEntity.getBlobSize(blobName)
     }
 
-    override fun setBlob(blobName: String, blob: InputStream): InputStream {
-        return threadSessionOrThrow.setBlob(this, blobName, blob)
-
+    override fun setBlob(blobName: String, blob: InputStream) {
+        threadSessionOrThrow.setBlob(this, blobName, blob)
     }
 
     override fun setBlob(blobName: String, file: File) {

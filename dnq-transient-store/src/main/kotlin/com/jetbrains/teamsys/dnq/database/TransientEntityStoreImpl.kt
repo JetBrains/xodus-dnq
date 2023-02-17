@@ -52,7 +52,6 @@ open class TransientEntityStoreImpl : TransientEntityStore {
             ec.envTxnReplayTimeout = java.lang.Long.MAX_VALUE
             ec.gcUseExclusiveTransaction = true
             _persistentStore = persistentStore
-            persistentStore.config.doNotInvalidateBlobStreamsOnRollback = true
         }
 
     /**

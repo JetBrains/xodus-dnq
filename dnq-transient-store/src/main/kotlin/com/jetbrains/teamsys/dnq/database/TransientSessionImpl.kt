@@ -894,26 +894,22 @@ class TransientSessionImpl(
         }
     }
 
-    internal fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream): InputStream {
-        var entityStream = stream;
+    internal fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream) {
+        val tmpBlobData: Array<TmpFileData?> = Array(1) { null }
 
         addChangeAndRun {
-            if (entityStream is BufferedInputStream) {
-                try {
-                    entityStream.reset()
-                } catch (e: IOException) {
-                    //ignore
-                }
-
-                entityStream.mark(max(IOUtil.DEFAULT_BUFFER_SIZE, store.persistentStore.config.maxInPlaceBlobSize + 1))
+            if (tmpBlobData[0] == null) {
+                tmpBlobData[0]= transientEntity.persistentEntity.setDnqBlob(blobName, stream)
+            } else {
+                tmpBlobData[0] = transientEntity.persistentEntity.setDnqBlob(
+                    blobName,
+                    tmpBlobData[0]!!
+                )
             }
 
-            entityStream = transientEntity.persistentEntity.setBlob(blobName, entityStream)
             transientChangesTracker.propertyChanged(transientEntity, blobName)
             true
         }
-
-        return entityStream
     }
 
     internal fun setBlob(transientEntity: TransientEntity, blobName: String, file: File) {
