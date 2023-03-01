@@ -31,10 +31,10 @@ abstract class XdCustomTypeBinding<V : Comparable<V>> : ComparableBinding() {
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
-    final override fun writeObject(output: LightOutputStream, value: Comparable<V>) = write(output, value as V)
-
     final override fun readObject(stream: ByteArrayInputStream) = read(stream)
+
+    @Suppress("UNCHECKED_CAST")
+    override fun writeObject(output: LightOutputStream, value: Comparable<*>) = write(output, value as V)
 
     abstract fun write(stream: LightOutputStream, value: V)
 

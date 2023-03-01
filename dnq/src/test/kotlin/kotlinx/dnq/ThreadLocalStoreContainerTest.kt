@@ -28,10 +28,7 @@ import org.junit.Before
 import org.junit.Test
 import java.io.File
 import java.io.IOException
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
+import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 
 class ThreadLocalStoreContainerTest {
@@ -40,8 +37,18 @@ class ThreadLocalStoreContainerTest {
         companion object : XdNaturalEntityType<XdMultiStoreEntity>(storeContainer = ThreadLocalStoreContainer)
     }
 
-    val databaseHome by lazy {
-        File(System.getProperty("java.io.tmpdir"), "kotlinx.dnq.test-multistore")
+    val databaseHome: File by lazy {
+        val buildDir = System.getProperty("exodus.tests.buildDirectory")
+        try {
+            if (buildDir != null) {
+                Files.createTempDirectory(Paths.get(buildDir), "xodus-test").toFile()
+            } else {
+                println("Build directory is not set !!!")
+                Files.createTempDirectory("xodus-test").toFile()
+            }
+        } catch (e: IOException) {
+            throw RuntimeException(e)
+        }
     }
 
     lateinit var store1: TransientEntityStore

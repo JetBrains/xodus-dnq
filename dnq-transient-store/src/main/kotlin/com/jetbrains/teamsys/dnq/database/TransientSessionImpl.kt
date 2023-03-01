@@ -521,6 +521,7 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl,
                 prepare()
                 store.flushLock.withLock {
                     while (true) {
+                        txn.checkInvalidateBlobsFlag()
                         if (txn.flush()) {
                             return
                         }
@@ -871,16 +872,18 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl,
     }
 
     internal fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream) {
-        val copy = try {
-            store.persistentStore.blobVault.cloneStream(stream, true)
-        } catch (ioe: IOException) {
-            throw RuntimeException(ioe)
-        }
+        val tmpBlobData: Array<TmpBlobHandle?> = Array(1) { null }
 
-        copy.mark(Integer.MAX_VALUE)
         addChangeAndRun {
-            copy.reset()
-            transientEntity.persistentEntity.setBlob(blobName, copy)
+            if (tmpBlobData[0] == null) {
+                tmpBlobData[0]= transientEntity.persistentEntity.setDnqBlob(blobName, stream)
+            } else {
+                tmpBlobData[0] = transientEntity.persistentEntity.setDnqBlob(
+                    blobName,
+                    tmpBlobData[0]!!
+                )
+            }
+
             transientChangesTracker.propertyChanged(transientEntity, blobName)
             true
         }
@@ -895,8 +898,19 @@ class TransientSessionImpl(private val store: TransientEntityStoreImpl,
     }
 
     internal fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String): Boolean {
+        val tmpBlobData: Array<TmpBlobHandle?> = Array(1) { null }
+
         return addChangeAndRun {
-            if (transientEntity.persistentEntity.setBlobString(blobName, newValue)) {
+            if (tmpBlobData[0] == null) {
+                tmpBlobData[0] = transientEntity.persistentEntity.setDnqBlobString(blobName, newValue)
+            } else {
+                tmpBlobData[0] = transientEntity.persistentEntity.setDnqBlob(
+                    blobName,
+                    tmpBlobData[0]!!
+                )
+            }
+
+            if (tmpBlobData[0] != null) {
                 val oldValue = getOriginalBlobStringValue(transientEntity, blobName)
                 if (newValue === oldValue || newValue == oldValue) {
                     transientChangesTracker.removePropertyChanged(transientEntity, blobName)

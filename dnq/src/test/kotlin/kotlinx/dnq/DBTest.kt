@@ -27,6 +27,7 @@ import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.Where
 import jetbrains.exodus.entitystore.Where.*
+import jetbrains.exodus.util.IOUtil
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
@@ -42,18 +43,11 @@ import org.junit.After
 import org.junit.Before
 import java.io.File
 import java.io.IOException
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
+import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.atomic.AtomicLong
 
 abstract class DBTest {
-    companion object {
-        private val idGen = AtomicLong()
-    }
-
     lateinit var store: TransientEntityStoreImpl
     lateinit var asyncProcessor: JobProcessor
     lateinit var databaseHome: File
@@ -141,7 +135,20 @@ abstract class DBTest {
     fun setup() {
         XdModel.hierarchy.clear()
         registerEntityTypes()
-        databaseHome = File(System.getProperty("java.io.tmpdir"), "kotlinx.dnq.test.${idGen.incrementAndGet()}")
+
+        val buildDir = System.getProperty("exodus.tests.buildDirectory")
+
+        databaseHome = try {
+            if (buildDir != null) {
+                Files.createTempDirectory(Paths.get(buildDir), "xodus-test").toFile()
+            } else {
+                println("Build directory is not set !!!")
+                Files.createTempDirectory("xodus-test").toFile()
+            }
+        } catch (e: IOException) {
+            throw RuntimeException(e)
+        }
+
         openStore()
     }
 
@@ -250,7 +257,7 @@ abstract class DBTest {
     }
 
     private fun Path.tryDelete() = try {
-        Files.delete(this)
+       IOUtil.deleteRecursively(this.toFile())
     } catch (ex: IOException) {
         ex.printStackTrace()
     }
