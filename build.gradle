@@ -12,16 +12,22 @@ buildscript {
 }
 
 plugins {
-    id 'com.github.hierynomus.license' version '0.15.0'
+    id 'com.github.hierynomus.license' version '0.16.1'
     id 'org.jetbrains.kotlin.jvm' version "$kotlin_version"
     id 'io.codearte.nexus-staging' version '0.21.1'
     id 'de.marcphilipp.nexus-publish' version '0.4.0' apply false
     id 'idea'
 }
 
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+
 idea {
     project {
-        jdkName = '11'
+        jdkName = '17'
         vcs = 'Git'
     }
     module {
@@ -30,7 +36,6 @@ idea {
 }
 
 allprojects {
-    sourceCompatibility = 11
     group = 'org.jetbrains.xodus'
     version = '3.0.' + ((project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev')
 
@@ -49,14 +54,14 @@ subprojects {
     apply plugin: 'org.jetbrains.dokka'
 
     dependencies {
-        compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-        compile 'io.github.microutils:kotlin-logging:1.5.4'
+        implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+        implementation 'io.github.microutils:kotlin-logging:1.5.4'
 
-        testCompile "junit:junit:$junit_version"
-        testCompile "org.apache.logging.log4j:log4j-1.2-api:$log4j_version"
-        testCompile "org.apache.logging.log4j:log4j-api:$log4j_version"
-        testCompile "org.apache.logging.log4j:log4j-core:$log4j_version"
-        testCompile "org.apache.logging.log4j:log4j-slf4j-impl:$log4j_version"
+        testImplementation "junit:junit:$junit_version"
+        testImplementation "org.apache.logging.log4j:log4j-1.2-api:$log4j_version"
+        testImplementation "org.apache.logging.log4j:log4j-api:$log4j_version"
+        testImplementation "org.apache.logging.log4j:log4j-core:$log4j_version"
+        testImplementation "org.apache.logging.log4j:log4j-slf4j-impl:$log4j_version"
     }
 
     license {
@@ -73,11 +78,11 @@ subprojects {
     }
 
     tasks.withType(compileKotlin.class).all {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
 
         kotlinOptions {
-            jvmTarget = "11"
+            jvmTarget = "17"
             apiVersion = "1.6"
             languageVersion = "1.6"
         }
@@ -103,8 +108,8 @@ subprojects {
         }
     }
 
-    task sourceJar(type: Jar) {
-        classifier = 'sources'
+    tasks.register('sourceJar', Jar) {
+        archiveClassifier = 'sources'
         duplicatesStrategy 'exclude'
         includeEmptyDirs false
         from project.sourceSets.main.java
@@ -114,7 +119,7 @@ subprojects {
     // this is a stub javadoc until we investigate and fix the following docklet error somehow:
     // java.lang.ClassCastException: com.sun.tools.javac.code.Type$AnnotatedType cannot be cast to com.sun.tools.javac.code.Type$ClassType
     task javadocJar(type: Jar) {
-        classifier = 'javadoc'
+        archiveClassifier = 'javadoc'
         from "${rootProject.projectDir}/README.MD"
     }
 }

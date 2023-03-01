@@ -1,17 +1,17 @@
 dependencies {
-    compile project(':dnq')
-    compile project(':dnq-transient-store')
+    implementation project(':dnq')
+    implementation project(':dnq-transient-store')
 
-    compile "org.jetbrains:annotations:15.0"
-    compile "org.jetbrains.xodus:xodus-openAPI:$exodus_version"
-    compile "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
-    compile "org.jetbrains.xodus:xodus-query:$exodus_version"
-    compile "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
-    compile "org.jetbrains.xodus:xodus-utils:$exodus_version"
+    implementation "org.jetbrains:annotations:15.0"
+    implementation "org.jetbrains.xodus:xodus-openAPI:$exodus_version"
+    implementation "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
+    implementation "org.jetbrains.xodus:xodus-query:$exodus_version"
+    implementation "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
+    implementation "org.jetbrains.xodus:xodus-utils:$exodus_version"
 
-    testCompile project(':java-8-time')
-    testCompile project(path: ':dnq', configuration: 'tests')
-    testCompile "com.google.truth:truth:$google_truth_version"
-    testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
-    testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+    testImplementation project(':java-8-time')
+    testImplementation project(path: ':dnq', configuration: 'tests')
+    testImplementation "com.google.truth:truth:$google_truth_version"
+    testImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }
