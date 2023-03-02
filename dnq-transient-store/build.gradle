@@ -1,5 +1,7 @@
 dependencies {
     api project(':dnq-open-api')
     implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
-
+    implementation "org.jetbrains.xodus:xodus-openAPI:$exodus_version"
+    implementation "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
+    implementation "org.jetbrains.xodus:xodus-query:$exodus_version"
 }

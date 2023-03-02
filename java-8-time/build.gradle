@@ -1,5 +1,6 @@
 dependencies {
     implementation project(':dnq')
+    implementation project(':dnq-open-api:')
     implementation project(':dnq-transient-store')
 
     implementation "org.jetbrains:annotations:15.0"
