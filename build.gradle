@@ -19,11 +19,6 @@ plugins {
     id 'idea'
 }
 
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(11))
-    }
-}
 
 idea {
     project {
@@ -45,13 +40,26 @@ allprojects {
         // necessary for dokka 1.4.30
         maven { url "https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven" }
     }
+
+    java {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(11))
+        }
+    }
 }
 
 subprojects {
+
     apply plugin: 'java'
     apply plugin: 'kotlin'
     apply plugin: 'license'
     apply plugin: 'org.jetbrains.dokka'
+
+    java {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(11))
+        }
+    }
 
     dependencies {
         implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
@@ -78,11 +86,8 @@ subprojects {
     }
 
     tasks.withType(compileKotlin.class).all {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-
         kotlinOptions {
-            jvmTarget = "17"
+            jvmTarget = "11"
             apiVersion = "1.8"
             languageVersion = "1.8"
         }
