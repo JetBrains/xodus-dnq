@@ -17,15 +17,19 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
+import jetbrains.exodus.entitystore.EntityStoreException
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
+import mu.KLoggable
+import mu.KLogging
+import kotlin.math.log
 
-internal object TransientEntityStoreExt {
+internal object TransientEntityStoreExt : KLogging() {
     fun <T> transactional(
-            store: TransientEntityStore,
-            readonly: Boolean = false,
-            queryCancellingPolicy: QueryCancellingPolicy? = null,
-            isNew: Boolean = false,
-            block: (TransientStoreSession) -> T
+        store: TransientEntityStore,
+        readonly: Boolean = false,
+        queryCancellingPolicy: QueryCancellingPolicy? = null,
+        isNew: Boolean = false,
+        block: (TransientStoreSession) -> T
     ): T {
         val superSession = store.threadSession
         val superIsSuspended: Boolean
@@ -51,6 +55,9 @@ internal object TransientEntityStoreExt {
                 val result = block(newSession)
                 wasEx = false
                 return result
+            } catch (e: Exception) {
+                logger.error("Error during transaction execution.", e)
+                throw e
             } finally {
                 if ((superSession == null || superIsSuspended) && newSession.isOpened) {
                     if (wasEx) {
@@ -70,7 +77,10 @@ internal object TransientEntityStoreExt {
         }
     }
 
-    private fun TransientEntityStore.beginSession(readonly: Boolean, queryCancellingPolicy: QueryCancellingPolicy?): TransientStoreSession {
+    private fun TransientEntityStore.beginSession(
+        readonly: Boolean,
+        queryCancellingPolicy: QueryCancellingPolicy?
+    ): TransientStoreSession {
         val transaction = if (readonly) {
             this.beginReadonlyTransaction()
         } else {
