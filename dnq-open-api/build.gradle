@@ -1,6 +1,6 @@
 dependencies {
-    api "org.jetbrains:annotations:15.0"
-    api "org.jetbrains.xodus:xodus-openAPI:$exodus_version"
-    api "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
-    api "org.jetbrains.xodus:xodus-query:$exodus_version"
+    implementation "org.jetbrains:annotations:15.0"
+    implementation "org.jetbrains.xodus:xodus-openAPI:$exodus_version"
+    implementation "org.jetbrains.xodus:xodus-entity-store:$exodus_version"
+    implementation "org.jetbrains.xodus:xodus-query:$exodus_version"
 }
