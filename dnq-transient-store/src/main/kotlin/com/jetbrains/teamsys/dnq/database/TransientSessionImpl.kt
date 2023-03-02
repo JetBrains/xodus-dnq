@@ -136,7 +136,7 @@ class TransientSessionImpl(
         upgradeHook = hook
     }
 
-    private fun upgradeReadonlyTransactionIfNecessary() {
+    fun upgradeReadonlyTransactionIfNecessary() {
         val currentTxn = persistentTransactionInternal
         if (!readonly && currentTxn.isReadonly) {
             val persistentStore = persistentStore
