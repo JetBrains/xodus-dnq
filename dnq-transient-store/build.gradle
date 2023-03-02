@@ -1,5 +1,5 @@
 dependencies {
-    compile project(':dnq-open-api')
-    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+    api project(':dnq-open-api')
+    implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
 
 }
