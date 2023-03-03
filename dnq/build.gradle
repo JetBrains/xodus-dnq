@@ -4,7 +4,7 @@ dependencies {
     implementation project(':dnq-open-api')
     implementation project(':dnq-transient-store')
 
-    implementation "joda-time:joda-time:2.1"
+    api "joda-time:joda-time:2.1"
 
     implementation "org.jetbrains:annotations:15.0"
     implementation "org.jetbrains.xodus:xodus-openAPI:$exodus_version"
