@@ -28,7 +28,7 @@ class CompareInsideListenerTest : DBTest() {
 
     @Before
     fun updateMultiplexer() {
-        store.changesMultiplexer = TransientChangesMultiplexer(createAsyncProcessor().apply(JobProcessor::start))
+        store.changesMultiplexer = TransientChangesMultiplexer()
     }
 
     override fun registerEntityTypes() {

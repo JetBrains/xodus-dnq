@@ -22,14 +22,10 @@ interface XdEntityListener<in XD : XdEntity> : DNQListener<XD> {
 
     override fun addedSyncBeforeConstraints(added: XD) = Unit
     override fun addedSync(added: XD) = Unit
-    override fun addedAsync(added: XD) = Unit
 
     override fun updatedSyncBeforeConstraints(old: XD, current: XD) = Unit
     override fun updatedSync(old: XD, current: XD) = Unit
-    override fun updatedAsync(old: XD, current: XD) = Unit
 
     override fun removedSyncBeforeConstraints(removed: XD) = Unit
     override fun removedSync(removed: XD) = Unit
-    override fun removedAsync(removed: XD) = Unit
-
 }

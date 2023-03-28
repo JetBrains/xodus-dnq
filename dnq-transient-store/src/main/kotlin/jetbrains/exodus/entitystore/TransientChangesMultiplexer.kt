@@ -20,7 +20,6 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet
 import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
-import jetbrains.exodus.entitystore.listeners.AsyncListenersReplicationImpl
 import jetbrains.exodus.entitystore.listeners.ListenerInvocationsImpl
 import mu.KLogging
 import java.util.*
@@ -29,14 +28,14 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobProcessor: JobProcessor? = null) : TransientStoreSessionListener, ITransientChangesMultiplexer {
+open class TransientChangesMultiplexer @JvmOverloads constructor() :
+    TransientStoreSessionListener, ITransientChangesMultiplexer {
 
     private val instanceToListeners = HashMap<FullEntityId, Queue<IEntityListener<*>>>()
     val typeToListeners = HashMap<String, Queue<IEntityListener<*>>>()
     private val notAsyncStores = HashSet<TransientEntityStore>()
     private val rwl = ReentrantReadWriteLock()
     private var isOpen = true
-    var asyncListenersReplication: AsyncListenersReplicationImpl? = null
 
     companion object : KLogging()
 
@@ -49,38 +48,40 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
      *
      * @param oldChangesTracker changes tracker to dispose after async job
      */
-    override fun flushed(session: TransientStoreSession, oldChangesTracker: TransientChangesTracker, changesDescription: Set<TransientEntityChange>) {
+    override fun flushed(
+        session: TransientStoreSession,
+        oldChangesTracker: TransientChangesTracker,
+        changesDescription: Set<TransientEntityChange>
+    ) {
         this.fire(session.store, Where.SYNC_AFTER_FLUSH, changesDescription)
-        this.asyncFire(session, oldChangesTracker, changesDescription)
     }
 
-    override fun beforeFlushBeforeConstraints(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) {
+    override fun beforeFlushBeforeConstraints(
+        session: TransientStoreSession,
+        changedEntities: Set<TransientEntityChange>
+    ) {
         this.fire(session.store, Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS, changedEntities)
     }
 
-    override fun afterConstraintsFail(session: TransientStoreSession, exceptions: Set<DataIntegrityViolationException>) {}
+    override fun afterConstraintsFail(
+        session: TransientStoreSession,
+        exceptions: Set<DataIntegrityViolationException>
+    ) {
+    }
 
     fun disableAsyncFor(store: TransientEntityStore) {
         rwl.write { notAsyncStores.add(store) }
     }
 
-    private fun asyncFire(session: TransientStoreSession, changesTracker: TransientChangesTracker, changes: Set<TransientEntityChange>) {
-        val store = session.store
-        val asyncJobProcessor = asyncJobProcessor
-        if (asyncJobProcessor != null && rwl.read { store !in notAsyncStores }) {
-            asyncJobProcessor.queue(TransientChangesMultiplexerJob(store, this, changes, changesTracker))
-        } else {
-            changesTracker.dispose()
-        }
-    }
-
-    internal fun fire(store: TransientEntityStore,
-                      where: Where,
-                      changes: Set<TransientEntityChange>,
-                      invocations: ListenerInvocationsImpl? = null) {
+    internal fun fire(
+        store: TransientEntityStore,
+        where: Where,
+        changes: Set<TransientEntityChange>,
+        invocations: ListenerInvocationsImpl? = null
+    ) {
         changes.forEach {
-            this.handlePerEntityChanges(where, it, invocations)
-            this.handlePerEntityTypeChanges(store, where, it, invocations)
+            this.handlePerEntityChanges(where, it)
+            this.handlePerEntityTypeChanges(store, where, it)
         }
         invocations?.send()
     }
@@ -93,8 +94,8 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
         rwl.write {
             if (isOpen) {
                 instanceToListeners
-                        .getOrPut(id) { ConcurrentLinkedQueue() }
-                        .add(listener)
+                    .getOrPut(id) { ConcurrentLinkedQueue() }
+                    .add(listener)
             }
         }
     }
@@ -117,8 +118,8 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
         rwl.write {
             if (isOpen) {
                 typeToListeners
-                        .getOrPut(entityType) { ConcurrentLinkedQueue() }
-                        .add(listener)
+                    .getOrPut(entityType) { ConcurrentLinkedQueue() }
+                    .add(listener)
             }
         }
     }
@@ -170,12 +171,13 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
         }
     }
 
-    private fun handlePerEntityChanges(where: Where,
-                                       c: TransientEntityChange,
-                                       invocations: ListenerInvocationsImpl?) {
+    private fun handlePerEntityChanges(
+        where: Where,
+        c: TransientEntityChange
+    ) {
         val e = c.transientEntity
         val id = FullEntityId(e.store, e.id)
-        val listeners = if (where == Where.ASYNC_AFTER_FLUSH && c.changeType == EntityChangeType.REMOVE) {
+        val listeners = if (c.changeType == EntityChangeType.REMOVE) {
             // unsubscribe all entity listeners, but fire them anyway
             rwl.write {
                 this.instanceToListeners.remove(id)
@@ -186,40 +188,36 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
             }
         }
         if (listeners != null) {
-            this.handleChange(where, c, listeners, invocations)
+            this.handleChange(where, c, listeners)
         }
     }
 
-    private fun handlePerEntityTypeChanges(store: TransientEntityStore,
-                                           where: Where, c: TransientEntityChange,
-                                           invocations: ListenerInvocationsImpl?) {
+    private fun handlePerEntityTypeChanges(
+        store: TransientEntityStore,
+        where: Where, c: TransientEntityChange
+    ) {
         store.modelMetaData
-                ?.getEntityMetaData(c.transientEntity.type)
-                ?.thisAndSuperTypes
-                ?.mapNotNull { rwl.read { this.typeToListeners[it] } }
-                ?.forEach { this.handleChange(where, c, it, invocations) }
+            ?.getEntityMetaData(c.transientEntity.type)
+            ?.thisAndSuperTypes
+            ?.mapNotNull { rwl.read { this.typeToListeners[it] } }
+            ?.forEach { this.handleChange(where, c, it) }
     }
 
     private fun handleChange(
-            where: Where,
-            c: TransientEntityChange,
-            listeners: Queue<IEntityListener<*>>,
-            invocations: ListenerInvocationsImpl?
+        where: Where,
+        c: TransientEntityChange,
+        listeners: Queue<IEntityListener<*>>
     ) = when (where) {
         Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS -> when (c.changeType) {
             EntityChangeType.ADD -> listeners.visit(true) { it.addedSyncBeforeConstraints(c.transientEntity) }
             EntityChangeType.UPDATE -> listeners.visit(true) { it.updatedSyncBeforeConstraints(c.snapshotEntity, c.transientEntity) }
             EntityChangeType.REMOVE -> listeners.visit(true) { it.removedSyncBeforeConstraints(c.snapshotEntity) }
         }
+
         Where.SYNC_AFTER_FLUSH -> when (c.changeType) {
             EntityChangeType.ADD -> listeners.visit { it.addedSync(c.transientEntity) }
             EntityChangeType.UPDATE -> listeners.visit { it.updatedSync(c.snapshotEntity, c.transientEntity) }
             EntityChangeType.REMOVE -> listeners.visit { it.removedSync(c.snapshotEntity) }
-        }
-        Where.ASYNC_AFTER_FLUSH -> when (c.changeType) {
-            EntityChangeType.ADD -> listeners.visitAsync(c, invocations) { it.addedAsync(c.transientEntity) }
-            EntityChangeType.UPDATE -> listeners.visitAsync(c, invocations) { it.updatedAsync(c.snapshotEntity, c.transientEntity) }
-            EntityChangeType.REMOVE -> listeners.visitAsync(c, invocations) { it.removedAsync(c.snapshotEntity) }
         }
     }
 
@@ -243,7 +241,11 @@ open class TransientChangesMultiplexer @JvmOverloads constructor(val asyncJobPro
         }
     }
 
-    private fun Queue<IEntityListener<*>>.visitAsync(c: TransientEntityChange, invocations: ListenerInvocationsImpl?, action: (IEntityListener<Entity>) -> Unit) {
+    private fun Queue<IEntityListener<*>>.visitAsync(
+        c: TransientEntityChange,
+        invocations: ListenerInvocationsImpl?,
+        action: (IEntityListener<Entity>) -> Unit
+    ) {
         for (l in this) {
             try {
                 @Suppress("UNCHECKED_CAST")

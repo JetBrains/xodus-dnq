@@ -197,7 +197,6 @@ class OnTargetDeleteClearTest : DBTest() {
         currentStore.transactional {
             apps.forEach { it.delete() }
         }
-        asyncProcessor.waitForJobs(100)
         tearDown()
         setup()
     }

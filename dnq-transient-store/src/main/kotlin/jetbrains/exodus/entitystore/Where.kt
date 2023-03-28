@@ -18,5 +18,4 @@ package jetbrains.exodus.entitystore
 enum class Where {
     SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS,
     SYNC_AFTER_FLUSH,
-    ASYNC_AFTER_FLUSH
 }

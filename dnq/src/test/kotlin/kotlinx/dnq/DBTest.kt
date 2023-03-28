@@ -169,8 +169,8 @@ abstract class DBTest {
 
         initMetaData(XdModel.hierarchy, store)
 
-        asyncProcessor = createAsyncProcessor()
-        val changesMultiplexer = TransientChangesMultiplexer(asyncProcessor.apply(JobProcessor::start))
+
+        val changesMultiplexer = TransientChangesMultiplexer()
         store.changesMultiplexer = changesMultiplexer
     }
 
@@ -223,9 +223,6 @@ abstract class DBTest {
             }
             SYNC_AFTER_FLUSH -> object : XdEntityListener<XD> {
                 override fun updatedSync(old: XD, current: XD) = action(old, current)
-            }
-            ASYNC_AFTER_FLUSH -> object : XdEntityListener<XD> {
-                override fun updatedAsync(old: XD, current: XD) = action(old, current)
             }
         }
     }
