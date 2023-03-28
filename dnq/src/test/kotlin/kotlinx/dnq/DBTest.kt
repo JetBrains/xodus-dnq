@@ -49,7 +49,6 @@ import java.util.concurrent.atomic.AtomicLong
 
 abstract class DBTest {
     lateinit var store: TransientEntityStoreImpl
-    lateinit var asyncProcessor: JobProcessor
     lateinit var databaseHome: File
     val typeListeners = mutableListOf<Pair<XdEntityType<*>, XdEntityListener<*>>>()
     val instanceListeners = mutableListOf<Pair<XdEntity, XdEntityListener<*>>>()
