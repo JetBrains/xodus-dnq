@@ -331,10 +331,3 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     }
 }
 
-val StoreTransaction.highAddress
-    get() =
-        if (this is TransientStoreSession)
-            (persistentTransaction as PersistentStoreTransaction).environmentTransaction.highAddress
-        else {
-            (this as PersistentStoreTransaction).environmentTransaction.highAddress
-        }

@@ -29,18 +29,13 @@ import jetbrains.exodus.query.metadata.EntityMetaData
 import jetbrains.exodus.query.metadata.Index
 import mu.KLogging
 import java.io.File
-import java.io.IOException
 import java.io.InputStream
 import java.util.*
 import kotlin.concurrent.withLock
 
 private fun PersistentStoreTransaction.createChangesTracker(
-    readonly: Boolean,
-    currentAddress: Long
+    readonly: Boolean
 ): TransientChangesTracker {
-    if (currentAddress >= 0) {
-        return TxnDiffChangesTracker(this, this.store.beginTransactionAt(currentAddress))
-    }
     return if (readonly) ReadOnlyTransientChangesTrackerImpl(this) else TransientChangesTrackerImpl(this)
 }
 
@@ -50,8 +45,6 @@ private const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 class TransientSessionImpl(
     private val store: TransientEntityStoreImpl,
     private val readonly: Boolean,
-    private val snapshotAddress: Long = Long.MIN_VALUE,
-    private val currentAddress: Long = Long.MIN_VALUE
 ) : TransientStoreSession, SessionQueryMixin {
 
     companion object : KLogging() {
@@ -97,7 +90,7 @@ class TransientSessionImpl(
             return persistentTransactionInternal
         }
 
-    private var changesTracker = snapshot.createChangesTracker(readonly = true, currentAddress = currentAddress)
+    private var changesTracker = snapshot.createChangesTracker(readonly = true)
     override val transientChangesTracker: TransientChangesTracker
         get() {
             assertOpen("get changes tracker")
@@ -109,7 +102,7 @@ class TransientSessionImpl(
 
     private fun initChangesTracker(readonly: Boolean) {
         transientChangesTracker.dispose()
-        this.changesTracker = snapshot.createChangesTracker(readonly, currentAddress)
+        this.changesTracker = snapshot.createChangesTracker(readonly)
     }
 
     override fun getQueryCancellingPolicy(): QueryCancellingPolicy? {
@@ -570,10 +563,7 @@ class TransientSessionImpl(
     }
 
     override fun getSnapshot(): PersistentStoreTransaction {
-        return if (snapshotAddress == Long.MIN_VALUE)
-            persistentTransaction.snapshot
-        else
-            persistentStore.beginTransactionAt(snapshotAddress)
+        return persistentTransaction.snapshot
     }
 
     private fun flushIndexes() {

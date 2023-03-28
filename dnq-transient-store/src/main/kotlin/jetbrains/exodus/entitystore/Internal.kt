@@ -15,16 +15,6 @@
  */
 package jetbrains.exodus.entitystore
 
-import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
-import com.jetbrains.teamsys.dnq.database.TransientSessionImpl
-import com.jetbrains.teamsys.dnq.database.highAddress
-import jetbrains.exodus.core.execution.Job
-import jetbrains.exodus.database.TransientChangesTracker
-import jetbrains.exodus.database.TransientEntityChange
-import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.listeners.ListenerInvocationsImpl
-import jetbrains.exodus.env.EnvironmentImpl
-
 internal class FullEntityId(store: EntityStore, id: EntityId) {
 
     private val storeHashCode: Int = System.identityHashCode(store)

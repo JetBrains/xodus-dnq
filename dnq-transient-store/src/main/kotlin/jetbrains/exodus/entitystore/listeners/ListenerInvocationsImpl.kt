@@ -17,7 +17,7 @@ package jetbrains.exodus.entitystore.listeners
 
 import jetbrains.exodus.database.*
 
-class ListenerInvocationsImpl(private val replication: AsyncListenersReplicationImpl,
+class ListenerInvocationsImpl(
                               private val transport: ListenerInvocationTransport,
                               private val startHighAddress: Long,
                               private val endHighAddress: Long) : ListenerInvocations {
@@ -25,17 +25,6 @@ class ListenerInvocationsImpl(private val replication: AsyncListenersReplication
     private val invocations: MutableList<ListenerInvocation> = arrayListOf()
 
     override fun addInvocation(change: TransientEntityChange, listener: IEntityListener<*>) {
-        if (!replication.shouldReplicate(change, listener)) {
-            return
-        }
-        val entityId = change.transientEntity.id
-        invocations.add(
-                ListenerInvocation(
-                        changeType = change.changeType,
-                        entityId = entityId,
-                        listenerKey = replication.listenersSerialization.getKey(listener)
-                )
-        )
     }
 
     override fun send() {
