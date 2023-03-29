@@ -738,7 +738,6 @@ class TransientSessionImpl(
 
         forAllListeners { it.flushed(this, changesDescription) }
 
-        //explicitly notify EventsMultiplexer - it will dispose changes tracker in async job
         val ep = store.changesMultiplexer
         if (ep != null) {
             try {
@@ -747,9 +746,9 @@ class TransientSessionImpl(
                 logger.error("Exception while inside events multiplexer", e)
                 oldChangesTracker.dispose()
             }
-        } else {
-            oldChangesTracker.dispose()
         }
+
+        oldChangesTracker.dispose()
     }
 
     private fun notifyBeforeFlushListeners(changes: Set<TransientEntityChange>?) {
