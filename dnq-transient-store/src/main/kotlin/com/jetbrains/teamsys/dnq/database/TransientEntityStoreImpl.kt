@@ -19,7 +19,6 @@ import jetbrains.exodus.core.dataStructures.StablePriorityQueue
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.env.EnvironmentConfig
-import jetbrains.exodus.env.EnvironmentImpl
 import jetbrains.exodus.query.QueryEngine
 import jetbrains.exodus.query.metadata.ModelMetaData
 import mu.KLogging
@@ -295,15 +294,6 @@ open class TransientEntityStoreImpl : TransientEntityStore {
 
     fun setCachedEnumValue(className: String, propName: String, entity: Entity) {
         enumCache[getEnumKey(className, propName)] = entity
-    }
-
-    /**
-     * Wait until underlying highAddress gets this value
-     */
-    fun waitForPendingChanges(highAddress: Long) {
-        while ((_persistentStore.environment as EnvironmentImpl).log.highAddress < highAddress) {
-            Thread.sleep(100)
-        }
     }
 
     private fun Entity.unwrapEntity(): PersistentEntity {
