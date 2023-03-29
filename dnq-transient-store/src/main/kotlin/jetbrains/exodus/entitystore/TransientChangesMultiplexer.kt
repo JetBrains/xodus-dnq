@@ -16,8 +16,6 @@
 package jetbrains.exodus.entitystore
 
 import jetbrains.exodus.core.dataStructures.hash.HashMap
-import jetbrains.exodus.core.dataStructures.hash.HashSet
-import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.listeners.ListenerInvocationsImpl
@@ -28,12 +26,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-open class TransientChangesMultiplexer @JvmOverloads constructor() :
+open class TransientChangesMultiplexer :
     TransientStoreSessionListener, ITransientChangesMultiplexer {
 
     private val instanceToListeners = HashMap<FullEntityId, Queue<IEntityListener<*>>>()
     val typeToListeners = HashMap<String, Queue<IEntityListener<*>>>()
-    private val notAsyncStores = HashSet<TransientEntityStore>()
     private val rwl = ReentrantReadWriteLock()
     private var isOpen = true
 
@@ -69,11 +66,8 @@ open class TransientChangesMultiplexer @JvmOverloads constructor() :
     ) {
     }
 
-    fun disableAsyncFor(store: TransientEntityStore) {
-        rwl.write { notAsyncStores.add(store) }
-    }
 
-    internal fun fire(
+    private fun fire(
         store: TransientEntityStore,
         where: Where,
         changes: Set<TransientEntityChange>,
@@ -148,7 +142,7 @@ open class TransientChangesMultiplexer @JvmOverloads constructor() :
             this.typeToListeners.clear()
 
             // copy set
-            val notClosedListeners = HashMap<FullEntityId, Queue<IEntityListener<*>>>(this.instanceToListeners)
+            val notClosedListeners = HashMap(this.instanceToListeners)
             instanceToListeners.clear()
             notClosedListeners
         }
@@ -159,7 +153,6 @@ open class TransientChangesMultiplexer @JvmOverloads constructor() :
     }
 
     override fun onClose(transientEntityStore: TransientEntityStore) {
-        rwl.write { notAsyncStores.remove(transientEntityStore) }
     }
 
     private fun listenerToString(id: FullEntityId, listeners: Queue<IEntityListener<*>>): String {
@@ -241,21 +234,4 @@ open class TransientChangesMultiplexer @JvmOverloads constructor() :
         }
     }
 
-    private fun Queue<IEntityListener<*>>.visitAsync(
-        c: TransientEntityChange,
-        invocations: ListenerInvocationsImpl?,
-        action: (IEntityListener<Entity>) -> Unit
-    ) {
-        for (l in this) {
-            try {
-                @Suppress("UNCHECKED_CAST")
-                action(l as IEntityListener<Entity>)
-
-                invocations?.addInvocation(c, l)
-            } catch (e: Exception) {
-                // rethrow exception only for beforeFlush listeners
-                logger.error(e) { "Exception while notifying entity listener." }
-            }
-        }
-    }
 }
