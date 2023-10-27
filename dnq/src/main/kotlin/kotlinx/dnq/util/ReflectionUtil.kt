@@ -36,7 +36,7 @@ import kotlin.reflect.full.companionObjectInstance
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.jvmName
 
-internal val <T : XdEntity> XdEntityType<T>.enclosingEntityClass: Class<out T>
+val <T : XdEntity> XdEntityType<T>.enclosingEntityClass: Class<out T>
     get() {
         val entityTypeClass = this.javaClass
         val entityClass = entityTypeClass.enclosingClass
