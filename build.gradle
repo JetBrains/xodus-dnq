@@ -39,11 +39,13 @@ allprojects {
         maven { url 'https://packages.jetbrains.team/maven/p/xodus/xodus-daily' }
         // necessary for dokka 1.4.30
         maven { url "https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven" }
+        // URL for the Snapshot repository, necessary for OrientDB 4.0.0-SNAPSHOT
+        maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
     }
 
     java {
         toolchain {
-            languageVersion.set(JavaLanguageVersion.of(11))
+            languageVersion.set(JavaLanguageVersion.of(17))
         }
     }
 }
@@ -57,7 +59,7 @@ subprojects {
 
     java {
         toolchain {
-            languageVersion.set(JavaLanguageVersion.of(11))
+            languageVersion.set(JavaLanguageVersion.of(17))
         }
     }
 
@@ -87,7 +89,7 @@ subprojects {
 
     tasks.withType(compileKotlin.class).all {
         kotlinOptions {
-            jvmTarget = "11"
+            jvmTarget = "17"
             apiVersion = "1.8"
             languageVersion = "1.8"
         }

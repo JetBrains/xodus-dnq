@@ -17,6 +17,12 @@ dependencies {
     implementation "org.reflections:reflections:0.10.2"
     implementation "javax.servlet:javax.servlet-api:3.0.1"
 
+    implementation "com.orientechnologies:orientdb-core:4.0.0-SNAPSHOT"
+    //implementation "com.orientechnologies:orientdb-server:4.0.0"
+    //implementation "com.orientechnologies:orientdb-client:4.0.0"
+    //implementation "com.orientechnologies:orientdb-tools:4.0.0"
+    //implementation "com.orientechnologies:orientdb-graphdb:4.0.0"
+
     testImplementation project(':dnq')
     testImplementation "com.google.truth:truth:$google_truth_version"
     testImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
