@@ -40,7 +40,7 @@ allprojects {
         // necessary for dokka 1.4.30
         maven { url "https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven" }
         // URL for the Snapshot repository, necessary for OrientDB 4.0.0-SNAPSHOT
-        maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
+        maven { url "https://packages.jetbrains.team/maven/p/xodus/orientdb-daily" }
     }
 
     java {
