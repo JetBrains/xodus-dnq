@@ -786,9 +786,9 @@ fun <R : XdEntity> xdRequiredBlobStringProp(dbName: String? = null) =
  *        Kotlin-property is used as the name of the property in the database.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
  */
-fun <R : XdEntity, T : Comparable<T>> xdSetProp(dbName: String? = null) =
+inline fun <R : XdEntity, reified T : Comparable<T>> xdSetProp(dbName: String? = null) =
         XdPropertyCachedProvider {
-            XdSetProperty<R, T>(dbName)
+            XdSetProperty<R, T>(dbName, T::class.java)
         }
 
 /**
@@ -817,9 +817,9 @@ fun <R : XdEntity, T : Comparable<T>> xdSetProp(dbName: String? = null) =
  *        Kotlin-property is used as the name of the property in the database.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
  */
-fun <R : XdEntity, T : Comparable<T>> xdMutableSetProp(dbName: String? = null) =
+inline fun <R : XdEntity, reified T : Comparable<T>> xdMutableSetProp(dbName: String? = null) =
         XdPropertyCachedProvider {
-            XdMutableSetProperty<R, T>(dbName)
+            XdMutableSetProperty<R, T>(dbName, T::class.java)
         }
 
 /**

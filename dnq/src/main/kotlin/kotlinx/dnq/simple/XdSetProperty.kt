@@ -22,12 +22,16 @@ import kotlinx.dnq.util.reattachAndGetPrimitiveValue
 import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.reflect.KProperty
 
-class XdSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: String?) :
-        XdMutableConstrainedProperty<R, Set<T>>(
-                dbPropertyName,
-                emptyList(),
-                XdPropertyRequirement.OPTIONAL,
-                PropertyType.PRIMITIVE) {
+class XdSetProperty<in R : XdEntity, T : Comparable<T>>(
+    dbPropertyName: String?,
+    val clazz: Class<T>
+) :
+    XdMutableConstrainedProperty<R, Set<T>>(
+        dbPropertyName,
+        emptyList(),
+        XdPropertyRequirement.OPTIONAL,
+        PropertyType.PRIMITIVE
+    ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): Set<T> {
         val value = thisRef.reattachAndGetPrimitiveValue<ComparableSet<T>>(property.dbName)

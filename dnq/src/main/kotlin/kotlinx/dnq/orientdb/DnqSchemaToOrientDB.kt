@@ -2,6 +2,7 @@ package kotlinx.dnq.orientdb
 
 import com.orientechnologies.orient.core.db.ODatabaseSession
 import com.orientechnologies.orient.core.metadata.schema.OClass
+import com.orientechnologies.orient.core.metadata.schema.OClass.INDEX_TYPE
 import com.orientechnologies.orient.core.metadata.schema.OProperty
 import com.orientechnologies.orient.core.metadata.schema.OType
 import jetbrains.exodus.query.metadata.EntityMetaData
@@ -9,10 +10,7 @@ import jetbrains.exodus.query.metadata.ModelMetaDataImpl
 import kotlinx.dnq.XdEnumEntity
 import kotlinx.dnq.XdEnumEntityType
 import kotlinx.dnq.XdNaturalEntityType
-import kotlinx.dnq.simple.XdNullableProperty
-import kotlinx.dnq.simple.XdProperty
-import kotlinx.dnq.simple.XdPropertyRequirement
-import kotlinx.dnq.simple.XdWrappedProperty
+import kotlinx.dnq.simple.*
 import kotlinx.dnq.singleton.XdSingletonEntityType
 import kotlinx.dnq.util.XdHierarchyNode
 import mu.KLogger
@@ -183,25 +181,81 @@ class DnqSchemaToOrientDB(
                         property = property.wrapped
                     }
                     when (property) {
+
+                        // todo textProperty, blobProperty
                         is XdProperty<*, *> -> {
                             val oProperty = oClass.createPropertyIfAbsent(propertyName, getOType(property.clazz))
 
                             oProperty.setNotNullIfDifferent(true)
                             oProperty.setRequirement(property.requirement)
 
-                            // constraints
-                            // default
-                            for (constraint in property.constraints) {
-                                when (constraint) {
+                            /*
+                            * Default values
+                            *
+                            * Default values are implemented in DNQ as lambda functions that require
+                            * the entity itself and an instance of a KProperty to be called.
+                            *
+                            * So, it is not as straightforward as one may want to extract the default value out
+                            * of this lambda.
+                            *
+                            * So, a hard decision was made in this regard - ignore the default values on the
+                            * schema mapping step and handle them on the query processing level.
+                            *
+                            * Feel free to support default values in Schema mapping if you want to.
+                            * */
 
-                                }
-                            }
+
+                            /*
+                            * Constraints
+                            *
+                            * There are some typed constraints, and that is good.
+                            * But there are some anonymous constraints, and that is not good.
+                            * Most probably, there are constraints we do not know any idea of existing
+                            * (users can define their own constraints without any restrictions), and that is bad.
+                            *
+                            * Despite being able to map SOME constraints to the schema, there still will be
+                            * constraints we can not map (anonymous or user-defined).
+                            *
+                            * So, checking constraints on the query level is required.
+                            *
+                            * So, we made one of the hardest decisions in our lives and decided not to map
+                            * any of them at the schema mapping level.
+                            *
+                            * Feel free to do anything you want in this regard.
+                            * */
                         }
                         is XdNullableProperty<*, *> -> {
                             val oProperty = oClass.createPropertyIfAbsent(propertyName, getOType(property.clazz))
 
                             oProperty.setNotNullIfDifferent(false)
                             oProperty.setRequirement(property.requirement)
+                        }
+                        is XdSetProperty<*, *> -> {
+                            val oProperty = oClass.createEmbeddedSetPropertyIfAbsent(propertyName, getOType(property.clazz))
+
+                            /*
+                            * If the value is not defined, the property returns true.
+                            * It is handled on the DNQ entities level.
+                            * */
+                            oProperty.setNotNullIfDifferent(false)
+                            oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
+
+                            /*
+                            * When creating an index on an EMBEDDEDSET field, OrientDB does not create an index for the field itself.
+                            * Instead, it creates an index for each individual item in the set.
+                            * This is done to enable quick searches for individual elements within the set.
+                            *
+                            * The same behaviour as the original behaviour of set properties in DNQ.
+                            * */
+                            oProperty.createIndexIfAbsent(INDEX_TYPE.NOTUNIQUE)
+                        }
+                        is XdMutableSetProperty<*, *> -> {
+                            // the same as XdSetProperty<*, *>, look above
+
+                            val oProperty = oClass.createEmbeddedSetPropertyIfAbsent(propertyName, getOType(property.clazz))
+                            oProperty.setNotNullIfDifferent(false)
+                            oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
+                            oProperty.createIndexIfAbsent(INDEX_TYPE.NOTUNIQUE)
                         }
                         else -> throw IllegalArgumentException("$property is not supported. Feel free to support it.")
                     }
@@ -233,12 +287,16 @@ class DnqSchemaToOrientDB(
                 if (!isMandatory) {
                     setMandatory(true)
                 }
-                if (allIndexes.all { it.type != OClass.INDEX_TYPE.UNIQUE.name }) {
-                    createIndex(OClass.INDEX_TYPE.UNIQUE)
-                }
-                require(allIndexes.any { it.type == OClass.INDEX_TYPE.UNIQUE.name })
+                createIndexIfAbsent(INDEX_TYPE.UNIQUE)
             }
         }
+    }
+
+    private fun OProperty.createIndexIfAbsent(indexType: INDEX_TYPE) {
+        if (allIndexes.all { it.type != indexType.name }) {
+            createIndex(indexType)
+        }
+        require(allIndexes.any { it.type == indexType.name })
     }
 
     private fun OProperty.setNotNullIfDifferent(notNull: Boolean) {
@@ -267,6 +325,21 @@ class DnqSchemaToOrientDB(
         require(oProperty.type == oType) { "$propertyName type is ${oProperty.type} but $oType was expected instead. Types migration is not supported."  }
         return oProperty
     }
+
+    private fun OClass.createEmbeddedSetPropertyIfAbsent(propertyName: String, oType: OType): OProperty {
+        append(", type of the set is $oType")
+        val oProperty = if (existsProperty(propertyName)) {
+            append(", already created")
+            getProperty(propertyName)
+        } else {
+            append(", created")
+            createProperty(propertyName, OType.EMBEDDEDSET, oType)
+        }
+        require(oProperty.type == OType.EMBEDDEDSET) { "$propertyName type is ${oProperty.type} but ${OType.EMBEDDEDSET} was expected instead. Types migration is not supported."  }
+        require(oProperty.linkedType == oType) { "$propertyName type of the set is ${oProperty.type} but $oType was expected instead. Types migration is not supported." }
+        return oProperty
+    }
+
 
     private fun getOType(clazz: Class<*>): OType {
         return when (clazz) {

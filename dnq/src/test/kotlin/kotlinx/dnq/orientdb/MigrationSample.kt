@@ -59,16 +59,17 @@ class XdUser(entity: Entity) : XdEntity(entity) {
     
     var float by xdFloatProp()
     var requiredFloat by xdFloatProp()
-    var nullableFloat by xdFloatProp()
+    var nullableFloat by xdNullableFloatProp()
 
     var double by xdDoubleProp()
     var requiredDouble by xdDoubleProp()
-    var nullableDouble by xdDoubleProp()
+    var nullableDouble by xdNullableDoubleProp()
 
     var dataTime by xdDateTimeProp()
     var requiredDataTime by xdRequiredDateTimeProp()
 
-    val tmp by xdSetProp<XdUser, Int>()
+    var set: Set<String> by xdSetProp<XdUser, String>()
+    val mutableSet: MutableSet<Long> by xdMutableSetProp<XdUser, Long>()
 
     var gender by xdLink0_1(XdGender::users)
     val contacts by xdChildren0_N(XdContact::owner)
