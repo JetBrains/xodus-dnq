@@ -21,7 +21,12 @@ class DnqSchemaToOrientDB(
     private val xdHierarchy: Map<String, XdHierarchyNode>,
     private val oSession: ODatabaseSession,
 ) {
-    companion object: KLogging()
+    companion object: KLogging() {
+        val BINARY_BLOB_CLASS_NAME: String = "BinaryBlob"
+        val DATA_PROPERTY_NAME = "data"
+
+        val STRING_BLOB_CLASS_NAME: String = "StringBlob"
+    }
 
     private val paddedLogger = PaddedLogger(logger)
 
@@ -178,7 +183,6 @@ class DnqSchemaToOrientDB(
                         property = property.wrapped
                     }
                     when (property) {
-                        // todo textProperty
                         is XdProperty<*, *> -> {
                             val oProperty = oClass.createPropertyIfAbsent(propertyName, getOType(property.clazz))
 
@@ -263,6 +267,16 @@ class DnqSchemaToOrientDB(
                             oProperty.setNotNullIfDifferent(true)
                             oProperty.setRequirement(property.requirement)
                         }
+                        is XdNullableTextProperty -> {
+                            val oProperty = oClass.createStringBlobPropertyIfAbsent(propertyName)
+                            oProperty.setNotNullIfDifferent(false)
+                            oProperty.setRequirement(property.requirement)
+                        }
+                        is XdTextProperty -> {
+                            val oProperty = oClass.createStringBlobPropertyIfAbsent(propertyName)
+                            oProperty.setNotNullIfDifferent(true)
+                            oProperty.setRequirement(property.requirement)
+                        }
                         else -> throw IllegalArgumentException("$property is not supported. Feel free to support it.")
                     }
 
@@ -272,8 +286,12 @@ class DnqSchemaToOrientDB(
         }
     }
 
-    private fun OClass.createBinaryBlobPropertyIfAbsent(propertyName: String): OProperty {
-        val blobClass = oSession.createBinaryBlobClassIfAbsent()
+    private fun OClass.createBinaryBlobPropertyIfAbsent(propertyName: String): OProperty = createBlobPropertyIfAbsent(propertyName, BINARY_BLOB_CLASS_NAME)
+
+    private fun OClass.createStringBlobPropertyIfAbsent(propertyName: String): OProperty = createBlobPropertyIfAbsent(propertyName, STRING_BLOB_CLASS_NAME)
+
+    private fun OClass.createBlobPropertyIfAbsent(propertyName: String, blobClassName: String): OProperty {
+        val blobClass = oSession.createBlobClassIfAbsent(blobClassName)
 
         val oProperty = createPropertyIfAbsent(propertyName, OType.LINK)
         if (oProperty.linkedClass != blobClass) {
@@ -283,19 +301,16 @@ class DnqSchemaToOrientDB(
         return oProperty
     }
 
-    val BINARY_BLOB_CLASS_NAME: String = "BinaryBlob"
-    val DATA_PROPERTY_NAME = "data"
-
-    private fun ODatabaseSession.createBinaryBlobClassIfAbsent(): OClass {
-        var oClass: OClass? = getClass(BINARY_BLOB_CLASS_NAME)
+    private fun ODatabaseSession.createBlobClassIfAbsent(className: String): OClass {
+        var oClass: OClass? = getClass(className)
         if (oClass == null) {
-            oClass = oSession.createVertexClass(BINARY_BLOB_CLASS_NAME)!!
-            append(", $BINARY_BLOB_CLASS_NAME class created")
+            oClass = oSession.createVertexClass(className)!!
+            append(", $className class created")
             oClass.createProperty(DATA_PROPERTY_NAME, OType.BINARY)
             append(", $DATA_PROPERTY_NAME property created")
         } else {
-            append(", $BINARY_BLOB_CLASS_NAME class already created")
-            require(oClass.existsProperty(DATA_PROPERTY_NAME)) { "$DATA_PROPERTY_NAME is missing in $BINARY_BLOB_CLASS_NAME, something went dramatically wrong. Happy debugging!" }
+            append(", $className class already created")
+            require(oClass.existsProperty(DATA_PROPERTY_NAME)) { "$DATA_PROPERTY_NAME is missing in $className, something went dramatically wrong. Happy debugging!" }
         }
         return oClass
     }

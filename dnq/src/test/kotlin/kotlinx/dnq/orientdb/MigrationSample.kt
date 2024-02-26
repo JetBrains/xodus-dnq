@@ -75,6 +75,9 @@ class XdUser(entity: Entity) : XdEntity(entity) {
     var blob: InputStream? by xdBlobProp()
     var requiredBlob: InputStream by xdRequiredBlobProp()
 
+    var blobString: String? by xdBlobStringProp()
+    var requiredBlobString: String by xdRequiredBlobStringProp()
+
     var gender by xdLink0_1(XdGender::users)
     val contacts by xdChildren0_N(XdContact::owner)
 
