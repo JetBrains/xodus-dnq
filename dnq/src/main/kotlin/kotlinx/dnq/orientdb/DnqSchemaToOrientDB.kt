@@ -86,18 +86,18 @@ class DnqSchemaToOrientDB(
             is XdEnumEntityType<*> -> {
                 append(", enum")
                 require(!dnqEntity.isAbstract) { "An enum entity ${dnqEntity.type} is abstract. If you believe that an enum entity can be abstract, fix the code accordingly." }
-                oSession.createClassIfAbsent(dnqEntity.type)
+                oSession.createVertexClassIfAbsent(dnqEntity.type)
             }
 
             is XdSingletonEntityType<*> -> {
                 append(", singleton")
                 require(!dnqEntity.isAbstract) { "A singleton entity ${dnqEntity.type} is abstract. If you believe that a singleton entity can be abstract, fix the code accordingly." }
-                oSession.createClassIfAbsent(dnqEntity.type)
+                oSession.createVertexClassIfAbsent(dnqEntity.type)
             }
 
             is XdNaturalEntityType<*> -> {
                 append(", natural entity")
-                val oClass = oSession.createClassIfAbsent(dnqEntity.type)
+                val oClass = oSession.createVertexClassIfAbsent(dnqEntity.type)
                 if (dnqEntity.isAbstract) {
                     if (!oClass.isAbstract) {
                         oClass.setAbstract(true)
@@ -122,10 +122,10 @@ class DnqSchemaToOrientDB(
         * */
     }
 
-    private fun ODatabaseSession.createClassIfAbsent(name: String): OClass {
+    private fun ODatabaseSession.createVertexClassIfAbsent(name: String): OClass {
         var oClass: OClass? = getClass(name)
         if (oClass == null) {
-            oClass = oSession.createClass(name)!!
+            oClass = oSession.createVertexClass(name)!!
             append(", created")
         } else {
             append(", already created")
@@ -165,23 +165,19 @@ class DnqSchemaToOrientDB(
             }
             appendLine()
 
+
             // simple properties
             appendLine("simple properties:")
-
-
-            dnqEntity.propertiesMetaData.first().type
             withPadding {
                 for ((_, simpleProperty) in xdNode.simpleProperties) {
                     val propertyName = simpleProperty.dbPropertyName
                     var property = simpleProperty.delegate
-                    val propertyType = simpleProperty.delegate.propertyType
                     append(propertyName)
                     // unwrap
                     while (property is XdWrappedProperty<*, *, *>) {
                         property = property.wrapped
                     }
                     when (property) {
-
                         // todo textProperty, blobProperty
                         is XdProperty<*, *> -> {
                             val oProperty = oClass.createPropertyIfAbsent(propertyName, getOType(property.clazz))
