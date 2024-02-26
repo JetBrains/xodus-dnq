@@ -30,6 +30,7 @@ import kotlinx.dnq.simple.email
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
 import java.io.File
+import java.io.InputStream
 
 
 class XdUser(entity: Entity) : XdEntity(entity) {
@@ -70,6 +71,9 @@ class XdUser(entity: Entity) : XdEntity(entity) {
 
     var set: Set<String> by xdSetProp<XdUser, String>()
     val mutableSet: MutableSet<Long> by xdMutableSetProp<XdUser, Long>()
+
+    var blob: InputStream? by xdBlobProp()
+    var requiredBlob: InputStream by xdRequiredBlobProp()
 
     var gender by xdLink0_1(XdGender::users)
     val contacts by xdChildren0_N(XdContact::owner)

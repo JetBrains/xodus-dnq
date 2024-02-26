@@ -45,7 +45,7 @@ class DnqSchemaToOrientDB(
             appendLine("creating classes if absent:")
             withPadding {
                 for (dnqEntity in dnqModel.entitiesMetaData) {
-                    createClassIfAbsent(dnqEntity)
+                    createVertexClassIfAbsent(dnqEntity)
                 }
             }
             appendLine("creating properties and connections if absent:")
@@ -73,7 +73,7 @@ class DnqSchemaToOrientDB(
         return entityTypeName == XdEnumEntity.entityType
     }
 
-    private fun createClassIfAbsent(dnqEntity: EntityMetaData) {
+    private fun createVertexClassIfAbsent(dnqEntity: EntityMetaData) {
         append(dnqEntity.type)
         if (ignored(dnqEntity.type)) {
             appendLine(", ignored")
@@ -178,7 +178,7 @@ class DnqSchemaToOrientDB(
                         property = property.wrapped
                     }
                     when (property) {
-                        // todo textProperty, blobProperty
+                        // todo textProperty
                         is XdProperty<*, *> -> {
                             val oProperty = oClass.createPropertyIfAbsent(propertyName, getOType(property.clazz))
 
@@ -253,15 +253,51 @@ class DnqSchemaToOrientDB(
                             oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
                             oProperty.createIndexIfAbsent(INDEX_TYPE.NOTUNIQUE)
                         }
+                        is XdNullableBlobProperty -> {
+                            val oProperty = oClass.createBinaryBlobPropertyIfAbsent(propertyName)
+                            oProperty.setNotNullIfDifferent(false)
+                            oProperty.setRequirement(property.requirement)
+                        }
+                        is XdBlobProperty -> {
+                            val oProperty = oClass.createBinaryBlobPropertyIfAbsent(propertyName)
+                            oProperty.setNotNullIfDifferent(true)
+                            oProperty.setRequirement(property.requirement)
+                        }
                         else -> throw IllegalArgumentException("$property is not supported. Feel free to support it.")
                     }
-
 
                     appendLine()
                 }
             }
-
         }
+    }
+
+    private fun OClass.createBinaryBlobPropertyIfAbsent(propertyName: String): OProperty {
+        val blobClass = oSession.createBinaryBlobClassIfAbsent()
+
+        val oProperty = createPropertyIfAbsent(propertyName, OType.LINK)
+        if (oProperty.linkedClass != blobClass) {
+            oProperty.setLinkedClass(blobClass)
+        }
+        require(oProperty.linkedClass == blobClass) { "Property linked class is ${oProperty.linkedClass}, but $blobClass was expected" }
+        return oProperty
+    }
+
+    val BINARY_BLOB_CLASS_NAME: String = "BinaryBlob"
+    val DATA_PROPERTY_NAME = "data"
+
+    private fun ODatabaseSession.createBinaryBlobClassIfAbsent(): OClass {
+        var oClass: OClass? = getClass(BINARY_BLOB_CLASS_NAME)
+        if (oClass == null) {
+            oClass = oSession.createVertexClass(BINARY_BLOB_CLASS_NAME)!!
+            append(", $BINARY_BLOB_CLASS_NAME class created")
+            oClass.createProperty(DATA_PROPERTY_NAME, OType.BINARY)
+            append(", $DATA_PROPERTY_NAME property created")
+        } else {
+            append(", $BINARY_BLOB_CLASS_NAME class already created")
+            require(oClass.existsProperty(DATA_PROPERTY_NAME)) { "$DATA_PROPERTY_NAME is missing in $BINARY_BLOB_CLASS_NAME, something went dramatically wrong. Happy debugging!" }
+        }
+        return oClass
     }
 
     private fun OProperty.setRequirement(requirement: XdPropertyRequirement) {
@@ -269,19 +305,19 @@ class DnqSchemaToOrientDB(
             XdPropertyRequirement.OPTIONAL -> {
                 append(", optional")
                 if (isMandatory) {
-                    setMandatory(false)
+                    isMandatory = false
                 }
             }
             XdPropertyRequirement.REQUIRED -> {
                 append(", required")
                 if (!isMandatory) {
-                    setMandatory(true)
+                    isMandatory = true
                 }
             }
             XdPropertyRequirement.UNIQUE -> {
                 append(", required, unique")
                 if (!isMandatory) {
-                    setMandatory(true)
+                    isMandatory = true
                 }
                 createIndexIfAbsent(INDEX_TYPE.UNIQUE)
             }
