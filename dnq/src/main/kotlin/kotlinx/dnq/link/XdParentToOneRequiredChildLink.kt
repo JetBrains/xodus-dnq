@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.link
 
+import com.orientechnologies.orient.core.record.ODirection
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.RequiredPropertyUndefinedException
@@ -41,19 +42,25 @@ class XdParentToOneRequiredChildLink<R : XdEntity, T : XdEntity>(
         onTargetDelete = OnDeletePolicy.FAIL
 ) {
 
-    override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val entity = thisRef.reattachAndGetLink(property.dbName)
-                ?: throw RequiredPropertyUndefinedException(thisRef, property)
 
+    override fun getValue(thisRef: R, property: KProperty<*>): T {
+        val entity = thisRef.reload().getVertices(ODirection.OUT, property.dbName).firstOrNull() ?: throw RequiredPropertyUndefinedException(thisRef, property)
         return oppositeEntityType.wrap(entity)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        val session = thisRef.threadSessionOrThrow
-        thisRef.reattach(session).setChild(property.dbName, oppositeField.oppositeDbName, value.reattach(session))
+        val oldValue = thisRef.vertex.getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        if (oldValue != null){
+            thisRef.vertex.deleteEdge(oldValue, property.dbName)
+            //!! in xodus dnq we also store child-to-parent link names as a property in entity
+            oldValue.delete()
+        }
+        thisRef.vertex.addEdge(value.vertex, property.dbName)
+        value.vertex.addEdge(thisRef.vertex, property.oppositeDbName)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattachAndGetLink(property.name) != null
+        //TODO chage the way we check it
+        return thisRef.vertex.edgeNames.contains(property.dbName)
     }
 }

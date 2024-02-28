@@ -15,10 +15,13 @@
  */
 package kotlinx.dnq.simple
 
+import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.record.OElement
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.util.reattachAndGetBlob
-import kotlinx.dnq.util.reattachAndSetBlob
+import kotlinx.dnq.orientdb.DnqSchemaToOrientDB
+import java.io.ByteArrayInputStream
 import java.io.InputStream
 import kotlin.reflect.KProperty
 
@@ -30,12 +33,32 @@ class XdNullableBlobProperty<in R : XdEntity>(dbPropertyName: String?) :
                 PropertyType.BLOB) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): InputStream? {
-        return thisRef.reattachAndGetBlob(property.dbName)
+        val vertex = thisRef.reload()
+        val element = vertex.getLinkProperty(property.dbName)
+        return (element as? OElement)?.let {
+            ByteArrayInputStream(element.getProperty<ByteArray>(DnqSchemaToOrientDB.DATA_PROPERTY_NAME))
+        }
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: InputStream?) {
-        thisRef.reattachAndSetBlob(property.dbName, value)
+        val vertex = thisRef.vertex
+        val element = vertex.getLinkProperty(property.dbName) as? OElement
+        if (value != null){
+            val notNullElement = element ?: run {
+                val session = ODatabaseSession.getActiveSession()
+                session.newElement(DnqSchemaToOrientDB.BINARY_BLOB_CLASS_NAME)
+            }
+            notNullElement.setProperty(DnqSchemaToOrientDB.DATA_PROPERTY_NAME, value.readAllBytes())
+        } else {
+            vertex.removeProperty<OElement>(property.dbName)
+            element?.delete()
+        }
+        //todo should we save element also here
+        vertex.save<OVertex>()
     }
 
-    override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null
+    override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
+        return thisRef.vertex.hasProperty(property.dbName)
+    }
+
 }

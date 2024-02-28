@@ -15,13 +15,12 @@
  */
 package kotlinx.dnq.link
 
+import com.orientechnologies.orient.core.record.ODirection
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.util.reattach
-import kotlinx.dnq.util.reattachAndGetLink
-import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 
 class XdToOneOptionalLink<in R : XdEntity, T : XdEntity>(
@@ -40,15 +39,24 @@ class XdToOneOptionalLink<in R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return thisRef.reattachAndGetLink(property.dbName)?.let { value ->
-            oppositeEntityType.wrap(value)
+        val entity = thisRef.reload().getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        return entity?.let {
+            oppositeEntityType.wrap(it)
         }
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        val session = thisRef.threadSessionOrThrow
-        thisRef.reattach(session).setToOne(property.dbName, value?.reattach(session))
+        val oldValue = thisRef.vertex.getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        if (oldValue != null) {
+            thisRef.vertex.deleteEdge(oldValue, property.dbName)
+        }
+        if (value != null) {
+            thisRef.vertex.addEdge(value.vertex, property.dbName)
+        }
+        thisRef.vertex.save<OVertex>()
     }
 
-    override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null
+    override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
+        return thisRef.vertex.edgeNames.contains(property.dbName)
+    }
 }

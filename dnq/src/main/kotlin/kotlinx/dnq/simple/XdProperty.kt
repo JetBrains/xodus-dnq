@@ -16,12 +16,11 @@
 package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
+import com.orientechnologies.orient.core.record.ORecord
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
-import kotlinx.dnq.util.reattachAndGetPrimitiveValue
-import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.reflect.KProperty
 
 class XdProperty<in R : XdEntity, T : Comparable<T>>(
@@ -40,7 +39,7 @@ class XdProperty<in R : XdEntity, T : Comparable<T>>(
         ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val result: T? = thisRef.reattachAndGetPrimitiveValue(property.dbName)
+        val result: T? = thisRef.reload().getProperty(property.dbName)
         if (isBoolean) {
             return (result != null) as T
         }
@@ -48,13 +47,18 @@ class XdProperty<in R : XdEntity, T : Comparable<T>>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        thisRef.reattachAndSetPrimitiveValue(property.dbName, value, clazz)
+        if (isBoolean && !(value as Boolean)) {
+            thisRef.vertex.removeProperty<Boolean>(property.dbName)
+        } else {
+            thisRef.vertex.setProperty(property.dbName, value)
+        }
+        thisRef.vertex.save<ORecord>()
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
         if (isBoolean) return true
-        return thisRef.reattachAndGetPrimitiveValue<T>(property.dbName) != null
+        return thisRef.vertex.hasProperty(property.dbName)
     }
 
-    val isBoolean: Boolean get() = clazz == java.lang.Boolean::class.java
+    private val isBoolean: Boolean get() = clazz == java.lang.Boolean::class.java
 }

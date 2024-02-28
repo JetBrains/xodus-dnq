@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.query
 
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
@@ -38,21 +39,20 @@ import kotlin.reflect.jvm.javaType
  */
 interface XdQuery<out T : XdEntity> {
     val entityType: XdEntityType<T>
-    val entityIterable: Iterable<Entity>
+    val entityIterable: Iterable<OVertex>
 }
 
 class XdQueryImpl<out T : XdEntity>(
-        override val entityIterable: Iterable<Entity>,
+        override val entityIterable: Iterable<OVertex>,
         override val entityType: XdEntityType<T>) : XdQuery<T>
 
-private val <T : XdEntity> XdQuery<T>.queryEngine: QueryEngine
-    get() = entityType.entityStore.queryEngine
 
-fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQuery<T> {
+fun <T : XdEntity> Iterable<OVertex>?.asQuery(entityType: XdEntityType<T>): XdQuery<T> {
     return if (this != null) {
         XdQueryImpl(this, entityType)
     } else {
-        XdQueryImpl(EntityIterableBase.EMPTY, entityType)
+        //TODO use same constant
+        XdQueryImpl(listOf(), entityType)
     }
 }
 

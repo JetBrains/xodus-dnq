@@ -15,31 +15,42 @@
  */
 package kotlinx.dnq.simple
 
+import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.record.OElement
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.util.reattachAndGetBlob
-import kotlinx.dnq.util.reattachAndGetBlobString
-import kotlinx.dnq.util.reattachAndSetBlobString
+import kotlinx.dnq.orientdb.DnqSchemaToOrientDB
 import kotlin.reflect.KProperty
 
 class XdTextProperty<in R : XdEntity>(dbPropertyName: String?) :
-        XdMutableConstrainedProperty<R, String>(
-                dbPropertyName,
-                emptyList(),
-                XdPropertyRequirement.REQUIRED,
-                PropertyType.TEXT) {
+    XdMutableConstrainedProperty<R, String>(
+        dbPropertyName,
+        emptyList(),
+        XdPropertyRequirement.REQUIRED,
+        PropertyType.TEXT
+    ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): String {
-        return thisRef.reattachAndGetBlobString(property.dbName) ?:
-                throw RequiredPropertyUndefinedException(thisRef, property)
+        val vertex = thisRef.reload()
+        val element = vertex.getLinkProperty(property.dbName) ?: RequiredPropertyUndefinedException(thisRef, property)
+        element as OElement
+        return element.getProperty<String>(DnqSchemaToOrientDB.DATA_PROPERTY_NAME)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: String) {
-        thisRef.reattachAndSetBlobString(property.dbName, value)
+        val vertex = thisRef.vertex
+        val element = vertex.getLinkProperty(property.dbName) as? OElement ?: run {
+            val session = ODatabaseSession.getActiveSession()
+            session.newElement(DnqSchemaToOrientDB.STRING_BLOB_CLASS_NAME)
+        }
+        element.setProperty(DnqSchemaToOrientDB.DATA_PROPERTY_NAME, value)
+        //todo should we save element also here
+        vertex.save<OVertex>()
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattachAndGetBlob(property.dbName) != null
+        return thisRef.vertex.hasProperty(property.dbName)
     }
 }

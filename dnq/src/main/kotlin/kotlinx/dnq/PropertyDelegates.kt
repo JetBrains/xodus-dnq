@@ -17,6 +17,7 @@ package kotlinx.dnq
 
 import kotlinx.dnq.sequence.XdSequenceProperty
 import kotlinx.dnq.simple.*
+import kotlinx.dnq.store.container.StoreContainer
 import kotlinx.dnq.util.XdPropertyCachedProvider
 import org.joda.time.DateTime
 import kotlin.reflect.KProperty

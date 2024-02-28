@@ -16,12 +16,11 @@
 package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.database.PropertyConstraint
+import com.orientechnologies.orient.core.record.ORecord
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.custom.type.XdCustomTypeBinding
 import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
-import kotlinx.dnq.util.reattachAndGetPrimitiveValue
-import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.reflect.KProperty
 
 class XdNullableProperty<in R : XdEntity, T : Comparable<T>>(
@@ -37,12 +36,12 @@ class XdNullableProperty<in R : XdEntity, T : Comparable<T>>(
                 PropertyType.PRIMITIVE) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        val result: T? = thisRef.reattachAndGetPrimitiveValue(property.dbName)
-        return if (clazz == Boolean::class.java) (result != null) as T else result
+        return thisRef.reload().getProperty<T>(property.dbName)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        thisRef.reattachAndSetPrimitiveValue(property.dbName, value, clazz)
+        thisRef.vertex.setProperty(property.dbName, value)
+        thisRef.vertex.save<ORecord>()
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null

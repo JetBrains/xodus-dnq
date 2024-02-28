@@ -15,32 +15,45 @@
  */
 package kotlinx.dnq.simple
 
+import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.record.OElement
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.util.reattachAndGetBlob
-import kotlinx.dnq.util.reattachAndSetBlob
+import kotlinx.dnq.orientdb.DnqSchemaToOrientDB.Companion.BINARY_BLOB_CLASS_NAME
+import kotlinx.dnq.orientdb.DnqSchemaToOrientDB.Companion.DATA_PROPERTY_NAME
+import java.io.ByteArrayInputStream
 import java.io.InputStream
 import kotlin.reflect.KProperty
 
 class XdBlobProperty<in R : XdEntity>(
-        dbPropertyName: String?) :
-        XdMutableConstrainedProperty<R, InputStream>(
-                dbPropertyName,
-                emptyList(),
-                XdPropertyRequirement.REQUIRED,
-                PropertyType.BLOB) {
+    dbPropertyName: String?
+) :
+    XdMutableConstrainedProperty<R, InputStream>(
+        dbPropertyName,
+        emptyList(),
+        XdPropertyRequirement.REQUIRED,
+        PropertyType.BLOB
+    ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): InputStream {
-        return thisRef.reattachAndGetBlob(property.dbName) ?:
-                throw RequiredPropertyUndefinedException(thisRef, property)
+        val vertex = thisRef.reload()
+        val element = vertex.getLinkProperty(property.dbName) ?: RequiredPropertyUndefinedException(thisRef, property)
+        element as OElement
+        return ByteArrayInputStream(element.getProperty(DATA_PROPERTY_NAME))
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: InputStream) {
-        thisRef.reattachAndSetBlob(property.dbName, value)
+        val vertex = thisRef.vertex
+        val element = vertex.getLinkProperty(property.dbName) as? OElement ?: run {
+            val session = ODatabaseSession.getActiveSession()
+            session.newElement(BINARY_BLOB_CLASS_NAME)
+        }
+        element.setProperty(DATA_PROPERTY_NAME, value.readAllBytes())
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattachAndGetBlob(property.dbName) != null
+        return thisRef.vertex.hasProperty(property.dbName)
     }
 }

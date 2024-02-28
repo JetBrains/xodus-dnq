@@ -15,15 +15,13 @@
  */
 package kotlinx.dnq.link
 
+import com.orientechnologies.orient.core.record.ODirection
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.toXd
-import kotlinx.dnq.util.reattach
-import kotlinx.dnq.util.reattachAndGetLink
-import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -43,17 +41,23 @@ class XdOneChildToParentLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        return thisRef.reattachAndGetLink(property.dbName)?.toXd()
-                ?: throw RequiredPropertyUndefinedException(thisRef, property)
+        val parent = thisRef.reload().getVertices(ODirection.OUT, property.dbName).firstOrNull()?: throw RequiredPropertyUndefinedException(thisRef, property)
+        return oppositeEntityType.wrap(parent)
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        val session = thisRef.threadSessionOrThrow
-        value.reattach(session).setChild(oppositeField.oppositeDbName, property.dbName, thisRef.reattach(session))
+        val oldParent = thisRef.reload().getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        thisRef.vertex.addEdge(value.vertex, property.dbName)
+        value.vertex.addEdge(thisRef.vertex, property.oppositeDbName)
+        oldParent?.let {
+            thisRef.vertex.deleteEdge(oldParent, property.dbName)
+            oldParent.deleteEdge(thisRef.vertex, property.oppositeDbName)
+        }
+        thisRef.vertex.save<OVertex>()
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattachAndGetLink(property.dbName) != null
+        return thisRef.reload().getEdges(ODirection.OUT, property.dbName).iterator().hasNext()
     }
 }
 

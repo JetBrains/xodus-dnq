@@ -15,9 +15,11 @@
  */
 package kotlinx.dnq.store.container
 
-import jetbrains.exodus.database.TransientEntityStore
+import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.db.OrientDB
 
 interface StoreContainer {
-    val store: TransientEntityStore
+    val database: OrientDB
+    val session: ODatabaseSession
 }
 

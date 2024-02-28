@@ -15,13 +15,12 @@
  */
 package kotlinx.dnq.link
 
+import com.orientechnologies.orient.core.record.ODirection
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.util.reattach
-import kotlinx.dnq.util.reattachAndGetLink
-import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -43,16 +42,28 @@ class XdOneToOneOptionalLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return thisRef.reattachAndGetLink(property.dbName)?.let { value ->
-            oppositeEntityType.wrap(value)
-        }
+        val entity = thisRef.reload().getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        return entity?.let { oppositeEntityType.wrap(entity) }
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        val session = thisRef.threadSessionOrThrow
-        thisRef.reattach(session).setOneToOne(property.dbName, oppositeField.oppositeDbName, value?.reattach(session))
+        val oldValue = thisRef.vertex.getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        oldValue?.let {
+            thisRef.vertex.deleteEdge(oldValue, property.dbName)
+            oldValue.deleteEdge(thisRef.vertex, property.oppositeDbName)
+            oldValue.save<OVertex>()
+        }
+        if (value != null){
+            thisRef.vertex.addEdge(value.vertex, property.dbName)
+            value.vertex.addEdge(thisRef.vertex, property.oppositeDbName)
+            value.vertex.save<OVertex>()
+
+        }
+        thisRef.vertex.save<OVertex>()
     }
 
-    override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null
+    override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
+        return thisRef.reload().getEdges(ODirection.OUT, property.dbName).iterator().hasNext()
+    }
 }
 

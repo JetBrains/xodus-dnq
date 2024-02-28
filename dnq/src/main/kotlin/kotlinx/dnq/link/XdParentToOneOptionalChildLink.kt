@@ -15,13 +15,11 @@
  */
 package kotlinx.dnq.link
 
+import com.orientechnologies.orient.core.record.ODirection
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.util.reattach
-import kotlinx.dnq.util.reattachAndGetLink
-import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -41,22 +39,25 @@ class XdParentToOneOptionalChildLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return thisRef.reattachAndGetLink(property.dbName)?.let { value ->
-            oppositeEntityType.wrap(value)
-        }
+        val entity = thisRef.reload().getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        return entity?.let { oppositeEntityType.wrap(entity) }
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        val session = thisRef.threadSessionOrThrow
-        val parent = thisRef.reattach(session)
-        val child = value?.reattach(session)
-        if (child != null) {
-            parent.setChild(property.dbName, oppositeField.oppositeDbName, child)
-        } else {
-            parent.removeChild(property.dbName, oppositeField.oppositeDbName)
+        val oldValue = thisRef.vertex.getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        if (oldValue != null){
+            thisRef.vertex.deleteEdge(oldValue, property.dbName)
+            //!! in xodus dnq we also store child-to-parent link names as a property in entity
+            oldValue.delete()
+        }
+        if (value != null){
+            thisRef.vertex.addEdge(value.vertex, property.dbName)
+            value.vertex.addEdge(thisRef.vertex, property.oppositeDbName)
         }
     }
 
-    override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null
+    override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
+        return thisRef.vertex.edgeNames.contains(property.dbName)
+    }
 }
 

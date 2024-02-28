@@ -16,12 +16,16 @@
 package kotlinx.dnq.store.container
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.db.OrientDB
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.env.EnvironmentConfig
 import java.io.File
 
 object StaticStoreContainer : StoreContainer {
     private var _store: TransientEntityStore? = null
+    private val _database: OrientDB? = null
+    private val _session: ODatabaseSession? = null
 
     override var store: TransientEntityStore
         get() {
@@ -30,6 +34,11 @@ object StaticStoreContainer : StoreContainer {
         set(value) {
             this._store = value
         }
+
+    override val database: OrientDB
+        get() = _database ?: throw IllegalStateException("Database Is Not Initialized")
+    override val session: ODatabaseSession
+        get() = _session ?: throw IllegalStateException("DatabaseSession Is Not Initialized")
 
     fun init(dbFolder: File, entityStoreName: String, primary: Boolean = true, configure: EnvironmentConfig.() -> Unit = {}): TransientEntityStoreImpl {
         val store = createTransientEntityStore(dbFolder, entityStoreName, primary, configure)

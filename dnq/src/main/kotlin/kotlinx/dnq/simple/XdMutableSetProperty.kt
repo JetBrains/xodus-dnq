@@ -15,12 +15,10 @@
  */
 package kotlinx.dnq.simple
 
-import com.jetbrains.teamsys.dnq.database.reattachTransient
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.bindings.ComparableSet
-import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
-import kotlinx.dnq.util.reattachAndGetPrimitiveValue
 import kotlin.reflect.KProperty
 
 class XdMutableSetProperty<in R : XdEntity, T : Comparable<T>>(
@@ -34,26 +32,26 @@ class XdMutableSetProperty<in R : XdEntity, T : Comparable<T>>(
     ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): MutableSet<T> {
-        return BoundMutableSet<T>(thisRef.entity, property.dbName)
+        return BoundMutableSet(thisRef.reload(), property.dbName)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattachAndGetPrimitiveValue<ComparableSet<T>>(property.dbName) != null
+        return thisRef.vertex.hasProperty(property.dbName)
     }
 }
 
-class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName: String) : MutableSet<T> {
+class BoundMutableSet<T : Comparable<T>>(val vertex: OVertex, val dbPropertyName: String) : MutableSet<T> {
 
     private fun set(value: ComparableSet<T>?) {
         when {
-            value == null || value.isEmpty -> entity.reattachTransient().deleteProperty(dbPropertyName)
-            else -> entity.reattachTransient().setProperty(dbPropertyName, value)
+            value == null || value.isEmpty -> vertex.removeProperty<Set<T>>(dbPropertyName)
+            else -> vertex.setProperty(dbPropertyName, value)
         }
+        vertex.save<OVertex>()
     }
 
     private fun get(): ComparableSet<T>? {
-        @Suppress("UNCHECKED_CAST")
-        return entity.reattachTransient().getProperty(dbPropertyName) as ComparableSet<T>?
+        return vertex.getProperty(dbPropertyName) as ComparableSet<T>?
     }
 
     private inline fun update(operation: (ComparableSet<T>) -> Unit): Boolean {
@@ -92,7 +90,7 @@ class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName:
     }
 
     override fun retainAll(elements: Collection<T>) = update {
-        (it - elements).forEach { element -> it.removeItem(element) }
+        (it - elements.toSet()).forEach { element -> it.removeItem(element) }
     }
 
     override val size: Int

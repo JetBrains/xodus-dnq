@@ -26,7 +26,7 @@ import jetbrains.exodus.entitystore.PersistentEntityStore
 import kotlinx.dnq.XdEntity
 import java.io.InputStream
 
-fun XdEntity.reattach(session: TransientStoreSession? = null) = entity.reattachTransient(session)
+//fun XdEntity.reattach(session: TransientStoreSession? = null) = entity.reattachTransient(session)
 
 val XdEntity.threadSessionOrThrow: TransientStoreSession get() = entity.threadSessionOrThrow
 
@@ -109,10 +109,3 @@ fun XdEntity.getOldLinkValue(linkName: String): TransientEntity? {
         getRemovedLinks(linkName).firstOrNull() as TransientEntity?
     }
 }
-
-fun XdEntity.reattachAndGetLink(linkName: String): Entity? {
-    val session = threadSessionOrThrow
-    return reattach(session).getLinkEx(linkName, session)
-}
-
-val XdEntity.isReadOnly: Boolean get() = (entity as TransientEntity).isReadonly

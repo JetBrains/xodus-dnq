@@ -15,20 +15,35 @@
  */
 package kotlinx.dnq
 
-import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.Entity
+import com.orientechnologies.orient.core.db.OrientDB
+import com.orientechnologies.orient.core.record.OVertex
 import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.query.XdQueryImpl
 import kotlinx.dnq.store.container.StoreContainer
+import kotlin.streams.asSequence
+
 
 abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer) {
     abstract val entityType: String
-    val entityStore: TransientEntityStore
-        get() = storeContainer.store
+    val database: OrientDB
+        get() = storeContainer.database
 
     fun all(): XdQuery<T> {
-        return XdQueryImpl(entityStore.queryEngine.queryGetAll(entityType), this)
+        val query = "SELECT FROM $entityType"
+        val database = database
+        val resultSet = database.execute(query)
+
+
+
+        return XdQueryImpl(
+            object : Iterable<OVertex> {
+                override fun iterator(): Iterator<OVertex> {
+                    return resultSet.vertexStream()    .iterator()
+                }
+            }, this
+        )
     }
+
 
     open fun new(init: (T.() -> Unit) = {}): T {
         val transaction = (entityStore.threadSession
@@ -39,5 +54,5 @@ abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer
         }
     }
 
-    open fun wrap(entity: Entity) = entity.toXd<T>()
+    open fun wrap(vertex: OVertex) = vertex.toXd<T>()
 }

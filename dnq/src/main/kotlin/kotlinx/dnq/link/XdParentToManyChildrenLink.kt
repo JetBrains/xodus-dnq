@@ -15,18 +15,13 @@
  */
 package kotlinx.dnq.link
 
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.query.LinkEqual
-import jetbrains.exodus.query.TreeKeepingEntityIterable
+import com.orientechnologies.orient.core.record.ODirection
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
-import kotlinx.dnq.query.isNotEmpty
-import kotlinx.dnq.util.isReadOnly
-import kotlinx.dnq.util.reattach
-import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -47,37 +42,35 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
+        val vertex = thisRef.reload()
         return object : XdMutableQuery<T>(oppositeEntityType) {
-            override val entityIterable: Iterable<Entity>
-                get() = try {
-                    val queryEngine = oppositeEntityType.entityStore.queryEngine
-                    val oppositeType = oppositeEntityType.entityType
-                    if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
-                        thisRef.reattach().getLinks(property.dbName)
-                    } else {
-                        TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.oppositeDbName, thisRef.reattach()), queryEngine)
-                    }
-                } catch (_: UnsupportedOperationException) {
-                    // to support weird FakeTransientEntity
-                    thisRef.reattach().getLinks(property.dbName)
-                }
+            override val entityIterable: Iterable<OVertex> get() {
+                return vertex.getVertices(ODirection.OUT, property.dbName)
+                // TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.oppositeDbName, thisRef.reattach()), queryEngine)
+            }
 
             override fun add(entity: T) {
-                val session = thisRef.threadSessionOrThrow
-                thisRef.reattach(session).addChild(property.dbName, oppositeField.oppositeDbName, entity.reattach(session))
+                vertex.addEdge(entity.vertex, property.dbName)
+                entity.vertex.addEdge(entity.vertex, property.oppositeDbName)
+
             }
 
             override fun remove(entity: T) {
-                entity.reattach().removeFromParent(property.dbName, oppositeField.oppositeDbName)
+                vertex.deleteEdge(entity.vertex, property.dbName)
+                //Do we really need it?
+                entity.vertex.delete()
             }
 
             override fun clear() {
-                thisRef.reattach().clearChildren(property.dbName)
+                vertex.getEdges(ODirection.OUT, property.dbName).forEach { edge ->
+                    vertex.deleteEdge(edge.to, property.dbName)
+                    edge.to.delete()
+                }
             }
         }
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return getValue(thisRef, property).isNotEmpty
+        return thisRef.vertex.edgeNames.contains(property.dbName)
     }
 }

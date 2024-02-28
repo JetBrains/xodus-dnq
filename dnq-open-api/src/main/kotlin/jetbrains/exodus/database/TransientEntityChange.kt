@@ -22,15 +22,5 @@ class TransientEntityChange(val changesTracker: TransientChangesTracker,
                             val changeType: EntityChangeType) {
 
     val snapshotEntity get() = changesTracker.getSnapshotEntity(transientEntity)
-
-    @Deprecated("Use snapshotEntity instead")
-    val snaphotEntity
-        get() = snapshotEntity
-
-    @Deprecated("Use changedLinksDetailed instead", ReplaceWith("this.changedLinksDetailed"))
-    val changedLinksDetaled
-        get() = changedLinksDetailed
-
     override fun toString() = "$changeType:$transientEntity"
-
 }

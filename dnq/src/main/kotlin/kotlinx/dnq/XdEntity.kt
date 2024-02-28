@@ -15,26 +15,29 @@
  */
 package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.database.EntityOperations
-import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
-import jetbrains.exodus.database.TransientEntity
+import com.orientechnologies.orient.core.id.ORID
+import com.orientechnologies.orient.core.record.ODirection
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityId
-import kotlinx.dnq.util.reattach
 
-abstract class XdEntity(val entity: Entity) {
-    val entityId: EntityId get() = entity.id
-    val xdId: String get() = entityId.toString()
+abstract class XdEntity(val vertex: OVertex) {
+    val identity: ORID get() = vertex.identity
+    val xdId: String get() = "${identity.clusterId}-${identity.clusterPosition}"
+
+    abstract val entity: Entity
 
     val isNew: Boolean
-        get() = reattach().isNew
+        get() = identity.isNew
 
     val isRemoved: Boolean
-        get() = (entity as TransientEntity).store.threadSessionOrThrow.isRemoved(entity)
+        get() = !vertex.exists()
 
     open fun delete() {
-        EntityOperations.remove(entity)
+        //TODO remove all edges
+        vertex.delete()
     }
+
+    fun reload() = vertex.reload<OVertex>()!!
 
     open fun beforeFlush() {}
 
@@ -46,13 +49,13 @@ abstract class XdEntity(val entity: Entity) {
         return when {
             this === other -> true
             other !is XdEntity -> false
-            else -> this.entity == other.entity
+            else -> vertex.identity == other.vertex.identity
         }
     }
 
-    override fun hashCode() = entity.hashCode()
+    override fun hashCode() = vertex.hashCode()
 
     override fun toString(): String {
-        return "${this::class.simpleName} wrapper for $entity"
+        return "${vertex.schemaClass?.name} wrapper for $identity"
     }
 }

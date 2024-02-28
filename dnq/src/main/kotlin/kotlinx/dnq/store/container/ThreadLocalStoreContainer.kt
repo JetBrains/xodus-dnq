@@ -15,15 +15,23 @@
  */
 package kotlinx.dnq.store.container
 
+import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.db.OrientDB
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 
 object ThreadLocalStoreContainer : StoreContainer {
     private val storeThreadLocal = ThreadLocal<TransientEntityStore>()
+    private val sessionThreadLocal = ThreadLocal<OrientDB>()
+    private val databaseThreadLocal = ThreadLocal<ODatabaseSession>()
 
     override val store: TransientEntityStore
         get() = storeThreadLocal.get() ?: throw IllegalStateException("Current store is undefined")
+    override val database: OrientDB
+        get() = sessionThreadLocal.get() ?: throw IllegalStateException("Current session is undefined")
+    override val session: ODatabaseSession
+        get() = databaseThreadLocal.get() ?: throw IllegalStateException("Current database connection is undefined")
 
     fun <T> withStore(store: TransientEntityStore, body: () -> T): T {
         val oldStore = storeThreadLocal.get()

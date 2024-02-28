@@ -15,17 +15,22 @@
  */
 package kotlinx.dnq.sequence
 
-import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
-import jetbrains.exodus.database.TransientEntity
-import jetbrains.exodus.entitystore.Sequence
+import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.metadata.sequence.OSequence
+import com.orientechnologies.orient.core.metadata.sequence.OSequence.CreateParams
+import com.orientechnologies.orient.core.metadata.sequence.OSequence.SEQUENCE_TYPE
+import com.orientechnologies.orient.core.metadata.sequence.OSequenceLibrary
 import kotlinx.dnq.XdEntity
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
-class XdSequenceProperty<in R : XdEntity>(val dbPropertyName: String?) : ReadOnlyProperty<R, Sequence> {
-    override fun getValue(thisRef: R, property: KProperty<*>): Sequence {
-        val transientEntity = thisRef.entity as TransientEntity
-        val session = transientEntity.store.threadSessionOrThrow
-        return session.getSequence("${transientEntity.id}${dbPropertyName ?: property.name}")
+
+class XdSequenceProperty<in R : XdEntity>(val dbPropertyName: String?) : ReadOnlyProperty<R, OSequence> {
+    override fun getValue(thisRef: R, property: KProperty<*>): OSequence {
+        val session = ODatabaseSession.getActiveSession()
+        val sequenceLibrary: OSequenceLibrary = session.metadata.sequenceLibrary
+        val sequenceName = "${thisRef.vertex.identity}${dbPropertyName ?: property.name}"
+        return sequenceLibrary.getSequence(sequenceName) ?: sequenceLibrary.createSequence(sequenceName, SEQUENCE_TYPE.ORDERED, CreateParams().setStart(0).setIncrement(1))
     }
 }
+
