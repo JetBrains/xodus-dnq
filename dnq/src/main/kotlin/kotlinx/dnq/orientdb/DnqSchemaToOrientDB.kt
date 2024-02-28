@@ -175,115 +175,137 @@ class DnqSchemaToOrientDB(
             appendLine("simple properties:")
             withPadding {
                 for ((_, simpleProperty) in xdNode.simpleProperties) {
-                    val propertyName = simpleProperty.dbPropertyName
-                    var property = simpleProperty.delegate
-                    append(propertyName)
-                    // unwrap
-                    while (property is XdWrappedProperty<*, *, *>) {
-                        property = property.wrapped
-                    }
-                    when (property) {
-                        is XdProperty<*, *> -> {
-                            val oProperty = oClass.createPropertyIfAbsent(propertyName, getOType(property.clazz))
+                    oClass.applySimpleProperty(simpleProperty)
+                }
+            }
 
-                            oProperty.setNotNullIfDifferent(true)
-                            oProperty.setRequirement(property.requirement)
-
-                            /*
-                            * Default values
-                            *
-                            * Default values are implemented in DNQ as lambda functions that require
-                            * the entity itself and an instance of a KProperty to be called.
-                            *
-                            * So, it is not as straightforward as one may want to extract the default value out
-                            * of this lambda.
-                            *
-                            * So, a hard decision was made in this regard - ignore the default values on the
-                            * schema mapping step and handle them on the query processing level.
-                            *
-                            * Feel free to support default values in Schema mapping if you want to.
-                            * */
-
-
-                            /*
-                            * Constraints
-                            *
-                            * There are some typed constraints, and that is good.
-                            * But there are some anonymous constraints, and that is not good.
-                            * Most probably, there are constraints we do not know any idea of existing
-                            * (users can define their own constraints without any restrictions), and that is bad.
-                            *
-                            * Despite being able to map SOME constraints to the schema, there still will be
-                            * constraints we can not map (anonymous or user-defined).
-                            *
-                            * So, checking constraints on the query level is required.
-                            *
-                            * So, we made one of the hardest decisions in our lives and decided not to map
-                            * any of them at the schema mapping level.
-                            *
-                            * Feel free to do anything you want in this regard.
-                            * */
-                        }
-                        is XdNullableProperty<*, *> -> {
-                            val oProperty = oClass.createPropertyIfAbsent(propertyName, getOType(property.clazz))
-
-                            oProperty.setNotNullIfDifferent(false)
-                            oProperty.setRequirement(property.requirement)
-                        }
-                        is XdSetProperty<*, *> -> {
-                            val oProperty = oClass.createEmbeddedSetPropertyIfAbsent(propertyName, getOType(property.clazz))
-
-                            /*
-                            * If the value is not defined, the property returns true.
-                            * It is handled on the DNQ entities level.
-                            * */
-                            oProperty.setNotNullIfDifferent(false)
-                            oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
-
-                            /*
-                            * When creating an index on an EMBEDDEDSET field, OrientDB does not create an index for the field itself.
-                            * Instead, it creates an index for each individual item in the set.
-                            * This is done to enable quick searches for individual elements within the set.
-                            *
-                            * The same behaviour as the original behaviour of set properties in DNQ.
-                            * */
-                            oProperty.createIndexIfAbsent(INDEX_TYPE.NOTUNIQUE)
-                        }
-                        is XdMutableSetProperty<*, *> -> {
-                            // the same as XdSetProperty<*, *>, look above
-
-                            val oProperty = oClass.createEmbeddedSetPropertyIfAbsent(propertyName, getOType(property.clazz))
-                            oProperty.setNotNullIfDifferent(false)
-                            oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
-                            oProperty.createIndexIfAbsent(INDEX_TYPE.NOTUNIQUE)
-                        }
-                        is XdNullableBlobProperty -> {
-                            val oProperty = oClass.createBinaryBlobPropertyIfAbsent(propertyName)
-                            oProperty.setNotNullIfDifferent(false)
-                            oProperty.setRequirement(property.requirement)
-                        }
-                        is XdBlobProperty -> {
-                            val oProperty = oClass.createBinaryBlobPropertyIfAbsent(propertyName)
-                            oProperty.setNotNullIfDifferent(true)
-                            oProperty.setRequirement(property.requirement)
-                        }
-                        is XdNullableTextProperty -> {
-                            val oProperty = oClass.createStringBlobPropertyIfAbsent(propertyName)
-                            oProperty.setNotNullIfDifferent(false)
-                            oProperty.setRequirement(property.requirement)
-                        }
-                        is XdTextProperty -> {
-                            val oProperty = oClass.createStringBlobPropertyIfAbsent(propertyName)
-                            oProperty.setNotNullIfDifferent(true)
-                            oProperty.setRequirement(property.requirement)
-                        }
-                        else -> throw IllegalArgumentException("$property is not supported. Feel free to support it.")
-                    }
-
-                    appendLine()
+            // link properties
+            appendLine("link properties:")
+            withPadding {
+                for ((_, linkProperty) in xdNode.linkProperties) {
+                    oClass.applyLinkProperty(linkProperty)
                 }
             }
         }
+    }
+
+    private fun OClass.applyLinkProperty(linkProperty: XdHierarchyNode.LinkProperty) {
+        val propertyName = linkProperty.dbPropertyName
+        val property = linkProperty.delegate
+        append(propertyName)
+
+        when (property) {
+            else -> throw IllegalArgumentException("$property is not supported. Feel free to support it.")
+        }
+    }
+
+    private fun OClass.applySimpleProperty(simpleProperty: XdHierarchyNode.SimpleProperty) {
+        val propertyName = simpleProperty.dbPropertyName
+        var property = simpleProperty.delegate
+        append(propertyName)
+        // unwrap
+        while (property is XdWrappedProperty<*, *, *>) {
+            property = property.wrapped
+        }
+        when (property) {
+            is XdProperty<*, *> -> {
+                val oProperty = createPropertyIfAbsent(propertyName, getOType(property.clazz))
+
+                oProperty.setNotNullIfDifferent(true)
+                oProperty.setRequirement(property.requirement)
+
+                /*
+                * Default values
+                *
+                * Default values are implemented in DNQ as lambda functions that require
+                * the entity itself and an instance of a KProperty to be called.
+                *
+                * So, it is not as straightforward as one may want to extract the default value out
+                * of this lambda.
+                *
+                * So, a hard decision was made in this regard - ignore the default values on the
+                * schema mapping step and handle them on the query processing level.
+                *
+                * Feel free to support default values in Schema mapping if you want to.
+                * */
+
+
+                /*
+                * Constraints
+                *
+                * There are some typed constraints, and that is good.
+                * But there are some anonymous constraints, and that is not good.
+                * Most probably, there are constraints we do not know any idea of existing
+                * (users can define their own constraints without any restrictions), and that is bad.
+                *
+                * Despite being able to map SOME constraints to the schema, there still will be
+                * constraints we can not map (anonymous or user-defined).
+                *
+                * So, checking constraints on the query level is required.
+                *
+                * So, we made one of the hardest decisions in our lives and decided not to map
+                * any of them at the schema mapping level.
+                *
+                * Feel free to do anything you want in this regard.
+                * */
+            }
+            is XdNullableProperty<*, *> -> {
+                val oProperty = createPropertyIfAbsent(propertyName, getOType(property.clazz))
+
+                oProperty.setNotNullIfDifferent(false)
+                oProperty.setRequirement(property.requirement)
+            }
+            is XdSetProperty<*, *> -> {
+                val oProperty = createEmbeddedSetPropertyIfAbsent(propertyName, getOType(property.clazz))
+
+                /*
+                * If the value is not defined, the property returns true.
+                * It is handled on the DNQ entities level.
+                * */
+                oProperty.setNotNullIfDifferent(false)
+                oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
+
+                /*
+                * When creating an index on an EMBEDDEDSET field, OrientDB does not create an index for the field itself.
+                * Instead, it creates an index for each individual item in the set.
+                * This is done to enable quick searches for individual elements within the set.
+                *
+                * The same behaviour as the original behaviour of set properties in DNQ.
+                * */
+                oProperty.createIndexIfAbsent(INDEX_TYPE.NOTUNIQUE)
+            }
+            is XdMutableSetProperty<*, *> -> {
+                // the same as XdSetProperty<*, *>, look above
+
+                val oProperty = createEmbeddedSetPropertyIfAbsent(propertyName, getOType(property.clazz))
+                oProperty.setNotNullIfDifferent(false)
+                oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
+                oProperty.createIndexIfAbsent(INDEX_TYPE.NOTUNIQUE)
+            }
+            is XdNullableBlobProperty -> {
+                val oProperty = createBinaryBlobPropertyIfAbsent(propertyName)
+                oProperty.setNotNullIfDifferent(false)
+                oProperty.setRequirement(property.requirement)
+            }
+            is XdBlobProperty -> {
+                val oProperty = createBinaryBlobPropertyIfAbsent(propertyName)
+                oProperty.setNotNullIfDifferent(true)
+                oProperty.setRequirement(property.requirement)
+            }
+            is XdNullableTextProperty -> {
+                val oProperty = createStringBlobPropertyIfAbsent(propertyName)
+                oProperty.setNotNullIfDifferent(false)
+                oProperty.setRequirement(property.requirement)
+            }
+            is XdTextProperty -> {
+                val oProperty = createStringBlobPropertyIfAbsent(propertyName)
+                oProperty.setNotNullIfDifferent(true)
+                oProperty.setRequirement(property.requirement)
+            }
+            else -> throw IllegalArgumentException("$property is not supported. Feel free to support it.")
+        }
+
+        appendLine()
     }
 
     private fun OClass.createBinaryBlobPropertyIfAbsent(propertyName: String): OProperty = createBlobPropertyIfAbsent(propertyName, BINARY_BLOB_CLASS_NAME)
