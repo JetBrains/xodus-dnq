@@ -15,13 +15,12 @@
  */
 package kotlinx.dnq.link
 
+import com.orientechnologies.orient.core.record.ODirection
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.util.reattach
-import kotlinx.dnq.util.reattachAndGetLink
-import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -41,20 +40,27 @@ class XdOneChildToMultiParentLink<R : XdEntity, T : XdEntity>(
 ) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        return thisRef.reattachAndGetLink(property.dbName)?.let { value ->
-            oppositeEntityType.wrap(value)
-        }
+        val parent = thisRef.reload().getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        return parent?.let { oppositeEntityType.wrap(parent) }
     }
 
+
     override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        val session = thisRef.threadSessionOrThrow
-        val parent = value?.reattach(session)
-        val child = thisRef.reattach(session)
-        if (parent != null) {
-            parent.setChild(oppositeField.oppositeDbName, property.dbName, child)
+        val oldParent = thisRef.reload().getVertices(ODirection.OUT, property.dbName).firstOrNull()
+        if (value != null){
+            oldParent?.let {
+                thisRef.vertex.deleteEdge(oldParent, property.dbName)
+                oldParent.deleteEdge(thisRef.vertex, property.oppositeDbName, )
+            }
+            thisRef.vertex.addEdge(value.vertex, property.dbName)
+            value.vertex.addEdge(thisRef.vertex, property.oppositeDbName)
         } else {
-            child.removeFromParent(oppositeField.oppositeDbName, property.dbName)
+            oldParent?.let {
+                thisRef.vertex.deleteEdge(oldParent, property.dbName)
+                oldParent.deleteEdge(thisRef.vertex, property.oppositeDbName)
+            }
         }
+        thisRef.vertex.save<OVertex>()
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>) = getValue(thisRef, property) != null

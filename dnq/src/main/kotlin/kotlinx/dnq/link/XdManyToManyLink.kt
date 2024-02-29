@@ -15,18 +15,13 @@
  */
 package kotlinx.dnq.link
 
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.query.LinkEqual
-import jetbrains.exodus.query.TreeKeepingEntityIterable
+import com.orientechnologies.orient.core.record.ODirection
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
-import kotlinx.dnq.query.isNotEmpty
-import kotlinx.dnq.util.isReadOnly
-import kotlinx.dnq.util.reattach
-import kotlinx.dnq.util.threadSessionOrThrow
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -50,40 +45,34 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
 
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(oppositeEntityType) {
-            override val entityIterable: Iterable<Entity>
-                get() =
-                    try {
-                        val queryEngine = oppositeEntityType.entityStore.queryEngine
-                        val oppositeType = oppositeEntityType.entityType
-                        if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
-                            thisRef.reattach().getLinks(property.dbName)
-                        } else {
-                            TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.oppositeDbName, thisRef.reattach()), queryEngine)
-                        }
-                    } catch (_: UnsupportedOperationException) {
-                        // to support weird FakeTransientEntity
-                        thisRef.reattach().getLinks(property.dbName)
-                    }
+            override val entityIterable: Iterable<OVertex>
+                get() = thisRef.reload().getVertices(ODirection.OUT, property.dbName)
+
 
             override fun add(entity: T) {
-                val session = thisRef.threadSessionOrThrow
-                thisRef.reattach(session).createManyToMany(property.dbName, oppositeField.oppositeDbName, entity.reattach(session))
+                thisRef.vertex.addEdge(entity.vertex, property.dbName)
+                entity.vertex.addEdge(thisRef.vertex, property.oppositeDbName)
             }
 
             override fun remove(entity: T) {
-                val session = thisRef.threadSessionOrThrow
-                thisRef.reattach(session).deleteLink(property.dbName, entity.reattach(session))
-                entity.reattach(session).deleteLink(oppositeField.oppositeDbName, thisRef.reattach(session))
+                removeLinkToVertex(entity.vertex)
             }
 
+            private fun removeLinkToVertex(likedVertex:OVertex){
+                thisRef.vertex.deleteEdge(likedVertex, property.dbName)
+                likedVertex.deleteEdge(thisRef.vertex, property.oppositeDbName)
+           }
+
             override fun clear() {
-                thisRef.reattach().clearManyToMany(property.dbName, oppositeField.oppositeDbName)
+                thisRef.vertex.getVertices(ODirection.OUT, property.dbName).forEach {
+                    removeLinkToVertex(it)
+                }
             }
 
         }
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return getValue(thisRef, property).isNotEmpty
+        return thisRef.reload().getEdges(ODirection.OUT, property.dbName).iterator().hasNext()
     }
 }

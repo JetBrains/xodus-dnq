@@ -32,7 +32,7 @@ sealed class OnDeletePolicy {
     object CLEAR : OnDeletePolicy()
 
     /**
-     * If entity is delete and link still exists, then delete entity on the opposite link end as well.
+     * If entity is deleted and link still exists, then delete entity on the opposite link end as well.
      */
     object CASCADE : OnDeletePolicy()
 
