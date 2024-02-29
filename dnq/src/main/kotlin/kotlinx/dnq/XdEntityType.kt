@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq
 
+import com.orientechnologies.orient.core.db.ODatabaseSession
 import com.orientechnologies.orient.core.db.OrientDB
 import com.orientechnologies.orient.core.record.OVertex
 import kotlinx.dnq.query.XdQuery
@@ -32,9 +33,6 @@ abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer
         val query = "SELECT FROM $entityType"
         val database = database
         val resultSet = database.execute(query)
-
-
-
         return XdQueryImpl(
             object : Iterable<OVertex> {
                 override fun iterator(): Iterator<OVertex> {
@@ -46,9 +44,9 @@ abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer
 
 
     open fun new(init: (T.() -> Unit) = {}): T {
-        val transaction = (entityStore.threadSession
-                ?: throw IllegalStateException("New entities can be created only in transactional block"))
-        return wrap(transaction.newEntity(entityType)).apply {
+        val session = ODatabaseSession.getActiveSession()
+        val vertex = session.newVertex(entityType)
+        return vertex.toXd<T>().apply {
             constructor()
             init()
         }

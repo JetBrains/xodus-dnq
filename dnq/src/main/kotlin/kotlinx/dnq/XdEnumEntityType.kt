@@ -15,15 +15,13 @@
  */
 package kotlinx.dnq
 
-import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
-import jetbrains.exodus.database.TransientStoreSession
+import com.orientechnologies.orient.core.db.ODatabaseSession
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.firstOrNull
 import kotlinx.dnq.query.query
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.store.container.StoreContainer
 import kotlinx.dnq.util.getDBName
-import kotlinx.dnq.util.reattachAndSetPrimitiveValue
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
@@ -34,56 +32,48 @@ abstract class XdEnumEntityType<XD : XdEnumEntity>(entityTypeName: String? = nul
 
     fun enumField(dbName: String? = null, init: XD.() -> Unit) = EnumConstPropertyProvider(dbName, init)
 
-    fun initEnumValues(txn: TransientStoreSession) {
+    fun initEnumValues(session: ODatabaseSession) {
         if (constants.isNotEmpty()) {
             constants.forEach { enumConst ->
                 var xdEnumValue = query(XdEnumEntity::name eq enumConst.enumFieldName).firstOrNull()
                 if (xdEnumValue == null) {
-                    xdEnumValue = wrap(txn.newEntity(entityType))
-                    xdEnumValue.reattachAndSetPrimitiveValue(XdEnumEntity::name.getDBName(this), enumConst.enumFieldName, String::class.java)
+                    xdEnumValue = session.newVertex(entityType).toXd()
+                    xdEnumValue.vertex.setProperty(XdEnumEntity::name.getDBName(this),enumConst.enumFieldName)
                     enumConst.update(xdEnumValue)
                 } else {
                     enumConst.update(xdEnumValue)
                 }
-
             }
-            txn.flush()
         }
     }
 
     class Const<in XD : XdEnumEntity>(val enumFieldName: String, val update: XD.() -> Unit)
 
     inner class EnumConstPropertyProvider(val dbName: String?, val init: XD.() -> Unit) {
-        operator fun provideDelegate(thisRef: XdEntityType<XD>, prop: KProperty<*>): ReadOnlyProperty<XdEntityType<XD>, XD> {
+        operator fun provideDelegate(
+            thisRef: XdEntityType<XD>,
+            prop: KProperty<*>
+        ): ReadOnlyProperty<XdEntityType<XD>, XD> {
             val enumConst = Const(dbName ?: prop.name, init)
             constants.add(enumConst)
             return object : ReadOnlyProperty<XdEntityType<XD>, XD> {
                 override fun getValue(thisRef: XdEntityType<XD>, property: KProperty<*>): XD {
                     val entityType = this@XdEnumEntityType
-                    val transientEntityStore = entityType.entityStore
                     val entityTypeName = entityType.entityType
                     val enumFieldName = enumConst.enumFieldName
-                    val result = transientEntityStore.getCachedEnumValue(entityTypeName, enumFieldName) ?: run {
-                        val currentPersistentSession = transientEntityStore.persistentStore.currentTransaction
-                                ?: throw IllegalStateException("EntityStore: current transaction is not set")
-
-                        val it = currentPersistentSession.find(entityTypeName, XdEnumEntity.ENUM_CONST_NAME_FIELD, enumFieldName).iterator()
-                        if (!it.hasNext()) {
-                            throw IllegalStateException("Instance not created: $entityTypeName.$enumFieldName")
-                        }
-                        val result = it.next()
-                        if (transientEntityStore is TransientEntityStoreImpl) {
-                            transientEntityStore.setCachedEnumValue(entityTypeName, enumFieldName, result)
-                        }
-                        result
+                    //todo OPTIMIZE ME
+                    val value = ODatabaseSession.getActiveSession()
+                        .query(
+                            "SELECT FROM $entityTypeName WHERE ${XdEnumEntity.ENUM_CONST_NAME_FIELD} = ?",
+                            enumFieldName
+                        ).stream().findFirst()
+                    if (value.isPresent) {
+                        return value.get().vertex.get().toXd()
+                    } else {
+                        throw IllegalStateException("Enum entity $entityTypeName.$enumFieldName is not created")
                     }
-
-                    val threadSession = transientEntityStore.threadSession
-                            ?: throw IllegalStateException("EntityStore: current transaction is not set")
-                    return entityType.wrap(threadSession.newEntity(result))
                 }
             }
         }
-
     }
 }

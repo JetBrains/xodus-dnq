@@ -15,13 +15,17 @@
  */
 package kotlinx.dnq
 
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.entitystore.Entity
 
-open class XdEnumEntity(entity: Entity) : XdEntity(entity) {
+open class XdEnumEntity(vertex: OVertex) : XdEntity(vertex) {
 
     companion object : XdNaturalEntityType<XdEnumEntity>() {
         const val ENUM_CONST_NAME_FIELD = "__ENUM_CONST_NAME__"
     }
+
+    override val entity: Entity
+        get() = TODO("Not yet implemented")
 
     val name by xdRequiredStringProp(dbName = ENUM_CONST_NAME_FIELD)
 

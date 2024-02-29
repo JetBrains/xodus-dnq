@@ -26,7 +26,10 @@ val Entity.wrapper: XdEntity get() = toXd(this)
 
 fun <T : XdEntity> Entity.toXd() = XdModel.toXd<T>(this)
 
-fun <T : XdEntity> OVertex.toXd() : T = TODO()
+fun <T : XdEntity> OVertex.toXd() : T {
+    return null as T
+}
+
 
 val TransientEntityStore.session: TransientStoreSession get() = threadSession ?: throw IllegalStateException("No current transient session.")
 
