@@ -78,52 +78,9 @@ class DnqSchemaToOrientDB(
         }
     }
 
-    private fun ignored(entityTypeName: String): Boolean {
-        /*
-        * Enum classes in OrientDb will not be inherited from a single super class.
-        * So, we ignore the XodusDNQ enum superclass.
-        *
-        * If one finds why having a single super class for enum classes in OrientDB may be useful, feel free to change the code accordingly.
-        * */
-        return entityTypeName == XdEnumEntity.entityType
-    }
-
     private fun createVertexClassIfAbsent(dnqEntity: EntityMetaData) {
         append(dnqEntity.type)
-        if (ignored(dnqEntity.type)) {
-            appendLine(", ignored")
-            return
-        }
-
-        val xdNode = xdHierarchy.getValue(dnqEntity.type)
-        when (val entityType = xdNode.entityType) {
-            is XdEnumEntityType<*> -> {
-                append(", enum")
-                require(!dnqEntity.isAbstract) { "An enum entity ${dnqEntity.type} is abstract. If you believe that an enum entity can be abstract, fix the code accordingly." }
-                oSession.createVertexClassIfAbsent(dnqEntity.type)
-            }
-
-            is XdSingletonEntityType<*> -> {
-                append(", singleton")
-                require(!dnqEntity.isAbstract) { "A singleton entity ${dnqEntity.type} is abstract. If you believe that a singleton entity can be abstract, fix the code accordingly." }
-                oSession.createVertexClassIfAbsent(dnqEntity.type)
-            }
-
-            is XdNaturalEntityType<*> -> {
-                append(", natural entity")
-                val oClass = oSession.createVertexClassIfAbsent(dnqEntity.type)
-                if (dnqEntity.isAbstract) {
-                    if (!oClass.isAbstract) {
-                        oClass.setAbstract(true)
-                        append(", made abstract")
-                    } else {
-                        append(", already abstract")
-                    }
-                }
-            }
-
-            else -> throw IllegalArgumentException("Unknown entity type ${dnqEntity.type}:${entityType}")
-        }
+        oSession.createVertexClassIfAbsent(dnqEntity.type)
         appendLine()
 
         /*
@@ -157,12 +114,7 @@ class DnqSchemaToOrientDB(
     }
 
     private fun createPropertiesAndConnectionsIfAbsent(dnqEntity: EntityMetaData) {
-        append(dnqEntity.type)
-        if (ignored(dnqEntity.type)) {
-            appendLine(", ignored")
-            return
-        }
-        appendLine()
+        appendLine(dnqEntity.type)
 
         val xdNode = xdHierarchy.getValue(dnqEntity.type)
         val oClass = oSession.getClass(dnqEntity.type)
@@ -194,16 +146,12 @@ class DnqSchemaToOrientDB(
             append("no super type")
         } else {
             append("super type is $superClassName")
-            if (ignored(superClassName)) {
-                append(", ignored")
+            val superClass = oSession.getClass(superClassName)
+            if (superClasses.contains(superClass)) {
+                append(", already set")
             } else {
-                val superClass = oSession.getClass(superClassName)
-                if (superClasses.contains(superClass)) {
-                    append(", already set")
-                } else {
-                    addSuperClass(superClass)
-                    append(", set")
-                }
+                addSuperClass(superClass)
+                append(", set")
             }
         }
         appendLine()
