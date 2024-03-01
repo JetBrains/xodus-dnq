@@ -15,86 +15,7 @@ import kotlinx.dnq.link.XdToOneOptionalLink
 import kotlinx.dnq.simple.*
 import kotlinx.dnq.singleton.XdSingletonEntityType
 import kotlinx.dnq.util.XdHierarchyNode
-import mu.KLogger
 import mu.KotlinLogging
-
-data class DeferredIndex(
-    val ownerVertexName: String,
-    val indexName: String,
-    val properties: List<IndexField>,
-    val unique: Boolean
-) {
-    constructor(ownerVertexName: String, properties: List<IndexField>, unique: Boolean): this(
-        ownerVertexName,
-        indexName = "${ownerVertexName}_${properties.joinToString("_") { it.name }}",
-        properties,
-        unique = unique
-    )
-
-    constructor(index: Index, unique: Boolean): this(index.ownerEntityType, index.fields, unique)
-
-    val allFieldsAreSimpleProperty: Boolean = properties.all { it.isProperty }
-}
-
-fun DeferredIndex.requireAllFieldsAreSimpleProperty() = require(allFieldsAreSimpleProperty) { "Found an index with a link: $indexName. Indices with links are not supported." }
-
-fun makeDeferredIndexForEmbeddedSet(oClass: OClass, propertyName: String): DeferredIndex {
-    val indexField = IndexFieldImpl()
-    indexField.isProperty = true
-    indexField.name = propertyName
-    return DeferredIndex(
-        ownerVertexName = oClass.name,
-        listOf(indexField),
-        unique = false
-    )
-}
-
-class DeferredIndicesCreator {
-    private val indicesByOwnerVertexName = HashMap<String, MutableSet<DeferredIndex>>() // ownerVertexName -> indices
-
-    private val logger = PaddedLogger(log)
-
-    fun getIndices(): Map<String, Set<DeferredIndex>> = indicesByOwnerVertexName
-
-    fun add(index: DeferredIndex) {
-        indicesByOwnerVertexName.getOrPut(index.ownerVertexName) { HashSet() }.add(index)
-    }
-
-    fun createIndices(oSession: ODatabaseSession) {
-        try {
-            with (logger) {
-                appendLine("applying indices to OrientDB")
-
-                appendLine("validating indices...")
-                indicesByOwnerVertexName.forEach { (_, indices) -> indices.forEach { it.requireAllFieldsAreSimpleProperty() } }
-
-                appendLine("creating indices if absent:")
-                for ((ownerVertexName, indices) in indicesByOwnerVertexName) {
-                    val oClass = oSession.getClass(ownerVertexName) ?: throw IllegalStateException("$ownerVertexName not found")
-                    appendLine("${oClass.name}:")
-                    withPadding {
-                        for ((_, indexName, properties, unique) in indices) {
-                            append(indexName)
-                            if (oClass.getClassIndex(indexName) == null) {
-                                val indexType = if (unique) INDEX_TYPE.UNIQUE else INDEX_TYPE.NOTUNIQUE
-                                val propertiesNames = properties.map { it.name }.toTypedArray()
-                                oClass.createIndex(indexName, indexType, *propertiesNames)
-                                appendLine(", created")
-                            } else {
-                                appendLine(", already created")
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e: Throwable) {
-            logger.flush()
-            log.error(e) { e.message }
-        } finally {
-            logger.flush()
-        }
-    }
-}
 
 private val log = KotlinLogging.logger {}
 
@@ -248,24 +169,7 @@ class DnqSchemaToOrientDB(
 
         withPadding {
             // superclass
-            val superClassName = dnqEntity.superType
-            if (superClassName == null) {
-                append("no super type")
-            } else {
-                append("super type is $superClassName")
-                if (ignored(superClassName)) {
-                    append(", ignored")
-                } else {
-                    val superClass = oSession.getClass(superClassName)
-                    if (oClass.superClasses.contains(superClass)) {
-                        append(", already set")
-                    } else {
-                        oClass.addSuperClass(superClass)
-                        append(", set")
-                    }
-                }
-            }
-            appendLine()
+            oClass.applySuperClass(dnqEntity.superType)
 
             // simple properties
             appendLine("simple properties:")
@@ -283,6 +187,26 @@ class DnqSchemaToOrientDB(
                 }
             }
         }
+    }
+
+    private fun OClass.applySuperClass(superClassName: String?) {
+        if (superClassName == null) {
+            append("no super type")
+        } else {
+            append("super type is $superClassName")
+            if (ignored(superClassName)) {
+                append(", ignored")
+            } else {
+                val superClass = oSession.getClass(superClassName)
+                if (superClasses.contains(superClass)) {
+                    append(", already set")
+                } else {
+                    addSuperClass(superClass)
+                    append(", set")
+                }
+            }
+        }
+        appendLine()
     }
 
     private fun OClass.applyLinkProperty(linkProperty: XdHierarchyNode.LinkProperty) {
@@ -394,7 +318,7 @@ class DnqSchemaToOrientDB(
                 *
                 * The same behaviour as the original behaviour of set properties in DNQ.
                 * */
-                val index = makeDeferredIndexForEmbeddedSet(this, propertyName)
+                val index = makeDeferredIndexForEmbeddedSet(propertyName)
                 indicesCreator.add(index)
             }
             is XdMutableSetProperty<*, *> -> {
@@ -404,7 +328,7 @@ class DnqSchemaToOrientDB(
                 oProperty.setNotNullIfDifferent(false)
                 oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
 
-                val index = makeDeferredIndexForEmbeddedSet(this, propertyName)
+                val index = makeDeferredIndexForEmbeddedSet(propertyName)
                 indicesCreator.add(index)
             }
             is XdNullableBlobProperty -> {
@@ -534,7 +458,6 @@ class DnqSchemaToOrientDB(
         return oProperty
     }
 
-
     private fun getOType(clazz: Class<*>): OType {
         return when (clazz) {
             java.lang.Boolean::class.java -> OType.BOOLEAN
@@ -550,50 +473,6 @@ class DnqSchemaToOrientDB(
             // todo clarify if it is ok
             Long::class.java -> OType.LONG
             else -> throw IllegalArgumentException("$clazz is not supported. Feel free to support it.")
-        }
-    }
-}
-
-fun PaddedLogger.withPadding(padding: Int = 4, code: () -> Unit) {
-    updatePadding(padding)
-    code()
-    updatePadding(-padding)
-}
-
-class PaddedLogger(
-    private val logger: KLogger
-) {
-    private var paddingCount: Int = 0
-    private val sb = StringBuilder()
-
-    private var newLine: Boolean = false
-
-    fun append(s: String) {
-        addPaddingIfNewLine()
-        sb.append(s)
-    }
-
-    fun appendLine(s: String = "") {
-        addPaddingIfNewLine()
-        sb.appendLine(s)
-        newLine = true
-    }
-
-    fun updatePadding(paddingShift: Int) {
-        paddingCount += paddingShift
-    }
-
-    fun flush() {
-        logger.info { sb.toString() }
-        sb.clear()
-        newLine = true
-        paddingCount = 0
-    }
-
-    private fun addPaddingIfNewLine() {
-        if (newLine) {
-            sb.append(" ".repeat(paddingCount))
-            newLine = false
         }
     }
 }
