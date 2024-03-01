@@ -5,44 +5,120 @@ import com.orientechnologies.orient.core.metadata.schema.OClass
 import com.orientechnologies.orient.core.metadata.schema.OClass.INDEX_TYPE
 import com.orientechnologies.orient.core.metadata.schema.OProperty
 import com.orientechnologies.orient.core.metadata.schema.OType
-import jetbrains.exodus.query.metadata.EntityMetaData
-import jetbrains.exodus.query.metadata.ModelMetaDataImpl
+import com.orientechnologies.orient.core.record.ODirection
+import com.orientechnologies.orient.core.record.OVertex
+import jetbrains.exodus.query.metadata.*
 import kotlinx.dnq.XdEnumEntity
 import kotlinx.dnq.XdEnumEntityType
 import kotlinx.dnq.XdNaturalEntityType
+import kotlinx.dnq.link.XdToOneOptionalLink
 import kotlinx.dnq.simple.*
 import kotlinx.dnq.singleton.XdSingletonEntityType
 import kotlinx.dnq.util.XdHierarchyNode
 import mu.KLogger
-import mu.KLogging
+import mu.KotlinLogging
+
+data class DeferredIndex(
+    val ownerVertexName: String,
+    val indexName: String,
+    val properties: List<IndexField>,
+    val unique: Boolean
+) {
+    constructor(ownerVertexName: String, properties: List<IndexField>, unique: Boolean): this(
+        ownerVertexName,
+        indexName = "${ownerVertexName}_${properties.joinToString("_") { it.name }}",
+        properties,
+        unique = unique
+    )
+
+    constructor(index: Index, unique: Boolean): this(index.ownerEntityType, index.fields, unique)
+
+    val allFieldsAreSimpleProperty: Boolean = properties.all { it.isProperty }
+}
+
+fun DeferredIndex.requireAllFieldsAreSimpleProperty() = require(allFieldsAreSimpleProperty) { "Found an index with a link: $indexName. Indices with links are not supported." }
+
+fun makeDeferredIndexForEmbeddedSet(oClass: OClass, propertyName: String): DeferredIndex {
+    val indexField = IndexFieldImpl()
+    indexField.isProperty = true
+    indexField.name = propertyName
+    return DeferredIndex(
+        ownerVertexName = oClass.name,
+        listOf(indexField),
+        unique = false
+    )
+}
+
+class DeferredIndicesCreator {
+    private val indicesByOwnerVertexName = HashMap<String, MutableSet<DeferredIndex>>() // ownerVertexName -> indices
+
+    private val logger = PaddedLogger(log)
+
+    fun getIndices(): Map<String, Set<DeferredIndex>> = indicesByOwnerVertexName
+
+    fun add(index: DeferredIndex) {
+        indicesByOwnerVertexName.getOrPut(index.ownerVertexName) { HashSet() }.add(index)
+    }
+
+    fun createIndices(oSession: ODatabaseSession) {
+        try {
+            with (logger) {
+                appendLine("applying indices to OrientDB")
+
+                appendLine("validating indices...")
+                indicesByOwnerVertexName.forEach { (_, indices) -> indices.forEach { it.requireAllFieldsAreSimpleProperty() } }
+
+                appendLine("creating indices if absent:")
+                for ((ownerVertexName, indices) in indicesByOwnerVertexName) {
+                    val oClass = oSession.getClass(ownerVertexName) ?: throw IllegalStateException("$ownerVertexName not found")
+                    appendLine("${oClass.name}:")
+                    withPadding {
+                        for ((_, indexName, properties, unique) in indices) {
+                            append(indexName)
+                            if (oClass.getClassIndex(indexName) == null) {
+                                val indexType = if (unique) INDEX_TYPE.UNIQUE else INDEX_TYPE.NOTUNIQUE
+                                val propertiesNames = properties.map { it.name }.toTypedArray()
+                                oClass.createIndex(indexName, indexType, *propertiesNames)
+                                appendLine(", created")
+                            } else {
+                                appendLine(", already created")
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Throwable) {
+            logger.flush()
+            log.error(e) { e.message }
+        } finally {
+            logger.flush()
+        }
+    }
+}
+
+private val log = KotlinLogging.logger {}
 
 class DnqSchemaToOrientDB(
     private val dnqModel: ModelMetaDataImpl,
     private val xdHierarchy: Map<String, XdHierarchyNode>,
     private val oSession: ODatabaseSession,
 ) {
-    companion object: KLogging() {
+    companion object {
         val BINARY_BLOB_CLASS_NAME: String = "BinaryBlob"
         val DATA_PROPERTY_NAME = "data"
 
         val STRING_BLOB_CLASS_NAME: String = "StringBlob"
     }
 
-    private val paddedLogger = PaddedLogger(logger)
+    private val paddedLogger = PaddedLogger(log)
 
-    private fun withPadding(padding: Int = 4, code: () -> Unit) {
-        paddedLogger.updatePadding(padding)
-        code()
-        paddedLogger.updatePadding(-padding)
-    }
+    val indicesCreator = DeferredIndicesCreator()
 
-    private fun append(s: String) {
-        paddedLogger.append(s)
-    }
+    private fun withPadding(code: () -> Unit) = paddedLogger.withPadding(4, code)
 
-    private fun appendLine(s: String = "") {
-        paddedLogger.appendLine(s)
-    }
+    private fun append(s: String) = paddedLogger.append(s)
+
+    private fun appendLine(s: String = "") = paddedLogger.appendLine(s)
 
     fun apply() {
         try {
@@ -59,10 +135,23 @@ class DnqSchemaToOrientDB(
                     createPropertiesAndConnectionsIfAbsent(dnqEntity)
                 }
             }
+
             // initialize enums and singletons
+
+            appendLine("indices found:")
+            withPadding {
+                for ((indexOwner, indices) in indicesCreator.getIndices()) {
+                    appendLine("$indexOwner:")
+                    withPadding {
+                        for (index in indices) {
+                            appendLine(index.indexName)
+                        }
+                    }
+                }
+            }
         } catch (e: Throwable) {
             paddedLogger.flush()
-            logger.error(e) { e.message }
+            log.error(e) { e.message }
         } finally {
             paddedLogger.flush()
         }
@@ -86,7 +175,6 @@ class DnqSchemaToOrientDB(
         }
 
         val xdNode = xdHierarchy.getValue(dnqEntity.type)
-
         when (val entityType = xdNode.entityType) {
             is XdEnumEntityType<*> -> {
                 append(", enum")
@@ -116,6 +204,15 @@ class DnqSchemaToOrientDB(
             else -> throw IllegalArgumentException("Unknown entity type ${dnqEntity.type}:${entityType}")
         }
         appendLine()
+
+        /*
+        * It is more efficient to create indices after the data migration.
+        * So, we only remember indices here and let the user create them later.
+        * */
+        for (index in dnqEntity.ownIndexes.map { DeferredIndex(it, unique = true)}) {
+            index.requireAllFieldsAreSimpleProperty()
+            indicesCreator.add(index)
+        }
 
         /*
         * Interfaces
@@ -170,7 +267,6 @@ class DnqSchemaToOrientDB(
             }
             appendLine()
 
-
             // simple properties
             appendLine("simple properties:")
             withPadding {
@@ -195,6 +291,33 @@ class DnqSchemaToOrientDB(
         append(propertyName)
 
         when (property) {
+            is XdToOneOptionalLink<*, *> -> {
+                val outClass = this
+                val inClass = oSession.getClass(property.oppositeEntityType.entityType) ?: throw IllegalStateException("Opposite class not found. Happy debugging!")
+
+                val edgeClassName = "${outClass.name}_${inClass.name}_$propertyName"
+                oSession.createEdgeClass(edgeClassName)
+
+                val outProperty = outClass.createProperty(
+                    OVertex.getDirectEdgeLinkFieldName(ODirection.OUT, edgeClassName),
+                    OType.LINKBAG
+                )
+
+                val inProperty = inClass.createProperty(
+                    OVertex.getDirectEdgeLinkFieldName(ODirection.IN, edgeClassName),
+                    OType.LINKBAG
+                )
+
+                // Person out[0..1] --> Link
+                outProperty.setMandatory(false)
+                outProperty.setMin("0")
+                outProperty.setMax("1")
+
+                // Link --> in[0..1] Car
+                inProperty.setMandatory(false)
+                inProperty.setMin("0")
+                inProperty.setMax("1")
+            }
             else -> throw IllegalArgumentException("$property is not supported. Feel free to support it.")
         }
     }
@@ -228,7 +351,6 @@ class DnqSchemaToOrientDB(
                 *
                 * Feel free to support default values in Schema mapping if you want to.
                 * */
-
 
                 /*
                 * Constraints
@@ -272,7 +394,8 @@ class DnqSchemaToOrientDB(
                 *
                 * The same behaviour as the original behaviour of set properties in DNQ.
                 * */
-                oProperty.createIndexIfAbsent(INDEX_TYPE.NOTUNIQUE)
+                val index = makeDeferredIndexForEmbeddedSet(this, propertyName)
+                indicesCreator.add(index)
             }
             is XdMutableSetProperty<*, *> -> {
                 // the same as XdSetProperty<*, *>, look above
@@ -280,7 +403,9 @@ class DnqSchemaToOrientDB(
                 val oProperty = createEmbeddedSetPropertyIfAbsent(propertyName, getOType(property.clazz))
                 oProperty.setNotNullIfDifferent(false)
                 oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
-                oProperty.createIndexIfAbsent(INDEX_TYPE.NOTUNIQUE)
+
+                val index = makeDeferredIndexForEmbeddedSet(this, propertyName)
+                indicesCreator.add(index)
             }
             is XdNullableBlobProperty -> {
                 val oProperty = createBinaryBlobPropertyIfAbsent(propertyName)
@@ -427,6 +552,12 @@ class DnqSchemaToOrientDB(
             else -> throw IllegalArgumentException("$clazz is not supported. Feel free to support it.")
         }
     }
+}
+
+fun PaddedLogger.withPadding(padding: Int = 4, code: () -> Unit) {
+    updatePadding(padding)
+    code()
+    updatePadding(-padding)
 }
 
 class PaddedLogger(

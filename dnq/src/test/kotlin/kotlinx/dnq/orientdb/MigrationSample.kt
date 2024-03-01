@@ -31,10 +31,18 @@ import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
 import java.io.File
 import java.io.InputStream
+import kotlin.reflect.KProperty1
 
 
 class XdUser(entity: Entity) : XdEntity(entity) {
-    companion object : XdNaturalEntityType<XdUser>()
+    companion object : XdNaturalEntityType<XdUser>() {
+        override val compositeIndices: List<List<KProperty1<XdUser, *>>>
+            get() = listOf(
+                listOf(XdUser::byte, XdUser::short, XdUser::int),
+                listOf(XdUser::long),
+                // listOf(XdUser::gender) not supported
+            )
+    }
 
     var login by xdRequiredStringProp(unique = true, trimmed = true)
 
@@ -78,11 +86,12 @@ class XdUser(entity: Entity) : XdEntity(entity) {
     var blobString: String? by xdBlobStringProp()
     var requiredBlobString: String by xdRequiredBlobStringProp()
 
-    var gender by xdLink0_1(XdGender::users)
-    val contacts by xdChildren0_N(XdContact::owner)
+    var gender: XdGender? by xdLink0_1(XdGender)
+    //val contacts by xdChildren0_N(XdContact::owner)
 
     override fun toString(): String {
-        return "$login, ${gender?.presentation ?: "N/A"}, ${contacts.asSequence().joinToString()}"
+        return "$login, ${gender?.presentation ?: "N/A"}"
+        //return "$login, ${gender?.presentation ?: "N/A"}, ${contacts.asSequence().joinToString()}"
     }
 }
 
@@ -96,13 +105,13 @@ class XdGender(entity: Entity) : XdEnumEntity(entity) {
     var presentation by xdRequiredStringProp()
         private set
 
-    val users by xdLink0_N(XdUser)
+    //val users by xdLink0_N(XdUser)
 }
 
 abstract class XdContact(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<XdContact>()
 
-    var owner: XdUser by xdParent(XdUser::contacts)
+    //var owner: XdUser by xdParent(XdUser::contacts)
     var isVerified: Boolean by xdBooleanProp()
 
     abstract fun verify()
@@ -184,6 +193,7 @@ fun main(args: Array<String>) {
     val username = "opca"
     val userPassword = "drista"
     val dbName = "tmpDb"
+    val indicesCreator: DeferredIndicesCreator
 
     OrientDB("memory", OrientDBConfig.defaultConfig()).use { orientDb ->
         orientDb.execute("create database $dbName MEMORY users ( $username identified by '$userPassword' role admin )")
@@ -191,6 +201,15 @@ fun main(args: Array<String>) {
         orientDb.open("tmpDb", username, userPassword).use { session ->
             val schemaApplier = DnqSchemaToOrientDB(dnqModel, XdModel.hierarchy, session)
             schemaApplier.apply()
+            indicesCreator = schemaApplier.indicesCreator
+        }
+
+        orientDb.open("tmpDb", username, userPassword).use { session ->
+            indicesCreator.createIndices(session)
+        }
+
+        orientDb.open("tmpDb", username, userPassword).use { session ->
+            indicesCreator.createIndices(session)
         }
     }
 }
