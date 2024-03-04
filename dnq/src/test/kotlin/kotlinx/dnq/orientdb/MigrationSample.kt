@@ -29,9 +29,11 @@ import kotlinx.dnq.query.query
 import kotlinx.dnq.simple.email
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
+import org.joda.time.DateTime
 import java.io.File
 import java.io.InputStream
 import kotlin.reflect.KProperty1
+
 
 
 class XdUser(entity: Entity) : XdEntity(entity) {
@@ -44,6 +46,9 @@ class XdUser(entity: Entity) : XdEntity(entity) {
             )
     }
 
+    // todo is it required or not, metadata says that it is not
+    // try to create an entity without such a property
+    // create a separate small XdEntity for this purpose
     var login by xdRequiredStringProp(unique = true, trimmed = true)
 
     var requiredString by xdRequiredStringProp()
@@ -74,8 +79,8 @@ class XdUser(entity: Entity) : XdEntity(entity) {
     var requiredDouble by xdDoubleProp()
     var nullableDouble by xdNullableDoubleProp()
 
-    var dataTime by xdDateTimeProp()
-    var requiredDataTime by xdRequiredDateTimeProp()
+    var dataTime: DateTime? by xdDateTimeProp()
+    var requiredDataTime: DateTime by xdRequiredDateTimeProp()
 
     var set: Set<String> by xdSetProp<XdUser, String>()
     val mutableSet: MutableSet<Long> by xdMutableSetProp<XdUser, Long>()
@@ -199,7 +204,7 @@ fun main(args: Array<String>) {
         orientDb.execute("create database $dbName MEMORY users ( $username identified by '$userPassword' role admin )")
 
         orientDb.open("tmpDb", username, userPassword).use { session ->
-            val schemaApplier = DnqSchemaToOrientDB(dnqModel, XdModel.hierarchy, session)
+            val schemaApplier = DnqSchemaToOrientDB(dnqModel, session)
             schemaApplier.apply()
             indicesCreator = schemaApplier.indicesCreator
         }

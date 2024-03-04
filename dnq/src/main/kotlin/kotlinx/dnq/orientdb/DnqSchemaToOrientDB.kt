@@ -2,26 +2,17 @@ package kotlinx.dnq.orientdb
 
 import com.orientechnologies.orient.core.db.ODatabaseSession
 import com.orientechnologies.orient.core.metadata.schema.OClass
-import com.orientechnologies.orient.core.metadata.schema.OClass.INDEX_TYPE
 import com.orientechnologies.orient.core.metadata.schema.OProperty
 import com.orientechnologies.orient.core.metadata.schema.OType
 import com.orientechnologies.orient.core.record.ODirection
 import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.query.metadata.*
-import kotlinx.dnq.XdEnumEntity
-import kotlinx.dnq.XdEnumEntityType
-import kotlinx.dnq.XdNaturalEntityType
-import kotlinx.dnq.link.XdToOneOptionalLink
-import kotlinx.dnq.simple.*
-import kotlinx.dnq.singleton.XdSingletonEntityType
-import kotlinx.dnq.util.XdHierarchyNode
 import mu.KotlinLogging
 
 private val log = KotlinLogging.logger {}
 
 class DnqSchemaToOrientDB(
     private val dnqModel: ModelMetaDataImpl,
-    private val xdHierarchy: Map<String, XdHierarchyNode>,
     private val oSession: ODatabaseSession,
 ) {
     companion object {
@@ -116,7 +107,6 @@ class DnqSchemaToOrientDB(
     private fun createPropertiesAndConnectionsIfAbsent(dnqEntity: EntityMetaData) {
         appendLine(dnqEntity.type)
 
-        val xdNode = xdHierarchy.getValue(dnqEntity.type)
         val oClass = oSession.getClass(dnqEntity.type)
 
         withPadding {
@@ -126,16 +116,22 @@ class DnqSchemaToOrientDB(
             // simple properties
             appendLine("simple properties:")
             withPadding {
-                for ((_, simpleProperty) in xdNode.simpleProperties) {
-                    oClass.applySimpleProperty(simpleProperty)
+                for (propertyMetaData in dnqEntity.propertiesMetaData) {
+                    if (propertyMetaData is SimplePropertyMetaDataImpl) {
+                        val required = propertyMetaData.name in dnqEntity.requiredProperties
+                        // Xodus does not let a property be null/empty if it is in an index
+                        val requiredBecauseOfIndex = dnqEntity.ownIndexes.any { index -> index.fields.any { it.name == propertyMetaData.name } }
+                        oClass.applySimpleProperty(propertyMetaData, required || requiredBecauseOfIndex)
+                    }
                 }
             }
 
             // link properties
             appendLine("link properties:")
             withPadding {
-                for ((_, linkProperty) in xdNode.linkProperties) {
-                    oClass.applyLinkProperty(linkProperty)
+                for (propertyMetaData in dnqEntity.propertiesMetaData) {
+                    // use associations
+                    //oClass.applyLinkProperty(propertyMetaData)
                 }
             }
         }
@@ -157,57 +153,85 @@ class DnqSchemaToOrientDB(
         appendLine()
     }
 
-    private fun OClass.applyLinkProperty(linkProperty: XdHierarchyNode.LinkProperty) {
-        val propertyName = linkProperty.dbPropertyName
-        val property = linkProperty.delegate
+    private fun OClass.applyLinkProperty(linkProperty: PropertyMetaDataImpl) {
+        val propertyName = linkProperty.name
+        val property = linkProperty.type
         append(propertyName)
 
-        when (property) {
-            is XdToOneOptionalLink<*, *> -> {
-                val outClass = this
-                val inClass = oSession.getClass(property.oppositeEntityType.entityType) ?: throw IllegalStateException("Opposite class not found. Happy debugging!")
+        if (false) {
+            val outClass = this
+            val inClass = oSession.getClass("provide class name here") ?: throw IllegalStateException("Opposite class not found. Happy debugging!")
 
-                val edgeClassName = "${outClass.name}_${inClass.name}_$propertyName"
-                oSession.createEdgeClass(edgeClassName)
+            val edgeClassName = "${outClass.name}_${inClass.name}_$propertyName"
+            oSession.createEdgeClass(edgeClassName)
 
-                val outProperty = outClass.createProperty(
-                    OVertex.getDirectEdgeLinkFieldName(ODirection.OUT, edgeClassName),
-                    OType.LINKBAG
-                )
+            val outProperty = outClass.createProperty(
+                OVertex.getDirectEdgeLinkFieldName(ODirection.OUT, edgeClassName),
+                OType.LINKBAG
+            )
 
-                val inProperty = inClass.createProperty(
-                    OVertex.getDirectEdgeLinkFieldName(ODirection.IN, edgeClassName),
-                    OType.LINKBAG
-                )
+            val inProperty = inClass.createProperty(
+                OVertex.getDirectEdgeLinkFieldName(ODirection.IN, edgeClassName),
+                OType.LINKBAG
+            )
 
-                // Person out[0..1] --> Link
-                outProperty.setMandatory(false)
-                outProperty.setMin("0")
-                outProperty.setMax("1")
+            // Person out[0..1] --> Link
+            outProperty.setMandatory(false)
+            outProperty.setMin("0")
+            outProperty.setMax("1")
 
-                // Link --> in[0..1] Car
-                inProperty.setMandatory(false)
-                inProperty.setMin("0")
-                inProperty.setMax("1")
-            }
-            else -> throw IllegalArgumentException("$property is not supported. Feel free to support it.")
+            // Link --> in[0..1] Car
+            inProperty.setMandatory(false)
+            inProperty.setMin("0")
+            inProperty.setMax("1")
         }
+        appendLine()
     }
 
-    private fun OClass.applySimpleProperty(simpleProperty: XdHierarchyNode.SimpleProperty) {
-        val propertyName = simpleProperty.dbPropertyName
-        var property = simpleProperty.delegate
+    private fun OClass.applySimpleProperty(
+        simpleProp: SimplePropertyMetaDataImpl,
+        required: Boolean
+    ) {
+        val propertyName = simpleProp.name
         append(propertyName)
-        // unwrap
-        while (property is XdWrappedProperty<*, *, *>) {
-            property = property.wrapped
-        }
-        when (property) {
-            is XdProperty<*, *> -> {
-                val oProperty = createPropertyIfAbsent(propertyName, getOType(property.clazz))
 
-                oProperty.setNotNullIfDifferent(true)
-                oProperty.setRequirement(property.requirement)
+        val primitiveTypeName = simpleProp.primitiveTypeName ?: throw IllegalArgumentException("primitiveTypeName is null")
+
+        when (simpleProp.type) {
+            PropertyType.PRIMITIVE -> {
+                if (primitiveTypeName.lowercase() == "set") {
+                    append(", is not supported yet")
+                    // todo
+                    /*
+                    * To support sets we have to:
+                    * 1. On the Xodus repo level
+                    *   1. Add SimplePropertyMetaDataImpl.argumentType: String? property (or list of them, it is easier to extend)
+                    * 2. On the XodusDNQ repo level
+                    *   1. DNQMetaDataUtil.kt, addEntityMetaData(), 119 line, fill that argumentType param
+                    * 3. Support here
+                    * */
+                    //val oProperty = createEmbeddedSetPropertyIfAbsent(propertyName, getOType(unwrappedToDeleteProp.clazz))
+
+                    /*
+                    * If the value is not defined, the property returns true.
+                    * It is handled on the DNQ entities level.
+                    * */
+                    //oProperty.setNotNullIfDifferent(false)
+                    //oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
+
+                    /*
+                    * When creating an index on an EMBEDDEDSET field, OrientDB does not create an index for the field itself.
+                    * Instead, it creates an index for each individual item in the set.
+                    * This is done to enable quick searches for individual elements within the set.
+                    *
+                    * The same behaviour as the original behaviour of set properties in DNQ.
+                    * */
+                    //val index = makeDeferredIndexForEmbeddedSet(propertyName)
+                    //indicesCreator.add(index)
+                } else { // primitive types
+                    val oProperty = createPropertyIfAbsent(propertyName, getOType(primitiveTypeName))
+                    oProperty.setRequirement(required)
+                }
 
                 /*
                 * Default values
@@ -243,65 +267,15 @@ class DnqSchemaToOrientDB(
                 * Feel free to do anything you want in this regard.
                 * */
             }
-            is XdNullableProperty<*, *> -> {
-                val oProperty = createPropertyIfAbsent(propertyName, getOType(property.clazz))
-
-                oProperty.setNotNullIfDifferent(false)
-                oProperty.setRequirement(property.requirement)
-            }
-            is XdSetProperty<*, *> -> {
-                val oProperty = createEmbeddedSetPropertyIfAbsent(propertyName, getOType(property.clazz))
-
-                /*
-                * If the value is not defined, the property returns true.
-                * It is handled on the DNQ entities level.
-                * */
-                oProperty.setNotNullIfDifferent(false)
-                oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
-
-                /*
-                * When creating an index on an EMBEDDEDSET field, OrientDB does not create an index for the field itself.
-                * Instead, it creates an index for each individual item in the set.
-                * This is done to enable quick searches for individual elements within the set.
-                *
-                * The same behaviour as the original behaviour of set properties in DNQ.
-                * */
-                val index = makeDeferredIndexForEmbeddedSet(propertyName)
-                indicesCreator.add(index)
-            }
-            is XdMutableSetProperty<*, *> -> {
-                // the same as XdSetProperty<*, *>, look above
-
-                val oProperty = createEmbeddedSetPropertyIfAbsent(propertyName, getOType(property.clazz))
-                oProperty.setNotNullIfDifferent(false)
-                oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
-
-                val index = makeDeferredIndexForEmbeddedSet(propertyName)
-                indicesCreator.add(index)
-            }
-            is XdNullableBlobProperty -> {
-                val oProperty = createBinaryBlobPropertyIfAbsent(propertyName)
-                oProperty.setNotNullIfDifferent(false)
-                oProperty.setRequirement(property.requirement)
-            }
-            is XdBlobProperty -> {
-                val oProperty = createBinaryBlobPropertyIfAbsent(propertyName)
-                oProperty.setNotNullIfDifferent(true)
-                oProperty.setRequirement(property.requirement)
-            }
-            is XdNullableTextProperty -> {
+            PropertyType.TEXT -> {
                 val oProperty = createStringBlobPropertyIfAbsent(propertyName)
-                oProperty.setNotNullIfDifferent(false)
-                oProperty.setRequirement(property.requirement)
+                oProperty.setRequirement(required)
             }
-            is XdTextProperty -> {
-                val oProperty = createStringBlobPropertyIfAbsent(propertyName)
-                oProperty.setNotNullIfDifferent(true)
-                oProperty.setRequirement(property.requirement)
+            PropertyType.BLOB -> {
+                val oProperty = createBinaryBlobPropertyIfAbsent(propertyName)
+                oProperty.setRequirement(required)
             }
-            else -> throw IllegalArgumentException("$property is not supported. Feel free to support it.")
         }
-
         appendLine()
     }
 
@@ -334,35 +308,19 @@ class DnqSchemaToOrientDB(
         return oClass
     }
 
-    private fun OProperty.setRequirement(requirement: XdPropertyRequirement) {
-        when (requirement) {
-            XdPropertyRequirement.OPTIONAL -> {
-                append(", optional")
-                if (isMandatory) {
-                    isMandatory = false
-                }
+    private fun OProperty.setRequirement(required: Boolean) {
+        if (required) {
+            append(", required")
+            if (!isMandatory) {
+                isMandatory = true
             }
-            XdPropertyRequirement.REQUIRED -> {
-                append(", required")
-                if (!isMandatory) {
-                    isMandatory = true
-                }
-            }
-            XdPropertyRequirement.UNIQUE -> {
-                append(", required, unique")
-                if (!isMandatory) {
-                    isMandatory = true
-                }
-                createIndexIfAbsent(INDEX_TYPE.UNIQUE)
+            setNotNullIfDifferent(true)
+        } else {
+            append(", optional")
+            if (isMandatory) {
+                isMandatory = false
             }
         }
-    }
-
-    private fun OProperty.createIndexIfAbsent(indexType: INDEX_TYPE) {
-        if (allIndexes.all { it.type != indexType.name }) {
-            createIndex(indexType)
-        }
-        require(allIndexes.any { it.type == indexType.name })
     }
 
     private fun OProperty.setNotNullIfDifferent(notNull: Boolean) {
@@ -406,21 +364,23 @@ class DnqSchemaToOrientDB(
         return oProperty
     }
 
-    private fun getOType(clazz: Class<*>): OType {
-        return when (clazz) {
-            java.lang.Boolean::class.java -> OType.BOOLEAN
-            java.lang.String::class.java -> OType.STRING
-            java.lang.Integer::class.java -> OType.INTEGER
-            java.lang.Long::class.java -> OType.LONG
-            java.lang.Byte::class.java -> OType.BYTE
-            java.lang.Float::class.java -> OType.FLOAT
-            java.lang.Double::class.java -> OType.DOUBLE
-            java.lang.Short::class.java -> OType.SHORT
-            // DataTime
-            // DNQ stores datetime as number of milliseconds since 1970-01-01T00:00:00Z
-            // todo clarify if it is ok
-            Long::class.java -> OType.LONG
-            else -> throw IllegalArgumentException("$clazz is not supported. Feel free to support it.")
+    private fun getOType(jvmTypeName: String): OType {
+        return when (jvmTypeName.lowercase()) {
+            "boolean" -> OType.BOOLEAN
+            "string" -> OType.STRING
+
+            "byte" -> OType.BYTE
+            "short" -> OType.SHORT
+            "int",
+            "integer" -> OType.INTEGER
+            "long" -> OType.LONG
+
+            "float" -> OType.FLOAT
+            "double" -> OType.DOUBLE
+
+            "datetime" -> OType.DATETIME
+
+            else -> throw IllegalArgumentException("$jvmTypeName is not supported. Feel free to support it.")
         }
     }
 }
