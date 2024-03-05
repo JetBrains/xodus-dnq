@@ -35,15 +35,28 @@ class DnqSchemaToOrientDB(
     fun apply() {
         try {
             appendLine("applying the DNQ schema to OrientDB")
+            val sortedEntities = dnqModel.entitiesMetaData.sortedTopologically()
+            appendLine("topologically sorted entities: ${sortedEntities.joinToString(", ") { it.type }}")
             appendLine("creating classes if absent:")
             withPadding {
-                for (dnqEntity in dnqModel.entitiesMetaData) {
+                // it is not necessary to process the entities in the topologically sorted order but why not to?
+                for (dnqEntity in sortedEntities) {
                     createVertexClassIfAbsent(dnqEntity)
                 }
             }
             appendLine("creating properties and connections if absent:")
             withPadding {
-                for (dnqEntity in dnqModel.entitiesMetaData) {
+                /*
+                * It is necessary to process entities in the topologically sorted order.
+                *
+                * Consider Superclass1 and Subclass1: Superclass1. All the properties of
+                * Superclass1 will be both in EntityMetaData of Superclass1 and EntityMetaData of Subclass1.
+                *
+                * We want to those properties be created for Superclass1 in OrientDB, so we have to
+                * process Superclass1 before Subclass1. That is why we have to process entities in
+                * the topologically sorted order.
+                * */
+                for (dnqEntity in sortedEntities) {
                     createPropertiesAndConnectionsIfAbsent(dnqEntity)
                 }
             }
