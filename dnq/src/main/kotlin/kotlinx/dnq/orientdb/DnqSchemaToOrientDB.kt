@@ -11,6 +11,34 @@ import mu.KotlinLogging
 
 private val log = KotlinLogging.logger {}
 
+data class LinkMetadata(
+    val type1: String,
+    val prop1: String,
+    val cardinality1: AssociationEndCardinality,
+    val type2: String,
+    val prop2: String?,
+    val cardinality2: AssociationEndCardinality?
+) {
+    val twoDirectional: Boolean = prop2 != null
+
+    val name: String = if (prop2 == null)
+        "${type1}_${prop1}_${type2}"
+    else if (type1.lowercase() < type2.lowercase()) {
+        "${type1}_${prop1}_${type2}_${prop2}"
+    } else {
+        "${type2}_${prop2}_${type1}_${prop1}"
+    }
+
+    override fun toString(): String = if (prop2 == null)
+        "${type1}_${prop1}${cardinality1}_${type2}"
+    else if (type1.lowercase() < type2.lowercase()) {
+        "${type1}_${prop1}${cardinality1}_${type2}_${prop2}${cardinality2}"
+    } else {
+        "${type2}_${prop2}${cardinality2}_${type1}_${prop1}${cardinality1}"
+    }
+}
+
+
 class DnqSchemaToOrientDB(
     private val dnqModel: ModelMetaDataImpl,
     private val oSession: ODatabaseSession,
@@ -36,7 +64,7 @@ class DnqSchemaToOrientDB(
         try {
             appendLine("applying the DNQ schema to OrientDB")
             val sortedEntities = dnqModel.entitiesMetaData.sortedTopologically()
-            appendLine("topologically sorted entities: ${sortedEntities.joinToString(", ") { it.type }}")
+
             appendLine("creating classes if absent:")
             withPadding {
                 // it is not necessary to process the entities in the topologically sorted order but why not to?
@@ -44,7 +72,8 @@ class DnqSchemaToOrientDB(
                     createVertexClassIfAbsent(dnqEntity)
                 }
             }
-            appendLine("creating properties and connections if absent:")
+
+            appendLine("creating simple properties if absent:")
             withPadding {
                 /*
                 * It is necessary to process entities in the topologically sorted order.
@@ -58,6 +87,29 @@ class DnqSchemaToOrientDB(
                 * */
                 for (dnqEntity in sortedEntities) {
                     createPropertiesAndConnectionsIfAbsent(dnqEntity)
+                }
+            }
+
+            // associations
+            appendLine("associations:")
+            /*
+            * When an association declared in a superclass, we do not want to duplicate
+            * it in subclasses. So, we track already processed associations to avoid it.
+            * */
+            val processedAssociations = HashSet<AssociationMetaData>()
+            withPadding {
+                for (dnqEntity in sortedEntities) {
+                    appendLine(dnqEntity.type)
+                    withPadding {
+                        for (associationEnd in dnqEntity.associationEndsMetaData) {
+                            if (associationEnd.associationMetaData in processedAssociations) {
+                                continue
+                            }
+                            processedAssociations.add(associationEnd.associationMetaData)
+
+                            applyAssociation(makeLinkMetadata(dnqEntity, associationEnd))
+                        }
+                    }
                 }
             }
 
@@ -82,9 +134,29 @@ class DnqSchemaToOrientDB(
         }
     }
 
+    private fun makeLinkMetadata(entity: EntityMetaData, associationEnd: AssociationEndMetaData): LinkMetadata {
+        val oppositeEntity = associationEnd.oppositeEntityMetaData
+        val oppositeAssociationEnd =
+            if (associationEnd.associationMetaData.type == AssociationType.Directed) {
+                null
+            } else {
+                associationEnd.associationMetaData.getOppositeEnd(associationEnd)
+            }
+
+        return LinkMetadata(
+            type1 = entity.type,
+            prop1 = associationEnd.name,
+            cardinality1 = associationEnd.cardinality,
+            type2 = oppositeEntity.type,
+            prop2 = oppositeAssociationEnd?.name,
+            cardinality2 = oppositeAssociationEnd?.cardinality
+        )
+    }
+
     private fun createVertexClassIfAbsent(dnqEntity: EntityMetaData) {
         append(dnqEntity.type)
-        oSession.createVertexClassIfAbsent(dnqEntity.type)
+        val oClass = oSession.createVertexClassIfAbsent(dnqEntity.type)
+        oClass.applySuperClass(dnqEntity.superType)
         appendLine()
 
         /*
@@ -117,34 +189,29 @@ class DnqSchemaToOrientDB(
         return oClass
     }
 
+    private fun ODatabaseSession.createEdgeClassIfAbsent(name: String): OClass {
+        var oClass: OClass? = getClass(name)
+        if (oClass == null) {
+            oClass = oSession.createEdgeClass(name)!!
+            append(", edge class created")
+        } else {
+            append(", edge class already created")
+        }
+        return oClass
+    }
+
     private fun createPropertiesAndConnectionsIfAbsent(dnqEntity: EntityMetaData) {
         appendLine(dnqEntity.type)
 
         val oClass = oSession.getClass(dnqEntity.type)
 
         withPadding {
-            // superclass
-            oClass.applySuperClass(dnqEntity.superType)
-
-            // simple properties
-            appendLine("simple properties:")
-            withPadding {
-                for (propertyMetaData in dnqEntity.propertiesMetaData) {
-                    if (propertyMetaData is SimplePropertyMetaDataImpl) {
-                        val required = propertyMetaData.name in dnqEntity.requiredProperties
-                        // Xodus does not let a property be null/empty if it is in an index
-                        val requiredBecauseOfIndex = dnqEntity.ownIndexes.any { index -> index.fields.any { it.name == propertyMetaData.name } }
-                        oClass.applySimpleProperty(propertyMetaData, required || requiredBecauseOfIndex)
-                    }
-                }
-            }
-
-            // link properties
-            appendLine("link properties:")
-            withPadding {
-                for (propertyMetaData in dnqEntity.propertiesMetaData) {
-                    // use associations
-                    //oClass.applyLinkProperty(propertyMetaData)
+            for (propertyMetaData in dnqEntity.propertiesMetaData) {
+                if (propertyMetaData is SimplePropertyMetaDataImpl) {
+                    val required = propertyMetaData.name in dnqEntity.requiredProperties
+                    // Xodus does not let a property be null/empty if it is in an index
+                    val requiredBecauseOfIndex = dnqEntity.ownIndexes.any { index -> index.fields.any { it.name == propertyMetaData.name } }
+                    oClass.applySimpleProperty(propertyMetaData, required || requiredBecauseOfIndex)
                 }
             }
         }
@@ -152,9 +219,9 @@ class DnqSchemaToOrientDB(
 
     private fun OClass.applySuperClass(superClassName: String?) {
         if (superClassName == null) {
-            append("no super type")
+            append(", no super type")
         } else {
-            append("super type is $superClassName")
+            append(", super type is $superClassName")
             val superClass = oSession.getClass(superClassName)
             if (superClasses.contains(superClass)) {
                 append(", already set")
@@ -163,42 +230,104 @@ class DnqSchemaToOrientDB(
                 append(", set")
             }
         }
+    }
+
+    private fun applyAssociation(link: LinkMetadata) {
+        append(link.toString())
+
+        val class1 = oSession.getClass(link.type1) ?: throw IllegalStateException("${link.type1} class is not found")
+        val class2 = oSession.getClass(link.type2) ?: throw IllegalStateException("${link.type2} class is not found")
+
+        oSession.createEdgeClassIfAbsent(link.name)
+        appendLine()
+
+        withPadding {
+            // class1.prop1 -> edgeClass -> class2.prop2
+            applyLink(
+                edgeClassName = link.name,
+                outClass = class1,
+                outCardinality = link.cardinality1,
+                inClass = class2,
+                inCardinality = link.cardinality2
+            )
+
+            if (link.twoDirectional) {
+                // class2.prop2 -> edgeClass -> class1.prop1
+                applyLink(
+                    edgeClassName = link.name,
+                    outClass = class2,
+                    outCardinality = link.cardinality2!!,
+                    inClass = class1,
+                    inCardinality = link.cardinality1
+                )
+            }
+        }
+    }
+
+    private fun applyLink(
+        edgeClassName: String,
+        outClass: OClass,
+        outCardinality: AssociationEndCardinality,
+        inClass: OClass,
+        inCardinality: AssociationEndCardinality?
+    ) {
+        val propOutName = OVertex.getDirectEdgeLinkFieldName(ODirection.OUT, edgeClassName)
+        append("${outClass.name}.$propOutName")
+        val propOut = outClass.createPropertyIfAbsent(propOutName, OType.LINKBAG)
+        propOut.applyCardinality(outCardinality)
+        appendLine()
+
+        val propInName = OVertex.getDirectEdgeLinkFieldName(ODirection.IN, edgeClassName)
+        append("${inClass.name}.$propInName")
+        val propIn = inClass.createPropertyIfAbsent(propInName, OType.LINKBAG)
+        propIn.applyCardinality(inCardinality ?: AssociationEndCardinality._0_n)
+
         appendLine()
     }
 
-    private fun OClass.applyLinkProperty(linkProperty: PropertyMetaDataImpl) {
-        val propertyName = linkProperty.name
-        val property = linkProperty.type
-        append(propertyName)
-
-        if (false) {
-            val outClass = this
-            val inClass = oSession.getClass("provide class name here") ?: throw IllegalStateException("Opposite class not found. Happy debugging!")
-
-            val edgeClassName = "${outClass.name}_${inClass.name}_$propertyName"
-            oSession.createEdgeClass(edgeClassName)
-
-            val outProperty = outClass.createProperty(
-                OVertex.getDirectEdgeLinkFieldName(ODirection.OUT, edgeClassName),
-                OType.LINKBAG
-            )
-
-            val inProperty = inClass.createProperty(
-                OVertex.getDirectEdgeLinkFieldName(ODirection.IN, edgeClassName),
-                OType.LINKBAG
-            )
-
-            // Person out[0..1] --> Link
-            outProperty.setMandatory(false)
-            outProperty.setMin("0")
-            outProperty.setMax("1")
-
-            // Link --> in[0..1] Car
-            inProperty.setMandatory(false)
-            inProperty.setMin("0")
-            inProperty.setMax("1")
+    private fun OProperty.applyCardinality(cardinality: AssociationEndCardinality) {
+        when (cardinality) {
+            AssociationEndCardinality._0_1 -> {
+                setRequirement(false)
+                setMinIfDifferent("0")
+                setMaxIfDifferent("1")
+            }
+            AssociationEndCardinality._1 -> {
+                setRequirement(true)
+                setMinIfDifferent("1")
+                setMaxIfDifferent("1")
+            }
+            AssociationEndCardinality._0_n -> {
+                setRequirement(false)
+                setMinIfDifferent("0")
+                setMaxIfDifferent(null)
+            }
+            AssociationEndCardinality._1_n -> {
+                setRequirement(true)
+                setMinIfDifferent("1")
+                setMaxIfDifferent(null)
+            }
         }
-        appendLine()
+    }
+
+    private fun OProperty.setMaxIfDifferent(max: String?) {
+        append(", max $max")
+        if (this.max == max) {
+            append(" already set")
+        } else {
+            setMax(max)
+            append(" set")
+        }
+    }
+
+    private fun OProperty.setMinIfDifferent(min: String?) {
+        append(", min $min")
+        if (this.min == min) {
+            append(" already set")
+        } else {
+            setMin(min)
+            append(" set")
+        }
     }
 
     private fun OClass.applySimpleProperty(
@@ -214,7 +343,6 @@ class DnqSchemaToOrientDB(
             PropertyType.PRIMITIVE -> {
                 if (primitiveTypeName.lowercase() == "set") {
                     append(", is not supported yet")
-                    // todo
                     /*
                     * To support sets we have to:
                     * 1. On the Xodus repo level
@@ -223,14 +351,15 @@ class DnqSchemaToOrientDB(
                     *   1. DNQMetaDataUtil.kt, addEntityMetaData(), 119 line, fill that argumentType param
                     * 3. Support here
                     * */
-                    //val oProperty = createEmbeddedSetPropertyIfAbsent(propertyName, getOType(unwrappedToDeleteProp.clazz))
+                    //val typeParameter = simpleProp.typeParameterNames?.firstOrNull() ?: throw IllegalStateException("$propertyName is Set but does not contain information about the type parameter")
+                    //val oProperty = createEmbeddedSetPropertyIfAbsent(propertyName, getOType(typeParameter))
 
                     /*
                     * If the value is not defined, the property returns true.
                     * It is handled on the DNQ entities level.
+                    * But, we still apply the required state just in case.
                     * */
-                    //oProperty.setNotNullIfDifferent(false)
-                    //oProperty.setRequirement(XdPropertyRequirement.OPTIONAL)
+                    //oProperty.setRequirement(required)
 
                     /*
                     * When creating an index on an EMBEDDEDSET field, OrientDB does not create an index for the field itself.
