@@ -86,12 +86,12 @@ class DnqSchemaToOrientDB(
                 * the topologically sorted order.
                 * */
                 for (dnqEntity in sortedEntities) {
-                    createPropertiesAndConnectionsIfAbsent(dnqEntity)
+                    createSimplePropertiesIfAbsent(dnqEntity)
                 }
             }
 
             // associations
-            appendLine("associations:")
+            appendLine("creating associations if absent:")
             /*
             * When an association declared in a superclass, we do not want to duplicate
             * it in subclasses. So, we track already processed associations to avoid it.
@@ -200,7 +200,7 @@ class DnqSchemaToOrientDB(
         return oClass
     }
 
-    private fun createPropertiesAndConnectionsIfAbsent(dnqEntity: EntityMetaData) {
+    private fun createSimplePropertiesIfAbsent(dnqEntity: EntityMetaData) {
         appendLine(dnqEntity.type)
 
         val oClass = oSession.getClass(dnqEntity.type)
