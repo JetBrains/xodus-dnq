@@ -11,34 +11,6 @@ import mu.KotlinLogging
 
 private val log = KotlinLogging.logger {}
 
-data class LinkMetadata(
-    val type1: String,
-    val prop1: String,
-    val cardinality1: AssociationEndCardinality,
-    val type2: String,
-    val prop2: String?,
-    val cardinality2: AssociationEndCardinality?
-) {
-    val twoDirectional: Boolean = prop2 != null
-
-    val name: String = if (prop2 == null)
-        "${type1}_${prop1}_${type2}"
-    else if (type1.lowercase() < type2.lowercase()) {
-        "${type1}_${prop1}_${type2}_${prop2}"
-    } else {
-        "${type2}_${prop2}_${type1}_${prop1}"
-    }
-
-    override fun toString(): String = if (prop2 == null)
-        "${type1}_${prop1}${cardinality1}_${type2}"
-    else if (type1.lowercase() < type2.lowercase()) {
-        "${type1}_${prop1}${cardinality1}_${type2}_${prop2}${cardinality2}"
-    } else {
-        "${type2}_${prop2}${cardinality2}_${type1}_${prop1}${cardinality1}"
-    }
-}
-
-
 class DnqSchemaToOrientDB(
     private val dnqModel: ModelMetaDataImpl,
     private val oSession: ODatabaseSession,
@@ -67,7 +39,10 @@ class DnqSchemaToOrientDB(
 
             appendLine("creating classes if absent:")
             withPadding {
-                // it is not necessary to process the entities in the topologically sorted order but why not to?
+                /*
+                * We want superclasses be created before subclasses.
+                * So, process entities in the topological order.
+                * */
                 for (dnqEntity in sortedEntities) {
                     createVertexClassIfAbsent(dnqEntity)
                 }
@@ -76,7 +51,7 @@ class DnqSchemaToOrientDB(
             appendLine("creating simple properties if absent:")
             withPadding {
                 /*
-                * It is necessary to process entities in the topologically sorted order.
+                * It is necessary to process entities in the topologically sorted order here too.
                 *
                 * Consider Superclass1 and Subclass1: Superclass1. All the properties of
                 * Superclass1 will be both in EntityMetaData of Superclass1 and EntityMetaData of Subclass1.
@@ -90,7 +65,6 @@ class DnqSchemaToOrientDB(
                 }
             }
 
-            // associations
             appendLine("creating associations if absent:")
             /*
             * When an association declared in a superclass, we do not want to duplicate
@@ -134,24 +108,8 @@ class DnqSchemaToOrientDB(
         }
     }
 
-    private fun makeLinkMetadata(entity: EntityMetaData, associationEnd: AssociationEndMetaData): LinkMetadata {
-        val oppositeEntity = associationEnd.oppositeEntityMetaData
-        val oppositeAssociationEnd =
-            if (associationEnd.associationMetaData.type == AssociationType.Directed) {
-                null
-            } else {
-                associationEnd.associationMetaData.getOppositeEnd(associationEnd)
-            }
 
-        return LinkMetadata(
-            type1 = entity.type,
-            prop1 = associationEnd.name,
-            cardinality1 = associationEnd.cardinality,
-            type2 = oppositeEntity.type,
-            prop2 = oppositeAssociationEnd?.name,
-            cardinality2 = oppositeAssociationEnd?.cardinality
-        )
-    }
+    // Vertices and Edges
 
     private fun createVertexClassIfAbsent(dnqEntity: EntityMetaData) {
         append(dnqEntity.type)
@@ -200,23 +158,6 @@ class DnqSchemaToOrientDB(
         return oClass
     }
 
-    private fun createSimplePropertiesIfAbsent(dnqEntity: EntityMetaData) {
-        appendLine(dnqEntity.type)
-
-        val oClass = oSession.getClass(dnqEntity.type)
-
-        withPadding {
-            for (propertyMetaData in dnqEntity.propertiesMetaData) {
-                if (propertyMetaData is SimplePropertyMetaDataImpl) {
-                    val required = propertyMetaData.name in dnqEntity.requiredProperties
-                    // Xodus does not let a property be null/empty if it is in an index
-                    val requiredBecauseOfIndex = dnqEntity.ownIndexes.any { index -> index.fields.any { it.name == propertyMetaData.name } }
-                    oClass.applySimpleProperty(propertyMetaData, required || requiredBecauseOfIndex)
-                }
-            }
-        }
-    }
-
     private fun OClass.applySuperClass(superClassName: String?) {
         if (superClassName == null) {
             append(", no super type")
@@ -230,6 +171,28 @@ class DnqSchemaToOrientDB(
                 append(", set")
             }
         }
+    }
+
+
+    // Associations
+
+    private fun makeLinkMetadata(entity: EntityMetaData, associationEnd: AssociationEndMetaData): LinkMetadata {
+        val oppositeEntity = associationEnd.oppositeEntityMetaData
+        val oppositeAssociationEnd =
+            if (associationEnd.associationMetaData.type == AssociationType.Directed) {
+                null
+            } else {
+                associationEnd.associationMetaData.getOppositeEnd(associationEnd)
+            }
+
+        return LinkMetadata(
+            type1 = entity.type,
+            prop1 = associationEnd.name,
+            cardinality1 = associationEnd.cardinality,
+            type2 = oppositeEntity.type,
+            prop2 = oppositeAssociationEnd?.name,
+            cardinality2 = oppositeAssociationEnd?.cardinality
+        )
     }
 
     private fun applyAssociation(link: LinkMetadata) {
@@ -327,6 +290,26 @@ class DnqSchemaToOrientDB(
         } else {
             setMin(min)
             append(" set")
+        }
+    }
+
+
+    // Simple properties
+
+    private fun createSimplePropertiesIfAbsent(dnqEntity: EntityMetaData) {
+        appendLine(dnqEntity.type)
+
+        val oClass = oSession.getClass(dnqEntity.type)
+
+        withPadding {
+            for (propertyMetaData in dnqEntity.propertiesMetaData) {
+                if (propertyMetaData is SimplePropertyMetaDataImpl) {
+                    val required = propertyMetaData.name in dnqEntity.requiredProperties
+                    // Xodus does not let a property be null/empty if it is in an index
+                    val requiredBecauseOfIndex = dnqEntity.ownIndexes.any { index -> index.fields.any { it.name == propertyMetaData.name } }
+                    oClass.applySimpleProperty(propertyMetaData, required || requiredBecauseOfIndex)
+                }
+            }
         }
     }
 
