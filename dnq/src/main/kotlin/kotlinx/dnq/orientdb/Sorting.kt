@@ -3,15 +3,19 @@ package kotlinx.dnq.orientdb
 import jetbrains.exodus.query.metadata.EntityMetaData
 
 fun Iterable<EntityMetaData>.sortedTopologically(): List<EntityMetaData> {
-    val adj = HashMap<String, HashSet<String>>()
     val metaDataByName = HashMap<String, EntityMetaData>()
     for (entity in this) {
         require(!metaDataByName.containsKey(entity.type)) { "Two EntityMetaData instances with the same type=${entity.type} found. Happy debugging!" }
-
         metaDataByName[entity.type] = entity
+    }
+
+    val adj = HashMap<String, HashSet<String>>()
+    for (entity in this) {
         val superclass = entity.superType
         val subclass = entity.type
+
         if (superclass != null) {
+            require(metaDataByName.containsKey(superclass)) { "$subclass has superclass $superclass that is missing. Happy debugging!" }
             adj.getOrPut(superclass) { HashSet() }.add(subclass)
         }
     }
@@ -40,7 +44,6 @@ fun Iterable<EntityMetaData>.sortedTopologically(): List<EntityMetaData> {
     }
 
     return result.map { className ->
-        require(className in metaDataByName) { "$className type is in the result set but there is no such a type among the original list of EntityMetaData" }
         metaDataByName.getValue(className)
     }
 }
