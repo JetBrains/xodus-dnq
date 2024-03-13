@@ -21,6 +21,7 @@ import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
+import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.util.reattach
 import kotlinx.dnq.util.reattachAndGetLink
 import kotlinx.dnq.util.threadSessionOrThrow
@@ -28,12 +29,12 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
 class XdManyToOneRequiredLink<R : XdEntity, T : XdEntity>(
-        oppositeEntityType: XdEntityType<T>,
-        override val oppositeField: KProperty1<T, XdMutableQuery<R>>,
-        dbPropertyName: String?,
-        dbOppositePropertyName: String?,
-        onDeletePolicy: OnDeletePolicy,
-        onTargetDeletePolicy: OnDeletePolicy
+    oppositeEntityType: XdEntityType<T>,
+    override val oppositeField: KProperty1<T, XdQuery<R>>,
+    dbPropertyName: String?,
+    dbOppositePropertyName: String?,
+    onDeletePolicy: OnDeletePolicy,
+    onTargetDeletePolicy: OnDeletePolicy
 ) : ScalarRequiredLink<R, T>, XdLink<R, T>(
         oppositeEntityType,
         dbPropertyName,

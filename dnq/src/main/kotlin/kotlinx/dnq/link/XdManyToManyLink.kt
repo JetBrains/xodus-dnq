@@ -23,6 +23,7 @@ import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
+import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.query.isNotEmpty
 import kotlinx.dnq.util.isReadOnly
 import kotlinx.dnq.util.reattach
@@ -31,13 +32,13 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
 open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
-        oppositeEntityType: XdEntityType<T>,
-        override val oppositeField: KProperty1<T, XdMutableQuery<R>>,
-        dbPropertyName: String?,
-        dbOppositePropertyName: String?,
-        onDeletePolicy: OnDeletePolicy,
-        onTargetDeletePolicy: OnDeletePolicy,
-        required: Boolean
+    oppositeEntityType: XdEntityType<T>,
+    override val oppositeField: KProperty1<T, XdQuery<R>>,
+    dbPropertyName: String?,
+    dbOppositePropertyName: String?,
+    onDeletePolicy: OnDeletePolicy,
+    onTargetDeletePolicy: OnDeletePolicy,
+    required: Boolean
 ) : VectorLink<R, T>, XdLink<R, T>(
         oppositeEntityType,
         dbPropertyName,

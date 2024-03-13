@@ -152,7 +152,7 @@ class AssociationSimpleTest : DBTest() {
     class MIssue(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<MIssue>()
 
-        val tags: XdMutableQuery<MTag> by xdLink0_N(MTag::issues)
+        val tags: XdQuery<MTag> by xdLink0_N(MTag::issues)
 
         fun getTags(user: MUser): XdQuery<MTag> {
             return this.tags.query(MTag::owner eq user)

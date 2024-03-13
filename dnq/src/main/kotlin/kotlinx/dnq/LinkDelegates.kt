@@ -17,6 +17,7 @@ package kotlinx.dnq
 
 import kotlinx.dnq.link.*
 import kotlinx.dnq.query.XdMutableQuery
+import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.util.XdPropertyCachedProvider
 import kotlinx.dnq.util.entityType
 import kotlin.reflect.KProperty1
@@ -364,7 +365,7 @@ inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1_N(
  */
 @JvmName("xdLink0_1_opposite_multi")
 inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink0_1(
-        oppositeLink: KProperty1<XdTarget, XdMutableQuery<XdSource>>,
+        oppositeLink: KProperty1<XdTarget, XdQuery<XdSource>>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -406,7 +407,7 @@ inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink0_1(
  */
 @JvmName("xdLink1_opposite_multi")
 inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1(
-        oppositeLink: KProperty1<XdTarget, XdMutableQuery<XdSource>>,
+        oppositeLink: KProperty1<XdTarget, XdQuery<XdSource>>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -449,7 +450,7 @@ inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1(
  */
 @JvmName("xdLink0_N_opposite_multi")
 inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink0_N(
-        oppositeLink: KProperty1<XdTarget, XdMutableQuery<XdSource>>,
+        oppositeLink: KProperty1<XdTarget, XdQuery<XdSource>>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
@@ -493,7 +494,7 @@ inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink0_N(
  */
 @JvmName("xdLink1_N_opposite_multi")
 inline fun <XdSource : XdEntity, reified XdTarget : XdEntity> xdLink1_N(
-        oppositeLink: KProperty1<XdTarget, XdMutableQuery<XdSource>>,
+        oppositeLink: KProperty1<XdTarget, XdQuery<XdSource>>,
         dbPropertyName: String? = null,
         dbOppositePropertyName: String? = null,
         onDelete: OnDeletePolicy = OnDeletePolicy.FAIL,
