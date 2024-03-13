@@ -209,7 +209,7 @@ fun <T : XdEntity, R : Comparable<*>?> T.getOldValue(property: KProperty1<T, R>)
     return getOldPrimitiveValue(property.getDBName(javaClass.entityType)) as R?
 }
 
-private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<R, XdMutableQuery<T>>, getLinks: (String) -> Iterable<Entity>): XdQuery<T> {
+private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<R, XdQuery<T>>, getLinks: (String) -> Iterable<Entity>): XdQuery<T> {
     val clazz = this.javaClass
     val metaProperty = XdModel.getOrThrow(clazz.entityType.entityType).resolveMetaProperty(property) as? XdHierarchyNode.LinkProperty
             ?: throw IllegalArgumentException("Property ${clazz.name}::$property is not a Xodus link")
@@ -219,11 +219,11 @@ private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<
     return getLinks(metaProperty.dbPropertyName).asQuery(delegateValue.oppositeEntityType)
 }
 
-fun <R : XdEntity, T : XdEntity> R.getAddedLinks(property: KProperty1<R, XdMutableQuery<T>>) = getLinksWrapper(property) { linkName ->
+fun <R : XdEntity, T : XdEntity> R.getAddedLinks(property: KProperty1<R, XdQuery<T>>) = getLinksWrapper(property) { linkName ->
     this.getAddedLinks(linkName)
 }
 
-fun <R : XdEntity, T : XdEntity> R.getRemovedLinks(property: KProperty1<R, XdMutableQuery<T>>) = getLinksWrapper(property) { linkName ->
+fun <R : XdEntity, T : XdEntity> R.getRemovedLinks(property: KProperty1<R, XdQuery<T>>) = getLinksWrapper(property) { linkName ->
     this.getRemovedLinks(linkName)
 }
 
