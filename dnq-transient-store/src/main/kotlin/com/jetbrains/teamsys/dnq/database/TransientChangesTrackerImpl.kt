@@ -15,6 +15,8 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator
 import jetbrains.exodus.core.dataStructures.hash.HashMap
@@ -22,18 +24,17 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet
 import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
+import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import java.math.BigInteger
-
 import java.util.*
 
 /**
  * @author Vadim.Gurov
  */
-class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransaction?) : TransientChangesTracker {
-    override val snapshot: PersistentStoreTransaction
+class TransientChangesTrackerImpl(private var _snapshot: OStoreTransaction?) : TransientChangesTracker {
+    override val snapshot: OStoreTransaction
         get() = _snapshot
                 ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
 
@@ -97,8 +98,7 @@ class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransact
         }
 
     override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntityImpl {
-        val readOnlyPersistentEntity = transientEntity.persistentEntity.getSnapshot(snapshot)
-        return ReadonlyTransientEntityImpl(getChangeDescription(transientEntity), readOnlyPersistentEntity, transientEntity.store)
+        return ReadonlyTransientEntityImpl(getChangeDescription(transientEntity), transientEntity.entity, transientEntity.store)
     }
 
     private fun getEntityChangeType(transientEntity: TransientEntity): EntityChangeType {
@@ -136,8 +136,13 @@ class TransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransact
     override fun hasLinkChanges(transientEntity: TransientEntity, linkName: String): Boolean =
             getChangedLinksDetailed(transientEntity).orEmpty().containsKey(linkName)
 
-    override fun getPropertyOldValue(transientEntity: TransientEntity, propName: String): Comparable<*>? =
-            transientEntity.persistentEntity.getSnapshot(snapshot).getProperty(propName)
+    override fun getPropertyOldValue(transientEntity: TransientEntity, propName: String): Comparable<*>? {
+        val session = ODatabaseSession.getActiveSession()
+        val id = transientEntity.entity.id.asOId()
+        val oVertex = session.load<OVertex>(id)
+        return oVertex.getPropertyOnLoadValue(propName)
+    }
+
 
     override fun isNew(transientEntity: TransientEntity): Boolean {
         return transientEntity.id in addedEntities

@@ -17,34 +17,26 @@ package kotlinx.dnq.store.container
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import com.jetbrains.teamsys.dnq.database.TransientSortEngineImpl
-import jetbrains.exodus.entitystore.PersistentEntityStoreConfig
-import jetbrains.exodus.entitystore.PersistentEntityStoreImpl
-import jetbrains.exodus.env.EnvironmentConfig
-import jetbrains.exodus.env.Environments
+import jetbrains.exodus.entitystore.orientdb.ODatabaseProvider
+import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
 import jetbrains.exodus.query.metadata.ModelMetaDataImpl
+import jetbrains.exodus.query.metadata.OModelMetaData
 import kotlinx.dnq.store.XdQueryEngine
-import java.io.File
 
-fun createTransientEntityStore(dbFolder: File,
-                               entityStoreName: String,
-                               configure: EnvironmentConfig.() -> Unit = {}): TransientEntityStoreImpl {
-    return createTransientEntityStore(dbFolder, entityStoreName, true, configure)
-}
-
-fun createTransientEntityStore(dbFolder: File,
-                               entityStoreName: String,
-                               primary: Boolean,
-                               configure: EnvironmentConfig.() -> Unit = {}): TransientEntityStoreImpl {
+fun createTransientEntityStore(
+    databaseProvider:ODatabaseProvider,
+    databaseName:String,
+    classIdToOClassId: Map<Int, Int>
+): TransientEntityStoreImpl {
     return TransientEntityStoreImpl().apply {
         val store = this
-        val environment = Environments.newInstance(dbFolder, EnvironmentConfig().apply(configure).apply { isManagementEnabled = primary })
-        val persistentStore = PersistentEntityStoreImpl(
-                PersistentEntityStoreConfig().apply { isManagementEnabled = primary },
-                environment,
-                null,
-                entityStoreName)
-        this.persistentStore = persistentStore
-        this.modelMetaData = ModelMetaDataImpl()
+        val oStore = OPersistentEntityStore(
+            databaseProvider,
+            databaseName,
+            classIdToOClassId = classIdToOClassId
+        )
+        this.persistentStore = oStore
+        this.modelMetaData = OModelMetaData(databaseProvider)
         this.queryEngine = XdQueryEngine(store).apply {
             this.sortEngine = TransientSortEngineImpl(store, this)
         }

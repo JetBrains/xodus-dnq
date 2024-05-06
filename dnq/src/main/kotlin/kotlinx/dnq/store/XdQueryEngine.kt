@@ -21,15 +21,14 @@ import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.PersistentEntityStoreImpl
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.iterate.SingleEntityIterable
+import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
 import jetbrains.exodus.query.QueryEngine
 
 
 class XdQueryEngine(val store: TransientEntityStore) :
-        QueryEngine(store.modelMetaData, store.persistentStore as PersistentEntityStoreImpl) {
+        QueryEngine(store.modelMetaData, store.persistentStore as OPersistentEntityStore) {
 
     private val session get() = store.threadSessionOrThrow
 
@@ -37,16 +36,16 @@ class XdQueryEngine(val store: TransientEntityStore) :
         return it is EntityIterableWrapper
     }
 
-    override fun wrap(it: EntityIterable): EntityIterable {
-        return session.createPersistentEntityIterableWrapper(it)
-    }
+//    override fun wrap(entity: Entity): Iterable<Entity> {
+//        return session.createPersistentEntityIterableWrapper(it)
+//    }
 
-    override fun wrap(entity: Entity): Iterable<Entity>? {
+    override fun wrap(entity: Entity): Iterable<Entity> {
         return (entity as? TransientEntity)
                 ?.takeIf { it.isSaved }
                 ?.reattach()
                 ?.takeUnless { session.isRemoved(it) }
                 ?.takeIf { it.isSaved }
-                ?.let { SingleEntityIterable(session.persistentTransaction as PersistentStoreTransaction, it.id) }
+                ?.let { SingleEntityIterable(session.oStoreTransaction as PersistentStoreTransaction, it.id) } ?: throw IllegalArgumentException()
     }
 }

@@ -203,7 +203,7 @@ object XdModel : KLogging() {
             return this
         }
 
-    private val TransientEntityImpl.cacheKey get() = (store.persistentStore.hashCode() shl 32) + persistentEntity.hashCode().toLong()
+    private val TransientEntityImpl.cacheKey get() = (store.persistentStore.hashCode() shl 32) + entity.hashCode().toLong()
 
     private class ToXdCachedValue(val entity: TransientEntityImpl, val xdEntity: XdEntity)
 }

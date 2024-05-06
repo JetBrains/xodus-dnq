@@ -15,9 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityId
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
@@ -27,7 +25,7 @@ object UniversalEmptyEntityIterable : EntityIterableBase(null) {
 
     override fun iterator() = Iterator
 
-    override fun getIteratorImpl(txn: PersistentStoreTransaction) = Iterator
+    override fun getIteratorImpl(txn: StoreTransaction): EntityIterator = Iterator
 
     override fun isEmpty() = true
 
@@ -43,7 +41,7 @@ object UniversalEmptyEntityIterable : EntityIterableBase(null) {
 
     override fun indexOf(entity: Entity) = -1
 
-    override fun countImpl(txn: PersistentStoreTransaction) = 0L
+    override fun countImpl(txn: StoreTransaction) = 0L
 
     override fun canBeCached() = false
 

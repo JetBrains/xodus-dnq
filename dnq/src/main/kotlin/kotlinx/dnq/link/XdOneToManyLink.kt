@@ -16,8 +16,8 @@
 package kotlinx.dnq.link
 
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.query.LinkEqual
-import jetbrains.exodus.query.TreeKeepingEntityIterable
+import jetbrains.exodus.entitystore.orientdb.OEntityId
+import jetbrains.exodus.entitystore.orientdb.iterate.link.OLinkToEntityIterable
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
@@ -51,18 +51,19 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
     override fun getValue(thisRef: R, property: KProperty<*>): XdMutableQuery<T> {
         return object : XdMutableQuery<T>(oppositeEntityType) {
             override val entityIterable: Iterable<Entity>
-                get() = try {
-                    val queryEngine = oppositeEntityType.entityStore.queryEngine
-                    val oppositeType = oppositeEntityType.entityType
-                    if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
+                get() =
+                    try {
+                        val queryEngine = oppositeEntityType.entityStore.queryEngine
+                        val oppositeType = oppositeEntityType.entityType
+                        if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
+                            thisRef.reattach().getLinks(property.dbName)
+                        } else {
+                            OLinkToEntityIterable(thisRef.threadSessionOrThrow, oppositeField.oppositeDbName, thisRef.entityId as OEntityId)
+                        }
+                    } catch (_: UnsupportedOperationException) {
+                        // to support weird FakeTransientEntity
                         thisRef.reattach().getLinks(property.dbName)
-                    } else {
-                        TreeKeepingEntityIterable(null, oppositeType, LinkEqual(oppositeField.oppositeDbName, thisRef.reattach()), queryEngine)
                     }
-                } catch (_: UnsupportedOperationException) {
-                    // to support weird FakeTransientEntity
-                    thisRef.reattach().getLinks(property.dbName)
-                }
 
             override fun add(entity: T) {
                 val session = thisRef.threadSessionOrThrow

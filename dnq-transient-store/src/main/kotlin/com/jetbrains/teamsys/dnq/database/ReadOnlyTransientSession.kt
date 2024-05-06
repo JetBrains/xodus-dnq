@@ -20,27 +20,30 @@ import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
+import jetbrains.exodus.entitystore.orientdb.OVertexEntity
+import jetbrains.exodus.env.Transaction
 
 class ReadOnlyTransientSession(
         private val store: TransientEntityStoreImpl,
-        override val persistentTransaction: PersistentStoreTransaction) : TransientStoreSession, SessionQueryMixin {
+        override val oStoreTransaction: OStoreTransaction) : TransientStoreSession, SessionQueryMixin {
 
-    override val persistentTransactionInternal: PersistentStoreTransaction
-        get() = persistentTransaction
+    override val oTransactionInternal: StoreTransaction
+        get() = oStoreTransaction
 
     override val transientChangesTracker: TransientChangesTracker
-        get() = ReadOnlyTransientChangesTrackerImpl(persistentTransaction)
+        get() = ReadOnlyTransientChangesTrackerImpl(oStoreTransaction)
 
     override val isOpened: Boolean
-        get() = !persistentTransaction.isFinished
+        get() = !oStoreTransaction.isFinished
 
     override val isCommitted: Boolean
-        get() = persistentTransaction.isFinished
+        get() = oStoreTransaction.isFinished
 
     override val isAborted: Boolean
-        get() = persistentTransaction.isFinished
+        get() = oStoreTransaction.isFinished
 
-    override fun isFinished() = persistentTransaction.isFinished
+    override fun isFinished() = oStoreTransaction.isFinished
 
     override fun getStore() = store
 
@@ -53,6 +56,14 @@ class ReadOnlyTransientSession(
     }
 
     override fun wrap(action: String, entityIterable: EntityIterable): EntityIterable = PersistentEntityIterableWrapper(store, entityIterable)
+    
+    override fun mergeSorted(
+        sorted: MutableList<EntityIterable>,
+        valueGetter: ComparableGetter,
+        comparator: Comparator<Comparable<Any>>
+    ): EntityIterable {
+        return oStoreTransaction.mergeSorted(sorted, valueGetter, comparator)
+    }
 
     override fun newEntity(entityType: String) = throw UnsupportedOperationException()
 
@@ -63,13 +74,13 @@ class ReadOnlyTransientSession(
     override fun newLocalCopy(entity: TransientEntity): TransientEntity = entity
 
     override fun newEntity(persistentEntity: Entity): ReadonlyTransientEntityImpl {
-        if (persistentEntity !is PersistentEntity)
+        if (persistentEntity !is OVertexEntity)
             throw IllegalArgumentException("Cannot create transient entity wrapper for non persistent entity")
 
         return ReadonlyTransientEntityImpl(persistentEntity, store)
     }
 
-    override fun getEntity(id: EntityId): Entity = newEntity(persistentTransactionInternal.getEntity(id))
+    override fun getEntity(id: EntityId): Entity = newEntity(oTransactionInternal.getEntity(id))
 
     override fun hasChanges() = false
 
@@ -77,7 +88,7 @@ class ReadOnlyTransientSession(
 
     override fun isReadonly() = true
 
-    override fun getSnapshot() = persistentTransaction
+    override fun getSnapshot() = oStoreTransaction
 
     override fun isRemoved(entity: Entity) = false
 
@@ -90,8 +101,11 @@ class ReadOnlyTransientSession(
     override fun revert() = throw UnsupportedOperationException()
 
     override fun commit(): Boolean {
-        store.unregisterStoreSession(this)
         return true
+    }
+
+    override fun isCurrent(): Boolean {
+        return oStoreTransaction.isCurrent
     }
 
     override fun abort() {
@@ -99,24 +113,32 @@ class ReadOnlyTransientSession(
     }
 
     override fun getEntityTypes(): MutableList<String> {
-        return persistentTransactionInternal.entityTypes
+        return oTransactionInternal.entityTypes
+    }
+
+    override fun findWithPropSortedByValue(entityType: String, propertyName: String): EntityIterable {
+        return oStoreTransaction.findWithPropSortedByValue(entityType, propertyName)
     }
 
     override fun toEntityId(representation: String): EntityId {
-        return persistentTransactionInternal.toEntityId(representation)
+        return oTransactionInternal.toEntityId(representation)
     }
 
     override fun getSequence(sequenceName: String): Sequence {
-        return persistentTransactionInternal.getSequence(sequenceName)
+        return oTransactionInternal.getSequence(sequenceName)
     }
 
     override fun getSequence(sequenceName: String, initialValue: Long): Sequence {
-        return persistentTransactionInternal.getSequence(sequenceName, initialValue)
+        return oTransactionInternal.getSequence(sequenceName, initialValue)
     }
 
     override fun setQueryCancellingPolicy(policy: QueryCancellingPolicy?) {
-        persistentTransactionInternal.queryCancellingPolicy = policy
+        oTransactionInternal.queryCancellingPolicy = policy
     }
 
-    override fun getQueryCancellingPolicy(): QueryCancellingPolicy? = persistentTransactionInternal.queryCancellingPolicy
+    override fun getQueryCancellingPolicy(): QueryCancellingPolicy? = oTransactionInternal.queryCancellingPolicy
+
+    override fun getEnvironmentTransaction(): Transaction {
+        return oStoreTransaction.environmentTransaction
+    }
 }

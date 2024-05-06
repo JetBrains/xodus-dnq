@@ -17,10 +17,7 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.EntityIterator
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 
 
@@ -125,7 +122,7 @@ open class PersistentEntityIterableWrapper(
         return PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.threadSessionOrThrow)
     }
 
-    override fun getIteratorImpl(txn: PersistentStoreTransaction): EntityIterator {
+    override fun getIteratorImpl(txn: StoreTransaction): EntityIterator {
         throw UnsupportedOperationException("Should never be called")
     }
 

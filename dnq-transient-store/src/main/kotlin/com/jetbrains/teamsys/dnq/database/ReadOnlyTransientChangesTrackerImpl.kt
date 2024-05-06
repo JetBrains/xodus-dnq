@@ -20,10 +20,10 @@ import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityChange
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import java.math.BigInteger
 
-class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: PersistentStoreTransaction?) : TransientChangesTracker {
+class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: OStoreTransaction?) : TransientChangesTracker {
 
     override val changesHash: BigInteger
         get() = BigInteger.ZERO
@@ -34,7 +34,7 @@ class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: PersistentStore
     override val changesDescriptionCount: Int
         get() = 0
 
-    override val snapshot: PersistentStoreTransaction
+    override val snapshot: OStoreTransaction
         get() = _snapshot
                 ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
 
@@ -57,7 +57,7 @@ class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: PersistentStore
     override fun hasLinkChanges(transientEntity: TransientEntity, linkName: String) = false
 
     override fun getPropertyOldValue(transientEntity: TransientEntity, propName: String): Comparable<*>? =
-            transientEntity.persistentEntity.getSnapshot(snapshot).run {
+            transientEntity.entity.run {
                 getProperty(propName) ?: getBlobString(propName)
             }
 

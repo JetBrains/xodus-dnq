@@ -17,8 +17,13 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import com.orientechnologies.orient.core.db.ODatabaseType
+import com.orientechnologies.orient.core.db.OrientDB
+import com.orientechnologies.orient.core.db.OrientDBConfig
+import com.orientechnologies.orient.core.db.OrientDBConfigBuilder
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.orientdb.ODatabaseProviderImpl
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.store.container.ThreadLocalStoreContainer
 import kotlinx.dnq.store.container.createTransientEntityStore
@@ -87,12 +92,6 @@ class ThreadLocalStoreContainerTest {
                 }
             })
         }
-    }
-
-    private fun createStore(name: String): TransientEntityStoreImpl {
-        val store = createTransientEntityStore(File(databaseHome, name), "testDB") { envCloseForcedly = true }
-        initMetaData(XdModel.hierarchy, store)
-        return store
     }
 
     @Test

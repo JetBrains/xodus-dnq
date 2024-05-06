@@ -23,12 +23,13 @@ import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIterableDecoratorBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorBase
+import jetbrains.exodus.entitystore.orientdb.*
 import java.io.File
 import java.io.InputStream
 
-class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: PersistentEntity, store: TransientEntityStore) : TransientEntityImpl(snapshot, store) {
+class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEntity, store: TransientEntityStore) : TransientEntityImpl(snapshot, store) {
 
-    constructor(snapshot: PersistentEntity, store: TransientEntityStore) : this(null, snapshot, store)
+    constructor(snapshot: OEntity, store: TransientEntityStore) : this(null, snapshot, store)
 
     private val hasChanges by lazy {
         changedProperties.isNotEmpty() || changedLinks.values.any { it.isNotEmpty() }
@@ -81,7 +82,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: Pers
     }
 
     override fun getLink(linkName: String): Entity? {
-        return (persistentEntity.getLink(linkName) as PersistentEntity?)
+        return (entity.getLink(linkName) as OVertexEntity?)
                 ?.let { linkTarget ->
                     ReadonlyTransientEntityImpl(linkTarget.getSnapshotPersistentEntity(), store)
                 }
@@ -92,7 +93,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: Pers
     }
 
     override fun getLinks(linkName: String): EntityIterable {
-        return PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkName).wrapWithReadOnlyIterable())
+        return PersistentEntityIterableWrapper(store, entity.getLinks(linkName).wrapWithReadOnlyIterable())
     }
 
     override fun getLinks(linkNames: Collection<String>): EntityIterable {
@@ -154,8 +155,8 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: Pers
         }
     }
 
-    private fun PersistentEntity.getSnapshotPersistentEntity(): ReadOnlyPersistentEntity {
-        return ReadOnlyPersistentEntity(persistentEntity.transaction, id)
+    private fun OVertexEntity.getSnapshotPersistentEntity(): OReadonlyVertexEntity {
+        return OReadonlyVertexEntity(entity.store.currentTransaction as OStoreTransaction, id)
     }
 
     private fun throwReadonlyException(): Nothing = throw IllegalStateException("Entity is readonly")
@@ -167,16 +168,16 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: Pers
     private inner class ReadOnlyIterable(source: EntityIterableBase) : EntityIterableDecoratorBase(source.transaction, source) {
         override fun isSortedById() = source.isSortedById
         override fun canBeCached() = false
-        override fun getIteratorImpl(txn: PersistentStoreTransaction) = ReadOnlyIterator(this)
+        override fun getIteratorImpl(txn: StoreTransaction) = ReadOnlyIterator(this)
         override fun getHandleImpl() = source.handle
-        override fun getFirst(): Entity? = (source.first as PersistentEntity?)?.getSnapshotPersistentEntity()
-        override fun getLast(): Entity? = (source.last as PersistentEntity?)?.getSnapshotPersistentEntity()
+        override fun getFirst(): Entity? = (source.first as OVertexEntity?)?.getSnapshotPersistentEntity()
+        override fun getLast(): Entity? = (source.last as OVertexEntity?)?.getSnapshotPersistentEntity()
     }
 
     private inner class ReadOnlyIterator(source: ReadOnlyIterable) : EntityIteratorBase(source) {
         private val source = source.decorated.iterator() as EntityIteratorBase
 
-        override fun next(): Entity? = (source.next() as PersistentEntity?)?.getSnapshotPersistentEntity()
+        override fun next(): Entity? = (source.next() as OVertexEntity?)?.getSnapshotPersistentEntity()
         override fun hasNextImpl() = source.hasNext()
         override fun nextIdImpl() = source.nextId()
         override fun shouldBeDisposed() = false

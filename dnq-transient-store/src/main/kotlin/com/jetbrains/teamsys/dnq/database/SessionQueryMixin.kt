@@ -18,25 +18,25 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.StoreTransaction
 
 internal interface SessionQueryMixin : TransientStoreSession {
-    val persistentTransactionInternal: PersistentStoreTransaction
+    val oTransactionInternal: StoreTransaction
 
     fun wrap(action: String, entityIterable: EntityIterable): EntityIterable
 
     override fun getAll(entityType: String): EntityIterable {
-        return wrap("getAll", persistentTransactionInternal.getAll(entityType))
+        return wrap("getAll", oTransactionInternal.getAll(entityType))
     }
 
     override fun getSingletonIterable(entity: Entity): EntityIterable {
-        return wrap("getSingletonIterable", persistentTransactionInternal.getSingletonIterable(
-                (entity as TransientEntityImpl).persistentEntity
+        return wrap("getSingletonIterable", oTransactionInternal.getSingletonIterable(
+                (entity as TransientEntityImpl).entity
         ))
     }
 
     override fun find(entityType: String, propertyName: String, value: Comparable<*>): EntityIterable {
-        return wrap("find", persistentTransactionInternal.find(
+        return wrap("find", oTransactionInternal.find(
                 entityType,
                 propertyName,
                 value
@@ -44,7 +44,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
     }
 
     override fun find(entityType: String, propertyName: String, minValue: Comparable<*>, maxValue: Comparable<*>): EntityIterable {
-        return wrap("find", persistentTransactionInternal.find(
+        return wrap("find", oTransactionInternal.find(
                 entityType,
                 propertyName,
                 minValue,
@@ -53,7 +53,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
     }
 
     override fun findContaining(entityType: String, propertyName: String, value: String, ignoreCase: Boolean): EntityIterable {
-        return wrap("findContaining", persistentTransactionInternal.findContaining(
+        return wrap("findContaining", oTransactionInternal.findContaining(
                 entityType,
                 propertyName,
                 value,
@@ -62,7 +62,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
     }
 
     override fun findIds(entityType: String, minValue: Long, maxValue: Long): EntityIterable {
-        return wrap("findIds", persistentTransactionInternal.findIds(
+        return wrap("findIds", oTransactionInternal.findIds(
                 entityType,
                 minValue,
                 maxValue
@@ -70,14 +70,14 @@ internal interface SessionQueryMixin : TransientStoreSession {
     }
 
     override fun findWithProp(entityType: String, propertyName: String): EntityIterable {
-        return wrap("findWithProp", persistentTransactionInternal.findWithProp(
+        return wrap("findWithProp", oTransactionInternal.findWithProp(
                 entityType,
                 propertyName
         ))
     }
 
     override fun findStartingWith(entityType: String, propertyName: String, value: String): EntityIterable {
-        return wrap("startsWith", persistentTransactionInternal.findStartingWith(
+        return wrap("startsWith", oTransactionInternal.findStartingWith(
                 entityType,
                 propertyName,
                 value
@@ -85,14 +85,14 @@ internal interface SessionQueryMixin : TransientStoreSession {
     }
 
     override fun findWithBlob(entityType: String, propertyName: String): EntityIterable {
-        return wrap("findWithBlob", persistentTransactionInternal.findWithBlob(
+        return wrap("findWithBlob", oTransactionInternal.findWithBlob(
                 entityType,
                 propertyName
         ))
     }
 
     override fun findLinks(entityType: String, entity: Entity, linkName: String): EntityIterable {
-        return wrap("findLinks", persistentTransactionInternal.findLinks(
+        return wrap("findLinks", oTransactionInternal.findLinks(
                 entityType,
                 entity,
                 linkName
@@ -100,7 +100,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
     }
 
     override fun findLinks(entityType: String, entities: EntityIterable, linkName: String): EntityIterable {
-        return wrap("findLinks", persistentTransactionInternal.findLinks(
+        return wrap("findLinks", oTransactionInternal.findLinks(
                 entityType,
                 entities,
                 linkName
@@ -108,7 +108,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
     }
 
     override fun findWithLinks(entityType: String, linkName: String): EntityIterable {
-        return wrap("findWithLinks", persistentTransactionInternal.findWithLinks(
+        return wrap("findWithLinks", oTransactionInternal.findWithLinks(
                 entityType,
                 linkName
         ))
@@ -118,7 +118,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
                                linkName: String,
                                oppositeEntityType: String,
                                oppositeLinkName: String): EntityIterable {
-        return wrap("findWithLinks", persistentTransactionInternal.findWithLinks(
+        return wrap("findWithLinks", oTransactionInternal.findWithLinks(
                 entityType,
                 linkName,
                 oppositeEntityType,
@@ -129,7 +129,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
     override fun sort(entityType: String,
                       propertyName: String,
                       ascending: Boolean): EntityIterable {
-        return wrap("sort", persistentTransactionInternal.sort(
+        return wrap("sort", oTransactionInternal.sort(
                 entityType,
                 propertyName,
                 ascending
@@ -140,7 +140,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
                       propertyName: String,
                       rightOrder: EntityIterable,
                       ascending: Boolean): EntityIterable {
-        return wrap("sort", persistentTransactionInternal.sort(
+        return wrap("sort", oTransactionInternal.sort(
                 entityType,
                 propertyName,
                 rightOrder,
@@ -153,7 +153,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
                            isMultiple: Boolean,
                            linkName: String,
                            rightOrder: EntityIterable): EntityIterable {
-        return wrap("sortLinks", persistentTransactionInternal.sortLinks(
+        return wrap("sortLinks", oTransactionInternal.sortLinks(
                 entityType,
                 sortedLinks,
                 isMultiple,
@@ -169,7 +169,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
                            rightOrder: EntityIterable,
                            oppositeEntityType: String,
                            oppositeLinkName: String): EntityIterable {
-        return wrap("sortLinks", persistentTransactionInternal.sortLinks(
+        return wrap("sortLinks", oTransactionInternal.sortLinks(
                 entityType,
                 sortedLinks,
                 isMultiple,
@@ -181,7 +181,7 @@ internal interface SessionQueryMixin : TransientStoreSession {
     }
 
     override fun mergeSorted(sorted: List<EntityIterable>, comparator: Comparator<Entity>): EntityIterable {
-        return wrap("mergeSorted", persistentTransactionInternal.mergeSorted(
+        return wrap("mergeSorted", oTransactionInternal.mergeSorted(
                 sorted,
                 comparator
         ))

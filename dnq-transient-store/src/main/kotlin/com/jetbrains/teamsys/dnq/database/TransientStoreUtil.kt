@@ -15,14 +15,14 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.core.dataStructures.hash.LongHashSet
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.PersistentEntity
-import jetbrains.exodus.entitystore.PersistentEntityStoreImpl
+import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
+import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import jetbrains.exodus.query.StaticTypedEntityIterable
 
 /**
@@ -75,9 +75,9 @@ object TransientStoreUtil {
     @JvmStatic
     fun isRemoved(entity: Entity): Boolean {
         return when (entity) {
-            is PersistentEntity -> {
-                val store = entity.store as PersistentEntityStoreImpl
-                store.getLastVersion(store.currentTransactionOrThrow, entity.id) < 0
+            is OVertexEntity -> {
+                val store = entity.store as OPersistentEntityStore
+                store.databaseProvider.acquireSession().getRecord<OVertex>(entity.id.asOId()) != null
             }
             is TransientEntity -> entity.store.threadSessionOrThrow.isRemoved(entity)
             else -> throw IllegalArgumentException("Cannot check if entity [$entity] is removed, it is neither TransientEntity nor PersistentEntity")

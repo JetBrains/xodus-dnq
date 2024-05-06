@@ -16,7 +16,12 @@
 package kotlinx.dnq.store.container
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import com.orientechnologies.orient.core.db.ODatabaseType
+import com.orientechnologies.orient.core.db.OrientDB
+import com.orientechnologies.orient.core.db.OrientDBConfig
+import com.orientechnologies.orient.core.db.OrientDBConfigBuilder
 import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.entitystore.orientdb.ODatabaseProviderImpl
 import jetbrains.exodus.env.EnvironmentConfig
 import java.io.File
 
@@ -32,7 +37,18 @@ object StaticStoreContainer : StoreContainer {
         }
 
     fun init(dbFolder: File, entityStoreName: String, primary: Boolean = true, configure: EnvironmentConfig.() -> Unit = {}): TransientEntityStoreImpl {
-        val store = createTransientEntityStore(dbFolder, entityStoreName, primary, configure)
+        //TODO use dbFolder
+        val db = OrientDB("memory", OrientDBConfig.defaultConfig())
+        val databaseType = ODatabaseType.MEMORY
+        db.createIfNotExists(entityStoreName, databaseType,"admin", "password", "admin")
+        val dbProvider = ODatabaseProviderImpl(
+            db,
+            entityStoreName,
+            "admin",
+            "password",
+            databaseType,
+        )
+        val store = createTransientEntityStore(dbProvider, entityStoreName, hashMapOf())
         this.store = store
         return store
     }

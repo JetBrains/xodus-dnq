@@ -38,7 +38,7 @@ object ConstraintsUtil: KLogging() {
         val cardinality = md.cardinality
         if (cardinality == AssociationEndCardinality._0_n) return true
 
-        val links = e.persistentEntity.getLinks(md.name)
+        val links = e.entity.getLinks(md.name)
 
         val iter = links.iterator()
         var size = 0

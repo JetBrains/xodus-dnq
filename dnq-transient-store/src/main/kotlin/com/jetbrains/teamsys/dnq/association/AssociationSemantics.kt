@@ -67,7 +67,7 @@ object AssociationSemantics {
             //throw new IllegalStateException("1111");
             txnEntity.getLinks(linkName)
         } else {
-            txnEntity.persistentEntity.getLinks(linkName)
+            txnEntity.entity.getLinks(linkName)
         }
     }
 

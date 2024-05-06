@@ -104,7 +104,7 @@ fun XdEntity.getOldLinkValue(linkName: String): TransientEntity? {
     } else if (entity.isNew) {
         null
     } else if (!entity.hasChanges(linkName)) {
-        entity.persistentEntity.getLink(linkName)?.let { session.newEntity(it) }
+        entity.entity.getLink(linkName)?.let { session.newEntity(it) }
     } else {
         getRemovedLinks(linkName).firstOrNull() as TransientEntity?
     }

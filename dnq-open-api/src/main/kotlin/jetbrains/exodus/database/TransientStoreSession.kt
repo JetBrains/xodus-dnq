@@ -18,11 +18,12 @@ package jetbrains.exodus.database
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.StoreTransaction
+import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 
 //TODO: rename to TransientStoreTransaction
 interface TransientStoreSession : StoreTransaction {
 
-    val persistentTransaction: StoreTransaction
+    val oStoreTransaction: OStoreTransaction
 
     val transientChangesTracker: TransientChangesTracker
 

@@ -19,6 +19,8 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import jetbrains.exodus.entitystore.orientdb.OQueryEntityIterable
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityOfTypeIterable
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
@@ -486,9 +488,16 @@ fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(dbFieldName: String, tar
 private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterable<Entity> {
     val entityTypeName = entityType.entityType
     val queryEngine = entityType.entityStore.queryEngine
-    val staticTypedIterable = this as? StaticTypedEntityIterable
-            ?: StaticTypedIterableDecorator(entityTypeName, this, queryEngine)
-    return ExcludeNullStaticTypedEntityIterable(entityTypeName, staticTypedIterable, queryEngine)
+
+    if (this is OQueryEntityIterable){
+        return this.intersect(OEntityOfTypeIterable(this.transaction, entityTypeName))
+    } else {
+        val modelMetaData = queryEngine.modelMetaData
+        val subTypes = modelMetaData?.getEntityMetaData(entityTypeName)?.allSubTypes?.toSet() ?: hashSetOf()
+        return this.asSequence().filter {
+            it != null &&  subTypes.contains(it.type)
+        }.filterNotNull().asIterable()
+    }
 }
 
 /**

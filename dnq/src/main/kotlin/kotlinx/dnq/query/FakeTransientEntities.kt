@@ -247,7 +247,7 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
 
     override val parent get() = throw unsupported()
 
-    override val persistentEntity get() = throw unsupported()
+    override val entity get() = throw unsupported()
 
     override fun setManyToOne(manyToOneLinkName: String, oneToManyLinkName: String, one: Entity?) {
         throw unsupported()

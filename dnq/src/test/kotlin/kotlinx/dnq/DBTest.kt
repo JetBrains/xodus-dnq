@@ -185,7 +185,6 @@ abstract class DBTest {
         }
         with(store) {
             close()
-            persistentStore.close()
             persistentStore.environment.close()
         }
     }

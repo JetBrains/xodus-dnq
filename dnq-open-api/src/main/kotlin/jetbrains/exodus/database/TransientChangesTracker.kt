@@ -16,7 +16,7 @@
 package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.StoreTransaction
 import java.math.BigInteger
 
 interface TransientChangesTracker {
@@ -36,7 +36,7 @@ interface TransientChangesTracker {
      */
     val changesDescriptionCount: Int
 
-    val snapshot: PersistentStoreTransaction
+    val snapshot: StoreTransaction
 
     val changedEntities: Set<TransientEntity>
 

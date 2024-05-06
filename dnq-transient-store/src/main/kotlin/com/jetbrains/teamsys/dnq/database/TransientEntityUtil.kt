@@ -20,7 +20,7 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentEntityStore
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 
 /**
  * Attach entity to current transient session if possible.
@@ -42,8 +42,7 @@ val TransientEntityStore.threadSessionOrThrow
         ?: throw IllegalStateException("There is no transient transaction in current thread")
 
 val PersistentEntityStore.currentTransactionOrThrow
-    get() = currentTransaction as PersistentStoreTransaction?
-        ?: throw IllegalStateException("There is no persistent transaction in current thread")
+    get() = currentTransaction as? OStoreTransaction ?: throw IllegalStateException("There is no persistent transaction in current thread")
 
 val TransientEntity.lifecycle: EntityLifecycle?
     get() = (store as? TransientEntityStoreImpl)?.entityLifecycle

@@ -20,6 +20,9 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
+import jetbrains.exodus.entitystore.orientdb.OEntity
+import jetbrains.exodus.entitystore.orientdb.OEntityId
+import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
 import java.io.File
 import java.io.InputStream
 
@@ -28,16 +31,16 @@ import java.io.InputStream
  */
 open class TransientEntityImpl : TransientEntity {
     private val store: TransientEntityStore
-    private var persistentEntityId: PersistentEntityId? = null
-    private var readOnlyPersistentEntity: ReadOnlyPersistentEntity? = null
-    private val entityType: String by lazy(LazyThreadSafetyMode.NONE) { persistentEntity.type }
+    private var persistentEntityId: OEntityId? = null
+    private var readOnlyPersistentEntity: OReadonlyVertexEntity? = null
+    private val entityType: String by lazy(LazyThreadSafetyMode.NONE) { entity.type }
 
-    override var persistentEntity: PersistentEntity
+    override var entity: OEntity
         get() = readOnlyPersistentEntity
-                ?: persistentEntityId?.let { (persistentStore as PersistentEntityStoreImpl).getEntity(it) }
+                ?: persistentEntityId?.let { persistentStore.currentTransaction?.getEntity(it) as OEntity }
                 ?: throwWrappedPersistentEntityUndefined()
         set(persistentEntity) {
-            if (persistentEntity is ReadOnlyPersistentEntity) {
+            if (persistentEntity is OReadonlyVertexEntity) {
                 persistentEntityId = null
                 readOnlyPersistentEntity = persistentEntity
             } else {
@@ -70,7 +73,7 @@ open class TransientEntityImpl : TransientEntity {
      * @return debug presentation
      */
     override val debugPresentation: String
-        get() = persistentEntity.toString()
+        get() = entity.toString()
 
     override val incomingLinks: List<Pair<String, EntityIterable>>
         get() {
@@ -103,9 +106,9 @@ open class TransientEntityImpl : TransientEntity {
         threadSessionOrThrow.createEntity(this, creator)
     }
 
-    internal constructor(persistentEntity: PersistentEntity, store: TransientEntityStore) {
+    internal constructor(persistentEntity: OEntity, store: TransientEntityStore) {
         this.store = store
-        this.persistentEntity = persistentEntity
+        this.entity = persistentEntity
     }
 
     override fun getStore() = store
@@ -120,14 +123,14 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun toIdString() = id.toString()
 
-    override fun getPropertyNames(): List<String> = persistentEntity.propertyNames
+    override fun getPropertyNames(): List<String> = entity.propertyNames
 
-    override fun getBlobNames(): List<String> = persistentEntity.blobNames
+    override fun getBlobNames(): List<String> = entity.blobNames
 
-    override fun getLinkNames(): List<String> = persistentEntity.linkNames
+    override fun getLinkNames(): List<String> = entity.linkNames
 
     override fun compareTo(other: Entity): Int {
-        return persistentEntity.compareTo(other)
+        return entity.compareTo(other)
     }
 
     override fun toString() = debugPresentation
@@ -141,11 +144,11 @@ open class TransientEntityImpl : TransientEntity {
     override fun hashCode() = id.hashCode() + persistentStore.hashCode()
 
     override fun getProperty(propertyName: String): Comparable<*>? {
-        return persistentEntity.getProperty(propertyName)
+        return entity.getProperty(propertyName)
     }
 
     override fun getRawProperty(propertyName: String): ByteIterable? {
-        return persistentEntity.getRawProperty(propertyName)
+        return entity.getRawProperty(propertyName)
     }
 
     override fun getPropertyOldValue(propertyName: String): Comparable<*>? {
@@ -161,11 +164,11 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun getBlob(blobName: String): InputStream? {
-        return persistentEntity.getBlob(blobName)
+        return entity.getBlob(blobName)
     }
 
     override fun getBlobSize(blobName: String): Long {
-        return persistentEntity.getBlobSize(blobName)
+        return entity.getBlobSize(blobName)
     }
 
     override fun setBlob(blobName: String, blob: InputStream) {
@@ -185,7 +188,7 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun getBlobString(blobName: String): String? {
-        return persistentEntity.getBlobString(blobName)
+        return entity.getBlobString(blobName)
     }
 
     override fun setLink(linkName: String, target: Entity?): Boolean {
@@ -229,19 +232,19 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun getLinks(linkName: String): EntityIterable {
-        return PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkName))
+        return PersistentEntityIterableWrapper(store, entity.getLinks(linkName))
     }
 
     override fun getLink(linkName: String): Entity? = getLink(linkName, null)
 
     open fun getLink(linkName: String, session: TransientStoreSession? = null): Entity? {
-        val link = this.persistentEntity.getLink(linkName) ?: return null
+        val link = this.entity.getLink(linkName) ?: return null
         val s = session ?: store.threadSessionOrThrow
         return s.newEntity(link).takeUnless { s.transientChangesTracker.isRemoved(it) }
     }
 
     override fun getLinks(linkNames: Collection<String>): EntityIterable {
-        return object : PersistentEntityIterableWrapper(store, persistentEntity.getLinks(linkNames)) {
+        return object : PersistentEntityIterableWrapper(store, entity.getLinks(linkNames)) {
             override fun iterator() = PersistentEntityIteratorWithPropIdWrapper(
                     wrappedIterable.iterator() as EntityIteratorWithPropId,
                     store.threadSessionOrThrow
@@ -251,7 +254,7 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun getLinksSize(linkName: String): Long {
         // TODO: slow method
-        return persistentEntity.getLinks(linkName).size()
+        return entity.getLinks(linkName).size()
     }
 
     override fun delete(): Boolean {

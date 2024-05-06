@@ -18,6 +18,9 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.core.dataStructures.StablePriorityQueue
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
+import jetbrains.exodus.entitystore.orientdb.OVertexEntity
+import jetbrains.exodus.entitystore.util.unsupported
 import jetbrains.exodus.env.EnvironmentConfig
 import jetbrains.exodus.query.QueryEngine
 import jetbrains.exodus.query.metadata.ModelMetaData
@@ -33,14 +36,14 @@ open class TransientEntityStoreImpl : TransientEntityStore {
 
     companion object : KLogging()
 
-    private lateinit var _persistentStore: PersistentEntityStore
+    private lateinit var _persistentStore: OPersistentEntityStore
 
     var entityLifecycle: EntityLifecycle? = null
 
     /**
      * Must be injected.
      */
-    override var persistentStore: PersistentEntityStore
+    override var persistentStore: OPersistentEntityStore
         get() = _persistentStore
         set(persistentStore) {
             val ec = persistentStore.environment.environmentConfig
@@ -179,17 +182,13 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     override fun renameEntityTypeRefactoring(oldEntityTypeName: String, newEntityTypeName: String) {
         val transientSession = transientSessionOrThrow
         transientSession.addChangeAndRun {
-            (transientSession.persistentTransaction.store as PersistentEntityStore).renameEntityType(oldEntityTypeName, newEntityTypeName)
+            (transientSession.oStoreTransaction.store as PersistentEntityStore).renameEntityType(oldEntityTypeName, newEntityTypeName)
             true
         }
     }
 
     override fun deleteEntityTypeRefactoring(entityTypeName: String) {
-        val transientSession = transientSessionOrThrow
-        transientSession.addChangeAndRun {
-            transientSession.persistentTransaction.store.deleteEntityType(entityTypeName)
-            true
-        }
+        unsupported { "This should be done with low level in orientDB" }
     }
 
     override fun deleteEntityRefactoring(entity: Entity) {
@@ -296,10 +295,10 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         enumCache[getEnumKey(className, propName)] = entity
     }
 
-    private fun Entity.unwrapEntity(): PersistentEntity {
+    private fun Entity.unwrapEntity(): OVertexEntity {
         return when (this) {
-            is TransientEntity -> this.persistentEntity
-            is PersistentEntity -> this
+            is TransientEntity -> this.entity as OVertexEntity
+            is OVertexEntity -> this
             else -> throw IllegalArgumentException("Cannot unwrap entity")
         }
     }

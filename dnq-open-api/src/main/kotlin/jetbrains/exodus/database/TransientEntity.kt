@@ -17,7 +17,7 @@ package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.PersistentEntity
+import jetbrains.exodus.entitystore.orientdb.OEntity
 
 interface TransientEntity : Entity {
 
@@ -32,9 +32,9 @@ interface TransientEntity : Entity {
     val isWrapper: Boolean
 
     /**
-     * @return underlying persistent entity
+     * @return underlying OEntity
      */
-    val persistentEntity: PersistentEntity
+    val entity: OEntity
 
     /**
      * Gets incoming links to entity.

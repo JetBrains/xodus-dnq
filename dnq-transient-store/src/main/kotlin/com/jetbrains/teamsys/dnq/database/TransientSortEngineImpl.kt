@@ -16,14 +16,7 @@
 package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.QueryEngine
 import jetbrains.exodus.query.SortEngine
 
-class TransientSortEngineImpl(private val store: TransientEntityStore, queryEngine: QueryEngine) : SortEngine(queryEngine) {
-
-    override fun attach(entity: Entity): Entity {
-        // TODO: seems that it's needed only for compatibility
-        return store.threadSession?.newEntity(entity) ?: entity
-    }
-}
+class TransientSortEngineImpl(private val store: TransientEntityStore, queryEngine: QueryEngine) : SortEngine(queryEngine)
