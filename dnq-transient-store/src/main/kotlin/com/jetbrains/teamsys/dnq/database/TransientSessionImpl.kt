@@ -18,7 +18,6 @@ package com.jetbrains.teamsys.dnq.database
 import com.orientechnologies.orient.core.db.ODatabaseSession
 import com.orientechnologies.orient.core.record.OElement
 import com.orientechnologies.orient.core.record.OVertex
-import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator
 import jetbrains.exodus.database.*
@@ -28,7 +27,6 @@ import jetbrains.exodus.entitystore.iterate.EntityIdSet
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity.Companion.DATA_PROPERTY_NAME
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.env.Transaction
@@ -255,8 +253,6 @@ class TransientSessionImpl(
      * Creates transient wrapper for existing persistent entity
      */
     override fun newEntity(persistentEntity: Entity): TransientEntity {
-        if (persistentEntity !is PersistentEntity)
-            throw IllegalArgumentException("Cannot create transient entity wrapper for non persistent entity")
         assertOpen("create entity")
         return newEntityImpl(persistentEntity).also { addLoadedId(persistentEntity.id) }
     }

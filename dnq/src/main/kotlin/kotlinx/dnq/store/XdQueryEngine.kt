@@ -21,9 +21,12 @@ import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
+import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.iterate.SingleEntityIterable
 import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
+import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.QueryEngine
 
 
@@ -32,14 +35,63 @@ class XdQueryEngine(val store: TransientEntityStore) :
 
     private val session get() = store.threadSessionOrThrow
 
+    override fun queryGetAll(entityType: String): EntityIterable {
+        return wrap(super.queryGetAll(entityType))
+    }
+
+    override fun query(entityType: String, tree: NodeBase): EntityIterable {
+        return wrap(super.query(entityType, tree))
+    }
+
+    override fun query(instance: Iterable<Entity>?, entityType: String, tree: NodeBase): EntityIterable {
+        return wrap(super.query(instance, entityType, tree))
+    }
+
+    override fun intersect(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
+        return wrap(super.intersect(left, right) as EntityIterable)
+    }
+
+    override fun union(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
+        return wrap(super.union(left, right) as EntityIterable)
+    }
+
+    override fun concat(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
+        return wrap(super.concat(left, right) as EntityIterable)
+    }
+
+    override fun exclude(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
+        return wrap(super.exclude(left, right) as EntityIterable)
+    }
+
+    override fun selectDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> {
+        return wrap(super.selectDistinct(it, linkName) as EntityIterable)
+    }
+
+    override fun selectManyDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> {
+        return wrap(super.selectManyDistinct(it, linkName) as EntityIterable)
+    }
+
+    override fun toEntityIterable(it: Iterable<Entity>): Iterable<Entity> {
+        return wrap(super.toEntityIterable(it) as EntityIterable)
+    }
+
+    override fun instantiateGetAll(entityType: String): EntityIterable {
+        return wrap(super.instantiateGetAll(entityType))
+    }
+
+    override fun instantiateGetAll(txn: StoreTransaction, entityType: String): EntityIterable {
+        return wrap(super.instantiateGetAll(txn, entityType))
+    }
+
+    private fun wrap(it: EntityIterable): EntityIterable {
+        return session.createPersistentEntityIterableWrapper(it)
+    }
+
     override fun isWrapped(it: Iterable<Entity>?): Boolean {
         return it is EntityIterableWrapper
     }
 
-//    override fun wrap(entity: Entity): Iterable<Entity> {
-//        return session.createPersistentEntityIterableWrapper(it)
-//    }
-
+    // ToDo: check if this is needed
     override fun wrap(entity: Entity): Iterable<Entity> {
         return (entity as? TransientEntity)
                 ?.takeIf { it.isSaved }
