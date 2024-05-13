@@ -48,7 +48,7 @@ object StaticStoreContainer : StoreContainer {
             "password",
             databaseType,
         )
-        val store = createTransientEntityStore(dbProvider, entityStoreName, hashMapOf())
+        val store = createTransientEntityStore(dbProvider, entityStoreName)
         this.store = store
         return store
     }

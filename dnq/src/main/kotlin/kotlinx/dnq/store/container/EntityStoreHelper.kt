@@ -25,15 +25,13 @@ import kotlinx.dnq.store.XdQueryEngine
 
 fun createTransientEntityStore(
     databaseProvider:ODatabaseProvider,
-    databaseName:String,
-    classIdToOClassId: Map<Int, Int>
+    databaseName:String
 ): TransientEntityStoreImpl {
     return TransientEntityStoreImpl().apply {
         val store = this
         val oStore = OPersistentEntityStore(
             databaseProvider,
-            databaseName,
-            classIdToOClassId = classIdToOClassId
+            databaseName
         )
         this.persistentStore = oStore
         this.modelMetaData = OModelMetaData(databaseProvider)

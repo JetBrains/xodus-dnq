@@ -48,7 +48,11 @@ class XdProperty<in R : XdEntity, T : Comparable<T>>(
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
-        thisRef.reattachAndSetPrimitiveValue(property.dbName, value, clazz)
+        if (isBoolean && value == false) {
+            thisRef.reattachAndSetPrimitiveValue(property.dbName, null, clazz)
+        } else {
+            thisRef.reattachAndSetPrimitiveValue(property.dbName, value, clazz)
+        }
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {

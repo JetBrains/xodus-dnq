@@ -137,12 +137,8 @@ class TransientSessionImpl(
             val persistentStore = persistentStore
             if (!persistentStore.environment.environmentConfig.envIsReadonly) {
                 upgradeHook?.run()
-                val roTxn = currentTxn as ReadonlyPersistentStoreTransaction
-                val newTxn = roTxn.upgradedTransaction
 //                persistentStore.registerTransaction(newTxn)
-                newTxn.queryCancellingPolicy = roTxn.queryCancellingPolicy
                 changesTracker = this.transientChangesTracker.upgrade()
-                txnWhichWasUpgraded = roTxn
             }
         }
     }

@@ -18,6 +18,8 @@ package kotlinx.dnq
 import com.google.common.truth.IterableSubject
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.db.document.ODatabaseDocument
 import jetbrains.exodus.core.execution.DelegatingJobProcessor
 import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.core.execution.ThreadJobProcessorPool
@@ -165,6 +167,8 @@ abstract class DBTest {
         store = StaticStoreContainer.init(databaseHome, "testDB") {
             envCloseForcedly = true
         }
+
+
 
         initMetaData(XdModel.hierarchy, store)
 

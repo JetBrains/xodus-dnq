@@ -41,7 +41,7 @@ fun createStore(name: String): TransientEntityStoreImpl {
         databaseType,
     )
 
-    val store = createTransientEntityStore(dbProvider, name, hashMapOf())
+    val store = createTransientEntityStore(dbProvider, name)
     initMetaData(XdModel.hierarchy, store)
     return store
 }
