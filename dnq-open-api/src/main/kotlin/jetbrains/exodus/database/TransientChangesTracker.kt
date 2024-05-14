@@ -36,8 +36,6 @@ interface TransientChangesTracker {
      */
     val changesDescriptionCount: Int
 
-    val snapshot: StoreTransaction
-
     val changedEntities: Set<TransientEntity>
 
     val affectedEntityTypes: Set<String>

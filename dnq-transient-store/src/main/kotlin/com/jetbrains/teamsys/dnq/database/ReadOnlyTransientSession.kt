@@ -32,7 +32,7 @@ class ReadOnlyTransientSession(
         get() = oStoreTransaction
 
     override val transientChangesTracker: TransientChangesTracker
-        get() = ReadOnlyTransientChangesTrackerImpl(oStoreTransaction)
+        get() = ReadOnlyTransientChangesTrackerImpl()
 
     override val isOpened: Boolean
         get() = !oStoreTransaction.isFinished

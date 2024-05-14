@@ -21,11 +21,11 @@ import jetbrains.exodus.entitystore.QueryCancellingPolicy
 
 internal object TransientEntityStoreExt {
     fun <T> transactional(
-            store: TransientEntityStore,
-            readonly: Boolean = false,
-            queryCancellingPolicy: QueryCancellingPolicy? = null,
-            isNew: Boolean = false,
-            block: (TransientStoreSession) -> T
+        store: TransientEntityStore,
+        readonly: Boolean = false,
+        queryCancellingPolicy: QueryCancellingPolicy? = null,
+        isNew: Boolean = false,
+        block: (TransientStoreSession) -> T
     ): T {
         val superSession = store.threadSession
         val superIsSuspended: Boolean
@@ -60,6 +60,10 @@ internal object TransientEntityStoreExt {
                     }
                 }
             }
+
+        } catch (e: Throwable) {
+            e.printStackTrace()
+            throw e
         } finally {
             if (superIsSuspended) {
                 store.resumeSession(superSession)
@@ -70,7 +74,10 @@ internal object TransientEntityStoreExt {
         }
     }
 
-    private fun TransientEntityStore.beginSession(readonly: Boolean, queryCancellingPolicy: QueryCancellingPolicy?): TransientStoreSession {
+    private fun TransientEntityStore.beginSession(
+        readonly: Boolean,
+        queryCancellingPolicy: QueryCancellingPolicy?
+    ): TransientStoreSession {
         val transaction = if (readonly) {
             this.beginReadonlyTransaction()
         } else {

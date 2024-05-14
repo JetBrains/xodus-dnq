@@ -23,7 +23,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import java.math.BigInteger
 
-class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: OStoreTransaction?) : TransientChangesTracker {
+class ReadOnlyTransientChangesTrackerImpl : TransientChangesTracker {
 
     override val changesHash: BigInteger
         get() = BigInteger.ZERO
@@ -33,10 +33,6 @@ class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: OStoreTransacti
 
     override val changesDescriptionCount: Int
         get() = 0
-
-    override val snapshot: OStoreTransaction
-        get() = _snapshot
-                ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
 
     override val changedEntities: Set<TransientEntity>
         get() = emptySet()
@@ -93,13 +89,10 @@ class ReadOnlyTransientChangesTrackerImpl(private var _snapshot: OStoreTransacti
             throw UnsupportedOperationException()
 
     override fun upgrade(): TransientChangesTracker {
-        return TransientChangesTrackerImpl(snapshot)
+        return TransientChangesTrackerImpl()
     }
 
     override fun dispose() {
-        _snapshot?.let {
-            it.abort()
-            _snapshot = null
-        }
     }
+
 }

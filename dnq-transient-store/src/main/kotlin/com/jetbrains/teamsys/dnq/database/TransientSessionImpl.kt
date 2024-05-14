@@ -42,7 +42,7 @@ import kotlin.concurrent.withLock
 private fun OStoreTransaction.createChangesTracker(
     readonly: Boolean
 ): TransientChangesTracker {
-    return if (readonly) ReadOnlyTransientChangesTrackerImpl(this) else TransientChangesTrackerImpl(this)
+    return if (readonly) ReadOnlyTransientChangesTrackerImpl() else TransientChangesTrackerImpl()
 }
 
 private const val CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__"
@@ -64,7 +64,6 @@ class TransientSessionImpl(
         this.store.persistentStore.beginReadonlyTransaction()
     }
 
-    private var txnWhichWasUpgraded: ReadonlyPersistentStoreTransaction? = null
     private var upgradeHook: Runnable? = null
     private var state = State.Open
 
@@ -200,14 +199,14 @@ class TransientSessionImpl(
             val oldChangesTracker = transientChangesTracker
             closePersistentSession()
             this.store.persistentStore.beginReadonlyTransaction()
-            this.changesTracker = ReadOnlyTransientChangesTrackerImpl(oStoreTransaction)
+            this.changesTracker = ReadOnlyTransientChangesTrackerImpl()
             notifyFlushedListeners(oldChangesTracker)
         }
         return true
     }
 
     override fun commit(): Boolean {
-        // flush until no side-effects from listeners
+        // flush until no side effects from listeners
         do {
             flush()
         } while (!changes.isEmpty())
@@ -258,7 +257,7 @@ class TransientSessionImpl(
         if (id in loadedIds) {
             return newEntityImpl(persistentStore.getEntity(id))
         }
-        return newEntityImpl(transientChangesTracker.snapshot.getEntity(id).also {
+        return newEntityImpl(oStoreTransaction.getEntity(id).also {
             addLoadedId(id)
         })
     }
@@ -312,8 +311,6 @@ class TransientSessionImpl(
         logger.debug("Close persistent session for transient session {}", this)
 
         store.persistentStore.currentTransaction?.abort()
-        txnWhichWasUpgraded?.abort()
-        txnWhichWasUpgraded = null
     }
 
     override fun quietIntermediateCommit() {

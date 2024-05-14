@@ -33,10 +33,7 @@ import java.util.*
 /**
  * @author Vadim.Gurov
  */
-class TransientChangesTrackerImpl(private var _snapshot: OStoreTransaction?) : TransientChangesTracker {
-    override val snapshot: OStoreTransaction
-        get() = _snapshot
-                ?: throw IllegalStateException("Cannot get persistent store transaction because changes tracker is already disposed")
+class TransientChangesTrackerImpl() : TransientChangesTracker {
 
     private val _changedEntities = LinkedHashSet<TransientEntity>()
     override val changedEntities: Set<TransientEntity>
@@ -244,10 +241,7 @@ class TransientChangesTrackerImpl(private var _snapshot: OStoreTransaction?) : T
     }
 
     override fun dispose() {
-        _snapshot?.let {
-            it.abort()
-            _snapshot = null
-        }
+
     }
 }
 

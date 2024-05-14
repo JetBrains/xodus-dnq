@@ -1,3 +1,12 @@
+//pluginManagement {
+includeBuild("../xodus") {
+    dependencySubstitution {
+        substitute module('org.jetbrains.xodus:xodus-entity-store') using project(':xodus-entity-store')
+        substitute module('org.jetbrains.xodus:xodus-query') using project(':xodus-query')
+    }
+}
+//}
+
 rootProject.name = 'xodus-dnq'
 
 include 'dnq-open-api',
