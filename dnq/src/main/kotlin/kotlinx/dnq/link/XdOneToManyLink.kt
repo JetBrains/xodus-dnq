@@ -58,7 +58,7 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                         if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
-                            OLinkToEntityIterable(thisRef.threadSessionOrThrow, oppositeField.oppositeDbName, thisRef.entityId as OEntityId)
+                            OLinkToEntityIterable(thisRef.threadSessionOrThrow.oStoreTransaction, oppositeField.oppositeDbName, thisRef.entityId as OEntityId)
                         }
                     } catch (_: UnsupportedOperationException) {
                         // to support weird FakeTransientEntity

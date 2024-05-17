@@ -27,12 +27,12 @@ class BeforeFlushTest : DBTest() {
     class Car(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Car>()
 
-        var tire by xdLink0_1(Tire)
+        var carTire by xdLink0_1(Tire)
         var name by xdStringProp()
 
 
         override fun beforeFlush() {
-            tire?.rotate()
+            carTire?.rotate()
         }
     }
 
@@ -41,24 +41,24 @@ class BeforeFlushTest : DBTest() {
 
         var rotation by xdIntProp()
         var rotating by xdBooleanProp()
-        var pin by xdLink0_1(Pin)
+        var tirePin by xdLink0_1(Pin)
 
         override fun constructor() {
-            rotation = 0;
-            rotating = false;
+            rotation = 0
+            rotating = false
         }
 
         override fun beforeFlush() {
             if (rotating) {
-                rotation += 1;
-                rotating = false;
+                rotation += 1
+                rotating = false
             }
-            pin?.screw();
+            tirePin?.screw()
         }
 
         fun rotate() {
-            println("rotate");
-            rotating = true;
+            println("rotate")
+            rotating = true
         }
     }
 
@@ -69,19 +69,19 @@ class BeforeFlushTest : DBTest() {
         var screwing by xdBooleanProp()
 
         override fun constructor() {
-            screwed = 0;
-            screwing = false;
+            screwed = 0
+            screwing = false
         }
 
         override fun beforeFlush() {
             if (screwing) {
-                screwed += 1;
-                screwing = false;
+                screwed += 1
+                screwing = false
             }
         }
 
         fun screw() {
-            screwing = true;
+            screwing = true
         }
     }
 
@@ -121,7 +121,7 @@ class BeforeFlushTest : DBTest() {
                 override fun updatedSyncBeforeConstraints(old: Tire, current: Tire) {
                     // create a car for our tire, expect that car before flush is called and tire is rotated
                     val car = Car.new()
-                    car.tire = tire
+                    car.carTire = tire
                 }
             })
             assertThat(tire.rotating).isFalse()
@@ -138,7 +138,7 @@ class BeforeFlushTest : DBTest() {
         store.transactional { txn ->
             val car = Car.new()
             val tire = Tire.new()
-            car.tire = tire
+            car.carTire = tire
             txn.flush()
 
             tire.rotating = false
@@ -161,8 +161,8 @@ class BeforeFlushTest : DBTest() {
     fun beforeFlushWithSideEffects() {
         store.transactional { txn ->
             val pin = Pin.new()
-            val tire = Tire.new { this.pin = pin }
-            val car = Car.new { this.tire = tire }
+            val tire = Tire.new { this.tirePin = pin }
+            val car = Car.new { this.carTire = tire }
             txn.flush()
 
             tire.rotating = false
