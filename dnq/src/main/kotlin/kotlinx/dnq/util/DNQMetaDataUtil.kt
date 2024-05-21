@@ -113,16 +113,20 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
         superType = node.parentNode?.entityType?.entityType
         isAbstract = Modifier.isAbstract(node.entityType.javaClass.enclosingClass.modifiers)
         propertiesMetaData = node.getAllProperties().map {
-            val simpleTypeName = it.property.returnType.javaType.let {
-                when (it) {
-                    is Class<*> -> it
-                    is ParameterizedType -> (it.rawType as Class<*>)
+            val (simpleTypeName, typeParameters) = it.property.returnType.javaType.let { propertyJavaType ->
+                when (propertyJavaType) {
+                    is Class<*> -> propertyJavaType.simpleName to null
+                    is ParameterizedType ->
+                        (propertyJavaType.rawType as Class<*>).simpleName to
+                                (propertyJavaType.actualTypeArguments.map { argType -> argType.typeName.substringAfterLast(".").lowercase() })
                     else -> throw IllegalArgumentException("Cannot identify simple property type name")
                 }
-            }.simpleName
+            }
+
             SimplePropertyMetaDataImpl(
                     it.dbPropertyName,
-                    simpleTypeName
+                    simpleTypeName,
+                    typeParameters
             ).apply {
                 type = it.delegate.propertyType
             }
