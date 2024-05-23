@@ -15,17 +15,11 @@
  */
 package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.database.TransientEntity
-
 open class ConstraintsValidationException(val causes: Set<DataIntegrityViolationException>) : DataIntegrityViolationException(buildMessage(causes)) {
 
     override val entityFieldHandler get() = null
 
     constructor(cause: DataIntegrityViolationException) : this(setOf(cause))
-
-    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
-        return causes.any { it.relatesTo(entity, fieldIdentity) }
-    }
 }
 
 private fun buildMessage(causes: Set<DataIntegrityViolationException>) = buildString {

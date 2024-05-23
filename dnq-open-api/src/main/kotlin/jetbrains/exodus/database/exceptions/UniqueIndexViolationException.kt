@@ -26,11 +26,7 @@ open class UniqueIndexViolationException(
         "Value should be unique",
         entity,
         index.fields.first().name
-) {
-    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
-        return super.relatesTo(entity, fieldIdentity) && (fieldIdentity == null || index.fields.any { it.name == fieldIdentity })
-    }
-}
+)
 
 private fun buildMessage(entity: TransientEntity, index: Index) = buildString {
     append("Index [$index] must be unique. Conflicting value: ")

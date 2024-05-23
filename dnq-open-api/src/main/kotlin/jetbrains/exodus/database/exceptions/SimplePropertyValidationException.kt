@@ -20,12 +20,9 @@ import jetbrains.exodus.database.TransientEntity
 open class SimplePropertyValidationException(
         message: String,
         displayMessage: String,
-        entity: TransientEntity,
+        entity: TransientEntity?,
         val propertyName: String) : DataIntegrityViolationException(message, displayMessage, entity) {
 
-    override val entityFieldHandler = EntityFieldHandler(entity.id, propertyName)
+    override val entityFieldHandler = entity?.let { EntityFieldHandler(entity.id, propertyName)}
 
-    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
-        return super.relatesTo(entity, fieldIdentity) && propertyName == fieldIdentity
-    }
 }

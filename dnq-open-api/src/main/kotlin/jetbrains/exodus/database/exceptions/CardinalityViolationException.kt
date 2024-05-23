@@ -26,7 +26,4 @@ open class CardinalityViolationException(message: String, entity: TransientEntit
     constructor(entity: TransientEntity, md: AssociationEndMetaData) :
             this("Cardinality violation for [$entity.${md.name}]. Required cardinality is [${md.cardinality.getName()}]", entity, md.name)
 
-    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
-        return super.relatesTo(entity, fieldIdentity) && fieldIdentity == entityFieldHandler.fieldName
-    }
 }

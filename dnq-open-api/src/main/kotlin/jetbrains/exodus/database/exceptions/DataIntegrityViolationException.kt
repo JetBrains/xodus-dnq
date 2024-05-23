@@ -15,7 +15,6 @@
  */
 package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityStoreException
@@ -40,5 +39,4 @@ abstract class DataIntegrityViolationException : EntityStoreException {
         this.entityId = entity?.id
     }
 
-    open fun relatesTo(entity: TransientEntity, fieldIdentity: Any?) = entity.id == entityId
 }

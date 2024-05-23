@@ -23,9 +23,6 @@ open class UniqueIndexIntegrityException(
         val index: Index,
         cause: Throwable
 ) : DataIntegrityViolationException("Index [$index] is corrupted", entity = entity, cause = cause) {
-    override val entityFieldHandler = EntityFieldHandler(entity.id, index.fields.first().name)
 
-    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
-        return super.relatesTo(entity, fieldIdentity) && (fieldIdentity == null || index.fields.any { it.name == fieldIdentity })
-    }
+    override val entityFieldHandler = EntityFieldHandler(entity.id, index.fields.first().name)
 }

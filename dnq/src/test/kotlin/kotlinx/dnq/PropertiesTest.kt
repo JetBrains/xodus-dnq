@@ -225,7 +225,7 @@ class PropertiesTest : DBTest() {
                 }
             }
         }
-        assertThat(e.causes.filterIsInstance<UniqueIndexViolationException>().map { it.propertyName })
+        assertThat(e.causes.filterIsInstance<SimplePropertyValidationException>().map { it.propertyName })
                 .containsExactly(User::login.name)
     }
 

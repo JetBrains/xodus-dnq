@@ -481,8 +481,7 @@ fun <T : XdEntity> XdQuery<T>.distinct(): XdQuery<T> {
  * Returns a new query containing distinct values of the property [dbFieldName] of each result of `this` query.
  */
 fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(dbFieldName: String, targetEntityType: XdEntityType<T>): XdQuery<T> {
-    return queryEngine.query(targetEntityType.entityType,
-            IterableDecorator(queryEngine.selectDistinct(entityIterable, dbFieldName).filterNotNull(targetEntityType))).asQuery(targetEntityType)
+    return queryEngine.selectDistinct(entityIterable, dbFieldName).asQuery(targetEntityType)
 }
 
 private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterable<Entity> {

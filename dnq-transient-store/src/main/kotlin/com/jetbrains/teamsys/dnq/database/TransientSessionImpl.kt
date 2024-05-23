@@ -18,6 +18,7 @@ package com.jetbrains.teamsys.dnq.database
 import com.orientechnologies.orient.core.db.ODatabaseSession
 import com.orientechnologies.orient.core.record.OElement
 import com.orientechnologies.orient.core.record.OVertex
+import com.orientechnologies.orient.core.storage.ORecordDuplicatedException
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator
 import jetbrains.exodus.database.*
@@ -33,6 +34,7 @@ import jetbrains.exodus.env.Transaction
 import jetbrains.exodus.env.TransactionFinishedException
 import jetbrains.exodus.query.metadata.EntityMetaData
 import jetbrains.exodus.query.metadata.Index
+import jetbrains.exodus.util.UTFUtil
 import mu.KLogging
 import java.io.File
 import java.io.InputStream
@@ -107,7 +109,7 @@ class TransientSessionImpl(
 
     private fun initChangesTracker(readonly: Boolean) {
         transientChangesTracker.dispose()
-        this.changesTracker = snapshot.createChangesTracker(readonly)
+        this.changesTracker = oTransactionInternal.createChangesTracker(readonly)
     }
 
     override fun getQueryCancellingPolicy(): QueryCancellingPolicy? {
@@ -563,6 +565,12 @@ class TransientSessionImpl(
                     txn.revert()
                     replayChanges()
                 }
+                if (exception is ORecordDuplicatedException){
+                    val fieldName = exception.indexName.substringAfter("_").substringBefore("_unique")
+                    val cause = SimplePropertyValidationException("Not unique value", exception.message ?: "Not unique value: ${exception.key}" ,null, fieldName )
+                    throw ConstraintsValidationException(cause)
+                }
+
                 throw exception
             }
 
@@ -614,7 +622,9 @@ class TransientSessionImpl(
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
         val blobHolder = oVertex.getProperty<OElement?>(blobName)
-        return blobHolder?.getPropertyOnLoadValue(DATA_PROPERTY_NAME)
+        return blobHolder?.getPropertyOnLoadValue<ByteArray>(DATA_PROPERTY_NAME)?.let {
+            UTFUtil.readUTF((it).inputStream())
+        }
     }
 
     private fun getOriginalBlobValue(e: TransientEntity, blobName: String): InputStream? {
@@ -858,17 +868,15 @@ class TransientSessionImpl(
     }
 
     internal fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String): Boolean {
-
-
         return addChangeAndRun {
             transientEntity.entity.setBlobString(blobName, newValue)
-                val oldValue = getOriginalBlobStringValue(transientEntity, blobName)
-                if (newValue === oldValue || newValue == oldValue) {
-                    transientChangesTracker.removePropertyChanged(transientEntity, blobName)
-                } else {
-                    transientChangesTracker.propertyChanged(transientEntity, blobName)
-                }
-                true
+            val oldValue = getOriginalBlobStringValue(transientEntity, blobName)
+            if (newValue === oldValue || newValue == oldValue) {
+                transientChangesTracker.removePropertyChanged(transientEntity, blobName)
+            } else {
+                transientChangesTracker.propertyChanged(transientEntity, blobName)
+            }
+            true
         }
     }
 

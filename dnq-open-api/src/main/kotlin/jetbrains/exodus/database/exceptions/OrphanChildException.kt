@@ -21,8 +21,4 @@ open class OrphanChildException(entity: TransientEntity, private val parents: Se
         DataIntegrityViolationException("Entity [$entity] has no parent, but should have.", entity = entity) {
 
     override val entityFieldHandler = EntityFieldHandler(entity.id, parents.first())
-
-    override fun relatesTo(entity: TransientEntity, fieldIdentity: Any?): Boolean {
-        return super.relatesTo(entity, fieldIdentity) && fieldIdentity in parents
-    }
 }
