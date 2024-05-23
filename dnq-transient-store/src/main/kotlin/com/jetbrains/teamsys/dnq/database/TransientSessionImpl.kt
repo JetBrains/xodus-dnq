@@ -25,6 +25,7 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
+import jetbrains.exodus.entitystore.orientdb.OComparableSet
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
@@ -472,11 +473,11 @@ class TransientSessionImpl(
         val modelMetaData = store.modelMetaData
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
-            logger.warn { "Quiet intermediate commit: skip before save changes constraints checking. ${this}" }
+            logger.warn { "Quiet intermediate commit: skip before save changes constraints checking. $this" }
             return
         }
 
-        logger.trace { "Check before save changes constraints. ${this}" }
+        logger.trace { "Check before save changes constraints. $this" }
 
         // 1. check incoming links for deleted entities
         exceptions.addAll(ConstraintsUtil.checkIncomingLinks(transientChangesTracker))
@@ -614,7 +615,12 @@ class TransientSessionImpl(
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
-        return oVertex.getPropertyOnLoadValue(propertyName)
+        val onLoadValue = oVertex.getPropertyOnLoadValue<Any>(propertyName)
+        return if (onLoadValue is MutableSet<*>){
+            OComparableSet(onLoadValue)
+        } else {
+            onLoadValue as Comparable<*>?
+        }
     }
 
     private fun getOriginalBlobStringValue(e: TransientEntity, blobName: String): String? {
@@ -822,6 +828,7 @@ class TransientSessionImpl(
     ): Boolean {
         return if (transientEntity.entity.setProperty(propertyName, propertyNewValue)) {
             val oldValue = getOriginalPropertyValue(transientEntity, propertyName)
+            @Suppress("SuspiciousEqualsCombination")
             if (propertyNewValue === oldValue || propertyNewValue == oldValue) {
                 transientChangesTracker.removePropertyChanged(transientEntity, propertyName)
             } else {

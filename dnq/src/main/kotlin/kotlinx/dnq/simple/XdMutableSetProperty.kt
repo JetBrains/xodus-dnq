@@ -16,8 +16,8 @@
 package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.database.reattachTransient
-import jetbrains.exodus.bindings.ComparableSet
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.orientdb.OComparableSet
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.util.reattachAndGetPrimitiveValue
@@ -31,30 +31,31 @@ class XdMutableSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: S
                 PropertyType.PRIMITIVE) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): MutableSet<T> {
-        return BoundMutableSet<T>(thisRef.entity, property.dbName)
+        return BoundMutableSet(thisRef.entity, property.dbName)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattachAndGetPrimitiveValue<ComparableSet<T>>(property.dbName) != null
+        return thisRef.reattachAndGetPrimitiveValue<OComparableSet<*>>(property.dbName) != null
     }
 }
 
 class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName: String) : MutableSet<T> {
 
-    private fun set(value: ComparableSet<T>?) {
-        when {
-            value == null || value.isEmpty -> entity.reattachTransient().deleteProperty(dbPropertyName)
-            else -> entity.reattachTransient().setProperty(dbPropertyName, value)
+    private fun set(value: OComparableSet<T>?) {
+        if (value == null){
+            entity.reattachTransient().setProperty(dbPropertyName, OComparableSet(HashSet<T>()))
+        } else {
+            entity.reattachTransient().setProperty(dbPropertyName, value)
         }
     }
 
-    private fun get(): ComparableSet<T>? {
+    private fun get(): OComparableSet<T>? {
         @Suppress("UNCHECKED_CAST")
-        return entity.reattachTransient().getProperty(dbPropertyName) as ComparableSet<T>?
+        return entity.reattachTransient().getProperty(dbPropertyName) as OComparableSet<T>?
     }
 
-    private inline fun update(operation: (ComparableSet<T>) -> Unit): Boolean {
-        val propertyValue = get() ?: ComparableSet()
+    private inline fun update(operation: (OComparableSet<T>) -> Unit): Boolean {
+        val propertyValue = get() ?: OComparableSet(HashSet())
         operation(propertyValue)
         return if (propertyValue.isDirty) {
             set(propertyValue)
@@ -65,35 +66,37 @@ class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName:
     }
 
     override fun add(element: T) = update {
-        it.addItem(element)
+        it.add(element)
     }
 
     override fun addAll(elements: Collection<T>) = update {
-        elements.forEach { element -> it.addItem(element) }
+        elements.forEach { element -> it.add(element) }
     }
 
     override fun clear() {
-        set(null)
+        update {
+            it.clear()
+        }
     }
 
     override fun iterator(): MutableIterator<T> {
-        return (get() ?: ComparableSet()).iterator()
+        return (get() ?: OComparableSet(HashSet())).iterator()
     }
 
     override fun remove(element: T) = update {
-        it.removeItem(element)
+        it.remove(element)
     }
 
     override fun removeAll(elements: Collection<T>) = update {
-        elements.forEach { element -> it.removeItem(element) }
+        elements.forEach { element -> it.remove(element) }
     }
 
     override fun retainAll(elements: Collection<T>) = update {
-        (it - elements).forEach { element -> it.removeItem(element) }
+        (it - elements).forEach { element -> it.remove(element) }
     }
 
     override val size: Int
-        get() = get()?.size() ?: 0
+        get() = get()?.size ?: 0
 
     override fun contains(element: T): Boolean {
         return get()?.let { element in it } ?: false
@@ -102,13 +105,13 @@ class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName:
     override fun containsAll(elements: Collection<T>): Boolean {
         val propertyValue = get()
         return if (propertyValue != null) {
-            elements.all { element -> propertyValue.containsItem(element) }
+            elements.all { element -> propertyValue.contains(element) }
         } else {
             elements.isEmpty()
         }
     }
 
     override fun isEmpty(): Boolean {
-        return get()?.isEmpty ?: true
+        return get()?.isEmpty() ?: true
     }
 }
