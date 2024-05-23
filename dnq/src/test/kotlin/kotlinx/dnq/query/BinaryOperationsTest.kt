@@ -19,6 +19,7 @@ package kotlinx.dnq.query
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
+import org.junit.Assert
 import org.junit.Test
 
 class BinaryOperationsTest : DBTest() {
@@ -81,6 +82,9 @@ class BinaryOperationsTest : DBTest() {
 
     @Test
     fun union() {
+        if (1 < 2) {
+            Assert.fail("This is big problem")
+        }
         transactional { txn ->
             val pack1 = (1..100).toUsers()
             val pack2 = (101..200).toUsers()
@@ -102,6 +106,9 @@ class BinaryOperationsTest : DBTest() {
 
     @Test
     fun intersect() {
+        if (1 < 2) {
+            Assert.fail("This is big problem")
+        }
         transactional { txn ->
             val pack1 = (1..100).toUsers()
             val pack2 = (101..200).toUsers()
@@ -122,6 +129,9 @@ class BinaryOperationsTest : DBTest() {
 
     @Test
     fun exclude() {
+        if (1 < 2) {
+            Assert.fail("This is big problem")
+        }
         transactional { txn ->
             val pack1 = (1..100).toUsers()
             val pack2 = (101..200).toUsers()
@@ -142,6 +152,10 @@ class BinaryOperationsTest : DBTest() {
 
     @Test
     fun complexQuery1() {
+        if (1 < 2) {
+            Assert.fail("This is big problem")
+        }
+
         transactional { txn ->
             val pack1 = (1..100).toUsers()
             val pack2 = (101..200).toUsers()
