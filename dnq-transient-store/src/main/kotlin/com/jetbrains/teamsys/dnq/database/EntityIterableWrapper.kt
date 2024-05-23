@@ -17,4 +17,8 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.entitystore.EntityIterable
 
-interface EntityIterableWrapper : EntityIterable
+interface EntityIterableWrapper : EntityIterable {
+    override fun unwrap(): EntityIterable {
+        return this
+    }
+}

@@ -133,4 +133,8 @@ open class PersistentEntityIterableWrapper(
     private fun Entity.wrap(store: TransientEntityStore): TransientEntity {
         return store.threadSessionOrThrow.newEntity(this)
     }
+
+    override fun unwrap(): EntityIterable {
+        return wrappedIterable
+    }
 }
