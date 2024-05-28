@@ -83,7 +83,7 @@ class XdQueryEngine(val store: TransientEntityStore) :
         return wrap(super.instantiateGetAll(txn, entityType))
     }
 
-    private fun wrap(it: EntityIterable): EntityIterable {
+    fun wrap(it: EntityIterable): EntityIterable {
         return session.createPersistentEntityIterableWrapper(it)
     }
 
