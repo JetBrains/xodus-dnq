@@ -19,6 +19,7 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import jetbrains.exodus.entitystore.util.unsupported
 
 
 /**
@@ -31,15 +32,15 @@ open class PersistentEntityIterableWrapper(
         wrappedIterable: EntityIterable) :
         EntityIterableWrapper,
         EntityIterableBase(
-                (wrappedIterable as EntityIterableBase).source
+                (wrappedIterable as? EntityIterableBase)?.source
                         .takeIf { it !== EMPTY }
                         ?.transaction) {
 
-    protected val wrappedIterable: EntityIterableBase = wrappedIterable.let {
+    protected val wrappedIterable: EntityIterable = wrappedIterable.let {
         if (wrappedIterable is PersistentEntityIterableWrapper) {
             throw IllegalArgumentException("Can't wrap transient entity iterable with another transient entity iterable.")
         }
-        (wrappedIterable as EntityIterableBase).source
+        wrappedIterable.unwrap()
     }
 
     override fun size() = wrappedIterable.size()
@@ -54,7 +55,7 @@ open class PersistentEntityIterableWrapper(
 
     override fun contains(entity: Entity) = wrappedIterable.contains(entity)
 
-    public override fun getHandleImpl() = wrappedIterable.handle
+    public override fun getHandleImpl() = unsupported()
 
     override fun intersect(right: EntityIterable): EntityIterable {
         right as? EntityIterableBase ?: throwUnsupported()
@@ -86,7 +87,8 @@ open class PersistentEntityIterableWrapper(
     }
 
     override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
-        return wrappedIterable.findLinks(entities, linkName)
+        //TODO move findLinks to interface
+        return (wrappedIterable as? EntityIterableBase)?.findLinks(entities, linkName) ?: EMPTY
     }
 
     override fun distinct(): EntityIterable {
@@ -115,7 +117,7 @@ open class PersistentEntityIterableWrapper(
             PersistentEntityIterableWrapper(store, wrappedIterable.asSortResult())
 
     override fun getSource(): EntityIterableBase {
-        return wrappedIterable
+        return wrappedIterable.unwrap() as EntityIterableBase
     }
 
     override fun iterator(): EntityIterator {
