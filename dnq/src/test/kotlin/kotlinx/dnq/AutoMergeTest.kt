@@ -23,7 +23,7 @@ class AutoMergeTest : DBTest() {
     class Project(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Project>()
 
-        val issues by xdLink0_N(Issue::project)
+        val issues by xdChildren0_N(Issue::project)
     }
 
     class Issue(entity: Entity) : XdEntity(entity) {
