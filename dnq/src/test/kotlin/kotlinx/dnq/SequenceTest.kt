@@ -36,9 +36,15 @@ class SequenceTest : DBTest() {
             XdProject.new()
         }
 
-        assertThat(transactional { project.nextIssueNumber.increment() }).isEqualTo(0)
-        assertThat(transactional { project.nextIssueNumber.increment() }).isEqualTo(1)
-        assertThat(transactional { project.nextIssueNumber.increment() }).isEqualTo(2)
+        transactional {
+            assertThat(project.nextIssueNumber.increment()).isEqualTo(0)
+        }
+        transactional {
+            assertThat(project.nextIssueNumber.increment()).isEqualTo(1)
+        }
+        transactional {
+            assertThat(project.nextIssueNumber.increment()).isEqualTo(2)
+        }
     }
 
     @Test
@@ -94,7 +100,8 @@ class SequenceTest : DBTest() {
             project.nextIssueNumber.set(2)
             project.nextIssueNumber.increment()
         }
-
-        assertThat(transactional { project.nextIssueNumber.get() }).isEqualTo(3)
+        transactional {
+            assertThat(project.nextIssueNumber.get()).isEqualTo(3)
+        }
     }
 }
