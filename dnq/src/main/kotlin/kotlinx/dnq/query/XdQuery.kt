@@ -311,8 +311,8 @@ inline fun <reified T : XdEntity> XdEntityType<T>.query(it: Iterable<T?>): XdQue
  */
 fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S>): XdQuery<S> {
     val queryEngine = this.queryEngine
-    val allOfTargetType = queryEngine.queryGetAll(entityType.entityType)
-    return queryEngine.intersect(allOfTargetType, this.entityIterable).asQuery(entityType)
+    return queryEngine.query(this.entityIterable, this.entityType.entityType, InstanceOf(entityType.entityType, false))
+        .asQuery(entityType)
 }
 
 /**
@@ -320,7 +320,8 @@ fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S
  */
 fun <T : XdEntity, S : T> XdQuery<T>.filterIsNotInstance(entityType: XdEntityType<S>): XdQuery<T> {
     val queryEngine = this.queryEngine
-    return queryEngine.exclude(this.entityIterable, queryEngine.queryGetAll(entityType.entityType)).asQuery(this.entityType)
+    return queryEngine.query(this.entityIterable, this.entityType.entityType, InstanceOf(entityType.entityType, true))
+        .asQuery(entityType)
 }
 
 /**
@@ -550,11 +551,24 @@ fun <T : XdEntity> XdQuery<T>.indexOf(entity: T?): Int {
  * Returns `true` if query contains [entity].
  */
 operator fun <T : XdEntity> XdQuery<T>.contains(entity: Entity?): Boolean {
-    val i = entityIterable
-    return if (i is Collection<*>) {
-        i.contains(entity)
+    val iterable = entityIterable
+    val i = if (iterable is EntityIterable){
+        iterable.unwrap()
     } else {
-        indexOf(entity) >= 0
+        iterable
+    }
+    return when {
+        i is Collection<*> -> {
+            i.contains(entity)
+        }
+
+        i is OQueryEntityIterable && entity != null -> {
+            i.contains(entity)
+        }
+
+        else -> {
+            (i as EntityIterableBase).source.indexOf(entity) != -1
+        }
     }
 }
 
