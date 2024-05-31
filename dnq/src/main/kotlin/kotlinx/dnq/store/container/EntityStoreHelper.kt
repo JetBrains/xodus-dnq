@@ -19,7 +19,7 @@ import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import com.jetbrains.teamsys.dnq.database.TransientSortEngineImpl
 import jetbrains.exodus.entitystore.orientdb.ODatabaseProvider
 import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
-import jetbrains.exodus.query.metadata.ModelMetaDataImpl
+import jetbrains.exodus.entitystore.orientdb.OSchemaBuddyImpl
 import jetbrains.exodus.query.metadata.OModelMetaData
 import kotlinx.dnq.store.XdQueryEngine
 
@@ -27,14 +27,16 @@ fun createTransientEntityStore(
     databaseProvider:ODatabaseProvider,
     databaseName:String
 ): TransientEntityStoreImpl {
+    val schemaBuddy = OSchemaBuddyImpl(databaseProvider, false)
     return TransientEntityStoreImpl().apply {
         val store = this
         val oStore = OPersistentEntityStore(
             databaseProvider,
-            databaseName
+            databaseName,
+            schemaBuddy = schemaBuddy
         )
         this.persistentStore = oStore
-        this.modelMetaData = OModelMetaData(databaseProvider)
+        this.modelMetaData = OModelMetaData(databaseProvider, schemaBuddy)
         this.queryEngine = XdQueryEngine(store).apply {
             this.sortEngine = TransientSortEngineImpl(store, this)
         }

@@ -512,8 +512,7 @@ fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(field: KProperty1<S, T?>
  * Returns a new query of all elements yielded from values of property [dbFieldName] of each result of `this` query.
  */
 fun <S : XdEntity, T : XdEntity> XdQuery<S>.flatMapDistinct(dbFieldName: String, targetEntityType: XdEntityType<T>): XdQuery<T> {
-    return queryEngine.query(targetEntityType.entityType,
-            IterableDecorator(queryEngine.selectManyDistinct(entityIterable, dbFieldName).filterNotNull(targetEntityType))).asQuery(targetEntityType)
+    return queryEngine.selectManyDistinct(entityIterable, dbFieldName).asQuery(targetEntityType)
 }
 
 /**

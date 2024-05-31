@@ -62,6 +62,8 @@ class ToIdFromIdTest : DBTest() {
     @Test
     fun `find by correct id`() {
         transactional {
+            val id = XdUser.all().first().xdId
+            println(id)
             val user = XdUser.findById("0-0")
             assertThat(user).isNotNull()
         }

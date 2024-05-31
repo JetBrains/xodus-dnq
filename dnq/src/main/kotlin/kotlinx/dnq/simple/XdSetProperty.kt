@@ -15,7 +15,7 @@
  */
 package kotlinx.dnq.simple
 
-import jetbrains.exodus.bindings.ComparableSet
+import jetbrains.exodus.entitystore.orientdb.OComparableSet
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.util.reattachAndGetPrimitiveValue
@@ -30,18 +30,18 @@ class XdSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: String?)
                 PropertyType.PRIMITIVE) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): Set<T> {
-        val value = thisRef.reattachAndGetPrimitiveValue<ComparableSet<T>>(property.dbName)
-        return value?.toSet() ?: emptySet<T>()
+        val value = thisRef.reattachAndGetPrimitiveValue<OComparableSet<T>>(property.dbName)
+        return value?: emptySet()
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: Set<T>) {
         val comparableSet = value
                 .takeIf { it.isNotEmpty() }
-                ?.let { ComparableSet(it) }
-        thisRef.reattachAndSetPrimitiveValue(property.dbName, comparableSet, ComparableSet::class.java)
+                ?.let { OComparableSet(it.toMutableSet()) }
+        thisRef.reattachAndSetPrimitiveValue(property.dbName, comparableSet, OComparableSet::class.java)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattachAndGetPrimitiveValue<ComparableSet<T>>(property.dbName) != null
+        return thisRef.reattachAndGetPrimitiveValue<OComparableSet<T>>(property.dbName) != null
     }
 }
