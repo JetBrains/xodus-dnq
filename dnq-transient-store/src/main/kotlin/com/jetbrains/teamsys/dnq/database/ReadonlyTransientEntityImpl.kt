@@ -83,9 +83,9 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
 
     override fun getLink(linkName: String): Entity? {
         return (entity.getLink(linkName) as OVertexEntity?)
-                ?.let { linkTarget ->
-                    ReadonlyTransientEntityImpl(linkTarget.getSnapshotPersistentEntity(), store)
-                }
+            ?.let { linkTarget ->
+                ReadonlyTransientEntityImpl(linkTarget.getSnapshotPersistentEntity(), store)
+            }
     }
 
     override fun getLink(linkName: String, session: TransientStoreSession?): Entity? {
@@ -93,7 +93,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
     }
 
     override fun getLinks(linkName: String): EntityIterable {
-        return PersistentEntityIterableWrapper(store, entity.getLinks(linkName).wrapWithReadOnlyIterable())
+        return PersistentEntityIterableWrapper(store, entity.getLinks(linkName))
     }
 
     override fun getLinks(linkNames: Collection<String>): EntityIterable {
@@ -160,26 +160,5 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
     }
 
     private fun throwReadonlyException(): Nothing = throw IllegalStateException("Entity is readonly")
-
-    private fun EntityIterable.wrapWithReadOnlyIterable(): EntityIterable {
-        return if (this === EntityIterableBase.EMPTY) this else ReadOnlyIterable(this as EntityIterableBase)
-    }
-
-    private inner class ReadOnlyIterable(source: EntityIterableBase) : EntityIterableDecoratorBase(source.transaction, source) {
-        override fun isSortedById() = source.isSortedById
-        override fun canBeCached() = false
-        override fun getIteratorImpl(txn: StoreTransaction) = ReadOnlyIterator(this)
-        override fun getHandleImpl() = source.handle
-        override fun getFirst(): Entity? = (source.first as OVertexEntity?)?.getSnapshotPersistentEntity()
-        override fun getLast(): Entity? = (source.last as OVertexEntity?)?.getSnapshotPersistentEntity()
-    }
-
-    private inner class ReadOnlyIterator(source: ReadOnlyIterable) : EntityIteratorBase(source) {
-        private val source = source.decorated.iterator() as EntityIteratorBase
-
-        override fun next(): Entity? = (source.next() as OVertexEntity?)?.getSnapshotPersistentEntity()
-        override fun hasNextImpl() = source.hasNext()
-        override fun nextIdImpl() = source.nextId()
-        override fun shouldBeDisposed() = false
-    }
 }
+
