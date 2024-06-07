@@ -18,7 +18,7 @@ package kotlinx.dnq
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.PersistentEntity
+import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.single
 import kotlinx.dnq.util.isDefined
@@ -37,7 +37,7 @@ class ReflectionUtilTest : DBTest() {
     }
 
     @Test
-    fun `isDefined`() {
+    fun isDefined() {
         store.transactional {
             it.createPersistentEntity(TestGroup) {
                 setProperty(Group::name.name, "root")
@@ -71,15 +71,10 @@ class ReflectionUtilTest : DBTest() {
             assertThat(rootGroup.isDefined(RootGroup::users)).isTrue()
         }
 
-        store.transactional {
-            it.createPersistentEntity(NestedGroup) {
-                setProperty(Group::name.name, "nested")
-            }
-        }
 
         store.transactional {
             val rootGroup = RootGroup.all().single()
-            val nestedGroup = NestedGroup.all().single()
+            val nestedGroup = NestedGroup.new { name = "nested" }
 
             assertThat(nestedGroup.isDefined(Group::name)).isTrue()
             assertThat(nestedGroup.isDefined(Group::users)).isFalse()
@@ -111,9 +106,9 @@ class ReflectionUtilTest : DBTest() {
 
     }
 
-    private fun <T : XdEntity> TransientStoreSession.createPersistentEntity(entityType: XdEntityType<T>, init: PersistentEntity.() -> Unit) {
-        this.oStoreTransaction.store.beginTransaction().apply {
-            (newEntity(entityType.entityType) as PersistentEntity).init()
+    private fun <T : XdEntity> TransientStoreSession.createPersistentEntity(entityType: XdEntityType<T>, init: OVertexEntity.() -> Unit) {
+        this.oStoreTransaction.apply {
+            (newEntity(entityType.entityType) as OVertexEntity).init()
         }.flush()
     }
 }

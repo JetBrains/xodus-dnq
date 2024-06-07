@@ -114,7 +114,7 @@ class DestructorTest : DBTest() {
     }
 
     @Test
-    fun `on delete constraints should be executed after desctructor`() {
+    fun `on delete constraints should be executed after destructor`() {
         val (clazz, instance) = transactional {
             val clazz = CustomFieldClass.new()
             val instance = CustomFieldInstance.new()

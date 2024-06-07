@@ -18,8 +18,6 @@ package kotlinx.dnq
 import com.google.common.truth.IterableSubject
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
-import com.orientechnologies.orient.core.db.ODatabaseSession
-import com.orientechnologies.orient.core.db.document.ODatabaseDocument
 import jetbrains.exodus.core.execution.DelegatingJobProcessor
 import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.core.execution.ThreadJobProcessorPool
@@ -28,7 +26,8 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.Where
-import jetbrains.exodus.entitystore.Where.*
+import jetbrains.exodus.entitystore.Where.SYNC_AFTER_FLUSH
+import jetbrains.exodus.entitystore.Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS
 import jetbrains.exodus.util.IOUtil
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.listener.XdEntityListener
@@ -47,7 +46,6 @@ import java.io.File
 import java.io.IOException
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
-import java.util.concurrent.atomic.AtomicLong
 
 abstract class DBTest {
     lateinit var store: TransientEntityStoreImpl

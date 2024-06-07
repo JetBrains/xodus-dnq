@@ -24,6 +24,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
+import kotlinx.dnq.store.XdQueryEngine
 import kotlinx.dnq.util.isReadOnly
 import kotlinx.dnq.util.reattach
 import kotlinx.dnq.util.threadSessionOrThrow
@@ -58,7 +59,7 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                         if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
-                            OLinkToEntityIterable(thisRef.threadSessionOrThrow.oStoreTransaction, oppositeField.oppositeDbName, thisRef.entityId as OEntityId)
+                            (queryEngine as XdQueryEngine).wrap(OLinkToEntityIterable(thisRef.threadSessionOrThrow.oStoreTransaction, oppositeField.oppositeDbName, thisRef.entityId as OEntityId))
                         }
                     } catch (_: UnsupportedOperationException) {
                         // to support weird FakeTransientEntity
