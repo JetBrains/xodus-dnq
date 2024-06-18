@@ -21,7 +21,7 @@ import jetbrains.exodus.database.LinkChange
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.link.OnDeletePolicy
-import kotlinx.dnq.query.toList
+import kotlinx.dnq.query.toIdList
 import kotlinx.dnq.util.getDBName
 import kotlinx.dnq.util.getRemovedLinks
 import org.junit.Test
@@ -103,7 +103,8 @@ class AnnihilationTest : DBTest() {
         }
         transactional {
             b.delete()
-            assertThat(entity.getRemovedLinks(Source::b).toList()).containsExactly(b)
+            val links = entity.getRemovedLinks(Source::b).toIdList()
+            assertThat(links).containsExactly(b.entityId)
         }
     }
 
@@ -141,9 +142,9 @@ class AnnihilationTest : DBTest() {
             assertThat(change.removedEntitiesSize).isEqualTo(2)
 
             assertThat(change.addedEntities?.map { it.toXd<Target>() })
-                    .containsExactly(a, d)
+                .containsExactly(a, d)
             assertThat(change.removedEntities?.map { it.toXd<Target>() })
-                    .containsExactly(b, c)
+                .containsExactly(b, c)
         }
     }
 
@@ -161,10 +162,10 @@ class AnnihilationTest : DBTest() {
 
         transactional {
             entity.b.remove(b)
-            assertThat(entity.getRemovedLinks(Source::b).toList()).containsExactly(b)
+            assertThat(entity.getRemovedLinks(Source::b).toIdList()).containsExactly(b.entityId)
 
             b.delete()
-            assertThat(entity.getRemovedLinks(Source::b).toList()).containsExactly(b)
+            assertThat(entity.getRemovedLinks(Source::b).toIdList()).containsExactly(b.entityId)
         }
     }
 
@@ -200,9 +201,9 @@ class AnnihilationTest : DBTest() {
     private fun getLinkChange(source: Source, property: KProperty1<Source, *>): LinkChange? {
         val entity = source.entity as TransientEntity
         return entity
-                .store.threadSessionOrThrow
-                .transientChangesTracker
-                .getChangedLinksDetailed(entity)
-                ?.get(property.getDBName())
+            .store.threadSessionOrThrow
+            .transientChangesTracker
+            .getChangedLinksDetailed(entity)
+            ?.get(property.getDBName())
     }
 }

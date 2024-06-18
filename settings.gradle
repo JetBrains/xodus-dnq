@@ -1,5 +1,5 @@
 //pluginManagement {
-includeBuild("../xodus") {
+includeBuild("../../xodus/graph-store") {
     dependencySubstitution {
         substitute module('org.jetbrains.xodus:xodus-entity-store') using project(':xodus-entity-store')
         substitute module('org.jetbrains.xodus:xodus-query') using project(':xodus-query')

@@ -17,6 +17,7 @@ package kotlinx.dnq.query
 
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OQueryEntityIterable
@@ -44,8 +45,9 @@ interface XdQuery<out T : XdEntity> {
 }
 
 class XdQueryImpl<out T : XdEntity>(
-        override val entityIterable: Iterable<Entity>,
-        override val entityType: XdEntityType<T>) : XdQuery<T>
+    override val entityIterable: Iterable<Entity>,
+    override val entityType: XdEntityType<T>
+) : XdQuery<T>
 
 private val <T : XdEntity> XdQuery<T>.queryEngine: QueryEngine
     get() = entityType.entityStore.queryEngine
@@ -63,9 +65,19 @@ fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQue
  */
 fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
     return entityIterable
-            .asSequence()
-            .map { entityType.wrap(it) }
+        .asSequence()
+        .map { entityType.wrap(it) }
 }
+
+/**
+ * Creates a [Sequence] instance that wraps the original query returning its results as entity ids when being iterated.
+ */
+fun <T : XdEntity> XdQuery<T>.asIdSequence(): Sequence<EntityId> {
+    return entityIterable
+        .asSequence()
+        .map { it.id }
+}
+
 
 /**
  * Creates an [Iterable] instance that wraps the original query returning its results when being iterated.
@@ -82,12 +94,18 @@ operator fun <T : XdEntity> XdQuery<T>.iterator(): Iterator<T> = this.asSequence
 /**
  * Appends all elements to the given [destination] collection.
  */
-fun <T : XdEntity, C : MutableCollection<in T>> XdQuery<T>.toCollection(destination: C) = asSequence().toCollection(destination)
+fun <T : XdEntity, C : MutableCollection<in T>> XdQuery<T>.toCollection(destination: C) =
+    asSequence().toCollection(destination)
 
 /**
  * Returns a [List] containing all results of the original query.
  */
 fun <T : XdEntity> XdQuery<T>.toList() = asSequence().toList()
+
+/**
+ * Returns a [List] containing ids of all results of the original query.
+ */
+fun <T : XdEntity> XdQuery<T>.toIdList() = asIdSequence().toList()
 
 /**
  * Returns a [MutableList] filled with all results of the original query.
@@ -196,7 +214,10 @@ infix fun <T : XdEntity> XdQuery<T>.union(that: T?): XdQuery<T> {
 /**
  * Creates balanced union tree of queries returned by `queryFun` for each element of `this`.
  */
-fun <T : XdEntity, S : XdEntity> Iterable<S>.unionEach(entityType: XdEntityType<T>, queryFun: (S) -> XdQuery<T>): XdQuery<T> {
+fun <T : XdEntity, S : XdEntity> Iterable<S>.unionEach(
+    entityType: XdEntityType<T>,
+    queryFun: (S) -> XdQuery<T>
+): XdQuery<T> {
     val queryList = ArrayList<XdQuery<T>>().apply { this@unionEach.mapTo(this, queryFun) }
     var i = 0
     while (i < queryList.lastIndex) {
@@ -209,7 +230,10 @@ fun <T : XdEntity, S : XdEntity> Iterable<S>.unionEach(entityType: XdEntityType<
 /**
  * Creates balanced union tree of queries returned by `queryFun` for each element of `this`.
  */
-fun <T : XdEntity, S : XdEntity> XdQuery<S>.unionEach(entityType: XdEntityType<T>, queryFun: (S) -> XdQuery<T>): XdQuery<T> {
+fun <T : XdEntity, S : XdEntity> XdQuery<S>.unionEach(
+    entityType: XdEntityType<T>,
+    queryFun: (S) -> XdQuery<T>
+): XdQuery<T> {
     return asIterable().unionEach(entityType, queryFun)
 }
 
@@ -335,8 +359,15 @@ fun <T : XdEntity, S : T> XdQuery<T>.filterIsNotInstance(entityType: XdEntityTyp
  *
  * @param asc if `true` (by default) sort in ascending order, if `false` sort in descending order.
  */
-fun <T : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(property: KProperty1<T, V>, asc: Boolean = true): XdQuery<T> {
-    return queryEngine.query(entityIterable, entityType.entityType, SortByProperty(null, property.getDBName(entityType), asc)).asQuery(entityType)
+fun <T : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(
+    property: KProperty1<T, V>,
+    asc: Boolean = true
+): XdQuery<T> {
+    return queryEngine.query(
+        entityIterable,
+        entityType.entityType,
+        SortByProperty(null, property.getDBName(entityType), asc)
+    ).asQuery(entityType)
 }
 
 /**
@@ -349,7 +380,11 @@ fun <T : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(property: KProperty1<
  *
  * @param asc if `true` (by default) sort in ascending order, if `false` sort in descending order.
  */
-inline fun <reified T : XdEntity, reified S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(linkProperty: KProperty1<T, S?>, property: KProperty1<S, V?>, asc: Boolean = true): XdQuery<T> {
+inline fun <reified T : XdEntity, reified S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(
+    linkProperty: KProperty1<T, S?>,
+    property: KProperty1<S, V?>,
+    asc: Boolean = true
+): XdQuery<T> {
     return sortedBy(T::class, linkProperty, S::class, property, asc)
 }
 
@@ -363,8 +398,24 @@ inline fun <reified T : XdEntity, reified S : XdEntity, V : Comparable<*>?> XdQu
  *
  * @param asc if `true` (by default) sort in ascending order, if `false` sort in descending order.
  */
-fun <T : XdEntity, S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(klass: KClass<T>, linkProperty: KProperty1<T, S?>, linkKlass: KClass<S>, property: KProperty1<S, V?>, asc: Boolean = true): XdQuery<T> {
-    return queryEngine.query(entityIterable, entityType.entityType, SortByLinkProperty(null, linkKlass.java.entityType.entityType, property.getDBName(linkKlass), linkProperty.getDBName(klass), asc)).asQuery(entityType)
+fun <T : XdEntity, S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(
+    klass: KClass<T>,
+    linkProperty: KProperty1<T, S?>,
+    linkKlass: KClass<S>,
+    property: KProperty1<S, V?>,
+    asc: Boolean = true
+): XdQuery<T> {
+    return queryEngine.query(
+        entityIterable,
+        entityType.entityType,
+        SortByLinkProperty(
+            null,
+            linkKlass.java.entityType.entityType,
+            property.getDBName(linkKlass),
+            linkProperty.getDBName(klass),
+            asc
+        )
+    ).asQuery(entityType)
 }
 
 /**
@@ -457,8 +508,9 @@ fun <T : XdEntity> XdQuery<T>.take(n: Int): XdQuery<T> {
 }
 
 private inline fun <T : XdEntity> XdQuery<T>.operation(
-        ifEntityIterable: (EntityIterable) -> EntityIterable,
-        notEntityIterable: (Sequence<Entity>) -> Sequence<Entity>): XdQuery<T> {
+    ifEntityIterable: (EntityIterable) -> EntityIterable,
+    notEntityIterable: (Sequence<Entity>) -> Sequence<Entity>
+): XdQuery<T> {
     val it = queryEngine.toEntityIterable(entityIterable)
     return when (it) {
         is EntityIterableBase -> wrap(ifEntityIterable(it.source))
@@ -481,7 +533,10 @@ fun <T : XdEntity> XdQuery<T>.distinct(): XdQuery<T> {
 /**
  * Returns a new query containing distinct values of the property [dbFieldName] of each result of `this` query.
  */
-fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(dbFieldName: String, targetEntityType: XdEntityType<T>): XdQuery<T> {
+fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(
+    dbFieldName: String,
+    targetEntityType: XdEntityType<T>
+): XdQuery<T> {
     return queryEngine.selectDistinct(entityIterable, dbFieldName).asQuery(targetEntityType)
 }
 
@@ -489,13 +544,13 @@ private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterab
     val entityTypeName = entityType.entityType
     val queryEngine = entityType.entityStore.queryEngine
 
-    if (this is OQueryEntityIterable){
+    if (this is OQueryEntityIterable) {
         return this.intersect(OEntityOfTypeIterable(this.transaction, entityTypeName))
     } else {
         val modelMetaData = queryEngine.modelMetaData
         val subTypes = modelMetaData?.getEntityMetaData(entityTypeName)?.allSubTypes?.toSet() ?: hashSetOf()
         return this.asSequence().filter {
-            it != null &&  subTypes.contains(it.type)
+            it != null && subTypes.contains(it.type)
         }.filterNotNull().asIterable()
     }
 }
@@ -511,7 +566,10 @@ fun <S : XdEntity, T : XdEntity> XdQuery<S>.mapDistinct(field: KProperty1<S, T?>
 /**
  * Returns a new query of all elements yielded from values of property [dbFieldName] of each result of `this` query.
  */
-fun <S : XdEntity, T : XdEntity> XdQuery<S>.flatMapDistinct(dbFieldName: String, targetEntityType: XdEntityType<T>): XdQuery<T> {
+fun <S : XdEntity, T : XdEntity> XdQuery<S>.flatMapDistinct(
+    dbFieldName: String,
+    targetEntityType: XdEntityType<T>
+): XdQuery<T> {
     return queryEngine.selectManyDistinct(entityIterable, dbFieldName).asQuery(targetEntityType)
 }
 
@@ -551,7 +609,7 @@ fun <T : XdEntity> XdQuery<T>.indexOf(entity: T?): Int {
  */
 operator fun <T : XdEntity> XdQuery<T>.contains(entity: Entity?): Boolean {
     val iterable = entityIterable
-    val i = if (iterable is EntityIterable){
+    val i = if (iterable is EntityIterable) {
         iterable.unwrap()
     } else {
         iterable
