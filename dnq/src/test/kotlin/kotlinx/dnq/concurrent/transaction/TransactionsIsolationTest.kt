@@ -16,15 +16,12 @@
 package kotlinx.dnq.concurrent.transaction
 
 
-import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.query.asSequence
-import kotlinx.dnq.query.query
-import kotlinx.dnq.query.size
-import kotlinx.dnq.query.startsWith
+import kotlinx.dnq.query.first
+import kotlinx.dnq.query.isNotEmpty
 import org.junit.Test
-import java.lang.Integer.max
 import kotlin.concurrent.thread
 
 class TransactionsIsolationTest : DBTest() {
@@ -38,12 +35,24 @@ class TransactionsIsolationTest : DBTest() {
         var sometext by xdStringProp()
     }
 
-    private val init = 3
-    private val dif = 3
-    private val cycles = 10000
 
-    private var size: Int = 0
+    private val init = 100
+    private val cycles = 1000
+
     private var stopped = false
+
+    val sizes: IntArray
+        get() {
+            val res = IntArray(3)
+            Something.all().asSequence().forEach { it ->
+                when {
+                    it.sometext == "asomething" -> res[0] += 1
+                    it.sometext == "bsomething" -> res[1] += 1
+                    else -> res[2] += 1
+                }
+            }
+            return res
+        }
 
     override fun registerEntityTypes() {
         XdModel.registerNode(Something)
@@ -51,44 +60,41 @@ class TransactionsIsolationTest : DBTest() {
 
     @Test
     fun test1() {
+        transactional { txn ->
+            while (Something.all().isNotEmpty) {
+                Something.all().first().delete()
+                txn.flush()
+            }
+        }
         transactional {
             for (i in 0 until init) {
-                Something.new("something $i")
+                Something.new("asomething")
             }
         }
 
-        val t1 = checkThread()
-        val t2 = removeThread()
-        val t3 = populateThread()
-
         var e1: Throwable? = null
-        var e2: Throwable? = null
-        var e3: Throwable? = null
-        t1.setUncaughtExceptionHandler { _, e ->  e1 = e}
-        t2.setUncaughtExceptionHandler { _, e ->  e2 = e}
-        t3.setUncaughtExceptionHandler { _, e ->  e3 = e}
+        val t1 = checkThread().also {
+            it.setUncaughtExceptionHandler { _, e -> e1 = e }
+            it.start()
+        }
 
-        t2.start()
-        t3.start()
-        t1.start()
+        var e2: Throwable? = null
+        val t2 = updateThread().also {
+            it.setUncaughtExceptionHandler { _, e -> e2 = e }
+            it.start()
+        }
 
         t1.join()
         t2.join()
-        t3.join()
 
         if (e1 != null) {
             println("Exception in check thread")
             e1?.printStackTrace()
         }
         if (e2 != null) {
-            println("Exception in delete thread")
+            println("Exception in update thread")
             e2?.printStackTrace()
         }
-        if (e3 != null) {
-            println("Exception in add thread")
-            e3?.printStackTrace()
-        }
-        assertThat(size == init || size == dif + init).isTrue()
     }
 
     private fun checkThread(): Thread {
@@ -96,9 +102,14 @@ class TransactionsIsolationTest : DBTest() {
             var i = 0
             while (i < cycles) {
                 transactional {
-                    size = getSize()
-                    if (!(size == init || size == dif + init)) {
-                        println("I saw $size somethings on $i iteration.")
+                    if (i % 1000 == 0) {
+                        println("Check cycle $i")
+                    }
+                    val s = sizes
+                    if (s[0] == init && s[1] == 0 && s[2] == 0 || s[0] == 0 && s[1] == init && s[2] == 0) {
+                        // ok
+                    } else {
+                        println("I see a = ${s[0]} and b = ${s[1]} and unknown = ${s[2]} on $i iteration.")
                     }
                 }
                 Thread.yield()
@@ -108,38 +119,21 @@ class TransactionsIsolationTest : DBTest() {
         }
     }
 
-    private fun removeThread(): Thread {
-        return thread(start = false, name = "REMOVE_TREAD") {
+    private fun updateThread(): Thread {
+        return thread(start = false, name = "UPDATE_TREAD") {
+            var a = true
             while (!stopped) {
                 transactional { txn ->
-                    val size = getSize()
-                    Something.all()
-                            .asSequence()
-                            .take(max(size - init, 0))
-                            .toList()
-                            .forEach { it.delete() }
+                    Something.all().asSequence().forEach {
+                        it.sometext = if (a) "bsomething" else "asomething"
+                    }
+                    println("Update before flush.")
                     txn.flush()
+                    println("Update after flush.")
                 }
+                a = !a
                 Thread.yield()
             }
         }
-    }
-
-    private fun populateThread(): Thread {
-        return thread(start = false, name = "ADD_TREAD") {
-            while (!stopped) {
-                transactional { txn ->
-                    val size = getSize()
-                    (0 until dif + init - size)
-                            .forEach { Something.new("something $it") }
-                    txn.flush()
-                }
-                Thread.yield()
-            }
-        }
-    }
-
-    private fun getSize(): Int {
-        return Something.query(Something::sometext startsWith "something").size()
     }
 }
