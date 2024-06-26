@@ -57,6 +57,7 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
                         if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
+                            thisRef.reattach(thisRef.threadSessionOrThrow)
                             queryEngine.wrap(OLinkToEntityIterable(thisRef.threadSessionOrThrow.oStoreTransaction, oppositeField.oppositeDbName, thisRef.entityId as OEntityId))
                         }
                     } catch (_: UnsupportedOperationException) {

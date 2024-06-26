@@ -123,7 +123,9 @@ class TransientSessionImpl(
 
     override fun getStore(): TransientEntityStore = store
 
-    override fun isIdempotent() = oStoreTransaction.isIdempotent
+    override fun isIdempotent(): Boolean {
+        return oStoreTransaction.isIdempotent && changesTracker.changedEntities.isEmpty()
+    }
 
     override fun isReadonly() = readonly
 
@@ -454,7 +456,7 @@ class TransientSessionImpl(
         return try {
             oStoreTransaction.getEntity(entity.id)
             return false
-        } catch (e:Throwable){
+        } catch (e: Throwable) {
             return true
         }
     }
@@ -543,7 +545,7 @@ class TransientSessionImpl(
             checkBeforeSaveChangesConstraints()
 
             val txn = oTransactionInternal
-            if (txn.isIdempotent) return
+            if (this.isIdempotent) return
 
             try {
                 prepare()
@@ -566,9 +568,14 @@ class TransientSessionImpl(
                     txn.revert()
                     replayChanges()
                 }
-                if (exception is ORecordDuplicatedException){
+                if (exception is ORecordDuplicatedException) {
                     val fieldName = exception.indexName.substringAfter("_").substringBefore("_unique")
-                    val cause = SimplePropertyValidationException("Not unique value", exception.message ?: "Not unique value: ${exception.key}" ,null, fieldName )
+                    val cause = SimplePropertyValidationException(
+                        "Not unique value",
+                        exception.message ?: "Not unique value: ${exception.key}",
+                        null,
+                        fieldName
+                    )
                     throw ConstraintsValidationException(cause)
                 }
 
@@ -581,14 +588,17 @@ class TransientSessionImpl(
     }
 
     private fun prepare() {
-        try {
-            allowRunnables = false
-        } finally {
-            allowRunnables = true
-        }
 
-        logger.trace("Flush persistent transaction in transient session {}", this)
+        val removedEntities = (changesTracker as TransientChangesTrackerImpl).removedEntitiesIds
+
+        logger.trace {
+            "Deleting removed entities. Count: ${removedEntities.size}"
+        }
+        removedEntities.forEach {
+            persistentStore.currentTransaction?.getEntity(it)?.delete()
+        }
     }
+
 
     override fun getSnapshot(): OStoreTransaction {
         throw UnsupportedOperationException()
@@ -611,12 +621,13 @@ class TransientSessionImpl(
             }
         }
     }
+
     private fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
         val onLoadValue = oVertex.getPropertyOnLoadValue<Any>(propertyName)
-        return if (onLoadValue is MutableSet<*>){
+        return if (onLoadValue is MutableSet<*>) {
             OComparableSet(onLoadValue)
         } else {
             onLoadValue as Comparable<*>?
@@ -975,16 +986,7 @@ class TransientSessionImpl(
     }
 
     private fun deleteEntityInternal(e: TransientEntity): Boolean {
-        if (TransientStoreUtil.isPostponeUniqueIndexes) {
-            if (e.entity.delete()) {
-                transientChangesTracker.entityRemoved(e)
-            }
-        } else {
-            // remember index values first
-            if (e.entity.delete()) {
-                transientChangesTracker.entityRemoved(e)
-            }
-        }
+        transientChangesTracker.entityRemoved(e)
         return true
     }
 
