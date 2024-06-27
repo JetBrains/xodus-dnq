@@ -19,11 +19,13 @@ package kotlinx.dnq.delete
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import com.jetbrains.teamsys.dnq.database.reattachTransient
+import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.util.getDBName
 import kotlinx.dnq.util.getOldValue
 import org.junit.Test
+import kotlin.test.fail
 
 class OldValueTest : DBTest() {
     private val name = "user"
@@ -88,8 +90,12 @@ class OldValueTest : DBTest() {
 
             user.delete()
             txn.flush()
-            assertThat(user.getOldValue(RUser::name)).isNull()
-            assertThat(user.getOldValue(RUser::role)).isNull()
+            try {
+                user.getOldValue(RUser::name)
+                fail("Now after flush we cannot access this data anymore")
+            } catch (_:EntityRemovedInDatabaseException){
+
+            }
         }
     }
 }

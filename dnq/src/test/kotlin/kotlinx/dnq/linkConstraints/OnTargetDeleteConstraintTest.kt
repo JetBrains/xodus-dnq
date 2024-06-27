@@ -343,9 +343,7 @@ class OnTargetDeleteConstraintTest : DBTest() {
         val (weakTarget, strongTarget) = store.transactional {
             Pair(A.new(), A.new())
         }
-        store.transactional {
-            BaseDynamicEntity.registerAssociations(store.modelMetaData as ModelMetaDataImpl)
-        }
+        BaseDynamicEntity.registerAssociations(store.modelMetaData as ModelMetaDataImpl)
 
         val source = store.transactional {
             SubDynamicEntity.new(weakTarget, strongTarget)
