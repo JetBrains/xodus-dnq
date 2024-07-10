@@ -108,12 +108,10 @@ class QueryTest : DBTest() {
         }
 
         store.transactional {
-            assertThat(User.all().reversed().toList()).isInStrictOrder(object: Comparator<User>{
-                override fun compare(o1: User, o2: User): Int {
-                    return (o2.entity.id.localId - o1.entity.id.localId).toInt()
-                }
-
-            })
+            val loginsReversed = User.all()
+                .sortedBy(User::login).reversed()
+                .toList().map { it.login }
+            assertThat(loginsReversed).containsExactly("user2", "user1").inOrder()
         }
     }
 }
