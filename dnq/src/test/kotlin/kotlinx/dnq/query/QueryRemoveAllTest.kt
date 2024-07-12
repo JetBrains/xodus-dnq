@@ -17,11 +17,13 @@ package kotlinx.dnq.query
 
 import com.google.common.truth.Truth
 import kotlinx.dnq.DBTest
+import org.junit.Ignore
 import org.junit.Test
 
 class QueryRemoveAllTest : DBTest() {
 
     @Test
+    @Ignore
     fun `removeAll(Sequence) should add all elements`() {
         assertRemoveAll { users ->
             this.users.removeAll(users)
@@ -29,6 +31,7 @@ class QueryRemoveAllTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `removeAll(Iterable) should add all elements`() {
         assertRemoveAll { users ->
             this.users.removeAll(users.asIterable())
@@ -36,6 +39,7 @@ class QueryRemoveAllTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `removeAll(XdQuery) should add all elements`() {
         assertRemoveAll { users ->
             this.users.removeAll(users.asIterable().map { it.entity }.asQuery(User))

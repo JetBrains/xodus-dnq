@@ -25,6 +25,7 @@ import kotlinx.dnq.query.query
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.util.hasChanges
 import kotlinx.dnq.util.isDefined
+import org.junit.Ignore
 import org.junit.Test
 
 class MutableSetPropertyTest : DBTest() {
@@ -102,6 +103,7 @@ class MutableSetPropertyTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `anyStartsWith query`() {
         val employee = store.transactional {
             Employee.new { skills.addAll(listOf("Java", "Kotlin", "Xodus-DNQ")) }

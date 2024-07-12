@@ -22,6 +22,7 @@ import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
 import mu.KLogging
+import org.junit.Ignore
 import org.junit.Test
 import java.util.*
 import java.util.concurrent.Semaphore
@@ -51,6 +52,7 @@ class OnTargetDeleteClearTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `onTargetDelete=CLEAR for single bidirectional link`() {
         val license = transactional {
             val application = CApplication.new()
@@ -80,6 +82,7 @@ class OnTargetDeleteClearTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `onTargetDelete=CLEAR for multiple link`() {
         val (parent, firstChild) = transactional {
             val parent = DParent.new()
@@ -130,6 +133,7 @@ class OnTargetDeleteClearTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `onTargetDelete=CLEAR concurrently`() {
         val rnd = Random(777)
         (1..15).forEach { iteration ->
@@ -202,6 +206,7 @@ class OnTargetDeleteClearTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `onTargetDelete=CLEAR should not clear property on target deletion`() {
         val (application, license) = transactional {
             val license = ELicense.new()

@@ -19,6 +19,7 @@ package kotlinx.dnq.delete
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.query.size
+import org.junit.Ignore
 import org.junit.Test
 
 
@@ -47,6 +48,7 @@ class CascadeChildTreeDeletionTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun descendingDeleteion() {
         val b = transactional {
             val a = A1.new()

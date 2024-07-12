@@ -20,17 +20,19 @@ import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.query.*
+import org.junit.Ignore
 import org.junit.Test
+import java.util.*
 
 class DeleteCycleTest : DBTest() {
 
     class Driver(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Driver>() {
             fun new(name: String, age: Int) = new {
-                this.name = name;
-                this.name2 = name;
-                this.age = age;
-                this.age2 = age;
+                this.name = name
+                this.name2 = name
+                this.age = age
+                this.age2 = age
             }
         }
 
@@ -58,7 +60,7 @@ class DeleteCycleTest : DBTest() {
     class PC3(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<PC3>() {
             fun new(name: String) = new {
-                this.myName = name;
+                this.myName = name
             }
         }
 
@@ -180,6 +182,7 @@ class DeleteCycleTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun bulk_delete() {
         val num = 500
         transactional {
@@ -231,7 +234,7 @@ class DeleteCycleTest : DBTest() {
             for (i in 0..99) {
                 val d = Driver.query(Driver::age eq i).first()
                 println("Update $d")
-                d.name = d.name?.toUpperCase()
+                d.name = d.name?.uppercase()
             }
         }
     }

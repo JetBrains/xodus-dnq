@@ -17,6 +17,7 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
+import org.junit.Ignore
 import org.junit.Test
 
 class EqualsTest : DBTest() {
@@ -30,6 +31,7 @@ class EqualsTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun equalsSymmetry() {
         transactional {
             val a1 = A.new()

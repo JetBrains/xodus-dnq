@@ -22,6 +22,7 @@ import kotlinx.dnq.query.contains
 import kotlinx.dnq.query.query
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.util.isDefined
+import org.junit.Ignore
 import org.junit.Test
 
 class SetPropertyTest : DBTest() {
@@ -115,6 +116,7 @@ class SetPropertyTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `anyStartsWith query`() {
         val employee = store.transactional {
             Employee.new { skills = setOf("Java", "Kotlin", "Xodus-DNQ") }

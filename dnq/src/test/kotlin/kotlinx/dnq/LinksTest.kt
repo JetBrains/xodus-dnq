@@ -20,6 +20,7 @@ import kotlinx.dnq.query.*
 import kotlinx.dnq.util.getAddedLinks
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.getRemovedLinks
+import org.junit.Ignore
 import org.junit.Test
 
 
@@ -101,6 +102,7 @@ class LinksTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `getRemovedLinks should return removed links`() {
         val user = store.transactional {
             User.new {

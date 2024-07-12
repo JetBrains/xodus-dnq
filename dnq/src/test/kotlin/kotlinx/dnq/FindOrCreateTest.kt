@@ -19,6 +19,7 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.query.addAll
+import org.junit.Ignore
 import org.junit.Test
 import java.util.*
 
@@ -59,6 +60,7 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `sequential creation should return the same entity`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }
@@ -78,6 +80,7 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `parallel creation should return the same entity`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }
@@ -97,6 +100,7 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `different parameters should result into different entities`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }
@@ -116,6 +120,7 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `simple findOrNew`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }

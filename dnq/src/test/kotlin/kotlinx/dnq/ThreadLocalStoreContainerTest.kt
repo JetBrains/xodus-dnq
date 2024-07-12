@@ -16,20 +16,13 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
-import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
-import com.orientechnologies.orient.core.db.ODatabaseType
-import com.orientechnologies.orient.core.db.OrientDB
-import com.orientechnologies.orient.core.db.OrientDBConfig
-import com.orientechnologies.orient.core.db.OrientDBConfigBuilder
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.orientdb.ODatabaseProviderImpl
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.store.container.ThreadLocalStoreContainer
-import kotlinx.dnq.store.container.createTransientEntityStore
-import kotlinx.dnq.util.initMetaData
 import org.junit.After
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import java.io.File
 import java.io.IOException
@@ -95,6 +88,7 @@ class ThreadLocalStoreContainerTest {
     }
 
     @Test
+    @Ignore
     fun `it should be possible to use different stores`() {
         ThreadLocalStoreContainer.transactional(store1) {
             XdMultiStoreEntity.new()

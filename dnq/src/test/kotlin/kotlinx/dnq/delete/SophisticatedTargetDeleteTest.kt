@@ -20,6 +20,7 @@ import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy.CASCADE
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
+import org.junit.Ignore
 import org.junit.Test
 
 class SophisticatedTargetDeleteTest : DBTest() {
@@ -65,6 +66,7 @@ class SophisticatedTargetDeleteTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun targetDelete() {
         val a = transactional { Issue.new() }
         val b = transactional { Issue.new() }

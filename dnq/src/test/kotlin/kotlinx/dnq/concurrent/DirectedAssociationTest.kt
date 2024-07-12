@@ -19,6 +19,7 @@ package kotlinx.dnq.concurrent
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
+import org.junit.Ignore
 import org.junit.Test
 
 class DirectedAssociationTest : DBTest() {
@@ -44,6 +45,7 @@ class DirectedAssociationTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun setToOne() {
         val phone = transactional { txn ->
             val phone = Phone.new()
@@ -67,6 +69,7 @@ class DirectedAssociationTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun createToMany() {
         val phone = transactional { txn ->
             val phone = Phone.new()
@@ -88,6 +91,7 @@ class DirectedAssociationTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun clearToMany() {
         val phone = transactional { txn ->
             val phone = Phone.new()

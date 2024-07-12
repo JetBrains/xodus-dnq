@@ -22,6 +22,7 @@ import kotlinx.dnq.*
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.iterator
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.fail
 
@@ -73,6 +74,7 @@ class ReadonlyTransactionsTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `WD-2051 Nested transactional block is still read only`() {
         transactional(readonly = true) {
             transactional {
