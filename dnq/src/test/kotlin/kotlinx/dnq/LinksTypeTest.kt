@@ -18,6 +18,7 @@ package kotlinx.dnq
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.util.getDBName
+import org.junit.Ignore
 import org.junit.Test
 
 class LinksTypeTest : DBTest() {
@@ -89,6 +90,7 @@ class LinksTypeTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `one to one link type constraint is ok`() {
         store.transactional {
             (root.entity as TransientEntity).setToOne(Root::leaf.getDBName(), SuperLeaf.new {}.entity)

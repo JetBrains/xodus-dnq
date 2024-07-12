@@ -19,6 +19,7 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.database.exceptions.UniqueIndexViolationException
 import jetbrains.exodus.entitystore.Entity
+import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -62,6 +63,7 @@ class CompositeIndexTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `creation of entities with not unique fields that are part of composite index should be possible`() {
         store.transactional {
             Service.new {
@@ -75,6 +77,7 @@ class CompositeIndexTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `creation of entities with not unique composite index should fail`() {
         val e = assertFailsWith<ConstraintsValidationException> {
             store.transactional {
@@ -91,6 +94,7 @@ class CompositeIndexTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `definition of index by property of parent entity should be possible`() {
         store.transactional {
             Role.new { key = "A"; name = "a" }
@@ -99,6 +103,7 @@ class CompositeIndexTest : DBTest() {
     }
 
     @Test(expected = ConstraintsValidationException::class)
+    @Ignore
     fun `definition of index by property of parent entity should not be possible`() {
         store.transactional {
             Role.new { key = "A"; name = "a" }

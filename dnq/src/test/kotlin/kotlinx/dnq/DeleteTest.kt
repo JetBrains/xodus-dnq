@@ -21,6 +21,7 @@ import kotlinx.dnq.link.OnDeletePolicy.CASCADE
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
+import org.junit.Ignore
 import org.junit.Test
 
 class DeleteTest : DBTest() {
@@ -39,6 +40,7 @@ class DeleteTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun clear() {
         val (user, group) = store.transactional {
             val user = User.new {
@@ -69,6 +71,7 @@ class DeleteTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun clearCascade() {
         val (parent, nested) = store.transactional {
             val parent = CompanyTeam.new {

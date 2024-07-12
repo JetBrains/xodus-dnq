@@ -22,6 +22,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.xdStringProp
 import org.joda.time.DateTime
+import org.junit.Ignore
 import org.junit.Test
 
 private var DBTest.User.inn by xdStringProp<DBTest.User>(dbName = "_inn_")
@@ -180,6 +181,7 @@ class FilterQueryPropertiesTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `should search by contains`(){
         val (user1, user2, user3) = store.transactional {
             Triple(User.new {

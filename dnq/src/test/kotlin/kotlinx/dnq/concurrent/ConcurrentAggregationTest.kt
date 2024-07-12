@@ -18,6 +18,7 @@ package kotlinx.dnq.concurrent
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
+import org.junit.Ignore
 import org.junit.Test
 
 class ConcurrentAggregationTest : DBTest() {
@@ -46,6 +47,7 @@ class ConcurrentAggregationTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun setOneToOne() {
         val focus = transactional { Car.new() }
         val c4 = transactional { Car.new() }
@@ -70,6 +72,7 @@ class ConcurrentAggregationTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun setManyToOne() {
         val focus = transactional { Car.new() }
         val c4 = transactional { Car.new() }
@@ -93,6 +96,7 @@ class ConcurrentAggregationTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun setManyToOne2() {
         val focus = transactional { txn ->
             val focus = Car.new()

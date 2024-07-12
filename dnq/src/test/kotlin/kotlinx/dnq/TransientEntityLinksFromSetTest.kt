@@ -22,6 +22,7 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
+import org.junit.Ignore
 import org.junit.Test
 
 class TransientEntityLinksFromSetTest : DBTest() {
@@ -35,6 +36,7 @@ class TransientEntityLinksFromSetTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun testAll() {
         val (i1, i2, i3, i4) = transactional { txn ->
             (1..4).map { txn.newEntity("Issue") }

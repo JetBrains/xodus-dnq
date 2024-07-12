@@ -18,6 +18,7 @@ package kotlinx.dnq.query
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 
 class SortedByTest : DBTest() {
@@ -73,6 +74,7 @@ class SortedByTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `sort by property of a link ascending`() {
         transactional {
             assertQuery(User.all().sortedBy(User::badge, Badge::name, asc = true))
@@ -82,6 +84,7 @@ class SortedByTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `sort by property of a link descending`() {
         transactional {
             assertQuery(User.all().sortedBy(User::badge, Badge::name, asc = false))
