@@ -27,7 +27,6 @@ private var DBTest.User.fellow by xdLink0_1(DBTest.User)
 class FilterQueryLinksTest : DBTest() {
 
     @Test
-    @Ignore
     fun `search by undirected association should work`() {
         store.transactional {
             val user1 = User.new {
@@ -43,13 +42,14 @@ class FilterQueryLinksTest : DBTest() {
                 user = user1
                 email = "123@test.com"
             }
-            Contact.new {
+            val contact2 = Contact.new {
                 user = user1
                 email = "123@test.com"
             }
+            val contacts = listOf(contact1, contact2)
 
-            assertThat(Contact.all().filterUnsafe { it.user = user1 }.first()).isEqualTo(contact1)
-            assertThat(Contact.filter { it.user eq user1 }.first()).isEqualTo(contact1)
+            assertThat(Contact.all().filterUnsafe { it.user = user1 }.toList()).containsExactlyElementsIn(contacts)
+            assertThat(Contact.filter { it.user eq user1 }.toList()).containsExactlyElementsIn(contacts)
 
             assertThat(User.filter { it.contacts.isNotEmpty() }.toList()).containsExactly(user1)
             assertThat(User.filter { it.contacts.isEmpty() }.toList()).containsExactly(user2)
