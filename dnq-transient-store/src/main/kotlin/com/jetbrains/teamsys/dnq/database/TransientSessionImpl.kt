@@ -548,7 +548,6 @@ class TransientSessionImpl(
             if (this.isIdempotent) return
 
             try {
-                prepare()
                 store.flushLock.withLock {
                     while (true) {
                         if (txn.flush()) {
@@ -558,7 +557,6 @@ class TransientSessionImpl(
                         replayChanges()
                         //recheck constraints against new database root
                         checkBeforeSaveChangesConstraints()
-                        prepare()
                     }
                 }
             } catch (exception: Throwable) {
@@ -586,19 +584,6 @@ class TransientSessionImpl(
             flushing = false
         }
     }
-
-    private fun prepare() {
-
-        val removedEntities = (changesTracker as TransientChangesTrackerImpl).removedEntitiesIds
-
-        logger.trace {
-            "Deleting removed entities. Count: ${removedEntities.size}"
-        }
-        removedEntities.forEach {
-            persistentStore.currentTransaction?.getEntity(it)?.delete()
-        }
-    }
-
 
     override fun getSnapshot(): OStoreTransaction {
         throw UnsupportedOperationException()
@@ -718,6 +703,7 @@ class TransientSessionImpl(
 
     private fun notifyFlushedListeners(oldChangesTracker: TransientChangesTracker) {
         val changesDescription = Collections.unmodifiableSet(oldChangesTracker.changesDescription)
+        val removedEntities = (changesTracker as? TransientChangesTrackerImpl)?.removedEntitiesIds ?: listOf()
         if (changesDescription.isEmpty()) {
             oldChangesTracker.dispose()
             return
@@ -736,9 +722,17 @@ class TransientSessionImpl(
                 oldChangesTracker.dispose()
             }
         }
+        try {
+            removedEntities.forEach {
+                persistentStore.currentTransaction?.getEntity(it)?.delete()
+            }
+        } catch (e:Throwable){
+            logger.error { "Failed to perform deffered remove in " }
+        }
 
         oldChangesTracker.dispose()
     }
+
 
     private fun notifyBeforeFlushListeners(changes: Set<TransientEntityChange>?) {
         if (changes == null || changes.isEmpty()) return

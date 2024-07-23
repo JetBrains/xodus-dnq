@@ -17,7 +17,7 @@ package kotlinx.dnq.link
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.orientdb.OEntityId
-import jetbrains.exodus.entitystore.orientdb.iterate.link.OLinkToEntityIterable
+import jetbrains.exodus.entitystore.orientdb.iterate.link.OLinkOfTypeToEntityIterable
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
@@ -59,7 +59,7 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                         if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
-                            (queryEngine as XdQueryEngine).wrap(OLinkToEntityIterable(thisRef.threadSessionOrThrow.oStoreTransaction, oppositeField.oppositeDbName, thisRef.entityId as OEntityId))
+                            (queryEngine as XdQueryEngine).wrap(OLinkOfTypeToEntityIterable(thisRef.threadSessionOrThrow.oStoreTransaction, oppositeField.oppositeDbName, thisRef.entityId as OEntityId, oppositeType))
                         }
                     } catch (_: UnsupportedOperationException) {
                         // to support weird FakeTransientEntity
