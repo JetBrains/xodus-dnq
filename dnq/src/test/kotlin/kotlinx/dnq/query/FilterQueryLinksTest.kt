@@ -16,15 +16,20 @@
 package kotlinx.dnq.query
 
 import com.google.common.truth.Truth.assertThat
-import kotlinx.dnq.DBTest
-import kotlinx.dnq.xdLink0_1
-import org.junit.Ignore
+import kotlinx.dnq.*
 import org.junit.Test
 
 
 private var DBTest.User.fellow by xdLink0_1(DBTest.User)
 
 class FilterQueryLinksTest : DBTest() {
+
+    override fun registerEntityTypes() {
+        super.registerEntityTypes()
+        XdModel.withPlugins(
+            SimpleModelPlugin(listOf(DBTest.User::fellow))
+        )
+    }
 
     @Test
     fun `search by undirected association should work`() {
@@ -78,7 +83,6 @@ class FilterQueryLinksTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `simple search by extension link`() {
         store.transactional {
             val user1 = User.new {
