@@ -21,7 +21,6 @@ import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 
 class FilterQueryDecoratedTest : DBTest() {
@@ -95,7 +94,6 @@ class FilterQueryDecoratedTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `searching by link property should works with OR`() {
         store.transactional {
             Contact.assertThatFilterResult { (it.user.login eq "test3") or (it.email eq "1@123.com") }
@@ -107,7 +105,6 @@ class FilterQueryDecoratedTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `searching by link property should works with isIn`() {
         store.transactional {
             Contact.assertThatFilterResult { it.user.login isIn listOf("test3", "test") }

@@ -18,7 +18,6 @@ package kotlinx.dnq.query
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.TransientEntity
 import kotlinx.dnq.DBTest
-import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -98,7 +97,6 @@ class QueryTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `reverse should return reversed query of TransientEntities`() {
         store.transactional {
             (1..2).forEach {
