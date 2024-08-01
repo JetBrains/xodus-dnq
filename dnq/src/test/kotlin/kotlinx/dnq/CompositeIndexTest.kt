@@ -44,7 +44,7 @@ class CompositeIndexTest : DBTest() {
             )
         }
 
-        var service: Service by xdLink1(Service)
+        var service: Service by xdLink1(Service::defaultRoles)
     }
 
     class Role(entity: Entity) : BaseRole(entity) {
