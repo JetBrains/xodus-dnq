@@ -40,15 +40,15 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     }
     val modelMetaData = entityStore.modelMetaData as ModelMetaDataImpl
 
-    naturalNodes.forEach {
-        val (entityTypeName, node) = it
+    naturalNodes.forEach { (entityTypeName, node) ->
         entityStore.registerCustomTypes(node)
         modelMetaData.addEntityMetaData(entityTypeName, node)
     }
 
-    naturalNodes.forEach {
-        val (entityTypeName, node) = it
+    val linkValidator = LinkValidator()
+    naturalNodes.forEach { (entityTypeName, node) ->
         node.linkProperties.values.forEach { sourceEnd ->
+            linkValidator.oneMore(entityTypeName, sourceEnd)
             modelMetaData.addLinkMetaData(hierarchy, entityTypeName, sourceEnd, node)
         }
     }
@@ -56,15 +56,17 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
         it.value.entityType !is XdNaturalEntityType<*>
     }
     XdModel.plugins.flatMap { it.typeExtensions }.forEach { extension ->
-        deprecatedNodes.values.forEach { node ->
-            node.linkProperties.forEach {
-                if (it.value.property == extension) {
+        deprecatedNodes.forEach { (entityTypeName, node) ->
+            node.linkProperties.values.forEach { sourceEnd ->
+                if (sourceEnd.property == extension) {
+                    linkValidator.oneMore(entityTypeName, sourceEnd)
                     // will add all data to sub types automatically
-                    modelMetaData.addLinkMetaData(hierarchy, node.entityType.entityType, it.value, node)
+                    modelMetaData.addLinkMetaData(hierarchy, node.entityType.entityType, sourceEnd, node)
                 }
             }
         }
     }
+    linkValidator.validate()
     entityStore.entityLifecycle = EntityLifecycleImpl()
 
     /**
