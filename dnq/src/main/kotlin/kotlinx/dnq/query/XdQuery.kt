@@ -22,6 +22,8 @@ import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OQueryEntityIterable
 import jetbrains.exodus.entitystore.orientdb.iterate.OEntityOfTypeIterable
+import jetbrains.exodus.entitystore.orientdb.iterate.OQueryEntityIterableBase
+import jetbrains.exodus.entitystore.orientdb.iterate.link.OMultipleEntitiesIterable
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
@@ -29,6 +31,7 @@ import kotlinx.dnq.XdModel
 import kotlinx.dnq.session
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.getDBName
+import kotlinx.dnq.util.threadSessionOrThrow
 import java.util.*
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
@@ -166,15 +169,14 @@ private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterab
  * Null elements are ignored, e.g. `queryOf(null)` returns an empty query.
  */
 fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
-    val queryEngine = entityStore.queryEngine
-    val union = elements.fold<T?, Iterable<Entity>>(EntityIterableBase.EMPTY) { union, element ->
-        if (element != null) {
-            queryEngine.union(union, singletonOf(element.entity))
-        } else {
-            union
-        }
+    val notNullElements = elements.filterNotNull()
+    val iterable = if (notNullElements.isEmpty()){
+        OQueryEntityIterableBase.EMPTY
+    } else {
+        OMultipleEntitiesIterable(notNullElements.first().threadSessionOrThrow.oStoreTransaction , notNullElements.map { it.entity })
     }
-    return XdQueryImpl(union, this)
+
+    return XdQueryImpl(iterable, this)
 }
 
 /**
