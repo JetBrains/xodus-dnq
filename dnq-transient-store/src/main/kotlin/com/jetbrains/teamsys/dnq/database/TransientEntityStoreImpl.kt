@@ -17,7 +17,10 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.core.dataStructures.StablePriorityQueue
 import jetbrains.exodus.database.*
-import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.PersistentEntityStore
+import jetbrains.exodus.entitystore.QueryCancellingPolicy
+import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import jetbrains.exodus.entitystore.util.unsupported
@@ -27,7 +30,6 @@ import jetbrains.exodus.query.metadata.ModelMetaData
 import mu.KLogging
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.locks.ReentrantLock
 
 /**
  * @author Vadim.Gurov
@@ -81,11 +83,8 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     private var closed = false
     private val enumCache = ConcurrentHashMap<String, Entity>()
 
-    // fair flushLock
-    internal val flushLock = ReentrantLock(true)
-
     /**
-     * It's guaranteed that current thread session is Open, if exists
+     * It's guaranteed that the current thread session is Open, if exists
      */
     override val threadSession: TransientStoreSession?
         get() = currentSession.get()
@@ -102,7 +101,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
             queryCancellingPolicy: QueryCancellingPolicy?,
             isNew: Boolean,
             block: (TransientStoreSession) -> T
-    ): T = TransientEntityStoreExt.transactional(this, readonly, queryCancellingPolicy, isNew, block)
+    ): T = TransientEntityStoreExt.transactional(this, queryCancellingPolicy, block)
 
     override fun beginTransaction(): StoreTransaction {
         throw UnsupportedOperationException()

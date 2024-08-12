@@ -15,6 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import com.orientechnologies.common.concur.ONeedRetryException
 import com.orientechnologies.orient.core.db.ODatabaseSession
 import com.orientechnologies.orient.core.record.OElement
 import com.orientechnologies.orient.core.record.OVertex
@@ -40,7 +41,6 @@ import mu.KLogging
 import java.io.File
 import java.io.InputStream
 import java.util.*
-import kotlin.concurrent.withLock
 
 private fun OStoreTransaction.createChangesTracker(
     readonly: Boolean
@@ -548,17 +548,19 @@ class TransientSessionImpl(
             if (this.isIdempotent) return
 
             try {
-                store.flushLock.withLock {
-                    while (true) {
+                while (true) {
+                    try {
                         if (txn.flush()) {
                             return
                         }
+                    } catch (_: ONeedRetryException) {
                         // replay changes
                         replayChanges()
-                        //recheck constraints against new database root
+                        //recheck constraints
                         checkBeforeSaveChangesConstraints()
                     }
                 }
+
             } catch (exception: Throwable) {
                 logger.info { "Catch exception in flush: ${exception.message}" }
 
@@ -726,7 +728,7 @@ class TransientSessionImpl(
             removedEntities.forEach {
                 persistentStore.currentTransaction?.getEntity(it)?.delete()
             }
-        } catch (e:Throwable){
+        } catch (e: Throwable) {
             logger.error { "Failed to perform deffered remove in " }
         }
 

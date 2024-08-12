@@ -22,67 +22,40 @@ import jetbrains.exodus.entitystore.QueryCancellingPolicy
 internal object TransientEntityStoreExt {
     fun <T> transactional(
         store: TransientEntityStore,
-        readonly: Boolean = false,
         queryCancellingPolicy: QueryCancellingPolicy? = null,
-        isNew: Boolean = false,
         block: (TransientStoreSession) -> T
     ): T {
-        val superSession = store.threadSession
-        val superIsSuspended: Boolean
-        if (isNew) {
-            store.suspendThreadSession()
-            superIsSuspended = true
+        val currentSession = store.threadSession
+        if (currentSession != null){
+            return block(currentSession)
         } else {
-            if (superSession == null) {
-                superIsSuspended = false
-            } else {
-                if (superSession.isReadonly != readonly) {
-                    store.suspendThreadSession()
-                    superIsSuspended = true
-                } else {
-                    return block(superSession)
-                }
-            }
-        }
-        try {
-            val newSession = store.beginSession(readonly, queryCancellingPolicy)
-            var wasEx = true
             try {
-                val result = block(newSession)
-                wasEx = false
-                return result
-            } finally {
-                if ((superSession == null || superIsSuspended) && newSession.isOpened) {
-                    if (wasEx) {
-                        newSession.abort()
-                    } else {
-                        doCommit(newSession)
+                val newSession = store.beginSession(queryCancellingPolicy)
+                var wasEx = true
+                try {
+                    val result = block(newSession)
+                    wasEx = false
+                    return result
+                } finally {
+                    if (newSession.isOpened) {
+                        if (wasEx) {
+                            newSession.abort()
+                        } else {
+                            doCommit(newSession)
+                        }
                     }
                 }
-            }
-
-        } catch (e: Throwable) {
-            e.printStackTrace()
-            throw e
-        } finally {
-            if (superIsSuspended) {
-                store.resumeSession(superSession)
-                if (queryCancellingPolicy != null && superSession != null) {
-                    superSession.queryCancellingPolicy = queryCancellingPolicy
-                }
+            } catch (e: Throwable) {
+                e.printStackTrace()
+                throw e
             }
         }
     }
 
     private fun TransientEntityStore.beginSession(
-        readonly: Boolean,
         queryCancellingPolicy: QueryCancellingPolicy?
     ): TransientStoreSession {
-        val transaction = if (readonly) {
-            this.beginReadonlyTransaction()
-        } else {
-            this.beginSession()
-        }
+        val transaction = this.beginSession()
         return try {
             // Exception could be thrown due to race condition in inited ServiceLocator
             if (queryCancellingPolicy != null) {
