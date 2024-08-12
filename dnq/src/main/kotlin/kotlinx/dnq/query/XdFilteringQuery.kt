@@ -58,9 +58,7 @@ fun <T : XdEntity> XdEntityType<T>.filter(clause: FilteringContext.(T) -> XdSear
     return all().filter(clause)
 }
 
-@DnqFilterDsl
-@Deprecated("use filter instead")
-fun <T : XdEntity> XdQuery<T>.filterUnsafe(clause: FilteringContext.(T) -> Unit): XdQuery<T> {
+private fun <T : XdEntity> XdQuery<T>.filterUnsafe(clause: FilteringContext.(T) -> Unit): XdQuery<T> {
     val searchingEntity = SearchingEntity(entityType.entityType, entityType.entityStore).inScope {
         FilteringContext.clause(entityType.wrap(this))
     }

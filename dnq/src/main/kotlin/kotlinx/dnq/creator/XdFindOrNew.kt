@@ -19,10 +19,7 @@ import jetbrains.exodus.database.EntityCreator
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.query.DnqFilterDsl
-import kotlinx.dnq.query.XdQuery
-import kotlinx.dnq.query.filterUnsafe
-import kotlinx.dnq.query.firstOrNull
+import kotlinx.dnq.query.*
 import kotlinx.dnq.session
 
 fun <XD : XdEntity> XdEntityType<XD>.findOrNew(findQuery: XdQuery<XD>, initNew: XD.() -> Unit): XD {
@@ -42,4 +39,13 @@ fun <XD : XdEntity> XdEntityType<XD>.findOrNew(findQuery: XdQuery<XD>, initNew: 
 @DnqFilterDsl
 fun <XD : XdEntity> XdEntityType<XD>.findOrNew(template: XD.() -> Unit): XD {
     return findOrNew(all().filterUnsafe { template(it) }, template)
+}
+
+private fun <T : XdEntity> XdQuery<T>.filterUnsafe(clause: FilteringContext.(T) -> Unit): XdQuery<T> {
+    val searchingEntity = SearchingEntity(entityType.entityType, entityType.entityStore).inScope {
+        FilteringContext.clause(entityType.wrap(this))
+    }
+    return searchingEntity.nodes.fold(this) { cur, it ->
+        cur.query(it)
+    }
 }

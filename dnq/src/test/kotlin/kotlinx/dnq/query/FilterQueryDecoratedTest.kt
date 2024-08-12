@@ -64,9 +64,6 @@ class FilterQueryDecoratedTest : DBTest() {
         store.transactional {
             User.assertThatFilterResult { it.supervisor?.login eq "test" }
                     .containsUsers("test1")
-
-            User.assertThatFilterResult { it.supervisor?.login = "test" }
-                    .containsUsers("test1")
         }
     }
 
@@ -74,10 +71,6 @@ class FilterQueryDecoratedTest : DBTest() {
     fun `searching by link property on different types`() {
         store.transactional {
             Contact.assertThatFilterResult { it.user.login eq "test3" }
-                    .containsContacts("3@123.com")
-
-
-            Contact.assertThatFilterResult { it.user.login = "test3" }
                     .containsContacts("3@123.com")
         }
     }
@@ -129,15 +122,15 @@ class FilterQueryDecoratedTest : DBTest() {
         }
     }
 
-    fun IterableSubject.containsContacts(vararg contacts: String) {
+    private fun IterableSubject.containsContacts(vararg contacts: String) {
         containsExactlyElementsIn(contacts.map { contact -> Contact.filter { it.email eq contact }.first() })
     }
 
-    fun IterableSubject.containsUsers(vararg logins: String) {
+    private fun IterableSubject.containsUsers(vararg logins: String) {
         containsExactlyElementsIn(logins.map { login -> User.filter { it.login eq login }.first() })
     }
 
-    fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: FilteringContext.(T) -> Unit): IterableSubject {
-        return assertThat(this.all().filterUnsafe(clause).toList())
+    private fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: FilteringContext.(T) -> XdSearchingNode): IterableSubject {
+        return assertThat(this.all().filter(clause).toList())
     }
 }

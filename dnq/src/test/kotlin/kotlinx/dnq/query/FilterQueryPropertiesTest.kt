@@ -32,7 +32,7 @@ class FilterQueryPropertiesTest : DBTest() {
     @Test
     fun `firstOrNull should return null if nothing found`() {
         store.transactional {
-            assertThat(User.all().filterUnsafe {}.firstOrNull()).isNull()
+            assertThat(User.all().filter { it.login eq "there is no such user" }.firstOrNull()).isNull()
         }
     }
 
@@ -48,12 +48,12 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 2
             }
 
-            User.assertThatFilterResult { it.login = "test" }.containsExactly(user1)
-            User.assertThatFilterResult { it.login = "test1" }.containsExactly(user2)
+            User.assertThatFilterResult { it.login eq "test" }.containsExactly(user1)
+            User.assertThatFilterResult { it.login eq "test1" }.containsExactly(user2)
 
-            User.assertThatFilterResult { it.skill = 0 }.isEmpty()
-            User.assertThatFilterResult { it.skill = 1 }.containsExactly(user1)
-            User.assertThatFilterResult { it.skill = 2 }.containsExactly(user2)
+            User.assertThatFilterResult { it.skill eq 0 }.isEmpty()
+            User.assertThatFilterResult { it.skill eq 1 }.containsExactly(user1)
+            User.assertThatFilterResult { it.skill eq 2 }.containsExactly(user2)
         }
     }
 
@@ -69,8 +69,8 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 2
             }
 
-            User.assertThatFilterResult { it.login = "test" }.containsExactly(user1)
-            User.assertThatFilterResult { it.login = "test1" }.containsExactly(user2)
+            User.assertThatFilterResult { it.login eq "test" }.containsExactly(user1)
+            User.assertThatFilterResult { it.login eq "test1" }.containsExactly(user2)
         }
     }
 
@@ -87,7 +87,7 @@ class FilterQueryPropertiesTest : DBTest() {
                 skill = 2
             }
 
-            User.assertThatFilterResult { it.name = null }.containsExactly(user2)
+            User.assertThatFilterResult { it.name eq null }.containsExactly(user2)
         }
     }
 
@@ -305,8 +305,8 @@ class FilterQueryPropertiesTest : DBTest() {
     }
 
 
-    private fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: FilteringContext.(T) -> Unit): IterableSubject {
-        return assertThat(this.all().filterUnsafe(clause).toList())
+    private fun <T : XdEntity> XdEntityType<T>.assertThatFilterResult(clause: FilteringContext.(T) -> XdSearchingNode): IterableSubject {
+        return assertThat(this.all().filter(clause).toList())
     }
 }
 

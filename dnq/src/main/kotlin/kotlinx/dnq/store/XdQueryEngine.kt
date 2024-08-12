@@ -26,6 +26,7 @@ import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.iterate.SingleEntityIterable
 import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
+import jetbrains.exodus.query.InMemoryEntityIterable
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.QueryEngine
 
@@ -48,7 +49,8 @@ class XdQueryEngine(val store: TransientEntityStore) :
     }
 
     override fun intersect(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
-        return wrap(super.intersect(left, right) as EntityIterable)
+        val intersectResult = super.intersect(left, right)
+        return wrap(intersectResult as EntityIterable)
     }
 
     override fun union(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
@@ -83,8 +85,12 @@ class XdQueryEngine(val store: TransientEntityStore) :
         return wrap(super.instantiateGetAll(txn, entityType))
     }
 
-    fun wrap(it: EntityIterable): EntityIterable {
-        return session.createPersistentEntityIterableWrapper(it)
+    fun wrap(it: Iterable<Entity>): EntityIterable {
+        if (it is EntityIterable){
+            return session.createPersistentEntityIterableWrapper(it)
+        } else {
+            return session.createPersistentEntityIterableWrapper(InMemoryEntityIterable(it, session, this))
+        }
     }
 
     override fun isWrapped(it: Iterable<Entity>?): Boolean {

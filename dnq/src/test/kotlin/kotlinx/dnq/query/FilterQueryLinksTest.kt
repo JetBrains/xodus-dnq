@@ -16,7 +16,10 @@
 package kotlinx.dnq.query
 
 import com.google.common.truth.Truth.assertThat
-import kotlinx.dnq.*
+import kotlinx.dnq.DBTest
+import kotlinx.dnq.SimpleModelPlugin
+import kotlinx.dnq.XdModel
+import kotlinx.dnq.xdLink0_1
 import org.junit.Test
 
 
@@ -53,7 +56,7 @@ class FilterQueryLinksTest : DBTest() {
             }
             val contacts = listOf(contact1, contact2)
 
-            assertThat(Contact.all().filterUnsafe { it.user = user1 }.toList()).containsExactlyElementsIn(contacts)
+
             assertThat(Contact.filter { it.user eq user1 }.toList()).containsExactlyElementsIn(contacts)
 
             assertThat(User.filter { it.contacts.isNotEmpty() }.toList()).containsExactly(user1)
@@ -74,7 +77,7 @@ class FilterQueryLinksTest : DBTest() {
                 supervisor = user1
             }
 
-            var result = User.all().filterUnsafe { it.supervisor = user1 }
+            var result = User.all().filter { it.supervisor eq user1 }
             assertThat(result.toList()).containsExactly(user2)
 
             result = User.filter { it.supervisor eq user1 }
@@ -95,7 +98,7 @@ class FilterQueryLinksTest : DBTest() {
                 fellow = user1
             }
 
-            var result = User.all().filterUnsafe  { it.fellow = user1 }
+            var result = User.all().filter  { it.fellow eq user1 }
             assertThat(result.toList()).containsExactly(user2)
 
             result = User.filter { it.fellow eq user1 }

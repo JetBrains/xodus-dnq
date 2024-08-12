@@ -661,7 +661,7 @@ fun <T : XdEntity> XdQuery<T>.first(node: NodeBase): T {
 fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
     val it = queryEngine.toEntityIterable(entityIterable)
     return if (it is EntityIterableBase) {
-        it.source.first?.let {
+        it.unwrap().first?.let {
             entityType.entityStore.session.newEntity(it)
         }
     } else {
