@@ -1,5 +1,5 @@
 //pluginManagement {
-if (!System.getenv("TEAMCITY_VERSION")) {
+if (!System.getenv("TEAMCITY_VERSION") && !System.getenv("GITHUB_ACTIONS")) {
     includeBuild("../../xodus/graph-store") {
         dependencySubstitution {
             substitute module('org.jetbrains.xodus:xodus-entity-store') using project(':xodus-entity-store')
