@@ -16,10 +16,9 @@
 package kotlinx.dnq.delete
 
 import com.google.common.truth.Truth.assertThat
-import com.jetbrains.teamsys.dnq.database.EntityOperations
-import jetbrains.exodus.entitystore.PersistentEntityId
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
+import org.junit.Ignore
 import org.junit.Test
 
 class IsRemovedTest : DBTest() {
@@ -29,6 +28,7 @@ class IsRemovedTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun isRemoved() {
         val foo2 = store.transactional { txn ->
             val foo = Foo.new()

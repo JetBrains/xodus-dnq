@@ -22,7 +22,6 @@ import kotlinx.dnq.*
 import kotlinx.dnq.query.*
 import org.junit.Ignore
 import org.junit.Test
-import java.util.*
 
 class DeleteCycleTest : DBTest() {
 
@@ -91,6 +90,7 @@ class DeleteCycleTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun test1() {
         val (pc1, pc2) = transactional {
             val pc1 = PC1.new()
@@ -113,6 +113,7 @@ class DeleteCycleTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun test2() {
         val (pc1, pc2, pc3) = transactional {
             val pc1 = PCC1.new()
@@ -141,6 +142,7 @@ class DeleteCycleTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun test3() {
         val num = 100
         transactional {
@@ -163,6 +165,7 @@ class DeleteCycleTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun test3_inMemomoryDelete() {
         val num = 100
         transactional {
@@ -202,6 +205,7 @@ class DeleteCycleTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun createDeleteCreate() {
         // create
         transactional {

@@ -100,11 +100,6 @@ subprojects {
         minHeapSize = '512m'
         maxHeapSize = '512m'
         systemProperty 'exodus.tests.buildDirectory', project.buildDir
-        testLogging {
-            showStandardStreams = true
-            exceptionFormat = 'full'
-        }
-        outputs.upToDateWhen { false }
     }
 
     dokkaJavadoc {

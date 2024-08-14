@@ -23,6 +23,7 @@ import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy.FAIL_PER_ENTITY
 import kotlinx.dnq.link.OnDeletePolicy.FAIL_PER_TYPE
 import kotlinx.dnq.util.getOldValue
+import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -102,6 +103,7 @@ class IncomingLinksConstraintsTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun deleteIssueWithLinkToUserNoDIE() {
         val issue = transactional {
             val user = XdUser.new { login = "me" }

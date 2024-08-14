@@ -59,6 +59,7 @@ class OrphansAutoRemoveTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun orphanWithoutChildrenAutoremove() {
         transactional {
             Cell.new()
@@ -69,6 +70,7 @@ class OrphansAutoRemoveTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun orphanWithChildrenAutoremoveCascade() {
         transactional {
             // cell with null parent

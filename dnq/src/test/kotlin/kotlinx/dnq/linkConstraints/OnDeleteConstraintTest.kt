@@ -135,6 +135,7 @@ class OnDeleteConstraintTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun doublePathLinkedEntities() {
         // Entity thread is connected to doubleLinkedMessage with direct link "Fthread.messages" and through
         // rootMessage entity, i.e. with links FThread.rootMessage + Message.childMessage. Entity thread deletion

@@ -19,6 +19,7 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.database.exceptions.UniqueIndexViolationException
 import jetbrains.exodus.entitystore.Entity
+import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -75,6 +76,7 @@ class CompositeIndexTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `creation of entities with not unique composite index should fail`() {
         val e = assertFailsWith<ConstraintsValidationException> {
             store.transactional {

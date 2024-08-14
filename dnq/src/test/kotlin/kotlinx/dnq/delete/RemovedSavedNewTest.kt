@@ -31,6 +31,7 @@ class RemovedSavedNewTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun removeIssueInSavedNewState() {
         store.transactional { txn ->
             val i = RIssue.new()

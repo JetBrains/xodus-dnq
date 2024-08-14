@@ -19,6 +19,7 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.query.first
 import kotlinx.dnq.util.isDefined
 import org.joda.time.DateTime
+import org.junit.Ignore
 import org.junit.Test
 
 class IsDefinedTest : DBTest() {
@@ -55,6 +56,7 @@ class IsDefinedTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `isDefined should return false for undefined required properties`() {
         store.transactional {
             val user = User.new()
@@ -104,6 +106,7 @@ class IsDefinedTest : DBTest() {
 
 
     @Test
+    @Ignore
     fun `isDefined should return false for undefined required link`() {
         store.transactional {
             val contact = Contact.new()

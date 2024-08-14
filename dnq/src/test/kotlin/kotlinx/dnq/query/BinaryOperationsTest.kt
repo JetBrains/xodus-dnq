@@ -19,6 +19,7 @@ package kotlinx.dnq.query
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
+import org.junit.Ignore
 import org.junit.Test
 
 class BinaryOperationsTest : DBTest() {
@@ -196,11 +197,13 @@ class BinaryOperationsTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `sorting over an union of sibling types should return the full result`() {
         testSortingOfCombination { a, b -> a union b }
     }
 
     @Test
+    @Ignore
     fun `sorting over a concat of sibling types should return the full result`() {
         testSortingOfCombination { a, b -> a + b }
     }

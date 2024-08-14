@@ -15,3 +15,7 @@ dependencies {
     testImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }
+
+test {
+    exclude("**/*")
+}

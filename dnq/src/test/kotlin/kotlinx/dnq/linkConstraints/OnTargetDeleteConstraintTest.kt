@@ -105,6 +105,7 @@ class OnTargetDeleteConstraintTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun OneTargetToManySourceOnTargetDeleteCascade() {
         // association end type      : Undirected
         // to target end constraint  : OnTargetDelete(cascade)

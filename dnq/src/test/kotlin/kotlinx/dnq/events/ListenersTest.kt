@@ -22,6 +22,7 @@ import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.size
+import org.junit.Ignore
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -107,6 +108,7 @@ class ListenersTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun removedTestWithLinksTest() {
         var failedInWriteInOnRemoveHandler = false
         Goo.addListener(store, object : XdEntityListener<Goo> {

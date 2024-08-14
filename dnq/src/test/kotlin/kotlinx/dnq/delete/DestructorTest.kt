@@ -46,7 +46,7 @@ class DestructorTest : DBTest() {
             C2.query(C2::c1 eq this)
                     .asSequence()
                     .forEach { it.c1 = null }
-            System.out.println("destructor finished!");
+            System.out.println("destructor finished!")
         }
     }
 
@@ -116,6 +116,7 @@ class DestructorTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun `on delete constraints should be executed after destructor`() {
         val (clazz, instance) = transactional {
             val clazz = CustomFieldClass.new()

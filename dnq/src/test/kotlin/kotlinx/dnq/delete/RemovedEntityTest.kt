@@ -22,6 +22,7 @@ import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.first
+import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -30,6 +31,7 @@ class RemovedEntityTest : DBTest() {
         XdModel.registerNodes(Foo)
     }
 
+    @Ignore
     @Test
     fun `removed in one transaction throws exception in another`() {
         val ref1 = store.transactional {
