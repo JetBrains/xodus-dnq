@@ -77,7 +77,11 @@ object TransientStoreUtil {
         return when (entity) {
             is OVertexEntity -> {
                 val store = entity.store as OPersistentEntityStore
-                store.databaseProvider.acquireSession().getRecord<OVertex>(entity.id.asOId()) != null
+                try {
+                    store.requireActiveTransaction().load(entity.id) == null
+                } catch (e:Throwable){
+                    true
+                }
             }
             is TransientEntity -> entity.store.threadSessionOrThrow.isRemoved(entity)
             else -> throw IllegalArgumentException("Cannot check if entity [$entity] is removed, it is neither TransientEntity nor PersistentEntity")

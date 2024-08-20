@@ -20,7 +20,7 @@ import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityChange
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
+import jetbrains.exodus.entitystore.EntityId
 import java.math.BigInteger
 
 class ReadOnlyTransientChangesTrackerImpl : TransientChangesTracker {
@@ -95,4 +95,5 @@ class ReadOnlyTransientChangesTrackerImpl : TransientChangesTracker {
     override fun dispose() {
     }
 
+    override fun getRemovedEntitiesIds(): Collection<EntityId> = listOf()
 }

@@ -16,7 +16,7 @@
 package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.StoreTransaction
+import jetbrains.exodus.entitystore.EntityId
 import java.math.BigInteger
 
 interface TransientChangesTracker {
@@ -86,4 +86,6 @@ interface TransientChangesTracker {
     fun entityAdded(e: TransientEntity)
 
     fun entityRemoved(e: TransientEntity)
+
+    fun getRemovedEntitiesIds(): Collection<EntityId>
 }

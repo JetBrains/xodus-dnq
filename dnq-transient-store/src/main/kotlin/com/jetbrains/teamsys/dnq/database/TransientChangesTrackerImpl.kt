@@ -24,8 +24,8 @@ import jetbrains.exodus.core.dataStructures.hash.HashSet
 import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
+import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import java.math.BigInteger
 import java.util.*
@@ -80,12 +80,12 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
                     h
                 }
 
-    // do not notify about RemovedNew entities - such entities was created and removed during same transaction
+    // do not notify about RemovedNew entities - such entities were created and removed during same transaction
     override val changesDescription: Set<TransientEntityChange>
         get() = changedEntities
                 .filterNot { it.id in addedEntities && it.id in removedEntities }
                 .mapTo(LinkedHashSetDecorator()) {
-                    TransientEntityChange(this, it, getChangedProperties(it), getChangedLinksDetailed(it), getEntityChangeType(it))
+                    TransientEntityChangeImpl(this, it, getChangedProperties(it), getChangedLinksDetailed(it), getEntityChangeType(it))
                 }
 
     override val changesDescriptionCount: Int
@@ -107,7 +107,7 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
     }
 
     override fun getChangeDescription(transientEntity: TransientEntity): TransientEntityChange {
-        return TransientEntityChange(
+        return TransientEntityChangeImpl(
                 this,
                 transientEntity,
                 getChangedProperties(transientEntity),
@@ -244,7 +244,7 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
 
     }
 
-    val removedEntitiesIds: Collection<EntityId> get() = removedEntities.toList()
+    override fun getRemovedEntitiesIds() = removedEntities.toList()
 }
 
 // 2^256 - 1

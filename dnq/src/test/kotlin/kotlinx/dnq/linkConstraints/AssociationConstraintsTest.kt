@@ -24,7 +24,6 @@ import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.last
-import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -102,7 +101,6 @@ class AssociationConstraintsTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `on delete children should be cascade deleted`() {
         val user = transactional { prepare() }
         transactional {
@@ -126,7 +124,6 @@ class AssociationConstraintsTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `on delete parent should be cleared`() {
         val user = transactional { prepare() }
         transactional {
@@ -168,7 +165,6 @@ class AssociationConstraintsTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun removedThanAddedNPE() {
         val (user, issue0, issue1) = transactional {
             val issue0 = Issue.new()

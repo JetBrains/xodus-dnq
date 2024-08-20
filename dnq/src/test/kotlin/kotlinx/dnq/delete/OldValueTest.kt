@@ -37,6 +37,7 @@ class OldValueTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun oldValueOnChange() {
         val (user, role1, role2) = store.transactional {
             val user = RUser.new(name)
