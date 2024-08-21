@@ -23,7 +23,6 @@ import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.toList
-import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -86,7 +85,7 @@ class OnDeleteConstraintTest : DBTest() {
     }
 
     @Test
-    @Ignore
+
     fun undirectedManyToManyOnDeleteClear() {
         // association end type      : Undirected
         // to target end constraint  : OnDelete(clear)
@@ -135,7 +134,6 @@ class OnDeleteConstraintTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun doublePathLinkedEntities() {
         // Entity thread is connected to doubleLinkedMessage with direct link "Fthread.messages" and through
         // rootMessage entity, i.e. with links FThread.rootMessage + Message.childMessage. Entity thread deletion
