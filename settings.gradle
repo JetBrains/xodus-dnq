@@ -1,18 +1,16 @@
-//pluginManagement {
-//if (!System.getenv("TEAMCITY_VERSION") && !System.getenv("GITHUB_ACTIONS")) {
-//    includeBuild("../../xodus/graph-store") {
-//        dependencySubstitution {
-//            substitute module('org.jetbrains.xodus:xodus-entity-store') using project(':xodus-entity-store')
-//            substitute module('org.jetbrains.xodus:xodus-query') using project(':xodus-query')
-//            substitute module('org.jetbrains.xodus:xodus-openAPI') using project(':xodus-openAPI')
-//        }
-//    }
-//}
-//}
+if (!System.getenv("TEAMCITY_VERSION") && !System.getenv("GITHUB_ACTIONS")) {
+    includeBuild("../../xodus/graph-store") {
+        dependencySubstitution {
+            substitute module('org.jetbrains.xodus:xodus-entity-store') using project(':xodus-entity-store')
+            substitute module('org.jetbrains.xodus:xodus-query') using project(':xodus-query')
+            substitute module('org.jetbrains.xodus:xodus-openAPI') using project(':xodus-openAPI')
+        }
+    }
+}
 
 rootProject.name = 'xodus-dnq'
 
 include 'dnq-open-api',
         'dnq-transient-store',
-        'dnq',
-        'java-8-time' //, 'benchmark'
+        'dnq'
+         //, 'benchmark'
