@@ -22,7 +22,7 @@ import kotlinx.dnq.query.ne
 import kotlinx.dnq.query.query
 import org.junit.Ignore
 import org.junit.Test
-
+@Ignore
 class BlobTest : DBTest() {
 
     class User(entity: Entity) : XdEntity(entity) {

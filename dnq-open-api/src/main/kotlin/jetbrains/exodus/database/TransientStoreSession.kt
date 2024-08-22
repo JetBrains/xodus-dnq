@@ -28,17 +28,17 @@ interface TransientStoreSession : StoreTransaction {
     val transientChangesTracker: TransientChangesTracker
 
     /**
-     * True if session is opened
+     * True if the session is opened
      */
     val isOpened: Boolean
 
     /**
-     * True if session is committed
+     * True if a session is committed
      */
     val isCommitted: Boolean
 
     /**
-     * True if session is aborted
+     * True if the session is aborted
      */
     val isAborted: Boolean
 
