@@ -13,24 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package jetbrains.exodus.database
 
-class TransientEntityChange(val changesTracker: TransientChangesTracker,
-                            val transientEntity: TransientEntity,
-                            val changedProperties: Set<String>?,
-                            val changedLinksDetailed: Map<String, LinkChange>?,
-                            val changeType: EntityChangeType) {
+interface TransientEntityChange {
+    val transientEntity: TransientEntity
+    val changedProperties: Set<String>?
+    val changedLinksDetailed: Map<String, LinkChange>?
+    val changeType: EntityChangeType
+    val snapshotEntity: TransientEntity
 
-    val snapshotEntity get() = changesTracker.getSnapshotEntity(transientEntity)
-
-    @Deprecated("Use snapshotEntity instead")
-    val snaphotEntity
-        get() = snapshotEntity
-
-    @Deprecated("Use changedLinksDetailed instead", ReplaceWith("this.changedLinksDetailed"))
-    val changedLinksDetaled
-        get() = changedLinksDetailed
-
-    override fun toString() = "$changeType:$transientEntity"
-
+    override fun toString(): String
 }

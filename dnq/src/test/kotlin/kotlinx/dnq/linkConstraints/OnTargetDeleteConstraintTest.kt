@@ -29,7 +29,6 @@ import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.util.addLink
-import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -105,7 +104,7 @@ class OnTargetDeleteConstraintTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun OneTargetToManySourceOnTargetDeleteCascade() {
         // association end type      : Undirected
         // to target end constraint  : OnTargetDelete(cascade)
@@ -134,7 +133,7 @@ class OnTargetDeleteConstraintTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun OneTargetToManySourceOnTargetDeleteClear() {
         // association end type      : Undirected
         // to target end constraint  : OnTargetDelete(clear)
@@ -180,7 +179,7 @@ class OnTargetDeleteConstraintTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun UndirectedOneSourceToManyTargetsOnTargetDeleteClear() {
         // association end type      : Undirected
         // to target end constraint  : OnTargetDelete(clear)
@@ -207,7 +206,7 @@ class OnTargetDeleteConstraintTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun UndirectedManySourcesToManyTargetsOnTargetDeleteClear() {
         // association end type      : Undirected
         // to target end constraint  : OnTargetDelete(clear)
@@ -315,7 +314,7 @@ class OnTargetDeleteConstraintTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun OnTargetDeleteAbstractBaseClass_StaticConstraintDeclaration() {
         val (weakTarget, strongTarget) = store.transactional {
             Pair(A.new(), A.new())
@@ -345,7 +344,7 @@ class OnTargetDeleteConstraintTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun OnTargetDeleteAbstractBaseClass_DynamicConstraintDeclaration() {
         val (weakTarget, strongTarget) = store.transactional {
             Pair(A.new(), A.new())

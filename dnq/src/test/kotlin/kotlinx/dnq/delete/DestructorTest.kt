@@ -25,7 +25,6 @@ import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.query
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.isDefined
-import org.junit.Ignore
 import org.junit.Test
 
 class DestructorTest : DBTest() {
@@ -101,7 +100,6 @@ class DestructorTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `manual onDelete constraint`() {
         val (c1, c2) = transactional {
             val c1 = C1.new()
@@ -116,7 +114,6 @@ class DestructorTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `on delete constraints should be executed after destructor`() {
         val (clazz, instance) = transactional {
             val clazz = CustomFieldClass.new()

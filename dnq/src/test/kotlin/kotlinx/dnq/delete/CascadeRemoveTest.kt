@@ -20,7 +20,6 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.toList
-import org.junit.Ignore
 import org.junit.Test
 
 class CascadeRemoveTest : DBTest() {
@@ -30,7 +29,6 @@ class CascadeRemoveTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun removeParentWithSingleChildWithCascadeDelete() {
         val issue = store.transactional {
             val part = RIssuePart.new()
@@ -46,7 +44,6 @@ class CascadeRemoveTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun removeParentWithMultipleChildWithCascadeDelete() {
         val issue = store.transactional {
             val issue = RIssue.new()
@@ -66,7 +63,6 @@ class CascadeRemoveTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun removeCascadeByCascadeDelete() {
         val issue = store.transactional {
             val issue = RIssue.new()

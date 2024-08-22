@@ -19,7 +19,8 @@ import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.core.dataStructures.hash.LongHashSet
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
-import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
@@ -77,7 +78,11 @@ object TransientStoreUtil {
         return when (entity) {
             is OVertexEntity -> {
                 val store = entity.store as OPersistentEntityStore
-                store.databaseProvider.acquireSession().getRecord<OVertex>(entity.id.asOId()) != null
+                try {
+                    store.requireActiveTransaction().getRecord<OVertex>(entity.id) == null
+                } catch (e:Throwable){
+                    true
+                }
             }
             is TransientEntity -> entity.store.threadSessionOrThrow.isRemoved(entity)
             else -> throw IllegalArgumentException("Cannot check if entity [$entity] is removed, it is neither TransientEntity nor PersistentEntity")

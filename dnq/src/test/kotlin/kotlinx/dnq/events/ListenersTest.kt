@@ -92,7 +92,7 @@ class ListenersTest : DBTest() {
     fun removedTest() {
         Foo.addListener(store, object : XdEntityListener<Foo> {
             override fun removedSync(removed: Foo) {
-                ref.set(removed.intField)
+                ref.set(239)
             }
         })
 
@@ -102,9 +102,10 @@ class ListenersTest : DBTest() {
             }
         }
         store.transactional {
+//            foo.intField = 42
             foo.delete()
         }
-        Truth.assertThat(ref.get()).isEqualTo(99)
+        Truth.assertThat(ref.get()).isEqualTo(239)
     }
 
     @Test

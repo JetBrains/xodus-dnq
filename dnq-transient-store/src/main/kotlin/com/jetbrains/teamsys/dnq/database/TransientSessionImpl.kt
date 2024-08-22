@@ -17,8 +17,8 @@ package com.jetbrains.teamsys.dnq.database
 
 import com.orientechnologies.common.concur.ONeedRetryException
 import com.orientechnologies.orient.core.db.ODatabaseSession
-import com.orientechnologies.orient.core.record.OElement
 import com.orientechnologies.orient.core.record.OVertex
+import com.orientechnologies.orient.core.record.impl.ORecordBytes
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator
@@ -30,17 +30,19 @@ import jetbrains.exodus.entitystore.orientdb.OComparableSet
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity.Companion.DATA_PROPERTY_NAME
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
+import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.env.Transaction
 import jetbrains.exodus.env.TransactionFinishedException
 import jetbrains.exodus.query.metadata.EntityMetaData
 import jetbrains.exodus.query.metadata.Index
 import jetbrains.exodus.util.UTFUtil
 import mu.KLogging
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
 import java.util.*
+import kotlin.collections.HashSet
 
 private fun OStoreTransaction.createChangesTracker(
     readonly: Boolean
@@ -53,7 +55,7 @@ private const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 
 class TransientSessionImpl(
     private val store: TransientEntityStoreImpl,
-    private val readonly: Boolean,
+    private var readonly: Boolean,
 ) : TransientStoreSession, SessionQueryMixin {
 
     companion object : KLogging() {
@@ -64,7 +66,7 @@ class TransientSessionImpl(
         if (store.modelMetaData?.entitiesMetaData?.firstOrNull() == null) {
             logger.warn { "model MetaData is not set for store ${store.persistentStore.location}." }
         }
-        this.store.persistentStore.beginReadonlyTransaction()
+        this.store.persistentStore.beginTransaction()
     }
 
     private var upgradeHook: Runnable? = null
@@ -89,13 +91,13 @@ class TransientSessionImpl(
     override val isAborted: Boolean
         get() = state == State.Aborted
 
-    override val oTransactionInternal: OStoreTransaction
+    override val transactionInternal: OStoreTransaction
         get() = store.persistentStore.currentTransactionOrThrow
 
     override val oStoreTransaction: OStoreTransaction
         get() {
             assertOpen("get persistent transaction")
-            return oTransactionInternal
+            return transactionInternal
         }
 
     private var changesTracker = oStoreTransaction.createChangesTracker(readonly = this.readonly)
@@ -110,15 +112,15 @@ class TransientSessionImpl(
 
     private fun initChangesTracker(readonly: Boolean) {
         transientChangesTracker.dispose()
-        this.changesTracker = oTransactionInternal.createChangesTracker(readonly)
+        this.changesTracker = transactionInternal.createChangesTracker(readonly)
     }
 
     override fun getQueryCancellingPolicy(): QueryCancellingPolicy? {
-        return oTransactionInternal.queryCancellingPolicy
+        return transactionInternal.queryCancellingPolicy
     }
 
     override fun setQueryCancellingPolicy(policy: QueryCancellingPolicy?) {
-        oTransactionInternal.queryCancellingPolicy = policy
+        transactionInternal.queryCancellingPolicy = policy
     }
 
     override fun getStore(): TransientEntityStore = store
@@ -135,14 +137,16 @@ class TransientSessionImpl(
         upgradeHook = hook
     }
 
-    fun upgradeReadonlyTransactionIfNecessary() {
-        val currentTxn = oTransactionInternal
-        if (!readonly && currentTxn.isReadonly) {
+    private fun upgradeReadonlyTransactionIfNecessary() {
+        if (readonly) {
+            readonly = false
             val persistentStore = persistentStore
             if (!persistentStore.environment.environmentConfig.envIsReadonly) {
                 upgradeHook?.run()
 //                persistentStore.registerTransaction(newTxn)
                 changesTracker = this.transientChangesTracker.upgrade()
+            } else {
+                throw ReadonlyTransactionException()
             }
         }
     }
@@ -176,7 +180,7 @@ class TransientSessionImpl(
         logger.debug("Revert transient session {}", this)
         assertOpen("revert")
 
-        if (!oTransactionInternal.isReadonly) {
+        if (!transactionInternal.isReadonly) {
             loadedIds = EntityIdSetFactory.newSet()
             changes.clear()
         }
@@ -203,11 +207,70 @@ class TransientSessionImpl(
 
             val oldChangesTracker = transientChangesTracker
             closePersistentSession()
-            this.store.persistentStore.beginReadonlyTransaction()
+            this.store.persistentStore.beginTransaction()
             this.changesTracker = ReadOnlyTransientChangesTrackerImpl()
+            //all changes were already flushed
+            this.readonly = true
             notifyFlushedListeners(oldChangesTracker)
         }
         return true
+    }
+
+
+    /**
+     * Flushes changes
+     */
+    private fun flushChanges() {
+        if (flushing) throw IllegalStateException("Transaction is already being flushed!")
+
+        try {
+            flushing = true
+            beforeFlush()
+            checkBeforeSaveChangesConstraints()
+
+            var txn = transactionInternal
+            if (this.isIdempotent) return
+
+            try {
+                while (true) {
+                    try {
+                        performDeferredEntitiesDeletion()
+                        if (txn.flush()) {
+                            return
+                        }
+                    } catch (_: ONeedRetryException) {
+                        // replay changes
+                        txn = this.store.persistentStore.beginTransaction() as OStoreTransaction
+                        replayChanges()
+                        //recheck constraints
+                        checkBeforeSaveChangesConstraints()
+                    }
+                }
+
+            } catch (exception: Throwable) {
+                logger.info { "Catch exception in flush: ${exception.message}" }
+
+                if (exception is DataIntegrityViolationException) {
+                    txn.revert()
+                    replayChanges()
+                }
+                if (exception is ORecordDuplicatedException) {
+                    val fieldName = exception.indexName.substringAfter("_").substringBefore("_unique")
+                    val cause = SimplePropertyValidationException(
+                        "Not unique value",
+                        exception.message ?: "Not unique value: ${exception.key}",
+                        null,
+                        fieldName
+                    )
+                    throw ConstraintsValidationException(cause)
+                }
+
+                throw exception
+            }
+
+        } finally {
+            flushing = false
+        }
     }
 
     override fun commit(): Boolean {
@@ -289,12 +352,12 @@ class TransientSessionImpl(
 
     override fun toEntityId(representation: String): EntityId {
         assertOpen("convert to entity id")
-        return oTransactionInternal.toEntityId(representation)
+        return transactionInternal.toEntityId(representation)
     }
 
     override fun getEntityTypes(): List<String> {
         assertOpen("get entity types")
-        return oTransactionInternal.entityTypes
+        return transactionInternal.entityTypes
     }
 
     override fun wrap(action: String, entityIterable: EntityIterable): EntityIterable {
@@ -304,12 +367,12 @@ class TransientSessionImpl(
 
     override fun getSequence(sequenceName: String): Sequence {
         assertOpen("get sequence")
-        return oTransactionInternal.getSequence(sequenceName)
+        return transactionInternal.getSequence(sequenceName)
     }
 
     override fun getSequence(sequenceName: String, initialValue: Long): Sequence {
         assertOpen("get sequence")
-        return oTransactionInternal.getSequence(sequenceName, initialValue)
+        return transactionInternal.getSequence(sequenceName, initialValue)
     }
 
     private fun closePersistentSession() {
@@ -334,6 +397,21 @@ class TransientSessionImpl(
         // some of managed entities could be deleted
         loadedIds = EntityIdSetFactory.newSet()
         changes.forEach { it() }
+        changesTracker.changesDescription.filter {
+            it.changeType == EntityChangeType.REMOVE
+        }.map {
+            it.transientEntity
+        }.forEach { txnEntity ->
+            val processed = HashSet<Entity>()
+            val modelMetaData = store.modelMetaData!!
+            val entityMetaData = modelMetaData.getEntityMetaData(txnEntity.type)
+            if (entityMetaData != null) {
+                processed.add(txnEntity)
+                // remove associations and cascade delete
+                val storeSession = store.threadSessionOrThrow
+                ConstraintsUtil.processOnDeleteConstraints(storeSession, txnEntity, entityMetaData, modelMetaData, false, processed)
+            }
+        }
     }
 
     /**
@@ -427,7 +505,7 @@ class TransientSessionImpl(
                 }
                 try {
                     // load persistent entity from database by id
-                    newEntityImpl(oTransactionInternal.getEntity(entityId))
+                    newEntityImpl(transactionInternal.getEntity(entityId))
                 } catch (e: EntityRemovedInDatabaseException) {
                     logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
                     throw e
@@ -533,80 +611,15 @@ class TransientSessionImpl(
         }
     }
 
-    /**
-     * Flushes changes
-     */
-    private fun flushChanges() {
-        if (flushing) throw IllegalStateException("Transaction is already being flushed!")
-
-        try {
-            flushing = true
-            beforeFlush()
-            checkBeforeSaveChangesConstraints()
-
-            val txn = oTransactionInternal
-            if (this.isIdempotent) return
-
-            try {
-                while (true) {
-                    try {
-                        if (txn.flush()) {
-                            return
-                        }
-                    } catch (_: ONeedRetryException) {
-                        // replay changes
-                        replayChanges()
-                        //recheck constraints
-                        checkBeforeSaveChangesConstraints()
-                    }
-                }
-
-            } catch (exception: Throwable) {
-                logger.info { "Catch exception in flush: ${exception.message}" }
-
-                if (exception is DataIntegrityViolationException) {
-                    txn.revert()
-                    replayChanges()
-                }
-                if (exception is ORecordDuplicatedException) {
-                    val fieldName = exception.indexName.substringAfter("_").substringBefore("_unique")
-                    val cause = SimplePropertyValidationException(
-                        "Not unique value",
-                        exception.message ?: "Not unique value: ${exception.key}",
-                        null,
-                        fieldName
-                    )
-                    throw ConstraintsValidationException(cause)
-                }
-
-                throw exception
-            }
-
-        } finally {
-            flushing = false
+    private fun performDeferredEntitiesDeletion(){
+        changesTracker.getRemovedEntitiesIds().forEach {
+            //TODO optimize it. We do not need to load entity to remove it
+            persistentStore.currentTransaction?.getEntity(it)?.delete()
         }
     }
 
     override fun getSnapshot(): OStoreTransaction {
         throw UnsupportedOperationException()
-    }
-
-    private fun getIndexesValuesBeforeDelete(e: TransientEntity): Set<Pair<Index, List<Comparable<*>?>>> {
-        if (transientChangesTracker.isNew(e)) return emptySet()
-        val entityMetaData = getEntityMetaData(e) ?: return emptySet()
-        return entityMetaData.indexes
-            .map { index -> index to getIndexFieldsOriginalValues(e, index) }
-            .toSet()
-    }
-
-    private fun getIndexFieldsOriginalValues(e: TransientEntity, index: Index): List<Comparable<*>?> {
-        return index.fields.map { field ->
-            if (field.isProperty) {
-                getOriginalPropertyValue(e, field.name)
-            } else {
-                getOriginalLinkValue(e, field.name)
-            }
-        }
     }
 
     private fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
@@ -625,8 +638,8 @@ class TransientSessionImpl(
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
-        val blobHolder = oVertex.getProperty<OElement?>(blobName)
-        return blobHolder?.getPropertyOnLoadValue<ByteArray>(DATA_PROPERTY_NAME)?.let {
+        val blobHolder = oVertex.getPropertyOnLoadValue<ORecordBytes?>(blobName)
+        return blobHolder?.toStream()?.let {
             UTFUtil.readUTF((it).inputStream())
         }
     }
@@ -635,9 +648,8 @@ class TransientSessionImpl(
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
-        val blobHolder = oVertex.getProperty<OElement?>(blobName)
-        val blob = blobHolder?.getProperty<ByteArray>(DATA_PROPERTY_NAME)
-        return blob?.inputStream()
+        val blobHolder = oVertex.getPropertyOnLoadValue<ORecordBytes?>(blobName)
+        return ByteArrayInputStream(blobHolder.toStream())
     }
 
     private fun getOriginalLinkValue(e: TransientEntity, linkName: String): Comparable<*>? {
@@ -705,7 +717,7 @@ class TransientSessionImpl(
 
     private fun notifyFlushedListeners(oldChangesTracker: TransientChangesTracker) {
         val changesDescription = Collections.unmodifiableSet(oldChangesTracker.changesDescription)
-        val removedEntities = (changesTracker as? TransientChangesTrackerImpl)?.removedEntitiesIds ?: listOf()
+
         if (changesDescription.isEmpty()) {
             oldChangesTracker.dispose()
             return
@@ -713,7 +725,7 @@ class TransientSessionImpl(
 
         logger.debug { "Notify flushed listeners $this" }
 
-        forAllListeners { it.flushed(this, changesDescription) }
+        forAllListeners { it.flushed(this, changesDescription) }// TODO May be we remove it? It's not used
 
         val ep = store.changesMultiplexer
         if (ep != null) {
@@ -723,13 +735,6 @@ class TransientSessionImpl(
                 logger.error("Exception while inside events multiplexer", e)
                 oldChangesTracker.dispose()
             }
-        }
-        try {
-            removedEntities.forEach {
-                persistentStore.currentTransaction?.getEntity(it)?.delete()
-            }
-        } catch (e: Throwable) {
-            logger.error { "Failed to perform deffered remove in " }
         }
 
         oldChangesTracker.dispose()

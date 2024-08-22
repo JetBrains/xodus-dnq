@@ -53,7 +53,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
                 ec.envTxnDowngradeAfterFlush = false
             }
             ec.envTxnReplayMaxCount = Integer.MAX_VALUE
-            ec.envTxnReplayTimeout = java.lang.Long.MAX_VALUE
+            ec.envTxnReplayTimeout = Long.MAX_VALUE
             ec.gcUseExclusiveTransaction = true
             _persistentStore = persistentStore
         }
@@ -101,7 +101,8 @@ open class TransientEntityStoreImpl : TransientEntityStore {
             queryCancellingPolicy: QueryCancellingPolicy?,
             isNew: Boolean,
             block: (TransientStoreSession) -> T
-    ): T = TransientEntityStoreExt.transactional(this, queryCancellingPolicy, block)
+    ): T = TransientEntityStoreExt.transactional(
+        this, queryCancellingPolicy, isNew, block)
 
     override fun beginTransaction(): StoreTransaction {
         throw UnsupportedOperationException()

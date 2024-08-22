@@ -1,4 +1,3 @@
-//pluginManagement {
 //if (!System.getenv("TEAMCITY_VERSION") && !System.getenv("GITHUB_ACTIONS")) {
 //    includeBuild("../../xodus/graph-store") {
 //        dependencySubstitution {
@@ -8,11 +7,10 @@
 //        }
 //    }
 //}
-//}
 
 rootProject.name = 'xodus-dnq'
 
 include 'dnq-open-api',
         'dnq-transient-store',
-        'dnq',
-        'java-8-time' //, 'benchmark'
+        'dnq'
+         //, 'benchmark'
