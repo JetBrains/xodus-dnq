@@ -28,7 +28,7 @@ class ReadOnlyTransientSession(
         private val store: TransientEntityStoreImpl,
         override val oStoreTransaction: OStoreTransaction) : TransientStoreSession, SessionQueryMixin {
 
-    override val oTransactionInternal: StoreTransaction
+    override val transactionInternal: StoreTransaction
         get() = oStoreTransaction
 
     override val transientChangesTracker: TransientChangesTracker
@@ -80,7 +80,7 @@ class ReadOnlyTransientSession(
         return ReadonlyTransientEntityImpl(persistentEntity, store)
     }
 
-    override fun getEntity(id: EntityId): Entity = newEntity(oTransactionInternal.getEntity(id))
+    override fun getEntity(id: EntityId): Entity = newEntity(transactionInternal.getEntity(id))
 
     override fun hasChanges() = false
 
@@ -113,7 +113,7 @@ class ReadOnlyTransientSession(
     }
 
     override fun getEntityTypes(): MutableList<String> {
-        return oTransactionInternal.entityTypes
+        return transactionInternal.entityTypes
     }
 
     override fun findWithPropSortedByValue(entityType: String, propertyName: String): EntityIterable {
@@ -121,22 +121,22 @@ class ReadOnlyTransientSession(
     }
 
     override fun toEntityId(representation: String): EntityId {
-        return oTransactionInternal.toEntityId(representation)
+        return transactionInternal.toEntityId(representation)
     }
 
     override fun getSequence(sequenceName: String): Sequence {
-        return oTransactionInternal.getSequence(sequenceName)
+        return transactionInternal.getSequence(sequenceName)
     }
 
     override fun getSequence(sequenceName: String, initialValue: Long): Sequence {
-        return oTransactionInternal.getSequence(sequenceName, initialValue)
+        return transactionInternal.getSequence(sequenceName, initialValue)
     }
 
     override fun setQueryCancellingPolicy(policy: QueryCancellingPolicy?) {
-        oTransactionInternal.queryCancellingPolicy = policy
+        transactionInternal.queryCancellingPolicy = policy
     }
 
-    override fun getQueryCancellingPolicy(): QueryCancellingPolicy? = oTransactionInternal.queryCancellingPolicy
+    override fun getQueryCancellingPolicy(): QueryCancellingPolicy? = transactionInternal.queryCancellingPolicy
 
     override fun getEnvironmentTransaction(): Transaction {
         return oStoreTransaction.environmentTransaction

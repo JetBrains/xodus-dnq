@@ -18,36 +18,53 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
+import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 
 internal object TransientEntityStoreExt {
     fun <T> transactional(
         store: TransientEntityStore,
         queryCancellingPolicy: QueryCancellingPolicy? = null,
+        isNew: Boolean,
         block: (TransientStoreSession) -> T
     ): T {
         val currentSession = store.threadSession
-        if (currentSession != null){
-            return block(currentSession)
-        } else {
+        var currentPersistentSession: OStoreTransaction? = null
+        var sessionSuspended = false
+
+        if (currentSession != null) {
+            if (isNew) {
+                currentPersistentSession = currentSession.oStoreTransaction
+                currentPersistentSession.deactivateOnCurrentThread()
+                store.suspendThreadSession()
+                sessionSuspended = true
+            } else {
+                return block(currentSession)
+            }
+        }
+
+        try {
+            val newSession = store.beginSession(queryCancellingPolicy)
+            var wasEx = true
             try {
-                val newSession = store.beginSession(queryCancellingPolicy)
-                var wasEx = true
-                try {
-                    val result = block(newSession)
-                    wasEx = false
-                    return result
-                } finally {
-                    if (newSession.isOpened) {
-                        if (wasEx) {
-                            newSession.abort()
-                        } else {
-                            doCommit(newSession)
-                        }
+                val result = block(newSession)
+                wasEx = false
+                return result
+            } finally {
+                if (newSession.isOpened) {
+                    if (wasEx) {
+                        newSession.abort()
+                    } else {
+                        doCommit(newSession)
                     }
                 }
-            } catch (e: Throwable) {
-                e.printStackTrace()
-                throw e
+            }
+        } catch (e: Throwable) {
+            e.printStackTrace()
+            throw e
+        } finally {
+            if (sessionSuspended) {
+                store.resumeSession(currentSession)
+                currentPersistentSession?.activateOnCurrentThread()
             }
         }
     }

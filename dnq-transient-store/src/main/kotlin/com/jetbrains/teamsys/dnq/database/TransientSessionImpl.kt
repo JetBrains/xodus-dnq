@@ -42,6 +42,7 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
 import java.util.*
+import kotlin.collections.HashSet
 
 private fun OStoreTransaction.createChangesTracker(
     readonly: Boolean
@@ -90,13 +91,13 @@ class TransientSessionImpl(
     override val isAborted: Boolean
         get() = state == State.Aborted
 
-    override val oTransactionInternal: OStoreTransaction
+    override val transactionInternal: OStoreTransaction
         get() = store.persistentStore.currentTransactionOrThrow
 
     override val oStoreTransaction: OStoreTransaction
         get() {
             assertOpen("get persistent transaction")
-            return oTransactionInternal
+            return transactionInternal
         }
 
     private var changesTracker = oStoreTransaction.createChangesTracker(readonly = this.readonly)
@@ -111,15 +112,15 @@ class TransientSessionImpl(
 
     private fun initChangesTracker(readonly: Boolean) {
         transientChangesTracker.dispose()
-        this.changesTracker = oTransactionInternal.createChangesTracker(readonly)
+        this.changesTracker = transactionInternal.createChangesTracker(readonly)
     }
 
     override fun getQueryCancellingPolicy(): QueryCancellingPolicy? {
-        return oTransactionInternal.queryCancellingPolicy
+        return transactionInternal.queryCancellingPolicy
     }
 
     override fun setQueryCancellingPolicy(policy: QueryCancellingPolicy?) {
-        oTransactionInternal.queryCancellingPolicy = policy
+        transactionInternal.queryCancellingPolicy = policy
     }
 
     override fun getStore(): TransientEntityStore = store
@@ -179,7 +180,7 @@ class TransientSessionImpl(
         logger.debug("Revert transient session {}", this)
         assertOpen("revert")
 
-        if (!oTransactionInternal.isReadonly) {
+        if (!transactionInternal.isReadonly) {
             loadedIds = EntityIdSetFactory.newSet()
             changes.clear()
         }
@@ -227,7 +228,7 @@ class TransientSessionImpl(
             beforeFlush()
             checkBeforeSaveChangesConstraints()
 
-            val txn = oTransactionInternal
+            var txn = transactionInternal
             if (this.isIdempotent) return
 
             try {
@@ -239,6 +240,7 @@ class TransientSessionImpl(
                         }
                     } catch (_: ONeedRetryException) {
                         // replay changes
+                        txn = this.store.persistentStore.beginTransaction() as OStoreTransaction
                         replayChanges()
                         //recheck constraints
                         checkBeforeSaveChangesConstraints()
@@ -350,12 +352,12 @@ class TransientSessionImpl(
 
     override fun toEntityId(representation: String): EntityId {
         assertOpen("convert to entity id")
-        return oTransactionInternal.toEntityId(representation)
+        return transactionInternal.toEntityId(representation)
     }
 
     override fun getEntityTypes(): List<String> {
         assertOpen("get entity types")
-        return oTransactionInternal.entityTypes
+        return transactionInternal.entityTypes
     }
 
     override fun wrap(action: String, entityIterable: EntityIterable): EntityIterable {
@@ -365,12 +367,12 @@ class TransientSessionImpl(
 
     override fun getSequence(sequenceName: String): Sequence {
         assertOpen("get sequence")
-        return oTransactionInternal.getSequence(sequenceName)
+        return transactionInternal.getSequence(sequenceName)
     }
 
     override fun getSequence(sequenceName: String, initialValue: Long): Sequence {
         assertOpen("get sequence")
-        return oTransactionInternal.getSequence(sequenceName, initialValue)
+        return transactionInternal.getSequence(sequenceName, initialValue)
     }
 
     private fun closePersistentSession() {
@@ -395,6 +397,21 @@ class TransientSessionImpl(
         // some of managed entities could be deleted
         loadedIds = EntityIdSetFactory.newSet()
         changes.forEach { it() }
+        changesTracker.changesDescription.filter {
+            it.changeType == EntityChangeType.REMOVE
+        }.map {
+            it.transientEntity
+        }.forEach { txnEntity ->
+            val processed = HashSet<Entity>()
+            val modelMetaData = store.modelMetaData!!
+            val entityMetaData = modelMetaData.getEntityMetaData(txnEntity.type)
+            if (entityMetaData != null) {
+                processed.add(txnEntity)
+                // remove associations and cascade delete
+                val storeSession = store.threadSessionOrThrow
+                ConstraintsUtil.processOnDeleteConstraints(storeSession, txnEntity, entityMetaData, modelMetaData, false, processed)
+            }
+        }
     }
 
     /**
@@ -488,7 +505,7 @@ class TransientSessionImpl(
                 }
                 try {
                     // load persistent entity from database by id
-                    newEntityImpl(oTransactionInternal.getEntity(entityId))
+                    newEntityImpl(transactionInternal.getEntity(entityId))
                 } catch (e: EntityRemovedInDatabaseException) {
                     logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
                     throw e

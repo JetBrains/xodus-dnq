@@ -73,7 +73,7 @@ open class TransientEntityImpl : TransientEntity {
      * @return debug presentation
      */
     override val debugPresentation: String
-        get() = entity.toString()
+        get() = entity.id.toString()
 
     override val incomingLinks: List<Pair<String, EntityIterable>>
         get() {

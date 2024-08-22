@@ -20,7 +20,6 @@ import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.toList
-import org.junit.Ignore
 import org.junit.Test
 
 class OnTargetDeleteCascadeTest : DBTest() {
@@ -45,7 +44,6 @@ class OnTargetDeleteCascadeTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `onTargetDelete=CASCADE`() {
         val user = transactional {
             val user = AUser.new()
@@ -61,7 +59,6 @@ class OnTargetDeleteCascadeTest : DBTest() {
         }
     }
 
-    @Ignore
     @Test
     fun `onTargetDelete=CASCADE with concurrency`() {
         val user = transactional { AUser.new() }
@@ -78,7 +75,6 @@ class OnTargetDeleteCascadeTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `onTargetDelete=CASCADE for a link of a superclass`() {
         val guestUser = transactional { AGuestUser.new() }
         transactional { AExternalProfile.new { user = guestUser } }
@@ -116,7 +112,6 @@ class OnTargetDeleteCascadeTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `nested onTargetDelete=CASCADE`() {
         val b4 = transactional {
             val b1 = B1.new()
@@ -153,7 +148,6 @@ class OnTargetDeleteCascadeTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun cascadeDelete() {
         val leaf = transactional {
             FRoot.new {
