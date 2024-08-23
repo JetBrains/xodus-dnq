@@ -178,7 +178,8 @@ class TransientSessionImpl(
             entitiesUpdater.clear()
         }
         closePersistentSession()
-        this.store.persistentStore.beginReadonlyTransaction()
+        transactionInternal = this.store.persistentStore.beginTransaction()
+        this.readonly = true
         initChangesTracker(readonly = true)
     }
 
