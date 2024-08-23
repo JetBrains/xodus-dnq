@@ -48,13 +48,6 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     override var persistentStore: OPersistentEntityStore
         get() = _persistentStore
         set(persistentStore) {
-            val ec = persistentStore.environment.environmentConfig
-            if (ec.envTxnDowngradeAfterFlush == EnvironmentConfig.DEFAULT.envTxnDowngradeAfterFlush) {
-                ec.envTxnDowngradeAfterFlush = false
-            }
-            ec.envTxnReplayMaxCount = Integer.MAX_VALUE
-            ec.envTxnReplayTimeout = Long.MAX_VALUE
-            ec.gcUseExclusiveTransaction = true
             _persistentStore = persistentStore
         }
 
@@ -167,7 +160,6 @@ open class TransientEntityStoreImpl : TransientEntityStore {
             }
         }
         _persistentStore.close()
-        _persistentStore.environment.close()
     }
 
 
