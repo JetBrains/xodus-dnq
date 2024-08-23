@@ -104,6 +104,6 @@ class XdQueryEngine(val store: TransientEntityStore) :
                 ?.reattach()
                 ?.takeUnless { session.isRemoved(it) }
                 ?.takeIf { it.isSaved }
-                ?.let { SingleEntityIterable(session.oStoreTransaction as PersistentStoreTransaction, it.id) } ?: throw IllegalArgumentException()
+                ?.let { SingleEntityIterable(session.transactionInternal as PersistentStoreTransaction, it.id) } ?: throw IllegalArgumentException()
     }
 }

@@ -107,7 +107,7 @@ class ReflectionUtilTest : DBTest() {
     }
 
     private fun <T : XdEntity> TransientStoreSession.createPersistentEntity(entityType: XdEntityType<T>, init: OVertexEntity.() -> Unit) {
-        this.oStoreTransaction.apply {
+        this.transactionInternal.apply {
             (newEntity(entityType.entityType) as OVertexEntity).init()
         }.flush()
     }

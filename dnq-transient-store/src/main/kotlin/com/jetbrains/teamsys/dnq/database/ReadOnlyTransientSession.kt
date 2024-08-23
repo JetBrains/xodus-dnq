@@ -15,10 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import jetbrains.exodus.database.EntityCreator
-import jetbrains.exodus.database.TransientChangesTracker
-import jetbrains.exodus.database.TransientEntity
-import jetbrains.exodus.database.TransientStoreSession
+import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
@@ -26,24 +23,21 @@ import jetbrains.exodus.env.Transaction
 
 class ReadOnlyTransientSession(
         private val store: TransientEntityStoreImpl,
-        override val oStoreTransaction: OStoreTransaction) : TransientStoreSession, SessionQueryMixin {
-
-    override val transactionInternal: StoreTransaction
-        get() = oStoreTransaction
+        override val transactionInternal: OStoreTransaction) : TransientStoreSession, SessionQueryMixin {
 
     override val transientChangesTracker: TransientChangesTracker
         get() = ReadOnlyTransientChangesTrackerImpl()
 
     override val isOpened: Boolean
-        get() = !oStoreTransaction.isFinished
+        get() = !transactionInternal.isFinished
 
     override val isCommitted: Boolean
-        get() = oStoreTransaction.isFinished
+        get() = transactionInternal.isFinished
 
     override val isAborted: Boolean
-        get() = oStoreTransaction.isFinished
+        get() = transactionInternal.isFinished
 
-    override fun isFinished() = oStoreTransaction.isFinished
+    override fun isFinished() = transactionInternal.isFinished
 
     override fun getStore() = store
 
@@ -62,7 +56,7 @@ class ReadOnlyTransientSession(
         valueGetter: ComparableGetter,
         comparator: Comparator<Comparable<Any>>
     ): EntityIterable {
-        return oStoreTransaction.mergeSorted(sorted, valueGetter, comparator)
+        return transactionInternal.mergeSorted(sorted, valueGetter, comparator)
     }
 
     override fun newEntity(entityType: String) = throw UnsupportedOperationException()
@@ -88,7 +82,7 @@ class ReadOnlyTransientSession(
 
     override fun isReadonly() = true
 
-    override fun getSnapshot() = oStoreTransaction
+    override fun getSnapshot() = transactionInternal
 
     override fun isRemoved(entity: Entity) = false
 
@@ -105,7 +99,7 @@ class ReadOnlyTransientSession(
     }
 
     override fun isCurrent(): Boolean {
-        return oStoreTransaction.isCurrent
+        return transactionInternal.isCurrent
     }
 
     override fun abort() {
@@ -117,7 +111,7 @@ class ReadOnlyTransientSession(
     }
 
     override fun findWithPropSortedByValue(entityType: String, propertyName: String): EntityIterable {
-        return oStoreTransaction.findWithPropSortedByValue(entityType, propertyName)
+        return transactionInternal.findWithPropSortedByValue(entityType, propertyName)
     }
 
     override fun toEntityId(representation: String): EntityId {
@@ -139,6 +133,11 @@ class ReadOnlyTransientSession(
     override fun getQueryCancellingPolicy(): QueryCancellingPolicy? = transactionInternal.queryCancellingPolicy
 
     override fun getEnvironmentTransaction(): Transaction {
-        return oStoreTransaction.environmentTransaction
+        return transactionInternal.environmentTransaction
     }
+
+    override val entitiesUpdater = ReadonlyTransientEntitiesUpdater()
+
 }
+
+

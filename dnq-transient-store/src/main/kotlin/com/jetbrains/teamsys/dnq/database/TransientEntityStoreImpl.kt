@@ -181,8 +181,8 @@ open class TransientEntityStoreImpl : TransientEntityStore {
 
     override fun renameEntityTypeRefactoring(oldEntityTypeName: String, newEntityTypeName: String) {
         val transientSession = transientSessionOrThrow
-        transientSession.addChangeAndRun {
-            (transientSession.oStoreTransaction.store as PersistentEntityStore).renameEntityType(oldEntityTypeName, newEntityTypeName)
+        transientSession.entitiesUpdater.addChangeAndRun {
+            (transientSession.transactionInternal.store as PersistentEntityStore).renameEntityType(oldEntityTypeName, newEntityTypeName)
             true
         }
     }
@@ -195,10 +195,10 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         val transientSession = transientSessionOrThrow
 
         if (entity is TransientEntity) {
-            transientSession.deleteEntity(entity)
+            transientSession.entitiesUpdater.deleteEntity(entity)
         } else {
             val persistentEntity = entity.unwrapEntity()
-            transientSession.addChangeAndRun {
+            transientSession.entitiesUpdater.addChangeAndRun {
                 persistentEntity.delete()
                 true
             }
@@ -209,7 +209,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         val transientSession = transientSessionOrThrow
 
         val persistentEntity = entity.unwrapEntity()
-        transientSession.addChangeAndRun {
+        transientSession.entitiesUpdater.addChangeAndRun {
             persistentEntity.deleteLinks(linkName)
             true
         }
@@ -221,7 +221,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         val persistentEntity = entity.unwrapEntity()
         val persistentLink = link.unwrapEntity()
 
-        transientSession.addChangeAndRun {
+        transientSession.entitiesUpdater.addChangeAndRun {
             persistentEntity.deleteLink(linkName, persistentLink)
             true
         }

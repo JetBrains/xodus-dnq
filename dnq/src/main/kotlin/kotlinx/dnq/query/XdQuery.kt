@@ -22,6 +22,7 @@ import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.asOStoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OQueryEntityIterable
+import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.orientdb.iterate.OEntityOfTypeIterable
 import jetbrains.exodus.entitystore.orientdb.iterate.OQueryEntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.iterate.link.OMultipleEntitiesIterable
@@ -174,7 +175,7 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
     val iterable = if (notNullElements.isEmpty()){
         OQueryEntityIterableBase.EMPTY
     } else {
-        OMultipleEntitiesIterable(notNullElements.first().threadSessionOrThrow.oStoreTransaction , notNullElements.map { it.entity })
+        OMultipleEntitiesIterable(notNullElements.first().threadSessionOrThrow.transactionInternal as OStoreTransaction, notNullElements.map { it.entity })
     }
 
     return XdQueryImpl(iterable, this)

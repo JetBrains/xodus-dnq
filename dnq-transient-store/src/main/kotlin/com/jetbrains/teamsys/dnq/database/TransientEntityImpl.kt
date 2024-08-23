@@ -156,11 +156,11 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun setProperty(propertyName: String, value: Comparable<*>): Boolean {
-        return threadSessionOrThrow.setProperty(this, propertyName, value)
+        return threadSessionOrThrow.entitiesUpdater.setProperty(this, propertyName, value)
     }
 
     override fun deleteProperty(propertyName: String): Boolean {
-        return threadSessionOrThrow.deleteProperty(this, propertyName)
+        return threadSessionOrThrow.entitiesUpdater.deleteProperty(this, propertyName)
     }
 
     override fun getBlob(blobName: String): InputStream? {
@@ -172,19 +172,19 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun setBlob(blobName: String, blob: InputStream) {
-        threadSessionOrThrow.setBlob(this, blobName, blob)
+        threadSessionOrThrow.entitiesUpdater.setBlob(this, blobName, blob)
     }
 
     override fun setBlob(blobName: String, file: File) {
-        threadSessionOrThrow.setBlob(this, blobName, file)
+        threadSessionOrThrow.entitiesUpdater.setBlob(this, blobName, file)
     }
 
     override fun setBlobString(blobName: String, blobString: String): Boolean {
-        return threadSessionOrThrow.setBlobString(this, blobName, blobString)
+        return threadSessionOrThrow.entitiesUpdater.setBlobString(this, blobName, blobString)
     }
 
     override fun deleteBlob(blobName: String): Boolean {
-        return threadSessionOrThrow.deleteBlob(this, blobName)
+        return threadSessionOrThrow.entitiesUpdater.deleteBlob(this, blobName)
     }
 
     override fun getBlobString(blobName: String): String? {
@@ -193,11 +193,11 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun setLink(linkName: String, target: Entity?): Boolean {
         if (target == null) return false
-        return threadSessionOrThrow.setLink(this, linkName, target as TransientEntity)
+        return threadSessionOrThrow.entitiesUpdater.setLink(this, linkName, target as TransientEntity)
     }
 
     override fun setLink(linkName: String, targetId: EntityId): Boolean {
-        return threadSessionOrThrow.run { setLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
+        return threadSessionOrThrow.run { entitiesUpdater.setLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
     }
 
     private fun assertIsMultipleLink(entity: Entity, linkName: String) {
@@ -211,24 +211,24 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun addLink(linkName: String, target: Entity): Boolean {
         assertIsMultipleLink(this, linkName)
-        return threadSessionOrThrow.addLink(this, linkName, target as TransientEntity)
+        return threadSessionOrThrow.entitiesUpdater.addLink(this, linkName, target as TransientEntity)
     }
 
     override fun addLink(linkName: String, targetId: EntityId): Boolean {
         assertIsMultipleLink(this, linkName)
-        return threadSessionOrThrow.run { addLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
+        return threadSessionOrThrow.run { entitiesUpdater.addLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
     }
 
     override fun deleteLink(linkName: String, target: Entity): Boolean {
-        return threadSessionOrThrow.deleteLink(this, linkName, target as TransientEntity)
+        return threadSessionOrThrow.entitiesUpdater.deleteLink(this, linkName, target as TransientEntity)
     }
 
     override fun deleteLink(linkName: String, targetId: EntityId): Boolean {
-        return threadSessionOrThrow.run { deleteLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
+        return threadSessionOrThrow.run { entitiesUpdater.deleteLink(this@TransientEntityImpl, linkName, getEntity(targetId) as TransientEntity) }
     }
 
     override fun deleteLinks(linkName: String) {
-        threadSessionOrThrow.deleteLinks(this, linkName)
+        threadSessionOrThrow.entitiesUpdater.deleteLinks(this, linkName)
     }
 
     override fun getLinks(linkName: String): EntityIterable {
@@ -258,7 +258,7 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun delete(): Boolean {
-        threadSessionOrThrow.deleteEntity(this)
+        threadSessionOrThrow.entitiesUpdater.deleteEntity(this)
         return true
     }
 
@@ -365,61 +365,61 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun setToOne(linkName: String, target: Entity?) {
-        threadSessionOrThrow.setToOne(this, linkName, target as TransientEntity?)
+        threadSessionOrThrow.entitiesUpdater.setToOne(this, linkName, target as TransientEntity?)
     }
 
     override fun setManyToOne(manyToOneLinkName: String, oneToManyLinkName: String, one: Entity?) {
         if (one != null) {
             assertIsMultipleLink(one, oneToManyLinkName)
         }
-        threadSessionOrThrow.setManyToOne(this, manyToOneLinkName, oneToManyLinkName, one as TransientEntity?)
+        threadSessionOrThrow.entitiesUpdater.setManyToOne(this, manyToOneLinkName, oneToManyLinkName, one as TransientEntity?)
     }
 
     override fun clearOneToMany(manyToOneLinkName: String, oneToManyLinkName: String) {
         assertIsMultipleLink(this, oneToManyLinkName)
 
-        threadSessionOrThrow.clearOneToMany(this, manyToOneLinkName, oneToManyLinkName)
+        threadSessionOrThrow.entitiesUpdater.clearOneToMany(this, manyToOneLinkName, oneToManyLinkName)
     }
 
     override fun createManyToMany(e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity) {
         assertIsMultipleLink(this, e1Toe2LinkName)
         assertIsMultipleLink(e2, e2Toe1LinkName)
 
-        threadSessionOrThrow.createManyToMany(this, e1Toe2LinkName, e2Toe1LinkName, e2 as TransientEntity)
+        threadSessionOrThrow.entitiesUpdater.createManyToMany(this, e1Toe2LinkName, e2Toe1LinkName, e2 as TransientEntity)
     }
 
     override fun clearManyToMany(e1Toe2LinkName: String, e2Toe1LinkName: String) {
         assertIsMultipleLink(this, e1Toe2LinkName)
 
-        threadSessionOrThrow.clearManyToMany(this, e1Toe2LinkName, e2Toe1LinkName)
+        threadSessionOrThrow.entitiesUpdater.clearManyToMany(this, e1Toe2LinkName, e2Toe1LinkName)
     }
 
     override fun setOneToOne(e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity?) {
-        threadSessionOrThrow.setOneToOne(this, e1Toe2LinkName, e2Toe1LinkName, e2 as TransientEntity?)
+        threadSessionOrThrow.entitiesUpdater.setOneToOne(this, e1Toe2LinkName, e2Toe1LinkName, e2 as TransientEntity?)
     }
 
     override fun removeOneToMany(manyToOneLinkName: String, oneToManyLinkName: String, many: Entity) {
-        threadSessionOrThrow.removeOneToMany(this, manyToOneLinkName, oneToManyLinkName, many as TransientEntity)
+        threadSessionOrThrow.entitiesUpdater.removeOneToMany(this, manyToOneLinkName, oneToManyLinkName, many as TransientEntity)
     }
 
     override fun removeFromParent(parentToChildLinkName: String, childToParentLinkName: String) {
-        threadSessionOrThrow.removeFromParent(this, parentToChildLinkName, childToParentLinkName)
+        threadSessionOrThrow.entitiesUpdater.removeFromParent(this, parentToChildLinkName, childToParentLinkName)
     }
 
     override fun removeChild(parentToChildLinkName: String, childToParentLinkName: String) {
-        threadSessionOrThrow.removeChild(this, parentToChildLinkName, childToParentLinkName)
+        threadSessionOrThrow.entitiesUpdater.removeChild(this, parentToChildLinkName, childToParentLinkName)
     }
 
     override fun setChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
-        threadSessionOrThrow.setChild(this, parentToChildLinkName, childToParentLinkName, child as TransientEntity)
+        threadSessionOrThrow.entitiesUpdater.setChild(this, parentToChildLinkName, childToParentLinkName, child as TransientEntity)
     }
 
     override fun clearChildren(parentToChildLinkName: String) {
-        threadSessionOrThrow.clearChildren(this, parentToChildLinkName)
+        threadSessionOrThrow.entitiesUpdater.clearChildren(this, parentToChildLinkName)
     }
 
     override fun addChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
-        threadSessionOrThrow.addChild(this, parentToChildLinkName, childToParentLinkName, child as TransientEntity)
+        threadSessionOrThrow.entitiesUpdater.addChild(this, parentToChildLinkName, childToParentLinkName, child as TransientEntity)
     }
 
     private fun throwWrappedPersistentEntityUndefined(): Nothing = throw IllegalStateException("Cannot get wrapped persistent entity")

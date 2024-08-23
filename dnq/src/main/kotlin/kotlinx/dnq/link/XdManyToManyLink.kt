@@ -17,6 +17,7 @@ package kotlinx.dnq.link
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.orientdb.OEntityId
+import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.orientdb.iterate.link.OLinkToEntityIterable
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
@@ -60,7 +61,7 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
                         if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
-                            val session = thisRef.threadSessionOrThrow.oStoreTransaction
+                            val session = thisRef.threadSessionOrThrow.transactionInternal as OStoreTransaction
                             queryEngine.wrap(OLinkToEntityIterable(session, oppositeField.oppositeDbName, thisRef.entityId as OEntityId))
                         }
                     } catch (_: UnsupportedOperationException) {

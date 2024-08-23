@@ -27,7 +27,7 @@ abstract class XdCustomTypeBinding<V : Comparable<V>> : ComparableBinding() {
     fun register(store: TransientEntityStore) {
         XdCustomTypeBindingRegistry[clazz] = this
         store.transactional { txn ->
-            store.persistentStore.registerCustomPropertyType(txn.oStoreTransaction, clazz, this)
+            store.persistentStore.registerCustomPropertyType(txn.transactionInternal, clazz, this)
         }
     }
 
