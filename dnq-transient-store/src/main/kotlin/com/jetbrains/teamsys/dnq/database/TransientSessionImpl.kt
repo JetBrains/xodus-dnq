@@ -21,7 +21,6 @@ import com.orientechnologies.orient.core.record.OVertex
 import com.orientechnologies.orient.core.record.impl.ORecordBytes
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
-import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.*
 import jetbrains.exodus.entitystore.*
@@ -34,47 +33,39 @@ import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.env.Transaction
 import jetbrains.exodus.env.TransactionFinishedException
-import jetbrains.exodus.query.metadata.EntityMetaData
-import jetbrains.exodus.query.metadata.Index
 import jetbrains.exodus.util.UTFUtil
 import mu.KLogging
 import java.io.ByteArrayInputStream
-import java.io.File
 import java.io.InputStream
 import java.util.*
-import kotlin.collections.HashSet
 
-private fun OStoreTransaction.createChangesTracker(
+private fun createChangesTracker(
     readonly: Boolean
 ): TransientChangesTracker {
     return if (readonly) ReadOnlyTransientChangesTrackerImpl() else TransientChangesTrackerImpl()
 }
 
-private const val CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__"
-private const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
+internal const val CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__"
+internal const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 
 class TransientSessionImpl(
     private val store: TransientEntityStoreImpl,
     private var readonly: Boolean,
 ) : TransientStoreSession, SessionQueryMixin {
-
-    companion object : KLogging() {
-        private val assertLinkTypes = "true" == System.getProperty("xodus.dnq.links.assertTypes", "true")
-    }
+    companion object : KLogging()
 
     init {
         if (store.modelMetaData?.entitiesMetaData?.firstOrNull() == null) {
             logger.warn { "model MetaData is not set for store ${store.persistentStore.location}." }
         }
-        this.store.persistentStore.beginTransaction()
     }
+
 
     private var upgradeHook: Runnable? = null
     private var state = State.Open
 
     private var quietFlush = false
     private var loadedIds: EntityIdSet = EntityIdSetFactory.newSet()
-    private val changes = QueueDecorator<() -> Boolean>()
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     private var allowRunnables = true
 
@@ -91,16 +82,17 @@ class TransientSessionImpl(
     override val isAborted: Boolean
         get() = state == State.Aborted
 
-    override val transactionInternal: OStoreTransaction
-        get() = store.persistentStore.currentTransactionOrThrow
-
-    override val oStoreTransaction: OStoreTransaction
+    override var transactionInternal: StoreTransaction = this.store.persistentStore.beginTransaction()
         get() {
             assertOpen("get persistent transaction")
-            return transactionInternal
+            return field
         }
+        private set
 
-    private var changesTracker = oStoreTransaction.createChangesTracker(readonly = this.readonly)
+    private var changesTracker = createChangesTracker(readonly = this.readonly)
+
+    override val entitiesUpdater = TransientEntitiesUpdaterImpl(this)
+
     override val transientChangesTracker: TransientChangesTracker
         get() {
             assertOpen("get changes tracker")
@@ -112,7 +104,7 @@ class TransientSessionImpl(
 
     private fun initChangesTracker(readonly: Boolean) {
         transientChangesTracker.dispose()
-        this.changesTracker = transactionInternal.createChangesTracker(readonly)
+        this.changesTracker = createChangesTracker(readonly)
     }
 
     override fun getQueryCancellingPolicy(): QueryCancellingPolicy? {
@@ -126,18 +118,18 @@ class TransientSessionImpl(
     override fun getStore(): TransientEntityStore = store
 
     override fun isIdempotent(): Boolean {
-        return oStoreTransaction.isIdempotent && changesTracker.changedEntities.isEmpty()
+        return transactionInternal.isIdempotent && changesTracker.changedEntities.isEmpty()
     }
 
     override fun isReadonly() = readonly
 
-    override fun isFinished() = oStoreTransaction.isFinished
+    override fun isFinished() = transactionInternal.isFinished
 
     override fun setUpgradeHook(hook: Runnable?) {
         upgradeHook = hook
     }
 
-    private fun upgradeReadonlyTransactionIfNecessary() {
+    internal fun upgradeReadonlyTransactionIfNecessary() {
         if (readonly) {
             readonly = false
             val persistentStore = persistentStore
@@ -161,9 +153,9 @@ class TransientSessionImpl(
 
     override fun equals(other: Any?) = other === this
 
-    override fun hasChanges() = changes.isNotEmpty()
+    override fun hasChanges() = entitiesUpdater.hasChanges()
 
-    private fun assertOpen(action: String) {
+    internal fun assertOpen(action: String) {
         if (state != State.Open) throw IllegalStateException("Cannot $action in state [$state]")
     }
 
@@ -182,7 +174,7 @@ class TransientSessionImpl(
 
         if (!transactionInternal.isReadonly) {
             loadedIds = EntityIdSetFactory.newSet()
-            changes.clear()
+            entitiesUpdater.clear()
         }
         closePersistentSession()
         this.store.persistentStore.beginReadonlyTransaction()
@@ -197,17 +189,17 @@ class TransientSessionImpl(
 
         assertOpen("flush")
 
-        if (changes.isEmpty()) {
+        if (!entitiesUpdater.hasChanges()) {
             logger.trace("Nothing to flush")
         } else {
             flushChanges()
-            changes.clear()
+            entitiesUpdater.clear()
 
             loadedIds = EntityIdSetFactory.newSet()
 
             val oldChangesTracker = transientChangesTracker
             closePersistentSession()
-            this.store.persistentStore.beginTransaction()
+            this.transactionInternal = this.store.persistentStore.beginTransaction()
             this.changesTracker = ReadOnlyTransientChangesTrackerImpl()
             //all changes were already flushed
             this.readonly = true
@@ -228,19 +220,18 @@ class TransientSessionImpl(
             beforeFlush()
             checkBeforeSaveChangesConstraints()
 
-            var txn = transactionInternal
             if (this.isIdempotent) return
 
             try {
                 while (true) {
                     try {
                         performDeferredEntitiesDeletion()
-                        if (txn.flush()) {
+                        if (transactionInternal.flush()) {
                             return
                         }
                     } catch (_: ONeedRetryException) {
                         // replay changes
-                        txn = this.store.persistentStore.beginTransaction() as OStoreTransaction
+                        transactionInternal = this.store.persistentStore.beginTransaction()
                         replayChanges()
                         //recheck constraints
                         checkBeforeSaveChangesConstraints()
@@ -251,7 +242,7 @@ class TransientSessionImpl(
                 logger.info { "Catch exception in flush: ${exception.message}" }
 
                 if (exception is DataIntegrityViolationException) {
-                    txn.revert()
+                    transactionInternal.revert()
                     replayChanges()
                 }
                 if (exception is ORecordDuplicatedException) {
@@ -277,7 +268,7 @@ class TransientSessionImpl(
         // flush until no side effects from listeners
         do {
             flush()
-        } while (!changes.isEmpty())
+        } while (entitiesUpdater.hasChanges())
 
         try {
             transientChangesTracker.dispose()
@@ -325,17 +316,17 @@ class TransientSessionImpl(
         if (id in loadedIds) {
             return newEntityImpl(persistentStore.getEntity(id))
         }
-        return newEntityImpl(oStoreTransaction.getEntity(id).also {
+        return newEntityImpl(transactionInternal.getEntity(id).also {
             addLoadedId(id)
         })
     }
 
     override fun isCurrent(): Boolean {
-        return oStoreTransaction.isCurrent
+        return transactionInternal.isCurrent
     }
 
     override fun findWithPropSortedByValue(entityType: String, propertyName: String): EntityIterable {
-        return oStoreTransaction.findWithPropSortedByValue(entityType, propertyName)
+        return transactionInternal.findWithPropSortedByValue(entityType, propertyName)
     }
 
     override fun mergeSorted(
@@ -343,11 +334,11 @@ class TransientSessionImpl(
         valueGetter: ComparableGetter,
         comparator: Comparator<Comparable<Any>>
     ): EntityIterable {
-        return oStoreTransaction.mergeSorted(sorted, valueGetter, comparator)
+        return transactionInternal.mergeSorted(sorted, valueGetter, comparator)
     }
 
     override fun getEnvironmentTransaction(): Transaction {
-        return oStoreTransaction.environmentTransaction
+        return transactionInternal.environmentTransaction
     }
 
     override fun toEntityId(representation: String): EntityId {
@@ -394,9 +385,9 @@ class TransientSessionImpl(
 
     private fun replayChanges() {
         initChangesTracker(readonly = false)
-        // some of managed entities could be deleted
+        // some of the managed entities could be deleted
         loadedIds = EntityIdSetFactory.newSet()
-        changes.forEach { it() }
+        entitiesUpdater.apply()
         changesTracker.changesDescription.filter {
             it.changeType == EntityChangeType.REMOVE
         }.map {
@@ -441,7 +432,7 @@ class TransientSessionImpl(
                         logger.debug("Remove orphan: {}", changedEntity)
 
                         // we don't want this change to be repeated on flush
-                        deleteEntityInternal(changedEntity)
+                        entitiesUpdater.deleteEntityInternal(changedEntity)
                     } else {
                         // has no parent, but orphans shouldn't be removed automatically - exception
                         orphans.add(OrphanChildException(changedEntity, entityMetaData.aggregationChildEnds))
@@ -532,7 +523,7 @@ class TransientSessionImpl(
             }
         }
         return try {
-            oStoreTransaction.getEntity(entity.id)
+            transactionInternal.getEntity(entity.id)
             return false
         } catch (e: Throwable) {
             return true
@@ -611,7 +602,7 @@ class TransientSessionImpl(
         }
     }
 
-    private fun performDeferredEntitiesDeletion(){
+    private fun performDeferredEntitiesDeletion() {
         changesTracker.getRemovedEntitiesIds().forEach {
             //TODO optimize it. We do not need to load entity to remove it
             persistentStore.currentTransaction?.getEntity(it)?.delete()
@@ -622,7 +613,7 @@ class TransientSessionImpl(
         throw UnsupportedOperationException()
     }
 
-    private fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
+    internal fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
@@ -634,7 +625,7 @@ class TransientSessionImpl(
         }
     }
 
-    private fun getOriginalBlobStringValue(e: TransientEntity, blobName: String): String? {
+    internal fun getOriginalBlobStringValue(e: TransientEntity, blobName: String): String? {
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
@@ -644,7 +635,7 @@ class TransientSessionImpl(
         }
     }
 
-    private fun getOriginalBlobValue(e: TransientEntity, blobName: String): InputStream? {
+    internal fun getOriginalBlobValue(e: TransientEntity, blobName: String): InputStream? {
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
@@ -676,20 +667,6 @@ class TransientSessionImpl(
         }
 
         return e.entity.getLink(linkName)
-    }
-
-    private fun getIndexFieldsFinalValues(e: TransientEntity, index: Index): List<Comparable<*>?> {
-        return index.fields.map { field ->
-            if (field.isProperty) {
-                e.getProperty(field.name)
-            } else {
-                e.getLink(field.name)
-            }
-        }
-    }
-
-    private fun getEntityMetaData(e: TransientEntity): EntityMetaData? {
-        return store.modelMetaData?.getEntityMetaData(e.type)
     }
 
     private fun beforeFlush() {
@@ -757,7 +734,7 @@ class TransientSessionImpl(
     }
 
     internal fun createEntity(transientEntity: TransientEntityImpl, type: String) {
-        val persistentEntity = oStoreTransaction.newEntity(type) as OEntity
+        val persistentEntity = transactionInternal.newEntity(type) as OEntity
         transientEntity.entity = persistentEntity
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(transientEntity)
@@ -765,14 +742,14 @@ class TransientSessionImpl(
     }
 
     private fun saveEntityInternal(persistentEntity: OEntity, e: TransientEntityImpl): Boolean {
-        oStoreTransaction.saveEntity(persistentEntity)
+        transactionInternal.saveEntity(persistentEntity)
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(e)
         return true
     }
 
     internal fun createEntity(transientEntity: TransientEntityImpl, creator: EntityCreator) {
-        val persistentEntity = oStoreTransaction.newEntity(creator.type) as OEntity
+        val persistentEntity = transactionInternal.newEntity(creator.type) as OEntity
         transientEntity.entity = persistentEntity
         addChange {
             val found = creator.find()
@@ -812,7 +789,7 @@ class TransientSessionImpl(
             } else {
                 upgradeReadonlyTransactionIfNecessary()
                 // somebody deleted our (initially found) entity! we need to create some again
-                transientEntity.entity = oStoreTransaction.newEntity(creator.type) as OEntity
+                transientEntity.entity = transactionInternal.newEntity(creator.type) as OEntity
                 transientChangesTracker.entityAdded(transientEntity)
                 try {
                     allowRunnables = false
@@ -825,431 +802,17 @@ class TransientSessionImpl(
         }
     }
 
-    internal fun setProperty(
-        transientEntity: TransientEntity,
-        propertyName: String,
-        propertyNewValue: Comparable<*>
-    ): Boolean {
-        return addChangeAndRun { setPropertyInternal(transientEntity, propertyName, propertyNewValue) }
-    }
-
-    private fun setPropertyInternal(
-        transientEntity: TransientEntity,
-        propertyName: String,
-        propertyNewValue: Comparable<*>
-    ): Boolean {
-        return if (transientEntity.entity.setProperty(propertyName, propertyNewValue)) {
-            val oldValue = getOriginalPropertyValue(transientEntity, propertyName)
-            @Suppress("SuspiciousEqualsCombination")
-            if (propertyNewValue === oldValue || propertyNewValue == oldValue) {
-                transientChangesTracker.removePropertyChanged(transientEntity, propertyName)
-            } else {
-                transientChangesTracker.propertyChanged(transientEntity, propertyName)
-            }
-            true
-        } else {
-            false
-        }
-    }
-
-    internal fun deleteProperty(transientEntity: TransientEntity, propertyName: String): Boolean {
-        return addChangeAndRun { deletePropertyInternal(transientEntity, propertyName) }
-    }
-
-    private fun deletePropertyInternal(transientEntity: TransientEntity, propertyName: String): Boolean {
-        return if (transientEntity.entity.deleteProperty(propertyName)) {
-            val oldValue = getOriginalPropertyValue(transientEntity, propertyName)
-            if (oldValue == null) {
-                transientChangesTracker.removePropertyChanged(transientEntity, propertyName)
-            } else {
-                transientChangesTracker.propertyChanged(transientEntity, propertyName)
-            }
-            true
-        } else {
-            false
-        }
-    }
-
-    internal fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream) {
-        addChangeAndRun {
-            transientEntity.entity.setBlob(blobName, stream)
-            transientChangesTracker.propertyChanged(transientEntity, blobName)
-            true
-        }
-    }
-
-    internal fun setBlob(transientEntity: TransientEntity, blobName: String, file: File) {
-        addChangeAndRun {
-            transientEntity.entity.setBlob(blobName, file)
-            transientChangesTracker.propertyChanged(transientEntity, blobName)
-            true
-        }
-    }
-
-    internal fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String): Boolean {
-        return addChangeAndRun {
-            transientEntity.entity.setBlobString(blobName, newValue)
-            val oldValue = getOriginalBlobStringValue(transientEntity, blobName)
-            if (newValue === oldValue || newValue == oldValue) {
-                transientChangesTracker.removePropertyChanged(transientEntity, blobName)
-            } else {
-                transientChangesTracker.propertyChanged(transientEntity, blobName)
-            }
-            true
-        }
-    }
-
-    internal fun deleteBlob(transientEntity: TransientEntity, blobName: String): Boolean {
-        return addChangeAndRun {
-            if (transientEntity.entity.deleteBlob(blobName)) {
-                val oldValue = getOriginalBlobValue(transientEntity, blobName)
-                if (oldValue == null) {
-                    transientChangesTracker.removePropertyChanged(transientEntity, blobName)
-                } else {
-                    transientChangesTracker.propertyChanged(transientEntity, blobName)
-                    oldValue.close()
-                }
-                true
-            } else {
-                false
-            }
-        }
-    }
-
-    internal fun setLink(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
-        return addChangeAndRun { setLinkInternal(source, linkName, target) }
-    }
-
-    private fun setLinkInternal(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
-        val oldTarget = source.getLink(linkName) as TransientEntity?
-        assertLinkTypeIsSupported(source, linkName, target)
-        return if (source.entity.setLink(linkName, target.entity)) {
-            transientChangesTracker.linkChanged(source, linkName, target, oldTarget, true)
-            true
-        } else {
-            false
-        }
-    }
-
-    internal fun addLink(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
-        return addChangeAndRun { addLinkInternal(source, linkName, target) }
-    }
-
-    private fun addLinkInternal(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
-        assertLinkTypeIsSupported(source, linkName, target)
-        return if (source.entity.addLink(linkName, target.entity)) {
-            transientChangesTracker.linkChanged(source, linkName, target, null, true)
-            true
-        } else {
-            false
-        }
-    }
-
-    private fun assertLinkTypeIsSupported(source: TransientEntity, linkName: String, target: TransientEntity) {
-        if (assertLinkTypes) {
-            store.modelMetaData?.let {
-                val linkMetaData = it.getEntityMetaData(source.type)?.getAssociationEndMetaData(linkName)
-                if (linkMetaData != null) {
-                    val subTypes = linkMetaData.oppositeEntityMetaData.allSubTypes
-                    val ownType = linkMetaData.oppositeEntityMetaData.type
-                    if (target.type != ownType && !subTypes.contains(target.type)) {
-                        val allowed = (subTypes + ownType).joinToString()
-                        throw IllegalStateException("'${source.type}.$linkName' can contain only '$allowed' types. '${target.type}' type is not supported.")
-                    }
-                }
-            }
-        }
-    }
-
-    internal fun deleteLink(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
-        return addChangeAndRun { deleteLinkInternal(source, linkName, target) }
-    }
-
-    private fun deleteLinkInternal(source: TransientEntity, linkName: String, target: TransientEntity): Boolean {
-        return if (source.entity.deleteLink(linkName, target.entity)) {
-            transientChangesTracker.linkChanged(source, linkName, target, null, false)
-            true
-        } else {
-            false
-        }
-    }
-
-    internal fun deleteLinks(source: TransientEntity, linkName: String) {
-        addChangeAndRun {
-            transientChangesTracker.linksRemoved(source, linkName, source.getLinks(linkName))
-            source.entity.deleteLinks(linkName)
-            true
-        }
-    }
-
-    internal fun deleteEntity(transientEntity: TransientEntity): Boolean {
-        return addChangeAndRun { deleteEntityInternal(transientEntity) }
-    }
-
-    private fun deleteEntityInternal(e: TransientEntity): Boolean {
-        transientChangesTracker.entityRemoved(e)
-        return true
-    }
-
-    internal fun setToOne(source: TransientEntity, linkName: String, target: TransientEntity?) {
-        addChangeAndRun {
-            if (target == null) {
-                val oldTarget = source.getLink(linkName) as TransientEntity?
-                if (oldTarget != null) {
-                    deleteLinkInternal(source, linkName, oldTarget)
-                }
-            } else {
-                setLinkInternal(source, linkName, target)
-            }
-            true
-        }
-    }
-
-    internal fun setManyToOne(
-        many: TransientEntity,
-        manyToOneLinkName: String,
-        oneToManyLinkName: String,
-        one: TransientEntity?
-    ) {
-        addChangeAndRun {
-            val m = newLocalCopySafe(many)
-            if (m != null) {
-                val o = newLocalCopySafe(one)
-                val oldOne = m.getLink(manyToOneLinkName) as TransientEntity?
-                if (oldOne != null) {
-                    deleteLinkInternal(oldOne, oneToManyLinkName, m)
-                    if (o == null) {
-                        deleteLinkInternal(m, manyToOneLinkName, oldOne)
-                    }
-                }
-                if (o != null) {
-                    addLinkInternal(o, oneToManyLinkName, m)
-                    setLinkInternal(m, manyToOneLinkName, o)
-                }
-            }
-            true
-        }
-    }
-
-    internal fun clearOneToMany(one: TransientEntity, manyToOneLinkName: String, oneToManyLinkName: String) {
-        addChangeAndRun {
-            for (target in one.getLinks(oneToManyLinkName)) {
-                val many = target as TransientEntity
-                deleteLinkInternal(one, oneToManyLinkName, many)
-                deleteLinkInternal(many, manyToOneLinkName, one)
-            }
-            true
-        }
-    }
-
-    fun createManyToMany(
-        e1: TransientEntity,
-        e1Toe2LinkName: String,
-        e2Toe1LinkName: String,
-        e2: TransientEntity
-    ) {
-        addChangeAndRun {
-            addLinkInternal(e1, e1Toe2LinkName, e2)
-            addLinkInternal(e2, e2Toe1LinkName, e1)
-            true
-        }
-    }
-
-    fun clearManyToMany(e1: TransientEntity, e1Toe2LinkName: String, e2Toe1LinkName: String) {
-        addChangeAndRun {
-            for (target in e1.getLinks(e1Toe2LinkName)) {
-                val e2 = target as TransientEntity
-                deleteLinkInternal(e1, e1Toe2LinkName, e2)
-                deleteLinkInternal(e2, e2Toe1LinkName, e1)
-            }
-            true
-        }
-    }
-
-    fun setOneToOne(
-        e1: TransientEntityImpl,
-        e1Toe2LinkName: String,
-        e2Toe1LinkName: String,
-        e2: TransientEntity?
-    ) {
-        addChangeAndRun {
-            val prevE2 = e1.getLink(e1Toe2LinkName) as TransientEntity?
-            if (prevE2 == null || prevE2 != e1) {
-                if (prevE2 != null) {
-                    deleteLinkInternal(prevE2, e2Toe1LinkName, e1)
-                    deleteLinkInternal(e1, e1Toe2LinkName, prevE2)
-                }
-                if (e2 != null) {
-                    val prevE1 = e2.getLink(e2Toe1LinkName) as TransientEntity?
-                    if (prevE1 != null) {
-                        deleteLinkInternal(prevE1, e1Toe2LinkName, e2)
-                    }
-                    setLinkInternal(e1, e1Toe2LinkName, e2)
-                    setLinkInternal(e2, e2Toe1LinkName, e1)
-                }
-            }
-            true
-        }
-    }
-
-    fun removeOneToMany(
-        one: TransientEntityImpl,
-        manyToOneLinkName: String,
-        oneToManyLinkName: String,
-        many: TransientEntity
-    ) {
-        addChangeAndRun {
-            val oldOne = many.getLink(manyToOneLinkName) as TransientEntity?
-            if (one == oldOne) {
-                deleteLinkInternal(many, manyToOneLinkName, oldOne)
-            }
-            deleteLinkInternal(one, oneToManyLinkName, many)
-            true
-        }
-    }
-
-    fun removeFromParent(
-        child: TransientEntity,
-        parentToChildLinkName: String,
-        childToParentLinkName: String
-    ) {
-        addChangeAndRun {
-            val parent = child.getLink(childToParentLinkName) as TransientEntity?
-            if (parent != null) {
-                // may be changed or removed
-                removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, child)
-            }
-            true
-        }
-    }
-
-    fun removeChild(
-        parent: TransientEntityImpl,
-        parentToChildLinkName: String,
-        childToParentLinkName: String
-    ) {
-        addChangeAndRun {
-            val child = parent.getLink(parentToChildLinkName) as TransientEntity?
-            if (child != null) {
-                // may be changed or removed
-                removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, child)
-            }
-            true
-        }
-    }
-
-    private fun removeChildFromParentInternal(
-        parent: TransientEntity,
-        parentToChildLinkName: String,
-        childToParentLinkName: String?,
-        child: TransientEntity
-    ) {
-        deleteLinkInternal(parent, parentToChildLinkName, child)
-        deletePropertyInternal(child, PARENT_TO_CHILD_LINK_NAME)
-        if (childToParentLinkName != null) {
-            deleteLinkInternal(child, childToParentLinkName, parent)
-            deletePropertyInternal(child, CHILD_TO_PARENT_LINK_NAME)
-        }
-    }
-
-    fun setChild(
-        parent: TransientEntity,
-        parentToChildLinkName: String,
-        childToParentLinkName: String,
-        child: TransientEntity
-    ) {
-        addChangeAndRun {
-            if (removeChildFromCurrentParentInternal(child, childToParentLinkName, parentToChildLinkName, parent)) {
-                val oldChild = parent.getLink(parentToChildLinkName) as TransientEntity?
-                if (oldChild != null) {
-                    removeChildFromParentInternal(parent, parentToChildLinkName, childToParentLinkName, oldChild)
-                }
-                setLinkInternal(parent, parentToChildLinkName, child)
-                setLinkInternal(child, childToParentLinkName, parent)
-                setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName)
-                setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName)
-            }
-            true
-        }
-    }
-
-    private fun removeChildFromCurrentParentInternal(
-        child: TransientEntity,
-        childToParentLinkName: String,
-        parentToChildLinkName: String,
-        newParent: TransientEntity
-    ): Boolean {
-        val oldChildToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
-        if (oldChildToParentLinkName != null) {
-            if (childToParentLinkName == oldChildToParentLinkName) {
-                val oldParent = child.getLink(childToParentLinkName) as TransientEntity?
-                if (oldParent != null) {
-                    if (oldParent == newParent) {
-                        return false
-                    }
-                    // child to parent link will be overwritten, so don't delete it directly
-                    deleteLinkInternal(oldParent, parentToChildLinkName, child)
-                }
-            } else {
-                val oldParent = child.getLink(oldChildToParentLinkName) as TransientEntity?
-                if (oldParent != null) {
-                    val oldParentToChildLinkName = child.getProperty(PARENT_TO_CHILD_LINK_NAME) as String?
-                    deleteLinkInternal(oldParent, oldParentToChildLinkName ?: parentToChildLinkName, child)
-                    deleteLinkInternal(child, oldChildToParentLinkName, oldParent)
-                }
-            }
-        }
-        return true
-    }
-
-    fun clearChildren(parent: TransientEntity, parentToChildLinkName: String) {
-        addChangeAndRun {
-            for (child in parent.getLinks(parentToChildLinkName)) {
-                val childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
-                removeChildFromParentInternal(
-                    parent,
-                    parentToChildLinkName,
-                    childToParentLinkName,
-                    child as TransientEntity
-                )
-            }
-            true
-        }
-    }
-
-    fun addChild(
-        parent: TransientEntity,
-        parentToChildLinkName: String,
-        childToParentLinkName: String,
-        child: TransientEntity
-    ) {
-        addChangeAndRun {
-            if (removeChildFromCurrentParentInternal(child, childToParentLinkName, parentToChildLinkName, parent)) {
-                addLinkInternal(parent, parentToChildLinkName, child)
-                setLinkInternal(child, childToParentLinkName, parent)
-                setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName)
-                setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName)
-            }
-            true
-        }
-    }
-
     fun getParent(child: TransientEntity): Entity? {
         val childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
             ?: return null
         return child.getLink(childToParentLinkName)
     }
 
-    fun addChangeAndRun(change: () -> Boolean): Boolean {
-        upgradeReadonlyTransactionIfNecessary()
-        return addChange(change).invoke()
-    }
-
     override fun saveEntity(entity: Entity) {
         throw UnsupportedOperationException()
     }
 
-    private fun newLocalCopySafe(entity: TransientEntity?): TransientEntity? {
+    internal fun newLocalCopySafe(entity: TransientEntity?): TransientEntity? {
         if (entity == null) {
             return null
         }
@@ -1262,7 +825,7 @@ class TransientSessionImpl(
 
     private fun addChange(change: () -> Boolean): () -> Boolean {
         if (allowRunnables) {
-            changes.offer(change)
+            entitiesUpdater.addChange(change)
         }
         return change
     }

@@ -21,7 +21,6 @@ import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.StoreTransaction
 
 internal interface SessionQueryMixin : TransientStoreSession {
-    val transactionInternal: StoreTransaction
 
     fun wrap(action: String, entityIterable: EntityIterable): EntityIterable
 

@@ -33,7 +33,7 @@ internal object TransientEntityStoreExt {
 
         if (currentSession != null) {
             if (isNew) {
-                currentPersistentSession = currentSession.oStoreTransaction
+                currentPersistentSession = currentSession.transactionInternal as OStoreTransaction
                 currentPersistentSession.deactivateOnCurrentThread()
                 store.suspendThreadSession()
                 sessionSuspended = true
