@@ -18,12 +18,11 @@ package kotlinx.dnq
 import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.query.first
 import kotlinx.dnq.util.getSafe
-import org.junit.Ignore
 import org.junit.Test
 
 class GetSafeTest : DBTest() {
 
-    @Ignore
+
     @Test
     fun `getSafe should return null for undefined properties`() {
         store.transactional {
@@ -47,7 +46,6 @@ class GetSafeTest : DBTest() {
     }
 
 
-    @Ignore
     @Test
     fun `getSafe should return null for undefined link`() {
         store.transactional {

@@ -17,6 +17,7 @@ package kotlinx.dnq.events
 
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
+import kotlinx.dnq.link.OnDeletePolicy
 
 open class Bar(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<Bar>()
@@ -33,7 +34,7 @@ class Foo(entity: Entity) : XdEntity(entity) {
 class Goo(entity: Entity) : XdEntity(entity) {
     companion object : XdNaturalEntityType<Goo>()
 
-    val content by xdLink0_N(Foo)
+    val content by xdLink0_N(Foo, onDelete = OnDeletePolicy.CLEAR)
 }
 
 open class ExtraBar(entity: Entity) : Bar(entity) {
