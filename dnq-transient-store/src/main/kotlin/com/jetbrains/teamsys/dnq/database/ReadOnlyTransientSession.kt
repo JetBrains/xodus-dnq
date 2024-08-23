@@ -132,10 +132,6 @@ class ReadOnlyTransientSession(
 
     override fun getQueryCancellingPolicy(): QueryCancellingPolicy? = transactionInternal.queryCancellingPolicy
 
-    override fun getEnvironmentTransaction(): Transaction {
-        return transactionInternal.environmentTransaction
-    }
-
     override val entitiesUpdater = ReadonlyTransientEntitiesUpdater()
 
 }

@@ -133,7 +133,8 @@ class TransientSessionImpl(
         if (readonly) {
             readonly = false
             val persistentStore = persistentStore
-            if (!persistentStore.environment.environmentConfig.envIsReadonly) {
+            //TODO this check was targeted to envConfig
+            if (persistentStore.currentTransaction?.isReadonly != true) {
                 upgradeHook?.run()
 //                persistentStore.registerTransaction(newTxn)
                 changesTracker = this.transientChangesTracker.upgrade()
@@ -335,10 +336,6 @@ class TransientSessionImpl(
         comparator: Comparator<Comparable<Any>>
     ): EntityIterable {
         return transactionInternal.mergeSorted(sorted, valueGetter, comparator)
-    }
-
-    override fun getEnvironmentTransaction(): Transaction {
-        return transactionInternal.environmentTransaction
     }
 
     override fun toEntityId(representation: String): EntityId {

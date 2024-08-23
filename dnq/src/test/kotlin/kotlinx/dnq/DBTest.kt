@@ -185,10 +185,7 @@ abstract class DBTest {
                 eventsMultiplexer.removeListener(it.first.entity, it.second.asEntityListener())
             }
         }
-        with(store) {
-            close()
-            persistentStore.environment.close()
-        }
+        store.close()
     }
 
     protected fun createAsyncProcessor(): JobProcessor {

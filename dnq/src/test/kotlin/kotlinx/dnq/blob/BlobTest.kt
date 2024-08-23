@@ -20,9 +20,7 @@ import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.query.ne
 import kotlinx.dnq.query.query
-import org.junit.Ignore
 import org.junit.Test
-@Ignore
 class BlobTest : DBTest() {
 
     class User(entity: Entity) : XdEntity(entity) {
@@ -76,7 +74,7 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun textReplay() {
         store.persistentStore.config.maxInPlaceBlobSize = 0
 
@@ -91,7 +89,7 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun embeddedTextReplay() {
         val user = transactional {
             transactional(isNew = true) { User.new() }
@@ -104,7 +102,7 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun blobReplay() {
         store.persistentStore.config.maxInPlaceBlobSize = 0
 
@@ -121,7 +119,7 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun embeddedBlobReplay() {
         val user = transactional {
             transactional(isNew = true) { User.new() }

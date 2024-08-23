@@ -77,36 +77,36 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     modelMetaData.prepare()
 
     // JT-57205: we should be able to start in read-only mode
-    if (!entityStore.persistentStore.environment.environmentConfig.envIsReadonly) {
-        entityStore.transactional { txn ->
-            naturalNodes.values.asSequence().map {
-                it.entityType
-            }.filterIsInstance<XdEnumEntityType<*>>().forEach {
-                it.initEnumValues(txn)
-            }
+    // TODO here should be readonly check
+    entityStore.transactional { txn ->
+        naturalNodes.values.asSequence().map {
+            it.entityType
+        }.filterIsInstance<XdEnumEntityType<*>>().forEach {
+            it.initEnumValues(txn)
+        }
 
-            naturalNodes.values.asSequence().map {
-                it.entityType
-            }.filterIsInstance<XdNaturalEntityType<*>>().forEach {
-                it.initEntityType()
-            }
+        naturalNodes.values.asSequence().map {
+            it.entityType
+        }.filterIsInstance<XdNaturalEntityType<*>>().forEach {
+            it.initEntityType()
+        }
 
-            naturalNodes.values.asSequence().map {
-                it.entityType
-            }.filterIsInstance<XdSingletonEntityType<*>>().forEach {
-                it.get()
-            }
+        naturalNodes.values.asSequence().map {
+            it.entityType
+        }.filterIsInstance<XdSingletonEntityType<*>>().forEach {
+            it.get()
         }
     }
+
 }
 
 
 private fun TransientEntityStore.registerCustomTypes(node: XdHierarchyNode) {
     node.getAllProperties()
-            .map { it.delegate }
-            .filterIsInstance<XdCustomTypeProperty<*>>()
-            .mapNotNull { it.binding }
-            .forEach { it.register(this) }
+        .map { it.delegate }
+        .filterIsInstance<XdCustomTypeProperty<*>>()
+        .mapNotNull { it.binding }
+        .forEach { it.register(this) }
 }
 
 private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: XdHierarchyNode) {
@@ -120,15 +120,20 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
                     is Class<*> -> propertyJavaType.simpleName to null
                     is ParameterizedType ->
                         (propertyJavaType.rawType as Class<*>).simpleName to
-                                (propertyJavaType.actualTypeArguments.map { argType -> argType.typeName.substringAfterLast(".").lowercase() })
+                                (propertyJavaType.actualTypeArguments.map { argType ->
+                                    argType.typeName.substringAfterLast(
+                                        "."
+                                    ).lowercase()
+                                })
+
                     else -> throw IllegalArgumentException("Cannot identify simple property type name")
                 }
             }
 
             SimplePropertyMetaDataImpl(
-                    it.dbPropertyName,
-                    simpleTypeName,
-                    typeParameters
+                it.dbPropertyName,
+                simpleTypeName,
+                typeParameters
             ).apply {
                 type = it.delegate.propertyType
             }
@@ -167,21 +172,22 @@ private fun XdHierarchyNode.getCompositeIndices(): Sequence<IndexImpl> {
     val entityType = this.entityType
     return when (entityType) {
         is XdNaturalEntityType<*> -> entityType.compositeIndices
-                .asSequence()
-                .map { index ->
-                    IndexImpl().also {
-                        it.ownerEntityType = entityType.entityType
-                        it.fields = index.map {
-                            val metaProperty = resolveMetaProperty(it)
-                                    ?: throw IllegalArgumentException("Cannot build composite index by property ${entityType.entityType}::${it.name}")
+            .asSequence()
+            .map { index ->
+                IndexImpl().also {
+                    it.ownerEntityType = entityType.entityType
+                    it.fields = index.map {
+                        val metaProperty = resolveMetaProperty(it)
+                            ?: throw IllegalArgumentException("Cannot build composite index by property ${entityType.entityType}::${it.name}")
 
-                            IndexFieldImpl().also {
-                                it.name = metaProperty.dbPropertyName
-                                it.isProperty = metaProperty is XdHierarchyNode.SimpleProperty
-                            }
+                        IndexFieldImpl().also {
+                            it.name = metaProperty.dbPropertyName
+                            it.isProperty = metaProperty is XdHierarchyNode.SimpleProperty
                         }
                     }
                 }
+            }
+
         else -> emptySequence()
     }
 }
@@ -194,15 +200,49 @@ fun XdHierarchyNode.getAllLinks(): Sequence<XdHierarchyNode.LinkProperty> {
     return (parentNode?.getAllLinks() ?: emptySequence()) + linkProperties.values
 }
 
-private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchyNode>, entityTypeName: String, sourceEnd: XdHierarchyNode.LinkProperty, sourceNode: XdHierarchyNode) {
+private fun ModelMetaDataImpl.addLinkMetaData(
+    hierarchy: Map<String, XdHierarchyNode>,
+    entityTypeName: String,
+    sourceEnd: XdHierarchyNode.LinkProperty,
+    sourceNode: XdHierarchyNode
+) {
     val oppositeEntityType = sourceEnd.delegate.oppositeEntityType
 
     when (sourceEnd.delegate.endType) {
         AssociationEndType.DirectedAssociationEnd -> {
             addLink(
+                sourceEntityName = entityTypeName,
+                targetEntityName = oppositeEntityType.entityType,
+                type = AssociationType.Directed,
+
+                sourceName = sourceEnd.dbPropertyName,
+                sourceCardinality = sourceEnd.delegate.cardinality,
+                sourceCascadeDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                sourceClearOnDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                sourceTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                sourceTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
+
+                targetName = null,
+                targetCardinality = null,
+                targetCascadeDelete = false,
+                targetClearOnDelete = false,
+                targetTargetCascadeDelete = false,
+                targetTargetClearOnDelete = false
+            )
+        }
+
+        AssociationEndType.UndirectedAssociationEnd -> {
+            val targetEnd = getTargetEnd(hierarchy, sourceEnd.delegate)
+            val targetEntityType = oppositeEntityType.entityType
+            val sourceEntityType = sourceNode.entityType
+            if (targetEnd != null && (entityTypeName < targetEntityType ||
+                        (entityTypeName == targetEntityType && sourceEnd.dbPropertyName <= targetEnd.dbPropertyName) ||
+                        (oppositeEntityType !is XdNaturalEntityType && sourceEntityType is XdNaturalEntityType))
+            ) {
+                addLink(
                     sourceEntityName = entityTypeName,
                     targetEntityName = oppositeEntityType.entityType,
-                    type = AssociationType.Directed,
+                    type = AssociationType.Undirected,
 
                     sourceName = sourceEnd.dbPropertyName,
                     sourceCardinality = sourceEnd.delegate.cardinality,
@@ -211,89 +251,67 @@ private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchy
                     sourceTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
                     sourceTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
 
-                    targetName = null,
-                    targetCardinality = null,
-                    targetCascadeDelete = false,
-                    targetClearOnDelete = false,
-                    targetTargetCascadeDelete = false,
-                    targetTargetClearOnDelete = false)
-        }
-        AssociationEndType.UndirectedAssociationEnd -> {
-            val targetEnd = getTargetEnd(hierarchy, sourceEnd.delegate)
-            val targetEntityType = oppositeEntityType.entityType
-            val sourceEntityType = sourceNode.entityType
-            if (targetEnd != null && (entityTypeName < targetEntityType ||
-                            (entityTypeName == targetEntityType && sourceEnd.dbPropertyName <= targetEnd.dbPropertyName) ||
-                            (oppositeEntityType !is XdNaturalEntityType && sourceEntityType is XdNaturalEntityType))
-            ) {
-                addLink(
-                        sourceEntityName = entityTypeName,
-                        targetEntityName = oppositeEntityType.entityType,
-                        type = AssociationType.Undirected,
-
-                        sourceName = sourceEnd.dbPropertyName,
-                        sourceCardinality = sourceEnd.delegate.cardinality,
-                        sourceCascadeDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
-                        sourceClearOnDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
-                        sourceTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
-                        sourceTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
-
-                        targetName = targetEnd.dbPropertyName,
-                        targetCardinality = targetEnd.delegate.cardinality,
-                        targetCascadeDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
-                        targetClearOnDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
-                        targetTargetCascadeDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
-                        targetTargetClearOnDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR)
+                    targetName = targetEnd.dbPropertyName,
+                    targetCardinality = targetEnd.delegate.cardinality,
+                    targetCascadeDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                    targetClearOnDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                    targetTargetCascadeDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                    targetTargetClearOnDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR
+                )
             }
         }
+
         AssociationEndType.ParentEnd -> {
             val targetEnd = getTargetEnd(hierarchy, sourceEnd.delegate)
             if (targetEnd != null) {
                 addLink(
-                        sourceEntityName = entityTypeName,
-                        targetEntityName = oppositeEntityType.entityType,
-                        type = AssociationType.Aggregation,
+                    sourceEntityName = entityTypeName,
+                    targetEntityName = oppositeEntityType.entityType,
+                    type = AssociationType.Aggregation,
 
-                        sourceName = sourceEnd.dbPropertyName,
-                        sourceCardinality = sourceEnd.delegate.cardinality,
-                        sourceCascadeDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
-                        sourceClearOnDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
-                        sourceTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
-                        sourceTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
+                    sourceName = sourceEnd.dbPropertyName,
+                    sourceCardinality = sourceEnd.delegate.cardinality,
+                    sourceCascadeDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                    sourceClearOnDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                    sourceTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                    sourceTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
 
-                        targetName = targetEnd.dbPropertyName,
-                        targetCardinality = targetEnd.delegate.cardinality,
-                        targetCascadeDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
-                        targetClearOnDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
-                        targetTargetCascadeDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
-                        targetTargetClearOnDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR)
+                    targetName = targetEnd.dbPropertyName,
+                    targetCardinality = targetEnd.delegate.cardinality,
+                    targetCascadeDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                    targetClearOnDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                    targetTargetCascadeDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                    targetTargetClearOnDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR
+                )
             }
 
         }
+
         AssociationEndType.ChildEnd -> { // only add when natural child has a legacy parent
             val targetEnd = getTargetEnd(hierarchy, sourceEnd.delegate)
             if (targetEnd != null && sourceNode.entityType is XdNaturalEntityType) {
                 val oppositeType = hierarchy[oppositeEntityType.entityType]?.entityType
                 if (oppositeType != null && oppositeType !is XdNaturalEntityType) {
                     addLink(
-                            sourceEntityName = oppositeEntityType.entityType,
-                            targetEntityName = entityTypeName,
-                            type = AssociationType.Aggregation,
+                        sourceEntityName = oppositeEntityType.entityType,
+                        targetEntityName = entityTypeName,
+                        type = AssociationType.Aggregation,
 
 
-                            sourceName = targetEnd.dbPropertyName,
-                            sourceCardinality = targetEnd.delegate.cardinality,
-                            sourceCascadeDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
-                            sourceClearOnDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
-                            sourceTargetCascadeDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
-                            sourceTargetClearOnDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
+                        sourceName = targetEnd.dbPropertyName,
+                        sourceCardinality = targetEnd.delegate.cardinality,
+                        sourceCascadeDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                        sourceClearOnDelete = targetEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                        sourceTargetCascadeDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                        sourceTargetClearOnDelete = targetEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR,
 
-                            targetName = sourceEnd.dbPropertyName,
-                            targetCardinality = sourceEnd.delegate.cardinality,
-                            targetCascadeDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
-                            targetClearOnDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
-                            targetTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
-                            targetTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR)
+                        targetName = sourceEnd.dbPropertyName,
+                        targetCardinality = sourceEnd.delegate.cardinality,
+                        targetCascadeDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CASCADE,
+                        targetClearOnDelete = sourceEnd.delegate.onDelete == OnDeletePolicy.CLEAR,
+                        targetTargetCascadeDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CASCADE,
+                        targetTargetClearOnDelete = sourceEnd.delegate.onTargetDelete == OnDeletePolicy.CLEAR
+                    )
                 }
             }
         }
@@ -301,29 +319,35 @@ private fun ModelMetaDataImpl.addLinkMetaData(hierarchy: Map<String, XdHierarchy
 }
 
 fun getPropertyConstraints(property: XdConstrainedProperty<*, *>) =
-        ((property as? XdWrappedProperty<*, *, *>)?.wrapped ?: property).constraints
+    ((property as? XdWrappedProperty<*, *, *>)?.wrapped ?: property).constraints
 
 fun ModelMetaDataImpl.addLink(
-        sourceEntityName: String, targetEntityName: String, type: AssociationType,
+    sourceEntityName: String, targetEntityName: String, type: AssociationType,
 
-        sourceName: String, sourceCardinality: AssociationEndCardinality,
-        sourceCascadeDelete: Boolean, sourceClearOnDelete: Boolean,
-        sourceTargetCascadeDelete: Boolean, sourceTargetClearOnDelete: Boolean,
+    sourceName: String, sourceCardinality: AssociationEndCardinality,
+    sourceCascadeDelete: Boolean, sourceClearOnDelete: Boolean,
+    sourceTargetCascadeDelete: Boolean, sourceTargetClearOnDelete: Boolean,
 
-        targetName: String?, targetCardinality: AssociationEndCardinality?,
-        targetCascadeDelete: Boolean, targetClearOnDelete: Boolean,
-        targetTargetCascadeDelete: Boolean, targetTargetClearOnDelete: Boolean): AssociationMetaData =
-        addAssociation(sourceEntityName, targetEntityName, type,
+    targetName: String?, targetCardinality: AssociationEndCardinality?,
+    targetCascadeDelete: Boolean, targetClearOnDelete: Boolean,
+    targetTargetCascadeDelete: Boolean, targetTargetClearOnDelete: Boolean
+): AssociationMetaData =
+    addAssociation(
+        sourceEntityName, targetEntityName, type,
 
-                sourceName, sourceCardinality,
-                sourceCascadeDelete, sourceClearOnDelete,
-                sourceTargetCascadeDelete, sourceTargetClearOnDelete,
+        sourceName, sourceCardinality,
+        sourceCascadeDelete, sourceClearOnDelete,
+        sourceTargetCascadeDelete, sourceTargetClearOnDelete,
 
-                targetName, targetCardinality,
-                targetCascadeDelete, targetClearOnDelete,
-                targetTargetCascadeDelete, targetTargetClearOnDelete)
+        targetName, targetCardinality,
+        targetCascadeDelete, targetClearOnDelete,
+        targetTargetCascadeDelete, targetTargetClearOnDelete
+    )
 
-private fun getTargetEnd(hierarchy: Map<String, XdHierarchyNode>, sourceProperty: XdLink<*, *>): XdHierarchyNode.LinkProperty? {
+private fun getTargetEnd(
+    hierarchy: Map<String, XdHierarchyNode>,
+    sourceProperty: XdLink<*, *>
+): XdHierarchyNode.LinkProperty? {
     return hierarchy[sourceProperty.oppositeEntityType.entityType]?.linkProperties?.values?.firstOrNull {
         it.property.name == sourceProperty.oppositeField?.name
     }
