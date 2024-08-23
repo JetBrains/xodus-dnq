@@ -18,7 +18,6 @@ package kotlinx.dnq.delete
 import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
-import org.junit.Ignore
 import org.junit.Test
 
 class IsRemovedTest : DBTest() {
@@ -28,7 +27,7 @@ class IsRemovedTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun isRemoved() {
         val foo2 = store.transactional { txn ->
             val foo = Foo.new()
