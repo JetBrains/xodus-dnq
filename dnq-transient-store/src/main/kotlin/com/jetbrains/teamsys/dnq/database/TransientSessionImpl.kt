@@ -248,12 +248,13 @@ class TransientSessionImpl(
                     replayChanges()
                 }
                 if (exception is ORecordDuplicatedException) {
-                    val fieldName = exception.indexName.substringAfter("_").substringBefore("_unique")
-                    val cause = SimplePropertyValidationException(
-                        "Not unique value",
-                        exception.message ?: "Not unique value: ${exception.key}",
-                        null,
-                        fieldName
+                    val (fieldName, target) = exception.indexName.substringAfter("_").substringBefore("_targetEntityId_unique").split("_")
+                    val typeName = exception.indexName.substringBefore("_")
+                    val detailMessage = exception.message
+                    val cause = UniqueIndexViolationException(
+                        typeName,
+                        fieldName,
+                        detailMessage?:""
                     )
                     throw ConstraintsValidationException(cause)
                 }
