@@ -20,7 +20,6 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
-import org.junit.Ignore
 import org.junit.Test
 
 class OrphansAutoRemoveTest : DBTest() {
@@ -59,8 +58,7 @@ class OrphansAutoRemoveTest : DBTest() {
     }
 
     @Test
-    @Ignore
-    fun orphanWithoutChildrenAutoremove() {
+    fun orphanWithoutChildrenAutoRemove() {
         transactional {
             Cell.new()
         }
@@ -70,8 +68,7 @@ class OrphansAutoRemoveTest : DBTest() {
     }
 
     @Test
-    @Ignore
-    fun orphanWithChildrenAutoremoveCascade() {
+    fun orphanWithChildrenAutoRemoveCascade() {
         transactional {
             // cell with null parent
             Cell.new {
@@ -87,7 +84,6 @@ class OrphansAutoRemoveTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun linkToOrphanIsCleared() {
         val (d0, d1, d2) = transactional {
             val d1 = D1.new()
