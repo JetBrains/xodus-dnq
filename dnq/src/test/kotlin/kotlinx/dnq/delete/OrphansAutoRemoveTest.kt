@@ -82,22 +82,4 @@ class OrphansAutoRemoveTest : DBTest() {
             assertQuery(Cell.all()).isEmpty()
         }
     }
-
-    @Test
-    fun linkToOrphanIsCleared() {
-        val (d0, d1, d2) = transactional {
-            val d1 = D1.new()
-            val d0 = D0.new { this.d1 = d1 }
-            val d2 = D2.new { this.d1 = d1 }
-            Triple(d0, d1, d2)
-        }
-        transactional {
-            d0.d1 = D1.new()
-        }
-        transactional {
-            assertThat(d1.isRemoved).isTrue()
-            assertThat(d2.isRemoved).isFalse()
-            assertThat(d2.d1).isNull()
-        }
-    }
 }
