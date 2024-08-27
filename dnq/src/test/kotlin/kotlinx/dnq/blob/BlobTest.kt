@@ -74,7 +74,6 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    
     fun textReplay() {
         store.persistentStore.config.maxInPlaceBlobSize = 0
 
@@ -89,7 +88,6 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    
     fun embeddedTextReplay() {
         val user = transactional {
             transactional(isNew = true) { User.new() }
@@ -102,7 +100,6 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    
     fun blobReplay() {
         store.persistentStore.config.maxInPlaceBlobSize = 0
 
