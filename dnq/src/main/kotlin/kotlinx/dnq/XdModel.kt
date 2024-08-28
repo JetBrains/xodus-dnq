@@ -33,6 +33,7 @@ import org.reflections.util.ConfigurationBuilder
 import java.io.File
 import java.net.URL
 import javax.servlet.ServletContext
+import kotlin.reflect.KProperty1
 import kotlin.reflect.full.extensionReceiverParameter
 import kotlin.reflect.full.getExtensionDelegate
 import kotlin.reflect.jvm.isAccessible
@@ -46,13 +47,13 @@ object XdModel : KLogging() {
     private val scannedLocations = HashSet<String>()
 
     var singletonEntitiesCache: XdSingletonEntitiesCache = SingletonEntitiesCacheImpl(
-            System.getProperty("kotlinx.dnq.model.singletonEntitiesCache", "200").toInt()
+        System.getProperty("kotlinx.dnq.model.singletonEntitiesCache", "200").toInt()
     )
 
     val hierarchy = HashMap<String, XdHierarchyNode>()
     internal val plugins = ArrayList<XdModelPlugin>()
     private val toXdCache: LongObjectCacheBase<ToXdCachedValue> =
-            SoftConcurrentLongObjectCache(System.getProperty("kotlinx.dnq.model.toXdCacheSize", "10000").toInt())
+        SoftConcurrentLongObjectCache(System.getProperty("kotlinx.dnq.model.toXdCacheSize", "10000").toInt())
 
     operator fun get(entityType: XdEntityType<*>) = get(entityType.entityType)
 
@@ -112,27 +113,42 @@ object XdModel : KLogging() {
 
     private fun installPlugin(plugin: XdModelPlugin) {
         plugins.add(plugin)
-        plugin.typeExtensions.forEach {
+        plugin.typeExtensions.forEach { prop ->
             val delegate = try {
-                it.isAccessible = true
-                it.getExtensionDelegate()
+                prop.isAccessible = true
+                prop.getExtensionDelegate()
             } catch (e: Throwable) {
-                logger.warn(e) { "can't get extension delegate of '$it'" }
+                logger.warn(e) { "can't get extension delegate of '$prop'" }
                 null
             }
             delegate
-                    ?: throw UnsupportedOperationException("Property $it cannot be registered because it is not extension property. " +
-                            "Not extension properties are registered based on XdEntities fields")
-            val receiverClass = it.extensionReceiverParameter?.type?.jvmErasure?.java
-            if (receiverClass != null && XdEntity::class.java.isAssignableFrom(receiverClass)) {
+                ?: throw UnsupportedOperationException(
+                    "Property $prop cannot be registered because it is not extension property. " +
+                            "Not extension properties are registered based on XdEntities fields"
+                )
+            val receiverClass = prop.extensionReceiverParameter?.type?.jvmErasure?.java
+            if (receiverClass == XdEntity::class.java) {
+                // register for all entities
+                hierarchy.values.forEach {
+                    registerProperty(it, prop, delegate)
+                }
+            } else if (receiverClass != null && XdEntity::class.java.isAssignableFrom(receiverClass)) {
                 @Suppress("UNCHECKED_CAST")
                 val entityType = (receiverClass as Class<XdEntity>).entityType
-                get(entityType)?.process(it, delegate)
-                        ?: throw UnsupportedOperationException("Property $it cannot be registered because of unknown delegate")
+                registerProperty(get(entityType), prop, delegate)
             } else {
-                throw UnsupportedOperationException("Property $it cannot be registered because receiver of incorrect receiver class $receiverClass")
+                throw UnsupportedOperationException("Property $prop cannot be registered because receiver of incorrect receiver class $receiverClass")
             }
         }
+    }
+
+    private fun registerProperty(
+        it: XdHierarchyNode?,
+        prop: KProperty1<out XdEntity, *>,
+        delegate: Any
+    ) {
+        it?.process(prop, delegate)
+            ?: throw UnsupportedOperationException("Property $prop cannot be registered because of unknown delegate")
     }
 
 
@@ -170,7 +186,7 @@ object XdModel : KLogging() {
         }
 
         val entityConstructor = xdHierarchyNode.entityConstructor
-                ?: throw UnsupportedOperationException("Constructor for the type ${entity.type} is not found")
+            ?: throw UnsupportedOperationException("Constructor for the type ${entity.type} is not found")
 
         return entityConstructor(entity).asCached as T
 
@@ -203,7 +219,8 @@ object XdModel : KLogging() {
             return this
         }
 
-    private val TransientEntityImpl.cacheKey get() = (store.persistentStore.hashCode() shl 32) + persistentEntity.hashCode().toLong()
+    private val TransientEntityImpl.cacheKey
+        get() = (store.persistentStore.hashCode() shl 32) + persistentEntity.hashCode().toLong()
 
     private class ToXdCachedValue(val entity: TransientEntityImpl, val xdEntity: XdEntity)
 }
