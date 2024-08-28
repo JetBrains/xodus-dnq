@@ -639,7 +639,9 @@ class TransientSessionImpl(
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
         val blobHolder = oVertex.getPropertyOnLoadValue<ORecordBytes?>(blobName)
-        return ByteArrayInputStream(blobHolder.toStream())
+        return blobHolder?.let {
+            ByteArrayInputStream(blobHolder.toStream())
+        }
     }
 
     private fun getOriginalLinkValue(e: TransientEntity, linkName: String): Comparable<*>? {
