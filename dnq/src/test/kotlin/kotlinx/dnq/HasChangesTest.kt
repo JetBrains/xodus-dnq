@@ -84,7 +84,6 @@ class HasChangesTest(
         }
     }
 
-    @Ignore
     @Test
     fun checkStringValue1Value2Value1MakesNoChanges() {
         transactional { txn ->

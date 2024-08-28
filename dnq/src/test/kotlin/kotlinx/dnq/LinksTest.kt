@@ -102,7 +102,7 @@ class LinksTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun `getRemovedLinks should return removed links`() {
         val user = store.transactional {
             User.new {

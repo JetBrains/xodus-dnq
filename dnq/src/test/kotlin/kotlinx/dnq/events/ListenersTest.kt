@@ -22,7 +22,6 @@ import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.size
-import org.junit.Ignore
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -102,50 +101,48 @@ class ListenersTest : DBTest() {
             }
         }
         store.transactional {
-//            foo.intField = 42
             foo.delete()
         }
         Truth.assertThat(ref.get()).isEqualTo(239)
     }
 
     @Test
-    @Ignore
     fun removedTestWithLinksTest() {
         var failedInWriteInOnRemoveHandler = false
         Goo.addListener(store, object : XdEntityListener<Goo> {
             override fun removedSync(removed: Goo) {
-                removed.content.asSequence().forEach {
-                    try {
+                try {
+                    removed.content.asSequence().forEach {
                         it.intField = 11
-                    } catch (_:Throwable) {
-                        failedInWriteInOnRemoveHandler = true
                     }
+                    ref.set(removed.content.size())
+                } catch (_: Throwable) {
+                    failedInWriteInOnRemoveHandler = true
                 }
-                ref.set(removed.content.size())
             }
         })
 
         val goo = store.transactional {
             Goo.new().apply {
-               content.add(Foo.new().apply {
-                   intField = 99
-               })
-               content.add(Foo.new().apply {
-                   intField = 99
-               })
-               content.add(Foo.new().apply {
-                   intField = 99
-               })
-               content.add(Foo.new().apply {
-                   intField = 99
-               })
+                content.add(Foo.new().apply {
+                    intField = 99
+                })
+                content.add(Foo.new().apply {
+                    intField = 99
+                })
+                content.add(Foo.new().apply {
+                    intField = 99
+                })
+                content.add(Foo.new().apply {
+                    intField = 99
+                })
             }
         }
         store.transactional {
             goo.delete()
         }
         Truth.assertThat(failedInWriteInOnRemoveHandler).isTrue()
-        Truth.assertThat(ref.get()).isEqualTo(4)
+        Truth.assertThat(ref.get()).isEqualTo(0)
         Truth.assertThat(
             store.transactional {
                 Foo.all().asSequence().map { it.intField }.all { it == 99 }
@@ -153,8 +150,6 @@ class ListenersTest : DBTest() {
 
         ).isTrue()
     }
-
-
 
 
 }

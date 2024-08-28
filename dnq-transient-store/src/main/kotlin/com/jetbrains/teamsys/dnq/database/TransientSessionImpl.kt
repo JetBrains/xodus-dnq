@@ -248,12 +248,13 @@ class TransientSessionImpl(
                     replayChanges()
                 }
                 if (exception is ORecordDuplicatedException) {
-                    val fieldName = exception.indexName.substringAfter("_").substringBefore("_unique")
-                    val cause = SimplePropertyValidationException(
-                        "Not unique value",
-                        exception.message ?: "Not unique value: ${exception.key}",
-                        null,
-                        fieldName
+                    val (fieldName, target) = exception.indexName.substringAfter("_").substringBefore("_targetEntityId_unique").split("_")
+                    val typeName = exception.indexName.substringBefore("_")
+                    val detailMessage = exception.message
+                    val cause = UniqueIndexViolationException(
+                        typeName,
+                        fieldName,
+                        detailMessage?:""
                     )
                     throw ConstraintsValidationException(cause)
                 }
@@ -638,7 +639,9 @@ class TransientSessionImpl(
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
         val blobHolder = oVertex.getPropertyOnLoadValue<ORecordBytes?>(blobName)
-        return ByteArrayInputStream(blobHolder.toStream())
+        return blobHolder?.let {
+            ByteArrayInputStream(blobHolder.toStream())
+        }
     }
 
     private fun getOriginalLinkValue(e: TransientEntity, linkName: String): Comparable<*>? {
@@ -724,10 +727,18 @@ class TransientSessionImpl(
     }
 
     private fun newEntityImpl(persistent: Entity): TransientEntity {
-        return if (persistent is OReadonlyVertexEntity) {
-            ReadonlyTransientEntityImpl(persistent, store)
-        } else {
-            TransientEntityImpl(persistent as OEntity, getStore())
+        return when (persistent) {
+            is OReadonlyVertexEntity -> {
+                ReadonlyTransientEntityImpl(persistent, store)
+            }
+
+            is TransientEntity -> {
+                persistent
+            }
+
+            else -> {
+                TransientEntityImpl(persistent as OEntity, getStore())
+            }
         }
     }
 

@@ -117,7 +117,6 @@ class AssociationSimpleTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun test4() {
         val m = transactional {
             MyThing3.new {
@@ -133,7 +132,6 @@ class AssociationSimpleTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun test_WD_2065_1() {
         val (t1, t2) = transactional {
             Pair(MyThing3.new(), MyThing3.new())

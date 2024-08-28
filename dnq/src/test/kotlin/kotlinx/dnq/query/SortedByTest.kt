@@ -74,7 +74,7 @@ class SortedByTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun `sort by property of a link ascending`() {
         transactional {
             assertQuery(User.all().sortedBy(User::badge, Badge::name, asc = true))
@@ -84,7 +84,7 @@ class SortedByTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun `sort by property of a link descending`() {
         transactional {
             assertQuery(User.all().sortedBy(User::badge, Badge::name, asc = false))

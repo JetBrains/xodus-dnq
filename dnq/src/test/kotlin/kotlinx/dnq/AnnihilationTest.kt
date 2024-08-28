@@ -94,7 +94,7 @@ class AnnihilationTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun deleteAnnihilation() {
         val entity = transactional { Source.new() }
         val b = transactional { Target.new { name = "b" } }
@@ -151,7 +151,7 @@ class AnnihilationTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun removedAnnihilation() {
         val entity = transactional { Source.new() }
         val b = transactional { Target.new { name = "b" } }
@@ -173,7 +173,7 @@ class AnnihilationTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun multipleLinkTotalAnnihilation() {
         val entity = transactional { Source.new() }
         val a = transactional { Target.new { name = "a" } }

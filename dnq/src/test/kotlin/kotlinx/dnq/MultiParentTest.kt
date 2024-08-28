@@ -43,7 +43,7 @@ class MultiParentTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun changeParent() {
         val (message, messageContent) = transactional {
             val message = Message.new()

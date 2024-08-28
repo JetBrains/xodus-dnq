@@ -74,7 +74,6 @@ class ReadonlyTransactionsTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `WD-2051 Nested transactional block is still read only`() {
         transactional(readonly = true) {
             transactional {

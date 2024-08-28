@@ -15,7 +15,6 @@
  */
 package kotlinx.dnq.events
 
-import jetbrains.exodus.core.execution.JobProcessor
 import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel

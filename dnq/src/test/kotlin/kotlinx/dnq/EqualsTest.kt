@@ -31,7 +31,6 @@ class EqualsTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun equalsSymmetry() {
         transactional {
             val a1 = A.new()

@@ -48,7 +48,6 @@ class CascadeChildTreeDeletionTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun descendingDeleteion() {
         val b = transactional {
             val a = A1.new()

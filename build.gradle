@@ -1,6 +1,6 @@
 buildscript {
     ext.kotlin_version = '1.8.10'
-    ext.exodus_version = '9.9.74'
+    ext.exodus_version = '9.9.83'
     ext.dokka_version = '1.7.20'
     ext.log4j_version = '2.17.1'
     ext.google_truth_version = '1.4.2'
@@ -58,6 +58,7 @@ subprojects {
     apply plugin: 'org.jetbrains.dokka'
 
     java {
+        withSourcesJar()
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(17))
         }
@@ -109,21 +110,29 @@ subprojects {
             }
         }
     }
-
-    tasks.register('sourceJar', Jar) {
-        archiveClassifier = 'sources'
-        duplicatesStrategy 'exclude'
-        includeEmptyDirs false
-        from project.sourceSets.main.java
-        from project.sourceSets.main.kotlin
-    }
-
     // this is a stub javadoc until we investigate and fix the following docklet error somehow:
     // java.lang.ClassCastException: com.sun.tools.javac.code.Type$AnnotatedType cannot be cast to com.sun.tools.javac.code.Type$ClassType
     task javadocJar(type: Jar) {
         archiveClassifier = 'javadoc'
         from "${rootProject.projectDir}/README.MD"
     }
+
+    tasks.withType(Test) {
+        testLogging.showStandardStreams = true
+
+        // Enables heap dumps
+        jvmArgs = [
+                '-XX:+HeapDumpOnOutOfMemoryError',       // Generates a heap dump upon out-of-memory errors
+                '-XX:HeapDumpPath=build/heapdumps'       // Specifies the directory for the heap dumps
+        ]
+
+        // Ensure heapdump directory exists
+        doFirst {
+            file("$buildDir/heapdumps").mkdirs()
+        }
+    }
 }
+
+
 
 apply from: 'publishing.gradle'

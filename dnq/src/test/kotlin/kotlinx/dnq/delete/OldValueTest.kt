@@ -24,7 +24,6 @@ import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.util.getDBName
 import kotlinx.dnq.util.getOldValue
-import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.fail
 
@@ -37,7 +36,6 @@ class OldValueTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun oldValueOnChange() {
         val (user, role1, role2) = store.transactional {
             val user = RUser.new(name)
@@ -75,7 +73,6 @@ class OldValueTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun oldValueOnDelete() {
         val user = store.transactional {
             RUser.new(name).apply {

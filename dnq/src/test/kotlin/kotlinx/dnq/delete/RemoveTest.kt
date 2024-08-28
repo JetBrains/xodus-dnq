@@ -22,7 +22,6 @@ import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.*
-import org.junit.Ignore
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -33,7 +32,6 @@ class RemoveTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun removeFromAll() {
         this.store.transactional {
             val user = RUser.new("user").apply {
@@ -90,7 +88,6 @@ class RemoveTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun removeFromMultipleAggregation() {
         this.store.transactional {
             val issue = RIssue.new()
@@ -121,7 +118,6 @@ class RemoveTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun removeChild() {
         val part = store.transactional {
             val issue = RIssue.new()

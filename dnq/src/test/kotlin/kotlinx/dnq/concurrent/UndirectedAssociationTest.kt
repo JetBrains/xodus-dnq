@@ -20,7 +20,6 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.query.XdMutableQuery
-import org.junit.Ignore
 import org.junit.Test
 
 class UndirectedAssociationTest : DBTest() {
@@ -56,7 +55,6 @@ class UndirectedAssociationTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun setOneToOne() {
         val (pavleg, passport1, passport2) = transactional { txn ->
             val passport1 = Passport.new()
@@ -82,7 +80,6 @@ class UndirectedAssociationTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun createOneToMany() {
         val pavleg = transactional { Citizen.new() }
         val vadeg = transactional { Citizen.new() }
@@ -107,7 +104,6 @@ class UndirectedAssociationTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun clearOneToMany() {
         val vadeg = transactional { Citizen.new() }
         transactional { txn ->
@@ -151,7 +147,6 @@ class UndirectedAssociationTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun clearManyToMany() {
         val vadeg = transactional { Citizen.new() }
 

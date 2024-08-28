@@ -15,30 +15,14 @@
  */
 package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.database.TransientEntity
-import jetbrains.exodus.query.metadata.Index
-
 open class UniqueIndexViolationException(
-        entity: TransientEntity,
-        val index: Index
-) : SimplePropertyValidationException(
-        buildMessage(entity, index),
-        "Value should be unique",
-        entity,
-        index.fields.first().name
-)
+    val type: String,
+    fieldName: String,
+    causeMessage: String
 
-private fun buildMessage(entity: TransientEntity, index: Index) = buildString {
-    append("Index [$index] must be unique. Conflicting value: ")
-    if (index.fields.isNotEmpty()) {
-        index.fields.joinTo(this, ", ", prefix = "[", postfix = "]") { field ->
-            if (field.isProperty) {
-                entity.getProperty(field.name).toString()
-            } else {
-                entity.getLink(field.name).toString()
-            }
-        }
-    } else {
-        append("No accessible value")
-    }
-}
+) : SimplePropertyValidationException(
+    "Unique index violation",
+    causeMessage,
+    null,
+    fieldName
+)

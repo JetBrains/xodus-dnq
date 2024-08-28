@@ -20,7 +20,6 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.query.toList
-import org.junit.Ignore
 import org.junit.Test
 
 class RemovedSavedNewTest : DBTest() {
@@ -31,7 +30,6 @@ class RemovedSavedNewTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun removeIssueInSavedNewState() {
         store.transactional { txn ->
             val i = RIssue.new()
@@ -44,7 +42,6 @@ class RemovedSavedNewTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun clearLinkToEntityInRemovedSavedNewState() {
         val (projectA, assigneeFieldPrototype) = store.transactional { txn ->
             val projectA = RMockProject.new()
