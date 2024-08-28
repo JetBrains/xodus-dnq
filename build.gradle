@@ -44,6 +44,7 @@ allprojects {
     }
 
     java {
+        withSourcesJar()
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(17))
         }
@@ -58,6 +59,7 @@ subprojects {
     apply plugin: 'org.jetbrains.dokka'
 
     java {
+        withSourcesJar()
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(17))
         }
@@ -112,7 +114,7 @@ subprojects {
 
     tasks.register('sourceJar', Jar) {
         archiveClassifier = 'sources'
-        duplicatesStrategy 'exclude'
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         includeEmptyDirs false
         from project.sourceSets.main.java
         from project.sourceSets.main.kotlin
