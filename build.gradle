@@ -44,7 +44,6 @@ allprojects {
     }
 
     java {
-        withSourcesJar()
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(17))
         }
@@ -111,15 +110,6 @@ subprojects {
             }
         }
     }
-
-    tasks.register('sourceJar', Jar) {
-        archiveClassifier = 'sources'
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        includeEmptyDirs false
-        from project.sourceSets.main.java
-        from project.sourceSets.main.kotlin
-    }
-
     // this is a stub javadoc until we investigate and fix the following docklet error somehow:
     // java.lang.ClassCastException: com.sun.tools.javac.code.Type$AnnotatedType cannot be cast to com.sun.tools.javac.code.Type$ClassType
     task javadocJar(type: Jar) {
@@ -127,5 +117,7 @@ subprojects {
         from "${rootProject.projectDir}/README.MD"
     }
 }
+
+
 
 apply from: 'publishing.gradle'

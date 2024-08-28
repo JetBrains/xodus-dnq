@@ -19,10 +19,10 @@ if (project.hasProperty('ossrhUser') && project.hasProperty('ossrhPassword')) {
                 mavenJava(MavenPublication) {
                     from components.java
                     artifact(sourceJar) {
-                        classifier = 'sources'
+                        archiveClassifier = 'sources'
                     }
                     artifact(javadocJar) {
-                        classifier = 'javadoc'
+                        archiveClassifier = 'javadoc'
                     }
                     pom {
                         name = project.name
@@ -90,6 +90,11 @@ if (project.hasProperty("publishTo")) {
     subprojects {
         apply plugin: 'maven-publish'
 
+        java {
+            withSourcesJar()
+            withJavadocJar()
+        }
+
         publishing {
             repositories {
                 maven {
@@ -105,10 +110,6 @@ if (project.hasProperty("publishTo")) {
             publications {
                 mavenJava(MavenPublication) {
                     from components.java
-
-                    artifact sourceJar {
-                        classifier 'sources'
-                    }
                 }
             }
         }
