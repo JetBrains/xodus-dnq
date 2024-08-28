@@ -66,7 +66,6 @@ class SophisticatedTargetDeleteTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun targetDelete() {
         val a = transactional { Issue.new() }
         val b = transactional { Issue.new() }

@@ -60,7 +60,7 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun `sequential creation should return the same entity`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }
@@ -80,7 +80,7 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun `parallel creation should return the same entity`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }
@@ -100,7 +100,7 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun `different parameters should result into different entities`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }
@@ -120,7 +120,7 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun `simple findOrNew`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }

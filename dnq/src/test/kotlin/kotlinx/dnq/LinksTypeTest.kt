@@ -90,7 +90,6 @@ class LinksTypeTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `one to one link type constraint is ok`() {
         store.transactional {
             (root.entity as TransientEntity).setToOne(Root::leaf.getDBName(), SuperLeaf.new {}.entity)

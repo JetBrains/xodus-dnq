@@ -22,6 +22,7 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
+import kotlinx.dnq.TransientEntityLinksFromSetTest.Issue
 import org.junit.Ignore
 import org.junit.Test
 
@@ -33,10 +34,20 @@ class TransientEntityLinksFromSetTest : DBTest() {
 
     override fun registerEntityTypes() {
         XdModel.registerNodes(Issue)
+        XdModel.withPlugins(hupDupPlugin)
     }
 
+
+    val hupDupPlugin = object : XdModelPlugins {
+        override val plugins: List<XdModelPlugin>
+            get() = listOf(object : XdModelPlugin {
+                override val typeExtensions = listOf(Issue::hup, Issue::dup)
+            })
+    }
+
+
     @Test
-    @Ignore
+    @Ignore("fix XD-1118 to unignore")
     fun testAll() {
         val (i1, i2, i3, i4) = transactional { txn ->
             (1..4).map { txn.newEntity("Issue") }
@@ -51,14 +62,14 @@ class TransientEntityLinksFromSetTest : DBTest() {
             DirectedAssociationSemantics.createToMany(i1, "dup", i2)
 
             assertThat(i1.getAddedLinks(names).toNamesAndEntities())
-                    .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
+                .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
             assertThat(i2.getAddedLinks(names).toNamesAndEntities())
-                    .containsExactly("dup" to i3, "dup" to null)
+                .containsExactly("dup" to i3, "dup" to null)
 
             assertThat(i1.readonlyCopy(txn).getAddedLinks(names).toNamesAndEntities())
-                    .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
+                .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
             assertThat(i2.readonlyCopy(txn).getAddedLinks(names).toNamesAndEntities())
-                    .containsExactly("dup" to i3, "dup" to null)
+                .containsExactly("dup" to i3, "dup" to null)
 
             assertThat(AssociationSemantics.getRemovedLinks(i1, names)).isEmpty()
             assertThat(AssociationSemantics.getRemovedLinks(i2, names)).isEmpty()
@@ -66,9 +77,9 @@ class TransientEntityLinksFromSetTest : DBTest() {
 
         transactional {
             assertThat(AssociationSemantics.getToMany(i1, names).toNamesAndEntities())
-                    .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
+                .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
             assertThat(AssociationSemantics.getToMany(i2, names).toNamesAndEntities())
-                    .containsExactly("dup" to i3, "dup" to null)
+                .containsExactly("dup" to i3, "dup" to null)
         }
 
         transactional { txn ->
@@ -78,14 +89,14 @@ class TransientEntityLinksFromSetTest : DBTest() {
             DirectedAssociationSemantics.removeToMany(i2, "dup", i3)
 
             assertThat(AssociationSemantics.getRemovedLinks(i1, names).toNamesAndEntities())
-                    .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
+                .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
             assertThat(AssociationSemantics.getRemovedLinks(i2, names).toNamesAndEntities())
-                    .containsExactly("dup" to i3, "dup" to null)
+                .containsExactly("dup" to i3, "dup" to null)
 
             assertThat(AssociationSemantics.getRemovedLinks(i1.readonlyCopy(txn), names).toNamesAndEntities())
-                    .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
+                .containsExactly("dup" to i2, "hup" to i3, "hup" to i4, "hup" to null)
             assertThat(AssociationSemantics.getRemovedLinks(i2.readonlyCopy(txn), names).toNamesAndEntities())
-                    .containsExactly("dup" to i3, "dup" to null)
+                .containsExactly("dup" to i3, "dup" to null)
 
             assertThat(i1.getAddedLinks(names)).isEmpty()
             assertThat(i2.getAddedLinks(names)).isEmpty()
@@ -101,7 +112,7 @@ class TransientEntityLinksFromSetTest : DBTest() {
     }
 
     private fun TransientEntity.readonlyCopy(txn: TransientStoreSession) =
-            txn.transientChangesTracker.getSnapshotEntity(this)
+        txn.transientChangesTracker.getSnapshotEntity(this)
 
     private fun Iterable<Entity>.toNamesAndEntities(): List<Pair<String, Entity?>> {
         return sequence {
@@ -111,3 +122,7 @@ class TransientEntityLinksFromSetTest : DBTest() {
         }.toList()
     }
 }
+
+val Issue.hup by xdLink0_N(Issue)
+val Issue.dup by xdLink0_N(Issue)
+

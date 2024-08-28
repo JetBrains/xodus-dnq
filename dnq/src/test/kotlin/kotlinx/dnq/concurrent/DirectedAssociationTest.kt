@@ -45,7 +45,7 @@ class DirectedAssociationTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun setToOne() {
         val phone = transactional { txn ->
             val phone = Phone.new()
@@ -91,7 +91,7 @@ class DirectedAssociationTest : DBTest() {
     }
 
     @Test
-    @Ignore
+    
     fun clearToMany() {
         val phone = transactional { txn ->
             val phone = Phone.new()
