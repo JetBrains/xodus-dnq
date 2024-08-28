@@ -725,10 +725,18 @@ class TransientSessionImpl(
     }
 
     private fun newEntityImpl(persistent: Entity): TransientEntity {
-        return if (persistent is OReadonlyVertexEntity) {
-            ReadonlyTransientEntityImpl(persistent, store)
-        } else {
-            TransientEntityImpl(persistent as OEntity, getStore())
+        return when (persistent) {
+            is OReadonlyVertexEntity -> {
+                ReadonlyTransientEntityImpl(persistent, store)
+            }
+
+            is TransientEntity -> {
+                persistent
+            }
+
+            else -> {
+                TransientEntityImpl(persistent as OEntity, getStore())
+            }
         }
     }
 
