@@ -80,5 +80,7 @@ interface TransientStoreSession : StoreTransaction {
 
     fun setUpgradeHook(hook: Runnable?)
 
+    fun getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData
+
 
 }

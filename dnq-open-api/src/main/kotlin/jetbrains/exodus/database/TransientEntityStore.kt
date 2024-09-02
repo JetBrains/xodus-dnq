@@ -39,8 +39,6 @@ interface TransientEntityStore : EntityStore, EntityStoreRefactorings {
 
     val changesMultiplexer: ITransientChangesMultiplexer?
 
-    val invocationTransport: ListenerInvocationTransport?
-
     override fun beginReadonlyTransaction(): TransientStoreSession
 
     fun beginSession(): TransientStoreSession

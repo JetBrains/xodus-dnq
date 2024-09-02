@@ -18,7 +18,7 @@ package jetbrains.exodus.entitystore
 import jetbrains.exodus.core.dataStructures.hash.HashMap
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
-import jetbrains.exodus.entitystore.listeners.ListenerInvocationsImpl
+import jetbrains.exodus.entitystore.orientdb.OEntityId
 import mu.KLogging
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -50,14 +50,14 @@ open class TransientChangesMultiplexer :
         oldChangesTracker: TransientChangesTracker,
         changesDescription: Set<TransientEntityChange>
     ) {
-        this.fire(session.store, Where.SYNC_AFTER_FLUSH, changesDescription)
+        this.fire(session, Where.SYNC_AFTER_FLUSH, changesDescription)
     }
 
     override fun beforeFlushBeforeConstraints(
         session: TransientStoreSession,
         changedEntities: Set<TransientEntityChange>
     ) {
-        this.fire(session.store, Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS, changedEntities)
+        this.fire(session, Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS, changedEntities)
     }
 
     override fun afterConstraintsFail(
@@ -68,16 +68,14 @@ open class TransientChangesMultiplexer :
 
 
     private fun fire(
-        store: TransientEntityStore,
+        session: TransientStoreSession,
         where: Where,
-        changes: Set<TransientEntityChange>,
-        invocations: ListenerInvocationsImpl? = null
+        changes: Set<TransientEntityChange>
     ) {
         changes.forEach {
-            this.handlePerEntityChanges(where, it)
-            this.handlePerEntityTypeChanges(store, where, it)
+            this.handlePerEntityChanges(session, where, it)
+            this.handlePerEntityTypeChanges(session, where, it)
         }
-        invocations?.send()
     }
 
     override fun addListener(e: Entity, listener: IEntityListener<*>) {
@@ -165,13 +163,14 @@ open class TransientChangesMultiplexer :
     }
 
     private fun handlePerEntityChanges(
+        session: TransientStoreSession,
         where: Where,
         c: TransientEntityChange
     ) {
         val e = c.transientEntity
         val id = FullEntityId(e.store, e.id)
         val listeners = if (c.changeType == EntityChangeType.REMOVE) {
-            // unsubscribe all entity listeners, but fire them anyway
+            // unsubscribe all entity listeners but fire them anyway
             rwl.write {
                 this.instanceToListeners.remove(id)
             }
@@ -181,36 +180,45 @@ open class TransientChangesMultiplexer :
             }
         }
         if (listeners != null) {
-            this.handleChange(where, c, listeners)
+            this.handleChange(where, session, c, listeners)
         }
     }
 
     private fun handlePerEntityTypeChanges(
-        store: TransientEntityStore,
+        session: TransientStoreSession,
         where: Where, c: TransientEntityChange
     ) {
-        store.modelMetaData
+        session.store.modelMetaData
             ?.getEntityMetaData(c.transientEntity.type)
             ?.thisAndSuperTypes
             ?.mapNotNull { rwl.read { this.typeToListeners[it] } }
-            ?.forEach { this.handleChange(where, c, it) }
+            ?.forEach { this.handleChange(where, session, c, it) }
     }
 
     private fun handleChange(
         where: Where,
+        session: TransientStoreSession,
         c: TransientEntityChange,
         listeners: Queue<IEntityListener<*>>
     ) = when (where) {
         Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS -> when (c.changeType) {
             EntityChangeType.ADD -> listeners.visit(true) { it.addedSyncBeforeConstraints(c.transientEntity) }
             EntityChangeType.UPDATE -> listeners.visit(true) { it.updatedSyncBeforeConstraints(c.snapshotEntity, c.transientEntity) }
-            EntityChangeType.REMOVE -> listeners.visit(true) { it.removedSyncBeforeConstraints(c.snapshotEntity) }
+            EntityChangeType.REMOVE -> listeners.visit(true) {
+                it.removedSyncBeforeConstraints(c.snapshotEntity) {
+                    session.getListenerTransientData(it)
+                }
+            }
         }
 
         Where.SYNC_AFTER_FLUSH -> when (c.changeType) {
             EntityChangeType.ADD -> listeners.visit { it.addedSync(c.transientEntity) }
             EntityChangeType.UPDATE -> listeners.visit { it.updatedSync(c.snapshotEntity, c.transientEntity) }
-            EntityChangeType.REMOVE -> listeners.visit { it.removedSync(c.snapshotEntity) }
+            EntityChangeType.REMOVE -> listeners.visit {
+                it.removedSync(c.snapshotEntity.id as OEntityId) {
+                    session.getListenerTransientData(it)
+                }
+            }
         }
     }
 

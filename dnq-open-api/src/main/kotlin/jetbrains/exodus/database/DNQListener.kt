@@ -15,6 +15,8 @@
  */
 package jetbrains.exodus.database
 
+import jetbrains.exodus.entitystore.orientdb.OEntityId
+
 interface DNQListener<in T : Any> {
 
     fun addedSyncBeforeConstraints(added: T)
@@ -23,6 +25,11 @@ interface DNQListener<in T : Any> {
     fun updatedSyncBeforeConstraints(old: T, current: T)
     fun updatedSync(old: T, current: T)
 
-    fun removedSyncBeforeConstraints(removed: T)
-    fun removedSync(removed: T)
+    fun removedSyncBeforeConstraints(removed: T, requestListenerStorage: () -> DnqListenerTransientData)
+    fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData)
+}
+
+interface DnqListenerTransientData {
+    fun <T> getValue(name: String, clazz: Class<T>): T?
+    fun <T> storeValue(name: String, value: T)
 }

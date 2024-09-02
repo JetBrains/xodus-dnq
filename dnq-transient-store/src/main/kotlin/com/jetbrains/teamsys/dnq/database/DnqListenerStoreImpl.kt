@@ -13,17 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.database
 
-interface AsyncListenersReplication {
+package com.jetbrains.teamsys.dnq.database
 
-    fun newInvocations(
-        transport: ListenerInvocationTransport,
-        snapshotAddress: Long,
-        currentAddress: Long
-    ): ListenerInvocations
+import jetbrains.exodus.database.DnqListenerTransientData
 
-    fun receive(store: TransientEntityStore, batch: ListenerInvocationsBatch)
 
-    fun shouldReplicate(change: TransientEntityChange, listener: IEntityListener<*>): Boolean
+class DnqListenerTransientDataImpl(private val session: TransientSessionImpl) : DnqListenerTransientData {
+    private val data = HashMap<String, Any>()
+
+    override fun <T> getValue(name: String, clazz: Class<T>): T? {
+        @Suppress("UNCHECKED_CAST")
+        return data[name] as? T
+    }
+
+    override fun <T> storeValue(name: String, value: T) {
+        data[name] = value as Any
+    }
 }

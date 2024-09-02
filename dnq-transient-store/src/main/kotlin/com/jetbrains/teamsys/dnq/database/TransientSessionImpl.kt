@@ -31,7 +31,6 @@ import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.env.ReadonlyTransactionException
-import jetbrains.exodus.env.Transaction
 import jetbrains.exodus.env.TransactionFinishedException
 import jetbrains.exodus.util.UTFUtil
 import mu.KLogging
@@ -68,6 +67,7 @@ class TransientSessionImpl(
     private var loadedIds: EntityIdSet = EntityIdSetFactory.newSet()
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     private var allowRunnables = true
+    internal val sessionListenersData = IdentityHashMap<DNQListener<*>, DnqListenerTransientData>()
 
     val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled) Throwable() else null
 
@@ -529,6 +529,12 @@ class TransientSessionImpl(
         }
     }
 
+    override fun getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData {
+        return sessionListenersData.getOrPut(listener) {
+            DnqListenerTransientDataImpl(this)
+        }
+    }
+
     private fun addLoadedId(id: EntityId) {
         loadedIds = loadedIds.add(id)
     }
@@ -644,7 +650,7 @@ class TransientSessionImpl(
         }
     }
 
-    private fun getOriginalLinkValue(e: TransientEntity, linkName: String): Comparable<*>? {
+    fun getOriginalLinkValue(e: TransientEntity, linkName: String): Entity? {
         // get from saved changes, if not - from db
         val change = transientChangesTracker.getChangedLinksDetailed(e)?.get(linkName)
         if (change != null) {
@@ -666,7 +672,6 @@ class TransientSessionImpl(
                     throw IllegalStateException("Incorrect change type for link that is part of index: ${e.type}.$linkName: ${change.changeType.getName()}")
             }
         }
-
         return e.entity.getLink(linkName)
     }
 

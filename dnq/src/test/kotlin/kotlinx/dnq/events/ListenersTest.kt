@@ -16,12 +16,19 @@
 package kotlinx.dnq.events
 
 import com.google.common.truth.Truth
+import com.jetbrains.teamsys.dnq.database.TransientSessionImpl
+import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
+import jetbrains.exodus.database.DnqListenerTransientData
+import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.orientdb.OEntityId
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.size
+import kotlinx.dnq.query.toList
+import kotlinx.dnq.toXd
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -52,7 +59,7 @@ class ListenersTest : DBTest() {
     @Test
     fun removedSyncBeforeConstraint() {
         Foo.addListener(store, object : XdEntityListener<Foo> {
-            override fun removedSyncBeforeConstraints(removed: Foo) {
+            override fun removedSyncBeforeConstraints(removed: Foo, requestListenerStorage: () -> DnqListenerTransientData) {
                 ref.set(2)
             }
         })
@@ -90,7 +97,10 @@ class ListenersTest : DBTest() {
     @Test
     fun removedTest() {
         Foo.addListener(store, object : XdEntityListener<Foo> {
-            override fun removedSync(removed: Foo) {
+            override fun removedSync(
+                removed: OEntityId,
+                requestListenerStorage: () -> DnqListenerTransientData
+            ) {
                 ref.set(239)
             }
         })
@@ -110,12 +120,16 @@ class ListenersTest : DBTest() {
     fun removedTestWithLinksTest() {
         var failedInWriteInOnRemoveHandler = false
         Goo.addListener(store, object : XdEntityListener<Goo> {
-            override fun removedSync(removed: Goo) {
+            override fun removedSync(
+                removed: OEntityId,
+                requestListenerStorage: () -> DnqListenerTransientData
+            ) {
                 try {
-                    removed.content.asSequence().forEach {
+                    val goo = store.threadSessionOrThrow.getEntity(removed).toXd<Goo>()
+                    goo.content.asSequence().forEach {
                         it.intField = 11
                     }
-                    ref.set(removed.content.size())
+                    ref.set(goo.content.size())
                 } catch (_: Throwable) {
                     failedInWriteInOnRemoveHandler = true
                 }
@@ -124,18 +138,11 @@ class ListenersTest : DBTest() {
 
         val goo = store.transactional {
             Goo.new().apply {
-                content.add(Foo.new().apply {
-                    intField = 99
-                })
-                content.add(Foo.new().apply {
-                    intField = 99
-                })
-                content.add(Foo.new().apply {
-                    intField = 99
-                })
-                content.add(Foo.new().apply {
-                    intField = 99
-                })
+                repeat(4) {
+                    content.add(Foo.new().apply {
+                        intField = 99
+                    })
+                }
             }
         }
         store.transactional {
@@ -146,6 +153,54 @@ class ListenersTest : DBTest() {
         Truth.assertThat(
             store.transactional {
                 Foo.all().asSequence().map { it.intField }.all { it == 99 }
+            }
+
+        ).isTrue()
+    }
+
+    @Test
+    fun removedTestWithLinksTestWithStore() {
+        Goo.addListener(store, object : XdEntityListener<Goo> {
+            override fun removedSyncBeforeConstraints(
+                removed: Goo,
+                requestListenerStorage: () -> DnqListenerTransientData
+            ) {
+                val links = removed.content.toList()
+
+                requestListenerStorage().apply {
+                    storeValue("list", links)
+                }
+            }
+
+            override fun removedSync(
+                removed: OEntityId,
+                requestListenerStorage: () -> DnqListenerTransientData
+            ) {
+                val list = requestListenerStorage().getValue("list", List::class.java) as List<Foo>
+                list.forEach {
+                    it.intField = 11
+                }
+                ref.set(list.size)
+            }
+        })
+
+        val goo = store.transactional {
+            Goo.new().apply {
+                repeat(4) {
+                    content.add(Foo.new().apply {
+                        intField = 99
+                    })
+                }
+            }
+        }
+        store.transactional {
+            goo.delete()
+        }
+
+        Truth.assertThat(ref.get()).isEqualTo(4)
+        Truth.assertThat(
+            store.transactional {
+                Foo.all().asSequence().map { it.intField }.all { it == 11 }
             }
 
         ).isTrue()
