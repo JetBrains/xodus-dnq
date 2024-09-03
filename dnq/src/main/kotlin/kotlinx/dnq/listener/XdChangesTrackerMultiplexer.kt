@@ -15,10 +15,12 @@
  */
 package kotlinx.dnq.listener
 
+import jetbrains.exodus.database.DnqListenerTransientData
 import jetbrains.exodus.database.IEntityListener
 import jetbrains.exodus.database.ITransientChangesMultiplexer
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.orientdb.OEntityId
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.toXd
@@ -59,8 +61,8 @@ internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityList
     override fun updatedSyncBeforeConstraints(old: Entity, current: Entity) = wrapped.updatedSyncBeforeConstraints(old.toXd(), current.toXd())
     override fun updatedSync(old: Entity, current: Entity) = wrapped.updatedSync(old.toXd(), current.toXd())
 
-    override fun removedSyncBeforeConstraints(removed: Entity) = wrapped.removedSyncBeforeConstraints(removed.toXd())
-    override fun removedSync(removed: Entity) = wrapped.removedSync(removed.toXd())
+    override fun removedSyncBeforeConstraints(removed: Entity, requestListenerStorage: () -> DnqListenerTransientData) = wrapped.removedSyncBeforeConstraints(removed.toXd() ,requestListenerStorage )
+    override fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData) = wrapped.removedSync(removed, requestListenerStorage)
 
     override fun hashCode() = wrapped.hashCode()
     override fun equals(other: Any?) = other is EntityListenerWrapper<*> && wrapped == other.wrapped

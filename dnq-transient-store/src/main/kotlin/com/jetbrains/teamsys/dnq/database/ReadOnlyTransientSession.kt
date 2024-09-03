@@ -134,6 +134,14 @@ class ReadOnlyTransientSession(
 
     override val entitiesUpdater = ReadonlyTransientEntitiesUpdater()
 
+    override fun getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData {
+        return object :DnqListenerTransientData {
+            override fun <T> getValue(name: String, clazz: Class<T>) = null
+
+            override fun <T> storeValue(name: String, value: T) = Unit
+
+        }
+    }
 }
 
 

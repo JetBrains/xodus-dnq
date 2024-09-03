@@ -21,7 +21,6 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.link.XdLink
-import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.query.asQuery
 import kotlinx.dnq.simple.XdConstrainedProperty

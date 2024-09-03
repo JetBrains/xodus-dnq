@@ -27,28 +27,11 @@ class TransientEntityChangeImpl(
 ) : TransientEntityChange {
 
 
-    private var snapshotForRemoveOperation: TransientEntity? = null
-
-    init {
-        if (changeType == EntityChangeType.REMOVE) {
-            try {
-                val precalculatedSnapshot = (transientEntity.entity as OVertexEntity).asReadonly()
-                snapshotForRemoveOperation =
-                    ReadonlyTransientEntityImpl(this, precalculatedSnapshot, transientEntity.store)
-            } catch (_: Exception) {
-            }
-        }
-    }
-
     override val snapshotEntity: TransientEntity
         get() {
             return when {
-                snapshotForRemoveOperation != null -> snapshotForRemoveOperation!!
-
                 changesTracker.isRemoved(transientEntity) -> RemovedTransientEntity(
-                    transientEntity.id as OEntityId,
-                    transientEntity.store,
-                    transientEntity.type
+                    transientEntity
                 )
 
                 else -> changesTracker.getSnapshotEntity(transientEntity)
