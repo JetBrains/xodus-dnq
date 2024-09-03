@@ -67,7 +67,7 @@ class TransientSessionImpl(
     private var loadedIds: EntityIdSet = EntityIdSetFactory.newSet()
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     private var allowRunnables = true
-    internal val sessionListenersData = IdentityHashMap<DNQListener<*>, DnqListenerTransientData>()
+    internal val sessionListenersData = IdentityHashMap<DNQListener<*>, DnqListenerTransientData<*>>()
 
     val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled) Throwable() else null
 
@@ -529,10 +529,13 @@ class TransientSessionImpl(
         }
     }
 
-    override fun getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData {
-        return sessionListenersData.getOrPut(listener) {
-            DnqListenerTransientDataImpl(this)
+    override fun <T>getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T> {
+        val result = sessionListenersData.getOrPut(listener) {
+            DnqListenerTransientDataImpl<T>()
         }
+
+        @Suppress("UNCHECKED_CAST")
+        return result as DnqListenerTransientData<T>
     }
 
     private fun addLoadedId(id: EntityId) {

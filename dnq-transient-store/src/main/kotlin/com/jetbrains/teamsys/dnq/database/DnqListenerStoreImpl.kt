@@ -19,8 +19,9 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.database.DnqListenerTransientData
 
 
-class DnqListenerTransientDataImpl(private val session: TransientSessionImpl) : DnqListenerTransientData {
+class DnqListenerTransientDataImpl<E> : DnqListenerTransientData<E> {
     private val data = HashMap<String, Any>()
+    private var removed: Any? = null
 
     override fun <T> getValue(name: String, clazz: Class<T>): T? {
         @Suppress("UNCHECKED_CAST")
@@ -29,5 +30,14 @@ class DnqListenerTransientDataImpl(private val session: TransientSessionImpl) : 
 
     override fun <T> storeValue(name: String, value: T) {
         data[name] = value as Any
+    }
+
+    override fun getRemoved(): E {
+        @Suppress("UNCHECKED_CAST")
+        return removed as E
+    }
+
+    override fun setRemoved(entity: Any) {
+        removed = entity
     }
 }

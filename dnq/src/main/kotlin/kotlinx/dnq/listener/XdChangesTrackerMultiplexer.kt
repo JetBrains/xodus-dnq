@@ -61,9 +61,32 @@ internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityList
     override fun updatedSyncBeforeConstraints(old: Entity, current: Entity) = wrapped.updatedSyncBeforeConstraints(old.toXd(), current.toXd())
     override fun updatedSync(old: Entity, current: Entity) = wrapped.updatedSync(old.toXd(), current.toXd())
 
-    override fun removedSyncBeforeConstraints(removed: Entity, requestListenerStorage: () -> DnqListenerTransientData) = wrapped.removedSyncBeforeConstraints(removed.toXd() ,requestListenerStorage )
-    override fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData) = wrapped.removedSync(removed, requestListenerStorage)
+    override fun removedSyncBeforeConstraints(
+        removed: Entity,
+        requestListenerStorage: () -> DnqListenerTransientData<Entity>
+    ) {
+        wrapped.removedSyncBeforeConstraints(removed.toXd()) { XdDnqListenerTransientData(requestListenerStorage) }
+    }
+
+    override fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData<Entity>) {
+        wrapped.removedSync(removed) { XdDnqListenerTransientData(requestListenerStorage) }
+    }
 
     override fun hashCode() = wrapped.hashCode()
     override fun equals(other: Any?) = other is EntityListenerWrapper<*> && wrapped == other.wrapped
+}
+
+internal class XdDnqListenerTransientData<out XD : XdEntity>(private val requestData: () -> DnqListenerTransientData<Entity>): DnqListenerTransientData<XD> {
+    override fun <T> getValue(name: String, clazz: Class<T>) = requestData().getValue(name, clazz)
+
+    override fun <T> storeValue(name: String, value: T) = requestData().storeValue(name, value)
+
+    override fun getRemoved(): XD {
+        return requestData().getRemoved().toXd<XD>()
+    }
+
+    override fun setRemoved(entity: Any) {
+        @Suppress("UNCHECKED_CAST")
+        requestData().setRemoved((entity as XD).entity)
+    }
 }
