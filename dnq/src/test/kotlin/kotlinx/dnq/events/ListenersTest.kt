@@ -29,6 +29,7 @@ import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.size
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.toXd
+import org.junit.Assert
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -156,6 +157,33 @@ class ListenersTest : DBTest() {
             }
 
         ).isTrue()
+    }
+
+
+    @Test
+    fun removedTransientEntityEqualsToPrototype(){
+        val data = hashMapOf<Foo, Int>()
+        Foo.addListener(store, object: XdEntityListener<Foo>{
+            override fun removedSyncBeforeConstraints(
+                removed: Foo,
+                requestListenerStorage: () -> DnqListenerTransientData
+            ) {
+                println(removed.hashCode())
+                data.remove(removed)
+            }
+        })
+
+
+        val foo = transactional {
+            val foo = Foo.new()
+            data[foo] = 99
+            foo
+        }
+        transactional {
+            println(foo.hashCode())
+            foo.delete()
+        }
+        Assert.assertEquals(0, data.size)
     }
 
     @Test
