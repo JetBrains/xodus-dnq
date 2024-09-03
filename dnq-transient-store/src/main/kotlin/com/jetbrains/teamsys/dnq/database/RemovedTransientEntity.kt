@@ -269,6 +269,16 @@ open class RemovedTransientEntity(
     override fun getLinkNames(): MutableList<String> {
         throw IllegalStateException("Entity is removed")
     }
+
+    override fun equals(other: Any?) = when {
+        other === this -> true
+        other !is TransientEntity -> false
+        else -> id == other.id && store === other.store
+    }
+
+    override fun hashCode(): Int {
+        return id.hashCode() + store.persistentStore.hashCode()
+    }
 }
 
 internal class RemovedLinksEntityIterable(
