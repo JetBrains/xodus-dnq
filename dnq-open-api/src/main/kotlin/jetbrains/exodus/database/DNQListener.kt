@@ -25,11 +25,13 @@ interface DNQListener<in T : Any> {
     fun updatedSyncBeforeConstraints(old: T, current: T)
     fun updatedSync(old: T, current: T)
 
-    fun removedSyncBeforeConstraints(removed: T, requestListenerStorage: () -> DnqListenerTransientData)
-    fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData)
+    fun removedSyncBeforeConstraints(removed: T, requestListenerStorage: () -> DnqListenerTransientData<T>)
+    fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData<T>)
 }
 
-interface DnqListenerTransientData {
+interface DnqListenerTransientData<out T> {
     fun <T> getValue(name: String, clazz: Class<T>): T?
     fun <T> storeValue(name: String, value: T)
+    fun getRemoved(): T
+    fun setRemoved(entity: Any)
 }

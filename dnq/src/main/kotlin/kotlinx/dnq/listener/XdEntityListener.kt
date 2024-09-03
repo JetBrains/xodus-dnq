@@ -28,6 +28,6 @@ interface XdEntityListener<in XD : XdEntity> : DNQListener<XD> {
     override fun updatedSyncBeforeConstraints(old: XD, current: XD) = Unit
     override fun updatedSync(old: XD, current: XD) = Unit
 
-    override fun removedSyncBeforeConstraints(removed: XD, requestListenerStorage: () -> DnqListenerTransientData) = Unit
-    override fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData) = Unit
+    override fun removedSyncBeforeConstraints(removed: XD, requestListenerStorage: () -> DnqListenerTransientData<XD>) = Unit
+    override fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData<XD>) = Unit
 }

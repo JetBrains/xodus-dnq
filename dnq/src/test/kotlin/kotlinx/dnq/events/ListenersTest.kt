@@ -60,7 +60,7 @@ class ListenersTest : DBTest() {
     @Test
     fun removedSyncBeforeConstraint() {
         Foo.addListener(store, object : XdEntityListener<Foo> {
-            override fun removedSyncBeforeConstraints(removed: Foo, requestListenerStorage: () -> DnqListenerTransientData) {
+            override fun removedSyncBeforeConstraints(removed: Foo, requestListenerStorage: () -> DnqListenerTransientData<Foo>) {
                 ref.set(2)
             }
         })
@@ -100,7 +100,7 @@ class ListenersTest : DBTest() {
         Foo.addListener(store, object : XdEntityListener<Foo> {
             override fun removedSync(
                 removed: OEntityId,
-                requestListenerStorage: () -> DnqListenerTransientData
+                requestListenerStorage: () -> DnqListenerTransientData<Foo>
             ) {
                 ref.set(239)
             }
@@ -123,7 +123,7 @@ class ListenersTest : DBTest() {
         Goo.addListener(store, object : XdEntityListener<Goo> {
             override fun removedSync(
                 removed: OEntityId,
-                requestListenerStorage: () -> DnqListenerTransientData
+                requestListenerStorage: () -> DnqListenerTransientData<Goo>
             ) {
                 try {
                     val goo = store.threadSessionOrThrow.getEntity(removed).toXd<Goo>()
@@ -166,7 +166,7 @@ class ListenersTest : DBTest() {
         Foo.addListener(store, object: XdEntityListener<Foo>{
             override fun removedSyncBeforeConstraints(
                 removed: Foo,
-                requestListenerStorage: () -> DnqListenerTransientData
+                requestListenerStorage: () -> DnqListenerTransientData<Foo>
             ) {
                 println(removed.hashCode())
                 data.remove(removed)
@@ -191,7 +191,7 @@ class ListenersTest : DBTest() {
         Goo.addListener(store, object : XdEntityListener<Goo> {
             override fun removedSyncBeforeConstraints(
                 removed: Goo,
-                requestListenerStorage: () -> DnqListenerTransientData
+                requestListenerStorage: () -> DnqListenerTransientData<Goo>
             ) {
                 val links = removed.content.toList()
 
@@ -202,7 +202,7 @@ class ListenersTest : DBTest() {
 
             override fun removedSync(
                 removed: OEntityId,
-                requestListenerStorage: () -> DnqListenerTransientData
+                requestListenerStorage: () -> DnqListenerTransientData<Goo>
             ) {
                 val list = requestListenerStorage().getValue("list", List::class.java) as List<Foo>
                 list.forEach {

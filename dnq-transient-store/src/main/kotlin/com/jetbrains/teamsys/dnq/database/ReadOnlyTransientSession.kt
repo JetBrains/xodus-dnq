@@ -19,7 +19,6 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
-import jetbrains.exodus.env.Transaction
 
 class ReadOnlyTransientSession(
         private val store: TransientEntityStoreImpl,
@@ -134,12 +133,17 @@ class ReadOnlyTransientSession(
 
     override val entitiesUpdater = ReadonlyTransientEntitiesUpdater()
 
-    override fun getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData {
-        return object :DnqListenerTransientData {
+    override fun <T>getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T> {
+        return object :DnqListenerTransientData<T> {
             override fun <T> getValue(name: String, clazz: Class<T>) = null
 
             override fun <T> storeValue(name: String, value: T) = Unit
 
+            override fun getRemoved(): T {
+                throw IllegalStateException("")
+            }
+
+            override fun setRemoved(entity: Any) = Unit
         }
     }
 }
