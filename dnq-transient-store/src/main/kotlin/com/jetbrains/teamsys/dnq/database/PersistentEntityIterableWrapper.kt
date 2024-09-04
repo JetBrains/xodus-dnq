@@ -17,7 +17,10 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.EntityIterator
+import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.util.unsupported
 
@@ -32,7 +35,7 @@ open class PersistentEntityIterableWrapper(
         wrappedIterable: EntityIterable) :
         EntityIterableWrapper,
         EntityIterableBase(
-                (wrappedIterable as? EntityIterableBase)?.source
+                (wrappedIterable as? EntityIterable)?.unwrap()
                         .takeIf { it !== EMPTY }
                         ?.transaction) {
 
@@ -58,28 +61,28 @@ open class PersistentEntityIterableWrapper(
     public override fun getHandleImpl() = unsupported()
 
     override fun intersect(right: EntityIterable): EntityIterable {
-        right as? EntityIterableBase ?: throwUnsupported()
-        return wrappedIterable.intersect(right.source)
+        right as? EntityIterable ?: throwUnsupported()
+        return wrappedIterable.intersect(right.unwrap())
     }
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable {
-        right as? EntityIterableBase ?: throwUnsupported()
-        return wrappedIterable.intersectSavingOrder(right.source)
+        right as? EntityIterable ?: throwUnsupported()
+        return wrappedIterable.intersectSavingOrder(right.unwrap())
     }
 
     override fun union(right: EntityIterable): EntityIterable {
-        right as? EntityIterableBase ?: throwUnsupported()
-        return wrappedIterable.union(right.source)
+        right as? EntityIterable ?: throwUnsupported()
+        return wrappedIterable.union(right.unwrap())
     }
 
     override fun minus(right: EntityIterable): EntityIterable {
-        right as? EntityIterableBase ?: throwUnsupported()
-        return wrappedIterable.minus(right.source)
+        right as? EntityIterable ?: throwUnsupported()
+        return wrappedIterable.minus(right.unwrap())
     }
 
     override fun concat(right: EntityIterable): EntityIterable {
-        right as? EntityIterableBase ?: throwUnsupported()
-        return wrappedIterable.concat(right.source)
+        right as? EntityIterable ?: throwUnsupported()
+        return wrappedIterable.concat(right.unwrap())
     }
 
     override fun take(number: Int): EntityIterable {
