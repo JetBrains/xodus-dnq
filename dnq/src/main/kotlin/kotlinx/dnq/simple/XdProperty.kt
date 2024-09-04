@@ -42,7 +42,8 @@ class XdProperty<in R : XdEntity, T : Comparable<T>>(
     override fun getValue(thisRef: R, property: KProperty<*>): T {
         val result: T? = thisRef.reattachAndGetPrimitiveValue(property.dbName)
         if (isBoolean) {
-            return (result != null) as T
+            @Suppress("UNCHECKED_CAST", "KotlinConstantConditions")
+            return (result == true) as T
         }
         return result ?: default(thisRef, property)
     }
