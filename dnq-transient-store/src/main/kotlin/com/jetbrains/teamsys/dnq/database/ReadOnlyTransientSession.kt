@@ -87,8 +87,6 @@ class ReadOnlyTransientSession(
 
     override fun setUpgradeHook(hook: Runnable?) = throw UnsupportedOperationException()
 
-    override fun quietIntermediateCommit() = throw UnsupportedOperationException()
-
     override fun flush() = throw UnsupportedOperationException()
 
     override fun revert() = throw UnsupportedOperationException()
@@ -146,6 +144,8 @@ class ReadOnlyTransientSession(
             override fun setRemoved(entity: Any) = Unit
         }
     }
+
+    override val originalValuesProvider = TransientEntityOriginalValuesProviderImpl(this)
 }
 
 

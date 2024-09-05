@@ -37,13 +37,13 @@ open class TransientChangesMultiplexer :
     companion object : KLogging()
 
     override fun flushed(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) {
-        // do nothing. actual job is in flushed(changesTracker)
+        // Do nothing. Actual job is in flushed(changesTracker)
     }
 
     /**
      * Called directly by transient session
      *
-     * @param oldChangesTracker changes tracker to dispose after async job
+     * @param oldChangesTracker changes tracker to dispose after the async job
      */
     override fun flushed(
         session: TransientStoreSession,

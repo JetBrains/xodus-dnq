@@ -30,6 +30,8 @@ open class RemovedTransientEntity(
     private val transientEntity: TransientEntity
 ) : TransientEntity {
 
+    val originalValuesProvider get() = transientEntity.threadSessionOrThrow.originalValuesProvider
+
     private val _id = transientEntity.id
 
     override val isNew: Boolean
@@ -244,7 +246,7 @@ open class RemovedTransientEntity(
     }
 
     override fun getLink(linkName: String): Entity? {
-        val linkValue = (threadSessionOrThrow as TransientSessionImpl).getOriginalLinkValue(this, linkName)
+        val linkValue = originalValuesProvider.getOriginalLinkValue(this, linkName)
         return linkValue
     }
 

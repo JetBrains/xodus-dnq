@@ -73,13 +73,9 @@ interface TransientStoreSession : StoreTransaction {
      */
     fun isRemoved(entity: Entity): Boolean
 
-    /**
-     * Flushes transaction without checking any constraints, without saving history and without versions check.
-     */
-    fun quietIntermediateCommit()
-
     fun setUpgradeHook(hook: Runnable?)
 
     fun <T>getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T>
 
+    val originalValuesProvider: TransientEntityOriginalValuesProvider
 }
