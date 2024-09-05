@@ -107,6 +107,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
             .getLinks(linkName)
             .map { ReadonlyTransientEntityImpl(null, it as OEntity ,store) }
             .toSet()
+            .plus(changedLinks[linkName]?.deletedEntities?.map { RemovedTransientEntity(it) } ?: setOf())
             .plus(getRemovedLinks(linkName))
             .minus(getAddedLinks(linkName))
         return (oldLinksState as Set<TransientEntity>).asEntityIterable()
