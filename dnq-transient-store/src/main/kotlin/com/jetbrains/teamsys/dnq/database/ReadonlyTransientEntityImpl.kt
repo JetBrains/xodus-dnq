@@ -23,15 +23,17 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OEntity
+import jetbrains.exodus.entitystore.orientdb.OEntityId
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import jetbrains.exodus.entitystore.orientdb.asReadonly
 import java.io.File
 import java.io.InputStream
 
-class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEntity, store: TransientEntityStore) :
-    TransientEntityImpl(snapshot, store) {
+class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEntity, store: TransientEntityStore) : TransientEntityImpl(snapshot, store) {
 
     constructor(snapshot: OEntity, store: TransientEntityStore) : this(null, snapshot, store)
+
+    private val originalValuesProvider get() = threadSessionOrThrow.originalValuesProvider
 
     private val hasChanges by lazy {
         changedProperties.isNotEmpty() || changedLinks.values.any { it.isNotEmpty() }
@@ -42,6 +44,12 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
 
     override val isReadonly: Boolean
         get() = true
+
+    //region readonly throw
+
+    override fun delete(): Boolean {
+        throwReadonlyException()
+    }
 
     override fun setProperty(propertyName: String, value: Comparable<*>): Boolean {
         throwReadonlyException()
@@ -82,12 +90,10 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
     override fun deleteLinks(linkName: String) {
         throwReadonlyException()
     }
+    //endregion
 
     override fun getLink(linkName: String): Entity? {
-        return (entity.getLink(linkName) as OVertexEntity?)
-            ?.let { linkTarget ->
-                ReadonlyTransientEntityImpl(linkTarget.asReadonly(), store)
-            }
+        return originalValuesProvider.getOriginalLinkValue(this, linkName)
     }
 
     override fun getLink(linkName: String, session: TransientStoreSession?): Entity? {
@@ -95,15 +101,31 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
     }
 
     override fun getLinks(linkName: String): EntityIterable {
-        return PersistentEntityIterableWrapper(store, entity.getLinks(linkName))
+        //this will definitely fail in case of concurrent modification
+        // we get the current state and revert changes that have happened during the transaction
+        val oldLinksState = entity
+            .getLinks(linkName)
+            .map { ReadonlyTransientEntityImpl(null, it as OEntity ,store) }
+            .toSet()
+            .plus(getRemovedLinks(linkName))
+            .minus(getAddedLinks(linkName))
+        return (oldLinksState as Set<TransientEntity>).asEntityIterable()
+    }
+
+    override fun getProperty(propertyName: String): Comparable<*>? {
+        return originalValuesProvider.getOriginalPropertyValue(this, propertyName)
+    }
+
+    override fun getBlobString(blobName: String): String? {
+        return originalValuesProvider.getOriginalBlobStringValue(this, blobName)
+    }
+
+    override fun getBlob(blobName: String): InputStream? {
+        return originalValuesProvider.getOriginalBlobValue(this, blobName)
     }
 
     override fun getLinks(linkNames: Collection<String>): EntityIterable {
         throw UnsupportedOperationException()
-    }
-
-    override fun delete(): Boolean {
-        throwReadonlyException()
     }
 
     override fun hasChanges() = hasChanges

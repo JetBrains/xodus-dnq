@@ -25,7 +25,6 @@ import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
-import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import java.math.BigInteger
 import java.util.*

@@ -60,7 +60,10 @@ class ListenersTest : DBTest() {
     @Test
     fun removedSyncBeforeConstraint() {
         Foo.addListener(store, object : XdEntityListener<Foo> {
-            override fun removedSyncBeforeConstraints(removed: Foo, requestListenerStorage: () -> DnqListenerTransientData<Foo>) {
+            override fun removedSyncBeforeConstraints(
+                removed: Foo,
+                requestListenerStorage: () -> DnqListenerTransientData<Foo>
+            ) {
                 ref.set(2)
             }
         })
@@ -161,9 +164,9 @@ class ListenersTest : DBTest() {
 
 
     @Test
-    fun removedTransientEntityEqualsToPrototype(){
+    fun removedTransientEntityEqualsToPrototype() {
         val data = hashMapOf<Foo, Int>()
-        Foo.addListener(store, object: XdEntityListener<Foo>{
+        Foo.addListener(store, object : XdEntityListener<Foo> {
             override fun removedSyncBeforeConstraints(
                 removed: Foo,
                 requestListenerStorage: () -> DnqListenerTransientData<Foo>
@@ -184,6 +187,33 @@ class ListenersTest : DBTest() {
             foo.delete()
         }
         Assert.assertEquals(0, data.size)
+    }
+
+    @Test
+    fun removeLinksTest() {
+        val refOld = AtomicInteger(-1)
+        val refNew = AtomicInteger(-1)
+        Goo.addListener(store, object : XdEntityListener<Goo> {
+            override fun updatedSync(old: Goo, current: Goo) {
+                refOld.set(old.content.size())
+                refNew.set(current.content.size())
+            }
+        })
+        val g = store.transactional {
+            Goo.new()
+        }
+        store.transactional {
+            g.content.add(Foo.new())
+            g.content.add(Foo.new())
+        }
+
+        Assert.assertEquals(2, refNew.get())
+        Assert.assertEquals(0, refOld.get())
+        store.transactional {
+            g.content.clear()
+        }
+        Assert.assertEquals(0, refNew.get())
+        Assert.assertEquals(2, refOld.get())
     }
 
     @Test

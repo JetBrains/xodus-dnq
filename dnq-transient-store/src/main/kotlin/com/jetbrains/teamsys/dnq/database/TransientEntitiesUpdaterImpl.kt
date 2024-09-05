@@ -32,6 +32,7 @@ class TransientEntitiesUpdaterImpl(
     private val changes = QueueDecorator<() -> Boolean>()
 
     private val transientChangesTracker get() = session.transientChangesTracker
+    private val originalValuesProvider get() = session.originalValuesProvider
 
     private var allowRunnable = true
 
@@ -65,7 +66,7 @@ class TransientEntitiesUpdaterImpl(
         propertyNewValue: Comparable<*>
     ): Boolean {
         return if (transientEntity.entity.setProperty(propertyName, propertyNewValue)) {
-            val oldValue = session.getOriginalPropertyValue(transientEntity, propertyName)
+            val oldValue = originalValuesProvider.getOriginalPropertyValue(transientEntity, propertyName)
             @Suppress("SuspiciousEqualsCombination")
             if (propertyNewValue === oldValue || propertyNewValue == oldValue) {
                 transientChangesTracker.removePropertyChanged(transientEntity, propertyName)
@@ -84,7 +85,7 @@ class TransientEntitiesUpdaterImpl(
 
     private fun deletePropertyInternal(transientEntity: TransientEntity, propertyName: String): Boolean {
         return if (transientEntity.entity.deleteProperty(propertyName)) {
-            val oldValue = session.getOriginalPropertyValue(transientEntity, propertyName)
+            val oldValue = originalValuesProvider.getOriginalPropertyValue(transientEntity, propertyName)
             if (oldValue == null) {
                 transientChangesTracker.removePropertyChanged(transientEntity, propertyName)
             } else {
@@ -99,7 +100,7 @@ class TransientEntitiesUpdaterImpl(
     override fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String): Boolean {
         return addChangeAndRun {
             transientEntity.entity.setBlobString(blobName, newValue)
-            val oldValue = session.getOriginalBlobStringValue(transientEntity, blobName)
+            val oldValue = originalValuesProvider.getOriginalBlobStringValue(transientEntity, blobName)
             if (newValue === oldValue || newValue == oldValue) {
                 transientChangesTracker.removePropertyChanged(transientEntity, blobName)
             } else {
@@ -112,7 +113,7 @@ class TransientEntitiesUpdaterImpl(
     override fun deleteBlob(transientEntity: TransientEntity, blobName: String): Boolean {
         return addChangeAndRun {
             if (transientEntity.entity.deleteBlob(blobName)) {
-                val oldValue = session.getOriginalBlobValue(transientEntity, blobName)
+                val oldValue = originalValuesProvider.getOriginalBlobValue(transientEntity, blobName)
                 if (oldValue == null) {
                     transientChangesTracker.removePropertyChanged(transientEntity, blobName)
                 } else {

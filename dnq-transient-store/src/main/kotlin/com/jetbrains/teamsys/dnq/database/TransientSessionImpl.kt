@@ -93,6 +93,8 @@ class TransientSessionImpl(
 
     override val entitiesUpdater = TransientEntitiesUpdaterImpl(this)
 
+    override val originalValuesProvider:TransientEntityOriginalValuesProvider = TransientEntityOriginalValuesProviderImpl(this)
+
     override val transientChangesTracker: TransientChangesTracker
         get() {
             assertOpen("get changes tracker")
@@ -248,7 +250,7 @@ class TransientSessionImpl(
                     replayChanges()
                 }
                 if (exception is ORecordDuplicatedException) {
-                    val (fieldName, target) = exception.indexName.substringAfter("_").substringBefore("_targetEntityId_unique").split("_")
+                    val (fieldName, _) = exception.indexName.substringAfter("_").substringBefore("_targetEntityId_unique").split("_")
                     val typeName = exception.indexName.substringBefore("_")
                     val detailMessage = exception.message
                     val cause = UniqueIndexViolationException(
@@ -370,17 +372,6 @@ class TransientSessionImpl(
 
         store.persistentStore.currentTransaction?.abort()
     }
-
-    override fun quietIntermediateCommit() {
-        val quietFlush = quietFlush
-        try {
-            this.quietFlush = true
-            flush()
-        } finally {
-            this.quietFlush = quietFlush
-        }
-    }
-
 
     private fun replayChanges() {
         initChangesTracker(readonly = false)
@@ -619,63 +610,6 @@ class TransientSessionImpl(
 
     override fun getSnapshot(): OStoreTransaction {
         throw UnsupportedOperationException()
-    }
-
-    internal fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
-        val session = ODatabaseSession.getActiveSession()
-        val id = e.entity.id.asOId()
-        val oVertex = session.load<OVertex>(id)
-        val onLoadValue = oVertex.getPropertyOnLoadValue<Any>(propertyName)
-        return if (onLoadValue is MutableSet<*>) {
-            OComparableSet(onLoadValue)
-        } else {
-            onLoadValue as Comparable<*>?
-        }
-    }
-
-    internal fun getOriginalBlobStringValue(e: TransientEntity, blobName: String): String? {
-        val session = ODatabaseSession.getActiveSession()
-        val id = e.entity.id.asOId()
-        val oVertex = session.load<OVertex>(id)
-        val blobHolder = oVertex.getPropertyOnLoadValue<ORecordBytes?>(blobName)
-        return blobHolder?.toStream()?.let {
-            UTFUtil.readUTF((it).inputStream())
-        }
-    }
-
-    internal fun getOriginalBlobValue(e: TransientEntity, blobName: String): InputStream? {
-        val session = ODatabaseSession.getActiveSession()
-        val id = e.entity.id.asOId()
-        val oVertex = session.load<OVertex>(id)
-        val blobHolder = oVertex.getPropertyOnLoadValue<ORecordBytes?>(blobName)
-        return blobHolder?.let {
-            ByteArrayInputStream(blobHolder.toStream())
-        }
-    }
-
-    fun getOriginalLinkValue(e: TransientEntity, linkName: String): Entity? {
-        // get from saved changes, if not - from db
-        val change = transientChangesTracker.getChangedLinksDetailed(e)?.get(linkName)
-        if (change != null) {
-            when (change.changeType) {
-                LinkChangeType.ADD_AND_REMOVE,
-                LinkChangeType.REMOVE -> {
-                    return if (change.removedEntitiesSize != 1) {
-                        if (change.deletedEntitiesSize == 1) {
-                            change.deletedEntities!!.iterator().next()
-                        } else {
-                            throw IllegalStateException("Can't determine original link value: ${e.type}.$linkName")
-                        }
-                    } else {
-                        change.removedEntities!!.iterator().next()
-                    }
-                }
-
-                else ->
-                    throw IllegalStateException("Incorrect change type for link that is part of index: ${e.type}.$linkName: ${change.changeType.getName()}")
-            }
-        }
-        return e.entity.getLink(linkName)
     }
 
     private fun beforeFlush() {
