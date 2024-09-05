@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.query
 
+import com.jetbrains.teamsys.dnq.database.TransientEntityIterable
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
@@ -480,6 +481,8 @@ val <T : XdEntity> XdQuery<T>?.isEmpty: Boolean
             val it = entityIterable
             if (it is Collection<*>) {
                 it.isEmpty()
+            } else if (it is TransientEntityIterable) {
+                it.isEmpty()
             } else {
                 val entIt = queryEngine.toEntityIterable(it)
                 if (queryEngine.isPersistentIterable(entIt)) {
@@ -663,6 +666,9 @@ fun <T : XdEntity> XdQuery<T>.first(node: NodeBase): T {
  * Returns the first result of the query, or `null` if the query is empty.
  */
 fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
+    if (entityIterable is TransientEntityIterable){
+        return entityIterable.firstOrNull()?.let { entityType.wrap(it) }
+    }
     val it = queryEngine.toEntityIterable(entityIterable)
     return if (it is EntityIterableBase) {
         it.unwrap().first?.let {
