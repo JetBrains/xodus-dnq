@@ -119,7 +119,7 @@ fun XdEntity.reattachAndGetLink(linkName: String): Entity? {
 val XdEntity.isReadOnly: Boolean
     get() {
         if (entity is OVertexEntity) {
-            throw IllegalStateException("LOshadinaya zalupa")
+            throw IllegalStateException("Should not be OVertexEntity")
         }
         return (entity as TransientEntity).isReadonly
     }
