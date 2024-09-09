@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.query
 
+import com.jetbrains.teamsys.dnq.database.PersistentEntityIterableWrapper
 import com.jetbrains.teamsys.dnq.database.TransientEntityIterable
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
@@ -176,7 +177,14 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
     val iterable = if (notNullElements.isEmpty()){
         OQueryEntityIterableBase.EMPTY
     } else {
-        OMultipleEntitiesIterable(notNullElements.first().threadSessionOrThrow.transactionInternal as OStoreTransaction, notNullElements.map { it.entity })
+        val txn = notNullElements.first().threadSessionOrThrow
+        PersistentEntityIterableWrapper(
+            txn.store,
+            OMultipleEntitiesIterable(
+                txn.transactionInternal as OStoreTransaction,
+                notNullElements.map { txn.newEntity(it.entity) }
+            )
+        )
     }
 
     return XdQueryImpl(iterable, this)
