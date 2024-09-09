@@ -16,6 +16,8 @@
 package com.jetbrains.teamsys.dnq.database
 
 import com.orientechnologies.orient.core.db.ODatabaseSession
+import com.orientechnologies.orient.core.db.record.OIdentifiable
+import com.orientechnologies.orient.core.id.ORID
 import com.orientechnologies.orient.core.record.OVertex
 import com.orientechnologies.orient.core.record.impl.ORecordBytes
 import jetbrains.exodus.database.LinkChangeType
@@ -47,7 +49,13 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
-        val blobHolder = oVertex.getPropertyOnLoadValue<ORecordBytes?>(blobName)
+        val blobHolderOrId = oVertex.getPropertyOnLoadValue<OIdentifiable?>(blobName)
+        var blobHolder: ORecordBytes? = null
+        if (blobHolderOrId !is ORecordBytes && blobHolderOrId is ORID) {
+            blobHolder = session.load(blobHolderOrId)
+        } else if (blobHolderOrId is ORecordBytes) {
+            blobHolder = blobHolderOrId
+        }
         return blobHolder?.toStream()?.let {
             UTFUtil.readUTF((it).inputStream())
         }
@@ -57,9 +65,15 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
         val oVertex = session.load<OVertex>(id)
-        val blobHolder = oVertex.getPropertyOnLoadValue<ORecordBytes?>(blobName)
-        return blobHolder?.let {
-            ByteArrayInputStream(blobHolder.toStream())
+        var blobHolder: ORecordBytes? = null
+        val blobHolderOrId = oVertex.getPropertyOnLoadValue<OIdentifiable?>(blobName)
+        if (blobHolderOrId !is ORecordBytes && blobHolderOrId is ORID) {
+            blobHolder = session.load(blobHolderOrId)
+        } else if (blobHolderOrId is ORecordBytes) {
+            blobHolder = blobHolderOrId as ORecordBytes
+        }
+        return blobHolder?.toStream()?.let {
+            ByteArrayInputStream(it)
         }
     }
 
