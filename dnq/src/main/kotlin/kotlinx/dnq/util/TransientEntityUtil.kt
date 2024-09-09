@@ -23,6 +23,7 @@ import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentEntityStore
+import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import kotlinx.dnq.XdEntity
 import java.io.InputStream
 
@@ -115,4 +116,10 @@ fun XdEntity.reattachAndGetLink(linkName: String): Entity? {
     return reattach(session).getLinkEx(linkName, session)
 }
 
-val XdEntity.isReadOnly: Boolean get() = (entity as TransientEntity).isReadonly
+val XdEntity.isReadOnly: Boolean
+    get() {
+        if (entity is OVertexEntity) {
+            throw IllegalStateException("LOshadinaya zalupa")
+        }
+        return (entity as TransientEntity).isReadonly
+    }
