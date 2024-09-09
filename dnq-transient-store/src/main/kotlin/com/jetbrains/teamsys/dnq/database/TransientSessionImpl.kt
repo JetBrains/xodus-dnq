@@ -93,7 +93,8 @@ class TransientSessionImpl(
 
     override val entitiesUpdater = TransientEntitiesUpdaterImpl(this)
 
-    override val originalValuesProvider:TransientEntityOriginalValuesProvider = TransientEntityOriginalValuesProviderImpl(this)
+    override val originalValuesProvider: TransientEntityOriginalValuesProvider =
+        TransientEntityOriginalValuesProviderImpl(this)
 
     override val transientChangesTracker: TransientChangesTracker
         get() {
