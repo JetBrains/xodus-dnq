@@ -22,7 +22,7 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.iterate.OQueryEntityIterableBase
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 import java.io.File
 import java.io.InputStream
 
@@ -261,7 +261,7 @@ open class RemovedTransientEntity(
                 tx
             )
         }
-        return OQueryEntityIterableBase.EMPTY
+        return OEntityIterableBase.EMPTY
     }
 
     override fun getLinks(linkNames: MutableCollection<String>): EntityIterable {
