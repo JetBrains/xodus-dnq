@@ -22,11 +22,9 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.asOStoreTransaction
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
-import jetbrains.exodus.entitystore.orientdb.OQueryEntityIterable
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.iterate.OEntityOfTypeIterable
-import jetbrains.exodus.entitystore.orientdb.iterate.OQueryEntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.iterate.link.OMultipleEntitiesIterable
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
@@ -63,7 +61,7 @@ fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQue
     return if (this != null) {
         XdQueryImpl(this, entityType)
     } else {
-        XdQueryImpl(EntityIterableBase.EMPTY, entityType)
+        XdQueryImpl(OEntityIterableBase.EMPTY, entityType)
     }
 }
 
@@ -149,7 +147,7 @@ fun <T : XdEntity> XdQuery<T>.toMutableSet() = asSequence().toMutableSet()
  * Returns an empty query.
  */
 fun <T : XdEntity> XdEntityType<T>.emptyQuery(): XdQuery<T> {
-    val it = StaticTypedIterableDecorator(entityType, EntityIterableBase.EMPTY, entityStore.queryEngine)
+    val it = StaticTypedIterableDecorator(entityType, OEntityIterableBase.EMPTY, entityStore.queryEngine)
     return XdQueryImpl(it, this)
 }
 
@@ -159,7 +157,7 @@ fun <T : XdEntity> XdEntityType<T>.singleton(element: T?): XdQuery<T> {
 
 private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterable<Entity> {
     if (element == null) {
-        return EntityIterableBase.EMPTY
+        return OEntityIterableBase.EMPTY
     }
     if ((element as TransientEntity).isNew) {
         return sequenceOf(element).asIterable()
@@ -175,7 +173,7 @@ private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterab
 fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
     val notNullElements = elements.filterNotNull()
     val iterable = if (notNullElements.isEmpty()){
-        OQueryEntityIterableBase.EMPTY
+        OEntityIterableBase.EMPTY
     } else {
         val txn = notNullElements.first().threadSessionOrThrow
         PersistentEntityIterableWrapper(
@@ -445,7 +443,7 @@ fun <T : XdEntity> XdQuery<T>?.size(): Int {
 
     return when (it) {
         null -> 0
-        EntityIterableBase.EMPTY -> 0
+        OEntityIterableBase.EMPTY -> 0
         is EntityIterable -> it.size().toInt()
         is Collection<*> -> it.size
         else -> it.count()
@@ -528,7 +526,7 @@ private inline fun <T : XdEntity> XdQuery<T>.operation(
 ): XdQuery<T> {
     val it = queryEngine.toEntityIterable(entityIterable)
     return when (it) {
-        is EntityIterableBase -> wrap(ifEntityIterable(it.source))
+        is OEntityIterableBase -> wrap(ifEntityIterable(it.unwrap()))
         is EntityIterable -> wrap(ifEntityIterable(it))
         else -> notEntityIterable(it.asSequence()).asIterable()
     }.asQuery(entityType)
@@ -559,8 +557,8 @@ private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterab
     val entityTypeName = entityType.entityType
     val queryEngine = entityType.entityStore.queryEngine
 
-    if (this is OQueryEntityIterable) {
-        return this.intersect(OEntityOfTypeIterable(this.transaction.asOStoreTransaction(), entityTypeName))
+    if (this is OEntityIterableBase) {
+        return this.intersect(OEntityOfTypeIterable(transaction.asOStoreTransaction(), entityTypeName))
     } else {
         val modelMetaData = queryEngine.modelMetaData
         val subTypes = modelMetaData?.getEntityMetaData(entityTypeName)?.allSubTypes?.toSet() ?: hashSetOf()
@@ -603,7 +601,7 @@ fun <T : XdEntity> XdQuery<T>.indexOf(entity: Entity?): Int {
     val it = queryEngine.toEntityIterable(entityIterable)
     return if (entity != null) {
         if (queryEngine.isPersistentIterable(it)) {
-            (it as EntityIterableBase).source.indexOf(entity)
+            (it as OEntityIterableBase).unwrap().indexOf(entity)
         } else {
             it.indexOf(entity)
         }
@@ -634,12 +632,12 @@ operator fun <T : XdEntity> XdQuery<T>.contains(entity: Entity?): Boolean {
             i.contains(entity)
         }
 
-        i is OQueryEntityIterable && entity != null -> {
+        i is OEntityIterableBase && entity != null -> {
             i.contains(entity)
         }
 
         else -> {
-            (i as EntityIterableBase).source.indexOf(entity) != -1
+            (i as OEntityIterableBase).unwrap().indexOf(entity) != -1
         }
     }
 }
@@ -678,7 +676,7 @@ fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
         return entityIterable.firstOrNull()?.let { entityType.wrap(it) }
     }
     val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is EntityIterableBase) {
+    return if (it is OEntityIterableBase) {
         it.unwrap().first?.let {
             entityType.entityStore.session.newEntity(it)
         }
@@ -723,8 +721,8 @@ fun <T : XdEntity> XdQuery<T>.last(node: NodeBase): T {
  */
 fun <T : XdEntity> XdQuery<T>.lastOrNull(): T? {
     val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is EntityIterableBase) {
-        it.source.last?.let {
+    return if (it is OEntityIterableBase) {
+        it.unwrap().last?.let {
             entityType.entityStore.session.newEntity(it)
         }
     } else {
@@ -806,8 +804,8 @@ fun <T : XdEntity> XdQuery<T>.none() = isEmpty
 fun <T : XdEntity> XdQuery<T>.reversed(): XdQuery<T> {
     val engine = queryEngine
     val iterable = engine.toEntityIterable(entityIterable)
-    return if (iterable is EntityIterableBase) {
-        XdQueryImpl(wrap(iterable.source.reverse()), entityType)
+    return if (iterable is OEntityIterableBase) {
+        XdQueryImpl(wrap(iterable.unwrap().reverse()), entityType)
     } else {
         XdQueryImpl(entityIterable.reversed(), entityType)
     }

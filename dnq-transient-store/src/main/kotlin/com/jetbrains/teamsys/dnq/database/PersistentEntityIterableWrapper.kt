@@ -17,12 +17,10 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.EntityIterator
-import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
-import jetbrains.exodus.entitystore.util.unsupported
+import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.orientdb.OEntityIterable
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.orientdb.query.OSelect
 
 
 /**
@@ -34,10 +32,7 @@ open class PersistentEntityIterableWrapper(
         protected val store: TransientEntityStore,
         wrappedIterable: EntityIterable) :
         EntityIterableWrapper,
-        EntityIterableBase(
-                (wrappedIterable as? EntityIterable)?.unwrap()
-                        .takeIf { it !== EMPTY }
-                        ?.transaction) {
+        OEntityIterable {
 
     protected val wrappedIterable: EntityIterable = wrappedIterable.let {
         if (wrappedIterable is PersistentEntityIterableWrapper) {
@@ -57,8 +52,6 @@ open class PersistentEntityIterableWrapper(
     override fun indexOf(entity: Entity) = wrappedIterable.indexOf(entity)
 
     override fun contains(entity: Entity) = wrappedIterable.contains(entity)
-
-    public override fun getHandleImpl() = unsupported()
 
     override fun intersect(right: EntityIterable): EntityIterable {
         right as? EntityIterable ?: throwUnsupported()
@@ -89,9 +82,8 @@ open class PersistentEntityIterableWrapper(
         return wrappedIterable.take(number)
     }
 
-    override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
-        //TODO move findLinks to interface
-        return (wrappedIterable as? EntityIterableBase)?.findLinks(entities, linkName) ?: EMPTY
+    override fun skip(number: Int): EntityIterable {
+        return wrappedIterable.skip(number)
     }
 
     override fun distinct(): EntityIterable {
@@ -119,16 +111,8 @@ open class PersistentEntityIterableWrapper(
     override fun asSortResult(): EntityIterable =
             PersistentEntityIterableWrapper(store, wrappedIterable.asSortResult())
 
-    override fun getSource(): EntityIterableBase {
-        return wrappedIterable.unwrap() as EntityIterableBase
-    }
-
     override fun iterator(): EntityIterator {
         return PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.threadSessionOrThrow)
-    }
-
-    override fun getIteratorImpl(txn: StoreTransaction): EntityIterator {
-        throw UnsupportedOperationException("Should never be called")
     }
 
     override fun isEmpty() = wrappedIterable.isEmpty
@@ -139,7 +123,20 @@ open class PersistentEntityIterableWrapper(
         return store.threadSessionOrThrow.newEntity(this)
     }
 
-    override fun unwrap(): EntityIterable {
-        return wrappedIterable
+    override fun unwrap(): OEntityIterableBase {
+        return wrappedIterable as OEntityIterableBase
     }
+
+    override fun query(): OSelect {
+        return wrappedIterable.asOQueryIterable().query()
+    }
+
+    override fun getTransaction(): StoreTransaction {
+        return if (wrappedIterable == OEntityIterableBase.EMPTY){
+            store.currentTransaction ?: throw IllegalStateException("EntityStore: current transaction is not set")
+        } else {
+            (wrappedIterable as OEntityIterable).transaction
+        }
+    }
+
 }
