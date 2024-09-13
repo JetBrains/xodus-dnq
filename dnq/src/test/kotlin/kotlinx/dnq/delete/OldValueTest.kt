@@ -19,6 +19,7 @@ package kotlinx.dnq.delete
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import com.jetbrains.teamsys.dnq.database.reattachTransient
+import com.orientechnologies.orient.core.exception.ORecordNotFoundException
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel

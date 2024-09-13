@@ -19,6 +19,7 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
+import kotlin.math.log
 
 internal object TransientEntityStoreExt {
     fun <T> transactional(
@@ -94,7 +95,10 @@ internal object TransientEntityStoreExt {
         try {
             session.commit()
             wasEx = false
-        } finally {
+        } catch (e: Exception) {
+            e.printStackTrace()
+            throw e
+        }finally {
             if (wasEx && session.isOpened) {
                 session.abort()
             }

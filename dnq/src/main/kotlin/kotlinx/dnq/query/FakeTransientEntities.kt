@@ -122,6 +122,14 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
+    override fun resetIfNew() {
+        throw unsupported()
+    }
+
+    override fun generateIdIfNew() {
+        throw unsupported()
+    }
+
     override fun delete(): Boolean {
         throw unsupported()
     }

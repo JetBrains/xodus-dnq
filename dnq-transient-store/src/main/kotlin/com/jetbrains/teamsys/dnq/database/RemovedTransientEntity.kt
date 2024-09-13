@@ -21,8 +21,8 @@ import jetbrains.exodus.database.LinkChangeType
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.iterate.OQueryEntityIterableBase
 import java.io.File
 import java.io.InputStream
 
@@ -58,6 +58,12 @@ open class RemovedTransientEntity(
 
     override fun getStore(): TransientEntityStore {
         return transientEntity.store
+    }
+
+    override fun resetIfNew() {
+    }
+
+    override fun generateIdIfNew() {
     }
 
     override fun getLinksSize(linkName: String): Long {
@@ -254,6 +260,7 @@ open class RemovedTransientEntity(
         val tx = threadSessionOrThrow as TransientSessionImpl
         val tracker = threadSessionOrThrow.transientChangesTracker
         val change = tracker.getChangedLinksDetailed(transientEntity)?.get(linkName)
+
         if (change != null && change.changeType in listOf(LinkChangeType.ADD_AND_REMOVE, LinkChangeType.REMOVE)) {
             val removedLinks = (change.removedEntities ?: setOf()).union(change.deletedEntities ?: setOf())
             return RemovedLinksEntityIterable(
@@ -261,7 +268,8 @@ open class RemovedTransientEntity(
                 tx
             )
         }
-        return OQueryEntityIterableBase.EMPTY
+
+        return EntityIterableBase.EMPTY
     }
 
     override fun getLinks(linkNames: MutableCollection<String>): EntityIterable {

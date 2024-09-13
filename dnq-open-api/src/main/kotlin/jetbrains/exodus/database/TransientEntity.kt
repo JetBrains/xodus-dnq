@@ -49,6 +49,10 @@ interface TransientEntity : Entity {
 
     override fun getStore(): TransientEntityStore
 
+    fun resetIfNew()
+
+    fun generateIdIfNew()
+
     fun getLinksSize(linkName: String): Long
 
     fun hasChanges(): Boolean

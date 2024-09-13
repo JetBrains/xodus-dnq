@@ -23,10 +23,8 @@ import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.asOStoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
-import jetbrains.exodus.entitystore.orientdb.OQueryEntityIterable
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.orientdb.iterate.OEntityOfTypeIterable
-import jetbrains.exodus.entitystore.orientdb.iterate.OQueryEntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.iterate.link.OMultipleEntitiesIterable
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
@@ -175,7 +173,7 @@ private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterab
 fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
     val notNullElements = elements.filterNotNull()
     val iterable = if (notNullElements.isEmpty()){
-        OQueryEntityIterableBase.EMPTY
+        EntityIterableBase.EMPTY
     } else {
         val txn = notNullElements.first().threadSessionOrThrow
         PersistentEntityIterableWrapper(
@@ -559,7 +557,7 @@ private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterab
     val entityTypeName = entityType.entityType
     val queryEngine = entityType.entityStore.queryEngine
 
-    if (this is OQueryEntityIterable) {
+    if (this is EntityIterable) {
         return this.intersect(OEntityOfTypeIterable(this.transaction.asOStoreTransaction(), entityTypeName))
     } else {
         val modelMetaData = queryEngine.modelMetaData
@@ -634,7 +632,7 @@ operator fun <T : XdEntity> XdQuery<T>.contains(entity: Entity?): Boolean {
             i.contains(entity)
         }
 
-        i is OQueryEntityIterable && entity != null -> {
+        i is EntityIterable && entity != null -> {
             i.contains(entity)
         }
 
