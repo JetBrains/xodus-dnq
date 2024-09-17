@@ -21,8 +21,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
-import jetbrains.exodus.entitystore.util.unsupported
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 
 
 /**
@@ -32,12 +31,8 @@ import jetbrains.exodus.entitystore.util.unsupported
  */
 open class PersistentEntityIterableWrapper(
         protected val store: TransientEntityStore,
-        wrappedIterable: EntityIterable) :
-        EntityIterableWrapper,
-        EntityIterableBase(
-                (wrappedIterable as? EntityIterable)?.unwrap()
-                        .takeIf { it !== EMPTY }
-                        ?.transaction) {
+        wrappedIterable: EntityIterable
+) : EntityIterableWrapper, EntityIterable {
 
     protected val wrappedIterable: EntityIterable = wrappedIterable.let {
         if (wrappedIterable is PersistentEntityIterableWrapper) {
@@ -57,8 +52,6 @@ open class PersistentEntityIterableWrapper(
     override fun indexOf(entity: Entity) = wrappedIterable.indexOf(entity)
 
     override fun contains(entity: Entity) = wrappedIterable.contains(entity)
-
-    public override fun getHandleImpl() = unsupported()
 
     override fun intersect(right: EntityIterable): EntityIterable {
         right as? EntityIterable ?: throwUnsupported()
@@ -85,13 +78,17 @@ open class PersistentEntityIterableWrapper(
         return wrappedIterable.concat(right.unwrap())
     }
 
+    override fun skip(number: Int): EntityIterable {
+        return wrappedIterable.skip(number)
+    }
+
     override fun take(number: Int): EntityIterable {
         return wrappedIterable.take(number)
     }
 
-    override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
+    fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
         //TODO move findLinks to interface
-        return (wrappedIterable as? EntityIterableBase)?.findLinks(entities, linkName) ?: EMPTY
+        return (wrappedIterable as? OEntityIterableBase)?.findLinks(entities, linkName) ?: OEntityIterableBase.EMPTY
     }
 
     override fun distinct(): EntityIterable {
@@ -119,15 +116,15 @@ open class PersistentEntityIterableWrapper(
     override fun asSortResult(): EntityIterable =
             PersistentEntityIterableWrapper(store, wrappedIterable.asSortResult())
 
-    override fun getSource(): EntityIterableBase {
-        return wrappedIterable.unwrap() as EntityIterableBase
+    fun getSource(): EntityIterable {
+        return wrappedIterable.unwrap()
     }
 
     override fun iterator(): EntityIterator {
         return PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.threadSessionOrThrow)
     }
 
-    override fun getIteratorImpl(txn: StoreTransaction): EntityIterator {
+    override fun getTransaction(): StoreTransaction {
         throw UnsupportedOperationException("Should never be called")
     }
 
