@@ -22,6 +22,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.asOStoreTransaction
+import jetbrains.exodus.entitystore.orientdb.OEntityIterable
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.iterate.OEntityOfTypeIterable
@@ -557,8 +558,8 @@ private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterab
     val entityTypeName = entityType.entityType
     val queryEngine = entityType.entityStore.queryEngine
 
-    if (this is OEntityIterableBase) {
-        return this.intersect(OEntityOfTypeIterable(transaction.asOStoreTransaction(), entityTypeName))
+    if (this is OEntityIterable) {
+        return this.intersect(OEntityOfTypeIterable(this.transaction.asOStoreTransaction(), entityTypeName))
     } else {
         val modelMetaData = queryEngine.modelMetaData
         val subTypes = modelMetaData?.getEntityMetaData(entityTypeName)?.allSubTypes?.toSet() ?: hashSetOf()
@@ -632,7 +633,7 @@ operator fun <T : XdEntity> XdQuery<T>.contains(entity: Entity?): Boolean {
             i.contains(entity)
         }
 
-        i is OEntityIterableBase && entity != null -> {
+        i is OEntityIterable && entity != null -> {
             i.contains(entity)
         }
 

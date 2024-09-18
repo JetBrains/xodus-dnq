@@ -36,6 +36,11 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
     override fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
         val session = ODatabaseSession.getActiveSession()
         val id = e.entity.id.asOId()
+
+        if (id.isNew) {
+            return null
+        }
+
         val oVertex = session.load<OVertex>(id)
         val onLoadValue = oVertex.getPropertyOnLoadValue<Any>(propertyName)
         return if (onLoadValue is MutableSet<*>) {

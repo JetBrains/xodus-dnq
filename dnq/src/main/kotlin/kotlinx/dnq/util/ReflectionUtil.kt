@@ -15,8 +15,10 @@
  */
 package kotlinx.dnq.util
 
+import com.orientechnologies.orient.core.exception.ORecordNotFoundException
 import jetbrains.exodus.core.dataStructures.SoftConcurrentObjectCache
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.XdModel
@@ -204,8 +206,12 @@ fun <T : XdEntity> T.getOldValue(property: KProperty1<T, DateTime?>): DateTime? 
 }
 
 fun <T : XdEntity, R : Comparable<*>?> T.getOldValue(property: KProperty1<T, R>): R? {
-    @Suppress("UNCHECKED_CAST")
-    return getOldPrimitiveValue(property.getDBName(javaClass.entityType)) as R?
+    try {
+        @Suppress("UNCHECKED_CAST")
+        return getOldPrimitiveValue(property.getDBName(javaClass.entityType)) as R?
+    } catch (e: ORecordNotFoundException) {
+        throw EntityRemovedInDatabaseException(javaClass.entityType.entityType, entity.id)
+    }
 }
 
 private fun <R : XdEntity, T : XdEntity> R.getLinksWrapper(property: KProperty1<R, XdQuery<T>>, getLinks: (String) -> Iterable<Entity>): XdQuery<T> {

@@ -16,7 +16,6 @@
 package kotlinx.dnq
 
 import jetbrains.exodus.entitystore.Entity
-import org.junit.Ignore
 import org.junit.Test
 
 class AutoMergeTest : DBTest() {
@@ -43,12 +42,13 @@ class AutoMergeTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun testAddIssueToProject() {
         val p = transactional { Project.new() }
+
         val (i1, i2) = store.runTranAsyncAndJoin {
             val i1 = Issue.new("issue1")
             p.issues.add(i1)
+
             val i2 = store.runTranAsyncAndJoin {
                 val i2 = Issue.new("issue2")
                 p.issues.add(i2)

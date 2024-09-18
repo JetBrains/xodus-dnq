@@ -78,12 +78,17 @@ open class PersistentEntityIterableWrapper(
         return wrappedIterable.concat(right.unwrap())
     }
 
+    override fun skip(number: Int): EntityIterable {
+        return wrappedIterable.skip(number)
+    }
+
     override fun take(number: Int): EntityIterable {
         return wrappedIterable.take(number)
     }
 
-    override fun skip(number: Int): EntityIterable {
-        return wrappedIterable.skip(number)
+    fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
+        //TODO move findLinks to interface
+        return (wrappedIterable as? OEntityIterableBase)?.findLinks(entities, linkName) ?: OEntityIterableBase.EMPTY
     }
 
     override fun distinct(): EntityIterable {

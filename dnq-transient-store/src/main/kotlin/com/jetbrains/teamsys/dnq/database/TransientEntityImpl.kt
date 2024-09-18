@@ -21,7 +21,6 @@ import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.OEntityId
 import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
 import java.io.File
 import java.io.InputStream
@@ -31,23 +30,34 @@ import java.io.InputStream
  */
 open class TransientEntityImpl : TransientEntity {
     private val store: TransientEntityStore
-    private var persistentEntityId: OEntityId? = null
+    private var persistentEntity: OEntity? = null
+
     private var readOnlyPersistentEntity: OReadonlyVertexEntity? = null
     private val entityType: String by lazy(LazyThreadSafetyMode.NONE) { entity.type }
 
     override var entity: OEntity
-        get() = readOnlyPersistentEntity
-            ?: persistentEntityId?.let { persistentStore.currentTransaction?.getEntity(it) as OEntity }
-            ?: throwWrappedPersistentEntityUndefined()
+        get() = persistentEntity ?: throwWrappedPersistentEntityUndefined()
         set(persistentEntity) {
             if (persistentEntity is OReadonlyVertexEntity) {
-                persistentEntityId = null
+                this.persistentEntity = null
                 readOnlyPersistentEntity = persistentEntity
             } else {
-                persistentEntityId = persistentEntity.id
+                this.persistentEntity = persistentEntity
                 readOnlyPersistentEntity = null
             }
         }
+
+    override fun resetIfNew() {
+        if (isNew) {
+            persistentEntity?.resetToNew()
+        }
+    }
+
+    override fun generateIdIfNew() {
+        if (isNew) {
+            persistentEntity?.generateId()
+        }
+    }
 
     private val threadSessionOrThrow: TransientSessionImpl
         get() = store.threadSessionOrThrow as TransientSessionImpl
@@ -117,7 +127,7 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun getId(): EntityId {
         return readOnlyPersistentEntity?.id
-            ?: persistentEntityId
+            ?: persistentEntity?.id
             ?: throwWrappedPersistentEntityUndefined()
     }
 
@@ -195,7 +205,11 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun setLink(linkName: String, target: Entity?): Boolean {
         if (target == null) return false
-        return threadSessionOrThrow.entitiesUpdater.setLink(this, linkName, target as TransientEntity)
+        return threadSessionOrThrow.entitiesUpdater.setLink(
+            this,
+            linkName,
+            target as TransientEntity
+        )
     }
 
     override fun setLink(linkName: String, targetId: EntityId): Boolean {
@@ -219,7 +233,11 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun addLink(linkName: String, target: Entity): Boolean {
         assertIsMultipleLink(this, linkName)
-        return threadSessionOrThrow.entitiesUpdater.addLink(this, linkName, target as TransientEntity)
+        return threadSessionOrThrow.entitiesUpdater.addLink(
+            this,
+            linkName,
+            target as TransientEntity
+        )
     }
 
     override fun addLink(linkName: String, targetId: EntityId): Boolean {
@@ -234,7 +252,11 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun deleteLink(linkName: String, target: Entity): Boolean {
-        return threadSessionOrThrow.entitiesUpdater.deleteLink(this, linkName, target as TransientEntity)
+        return threadSessionOrThrow.entitiesUpdater.deleteLink(
+            this,
+            linkName,
+            target as TransientEntity
+        )
     }
 
     override fun deleteLink(linkName: String, targetId: EntityId): Boolean {
@@ -368,9 +390,14 @@ open class TransientEntityImpl : TransientEntity {
     private fun getAddedRemovedLinks(linkNames: Set<String>, removed: Boolean): EntityIterable {
         if (isNew) return UniversalEmptyEntityIterable
 
-        val changedLinksDetailed = threadSessionOrThrow.transientChangesTracker.getChangedLinksDetailed(this)
+        val changedLinksDetailed =
+            threadSessionOrThrow.transientChangesTracker.getChangedLinksDetailed(this)
         return if (changedLinksDetailed != null) {
-            AddedOrRemovedLinksFromSetTransientEntityIterable.get(changedLinksDetailed, linkNames, removed)
+            AddedOrRemovedLinksFromSetTransientEntityIterable.get(
+                changedLinksDetailed,
+                linkNames,
+                removed
+            )
         } else {
             UniversalEmptyEntityIterable
         }
@@ -403,7 +430,11 @@ open class TransientEntityImpl : TransientEntity {
     override fun clearOneToMany(manyToOneLinkName: String, oneToManyLinkName: String) {
         assertIsMultipleLink(this, oneToManyLinkName)
 
-        threadSessionOrThrow.entitiesUpdater.clearOneToMany(this, manyToOneLinkName, oneToManyLinkName)
+        threadSessionOrThrow.entitiesUpdater.clearOneToMany(
+            this,
+            manyToOneLinkName,
+            oneToManyLinkName
+        )
     }
 
     override fun createManyToMany(e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity) {
@@ -425,10 +456,19 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun setOneToOne(e1Toe2LinkName: String, e2Toe1LinkName: String, e2: Entity?) {
-        threadSessionOrThrow.entitiesUpdater.setOneToOne(this, e1Toe2LinkName, e2Toe1LinkName, e2 as TransientEntity?)
+        threadSessionOrThrow.entitiesUpdater.setOneToOne(
+            this,
+            e1Toe2LinkName,
+            e2Toe1LinkName,
+            e2 as TransientEntity?
+        )
     }
 
-    override fun removeOneToMany(manyToOneLinkName: String, oneToManyLinkName: String, many: Entity) {
+    override fun removeOneToMany(
+        manyToOneLinkName: String,
+        oneToManyLinkName: String,
+        many: Entity
+    ) {
         threadSessionOrThrow.entitiesUpdater.removeOneToMany(
             this,
             manyToOneLinkName,
@@ -438,14 +478,26 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     override fun removeFromParent(parentToChildLinkName: String, childToParentLinkName: String) {
-        threadSessionOrThrow.entitiesUpdater.removeFromParent(this, parentToChildLinkName, childToParentLinkName)
+        threadSessionOrThrow.entitiesUpdater.removeFromParent(
+            this,
+            parentToChildLinkName,
+            childToParentLinkName
+        )
     }
 
     override fun removeChild(parentToChildLinkName: String, childToParentLinkName: String) {
-        threadSessionOrThrow.entitiesUpdater.removeChild(this, parentToChildLinkName, childToParentLinkName)
+        threadSessionOrThrow.entitiesUpdater.removeChild(
+            this,
+            parentToChildLinkName,
+            childToParentLinkName
+        )
     }
 
-    override fun setChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
+    override fun setChild(
+        parentToChildLinkName: String,
+        childToParentLinkName: String,
+        child: Entity
+    ) {
         threadSessionOrThrow.entitiesUpdater.setChild(
             this,
             parentToChildLinkName,
@@ -458,7 +510,11 @@ open class TransientEntityImpl : TransientEntity {
         threadSessionOrThrow.entitiesUpdater.clearChildren(this, parentToChildLinkName)
     }
 
-    override fun addChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity) {
+    override fun addChild(
+        parentToChildLinkName: String,
+        childToParentLinkName: String,
+        child: Entity
+    ) {
         threadSessionOrThrow.entitiesUpdater.addChild(
             this,
             parentToChildLinkName,
