@@ -16,26 +16,19 @@
 package com.jetbrains.teamsys.dnq.database
 
 import com.orientechnologies.common.concur.ONeedRetryException
-import com.orientechnologies.orient.core.db.ODatabaseSession
-import com.orientechnologies.orient.core.record.OVertex
-import com.orientechnologies.orient.core.record.impl.ORecordBytes
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
-import jetbrains.exodus.entitystore.orientdb.OComparableSet
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.env.TransactionFinishedException
-import jetbrains.exodus.util.UTFUtil
 import mu.KLogging
-import java.io.ByteArrayInputStream
-import java.io.InputStream
 import java.util.*
 
 private fun createChangesTracker(
@@ -67,7 +60,8 @@ class TransientSessionImpl(
     private var loadedIds: EntityIdSet = EntityIdSetFactory.newSet()
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     private var allowRunnables = true
-    internal val sessionListenersData = IdentityHashMap<DNQListener<*>, DnqListenerTransientData<*>>()
+    internal val sessionListenersData =
+        IdentityHashMap<DNQListener<*>, DnqListenerTransientData<*>>()
 
     val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled) Throwable() else null
 
@@ -82,7 +76,8 @@ class TransientSessionImpl(
     override val isAborted: Boolean
         get() = state == State.Aborted
 
-    override var transactionInternal: StoreTransaction = this.store.persistentStore.beginTransaction()
+    override var transactionInternal: StoreTransaction =
+        this.store.persistentStore.beginTransaction()
         get() {
             assertOpen("get persistent transaction")
             return field
@@ -236,7 +231,15 @@ class TransientSessionImpl(
                         }
                     } catch (_: ONeedRetryException) {
                         // replay changes
+                        transientChangesTracker.changedEntities.forEach {
+                            it.resetIfNew()
+                        }
                         transactionInternal = this.store.persistentStore.beginTransaction()
+
+                        transientChangesTracker.changedEntities.forEach {
+                            it.generateIdIfNew()
+                        }
+
                         replayChanges()
                         //recheck constraints
                         checkBeforeSaveChangesConstraints()
@@ -251,13 +254,14 @@ class TransientSessionImpl(
                     replayChanges()
                 }
                 if (exception is ORecordDuplicatedException) {
-                    val (fieldName, _) = exception.indexName.substringAfter("_").substringBefore("_targetEntityId_unique").split("_")
+                    val (fieldName, _) = exception.indexName.substringAfter("_")
+                        .substringBefore("_targetEntityId_unique").split("_")
                     val typeName = exception.indexName.substringBefore("_")
                     val detailMessage = exception.message
                     val cause = UniqueIndexViolationException(
                         typeName,
                         fieldName,
-                        detailMessage?:""
+                        detailMessage ?: ""
                     )
                     throw ConstraintsValidationException(cause)
                 }
@@ -331,7 +335,10 @@ class TransientSessionImpl(
         return transactionInternal.isCurrent
     }
 
-    override fun findWithPropSortedByValue(entityType: String, propertyName: String): EntityIterable {
+    override fun findWithPropSortedByValue(
+        entityType: String,
+        propertyName: String
+    ): EntityIterable {
         return transactionInternal.findWithPropSortedByValue(entityType, propertyName)
     }
 
@@ -391,7 +398,14 @@ class TransientSessionImpl(
                 processed.add(txnEntity)
                 // remove associations and cascade delete
                 val storeSession = store.threadSessionOrThrow
-                ConstraintsUtil.processOnDeleteConstraints(storeSession, txnEntity, entityMetaData, modelMetaData, false, processed)
+                ConstraintsUtil.processOnDeleteConstraints(
+                    storeSession,
+                    txnEntity,
+                    entityMetaData,
+                    modelMetaData,
+                    false,
+                    processed
+                )
             }
         }
     }
@@ -426,7 +440,12 @@ class TransientSessionImpl(
                         entitiesUpdater.deleteEntityInternal(changedEntity)
                     } else {
                         // has no parent, but orphans shouldn't be removed automatically - exception
-                        orphans.add(OrphanChildException(changedEntity, entityMetaData.aggregationChildEnds))
+                        orphans.add(
+                            OrphanChildException(
+                                changedEntity,
+                                entityMetaData.aggregationChildEnds
+                            )
+                        )
                     }
                 }
             }
@@ -521,7 +540,7 @@ class TransientSessionImpl(
         }
     }
 
-    override fun <T>getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T> {
+    override fun <T> getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T> {
         val result = sessionListenersData.getOrPut(listener) {
             DnqListenerTransientDataImpl<T>()
         }
@@ -554,13 +573,28 @@ class TransientSessionImpl(
         exceptions.addAll(ConstraintsUtil.checkIncomingLinks(transientChangesTracker))
 
         // 2. check associations cardinality
-        exceptions.addAll(ConstraintsUtil.checkAssociationsCardinality(transientChangesTracker, modelMetaData))
+        exceptions.addAll(
+            ConstraintsUtil.checkAssociationsCardinality(
+                transientChangesTracker,
+                modelMetaData
+            )
+        )
 
         // 3. check required properties
-        exceptions.addAll(ConstraintsUtil.checkRequiredProperties(transientChangesTracker, modelMetaData))
+        exceptions.addAll(
+            ConstraintsUtil.checkRequiredProperties(
+                transientChangesTracker,
+                modelMetaData
+            )
+        )
 
         // 4. check other property constraints
-        exceptions.addAll(ConstraintsUtil.checkOtherPropertyConstraints(transientChangesTracker, modelMetaData))
+        exceptions.addAll(
+            ConstraintsUtil.checkOtherPropertyConstraints(
+                transientChangesTracker,
+                modelMetaData
+            )
+        )
 
         // 5. check index fields
         exceptions.addAll(ConstraintsUtil.checkIndexFields(transientChangesTracker, modelMetaData))
@@ -646,7 +680,12 @@ class TransientSessionImpl(
 
         logger.debug { "Notify flushed listeners $this" }
 
-        forAllListeners { it.flushed(this, changesDescription) }// TODO May be we remove it? It's not used
+        forAllListeners {
+            it.flushed(
+                this,
+                changesDescription
+            )
+        }// TODO May be we remove it? It's not used
 
         val ep = store.changesMultiplexer
         if (ep != null) {
@@ -788,7 +827,10 @@ class TransientSessionImpl(
         Aborted
     }
 
-    private fun forAllListeners(rethrowException: Boolean = false, event: (TransientStoreSessionListener) -> Unit) {
+    private fun forAllListeners(
+        rethrowException: Boolean = false,
+        event: (TransientStoreSessionListener) -> Unit
+    ) {
         store.forAllListeners { listener ->
             try {
                 event(listener)
