@@ -17,6 +17,7 @@ package kotlinx.dnq.query
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import jetbrains.exodus.entitystore.util.unsupported
 import jetbrains.exodus.query.*
 import jetbrains.exodus.query.metadata.ModelMetaData
 import kotlinx.dnq.XdEntity
@@ -394,15 +395,6 @@ inline infix fun <reified T : XdEntity, reified R : Comparable<*>> KProperty1<T,
  */
 inline infix fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, Set<T>>.contains(value: T): NodeBase {
     return eq(this.getDBName(R::class), value)
-}
-
-/**
- * Returns new [NodeBase] representing filter:
- *
- * value of `this` Set<String> property contains element that starts with the given [value].
- */
-inline infix fun <reified R : XdEntity> KProperty1<R, Set<String>>.anyStartsWith(value: String?): NodeBase {
-    return startsWith(getDBName(R::class), value)
 }
 
 /**

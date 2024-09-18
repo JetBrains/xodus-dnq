@@ -47,7 +47,6 @@ class ConcurrentAggregationTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun setOneToOne() {
         val focus = transactional { Car.new() }
         val c4 = transactional { Car.new() }
@@ -72,7 +71,6 @@ class ConcurrentAggregationTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun setManyToOne() {
         val focus = transactional { Car.new() }
         val c4 = transactional { Car.new() }
@@ -96,7 +94,6 @@ class ConcurrentAggregationTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun setManyToOne2() {
         val focus = transactional { txn ->
             val focus = Car.new()
