@@ -181,7 +181,6 @@ class FilterQueryPropertiesTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun `should search by contains`(){
         val (user1, user2, user3) = store.transactional {
             Triple(User.new {

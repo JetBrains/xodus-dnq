@@ -22,6 +22,7 @@ import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
+import jetbrains.exodus.entitystore.orientdb.iterate.OQueryEntityIterator
 import java.io.File
 import java.io.InputStream
 

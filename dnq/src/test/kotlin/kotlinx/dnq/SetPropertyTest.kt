@@ -17,12 +17,10 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.query.anyStartsWith
 import kotlinx.dnq.query.contains
 import kotlinx.dnq.query.query
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.util.isDefined
-import org.junit.Ignore
 import org.junit.Test
 
 class SetPropertyTest : DBTest() {
@@ -58,7 +56,7 @@ class SetPropertyTest : DBTest() {
 
         store.transactional {
             assertThat(employee.skills)
-                    .containsExactly("Java", "Kotlin", "Xodus-DNQ")
+                .containsExactly("Java", "Kotlin", "Xodus-DNQ")
         }
     }
 
@@ -108,26 +106,10 @@ class SetPropertyTest : DBTest() {
 
         store.transactional {
             assertThat(Employee.query(Employee::skills contains "Kotlin").toList())
-                    .containsExactly(employee)
+                .containsExactly(employee)
 
             assertThat(Employee.query(Employee::skills contains "Scala").toList())
-                    .isEmpty()
-        }
-    }
-
-    @Test
-    @Ignore
-    fun `anyStartsWith query`() {
-        val employee = store.transactional {
-            Employee.new { skills = setOf("Java", "Kotlin", "Xodus-DNQ") }
-        }
-
-        store.transactional {
-            assertThat(Employee.query(Employee::skills anyStartsWith "Kot").toList())
-                    .containsExactly(employee)
-
-            assertThat(Employee.query(Employee::skills anyStartsWith "Sc").toList())
-                    .isEmpty()
+                .isEmpty()
         }
     }
 }

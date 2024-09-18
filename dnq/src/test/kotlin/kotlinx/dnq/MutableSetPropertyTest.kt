@@ -19,13 +19,11 @@ import com.google.common.truth.IterableSubject
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.query.anyStartsWith
 import kotlinx.dnq.query.contains
 import kotlinx.dnq.query.query
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.util.hasChanges
 import kotlinx.dnq.util.isDefined
-import org.junit.Ignore
 import org.junit.Test
 
 class MutableSetPropertyTest : DBTest() {
@@ -98,22 +96,6 @@ class MutableSetPropertyTest : DBTest() {
                     .containsExactly(employee)
 
             assertThat(Employee.query(Employee::skills contains "Scala").toList())
-                    .isEmpty()
-        }
-    }
-
-    @Test
-    @Ignore
-    fun `anyStartsWith query`() {
-        val employee = store.transactional {
-            Employee.new { skills.addAll(listOf("Java", "Kotlin", "Xodus-DNQ")) }
-        }
-
-        store.transactional {
-            assertThat(Employee.query(Employee::skills anyStartsWith "Kot").toList())
-                    .containsExactly(employee)
-
-            assertThat(Employee.query(Employee::skills anyStartsWith "Sc").toList())
                     .isEmpty()
         }
     }
