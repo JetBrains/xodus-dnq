@@ -19,6 +19,7 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
+import kotlin.reflect.KProperty
 
 class ReadOnlyTransientSession(
         private val store: TransientEntityStoreImpl,
@@ -49,7 +50,7 @@ class ReadOnlyTransientSession(
     }
 
     override fun wrap(action: String, entityIterable: EntityIterable): EntityIterable = PersistentEntityIterableWrapper(store, entityIterable)
-    
+
     override fun mergeSorted(
         sorted: MutableList<EntityIterable>,
         valueGetter: ComparableGetter,
@@ -133,11 +134,17 @@ class ReadOnlyTransientSession(
 
     override fun <T>getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T> {
         return object :DnqListenerTransientData<T> {
-            override fun <T> getValue(name: String, clazz: Class<T>) = null
+            override fun <T> getValue(name: String) = null
 
             override fun <T> storeValue(name: String, value: T) = Unit
 
             override fun getRemoved(): T {
+                throw IllegalStateException("")
+            }
+
+            override fun <T> getValue(property: KProperty<T>): T? = null
+
+            override fun <T> storeValue(property: KProperty<T>, value: T) {
                 throw IllegalStateException("")
             }
 

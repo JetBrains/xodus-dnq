@@ -16,6 +16,7 @@
 package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.orientdb.OEntityId
+import kotlin.reflect.KProperty
 
 interface DNQListener<in T : Any> {
 
@@ -30,8 +31,16 @@ interface DNQListener<in T : Any> {
 }
 
 interface DnqListenerTransientData<out T> {
-    fun <T> getValue(name: String, clazz: Class<T>): T?
+    fun <T> getValue(name: String): T?
     fun <T> storeValue(name: String, value: T)
     fun getRemoved(): T
     fun setRemoved(entity: Any)
+
+    fun <T> getValue(property: KProperty<T>): T? {
+        return getValue(property.name) as T?
+    }
+
+    fun <T> storeValue(property: KProperty<T>, value: T) {
+        storeValue(property.name, value)
+    }
 }

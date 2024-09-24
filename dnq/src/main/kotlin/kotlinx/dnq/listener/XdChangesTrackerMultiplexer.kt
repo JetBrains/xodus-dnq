@@ -77,12 +77,12 @@ internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityList
 }
 
 internal class XdDnqListenerTransientData<out XD : XdEntity>(private val requestData: () -> DnqListenerTransientData<Entity>): DnqListenerTransientData<XD> {
-    override fun <T> getValue(name: String, clazz: Class<T>) = requestData().getValue(name, clazz)
+    override fun <T> getValue(name: String) = requestData().getValue<T>(name)
 
     override fun <T> storeValue(name: String, value: T) = requestData().storeValue(name, value)
 
     override fun getRemoved(): XD {
-        return requestData().getRemoved().toXd<XD>()
+        return requestData().getRemoved().toXd()
     }
 
     override fun setRemoved(entity: Any) {

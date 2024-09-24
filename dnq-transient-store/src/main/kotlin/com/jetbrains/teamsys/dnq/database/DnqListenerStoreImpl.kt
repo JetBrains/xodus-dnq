@@ -17,13 +17,14 @@
 package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.database.DnqListenerTransientData
+import kotlin.reflect.KProperty
 
 
 class DnqListenerTransientDataImpl<E> : DnqListenerTransientData<E> {
     private val data = HashMap<String, Any>()
     private var removed: Any? = null
 
-    override fun <T> getValue(name: String, clazz: Class<T>): T? {
+    override fun <T> getValue(name: String): T? {
         @Suppress("UNCHECKED_CAST")
         return data[name] as? T
     }
@@ -39,5 +40,14 @@ class DnqListenerTransientDataImpl<E> : DnqListenerTransientData<E> {
 
     override fun setRemoved(entity: Any) {
         removed = entity
+    }
+
+    override fun <T> getValue(property: KProperty<T>): T? {
+        @Suppress("UNCHECKED_CAST")
+        return data[property.name] as T?
+    }
+
+    override fun <T> storeValue(property: KProperty<T>, value: T) {
+        data[property.name] = value as Any
     }
 }
