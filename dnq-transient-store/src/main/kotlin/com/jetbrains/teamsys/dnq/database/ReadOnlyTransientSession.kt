@@ -134,7 +134,7 @@ class ReadOnlyTransientSession(
 
     override fun <T>getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T> {
         return object :DnqListenerTransientData<T> {
-            override fun <T> getValue(name: String, clazz: Class<T>) = null
+            override fun <T> getValue(name: String) = null
 
             override fun <T> storeValue(name: String, value: T) = Unit
 
