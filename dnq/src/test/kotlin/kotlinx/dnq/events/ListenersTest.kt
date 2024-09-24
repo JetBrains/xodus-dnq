@@ -234,7 +234,7 @@ class ListenersTest : DBTest() {
                 removed: OEntityId,
                 requestListenerStorage: () -> DnqListenerTransientData<Goo>
             ) {
-                val list = requestListenerStorage().getValue("list", List::class.java) as List<Foo>
+                val list: List<Foo> = requestListenerStorage().getValue("list") ?: throw NoSuchElementException()
                 list.forEach {
                     it.intField = 11
                 }
