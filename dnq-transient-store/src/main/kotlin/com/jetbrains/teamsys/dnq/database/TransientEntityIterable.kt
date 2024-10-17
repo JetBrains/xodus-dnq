@@ -59,6 +59,10 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
     override fun intersect(right: EntityIterable): EntityIterable =
             throw UnsupportedOperationException("Not supported by TransientEntityIterable")
 
+    override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
+        throw UnsupportedOperationException("Not supported by TransientEntityIterable")
+    }
+
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable =
             throw UnsupportedOperationException("Not supported by TransientEntityIterable")
 
