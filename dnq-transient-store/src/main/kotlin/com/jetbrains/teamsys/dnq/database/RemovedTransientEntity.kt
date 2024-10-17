@@ -21,7 +21,6 @@ import jetbrains.exodus.database.LinkChangeType
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 import java.io.File
@@ -330,6 +329,7 @@ internal class RemovedLinksEntityIterable(
                 throw IllegalStateException("Must not be called")
             }
 
+
         }
     }
 
@@ -357,6 +357,10 @@ internal class RemovedLinksEntityIterable(
     }
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable {
+        throw IllegalStateException("Must not be called")
+    }
+
+    override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
         throw IllegalStateException("Must not be called")
     }
 

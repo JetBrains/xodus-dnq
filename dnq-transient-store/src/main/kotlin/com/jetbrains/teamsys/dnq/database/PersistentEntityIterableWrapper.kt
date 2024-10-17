@@ -86,7 +86,7 @@ open class PersistentEntityIterableWrapper(
         return wrappedIterable.take(number)
     }
 
-    fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
+    override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
         //TODO move findLinks to interface
         return (wrappedIterable as? OEntityIterableBase)?.findLinks(entities, linkName) ?: OEntityIterableBase.EMPTY
     }
