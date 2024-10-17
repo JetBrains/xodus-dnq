@@ -21,7 +21,6 @@ import jetbrains.exodus.database.LinkChangeType
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 import java.io.File
@@ -225,9 +224,6 @@ open class RemovedTransientEntity(
 
     //region simple unwrapping
 
-
-    //endregion
-
     override fun getProperty(propertyName: String): Comparable<*>? {
         return entity.getProperty(propertyName)
     }
@@ -271,6 +267,8 @@ open class RemovedTransientEntity(
         }
         return OEntityIterableBase.EMPTY
     }
+
+    //endregion
 
     override fun getLinks(linkNames: MutableCollection<String>): EntityIterable {
         throw IllegalStateException("Entity is removed")
@@ -392,6 +390,7 @@ internal class RemovedLinksEntityIterable(
         throw IllegalStateException("Must not be called")
     }
 
+
     override fun getFirst(): Entity {
         return entities.first()
     }
@@ -416,5 +415,8 @@ internal class RemovedLinksEntityIterable(
         throw IllegalStateException("Must not be called")
     }
 
+    override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
+        throw IllegalStateException("Must not be called")
+    }
 }
 

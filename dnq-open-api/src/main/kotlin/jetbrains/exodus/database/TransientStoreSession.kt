@@ -16,6 +16,7 @@
 package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.StoreTransaction
 
@@ -75,7 +76,9 @@ interface TransientStoreSession : StoreTransaction {
 
     fun setUpgradeHook(hook: Runnable?)
 
-    fun <T>getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T>
+    fun <T> createRemovedEntityData(listener: DNQListener<*>, entity: TransientEntity): BasicRemovedEntityData<T>
+
+    fun <T> getRemovedEntityData(listener: DNQListener<*>, entityId: EntityId): BasicRemovedEntityData<T>
 
     val originalValuesProvider: TransientEntityOriginalValuesProvider
 }

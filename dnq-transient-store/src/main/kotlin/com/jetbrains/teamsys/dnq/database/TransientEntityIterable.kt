@@ -68,6 +68,10 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
     override fun minus(right: EntityIterable): EntityIterable =
             throw UnsupportedOperationException("Not supported by TransientEntityIterable")
 
+    override fun findLinks(entities: EntityIterable, linkName: String) =
+        throw UnsupportedOperationException("Not supported by TransientEntityIterable")
+
+
     override fun concat(right: EntityIterable): EntityIterable {
         if (right !is TransientEntityIterable) throw UnsupportedOperationException("Not supported by TransientEntityIterable")
 

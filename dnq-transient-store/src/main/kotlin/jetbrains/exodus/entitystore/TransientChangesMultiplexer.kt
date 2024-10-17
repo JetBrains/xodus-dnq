@@ -18,7 +18,6 @@ package jetbrains.exodus.entitystore
 import jetbrains.exodus.core.dataStructures.hash.HashMap
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
-import jetbrains.exodus.entitystore.orientdb.OEntityId
 import mu.KLogging
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -130,6 +129,7 @@ open class TransientChangesMultiplexer :
         }
     }
 
+    @Suppress("unused")
     fun close() {
         logger.debug { "Cleaning EventsMultiplexer listeners" }
 
@@ -204,20 +204,16 @@ open class TransientChangesMultiplexer :
         Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS -> when (c.changeType) {
             EntityChangeType.ADD -> listeners.visit(true) { it.addedSyncBeforeConstraints(c.transientEntity) }
             EntityChangeType.UPDATE -> listeners.visit(true) { it.updatedSyncBeforeConstraints(c.snapshotEntity, c.transientEntity) }
-            EntityChangeType.REMOVE -> listeners.visit(true) {
-                it.removedSyncBeforeConstraints(c.snapshotEntity) {
-                    session.getListenerTransientData(it)
-                }
+            EntityChangeType.REMOVE -> listeners.visit(true) { listener ->
+                listener.removedSyncBeforeConstraints(c.snapshotEntity, session.createRemovedEntityData(listener, c.snapshotEntity))
             }
         }
 
         Where.SYNC_AFTER_FLUSH -> when (c.changeType) {
             EntityChangeType.ADD -> listeners.visit { it.addedSync(c.transientEntity) }
             EntityChangeType.UPDATE -> listeners.visit { it.updatedSync(c.snapshotEntity, c.transientEntity) }
-            EntityChangeType.REMOVE -> listeners.visit {
-                it.removedSync(c.snapshotEntity.id as OEntityId) {
-                    session.getListenerTransientData(it)
-                }
+            EntityChangeType.REMOVE -> listeners.visit { listener ->
+                listener.removedSync(session.getRemovedEntityData(listener, c.snapshotEntity.id))
             }
         }
     }

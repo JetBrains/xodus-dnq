@@ -19,7 +19,6 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
-import kotlin.reflect.KProperty
 
 class ReadOnlyTransientSession(
         private val store: TransientEntityStoreImpl,
@@ -132,24 +131,13 @@ class ReadOnlyTransientSession(
 
     override val entitiesUpdater = ReadonlyTransientEntitiesUpdater()
 
-    override fun <T>getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T> {
-        return object :DnqListenerTransientData<T> {
-            override fun <T> getValue(name: String) = null
 
-            override fun <T> storeValue(name: String, value: T) = Unit
+    override fun <T> createRemovedEntityData(listener: DNQListener<*>, entity: TransientEntity): BasicRemovedEntityData<T> {
+        throw IllegalStateException("Transient session is readonly. There should not be any changes")
+    }
 
-            override fun getRemoved(): T {
-                throw IllegalStateException("")
-            }
-
-            override fun <T> getValue(property: KProperty<T>): T? = null
-
-            override fun <T> storeValue(property: KProperty<T>, value: T) {
-                throw IllegalStateException("")
-            }
-
-            override fun setRemoved(entity: Any) = Unit
-        }
+    override fun <T> getRemovedEntityData(listener: DNQListener<*>, entityId: EntityId): BasicRemovedEntityData<T> {
+        throw IllegalStateException("Transient session is readonly. There should not be any changes")
     }
 
     override val originalValuesProvider = TransientEntityOriginalValuesProviderImpl(this)
