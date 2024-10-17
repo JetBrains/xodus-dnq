@@ -16,6 +16,7 @@
 package kotlinx.dnq
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
+import com.orientechnologies.orient.core.config.OGlobalConfiguration
 import com.orientechnologies.orient.core.db.ODatabaseType
 import com.orientechnologies.orient.core.db.OrientDB
 import com.orientechnologies.orient.core.db.OrientDBConfig
@@ -26,7 +27,9 @@ import kotlinx.dnq.util.initMetaData
 
 fun createStore(name: String): TransientEntityStoreImpl {
 
-    val db = OrientDB("memory", OrientDBConfig.defaultConfig())
+    val builder = OrientDBConfig.builder()
+    builder.addConfig(OGlobalConfiguration.NON_TX_READS_WARNING_MODE, "SILENT")
+    val db = OrientDB("memory", builder.build())
     val config = OrientDBConfigBuilder()
         .addGlobalUser("admin","password","admin")
         .build()

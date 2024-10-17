@@ -328,6 +328,7 @@ internal class RemovedLinksEntityIterable(
                 throw IllegalStateException("Must not be called")
             }
 
+
         }
     }
 
@@ -355,6 +356,10 @@ internal class RemovedLinksEntityIterable(
     }
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable {
+        throw IllegalStateException("Must not be called")
+    }
+
+    override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
         throw IllegalStateException("Must not be called")
     }
 
