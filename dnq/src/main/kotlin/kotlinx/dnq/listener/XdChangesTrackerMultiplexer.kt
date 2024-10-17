@@ -15,21 +15,27 @@
  */
 package kotlinx.dnq.listener
 
-import jetbrains.exodus.database.DnqListenerTransientData
 import jetbrains.exodus.database.IEntityListener
 import jetbrains.exodus.database.ITransientChangesMultiplexer
+import jetbrains.exodus.database.RemovedEntityData
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.orientdb.OEntityId
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.toXd
+import kotlin.reflect.KProperty
 
-fun <XD : XdEntity> ITransientChangesMultiplexer.addListener(entityType: XdEntityType<XD>, listener: XdEntityListener<XD>) {
+fun <XD : XdEntity> ITransientChangesMultiplexer.addListener(
+    entityType: XdEntityType<XD>,
+    listener: XdEntityListener<XD>
+) {
     this.addListener(entityType.entityType, listener.asEntityListener())
 }
 
-fun <XD : XdEntity> ITransientChangesMultiplexer.removeListener(entityType: XdEntityType<XD>, listener: XdEntityListener<XD>) {
+fun <XD : XdEntity> ITransientChangesMultiplexer.removeListener(
+    entityType: XdEntityType<XD>,
+    listener: XdEntityListener<XD>
+) {
     this.removeListener(entityType.entityType, listener.asEntityListener())
 }
 
@@ -43,7 +49,7 @@ fun <XD : XdEntity> ITransientChangesMultiplexer.removeListener(xd: XD, listener
 
 fun <XD : XdEntity> XdEntityType<XD>.addListener(store: TransientEntityStore, listener: XdEntityListener<XD>) {
     val eventsMultiplexer = store.changesMultiplexer
-            ?: throw IllegalStateException("Cannot access eventsMultiplexer")
+        ?: throw IllegalStateException("Cannot access eventsMultiplexer")
 
     eventsMultiplexer.addListener(this, listener)
 }
@@ -58,35 +64,44 @@ internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityList
     override fun addedSyncBeforeConstraints(added: Entity) = wrapped.addedSyncBeforeConstraints(added.toXd())
     override fun addedSync(added: Entity) = wrapped.addedSync(added.toXd())
 
-    override fun updatedSyncBeforeConstraints(old: Entity, current: Entity) = wrapped.updatedSyncBeforeConstraints(old.toXd(), current.toXd())
+    override fun updatedSyncBeforeConstraints(old: Entity, current: Entity) =
+        wrapped.updatedSyncBeforeConstraints(old.toXd(), current.toXd())
+
     override fun updatedSync(old: Entity, current: Entity) = wrapped.updatedSync(old.toXd(), current.toXd())
 
-    override fun removedSyncBeforeConstraints(
-        removed: Entity,
-        requestListenerStorage: () -> DnqListenerTransientData<Entity>
-    ) {
-        wrapped.removedSyncBeforeConstraints(removed.toXd()) { XdDnqListenerTransientData(requestListenerStorage) }
+    override fun removedSyncBeforeConstraints(removed: Entity, removedEntityData: RemovedEntityData<Entity>) {
+        wrapped.removedSyncBeforeConstraints(removed.toXd(), XdRemovedEntityData(removedEntityData))
     }
 
-    override fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData<Entity>) {
-        wrapped.removedSync(removed) { XdDnqListenerTransientData(requestListenerStorage) }
+    override fun removedSync(removedEntityData: RemovedEntityData<Entity>) {
+        wrapped.removedSync(XdRemovedEntityData(removedEntityData))
     }
 
     override fun hashCode() = wrapped.hashCode()
     override fun equals(other: Any?) = other is EntityListenerWrapper<*> && wrapped == other.wrapped
 }
 
-internal class XdDnqListenerTransientData<out XD : XdEntity>(private val requestData: () -> DnqListenerTransientData<Entity>): DnqListenerTransientData<XD> {
-    override fun <T> getValue(name: String) = requestData().getValue<T>(name)
+internal class XdRemovedEntityData<out XD : XdEntity>(private val data: RemovedEntityData<Entity>) :
+    RemovedEntityData<XD> {
+    override val removed = data.removed.toXd<XD>()
+    override val removedId = data.removedId
 
-    override fun <T> storeValue(name: String, value: T) = requestData().storeValue(name, value)
-
-    override fun getRemoved(): XD {
-        return requestData().getRemoved().toXd()
+    override fun <T> getValue(name: String): T? {
+        return data.getValue(name)
     }
 
-    override fun setRemoved(entity: Any) {
-        @Suppress("UNCHECKED_CAST")
-        requestData().setRemoved((entity as XD).entity)
+    override fun <T> getValue(property: KProperty<T>): T? {
+        return data.getValue(property)
+    }
+
+    override fun <T> storeValue(name: String, value: T) {
+        return data.storeValue(name, value)
+    }
+
+    override fun <T> storeValue(property: KProperty<T>, value: T) {
+        return data.storeValue(property, value)
     }
 }
+
+
+

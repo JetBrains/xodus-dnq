@@ -16,8 +16,7 @@
 package kotlinx.dnq.listener
 
 import jetbrains.exodus.database.DNQListener
-import jetbrains.exodus.database.DnqListenerTransientData
-import jetbrains.exodus.entitystore.orientdb.OEntityId
+import jetbrains.exodus.database.RemovedEntityData
 import kotlinx.dnq.XdEntity
 
 interface XdEntityListener<in XD : XdEntity> : DNQListener<XD> {
@@ -28,6 +27,6 @@ interface XdEntityListener<in XD : XdEntity> : DNQListener<XD> {
     override fun updatedSyncBeforeConstraints(old: XD, current: XD) = Unit
     override fun updatedSync(old: XD, current: XD) = Unit
 
-    override fun removedSyncBeforeConstraints(removed: XD, requestListenerStorage: () -> DnqListenerTransientData<XD>) = Unit
-    override fun removedSync(removed: OEntityId, requestListenerStorage: () -> DnqListenerTransientData<XD>) = Unit
+    override fun removedSyncBeforeConstraints(removed: XD, removedEntityData: RemovedEntityData<XD>) = Unit
+    override fun removedSync(removedEntityData: RemovedEntityData<XD>) = Unit
 }

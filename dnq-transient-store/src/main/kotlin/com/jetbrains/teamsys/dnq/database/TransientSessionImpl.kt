@@ -60,8 +60,8 @@ class TransientSessionImpl(
     private var loadedIds: EntityIdSet = EntityIdSetFactory.newSet()
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     private var allowRunnables = true
-    internal val sessionListenersData =
-        IdentityHashMap<DNQListener<*>, DnqListenerTransientData<*>>()
+    internal val removedEntitiesData =
+        IdentityHashMap<DNQListener<*>, MutableMap<EntityId, RemovedEntityData<*>>>()
 
     val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled) Throwable() else null
 
@@ -540,13 +540,19 @@ class TransientSessionImpl(
         }
     }
 
-    override fun <T> getListenerTransientData(listener: DNQListener<*>): DnqListenerTransientData<T> {
-        val result = sessionListenersData.getOrPut(listener) {
-            DnqListenerTransientDataImpl<T>()
+    override fun <T> createRemovedEntityData(listener: DNQListener<*>, entity: TransientEntity): BasicRemovedEntityData<T> {
+        val map = removedEntitiesData.getOrPut(listener) {
+            hashMapOf()
         }
-
+        val data = BasicRemovedEntityData(entity, entity.id)
+        map[entity.id] = data
         @Suppress("UNCHECKED_CAST")
-        return result as DnqListenerTransientData<T>
+        return data as BasicRemovedEntityData<T>
+    }
+
+    override fun <T> getRemovedEntityData(listener: DNQListener<*>, entityId: EntityId): BasicRemovedEntityData<T> {
+        @Suppress("UNCHECKED_CAST")
+        return removedEntitiesData[listener]?.get(entityId) as BasicRemovedEntityData<T>
     }
 
     private fun addLoadedId(id: EntityId) {

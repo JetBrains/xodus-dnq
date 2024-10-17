@@ -16,11 +16,8 @@
 package kotlinx.dnq.events
 
 import com.google.common.truth.Truth
-import com.jetbrains.teamsys.dnq.database.TransientSessionImpl
-import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
-import jetbrains.exodus.database.DnqListenerTransientData
-import jetbrains.exodus.database.TransientEntity
-import jetbrains.exodus.entitystore.orientdb.OEntityId
+import jetbrains.exodus.database.RemovedEntityData
+import jetbrains.exodus.entitystore.EntityId
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.listener.XdEntityListener
@@ -28,7 +25,6 @@ import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.size
 import kotlinx.dnq.query.toList
-import kotlinx.dnq.toXd
 import org.junit.Assert
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
@@ -60,10 +56,7 @@ class ListenersTest : DBTest() {
     @Test
     fun removedSyncBeforeConstraint() {
         Foo.addListener(store, object : XdEntityListener<Foo> {
-            override fun removedSyncBeforeConstraints(
-                removed: Foo,
-                requestListenerStorage: () -> DnqListenerTransientData<Foo>
-            ) {
+            override fun removedSyncBeforeConstraints(removed: Foo, removedEntityData: RemovedEntityData<Foo>) {
                 ref.set(2)
             }
         })
@@ -101,10 +94,7 @@ class ListenersTest : DBTest() {
     @Test
     fun removedTest() {
         Foo.addListener(store, object : XdEntityListener<Foo> {
-            override fun removedSync(
-                removed: OEntityId,
-                requestListenerStorage: () -> DnqListenerTransientData<Foo>
-            ) {
+            override fun removedSync(removedEntityData: RemovedEntityData<Foo>) {
                 ref.set(239)
             }
         })
@@ -124,16 +114,9 @@ class ListenersTest : DBTest() {
     fun removedTestWithLinksTest() {
         var failedInWriteInOnRemoveHandler = false
         Goo.addListener(store, object : XdEntityListener<Goo> {
-            override fun removedSync(
-                removed: OEntityId,
-                requestListenerStorage: () -> DnqListenerTransientData<Goo>
-            ) {
+            override fun removedSync(removedEntityData: RemovedEntityData<Goo>) {
                 try {
-                    val goo = store.threadSessionOrThrow.getEntity(removed).toXd<Goo>()
-                    goo.content.asSequence().forEach {
-                        it.intField = 11
-                    }
-                    ref.set(goo.content.size())
+                    removedEntityData.removed.content.clear()
                 } catch (_: Throwable) {
                     failedInWriteInOnRemoveHandler = true
                 }
@@ -167,11 +150,7 @@ class ListenersTest : DBTest() {
     fun removedTransientEntityEqualsToPrototype() {
         val data = hashMapOf<Foo, Int>()
         Foo.addListener(store, object : XdEntityListener<Foo> {
-            override fun removedSyncBeforeConstraints(
-                removed: Foo,
-                requestListenerStorage: () -> DnqListenerTransientData<Foo>
-            ) {
-                println(removed.hashCode())
+            override fun removedSyncBeforeConstraints(removed: Foo, removedEntityData: RemovedEntityData<Foo>) {
                 data.remove(removed)
             }
         })
@@ -183,7 +162,6 @@ class ListenersTest : DBTest() {
             foo
         }
         transactional {
-            println(foo.hashCode())
             foo.delete()
         }
         Assert.assertEquals(0, data.size)
@@ -219,22 +197,13 @@ class ListenersTest : DBTest() {
     @Test
     fun removedTestWithLinksTestWithStore() {
         Goo.addListener(store, object : XdEntityListener<Goo> {
-            override fun removedSyncBeforeConstraints(
-                removed: Goo,
-                requestListenerStorage: () -> DnqListenerTransientData<Goo>
-            ) {
+            override fun removedSyncBeforeConstraints(removed: Goo, removedEntityData: RemovedEntityData<Goo>) {
                 val links = removed.content.toList()
-
-                requestListenerStorage().apply {
-                    storeValue("list", links)
-                }
+                removedEntityData.storeValue("list", links)
             }
 
-            override fun removedSync(
-                removed: OEntityId,
-                requestListenerStorage: () -> DnqListenerTransientData<Goo>
-            ) {
-                val list: List<Foo> = requestListenerStorage().getValue("list") ?: throw NoSuchElementException()
+            override fun removedSync(removedEntityData: RemovedEntityData<Goo>) {
+                val list: List<Foo> = removedEntityData.getValue("list") ?: throw NoSuchElementException()
                 list.forEach {
                     it.intField = 11
                 }
@@ -264,5 +233,37 @@ class ListenersTest : DBTest() {
         ).isTrue()
     }
 
+    @Test
+    fun multipleObjectsRemovedInSingleTransaction(){
+        val idToValue = hashMapOf<EntityId, Int>()
+        val idToValueProof = hashMapOf<EntityId, Int>()
+        Foo.addListener(store, object :XdEntityListener<Foo>{
+            override fun removedSyncBeforeConstraints(removed: Foo, removedEntityData: RemovedEntityData<Foo>) {
+                removedEntityData.storeValue(Foo::intField, removed.intField)
+            }
 
+            override fun removedSync(removedEntityData: RemovedEntityData<Foo>) {
+                idToValueProof[removedEntityData.removedId] = removedEntityData.getValue(Foo::intField)!!
+            }
+        })
+        transactional {
+            (0..100).forEach {
+                Foo.new {
+                    intField = it
+                }
+            }
+        }
+        transactional {
+            Foo.all().asSequence().forEach { foo->
+                idToValue[foo.entityId] = foo.intField
+            }
+        }
+        transactional {
+            val list = Foo.all().toList().toMutableList().apply {
+                shuffle()
+            }
+            list.forEach { it.delete() }
+        }
+        Assert.assertEquals(idToValue, idToValueProof)
+    }
 }

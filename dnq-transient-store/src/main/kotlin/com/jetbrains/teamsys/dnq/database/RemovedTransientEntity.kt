@@ -224,9 +224,6 @@ open class RemovedTransientEntity(
 
     //region simple unwrapping
 
-
-    //endregion
-
     override fun getProperty(propertyName: String): Comparable<*>? {
         return entity.getProperty(propertyName)
     }
@@ -270,6 +267,8 @@ open class RemovedTransientEntity(
         }
         return OEntityIterableBase.EMPTY
     }
+
+    //endregion
 
     override fun getLinks(linkNames: MutableCollection<String>): EntityIterable {
         throw IllegalStateException("Entity is removed")
@@ -395,6 +394,7 @@ internal class RemovedLinksEntityIterable(
     override fun selectManyDistinct(linkName: String): EntityIterable {
         throw IllegalStateException("Must not be called")
     }
+
 
     override fun getFirst(): Entity {
         return entities.first()
