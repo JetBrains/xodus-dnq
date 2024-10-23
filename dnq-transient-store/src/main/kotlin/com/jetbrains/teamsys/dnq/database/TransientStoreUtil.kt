@@ -24,7 +24,6 @@ import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
-import jetbrains.exodus.query.StaticTypedEntityIterable
 
 /**
  * @author Vadim.Gurov
@@ -118,8 +117,7 @@ object TransientStoreUtil {
     }
 
     @JvmStatic
-    fun getSize(it: Iterable<Entity>?): Int {
-        val iterable = if (it is StaticTypedEntityIterable) it.instantiate() else it
+    fun getSize(iterable: Iterable<Entity>?): Int {
         return when {
             iterable == null -> 0
             iterable === EntityIterableBase.EMPTY -> 0
