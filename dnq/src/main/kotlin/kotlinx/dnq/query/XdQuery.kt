@@ -148,8 +148,7 @@ fun <T : XdEntity> XdQuery<T>.toMutableSet() = asSequence().toMutableSet()
  * Returns an empty query.
  */
 fun <T : XdEntity> XdEntityType<T>.emptyQuery(): XdQuery<T> {
-    val it = StaticTypedIterableDecorator(entityType, OEntityIterableBase.EMPTY, entityStore.queryEngine)
-    return XdQueryImpl(it, this)
+    return XdQueryImpl(OEntityIterableBase.EMPTY, this)
 }
 
 fun <T : XdEntity> XdEntityType<T>.singleton(element: T?): XdQuery<T> {
@@ -325,7 +324,8 @@ fun <T : XdEntity> XdEntityType<T>.queryEntities(it: Iterable<Entity>): XdQuery<
     if (it is Collection && it.isEmpty()) {
         return emptyQuery()
     }
-    return all().query(IterableDecorator(it))
+    //this was optimized for xodus, now not
+    return XdQueryImpl(it, this)
 }
 
 /**
@@ -339,7 +339,7 @@ inline fun <reified T : XdEntity> XdEntityType<T>.query(it: Iterable<T?>): XdQue
     if (it is Collection && it.isEmpty()) {
         return emptyQuery()
     }
-    return all().query(IterableDecorator(it.filterNotNull().map { it.entity }))
+    return return XdQueryImpl(it.mapNotNull { it?.entity }, this)
 }
 
 /**
@@ -434,13 +434,7 @@ fun <T : XdEntity, S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(
  * Returns number of results of `this` query. If `this` query is `null` returns `0`.
  */
 fun <T : XdEntity> XdQuery<T>?.size(): Int {
-    val it = this?.entityIterable?.let {
-        if (it is StaticTypedEntityIterable) {
-            it.instantiate()
-        } else {
-            it
-        }
-    }
+    val it = this?.entityIterable
 
     return when (it) {
         null -> 0

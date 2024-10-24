@@ -25,6 +25,7 @@ import jetbrains.exodus.entitystore.iterate.EntityIdSet
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
+import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.env.TransactionFinishedException
