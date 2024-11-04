@@ -21,8 +21,9 @@ import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
-import jetbrains.exodus.entitystore.orientdb.iterate.OQueryEntityIterator
+import jetbrains.exodus.entitystore.orientdb.OEntityId
+import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
+import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import java.io.File
 import java.io.InputStream
 
@@ -31,32 +32,54 @@ import java.io.InputStream
  */
 open class TransientEntityImpl : TransientEntity {
     private val store: TransientEntityStore
-    private var persistentEntity: OEntity? = null
 
-    private var readOnlyPersistentEntity: OReadonlyVertexEntity? = null
+    private var id: OEntityId? = null
+    private val currentEntity = ThreadLocal<OEntity>()
+
     private val entityType: String by lazy(LazyThreadSafetyMode.NONE) { entity.type }
 
     override var entity: OEntity
-        get() = persistentEntity ?: throwWrappedPersistentEntityUndefined()
+        get() {
+            var current = currentEntity.get()
+
+            if (current == null) {
+                val id = id ?: throwWrappedPersistentEntityUndefined()
+                current = store.threadSessionOrThrow.transactionInternal.getEntity(id) as OVertexEntity
+
+                currentEntity.set(current)
+            } else if (!current.isLoaded) {
+                current =
+                    (store.threadSessionOrThrow.transactionInternal as OStoreTransaction).bindToSession(current as OVertexEntity)
+
+                currentEntity.set(current)
+            }
+
+            return current
+        }
         set(persistentEntity) {
-            if (persistentEntity is OReadonlyVertexEntity) {
-                this.persistentEntity = null
-                readOnlyPersistentEntity = persistentEntity
+            id = persistentEntity.id
+
+            if (persistentEntity.isLoaded) {
+                currentEntity.set(persistentEntity)
             } else {
-                this.persistentEntity = persistentEntity
-                readOnlyPersistentEntity = null
+                currentEntity.set(
+                    store.threadSessionOrThrow.asOStoreTransaction().bindToSession(
+                        persistentEntity as OVertexEntity
+                    )
+                )
             }
         }
 
     override fun resetIfNew() {
         if (isNew) {
-            persistentEntity?.resetToNew()
+            entity.resetToNew()
         }
     }
 
     override fun generateIdIfNew() {
         if (isNew) {
-            persistentEntity?.generateId()
+            entity.generateId()
+            id = entity.id
         }
     }
 
@@ -127,9 +150,7 @@ open class TransientEntityImpl : TransientEntity {
     override fun getType() = entityType
 
     override fun getId(): EntityId {
-        return readOnlyPersistentEntity?.id
-            ?: persistentEntity?.id
-            ?: throwWrappedPersistentEntityUndefined()
+        return id ?: throwWrappedPersistentEntityUndefined()
     }
 
     override fun toIdString() = id.toString()
