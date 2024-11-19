@@ -28,6 +28,7 @@ import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.Where
 import jetbrains.exodus.entitystore.Where.SYNC_AFTER_FLUSH
 import jetbrains.exodus.entitystore.Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS
+import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
 import jetbrains.exodus.util.IOUtil
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.listener.XdEntityListener
@@ -185,6 +186,7 @@ abstract class DBTest {
                 eventsMultiplexer.removeListener(it.first.entity, it.second.asEntityListener())
             }
         }
+        StaticStoreContainer.dbProvider?.close()
         store.close()
     }
 
