@@ -79,4 +79,5 @@ interface TransientEntitiesUpdater {
     fun clear()
     fun apply()
     fun addChange(change: () -> Boolean): () -> Boolean
+    fun addChangeAndRun(change: () -> Boolean): Boolean
 }
