@@ -21,6 +21,7 @@ import com.orientechnologies.orient.core.db.ODatabaseType
 import com.orientechnologies.orient.core.db.OrientDB
 import com.orientechnologies.orient.core.db.OrientDBConfig
 import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.entitystore.orientdb.ODatabaseProvider
 import jetbrains.exodus.entitystore.orientdb.ODatabaseProviderImpl
 import jetbrains.exodus.env.EnvironmentConfig
 import java.io.File
@@ -44,15 +45,17 @@ object StaticStoreContainer : StoreContainer {
         val db = OrientDB("memory", builder.build())
         val databaseType = ODatabaseType.MEMORY
         db.createIfNotExists(entityStoreName, databaseType,"admin", "password", "admin")
-        val dbProvider = ODatabaseProviderImpl(
+        dbProvider = ODatabaseProviderImpl(
             db,
             entityStoreName,
             "admin",
             "password",
             databaseType,
         )
-        val store = createTransientEntityStore(dbProvider, entityStoreName)
+        val store = createTransientEntityStore(dbProvider!!, entityStoreName)
         this.store = store
         return store
     }
+
+    var dbProvider: ODatabaseProvider? = null
 }
