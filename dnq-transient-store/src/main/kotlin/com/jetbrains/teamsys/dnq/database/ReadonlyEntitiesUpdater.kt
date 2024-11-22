@@ -170,4 +170,8 @@ class ReadonlyTransientEntitiesUpdater : TransientEntitiesUpdater {
     override fun addChange(change: () -> Boolean): () -> Boolean {
         throw IllegalStateException("Readonly transaction cannot perform write operations")
     }
+
+    override fun addChangeAndRun(change: () -> Boolean): Boolean {
+        throw IllegalStateException("Readonly transaction cannot perform write operations")
+    }
 }

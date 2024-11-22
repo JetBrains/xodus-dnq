@@ -443,7 +443,7 @@ class TransientEntitiesUpdaterImpl(
         }
     }
 
-    internal fun addChangeAndRun(change: () -> Boolean): Boolean {
+    override fun addChangeAndRun(change: () -> Boolean): Boolean {
         session.upgradeReadonlyTransactionIfNecessary()
         return addChange(change).invoke()
     }
