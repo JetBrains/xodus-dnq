@@ -21,9 +21,9 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 
 /**
  * @author Vadim.Gurov
@@ -120,7 +120,7 @@ object TransientStoreUtil {
     fun getSize(iterable: Iterable<Entity>?): Int {
         return when {
             iterable == null -> 0
-            iterable === EntityIterableBase.EMPTY -> 0
+            iterable === OEntityIterableBase.EMPTY -> 0
             iterable is EntityIterable -> iterable.size().toInt()
             iterable is Collection<*> -> (iterable as Collection<*>).size
             else -> iterable.count()

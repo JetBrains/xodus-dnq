@@ -16,8 +16,7 @@
 package kotlinx.dnq.query
 
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
-import jetbrains.exodus.entitystore.util.unsupported
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 import jetbrains.exodus.query.*
 import jetbrains.exodus.query.metadata.ModelMetaData
 import kotlinx.dnq.XdEntity
@@ -357,7 +356,7 @@ object None : NodeBase() {
     override fun getClone(): NodeBase = this
 
     override fun instantiate(entityType: String?, queryEngine: QueryEngine?, metaData: ModelMetaData?, context: InstantiateContext): MutableIterable<Entity> {
-        return EntityIterableBase.EMPTY
+        return OEntityIterableBase.EMPTY
     }
 
     override fun equals(other: Any?): Boolean {

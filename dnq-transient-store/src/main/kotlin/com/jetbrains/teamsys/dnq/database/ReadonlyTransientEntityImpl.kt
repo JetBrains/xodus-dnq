@@ -21,11 +21,8 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.OEntityId
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
-import jetbrains.exodus.entitystore.orientdb.asReadonly
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 import java.io.File
 import java.io.InputStream
 
@@ -160,7 +157,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
                 override fun count() = this@asEntityIterable.size.toLong()
             }
         } else {
-            EntityIterableBase.EMPTY
+            OEntityIterableBase.EMPTY
         }
     }
 
@@ -168,7 +165,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
         return if (changedLinks.isNotEmpty()) {
             AddedOrRemovedLinksFromSetTransientEntityIterable.get(changedLinks, linkNames, removed = false)
         } else {
-            UniversalEmptyEntityIterable
+            OEntityIterableBase.EMPTY
         }
     }
 
@@ -176,7 +173,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
         return if (changedLinks.isNotEmpty()) {
             AddedOrRemovedLinksFromSetTransientEntityIterable.get(changedLinks, linkNames, removed = true)
         } else {
-            UniversalEmptyEntityIterable
+            OEntityIterableBase.EMPTY
         }
     }
 
