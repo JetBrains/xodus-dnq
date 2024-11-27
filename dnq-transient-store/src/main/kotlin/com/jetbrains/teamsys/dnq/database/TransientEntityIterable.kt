@@ -20,7 +20,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 import mu.KLogging
 
 /**
@@ -89,7 +89,7 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
     }
 
     override fun take(number: Int): EntityIterable {
-        if (number == 0) return EntityIterableBase.EMPTY
+        if (number == 0) return OEntityIterableBase.EMPTY
 
         return TransientEntityIterable(
                 values.asSequence()

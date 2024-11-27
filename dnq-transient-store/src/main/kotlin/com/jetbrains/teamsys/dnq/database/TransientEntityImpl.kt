@@ -18,12 +18,12 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
-import jetbrains.exodus.entitystore.iterate.EntityIterableBase
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.OEntityId
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 import java.io.File
 import java.io.InputStream
 
@@ -354,7 +354,7 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     private fun getAddedRemovedLinks(name: String, removed: Boolean): EntityIterable {
-        if (isNew) return EntityIterableBase.EMPTY
+        if (isNew) return OEntityIterableBase.EMPTY
 
         return threadSessionOrThrow.transientChangesTracker
             .getChangedLinksDetailed(this)
@@ -366,7 +366,7 @@ open class TransientEntityImpl : TransientEntity {
                     getAddedWrapper(linkChange)
                 }
             }
-            ?: EntityIterableBase.EMPTY
+            ?: OEntityIterableBase.EMPTY
     }
 
     private fun concat(left: TransientEntityIterable?, right: TransientEntityIterable?) =
@@ -410,7 +410,7 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     private fun getAddedRemovedLinks(linkNames: Set<String>, removed: Boolean): EntityIterable {
-        if (isNew) return UniversalEmptyEntityIterable
+        if (isNew) return OEntityIterableBase.EMPTY
 
         val changedLinksDetailed =
             threadSessionOrThrow.transientChangesTracker.getChangedLinksDetailed(this)
@@ -421,7 +421,7 @@ open class TransientEntityImpl : TransientEntity {
                 removed
             )
         } else {
-            UniversalEmptyEntityIterable
+            OEntityIterableBase.EMPTY
         }
     }
 

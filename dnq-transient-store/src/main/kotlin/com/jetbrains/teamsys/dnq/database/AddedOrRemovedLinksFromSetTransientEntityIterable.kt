@@ -21,6 +21,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
+import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
 
 internal open class AddedOrRemovedLinksFromSetTransientEntityIterable(
         values: Set<TransientEntity>,
@@ -121,7 +122,7 @@ internal open class AddedOrRemovedLinksFromSetTransientEntityIterable(
             return if (!changedEntities.isEmpty()) {
                 AddedOrRemovedLinksFromSetTransientEntityIterable(changedEntities, removed, linkNames, changesLinks)
             } else {
-                UniversalEmptyEntityIterable
+                OEntityIterableBase.EMPTY
             }
         }
     }
