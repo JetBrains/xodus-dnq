@@ -28,7 +28,6 @@ import jetbrains.exodus.entitystore.TransientChangesMultiplexer
 import jetbrains.exodus.entitystore.Where
 import jetbrains.exodus.entitystore.Where.SYNC_AFTER_FLUSH
 import jetbrains.exodus.entitystore.Where.SYNC_BEFORE_FLUSH_BEFORE_CONSTRAINTS
-import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
 import jetbrains.exodus.util.IOUtil
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.listener.XdEntityListener
@@ -41,6 +40,7 @@ import kotlinx.dnq.simple.email
 import kotlinx.dnq.simple.min
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
+import mu.KLogging
 import org.junit.After
 import org.junit.Before
 import java.io.File
@@ -49,8 +49,9 @@ import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 
 abstract class DBTest {
-    lateinit var store: TransientEntityStoreImpl
+    companion object : KLogging()
     lateinit var databaseHome: File
+    lateinit var store: TransientEntityStoreImpl
     val typeListeners = mutableListOf<Pair<XdEntityType<*>, XdEntityListener<*>>>()
     val instanceListeners = mutableListOf<Pair<XdEntity, XdEntityListener<*>>>()
 
@@ -148,8 +149,11 @@ abstract class DBTest {
         } catch (e: IOException) {
             throw RuntimeException(e)
         }
-
-        openStore()
+        try {
+            openStore()
+        } catch (e: Throwable){
+            logger.error("Failed to open the store", e)
+        }
     }
 
     open fun registerEntityTypes() {
@@ -163,15 +167,8 @@ abstract class DBTest {
     }
 
     fun openStore() {
-        store = StaticStoreContainer.init(databaseHome, "testDB") {
-            envCloseForcedly = true
-        }
-
-
-
+        store = StaticStoreContainer.init(databaseHome, "testDB")
         initMetaData(XdModel.hierarchy, store)
-
-
         val changesMultiplexer = TransientChangesMultiplexer()
         store.changesMultiplexer = changesMultiplexer
     }
@@ -186,8 +183,9 @@ abstract class DBTest {
                 eventsMultiplexer.removeListener(it.first.entity, it.second.asEntityListener())
             }
         }
-        StaticStoreContainer.dbProvider?.close()
         store.close()
+        StaticStoreContainer.db?.drop("OSystem")
+        StaticStoreContainer.dbProvider?.close()
     }
 
     protected fun createAsyncProcessor(): JobProcessor {
