@@ -16,18 +16,21 @@
 package kotlinx.dnq.store.container
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
-import com.orientechnologies.orient.core.config.OGlobalConfiguration
 import com.orientechnologies.orient.core.db.ODatabaseType
 import com.orientechnologies.orient.core.db.OrientDB
-import com.orientechnologies.orient.core.db.OrientDBConfig
+import com.orientechnologies.orient.core.db.OrientDBConfigBuilder
 import jetbrains.exodus.database.TransientEntityStore
+import jetbrains.exodus.entitystore.orientdb.ODatabaseConfig
 import jetbrains.exodus.entitystore.orientdb.ODatabaseProvider
 import jetbrains.exodus.entitystore.orientdb.ODatabaseProviderImpl
-import jetbrains.exodus.env.EnvironmentConfig
+import jetbrains.exodus.entitystore.orientdb.initOrientDbServer
 import java.io.File
 
 object StaticStoreContainer : StoreContainer {
     private var _store: TransientEntityStore? = null
+    var dbProvider: ODatabaseProvider? = null
+    var db: OrientDB? = null
+
 
     override var store: TransientEntityStore
         get() {
@@ -37,25 +40,22 @@ object StaticStoreContainer : StoreContainer {
             this._store = value
         }
 
-    fun init(dbFolder: File, entityStoreName: String, primary: Boolean = true, configure: EnvironmentConfig.() -> Unit = {}): TransientEntityStoreImpl {
+    fun init(dbFolder: File, entityStoreName: String, configure: OrientDBConfigBuilder.() -> Unit = {}): TransientEntityStoreImpl {
+        val config = ODatabaseConfig.builder()
+            .withUserName("admin")
+            .withPassword("admin")
+            .withDatabaseType(ODatabaseType.MEMORY)
+            .withDatabaseName("memory")
+            .withDatabaseRoot(dbFolder.absolutePath)
+            .tweakConfig(configure)
+            .build()
         //TODO use dbFolder
-        val builder = OrientDBConfig.builder()
-        builder.addConfig(OGlobalConfiguration.NON_TX_READS_WARNING_MODE, "SILENT")
+        db = initOrientDbServer(config)
 
-        val db = OrientDB("memory", builder.build())
-        val databaseType = ODatabaseType.MEMORY
-        db.createIfNotExists(entityStoreName, databaseType,"admin", "password", "admin")
-        dbProvider = ODatabaseProviderImpl(
-            db,
-            entityStoreName,
-            "admin",
-            "password",
-            databaseType,
-        )
+        dbProvider = ODatabaseProviderImpl(config, db!!)
         val store = createTransientEntityStore(dbProvider!!, entityStoreName)
         this.store = store
         return store
     }
 
-    var dbProvider: ODatabaseProvider? = null
 }
