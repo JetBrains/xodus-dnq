@@ -84,6 +84,10 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
         throwReadonlyException()
     }
 
+    override fun deleteStringBlob(blobName: String): Boolean {
+        throwReadonlyException()
+    }
+
     override fun deleteLinks(linkName: String) {
         throwReadonlyException()
     }
@@ -97,6 +101,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
         return getLink(linkName)
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun getLinks(linkName: String): EntityIterable {
         //this will definitely fail in case of concurrent modification
         // we get the current state and revert changes that have happened during the transaction
@@ -111,11 +116,23 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
     }
 
     override fun getProperty(propertyName: String): Comparable<*>? {
-        return originalValuesProvider.getOriginalPropertyValue(this, propertyName)
+        return if (changedProperties.containsKey(propertyName)){
+            changedProperties[propertyName]
+        } else {
+            entity.getProperty(propertyName)
+        }
     }
 
     override fun getBlobString(blobName: String): String? {
-        return originalValuesProvider.getOriginalBlobStringValue(this, blobName)
+        return if (changedProperties.containsKey(blobName)) {
+            changedProperties[blobName] as String?
+        } else {
+            entity.getBlobString(blobName)
+        }
+    }
+
+    override fun getPropertyOldValue(propertyName: String): Comparable<*>? {
+        return getProperty(propertyName)
     }
 
     override fun getBlob(blobName: String): InputStream? {

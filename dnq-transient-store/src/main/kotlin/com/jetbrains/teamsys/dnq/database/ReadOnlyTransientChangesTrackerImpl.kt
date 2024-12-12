@@ -76,7 +76,7 @@ class ReadOnlyTransientChangesTrackerImpl : TransientChangesTracker {
     override fun linksRemoved(source: TransientEntity, linkName: String, links: Iterable<Entity>): Unit =
             throw UnsupportedOperationException()
 
-    override fun propertyChanged(e: TransientEntity, propertyName: String): Unit =
+    override fun propertyChanged(e: TransientEntity, propertyName: String, oldValue: Comparable<*>?) =
             throw UnsupportedOperationException()
 
     override fun removePropertyChanged(e: TransientEntity, propertyName: String): Unit =

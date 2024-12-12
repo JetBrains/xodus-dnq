@@ -27,7 +27,18 @@ class TransientEntitiesUpdaterImpl(
     private val session: TransientSessionImpl,
 ) : TransientEntitiesUpdater {
 
-    companion object : KLogging()
+    companion object : KLogging() {
+        val NULL_BLOB = object : Comparable<Any> {
+            override fun compareTo(other: Any): Int {
+                return -1
+            }
+        }
+        val NOT_NULL_BLOB = object : Comparable<Any> {
+            override fun compareTo(other: Any): Int {
+                return -1
+            }
+        }
+    }
 
     private val changes = QueueDecorator<() -> Boolean>()
 
@@ -39,7 +50,7 @@ class TransientEntitiesUpdaterImpl(
     override fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream) {
         addChangeAndRun {
             transientEntity.entity.setBlob(blobName, stream)
-            transientChangesTracker.propertyChanged(transientEntity, blobName)
+            transientChangesTracker.propertyChanged(transientEntity, blobName, NOT_NULL_BLOB)
             true
         }
     }
@@ -47,7 +58,7 @@ class TransientEntitiesUpdaterImpl(
     override fun setBlob(transientEntity: TransientEntity, blobName: String, file: File) {
         addChangeAndRun {
             transientEntity.entity.setBlob(blobName, file)
-            transientChangesTracker.propertyChanged(transientEntity, blobName)
+            transientChangesTracker.propertyChanged(transientEntity, blobName, NOT_NULL_BLOB)
             true
         }
     }
@@ -60,18 +71,28 @@ class TransientEntitiesUpdaterImpl(
         return addChangeAndRun { setPropertyInternal(transientEntity, propertyName, propertyNewValue) }
     }
 
+    @Suppress("SuspiciousEqualsCombination")
     private fun setPropertyInternal(
         transientEntity: TransientEntity,
         propertyName: String,
         propertyNewValue: Comparable<*>
     ): Boolean {
+        val currentValue = transientEntity.getProperty(propertyName)
+        val oldValue = if (transientChangesTracker.hasPropertyChanges(transientEntity, propertyName)) {
+            transientChangesTracker.getPropertyOldValue(transientEntity, propertyName)
+        } else {
+            if (currentValue is Set<*>){
+                session.originalValuesProvider.getOriginalPropertyValue(transientEntity, propertyName)
+            } else {
+                currentValue
+            }
+        }
         return if (transientEntity.entity.setProperty(propertyName, propertyNewValue)) {
-            val oldValue = originalValuesProvider.getOriginalPropertyValue(transientEntity, propertyName)
             @Suppress("SuspiciousEqualsCombination")
             if (propertyNewValue === oldValue || propertyNewValue == oldValue) {
                 transientChangesTracker.removePropertyChanged(transientEntity, propertyName)
             } else {
-                transientChangesTracker.propertyChanged(transientEntity, propertyName)
+                transientChangesTracker.propertyChanged(transientEntity, propertyName, oldValue)
             }
             true
         } else {
@@ -84,12 +105,17 @@ class TransientEntitiesUpdaterImpl(
     }
 
     private fun deletePropertyInternal(transientEntity: TransientEntity, propertyName: String): Boolean {
+        val currentValue = transientEntity.getProperty(propertyName)
         return if (transientEntity.entity.deleteProperty(propertyName)) {
-            val oldValue = originalValuesProvider.getOriginalPropertyValue(transientEntity, propertyName)
+            val oldValue = if (transientChangesTracker.hasPropertyChanges(transientEntity, propertyName)) {
+                transientChangesTracker.getPropertyOldValue(transientEntity, propertyName)
+            } else {
+                currentValue
+            }
             if (oldValue == null) {
                 transientChangesTracker.removePropertyChanged(transientEntity, propertyName)
             } else {
-                transientChangesTracker.propertyChanged(transientEntity, propertyName)
+                transientChangesTracker.propertyChanged(transientEntity, propertyName, oldValue)
             }
             true
         } else {
@@ -97,14 +123,24 @@ class TransientEntitiesUpdaterImpl(
         }
     }
 
-    override fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String): Boolean {
+    @Suppress("SuspiciousEqualsCombination")
+    override fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String?): Boolean {
         return addChangeAndRun {
-            transientEntity.entity.setBlobString(blobName, newValue)
-            val oldValue = originalValuesProvider.getOriginalBlobStringValue(transientEntity, blobName)
+            val currentValue = transientEntity.getBlobString(blobName)
+            val oldValue = if (transientChangesTracker.hasPropertyChanges(transientEntity, blobName)) {
+                transientChangesTracker.getPropertyOldValue(transientEntity, blobName)
+            } else {
+                currentValue
+            }
+            if (newValue == null) {
+                transientEntity.entity.deleteBlob(blobName)
+            } else {
+                transientEntity.entity.setBlobString(blobName, newValue)
+            }
             if (newValue === oldValue || newValue == oldValue) {
                 transientChangesTracker.removePropertyChanged(transientEntity, blobName)
             } else {
-                transientChangesTracker.propertyChanged(transientEntity, blobName)
+                transientChangesTracker.propertyChanged(transientEntity, blobName, oldValue)
             }
             true
         }
@@ -112,13 +148,16 @@ class TransientEntitiesUpdaterImpl(
 
     override fun deleteBlob(transientEntity: TransientEntity, blobName: String): Boolean {
         return addChangeAndRun {
+            val isNullOnTransactionStart = if (transientChangesTracker.hasPropertyChanges(transientEntity, blobName)) {
+                transientChangesTracker.getPropertyOldValue(transientEntity, blobName) == NULL_BLOB
+            } else {
+                transientEntity.getBlob(blobName) == null
+            }
             if (transientEntity.entity.deleteBlob(blobName)) {
-                val oldValue = originalValuesProvider.getOriginalBlobValue(transientEntity, blobName)
-                if (oldValue == null) {
+                if (isNullOnTransactionStart) {
                     transientChangesTracker.removePropertyChanged(transientEntity, blobName)
                 } else {
-                    transientChangesTracker.propertyChanged(transientEntity, blobName)
-                    oldValue.close()
+                    transientChangesTracker.propertyChanged(transientEntity, blobName, NULL_BLOB)
                 }
                 true
             } else {

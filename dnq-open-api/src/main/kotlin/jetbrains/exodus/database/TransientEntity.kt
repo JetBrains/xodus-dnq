@@ -94,4 +94,6 @@ interface TransientEntity : Entity {
     fun clearChildren(parentToChildLinkName: String)
 
     fun addChild(parentToChildLinkName: String, childToParentLinkName: String, child: Entity)
+
+    fun deleteStringBlob(blobName: String): Boolean
 }

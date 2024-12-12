@@ -54,6 +54,62 @@ class ListenersTest : DBTest() {
     }
 
     @Test
+    fun updatePropertyTest(){
+        val foo = store.transactional {
+            Foo.new().apply { intField = 12 }
+        }
+        Foo.addListener(store, object : XdEntityListener<Foo> {
+            override fun updatedSync(old: Foo, current: Foo) {
+                ref.set(old.intField)
+            }
+        })
+        store.transactional {
+            foo.intField = 99
+        }
+        Assert.assertEquals(12, ref.get())
+    }
+
+    @Test
+    fun updatePropertyMultipleTimeTest(){
+        val foo = store.transactional {
+            Foo.new().apply { intField = 12 }
+        }
+        Foo.addListener(store, object : XdEntityListener<Foo> {
+            override fun updatedSync(old: Foo, current: Foo) {
+                ref.set(old.intField)
+            }
+        })
+        store.transactional {
+            foo.intField = 99
+            foo.intField = 100
+            foo.intField = 101
+        }
+        Assert.assertEquals(12, ref.get())
+    }
+
+    @Test
+    fun updatePropertyMultipleTimeAndGetBackToDefault(){
+        val foo = store.transactional {
+            Foo.new().apply { intField = 12 }
+        }
+        Foo.addListener(store, object : XdEntityListener<Foo> {
+            override fun updatedSync(old: Foo, current: Foo) {
+                ref.set(old.intField)
+            }
+        })
+        store.transactional {
+            foo.intField = 99
+            foo.intField = 91
+            foo.intField = 12
+            foo.intField = 12
+            foo.intField = 91
+            foo.intField = 12
+        }
+        Assert.assertEquals(12, ref.get())
+    }
+
+
+    @Test
     fun removedSyncBeforeConstraint() {
         Foo.addListener(store, object : XdEntityListener<Foo> {
             override fun removedSyncBeforeConstraints(removed: Foo, removedEntityData: RemovedEntityData<Foo>) {

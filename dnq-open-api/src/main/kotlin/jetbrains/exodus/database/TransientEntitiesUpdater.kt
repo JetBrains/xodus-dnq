@@ -33,7 +33,7 @@ interface TransientEntitiesUpdater {
 
     fun deleteProperty(transientEntity: TransientEntity, propertyName: String): Boolean
 
-    fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String): Boolean
+    fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String?): Boolean
     fun deleteBlob(transientEntity: TransientEntity, blobName: String): Boolean
     fun setLink(source: TransientEntity, linkName: String, target: TransientEntity): Boolean
     fun addLink(source: TransientEntity, linkName: String, target: TransientEntity): Boolean

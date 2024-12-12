@@ -221,6 +221,10 @@ open class TransientEntityImpl : TransientEntity {
         return threadSessionOrThrow.entitiesUpdater.deleteBlob(this, blobName)
     }
 
+    override fun deleteStringBlob(blobName: String): Boolean {
+        return threadSessionOrThrow.entitiesUpdater.setBlobString(this, blobName, null)
+    }
+
     override fun getBlobString(blobName: String): String? {
         return entity.getBlobString(blobName)
     }

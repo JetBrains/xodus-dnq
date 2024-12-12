@@ -75,7 +75,7 @@ fun XdEntity.reattachAndGetBlobString(propertyName: String): String? {
 fun XdEntity.reattachAndSetBlobString(propertyName: String, value: String?) {
     val entity = reattach()
     if (value == null) {
-        entity.deleteBlob(propertyName)
+        entity.deleteStringBlob(propertyName)
     } else {
         entity.setBlobString(propertyName, value)
     }
