@@ -178,6 +178,10 @@ open class RemovedTransientEntity(
         throw IllegalStateException("Entity is removed")
     }
 
+    override fun deleteStringBlob(blobName: String): Boolean {
+        throw IllegalStateException("Entity is removed")
+    }
+
     override fun addLink(linkName: String, target: Entity): Boolean {
         throw IllegalStateException("Entity is removed")
     }

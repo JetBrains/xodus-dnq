@@ -15,8 +15,6 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.orientechnologies.orient.core.db.ODatabaseSession
-import com.orientechnologies.orient.core.record.OVertex
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator
 import jetbrains.exodus.core.dataStructures.hash.HashMap
@@ -32,7 +30,7 @@ import java.util.*
 /**
  * @author Vadim.Gurov
  */
-class TransientChangesTrackerImpl() : TransientChangesTracker {
+class TransientChangesTrackerImpl : TransientChangesTracker {
 
     private val _changedEntities = LinkedHashSet<TransientEntity>()
     override val changedEntities: Set<TransientEntity>
@@ -48,20 +46,22 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
 
     private val removedFrom = HashMapDecorator<TransientEntity, MutableList<LinkChange>>()
     private val entityToChangedLinksDetailed = HashMapDecorator<TransientEntity, MutableMap<String, LinkChange>>()
-    private val entityToChangedProperties = HashMapDecorator<TransientEntity, MutableSet<String>>()
+    private val entityToChangedPropertiesOldValues =
+        HashMapDecorator<TransientEntity, HashMap<String, Comparable<*>?>>()
 
     // do not take into consideration RemovedNew entities - such entities was created and removed during same transaction
     override val changesHash: BigInteger
         get() = changedEntities
-                .filterNot { it.id in addedEntities && it.id in removedEntities }
-                .sortedBy { it.id }
-                .filter { e -> entityToChangedProperties[e].isNotEmpty || entityToChangedLinksDetailed[e].isNotEmpty }
-                .fold(BigInteger.ONE) { hc, entity ->
-                    var h = hc.applyHashCode(entity.id).applyHashCode(getEntityChangeType(entity))
-                    getChangedProperties(entity)?.sorted()?.forEach { propertyName ->
-                        h = h.applyHashCode(propertyName)
-                    }
-                    getChangedLinksDetailed(entity)?.values?.filter { it.isNotEmpty() }?.sortedBy { it.linkName }?.forEach { linkChange ->
+            .filterNot { it.id in addedEntities && it.id in removedEntities }
+            .sortedBy { it.id }
+            .filter { e -> entityToChangedPropertiesOldValues[e]?.isNotEmpty() == true || entityToChangedLinksDetailed[e].isNotEmpty }
+            .fold(BigInteger.ONE) { hc, entity ->
+                var h = hc.applyHashCode(entity.id).applyHashCode(getEntityChangeType(entity))
+                getChangedProperties(entity)?.sorted()?.forEach { propertyName ->
+                    h = h.applyHashCode(propertyName)
+                }
+                getChangedLinksDetailed(entity)?.values?.filter { it.isNotEmpty() }?.sortedBy { it.linkName }
+                    ?.forEach { linkChange ->
                         h = h.applyHashCode(linkChange.changeType)
                         h = h.applyHashCode(linkChange.addedEntitiesSize)
                         h = h.applyHashCode(linkChange.removedEntitiesSize)
@@ -76,16 +76,22 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
                             h = h.applyHashCode(id)
                         }
                     }
-                    h
-                }
+                h
+            }
 
     // do not notify about RemovedNew entities - such entities were created and removed during same transaction
     override val changesDescription: Set<TransientEntityChange>
         get() = changedEntities
-                .filterNot { it.id in addedEntities && it.id in removedEntities }
-                .mapTo(LinkedHashSetDecorator()) {
-                    TransientEntityChangeImpl(this, it, getChangedProperties(it), getChangedLinksDetailed(it), getEntityChangeType(it))
-                }
+            .filterNot { it.id in addedEntities && it.id in removedEntities }
+            .mapTo(LinkedHashSetDecorator()) {
+                TransientEntityChangeImpl(
+                    this,
+                    it,
+                    entityToChangedPropertiesOldValues[it],
+                    getChangedLinksDetailed(it),
+                    getEntityChangeType(it)
+                )
+            }
 
     override val changesDescriptionCount: Int
         get() {
@@ -94,7 +100,11 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
         }
 
     override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntityImpl {
-        return ReadonlyTransientEntityImpl(getChangeDescription(transientEntity), transientEntity.entity, transientEntity.store)
+        return ReadonlyTransientEntityImpl(
+            getChangeDescription(transientEntity),
+            transientEntity.entity,
+            transientEntity.store
+        )
     }
 
     private fun getEntityChangeType(transientEntity: TransientEntity): EntityChangeType {
@@ -107,11 +117,11 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
 
     override fun getChangeDescription(transientEntity: TransientEntity): TransientEntityChange {
         return TransientEntityChangeImpl(
-                this,
-                transientEntity,
-                getChangedProperties(transientEntity),
-                getChangedLinksDetailed(transientEntity),
-                getEntityChangeType(transientEntity)
+            this,
+            transientEntity,
+            entityToChangedPropertiesOldValues[transientEntity],
+            getChangedLinksDetailed(transientEntity),
+            getEntityChangeType(transientEntity)
         )
     }
 
@@ -120,25 +130,27 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
     }
 
     override fun getChangedProperties(transientEntity: TransientEntity): Set<String>? {
-        return entityToChangedProperties[transientEntity]
+        return entityToChangedPropertiesOldValues[transientEntity]?.keys
     }
 
     override fun hasChanges(transientEntity: TransientEntity): Boolean =
-            !getChangedProperties(transientEntity).isNullOrEmpty() || !getChangedLinksDetailed(transientEntity).isNullOrEmpty()
+        !getChangedProperties(transientEntity).isNullOrEmpty() || !getChangedLinksDetailed(transientEntity).isNullOrEmpty()
 
     override fun hasPropertyChanges(transientEntity: TransientEntity, propName: String): Boolean =
-            getChangedProperties(transientEntity).orEmpty().contains(propName)
+        getChangedProperties(transientEntity).orEmpty().contains(propName)
 
     override fun hasLinkChanges(transientEntity: TransientEntity, linkName: String): Boolean =
-            getChangedLinksDetailed(transientEntity).orEmpty().containsKey(linkName)
+        getChangedLinksDetailed(transientEntity).orEmpty().containsKey(linkName)
 
     override fun getPropertyOldValue(transientEntity: TransientEntity, propName: String): Comparable<*>? {
-        val session = ODatabaseSession.getActiveSession()
-        val id = transientEntity.entity.id.asOId()
-        val oVertex = session.load<OVertex>(id)
-        return oVertex.getPropertyOnLoadValue(propName)
-    }
+        val entityOldValues = entityToChangedPropertiesOldValues[transientEntity]
+        return if (entityOldValues?.contains(propName) == true){
+            return entityOldValues.get(propName)
+        } else {
+            transientEntity.getProperty(propName)
+        }
 
+    }
 
     override fun isNew(transientEntity: TransientEntity): Boolean {
         return transientEntity.id in addedEntities
@@ -165,13 +177,22 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
         }
     }
 
-    private fun getLinkChange(source: TransientEntity, linkName: String): Pair<MutableMap<String, LinkChange>, LinkChange> {
+    private fun getLinkChange(
+        source: TransientEntity,
+        linkName: String
+    ): Pair<MutableMap<String, LinkChange>, LinkChange> {
         val linksDetailed = entityToChangedLinksDetailed.getOrPut(source) { HashMap() }
         val linkChange = linksDetailed.getOrPut(linkName) { LinkChange(linkName) }
         return Pair(linksDetailed, linkChange)
     }
 
-    override fun linkChanged(source: TransientEntity, linkName: String, target: TransientEntity, oldTarget: TransientEntity?, add: Boolean) {
+    override fun linkChanged(
+        source: TransientEntity,
+        linkName: String,
+        target: TransientEntity,
+        oldTarget: TransientEntity?,
+        add: Boolean
+    ) {
         entityChanged(source)
 
         val (linksDetailed, linkChange) = getLinkChange(source, linkName)
@@ -202,19 +223,21 @@ class TransientChangesTrackerImpl() : TransientChangesTracker {
         _affectedEntityTypes.add(e.type)
     }
 
-    override fun propertyChanged(e: TransientEntity, propertyName: String) {
+    override fun propertyChanged(e: TransientEntity, propertyName: String, oldValue: Comparable<*>?) {
         entityChanged(e)
 
-        val properties = entityToChangedProperties.getOrPut(e) { HashSet() }
-        properties.add(propertyName)
+        val oldValues = entityToChangedPropertiesOldValues.getOrPut(e) { HashMap() }
+        if (!oldValues.contains(propertyName)) {
+            oldValues[propertyName] = oldValue
+        }
     }
 
     override fun removePropertyChanged(e: TransientEntity, propertyName: String) {
-        val properties = entityToChangedProperties[e]
+        val properties = entityToChangedPropertiesOldValues[e]
         if (properties != null) {
             properties.remove(propertyName)
             if (properties.isEmpty()) {
-                entityToChangedProperties.remove(e)
+                entityToChangedPropertiesOldValues.remove(e)
             }
         }
     }

@@ -43,7 +43,7 @@ class ReadonlyTransientEntitiesUpdater : TransientEntitiesUpdater {
         throw IllegalStateException("Readonly transaction cannot perform write operations")
     }
 
-    override fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String): Boolean {
+    override fun setBlobString(transientEntity: TransientEntity, blobName: String, newValue: String?): Boolean {
         throw IllegalStateException("Readonly transaction cannot perform write operations")
     }
 

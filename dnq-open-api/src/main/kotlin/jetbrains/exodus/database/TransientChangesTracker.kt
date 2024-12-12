@@ -79,7 +79,14 @@ interface TransientChangesTracker {
 
     fun linksRemoved(source: TransientEntity, linkName: String, links: @JvmSuppressWildcards Iterable<Entity>)
 
-    fun propertyChanged(e: TransientEntity, propertyName: String)
+    /**
+     * Called when a property value of an entity changes.
+     *
+     * @param e The entity for which the property was changed.
+     * @param propertyName The name of the property being changed.
+     * @param oldValue current value of entity property. It may be different for the same propertyName within the same transaction
+     */
+    fun propertyChanged(e: TransientEntity, propertyName: String, oldValue: Comparable<*>?)
 
     fun removePropertyChanged(e: TransientEntity, propertyName: String)
 

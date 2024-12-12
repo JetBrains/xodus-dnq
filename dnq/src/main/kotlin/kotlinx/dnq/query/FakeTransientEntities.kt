@@ -122,6 +122,10 @@ internal open class FakeTransientEntity(protected val _type: String, protected v
         throw unsupported()
     }
 
+    override fun deleteStringBlob(blobName: String): Boolean {
+        throw unsupported()
+    }
+
     override fun resetIfNew() {
         throw unsupported()
     }

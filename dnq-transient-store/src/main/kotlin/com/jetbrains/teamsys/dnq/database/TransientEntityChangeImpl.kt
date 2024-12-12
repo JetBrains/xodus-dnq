@@ -16,12 +16,11 @@
 package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.database.*
-import jetbrains.exodus.entitystore.orientdb.*
 
 class TransientEntityChangeImpl(
     private val changesTracker: TransientChangesTracker,
     override val transientEntity: TransientEntity,
-    override val changedProperties: Set<String>?,
+    override val changedProperties: Map<String, Comparable<*>?>?,
     override val changedLinksDetailed: Map<String, LinkChange>?,
     override val changeType: EntityChangeType
 ) : TransientEntityChange {
