@@ -81,7 +81,11 @@ class TransientEntitiesUpdaterImpl(
         val oldValue = if (transientChangesTracker.hasPropertyChanges(transientEntity, propertyName)) {
             transientChangesTracker.getPropertyOldValue(transientEntity, propertyName)
         } else {
-            currentValue
+            if (currentValue is Set<*>){
+                session.originalValuesProvider.getOriginalPropertyValue(transientEntity, propertyName)
+            } else {
+                currentValue
+            }
         }
         return if (transientEntity.entity.setProperty(propertyName, propertyNewValue)) {
             @Suppress("SuspiciousEqualsCombination")

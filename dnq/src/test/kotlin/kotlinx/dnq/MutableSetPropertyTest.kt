@@ -18,12 +18,14 @@ package kotlinx.dnq
 import com.google.common.truth.IterableSubject
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.contains
 import kotlinx.dnq.query.query
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.util.hasChanges
 import kotlinx.dnq.util.isDefined
+import org.junit.Assert
 import org.junit.Test
 
 class MutableSetPropertyTest : DBTest() {
@@ -191,5 +193,23 @@ class MutableSetPropertyTest : DBTest() {
                 .assertThatSkills()
                 .isEmpty()
     }
+
+    @Test
+    fun `old value for mutableSetProperty should work`(){
+        val oldSetValue = hashSetOf("Java", "Kotlin", "Xodus-DNQ")
+        val employee = store.transactional {
+            Employee.new {
+                skills.addAll(oldSetValue)
+            }
+        }
+        store.transactional {
+            employee.skills.clear()
+            employee.skills.add("How to write supportable tests")
+            // Fix compilation
+            val oldValue = (employee.entity as TransientEntity).getPropertyOldValue("skills") as Set<*>
+            Assert.assertTrue(oldValue.containsAll(oldSetValue))
+        }
+    }
+
 
 }

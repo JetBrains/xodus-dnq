@@ -16,11 +16,13 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.contains
 import kotlinx.dnq.query.query
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.util.isDefined
+import org.junit.Assert
 import org.junit.Test
 
 class SetPropertyTest : DBTest() {
@@ -95,6 +97,21 @@ class SetPropertyTest : DBTest() {
 
         store.transactional {
             assertThat(employee.isDefined(Employee::skills)).isFalse()
+        }
+    }
+
+    @Test
+    fun `old value for setProperty should work`(){
+        val oldSetValue = setOf("Java", "Kotlin", "Xodus-DNQ")
+        val employee = store.transactional {
+            Employee.new {
+                skills = oldSetValue
+            }
+        }
+        store.transactional {
+            employee.skills = setOf("How to write supportable tests")
+            // Fix compilation
+            Assert.assertEquals(oldSetValue, (employee.entity as TransientEntity).getPropertyOldValue("skills"))
         }
     }
 
