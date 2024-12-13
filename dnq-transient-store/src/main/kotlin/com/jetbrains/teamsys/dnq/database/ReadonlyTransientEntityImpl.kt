@@ -125,7 +125,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
 
     override fun getBlobString(blobName: String): String? {
         return if (changedProperties.containsKey(blobName)) {
-            changedProperties[blobName] as String?
+            changedProperties[blobName]?.toString()
         } else {
             entity.getBlobString(blobName)
         }
