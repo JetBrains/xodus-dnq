@@ -32,11 +32,14 @@ class TransientEntitiesUpdaterImpl(
             override fun compareTo(other: Any): Int {
                 return -1
             }
+
+            override fun toString() = "Empty Binary Data"
         }
         val NOT_NULL_BLOB = object : Comparable<Any> {
             override fun compareTo(other: Any): Int {
                 return -1
             }
+            override fun toString() = "Binary Data"
         }
     }
 
@@ -49,16 +52,20 @@ class TransientEntitiesUpdaterImpl(
 
     override fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream) {
         addChangeAndRun {
+            //this may be implemented another way. by checking if the blob is actually null
+            val hasBlob = transientEntity.blobNames.contains(blobName)
             transientEntity.entity.setBlob(blobName, stream)
-            transientChangesTracker.propertyChanged(transientEntity, blobName, NOT_NULL_BLOB)
+            transientChangesTracker.propertyChanged(transientEntity, blobName, if (hasBlob) NOT_NULL_BLOB else NULL_BLOB)
             true
         }
     }
 
     override fun setBlob(transientEntity: TransientEntity, blobName: String, file: File) {
         addChangeAndRun {
+            //this may be implemented another way. by checking if the blob is actually null
+            val hasBlob = transientEntity.blobNames.contains(blobName)
             transientEntity.entity.setBlob(blobName, file)
-            transientChangesTracker.propertyChanged(transientEntity, blobName, NOT_NULL_BLOB)
+            transientChangesTracker.propertyChanged(transientEntity, blobName, if (hasBlob) NOT_NULL_BLOB else NULL_BLOB)
             true
         }
     }
