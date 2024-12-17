@@ -20,10 +20,7 @@ import com.orientechnologies.orient.core.db.ODatabaseType
 import com.orientechnologies.orient.core.db.OrientDB
 import com.orientechnologies.orient.core.db.OrientDBConfigBuilder
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.orientdb.ODatabaseConfig
-import jetbrains.exodus.entitystore.orientdb.ODatabaseProvider
-import jetbrains.exodus.entitystore.orientdb.ODatabaseProviderImpl
-import jetbrains.exodus.entitystore.orientdb.initOrientDbServer
+import jetbrains.exodus.entitystore.orientdb.*
 import java.io.File
 
 object StaticStoreContainer : StoreContainer {
@@ -41,16 +38,20 @@ object StaticStoreContainer : StoreContainer {
         }
 
     fun init(dbFolder: File, entityStoreName: String, configure: OrientDBConfigBuilder.() -> Unit = {}): TransientEntityStoreImpl {
-        val config = ODatabaseConfig.builder()
+        val connectionConfig = ODatabaseConnectionConfig
+            .builder()
             .withUserName("admin")
             .withPassword("admin")
             .withDatabaseType(ODatabaseType.MEMORY)
-            .withDatabaseName("memory")
             .withDatabaseRoot(dbFolder.absolutePath)
+            .build()
+        val config = ODatabaseConfig.builder()
+            .withConnectionConfig(connectionConfig)
+            .withDatabaseName("memory")
             .tweakConfig(configure)
             .build()
         //TODO use dbFolder
-        db = initOrientDbServer(config)
+        db = initOrientDbServer(connectionConfig)
 
         dbProvider = ODatabaseProviderImpl(config, db!!)
         val store = createTransientEntityStore(dbProvider!!, entityStoreName)
