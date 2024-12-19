@@ -16,7 +16,6 @@
 package kotlinx.dnq.store
 
 import com.jetbrains.teamsys.dnq.database.EntityIterableWrapper
-import com.jetbrains.teamsys.dnq.database.PersistentEntityIterableWrapper
 import com.jetbrains.teamsys.dnq.database.reattach
 import com.jetbrains.teamsys.dnq.database.threadSessionOrThrow
 import jetbrains.exodus.database.TransientEntity
@@ -96,10 +95,6 @@ class XdQueryEngine(val store: TransientEntityStore) :
 
     override fun isWrapped(it: Iterable<Entity>?): Boolean {
         return it is EntityIterableWrapper
-    }
-
-    override fun isPersistentIterable(it: Iterable<Entity>): Boolean {
-        return super.isPersistentIterable(it) || (isWrapped(it) && super.isPersistentIterable(((it as PersistentEntityIterableWrapper).unwrap())))
     }
 
     // ToDo: check if this is needed

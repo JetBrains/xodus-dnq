@@ -20,6 +20,7 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.orientdb.OEntityIterable
 import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.orientdb.iterate.link.OVertexEntityIterable
 import jetbrains.exodus.entitystore.orientdb.query.OSelect
 
 
@@ -128,8 +129,8 @@ open class PersistentEntityIterableWrapper(
         return store.threadSessionOrThrow.newEntity(this)
     }
 
-    override fun unwrap(): OEntityIterable {
-        return (wrappedIterable as? OEntityIterable) ?: (wrappedIterable.unwrap() as OEntityIterable)
+    override fun unwrap(): OEntityIterableBase {
+        return (wrappedIterable as? OEntityIterableBase) ?: (wrappedIterable.unwrap() as OEntityIterableBase)
     }
 
     override fun query(): OSelect {
