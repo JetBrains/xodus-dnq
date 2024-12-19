@@ -596,7 +596,7 @@ fun <T : XdEntity> XdQuery<T>.indexOf(entity: Entity?): Int {
     val it = queryEngine.toEntityIterable(entityIterable)
     return if (entity != null) {
         if (queryEngine.isPersistentIterable(it)) {
-            (it as OEntityIterableBase).unwrap().indexOf(entity)
+            (it as EntityIterable).unwrap().indexOf(entity)
         } else {
             it.indexOf(entity)
         }
@@ -632,7 +632,7 @@ operator fun <T : XdEntity> XdQuery<T>.contains(entity: Entity?): Boolean {
         }
 
         else -> {
-            (i as OEntityIterableBase).unwrap().indexOf(entity) != -1
+            (i as EntityIterable).unwrap().indexOf(entity) != -1
         }
     }
 }
