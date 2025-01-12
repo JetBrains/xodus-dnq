@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import kotlin.math.log
 
 internal object TransientEntityStoreExt {
     fun <T> transactional(

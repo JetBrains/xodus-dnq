@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 package kotlinx.dnq.store.container
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
-import com.orientechnologies.orient.core.db.ODatabaseType
-import com.orientechnologies.orient.core.db.OrientDB
-import com.orientechnologies.orient.core.db.OrientDBConfigBuilder
+import com.jetbrains.youtrack.db.api.DatabaseType
+import com.jetbrains.youtrack.db.api.YouTrackDB
+import com.jetbrains.youtrack.db.api.config.YouTrackDBConfigBuilder
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.orientdb.*
 import java.io.File
@@ -26,7 +26,7 @@ import java.io.File
 object StaticStoreContainer : StoreContainer {
     private var _store: TransientEntityStore? = null
     var dbProvider: ODatabaseProvider? = null
-    var db: OrientDB? = null
+    var db: YouTrackDB? = null
 
 
     override var store: TransientEntityStore
@@ -37,12 +37,12 @@ object StaticStoreContainer : StoreContainer {
             this._store = value
         }
 
-    fun init(dbFolder: File, entityStoreName: String, configure: OrientDBConfigBuilder.() -> Unit = {}): TransientEntityStoreImpl {
+    fun init(dbFolder: File, entityStoreName: String, configure: YouTrackDBConfigBuilder.() -> Unit = {}): TransientEntityStoreImpl {
         val connectionConfig = ODatabaseConnectionConfig
             .builder()
             .withUserName("admin")
             .withPassword("admin")
-            .withDatabaseType(ODatabaseType.MEMORY)
+            .withDatabaseType(DatabaseType.MEMORY)
             .withDatabaseRoot(dbFolder.absolutePath)
             .build()
         val config = ODatabaseConfig.builder()
@@ -51,7 +51,7 @@ object StaticStoreContainer : StoreContainer {
             .tweakConfig(configure)
             .build()
         //TODO use dbFolder
-        db = initOrientDbServer(connectionConfig)
+        db = iniYouTrackDb(connectionConfig)
 
         dbProvider = ODatabaseProviderImpl(config, db!!)
         val store = createTransientEntityStore(dbProvider!!, entityStoreName)

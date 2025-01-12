@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,11 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.orientechnologies.orient.core.db.ODatabaseSession
-import com.orientechnologies.orient.core.db.record.OIdentifiable
-import com.orientechnologies.orient.core.id.ORID
-import com.orientechnologies.orient.core.record.OVertex
-import com.orientechnologies.orient.core.record.impl.ORecordBytes
+import com.jetbrains.youtrack.db.api.record.Identifiable
+import com.jetbrains.youtrack.db.api.record.RID
+import com.jetbrains.youtrack.db.api.record.Vertex
+import com.jetbrains.youtrack.db.internal.core.db.DatabaseRecordThreadLocal
+import com.jetbrains.youtrack.db.internal.core.record.impl.RecordBytes
 import jetbrains.exodus.database.LinkChangeType
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityOriginalValuesProvider
@@ -34,14 +34,14 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
     private val transientChangesTracker get() = session.transientChangesTracker
 
     override fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
-        val session = ODatabaseSession.getActiveSession()
+        val session = DatabaseRecordThreadLocal.instance().get()
         val id = e.entity.id.asOId()
 
         if (id.isNew) {
             return null
         }
 
-        val oVertex = session.load<OVertex>(id)
+        val oVertex = session.load<Vertex>(id)
         val onLoadValue = oVertex.getPropertyOnLoadValue<Any>(propertyName)
         return if (onLoadValue is MutableSet<*>) {
             OComparableSet(onLoadValue)
@@ -51,14 +51,14 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
     }
 
     override fun getOriginalBlobStringValue(e: TransientEntity, blobName: String): String? {
-        val session = ODatabaseSession.getActiveSession()
+        val session = DatabaseRecordThreadLocal.instance().get()
         val id = e.entity.id.asOId()
-        val oVertex = session.load<OVertex>(id)
-        val blobHolderOrId = oVertex.getPropertyOnLoadValue<OIdentifiable?>(blobName)
-        var blobHolder: ORecordBytes? = null
-        if (blobHolderOrId !is ORecordBytes && blobHolderOrId is ORID) {
+        val oVertex = session.load<Vertex>(id)
+        val blobHolderOrId = oVertex.getPropertyOnLoadValue<Identifiable?>(blobName)
+        var blobHolder: RecordBytes? = null
+        if (blobHolderOrId !is RecordBytes && blobHolderOrId is RID) {
             blobHolder = session.load(blobHolderOrId)
-        } else if (blobHolderOrId is ORecordBytes) {
+        } else if (blobHolderOrId is RecordBytes) {
             blobHolder = blobHolderOrId
         }
         return blobHolder?.toStream()?.let {
@@ -67,15 +67,15 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
     }
 
     override fun getOriginalBlobValue(e: TransientEntity, blobName: String): InputStream? {
-        val session = ODatabaseSession.getActiveSession()
+        val session = DatabaseRecordThreadLocal.instance().get()
         val id = e.entity.id.asOId()
-        val oVertex = session.load<OVertex>(id)
-        var blobHolder: ORecordBytes? = null
-        val blobHolderOrId = oVertex.getPropertyOnLoadValue<OIdentifiable?>(blobName)
-        if (blobHolderOrId !is ORecordBytes && blobHolderOrId is ORID) {
+        val oVertex = session.load<Vertex>(id)
+        var blobHolder: RecordBytes? = null
+        val blobHolderOrId = oVertex.getPropertyOnLoadValue<Identifiable?>(blobName)
+        if (blobHolderOrId !is RecordBytes && blobHolderOrId is RID) {
             blobHolder = session.load(blobHolderOrId)
-        } else if (blobHolderOrId is ORecordBytes) {
-            blobHolder = blobHolderOrId as ORecordBytes
+        } else if (blobHolderOrId is RecordBytes) {
+            blobHolder = blobHolderOrId
         }
         return blobHolder?.toStream()?.let {
             ByteArrayInputStream(it)

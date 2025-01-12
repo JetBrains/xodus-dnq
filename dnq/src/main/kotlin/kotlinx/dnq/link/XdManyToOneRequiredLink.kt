@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.RequiredPropertyUndefinedException
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
-import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.XdQuery
 import kotlinx.dnq.util.reattach
 import kotlinx.dnq.util.reattachAndGetLink

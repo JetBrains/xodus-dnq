@@ -1,7 +1,7 @@
 buildscript {
-    ext.kotlin_version = '1.8.10'
-    ext.exodus_version = '9.9.137'
-    ext.dokka_version = '1.7.20'
+    ext.kotlin_version = '2.1.0'
+    ext.exodus_version = '9.9.139'
+    ext.dokka_version = '2.0.0'
     ext.log4j_version = '2.17.1'
     ext.google_truth_version = '1.4.2'
     ext.junit_version = '4.13.2'
@@ -38,14 +38,14 @@ allprojects {
         mavenLocal()
         mavenCentral()
         maven { url 'https://packages.jetbrains.team/maven/p/xodus/xodus-daily' }
-        maven { url = uri("https://packages.jetbrains.team/maven/p/xodus/orientdb-daily") }
+        maven { url = uri("https://packages.jetbrains.team/maven/p/xodus/youtrackdb-daily") }
         // necessary for dokka 1.4.30
         maven { url "https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven" }
     }
 
     java {
         toolchain {
-            languageVersion.set(JavaLanguageVersion.of(17))
+            languageVersion.set(JavaLanguageVersion.of(21))
         }
     }
 }
@@ -60,7 +60,7 @@ subprojects {
     java {
         withSourcesJar()
         toolchain {
-            languageVersion.set(JavaLanguageVersion.of(17))
+            languageVersion.set(JavaLanguageVersion.of(21))
         }
     }
 
@@ -90,9 +90,9 @@ subprojects {
 
     tasks.withType(compileKotlin.class).all {
         kotlinOptions {
-            jvmTarget = "17"
-            apiVersion = "1.8"
-            languageVersion = "1.8"
+            jvmTarget = "21"
+            apiVersion = "2.1"
+            languageVersion = "2.1"
         }
     }
 

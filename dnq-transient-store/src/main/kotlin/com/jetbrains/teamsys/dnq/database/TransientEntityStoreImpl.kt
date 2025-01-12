@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
 import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import jetbrains.exodus.entitystore.util.unsupported
-import jetbrains.exodus.env.EnvironmentConfig
 import jetbrains.exodus.query.QueryEngine
 import jetbrains.exodus.query.metadata.ModelMetaData
 import mu.KLogging

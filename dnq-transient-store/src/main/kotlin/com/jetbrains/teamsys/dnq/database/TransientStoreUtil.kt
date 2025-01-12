@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.orientechnologies.orient.core.record.OVertex
+import com.jetbrains.youtrack.db.api.record.Vertex
 import jetbrains.exodus.core.dataStructures.hash.LongHashSet
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
@@ -78,7 +78,8 @@ object TransientStoreUtil {
             is OVertexEntity -> {
                 val store = entity.store as OPersistentEntityStore
                 try {
-                    store.requireActiveTransaction().getRecord<OVertex>(entity.id) == null
+                    store.requireActiveTransaction().getRecord<Vertex>(entity.id)
+                    false
                 } catch (e:Throwable){
                     true
                 }

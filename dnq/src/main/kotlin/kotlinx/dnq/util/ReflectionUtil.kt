@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 package kotlinx.dnq.util
 
-import com.orientechnologies.orient.core.exception.ORecordNotFoundException
+import com.jetbrains.youtrack.db.api.exception.RecordNotFoundException
 import jetbrains.exodus.core.dataStructures.SoftConcurrentObjectCache
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
@@ -209,7 +209,7 @@ fun <T : XdEntity, R : Comparable<*>?> T.getOldValue(property: KProperty1<T, R>)
     try {
         @Suppress("UNCHECKED_CAST")
         return getOldPrimitiveValue(property.getDBName(javaClass.entityType)) as R?
-    } catch (e: ORecordNotFoundException) {
+    } catch (e: RecordNotFoundException) {
         throw EntityRemovedInDatabaseException(javaClass.entityType.entityType, entity.id)
     }
 }

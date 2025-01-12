@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package kotlinx.dnq.delete
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import com.jetbrains.teamsys.dnq.database.reattachTransient
-import com.orientechnologies.orient.core.exception.ORecordNotFoundException
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel

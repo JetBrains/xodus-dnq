@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.orientechnologies.common.concur.ONeedRetryException
-import com.orientechnologies.orient.core.storage.ORecordDuplicatedException
+import com.jetbrains.youtrack.db.api.exception.RecordDuplicatedException
+import com.jetbrains.youtrack.db.internal.common.concur.NeedRetryException
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.*
@@ -25,7 +25,6 @@ import jetbrains.exodus.entitystore.iterate.EntityIdSet
 import jetbrains.exodus.entitystore.orientdb.OEntity
 import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
 import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.env.TransactionFinishedException
@@ -230,7 +229,7 @@ class TransientSessionImpl(
                         if (transactionInternal.flush()) {
                             return
                         }
-                    } catch (_: ONeedRetryException) {
+                    } catch (_: NeedRetryException) {
                         // replay changes
                         transientChangesTracker.changedEntities.forEach {
                             it.resetIfNew()
@@ -254,7 +253,7 @@ class TransientSessionImpl(
                     transactionInternal.revert()
                     replayChanges()
                 }
-                if (exception is ORecordDuplicatedException) {
+                if (exception is RecordDuplicatedException) {
                     val (fieldName, _) = exception.indexName.substringAfter("_")
                         .substringBefore("_targetEntityId_unique").split("_")
                     val typeName = exception.indexName.substringBefore("_")
