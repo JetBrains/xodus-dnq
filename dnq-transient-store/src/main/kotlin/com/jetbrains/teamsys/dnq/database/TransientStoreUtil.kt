@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,15 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.orientechnologies.orient.core.record.OVertex
+import com.jetbrains.youtrack.db.api.record.Vertex
 import jetbrains.exodus.core.dataStructures.hash.LongHashSet
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 
 /**
  * @author Vadim.Gurov
@@ -75,10 +75,11 @@ object TransientStoreUtil {
     @JvmStatic
     fun isRemoved(entity: Entity): Boolean {
         return when (entity) {
-            is OVertexEntity -> {
-                val store = entity.store as OPersistentEntityStore
+            is YTDBVertexEntity -> {
+                val store = entity.store as YTDBPersistentEntityStore
                 try {
-                    store.requireActiveTransaction().getRecord<OVertex>(entity.id) == null
+                    store.requireActiveTransaction().getRecord<Vertex>(entity.id)
+                    false
                 } catch (e:Throwable){
                     true
                 }
@@ -120,7 +121,7 @@ object TransientStoreUtil {
     fun getSize(iterable: Iterable<Entity>?): Int {
         return when {
             iterable == null -> 0
-            iterable === OEntityIterableBase.EMPTY -> 0
+            iterable === YTDBEntityIterableBase.EMPTY -> 0
             iterable is EntityIterable -> iterable.size().toInt()
             iterable is Collection<*> -> (iterable as Collection<*>).size
             else -> iterable.count()

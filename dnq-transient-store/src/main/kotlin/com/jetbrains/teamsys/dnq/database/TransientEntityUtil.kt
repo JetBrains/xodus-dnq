@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentEntityStore
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 
 /**
  * Attach entity to current transient session if possible.
@@ -42,7 +42,7 @@ val TransientEntityStore.threadSessionOrThrow
         ?: throw IllegalStateException("There is no transient transaction in current thread")
 
 val PersistentEntityStore.currentTransactionOrThrow
-    get() = currentTransaction as? OStoreTransaction ?: throw IllegalStateException("There is no persistent transaction in current thread")
+    get() = currentTransaction as? YTDBStoreTransaction ?: throw IllegalStateException("There is no persistent transaction in current thread")
 
 val TransientEntity.lifecycle: EntityLifecycle?
     get() = (store as? TransientEntityStoreImpl)?.entityLifecycle

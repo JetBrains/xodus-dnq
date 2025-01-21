@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
-import jetbrains.exodus.entitystore.orientdb.OEntityIterable
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
-import jetbrains.exodus.entitystore.orientdb.query.OSelect
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.query.YTDBSelect
 
 
 /**
@@ -29,10 +29,11 @@ import jetbrains.exodus.entitystore.orientdb.query.OSelect
  * @author Vadim.Gurov
  */
 open class PersistentEntityIterableWrapper(
-        protected val store: TransientEntityStore,
-        wrappedIterable: EntityIterable) :
-        EntityIterableWrapper,
-        OEntityIterable {
+    protected val store: TransientEntityStore,
+    wrappedIterable: EntityIterable
+) :
+    EntityIterableWrapper,
+    YTDBEntityIterable {
 
     protected val wrappedIterable: EntityIterable = wrappedIterable.let {
         if (wrappedIterable is PersistentEntityIterableWrapper) {
@@ -88,7 +89,8 @@ open class PersistentEntityIterableWrapper(
 
     override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
         //TODO move findLinks to interface
-        return (wrappedIterable as? OEntityIterableBase)?.findLinks(entities, linkName) ?: OEntityIterableBase.EMPTY
+        return (wrappedIterable as? YTDBEntityIterableBase)?.findLinks(entities, linkName)
+            ?: YTDBEntityIterableBase.EMPTY
     }
 
     override fun distinct(): EntityIterable {
@@ -114,7 +116,7 @@ open class PersistentEntityIterableWrapper(
     override fun isSortResult() = wrappedIterable.isSortResult
 
     override fun asSortResult(): EntityIterable =
-            PersistentEntityIterableWrapper(store, wrappedIterable.asSortResult())
+        PersistentEntityIterableWrapper(store, wrappedIterable.asSortResult())
 
     override fun iterator(): EntityIterator {
         return PersistentEntityIteratorWrapper(wrappedIterable.iterator(), store.threadSessionOrThrow)
@@ -128,19 +130,19 @@ open class PersistentEntityIterableWrapper(
         return store.threadSessionOrThrow.newEntity(this)
     }
 
-    override fun unwrap(): OEntityIterable {
-        return (wrappedIterable as? OEntityIterable) ?: (wrappedIterable.unwrap() as OEntityIterable)
+    override fun unwrap(): YTDBEntityIterable {
+        return (wrappedIterable as? YTDBEntityIterable) ?: (wrappedIterable.unwrap() as YTDBEntityIterable)
     }
 
-    override fun query(): OSelect {
+    override fun query(): YTDBSelect {
         return wrappedIterable.asOQueryIterable().query()
     }
 
     override fun getTransaction(): StoreTransaction {
-        return if (wrappedIterable == OEntityIterableBase.EMPTY){
+        return if (wrappedIterable == YTDBEntityIterableBase.EMPTY) {
             store.currentTransaction ?: throw IllegalStateException("EntityStore: current transaction is not set")
         } else {
-            (wrappedIterable as OEntityIterable).transaction
+            (wrappedIterable as YTDBEntityIterable).transaction
         }
     }
 

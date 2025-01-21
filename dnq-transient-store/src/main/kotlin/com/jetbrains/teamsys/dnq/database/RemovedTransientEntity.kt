@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.ByteIterable
@@ -21,8 +20,8 @@ import jetbrains.exodus.database.LinkChangeType
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
-import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 import java.io.File
 import java.io.InputStream
 
@@ -44,7 +43,7 @@ open class RemovedTransientEntity(
         get() = true
     override val isWrapper: Boolean
         get() = true
-    override val entity: OEntity
+    override val entity: YTDBEntity
         get() = transientEntity.entity
 
     override val incomingLinks: List<Pair<String, EntityIterable>>
@@ -269,7 +268,7 @@ open class RemovedTransientEntity(
                 tx
             )
         }
-        return OEntityIterableBase.EMPTY
+        return YTDBEntityIterableBase.EMPTY
     }
 
     //endregion

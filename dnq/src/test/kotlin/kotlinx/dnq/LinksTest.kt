@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import kotlinx.dnq.query.*
 import kotlinx.dnq.util.getAddedLinks
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.getRemovedLinks
-import org.junit.Ignore
 import org.junit.Test
 
 

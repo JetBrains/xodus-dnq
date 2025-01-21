@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 
 class ReadOnlyTransientSession(
         private val store: TransientEntityStoreImpl,
-        override val transactionInternal: OStoreTransaction) : TransientStoreSession, SessionQueryMixin {
+        override val transactionInternal: YTDBStoreTransaction
+) : TransientStoreSession, SessionQueryMixin {
 
     override val transientChangesTracker: TransientChangesTracker
         get() = ReadOnlyTransientChangesTrackerImpl()
@@ -67,7 +68,7 @@ class ReadOnlyTransientSession(
     override fun newLocalCopy(entity: TransientEntity): TransientEntity = entity
 
     override fun newEntity(persistentEntity: Entity): ReadonlyTransientEntityImpl {
-        if (persistentEntity !is OVertexEntity)
+        if (persistentEntity !is YTDBVertexEntity)
             throw IllegalArgumentException("Cannot create transient entity wrapper for non persistent entity")
 
         return ReadonlyTransientEntityImpl(persistentEntity, store)

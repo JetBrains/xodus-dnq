@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,17 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.orientechnologies.common.concur.ONeedRetryException
-import com.orientechnologies.orient.core.storage.ORecordDuplicatedException
+import com.jetbrains.youtrack.db.api.exception.RecordDuplicatedException
+import com.jetbrains.youtrack.db.internal.common.concur.NeedRetryException
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
-import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBReadonlyVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.env.TransactionFinishedException
 import mu.KLogging
@@ -230,13 +229,12 @@ class TransientSessionImpl(
                         if (transactionInternal.flush()) {
                             return
                         }
-                    } catch (_: ONeedRetryException) {
+                    } catch (_: NeedRetryException) {
                         // replay changes
+                        transactionInternal = this.store.persistentStore.beginTransaction()
                         transientChangesTracker.changedEntities.forEach {
                             it.resetIfNew()
                         }
-                        transactionInternal = this.store.persistentStore.beginTransaction()
-
                         transientChangesTracker.changedEntities.forEach {
                             it.generateIdIfNew()
                         }
@@ -254,7 +252,7 @@ class TransientSessionImpl(
                     transactionInternal.revert()
                     replayChanges()
                 }
-                if (exception is ORecordDuplicatedException) {
+                if (exception is RecordDuplicatedException) {
                     val (fieldName, _) = exception.indexName.substringAfter("_")
                         .substringBefore("_targetEntityId_unique").split("_")
                     val typeName = exception.indexName.substringBefore("_")
@@ -650,7 +648,7 @@ class TransientSessionImpl(
         }
     }
 
-    override fun getSnapshot(): OStoreTransaction {
+    override fun getSnapshot(): YTDBStoreTransaction {
         throw UnsupportedOperationException()
     }
 
@@ -717,7 +715,7 @@ class TransientSessionImpl(
 
     private fun newEntityImpl(persistent: Entity): TransientEntity {
         return when (persistent) {
-            is OReadonlyVertexEntity -> {
+            is YTDBReadonlyVertexEntity -> {
                 ReadonlyTransientEntityImpl(persistent, store)
             }
 
@@ -726,20 +724,20 @@ class TransientSessionImpl(
             }
 
             else -> {
-                TransientEntityImpl(persistent as OEntity, getStore())
+                TransientEntityImpl(persistent as YTDBEntity, getStore())
             }
         }
     }
 
     internal fun createEntity(transientEntity: TransientEntityImpl, type: String) {
-        val persistentEntity = transactionInternal.newEntity(type) as OEntity
+        val persistentEntity = transactionInternal.newEntity(type) as YTDBEntity
         transientEntity.entity = persistentEntity
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(transientEntity)
         addChange { saveEntityInternal(persistentEntity, transientEntity) }
     }
 
-    private fun saveEntityInternal(persistentEntity: OEntity, e: TransientEntityImpl): Boolean {
+    private fun saveEntityInternal(persistentEntity: YTDBEntity, e: TransientEntityImpl): Boolean {
         transactionInternal.saveEntity(persistentEntity)
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(e)
@@ -747,7 +745,7 @@ class TransientSessionImpl(
     }
 
     internal fun createEntity(transientEntity: TransientEntityImpl, creator: EntityCreator) {
-        val persistentEntity = transactionInternal.newEntity(creator.type) as OEntity
+        val persistentEntity = transactionInternal.newEntity(creator.type) as YTDBEntity
         transientEntity.entity = persistentEntity
         addChange {
             val found = creator.find()
@@ -787,7 +785,7 @@ class TransientSessionImpl(
             } else {
                 upgradeReadonlyTransactionIfNecessary()
                 // somebody deleted our (initially found) entity! we need to create some again
-                transientEntity.entity = transactionInternal.newEntity(creator.type) as OEntity
+                transientEntity.entity = transactionInternal.newEntity(creator.type) as YTDBEntity
                 transientChangesTracker.entityAdded(transientEntity)
                 try {
                     allowRunnables = false

@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,15 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 import java.io.File
 import java.io.InputStream
 
-class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEntity, store: TransientEntityStore) : TransientEntityImpl(snapshot, store) {
+class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: YTDBEntity, store: TransientEntityStore) :
+    TransientEntityImpl(snapshot, store) {
 
-    constructor(snapshot: OEntity, store: TransientEntityStore) : this(null, snapshot, store)
+    constructor(snapshot: YTDBEntity, store: TransientEntityStore) : this(null, snapshot, store)
 
     private val originalValuesProvider get() = threadSessionOrThrow.originalValuesProvider
 
@@ -107,7 +108,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
         // we get the current state and revert changes that have happened during the transaction
         val oldLinksState = entity
             .getLinks(linkName)
-            .map { ReadonlyTransientEntityImpl(null, it as OEntity ,store) }
+            .map { ReadonlyTransientEntityImpl(null, it as YTDBEntity, store) }
             .toSet()
             .plus(changedLinks[linkName]?.deletedEntities?.map { RemovedTransientEntity(it) } ?: setOf())
             .plus(getRemovedLinks(linkName))
@@ -116,7 +117,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
     }
 
     override fun getProperty(propertyName: String): Comparable<*>? {
-        return if (changedProperties.containsKey(propertyName)){
+        return if (changedProperties.containsKey(propertyName)) {
             changedProperties[propertyName]
         } else {
             entity.getProperty(propertyName)
@@ -174,7 +175,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
                 override fun count() = this@asEntityIterable.size.toLong()
             }
         } else {
-            OEntityIterableBase.EMPTY
+            YTDBEntityIterableBase.EMPTY
         }
     }
 
@@ -182,7 +183,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
         return if (changedLinks.isNotEmpty()) {
             AddedOrRemovedLinksFromSetTransientEntityIterable.get(changedLinks, linkNames, removed = false)
         } else {
-            OEntityIterableBase.EMPTY
+            YTDBEntityIterableBase.EMPTY
         }
     }
 
@@ -190,7 +191,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: OEnt
         return if (changedLinks.isNotEmpty()) {
             AddedOrRemovedLinksFromSetTransientEntityIterable.get(changedLinks, linkNames, removed = true)
         } else {
-            OEntityIterableBase.EMPTY
+            YTDBEntityIterableBase.EMPTY
         }
     }
 

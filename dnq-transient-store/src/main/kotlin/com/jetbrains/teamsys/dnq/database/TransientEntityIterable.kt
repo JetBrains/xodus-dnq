@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 import mu.KLogging
 
 /**
@@ -89,7 +89,7 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
     }
 
     override fun take(number: Int): EntityIterable {
-        if (number == 0) return OEntityIterableBase.EMPTY
+        if (number == 0) return YTDBEntityIterableBase.EMPTY
 
         return TransientEntityIterable(
                 values.asSequence()

@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 package kotlinx.dnq.simple
 
-import jetbrains.exodus.entitystore.orientdb.OComparableSet
+import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.util.reattachAndGetPrimitiveValue
@@ -30,18 +30,18 @@ class XdSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: String?)
                 PropertyType.PRIMITIVE) {
 
     override fun getValue(thisRef: R, property: KProperty<*>): Set<T> {
-        val value = thisRef.reattachAndGetPrimitiveValue<OComparableSet<T>>(property.dbName)
+        val value = thisRef.reattachAndGetPrimitiveValue<YTDBComparableSet<T>>(property.dbName)
         return value?: emptySet()
     }
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: Set<T>) {
         val comparableSet = value
                 .takeIf { it.isNotEmpty() }
-                ?.let { OComparableSet(it.toMutableSet()) }
-        thisRef.reattachAndSetPrimitiveValue(property.dbName, comparableSet, OComparableSet::class.java)
+                ?.let { YTDBComparableSet(it.toMutableSet()) }
+        thisRef.reattachAndSetPrimitiveValue(property.dbName, comparableSet, YTDBComparableSet::class.java)
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattachAndGetPrimitiveValue<OComparableSet<T>>(property.dbName) != null
+        return thisRef.reattachAndGetPrimitiveValue<YTDBComparableSet<T>>(property.dbName) != null
     }
 }

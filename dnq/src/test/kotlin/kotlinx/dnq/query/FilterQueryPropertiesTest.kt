@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.xdStringProp
 import org.joda.time.DateTime
-import org.junit.Ignore
 import org.junit.Test
 
 private var DBTest.User.inn by xdStringProp<DBTest.User>(dbName = "_inn_")

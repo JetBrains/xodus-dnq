@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 
 internal open class AddedOrRemovedLinksFromSetTransientEntityIterable(
         values: Set<TransientEntity>,
@@ -122,7 +122,7 @@ internal open class AddedOrRemovedLinksFromSetTransientEntityIterable(
             return if (!changedEntities.isEmpty()) {
                 AddedOrRemovedLinksFromSetTransientEntityIterable(changedEntities, removed, linkNames, changesLinks)
             } else {
-                OEntityIterableBase.EMPTY
+                YTDBEntityIterableBase.EMPTY
             }
         }
     }

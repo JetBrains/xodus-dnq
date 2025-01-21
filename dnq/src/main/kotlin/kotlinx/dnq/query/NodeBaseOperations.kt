@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 package kotlinx.dnq.query
 
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 import jetbrains.exodus.query.*
 import jetbrains.exodus.query.metadata.ModelMetaData
 import kotlinx.dnq.XdEntity
@@ -356,7 +356,7 @@ object None : NodeBase() {
     override fun getClone(): NodeBase = this
 
     override fun instantiate(entityType: String?, queryEngine: QueryEngine?, metaData: ModelMetaData?, context: InstantiateContext): MutableIterable<Entity> {
-        return OEntityIterableBase.EMPTY
+        return YTDBEntityIterableBase.EMPTY
     }
 
     override fun equals(other: Any?): Boolean {

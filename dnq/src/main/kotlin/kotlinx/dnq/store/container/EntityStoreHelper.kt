@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,26 +17,26 @@ package kotlinx.dnq.store.container
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import com.jetbrains.teamsys.dnq.database.TransientSortEngineImpl
-import jetbrains.exodus.entitystore.orientdb.ODatabaseProvider
-import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
-import jetbrains.exodus.entitystore.orientdb.OSchemaBuddyImpl
-import jetbrains.exodus.query.metadata.OModelMetaData
+import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
+import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddyImpl
+import jetbrains.exodus.query.metadata.YTDBModelMetaData
 import kotlinx.dnq.store.XdQueryEngine
 
 fun createTransientEntityStore(
-    databaseProvider:ODatabaseProvider,
+    databaseProvider: YTDBDatabaseProvider,
     databaseName:String
 ): TransientEntityStoreImpl {
-    val schemaBuddy = OSchemaBuddyImpl(databaseProvider, false)
+    val schemaBuddy = YTDBSchemaBuddyImpl(databaseProvider, false)
     return TransientEntityStoreImpl().apply {
         val store = this
-        val oStore = OPersistentEntityStore(
+        val oStore = YTDBPersistentEntityStore(
             databaseProvider,
             databaseName,
             schemaBuddy = schemaBuddy
         )
         this.persistentStore = oStore
-        this.modelMetaData = OModelMetaData(databaseProvider, schemaBuddy)
+        this.modelMetaData = YTDBModelMetaData(databaseProvider, schemaBuddy)
         this.queryEngine = XdQueryEngine(store).apply {
             this.sortEngine = TransientSortEngineImpl(store, this)
         }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,14 +26,14 @@ import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.iterate.SingleEntityIterable
-import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
 import jetbrains.exodus.query.InMemoryEntityIterable
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.QueryEngine
 
 
 class XdQueryEngine(val store: TransientEntityStore) :
-        QueryEngine(store.modelMetaData, store.persistentStore as OPersistentEntityStore) {
+        QueryEngine(store.modelMetaData, store.persistentStore as YTDBPersistentEntityStore) {
 
     private val session get() = store.threadSessionOrThrow
 

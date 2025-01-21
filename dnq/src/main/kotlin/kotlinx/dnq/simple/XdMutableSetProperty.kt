@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package kotlinx.dnq.simple
 
 import com.jetbrains.teamsys.dnq.database.reattachTransient
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.orientdb.OComparableSet
+import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
 import jetbrains.exodus.query.metadata.PropertyType
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.util.reattachAndGetPrimitiveValue
@@ -35,27 +35,27 @@ class XdMutableSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: S
     }
 
     override fun isDefined(thisRef: R, property: KProperty<*>): Boolean {
-        return thisRef.reattachAndGetPrimitiveValue<OComparableSet<*>>(property.dbName) != null
+        return thisRef.reattachAndGetPrimitiveValue<YTDBComparableSet<*>>(property.dbName) != null
     }
 }
 
 class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName: String) : MutableSet<T> {
 
-    private fun set(value: OComparableSet<T>?) {
+    private fun set(value: YTDBComparableSet<T>?) {
         if (value == null){
-            entity.reattachTransient().setProperty(dbPropertyName, OComparableSet(HashSet<T>()))
+            entity.reattachTransient().setProperty(dbPropertyName, YTDBComparableSet(HashSet<T>()))
         } else {
             entity.reattachTransient().setProperty(dbPropertyName, value)
         }
     }
 
-    private fun get(): OComparableSet<T>? {
+    private fun get(): YTDBComparableSet<T>? {
         @Suppress("UNCHECKED_CAST")
-        return entity.reattachTransient().getProperty(dbPropertyName) as OComparableSet<T>?
+        return entity.reattachTransient().getProperty(dbPropertyName) as YTDBComparableSet<T>?
     }
 
-    private inline fun update(operation: (OComparableSet<T>) -> Unit): Boolean {
-        val propertyValue = get() ?: OComparableSet(HashSet())
+    private inline fun update(operation: (YTDBComparableSet<T>) -> Unit): Boolean {
+        val propertyValue = get() ?: YTDBComparableSet(HashSet())
         operation(propertyValue)
         return if (propertyValue.isDirty) {
             set(propertyValue)
@@ -80,7 +80,7 @@ class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName:
     }
 
     override fun iterator(): MutableIterator<T> {
-        return (get() ?: OComparableSet(HashSet())).iterator()
+        return (get() ?: YTDBComparableSet(HashSet())).iterator()
     }
 
     override fun remove(element: T) = update {

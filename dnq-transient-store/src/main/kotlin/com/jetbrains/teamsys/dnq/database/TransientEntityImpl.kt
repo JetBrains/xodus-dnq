@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
-import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.OEntityId
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 import java.io.File
 import java.io.InputStream
 
@@ -33,23 +33,23 @@ import java.io.InputStream
 open class TransientEntityImpl : TransientEntity {
     private val store: TransientEntityStore
 
-    private var id: OEntityId? = null
-    private val currentEntity = ThreadLocal<OEntity>()
+    private var id: YTDBEntityId? = null
+    private val currentEntity = ThreadLocal<YTDBEntity>()
 
     private val entityType: String by lazy(LazyThreadSafetyMode.NONE) { entity.type }
 
-    override var entity: OEntity
+    override var entity: YTDBEntity
         get() {
             var current = currentEntity.get()
 
             if (current == null) {
                 val id = id ?: throwWrappedPersistentEntityUndefined()
-                current = store.threadSessionOrThrow.transactionInternal.getEntity(id) as OVertexEntity
+                current = store.threadSessionOrThrow.transactionInternal.getEntity(id) as YTDBVertexEntity
 
                 currentEntity.set(current)
             } else if (!current.isLoaded) {
                 current =
-                    (store.threadSessionOrThrow.transactionInternal as OStoreTransaction).bindToSession(current as OVertexEntity)
+                    (store.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction).bindToSession(current as YTDBVertexEntity)
 
                 currentEntity.set(current)
             }
@@ -64,7 +64,7 @@ open class TransientEntityImpl : TransientEntity {
             } else {
                 currentEntity.set(
                     store.threadSessionOrThrow.asOStoreTransaction().bindToSession(
-                        persistentEntity as OVertexEntity
+                        persistentEntity as YTDBVertexEntity
                     )
                 )
             }
@@ -140,7 +140,7 @@ open class TransientEntityImpl : TransientEntity {
         threadSessionOrThrow.createEntity(this, creator)
     }
 
-    internal constructor(persistentEntity: OEntity, store: TransientEntityStore) {
+    internal constructor(persistentEntity: YTDBEntity, store: TransientEntityStore) {
         this.store = store
         this.entity = persistentEntity
     }
@@ -358,7 +358,7 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     private fun getAddedRemovedLinks(name: String, removed: Boolean): EntityIterable {
-        if (isNew) return OEntityIterableBase.EMPTY
+        if (isNew) return YTDBEntityIterableBase.EMPTY
 
         return threadSessionOrThrow.transientChangesTracker
             .getChangedLinksDetailed(this)
@@ -370,7 +370,7 @@ open class TransientEntityImpl : TransientEntity {
                     getAddedWrapper(linkChange)
                 }
             }
-            ?: OEntityIterableBase.EMPTY
+            ?: YTDBEntityIterableBase.EMPTY
     }
 
     private fun concat(left: TransientEntityIterable?, right: TransientEntityIterable?) =
@@ -414,7 +414,7 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     private fun getAddedRemovedLinks(linkNames: Set<String>, removed: Boolean): EntityIterable {
-        if (isNew) return OEntityIterableBase.EMPTY
+        if (isNew) return YTDBEntityIterableBase.EMPTY
 
         val changedLinksDetailed =
             threadSessionOrThrow.transientChangesTracker.getChangedLinksDetailed(this)
@@ -425,7 +425,7 @@ open class TransientEntityImpl : TransientEntity {
                 removed
             )
         } else {
-            OEntityIterableBase.EMPTY
+            YTDBEntityIterableBase.EMPTY
         }
     }
 

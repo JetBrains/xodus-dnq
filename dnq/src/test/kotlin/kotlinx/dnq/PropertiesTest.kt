@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import com.google.common.truth.Truth.assertWithMessage
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.database.exceptions.NullPropertyException
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
-import jetbrains.exodus.database.exceptions.UniqueIndexViolationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.*
 import kotlinx.dnq.simple.email

@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,11 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.asOStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.OEntityIterable
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityOfTypeIterable
-import jetbrains.exodus.entitystore.orientdb.iterate.link.OMultipleEntitiesIterable
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityOfTypeIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBMultipleEntitiesIterable
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
@@ -62,7 +62,7 @@ fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQue
     return if (this != null) {
         XdQueryImpl(this, entityType)
     } else {
-        XdQueryImpl(OEntityIterableBase.EMPTY, entityType)
+        XdQueryImpl(YTDBEntityIterableBase.EMPTY, entityType)
     }
 }
 
@@ -148,7 +148,7 @@ fun <T : XdEntity> XdQuery<T>.toMutableSet() = asSequence().toMutableSet()
  * Returns an empty query.
  */
 fun <T : XdEntity> XdEntityType<T>.emptyQuery(): XdQuery<T> {
-    return XdQueryImpl(OEntityIterableBase.EMPTY, this)
+    return XdQueryImpl(YTDBEntityIterableBase.EMPTY, this)
 }
 
 fun <T : XdEntity> XdEntityType<T>.singleton(element: T?): XdQuery<T> {
@@ -157,7 +157,7 @@ fun <T : XdEntity> XdEntityType<T>.singleton(element: T?): XdQuery<T> {
 
 private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterable<Entity> {
     if (element == null) {
-        return OEntityIterableBase.EMPTY
+        return YTDBEntityIterableBase.EMPTY
     }
     if ((element as TransientEntity).isNew) {
         return sequenceOf(element).asIterable()
@@ -173,13 +173,13 @@ private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterab
 fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
     val notNullElements = elements.filterNotNull()
     val iterable = if (notNullElements.isEmpty()){
-        OEntityIterableBase.EMPTY
+        YTDBEntityIterableBase.EMPTY
     } else {
         val txn = notNullElements.first().threadSessionOrThrow
         PersistentEntityIterableWrapper(
             txn.store,
-            OMultipleEntitiesIterable(
-                txn.transactionInternal as OStoreTransaction,
+            YTDBMultipleEntitiesIterable(
+                txn.transactionInternal as YTDBStoreTransaction,
                 notNullElements.map { txn.newEntity(it.entity) }
             )
         )
@@ -438,7 +438,7 @@ fun <T : XdEntity> XdQuery<T>?.size(): Int {
 
     return when (it) {
         null -> 0
-        OEntityIterableBase.EMPTY -> 0
+        YTDBEntityIterableBase.EMPTY -> 0
         is EntityIterable -> it.size().toInt()
         is Collection<*> -> it.size
         else -> it.count()
@@ -521,7 +521,7 @@ private inline fun <T : XdEntity> XdQuery<T>.operation(
 ): XdQuery<T> {
     val it = queryEngine.toEntityIterable(entityIterable)
     return when (it) {
-        is OEntityIterableBase -> wrap(ifEntityIterable(it.unwrap()))
+        is YTDBEntityIterableBase -> wrap(ifEntityIterable(it.unwrap()))
         is EntityIterable -> wrap(ifEntityIterable(it))
         else -> notEntityIterable(it.asSequence()).asIterable()
     }.asQuery(entityType)
@@ -552,8 +552,8 @@ private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterab
     val entityTypeName = entityType.entityType
     val queryEngine = entityType.entityStore.queryEngine
 
-    if (this is OEntityIterable) {
-        return this.intersect(OEntityOfTypeIterable(this.transaction.asOStoreTransaction(), entityTypeName))
+    if (this is YTDBEntityIterable) {
+        return this.intersect(YTDBEntityOfTypeIterable(this.transaction.asOStoreTransaction(), entityTypeName))
     } else {
         val modelMetaData = queryEngine.modelMetaData
         val subTypes = modelMetaData?.getEntityMetaData(entityTypeName)?.allSubTypes?.toSet() ?: hashSetOf()
@@ -627,7 +627,7 @@ operator fun <T : XdEntity> XdQuery<T>.contains(entity: Entity?): Boolean {
             i.contains(entity)
         }
 
-        i is OEntityIterable && entity != null -> {
+        i is YTDBEntityIterable && entity != null -> {
             i.contains(entity)
         }
 
@@ -671,7 +671,7 @@ fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
         return entityIterable.firstOrNull()?.let { entityType.wrap(it) }
     }
     val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is OEntityIterableBase) {
+    return if (it is YTDBEntityIterableBase) {
         it.unwrap().first?.let {
             entityType.entityStore.session.newEntity(it)
         }
@@ -716,7 +716,7 @@ fun <T : XdEntity> XdQuery<T>.last(node: NodeBase): T {
  */
 fun <T : XdEntity> XdQuery<T>.lastOrNull(): T? {
     val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is OEntityIterableBase) {
+    return if (it is YTDBEntityIterableBase) {
         it.unwrap().last?.let {
             entityType.entityStore.session.newEntity(it)
         }
@@ -799,7 +799,7 @@ fun <T : XdEntity> XdQuery<T>.none() = isEmpty
 fun <T : XdEntity> XdQuery<T>.reversed(): XdQuery<T> {
     val engine = queryEngine
     val iterable = engine.toEntityIterable(entityIterable)
-    return if (iterable is OEntityIterableBase) {
+    return if (iterable is YTDBEntityIterableBase) {
         XdQueryImpl(wrap(iterable.unwrap().reverse()), entityType)
     } else {
         XdQueryImpl(entityIterable.reversed(), entityType)

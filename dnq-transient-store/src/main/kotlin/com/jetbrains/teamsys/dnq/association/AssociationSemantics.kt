@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import com.jetbrains.teamsys.dnq.database.*
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 
 object AssociationSemantics {
 
@@ -39,13 +39,13 @@ object AssociationSemantics {
     @JvmStatic
     fun getToMany(e: Entity?, linkName: String): Iterable<Entity> {
         return e?.reattachTransient()?.getLinks(linkName)
-                ?: OEntityIterableBase.EMPTY
+                ?: YTDBEntityIterableBase.EMPTY
     }
 
     @JvmStatic
     fun getToMany(e: Entity?, linkNames: Set<String>): Iterable<Entity> {
         return e?.reattachTransient()?.getLinks(linkNames)
-                ?: OEntityIterableBase.EMPTY
+                ?: YTDBEntityIterableBase.EMPTY
     }
 
     /**

@@ -1,5 +1,5 @@
 /**
- * Copyright 2006 - 2024 JetBrains s.r.o.
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 package kotlinx.dnq.link
 
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.orientdb.OEntityId
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.iterate.link.OLinkOfTypeToEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBLinkOfTypeToEntityIterable
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
@@ -61,12 +61,12 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
                         if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
-                            val session = thisRef.threadSessionOrThrow.transactionInternal as OStoreTransaction
+                            val session = thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction
                             queryEngine.wrap(
-                                OLinkOfTypeToEntityIterable(
+                                YTDBLinkOfTypeToEntityIterable(
                                     session,
                                     oppositeField.oppositeDbName,
-                                    thisRef.entityId as OEntityId,
+                                    thisRef.entityId as YTDBEntityId,
                                     oppositeType
                                 )
                             )
