@@ -19,7 +19,7 @@ import com.jetbrains.teamsys.dnq.database.*
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 
 object AssociationSemantics {
 
@@ -39,13 +39,13 @@ object AssociationSemantics {
     @JvmStatic
     fun getToMany(e: Entity?, linkName: String): Iterable<Entity> {
         return e?.reattachTransient()?.getLinks(linkName)
-                ?: OEntityIterableBase.EMPTY
+                ?: YTDBEntityIterableBase.EMPTY
     }
 
     @JvmStatic
     fun getToMany(e: Entity?, linkNames: Set<String>): Iterable<Entity> {
         return e?.reattachTransient()?.getLinks(linkNames)
-                ?: OEntityIterableBase.EMPTY
+                ?: YTDBEntityIterableBase.EMPTY
     }
 
     /**

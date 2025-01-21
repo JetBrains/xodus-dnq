@@ -22,10 +22,10 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
-import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.OReadonlyVertexEntity
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBReadonlyVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.env.TransactionFinishedException
 import mu.KLogging
@@ -231,11 +231,10 @@ class TransientSessionImpl(
                         }
                     } catch (_: NeedRetryException) {
                         // replay changes
+                        transactionInternal = this.store.persistentStore.beginTransaction()
                         transientChangesTracker.changedEntities.forEach {
                             it.resetIfNew()
                         }
-                        transactionInternal = this.store.persistentStore.beginTransaction()
-
                         transientChangesTracker.changedEntities.forEach {
                             it.generateIdIfNew()
                         }
@@ -649,7 +648,7 @@ class TransientSessionImpl(
         }
     }
 
-    override fun getSnapshot(): OStoreTransaction {
+    override fun getSnapshot(): YTDBStoreTransaction {
         throw UnsupportedOperationException()
     }
 
@@ -716,7 +715,7 @@ class TransientSessionImpl(
 
     private fun newEntityImpl(persistent: Entity): TransientEntity {
         return when (persistent) {
-            is OReadonlyVertexEntity -> {
+            is YTDBReadonlyVertexEntity -> {
                 ReadonlyTransientEntityImpl(persistent, store)
             }
 
@@ -725,20 +724,20 @@ class TransientSessionImpl(
             }
 
             else -> {
-                TransientEntityImpl(persistent as OEntity, getStore())
+                TransientEntityImpl(persistent as YTDBEntity, getStore())
             }
         }
     }
 
     internal fun createEntity(transientEntity: TransientEntityImpl, type: String) {
-        val persistentEntity = transactionInternal.newEntity(type) as OEntity
+        val persistentEntity = transactionInternal.newEntity(type) as YTDBEntity
         transientEntity.entity = persistentEntity
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(transientEntity)
         addChange { saveEntityInternal(persistentEntity, transientEntity) }
     }
 
-    private fun saveEntityInternal(persistentEntity: OEntity, e: TransientEntityImpl): Boolean {
+    private fun saveEntityInternal(persistentEntity: YTDBEntity, e: TransientEntityImpl): Boolean {
         transactionInternal.saveEntity(persistentEntity)
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(e)
@@ -746,7 +745,7 @@ class TransientSessionImpl(
     }
 
     internal fun createEntity(transientEntity: TransientEntityImpl, creator: EntityCreator) {
-        val persistentEntity = transactionInternal.newEntity(creator.type) as OEntity
+        val persistentEntity = transactionInternal.newEntity(creator.type) as YTDBEntity
         transientEntity.entity = persistentEntity
         addChange {
             val found = creator.find()
@@ -786,7 +785,7 @@ class TransientSessionImpl(
             } else {
                 upgradeReadonlyTransactionIfNecessary()
                 // somebody deleted our (initially found) entity! we need to create some again
-                transientEntity.entity = transactionInternal.newEntity(creator.type) as OEntity
+                transientEntity.entity = transactionInternal.newEntity(creator.type) as YTDBEntity
                 transientChangesTracker.entityAdded(transientEntity)
                 try {
                     allowRunnables = false

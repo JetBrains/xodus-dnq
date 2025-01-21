@@ -20,12 +20,12 @@ import com.jetbrains.youtrack.db.api.DatabaseType
 import com.jetbrains.youtrack.db.api.YouTrackDB
 import com.jetbrains.youtrack.db.api.config.YouTrackDBConfigBuilder
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.orientdb.*
+import jetbrains.exodus.entitystore.youtrackdb.*
 import java.io.File
 
 object StaticStoreContainer : StoreContainer {
     private var _store: TransientEntityStore? = null
-    var dbProvider: ODatabaseProvider? = null
+    var dbProvider: YTDBDatabaseProvider? = null
     var db: YouTrackDB? = null
 
 
@@ -38,14 +38,14 @@ object StaticStoreContainer : StoreContainer {
         }
 
     fun init(dbFolder: File, entityStoreName: String, configure: YouTrackDBConfigBuilder.() -> Unit = {}): TransientEntityStoreImpl {
-        val connectionConfig = ODatabaseConnectionConfig
+        val connectionConfig = YTDBDatabaseConnectionConfig
             .builder()
             .withUserName("admin")
             .withPassword("admin")
             .withDatabaseType(DatabaseType.MEMORY)
             .withDatabaseRoot(dbFolder.absolutePath)
             .build()
-        val config = ODatabaseConfig.builder()
+        val config = YTDBDatabaseConfig.builder()
             .withConnectionConfig(connectionConfig)
             .withDatabaseName("memory")
             .tweakConfig(configure)
@@ -53,7 +53,7 @@ object StaticStoreContainer : StoreContainer {
         //TODO use dbFolder
         db = iniYouTrackDb(connectionConfig)
 
-        dbProvider = ODatabaseProviderImpl(config, db!!)
+        dbProvider = YTDBDatabaseProviderImpl(config, db!!)
         val store = createTransientEntityStore(dbProvider!!, entityStoreName)
         this.store = store
         return store

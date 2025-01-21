@@ -20,8 +20,8 @@ import jetbrains.exodus.database.LinkChangeType
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
-import jetbrains.exodus.entitystore.orientdb.OEntity
-import jetbrains.exodus.entitystore.orientdb.iterate.OEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 import java.io.File
 import java.io.InputStream
 
@@ -43,7 +43,7 @@ open class RemovedTransientEntity(
         get() = true
     override val isWrapper: Boolean
         get() = true
-    override val entity: OEntity
+    override val entity: YTDBEntity
         get() = transientEntity.entity
 
     override val incomingLinks: List<Pair<String, EntityIterable>>
@@ -268,7 +268,7 @@ open class RemovedTransientEntity(
                 tx
             )
         }
-        return OEntityIterableBase.EMPTY
+        return YTDBEntityIterableBase.EMPTY
     }
 
     //endregion

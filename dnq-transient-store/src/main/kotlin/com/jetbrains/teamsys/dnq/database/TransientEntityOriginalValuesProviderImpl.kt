@@ -25,7 +25,7 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityOriginalValuesProvider
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.orientdb.OComparableSet
+import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
 import jetbrains.exodus.util.UTFUtil
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -44,7 +44,7 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
         val oVertex = session.load<Vertex>(id)
         val onLoadValue = oVertex.getPropertyOnLoadValue<Any>(propertyName)
         return if (onLoadValue is MutableSet<*>) {
-            OComparableSet(onLoadValue)
+            YTDBComparableSet(onLoadValue)
         } else {
             onLoadValue as Comparable<*>?
         }

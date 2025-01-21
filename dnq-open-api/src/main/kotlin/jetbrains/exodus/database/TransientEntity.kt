@@ -17,7 +17,7 @@ package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.orientdb.OEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 
 interface TransientEntity : Entity {
 
@@ -34,7 +34,7 @@ interface TransientEntity : Entity {
     /**
      * @return underlying OEntity
      */
-    val entity: OEntity
+    val entity: YTDBEntity
 
     /**
      * Gets incoming links to entity.

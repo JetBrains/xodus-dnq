@@ -18,7 +18,7 @@ package kotlinx.dnq
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.single
 import kotlinx.dnq.util.isDefined
@@ -106,9 +106,9 @@ class ReflectionUtilTest : DBTest() {
 
     }
 
-    private fun <T : XdEntity> TransientStoreSession.createPersistentEntity(entityType: XdEntityType<T>, init: OVertexEntity.() -> Unit) {
+    private fun <T : XdEntity> TransientStoreSession.createPersistentEntity(entityType: XdEntityType<T>, init: YTDBVertexEntity.() -> Unit) {
         this.transactionInternal.apply {
-            (newEntity(entityType.entityType) as OVertexEntity).init()
+            (newEntity(entityType.entityType) as YTDBVertexEntity).init()
         }.flush()
     }
 }

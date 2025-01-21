@@ -26,14 +26,14 @@ import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.iterate.SingleEntityIterable
-import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
 import jetbrains.exodus.query.InMemoryEntityIterable
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.QueryEngine
 
 
 class XdQueryEngine(val store: TransientEntityStore) :
-        QueryEngine(store.modelMetaData, store.persistentStore as OPersistentEntityStore) {
+        QueryEngine(store.modelMetaData, store.persistentStore as YTDBPersistentEntityStore) {
 
     private val session get() = store.threadSessionOrThrow
 

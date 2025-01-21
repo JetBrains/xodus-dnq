@@ -18,7 +18,7 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 
 internal object TransientEntityStoreExt {
     fun <T> transactional(
@@ -28,12 +28,12 @@ internal object TransientEntityStoreExt {
         block: (TransientStoreSession) -> T
     ): T {
         val currentSession = store.threadSession
-        var currentPersistentSession: OStoreTransaction? = null
+        var currentPersistentSession: YTDBStoreTransaction? = null
         var sessionSuspended = false
 
         if (currentSession != null) {
             if (isNew) {
-                currentPersistentSession = currentSession.transactionInternal as OStoreTransaction
+                currentPersistentSession = currentSession.transactionInternal as YTDBStoreTransaction
                 currentPersistentSession.deactivateOnCurrentThread()
                 store.suspendThreadSession()
                 sessionSuspended = true
@@ -97,7 +97,7 @@ internal object TransientEntityStoreExt {
         } catch (e: Exception) {
             e.printStackTrace()
             throw e
-        }finally {
+        } finally {
             if (wasEx && session.isOpened) {
                 session.abort()
             }

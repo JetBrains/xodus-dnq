@@ -23,7 +23,7 @@ import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentEntityStore
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import kotlinx.dnq.XdEntity
 import java.io.InputStream
 
@@ -99,9 +99,9 @@ fun XdEntity.getOldLinkValue(linkName: String): TransientEntity? {
     val session = transientStore.threadSessionOrThrow
     return if (session.isRemoved(entity)) {
         (transientStore.persistentStore as PersistentEntityStore)
-                .getEntity(entity.id)
-                .getLink(linkName)
-                ?.let { session.newEntity(it) }
+            .getEntity(entity.id)
+            .getLink(linkName)
+            ?.let { session.newEntity(it) }
     } else if (entity.isNew) {
         null
     } else if (!entity.hasChanges(linkName)) {
@@ -118,7 +118,7 @@ fun XdEntity.reattachAndGetLink(linkName: String): Entity? {
 
 val XdEntity.isReadOnly: Boolean
     get() {
-        if (entity is OVertexEntity) {
+        if (entity is YTDBVertexEntity) {
             throw IllegalStateException("Should not be OVertexEntity")
         }
         return (entity as TransientEntity).isReadonly

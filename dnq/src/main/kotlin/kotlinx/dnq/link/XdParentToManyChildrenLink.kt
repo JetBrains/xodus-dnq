@@ -16,9 +16,9 @@
 package kotlinx.dnq.link
 
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.orientdb.OEntityId
-import jetbrains.exodus.entitystore.orientdb.OStoreTransaction
-import jetbrains.exodus.entitystore.orientdb.iterate.link.OLinkOfTypeToEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBLinkOfTypeToEntityIterable
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
@@ -59,7 +59,9 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
                             thisRef.reattach(thisRef.threadSessionOrThrow)
-                            queryEngine.wrap(OLinkOfTypeToEntityIterable(thisRef.threadSessionOrThrow.transactionInternal as OStoreTransaction, oppositeField.oppositeDbName, thisRef.entityId as OEntityId, oppositeType))
+                            queryEngine.wrap(YTDBLinkOfTypeToEntityIterable(
+                                thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction,
+                                oppositeField.oppositeDbName, thisRef.entityId as YTDBEntityId, oppositeType))
                         }
                     } catch (_: UnsupportedOperationException) {
                         // to support weird FakeTransientEntity

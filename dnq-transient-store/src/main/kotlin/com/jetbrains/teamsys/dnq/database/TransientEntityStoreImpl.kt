@@ -21,9 +21,9 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentEntityStore
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.orientdb.OPersistentEntityStore
-import jetbrains.exodus.entitystore.orientdb.OVertexEntity
 import jetbrains.exodus.entitystore.util.unsupported
+import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.query.QueryEngine
 import jetbrains.exodus.query.metadata.ModelMetaData
 import mu.KLogging
@@ -37,14 +37,14 @@ open class TransientEntityStoreImpl : TransientEntityStore {
 
     companion object : KLogging()
 
-    private lateinit var _persistentStore: OPersistentEntityStore
+    private lateinit var _persistentStore: YTDBPersistentEntityStore
 
     var entityLifecycle: EntityLifecycle? = null
 
     /**
      * Must be injected.
      */
-    override var persistentStore: OPersistentEntityStore
+    override var persistentStore: YTDBPersistentEntityStore
         get() = _persistentStore
         set(persistentStore) {
             _persistentStore = persistentStore
@@ -87,12 +87,13 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     override fun getLocation(): String = persistentStore.location
 
     override fun <T> transactional(
-            readonly: Boolean,
-            queryCancellingPolicy: QueryCancellingPolicy?,
-            isNew: Boolean,
-            block: (TransientStoreSession) -> T
+        readonly: Boolean,
+        queryCancellingPolicy: QueryCancellingPolicy?,
+        isNew: Boolean,
+        block: (TransientStoreSession) -> T
     ): T = TransientEntityStoreExt.transactional(
-        this, queryCancellingPolicy, isNew, block)
+        this, queryCancellingPolicy, isNew, block
+    )
 
     override fun beginTransaction(): StoreTransaction {
         throw UnsupportedOperationException()
@@ -149,11 +150,11 @@ open class TransientEntityStoreImpl : TransientEntityStore {
             logger.warn { "There're $sessionsSize open transient sessions. Print." }
             if (logger.isDebugEnabled) {
                 sessions.asSequence()
-                        .filterIsInstance<TransientSessionImpl>()
-                        .mapNotNull { session -> session.stack }
-                        .forEach { sessionStackTrace ->
-                            logger.warn(sessionStackTrace) { "Not closed session stack trace: " }
-                        }
+                    .filterIsInstance<TransientSessionImpl>()
+                    .mapNotNull { session -> session.stack }
+                    .forEach { sessionStackTrace ->
+                        logger.warn(sessionStackTrace) { "Not closed session stack trace: " }
+                    }
             }
         }
         _persistentStore.close()
@@ -171,7 +172,10 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     override fun renameEntityTypeRefactoring(oldEntityTypeName: String, newEntityTypeName: String) {
         val transientSession = transientSessionOrThrow
         transientSession.entitiesUpdater.addChangeAndRun {
-            (transientSession.transactionInternal.store as PersistentEntityStore).renameEntityType(oldEntityTypeName, newEntityTypeName)
+            (transientSession.transactionInternal.store as PersistentEntityStore).renameEntityType(
+                oldEntityTypeName,
+                newEntityTypeName
+            )
             true
         }
     }
@@ -284,10 +288,10 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         enumCache[getEnumKey(className, propName)] = entity
     }
 
-    private fun Entity.unwrapEntity(): OVertexEntity {
+    private fun Entity.unwrapEntity(): YTDBVertexEntity {
         return when (this) {
-            is TransientEntity -> this.entity as OVertexEntity
-            is OVertexEntity -> this
+            is TransientEntity -> this.entity as YTDBVertexEntity
+            is YTDBVertexEntity -> this
             else -> throw IllegalArgumentException("Cannot unwrap entity")
         }
     }
