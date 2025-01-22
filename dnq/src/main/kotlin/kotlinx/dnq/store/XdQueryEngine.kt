@@ -23,10 +23,10 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.PersistentStoreTransaction
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.iterate.SingleEntityIterable
+import jetbrains.exodus.entitystore.asOStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBMultipleEntitiesIterable
 import jetbrains.exodus.query.InMemoryEntityIterable
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.QueryEngine
@@ -109,6 +109,6 @@ class XdQueryEngine(val store: TransientEntityStore) :
                 ?.reattach()
                 ?.takeUnless { session.isRemoved(it) }
                 ?.takeIf { it.isSaved }
-                ?.let { SingleEntityIterable(session.transactionInternal as PersistentStoreTransaction, it.id) } ?: throw IllegalArgumentException()
+                ?.let { YTDBMultipleEntitiesIterable(session.transactionInternal.asOStoreTransaction(), listOf(it)) } ?: throw IllegalArgumentException()
     }
 }
