@@ -17,6 +17,7 @@ package com.jetbrains.teamsys.dnq.database
 
 import com.jetbrains.youtrack.db.api.exception.RecordDuplicatedException
 import com.jetbrains.youtrack.db.internal.common.concur.NeedRetryException
+import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.*
@@ -64,6 +65,7 @@ class TransientSessionImpl(
         IdentityHashMap<DNQListener<*>, MutableMap<EntityId, RemovedEntityData<*>>>()
 
     val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled) Throwable() else null
+    private val userObjects: MutableMap<Any, Any> = HashMapDecorator()
 
     private var flushing = false
 
@@ -806,6 +808,14 @@ class TransientSessionImpl(
 
     override fun saveEntity(entity: Entity) {
         throw UnsupportedOperationException()
+    }
+
+    override fun getUserObject(key: Any): Any? {
+        return userObjects[key]
+    }
+
+    override fun setUserObject(key: Any, value: Any) {
+        userObjects[key] = value
     }
 
     internal fun newLocalCopySafe(entity: TransientEntity?): TransientEntity? {
