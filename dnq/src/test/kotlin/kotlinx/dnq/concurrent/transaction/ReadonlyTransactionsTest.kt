@@ -23,6 +23,7 @@ import kotlinx.dnq.query.first
 import kotlinx.dnq.query.iterator
 import org.junit.Before
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.fail
 
 class ReadonlyTransactionsTest : DBTest() {
@@ -88,6 +89,18 @@ class ReadonlyTransactionsTest : DBTest() {
             for (s in Something.all()) {
                 assertThat(s.sometext).isNotNull()
             }
+        }
+    }
+
+    @Test
+    fun `user objects are transaction scoped`() {
+        transactional { txn ->
+            txn.setUserObject("foo", "bar")
+            assertEquals("bar", txn.getUserObject("foo"))
+        }
+
+        transactional { txn ->
+            assertEquals(null, txn.getUserObject("foo"))
         }
     }
 }

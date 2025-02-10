@@ -19,8 +19,8 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.StoreTransaction
+import org.jetbrains.annotations.NotNull
 
-//TODO: rename to TransientStoreTransaction
 interface TransientStoreSession : StoreTransaction {
 
     val transactionInternal: StoreTransaction
@@ -81,4 +81,21 @@ interface TransientStoreSession : StoreTransaction {
     fun <T> getRemovedEntityData(listener: DNQListener<*>, entityId: EntityId): BasicRemovedEntityData<T>
 
     val originalValuesProvider: TransientEntityOriginalValuesProvider
+
+    /**
+     * Returns a user object identified by the specified key and bound to the transaction, or {@code null} if no
+     * object is bound to the transaction by the specified key.
+     *
+     * @param key a key identifying the user object
+     * @return a user object identified by the specified key and bound to the transaction
+     */
+    fun getUserObject(key: Any): Any?
+
+    /**
+     * Bind a user object ({@code value}) identified by a key to the transaction.
+     *
+     * @param key   a key identifying the user object
+     * @param value user object bound to the transaction
+     */
+    fun setUserObject(key: Any, value: Any)
 }

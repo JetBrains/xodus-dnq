@@ -15,6 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
@@ -40,6 +41,8 @@ class ReadOnlyTransientSession(
     override fun isFinished() = transactionInternal.isFinished
 
     override fun getStore() = store
+
+    private val userObjects: MutableMap<Any, Any> = HashMapDecorator()
 
     override fun createPersistentEntityIterableWrapper(wrappedIterable: EntityIterable): EntityIterable {
         // do not wrap twice
@@ -142,6 +145,14 @@ class ReadOnlyTransientSession(
     }
 
     override val originalValuesProvider = TransientEntityOriginalValuesProviderImpl(this)
+
+    override fun getUserObject(key: Any): Any? {
+        return userObjects[key]
+    }
+
+    override fun setUserObject(key: Any, value: Any) {
+        userObjects[key] = value
+    }
 }
 
 
