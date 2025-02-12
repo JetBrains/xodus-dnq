@@ -51,7 +51,7 @@ object StaticStoreContainer : StoreContainer {
             .tweakConfig(configure)
             .build()
         //TODO use dbFolder
-        db = iniYouTrackDb(connectionConfig)
+        db = initYouTrackDb(connectionConfig)
 
         dbProvider = YTDBDatabaseProviderImpl(config, db!!)
         val store = createTransientEntityStore(dbProvider!!, entityStoreName)

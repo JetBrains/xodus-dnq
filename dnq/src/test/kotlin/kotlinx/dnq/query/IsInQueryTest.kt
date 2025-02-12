@@ -90,6 +90,22 @@ class IsInQueryTest : DBTest() {
     }
 
     @Test
+    fun `should search in empty list of values`() {
+        transactional {
+            User.new {
+                login = "hello"
+                skill = 1
+            }.apply {
+                groups.add(RootGroup.new { name = "vasya" })
+            }
+        }
+        transactional {
+            assertThat(User.all().filter { it.supervisor isIn listOf<User>() }.toList()).isEmpty()
+        }
+
+    }
+
+    @Test
     fun `should search in entities`() {
         store.transactional {
             val users = List(100) {

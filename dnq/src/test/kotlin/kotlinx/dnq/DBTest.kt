@@ -184,7 +184,6 @@ abstract class DBTest {
             }
         }
         store.close()
-        StaticStoreContainer.db?.drop("OSystem")
         StaticStoreContainer.dbProvider?.close()
     }
 
