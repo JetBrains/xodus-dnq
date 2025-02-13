@@ -18,7 +18,7 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.database.*
 
 class TransientEntityChangeImpl(
-    private val changesTracker: TransientChangesTracker,
+    override val changesTracker: TransientChangesTracker,
     override val transientEntity: TransientEntity,
     override val changedProperties: Map<String, Comparable<*>?>?,
     override val changedLinksDetailed: Map<String, LinkChange>?,
