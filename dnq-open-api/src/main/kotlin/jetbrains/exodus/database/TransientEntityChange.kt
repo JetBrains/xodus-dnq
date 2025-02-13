@@ -16,6 +16,7 @@
 package jetbrains.exodus.database
 
 interface TransientEntityChange {
+    val changesTracker: TransientChangesTracker
     val transientEntity: TransientEntity
     val changedProperties: Map<String, Comparable<*>?>?
     val changedLinksDetailed: Map<String, LinkChange>?
