@@ -103,5 +103,9 @@ internal class XdRemovedEntityData<out XD : XdEntity>(private val data: RemovedE
     }
 }
 
+fun <T : XdEntity, V> RemovedEntityData<T>.storeValue(property: KProperty<V>) {
+    storeValue(property, property.call(removed))
+}
+
 
 
