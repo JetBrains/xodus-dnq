@@ -231,7 +231,9 @@ class TransientSessionImpl(
                         if (transactionInternal.flush()) {
                             return
                         }
-                    } catch (_: NeedRetryException) {
+                    } catch (nre: NeedRetryException) {
+                        logger.debug(nre) { "Replaying changes: ${nre.message}" }
+
                         // replay changes
                         transactionInternal = this.store.persistentStore.beginTransaction()
                         transientChangesTracker.changedEntities.forEach {
