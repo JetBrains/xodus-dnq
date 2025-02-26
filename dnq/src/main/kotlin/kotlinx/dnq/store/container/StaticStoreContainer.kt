@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.store.container
 
+import YouTrackDBFactory
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import com.jetbrains.youtrack.db.api.DatabaseType
 import com.jetbrains.youtrack.db.api.YouTrackDB
@@ -38,22 +39,18 @@ object StaticStoreContainer : StoreContainer {
         }
 
     fun init(dbFolder: File, entityStoreName: String, configure: YouTrackDBConfigBuilder.() -> Unit = {}): TransientEntityStoreImpl {
-        val connectionConfig = YTDBDatabaseConnectionConfig
-            .builder()
+        val params = YTDBDatabaseParams.builder()
             .withUserName("admin")
             .withPassword("admin")
             .withDatabaseType(DatabaseType.MEMORY)
-            .withDatabaseRoot(dbFolder.absolutePath)
-            .build()
-        val config = YTDBDatabaseConfig.builder()
-            .withConnectionConfig(connectionConfig)
+            .withDatabasePath(dbFolder.absolutePath)
             .withDatabaseName("memory")
-            .tweakConfig(configure)
+            .withConfigBuilder(configure)
             .build()
         //TODO use dbFolder
-        db = initYouTrackDb(connectionConfig)
+        db = YouTrackDBFactory.createEmbedded(params)
 
-        dbProvider = YTDBDatabaseProviderImpl(config, db!!)
+        dbProvider = YTDBDatabaseProviderImpl(params, db!!)
         val store = createTransientEntityStore(dbProvider!!, entityStoreName)
         this.store = store
         return store
