@@ -21,7 +21,6 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.PersistentEntityStore
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.util.unsupported
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.query.QueryEngine
@@ -181,7 +180,11 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     }
 
     override fun deleteEntityTypeRefactoring(entityTypeName: String) {
-        unsupported { "This should be done with low level in orientDB" }
+        val transientSession = transientSessionOrThrow
+        transientSession.entitiesUpdater.addChangeAndRun {
+            (transientSession.transactionInternal.store as YTDBPersistentEntityStore).deleteEntityType(entityTypeName)
+            true
+        }
     }
 
     override fun deleteEntityRefactoring(entity: Entity) {
