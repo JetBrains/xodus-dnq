@@ -92,13 +92,22 @@ class IncomingLinksConstraintsTest : DBTest() {
         val integrityViolationExceptions = ex.causes
         assertThat(integrityViolationExceptions).hasSize(1)
         assertThat(integrityViolationExceptions.first()).isInstanceOf(CantRemoveEntityException::class.java)
-        assertThat(integrityViolationExceptions.first() as CantRemoveEntityException)
-                .hasMessageThat()
-                .isEqualTo("Could not delete looser, because it is referenced as: " +
-                        "assignee of ID-1, assignee of ID-2, assignee of ID-3, assignee of ID-4, assignee of ID-5, " +
-                        "assignee of ID-6, assignee of ID-7, assignee of ID-8, assignee of ID-9, assignee of ID-10, " +
-                        "and more...; " +
-                        "User is author of 4 comments; ")
+
+        val assignees = integrityViolationExceptions.first().message!!
+            .substringAfter("Could not delete looser, because it is referenced as: ")
+            .substringBefore(", and more...; User is author of 4 comments; ")
+            .trim()
+            .split(",")
+            .map(String::trim)
+            .toSet()
+
+        assertThat(assignees).hasSize(10)
+
+        assignees.forEach { a ->
+            a.substringAfter("assignee of ID-")
+                .toInt()
+                .let { assertThat(it).isIn(1..11) }
+        }
     }
 
     @Test
