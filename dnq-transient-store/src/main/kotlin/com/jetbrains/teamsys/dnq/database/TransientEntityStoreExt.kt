@@ -19,8 +19,9 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import mu.KLogging
 
-internal object TransientEntityStoreExt {
+internal object TransientEntityStoreExt : KLogging() {
     fun <T> transactional(
         store: TransientEntityStore,
         queryCancellingPolicy: QueryCancellingPolicy? = null,
@@ -99,7 +100,12 @@ internal object TransientEntityStoreExt {
             throw e
         } finally {
             if (wasEx && session.isOpened) {
-                session.abort()
+                try {
+                    session.abort()
+                } catch (err: Exception) {
+                    // we don't want to miss the original error
+                    logger.error("Error while aborting uncommited session: ${err.message}", err)
+                }
             }
         }
     }
