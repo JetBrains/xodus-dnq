@@ -36,6 +36,9 @@ class DeleteTest : DBTest() {
     override fun registerEntityTypes() {
         super.registerEntityTypes()
         XdModel.registerNode(CompanyTeam)
+        XdModel.registerNode(Domain)
+        XdModel.registerNode(Server)
+        XdModel.registerNode(Instance)
     }
 
     @Test
@@ -92,6 +95,57 @@ class DeleteTest : DBTest() {
 
         store.transactional {
             assertThat(parent.nestedTeams.toList()).isEmpty()
+        }
+    }
+
+    class Domain(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Domain>()
+
+        var name by xdRequiredStringProp(trimmed = true)
+        val instances by xdChildren0_N(Instance::parent)
+    }
+
+    class Server(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Server>()
+
+        var name by xdRequiredStringProp(trimmed = true)
+        val instances by xdLink0_N(Instance::server, onTargetDelete = CLEAR)
+    }
+
+    class Instance(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Instance>()
+
+        var name by xdRequiredStringProp(trimmed = true)
+        var parent: Domain by xdParent(Domain::instances)
+        var server: Server by xdLink1(Server::instances)
+    }
+
+    @Test
+    fun clearCascade2() {
+        val (domain, server) = store.transactional {
+            val domain = Domain.new { name = "domain1" }
+            val server = Server.new { name = "server1" }
+            Instance.new {
+                name = "instance1"
+                this.parent = domain
+                this.server = server
+            }
+            Instance.new {
+                name = "instance2"
+                this.parent = domain
+                this.server = server
+            }
+
+            Pair(domain, server)
+        }
+
+        store.transactional {
+            assertThat(server.instances.toList()).hasSize(2)
+            domain.delete()
+        }
+
+        store.transactional {
+            assertThat(server.instances.toList()).isEmpty()
         }
     }
 }
