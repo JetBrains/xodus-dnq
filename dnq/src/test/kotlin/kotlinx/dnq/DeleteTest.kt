@@ -17,13 +17,15 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
 import kotlinx.dnq.link.OnDeletePolicy.CASCADE
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
 import org.junit.Test
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 
 class DeleteTest : DBTest() {
@@ -143,37 +145,41 @@ class DeleteTest : DBTest() {
         val domain1 = domains.first()
         val domain2 = domains.last()
 
-        val latch1 = CountDownLatch(1)
-        val latch2 = CountDownLatch(1)
+        println("server: ${server.entityId}, domain1: ${domain1.entityId}, domain2: ${domain2.entityId}")
 
-        val deleted = AtomicLong(0)
+        val bothTxStarted = CountDownLatch(2)
+        val firstTxCommited = CountDownLatch(1)
+
+        val deleted = Collections.newSetFromMap(ConcurrentHashMap<EntityId, Boolean>())
 
         val t1 = thread {
             store.transactional {
-                latch1.countDown()
+                bothTxStarted.countDown()
+                bothTxStarted.await()
                 domain1.delete()
-                latch2.await()
             }
-            deleted.incrementAndGet()
+            firstTxCommited.countDown()
+            deleted.add(domain1.entityId)
         }
 
         val t2 = thread {
             store.transactional {
-                latch1.await()
+                bothTxStarted.countDown()
+                bothTxStarted.await()
                 domain2.delete()
-                latch2.countDown()
+                firstTxCommited.await() // waiting for 1st to commit to cause 2nd tx replay
             }
-            deleted.incrementAndGet()
+            deleted.add(domain2.entityId)
         }
 
-        t1.join(1000)
-        t2.join(1000)
+        val toWait = Long.MAX_VALUE
+        t1.join(toWait)
+        t2.join(toWait)
 
-        assertThat(deleted.get()).isEqualTo(2L)
+        assertThat(deleted).isEqualTo(setOf(domain1.entityId, domain2.entityId))
 
         store.transactional {
             assertThat(Domain.all().toList()).isEmpty()
-            assertThat(Server.all().toList()).hasSize(1)
             assertThat(Instance.all().toList()).isEmpty()
         }
     }

@@ -392,7 +392,7 @@ class TransientSessionImpl(
         changesTracker.changesDescription.filter {
             it.changeType == EntityChangeType.REMOVE
         }.map {
-            it.transientEntity
+            RemovedTransientEntity(it.transientEntity)
         }.forEach { txnEntity ->
             val processed = HashSet<Entity>()
             val modelMetaData = store.modelMetaData!!
