@@ -22,6 +22,9 @@ import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.concurrent.thread
 
 class DeleteTest : DBTest() {
 
@@ -121,31 +124,57 @@ class DeleteTest : DBTest() {
     }
 
     @Test
-    fun clearCascade2() {
-        val (domain, server) = store.transactional {
-            val domain = Domain.new { name = "domain1" }
-            val server = Server.new { name = "server1" }
-            Instance.new {
-                name = "instance1"
-                this.parent = domain
-                this.server = server
-            }
-            Instance.new {
-                name = "instance2"
-                this.parent = domain
-                this.server = server
-            }
+    fun clearCascadeConcurrent() {
+        val server = store.transactional { Server.new { name = "server" } }
 
-            Pair(domain, server)
+        val domains = (0..1).map { i ->
+            store.transactional {
+                val domain = Domain.new { name = "domain$i" }
+
+                Instance.new { name = "instance$i"
+                    this.parent = domain
+                    this.server = server
+                }
+
+                domain
+            }
         }
 
-        store.transactional {
-            assertThat(server.instances.toList()).hasSize(2)
-            domain.delete()
+        val domain1 = domains.first()
+        val domain2 = domains.last()
+
+        val latch1 = CountDownLatch(1)
+        val latch2 = CountDownLatch(1)
+
+        val deleted = AtomicLong(0)
+
+        val t1 = thread {
+            store.transactional {
+                latch1.countDown()
+                domain1.delete()
+                latch2.await()
+            }
+            deleted.incrementAndGet()
         }
 
+        val t2 = thread {
+            store.transactional {
+                latch1.await()
+                domain2.delete()
+                latch2.countDown()
+            }
+            deleted.incrementAndGet()
+        }
+
+        t1.join(1000)
+        t2.join(1000)
+
+        assertThat(deleted.get()).isEqualTo(2L)
+
         store.transactional {
-            assertThat(server.instances.toList()).isEmpty()
+            assertThat(Domain.all().toList()).isEmpty()
+            assertThat(Server.all().toList()).hasSize(1)
+            assertThat(Instance.all().toList()).isEmpty()
         }
     }
 }
