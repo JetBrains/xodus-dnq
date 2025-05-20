@@ -17,11 +17,16 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
 import kotlinx.dnq.link.OnDeletePolicy.CASCADE
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
 import org.junit.Test
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import kotlin.concurrent.thread
 
 class DeleteTest : DBTest() {
 
@@ -36,6 +41,9 @@ class DeleteTest : DBTest() {
     override fun registerEntityTypes() {
         super.registerEntityTypes()
         XdModel.registerNode(CompanyTeam)
+        XdModel.registerNode(Domain)
+        XdModel.registerNode(Server)
+        XdModel.registerNode(Instance)
     }
 
     @Test
@@ -92,6 +100,87 @@ class DeleteTest : DBTest() {
 
         store.transactional {
             assertThat(parent.nestedTeams.toList()).isEmpty()
+        }
+    }
+
+    class Domain(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Domain>()
+
+        var name by xdRequiredStringProp(trimmed = true)
+        val instances by xdChildren0_N(Instance::parent)
+    }
+
+    class Server(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Server>()
+
+        var name by xdRequiredStringProp(trimmed = true)
+        val instances by xdLink0_N(Instance::server, onTargetDelete = CLEAR)
+    }
+
+    class Instance(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Instance>()
+
+        var name by xdRequiredStringProp(trimmed = true)
+        var parent: Domain by xdParent(Domain::instances)
+        var server: Server by xdLink1(Server::instances)
+    }
+
+    @Test
+    fun clearCascadeConcurrent() {
+        val server = store.transactional { Server.new { name = "server" } }
+
+        val domains = (0..1).map { i ->
+            store.transactional {
+                val domain = Domain.new { name = "domain$i" }
+
+                Instance.new { name = "instance$i"
+                    this.parent = domain
+                    this.server = server
+                }
+
+                domain
+            }
+        }
+
+        val domain1 = domains.first()
+        val domain2 = domains.last()
+
+        println("server: ${server.entityId}, domain1: ${domain1.entityId}, domain2: ${domain2.entityId}")
+
+        val bothTxStarted = CountDownLatch(2)
+        val firstTxCommited = CountDownLatch(1)
+
+        val deleted = Collections.newSetFromMap(ConcurrentHashMap<EntityId, Boolean>())
+
+        val t1 = thread {
+            store.transactional {
+                bothTxStarted.countDown()
+                bothTxStarted.await()
+                domain1.delete()
+            }
+            firstTxCommited.countDown()
+            deleted.add(domain1.entityId)
+        }
+
+        val t2 = thread {
+            store.transactional {
+                bothTxStarted.countDown()
+                bothTxStarted.await()
+                domain2.delete()
+                firstTxCommited.await() // waiting for 1st to commit to cause 2nd tx replay
+            }
+            deleted.add(domain2.entityId)
+        }
+
+        val toWait = Long.MAX_VALUE
+        t1.join(toWait)
+        t2.join(toWait)
+
+        assertThat(deleted).isEqualTo(setOf(domain1.entityId, domain2.entityId))
+
+        store.transactional {
+            assertThat(Domain.all().toList()).isEmpty()
+            assertThat(Instance.all().toList()).isEmpty()
         }
     }
 }
