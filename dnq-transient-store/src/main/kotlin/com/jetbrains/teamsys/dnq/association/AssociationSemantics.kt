@@ -28,17 +28,17 @@ object AssociationSemantics {
      * Supports nullable objects - input entity may be null
      */
     @JvmStatic
-    fun getToOne(e: Entity?, linkName: String): Entity? {
+    fun getToOne(e: Entity?, linkName: String, checkEntityRemoved: Boolean = true): Entity? {
         return if (e == null) null
         else {
             val session = e.threadSessionOrThrow
-            e.reattachTransient(session).getLinkEx(linkName, session)
+            e.reattachTransient(session, checkEntityRemoved).getLinkEx(linkName, session)
         }
     }
 
     @JvmStatic
-    fun getToMany(e: Entity?, linkName: String): Iterable<Entity> {
-        return e?.reattachTransient()?.getLinks(linkName)
+    fun getToMany(e: Entity?, linkName: String, checkEntityRemoved: Boolean = true): Iterable<Entity> {
+        return e?.reattachTransient(checkEntityRemoved = checkEntityRemoved)?.getLinks(linkName)
                 ?: YTDBEntityIterableBase.EMPTY
     }
 

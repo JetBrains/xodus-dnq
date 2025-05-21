@@ -25,16 +25,16 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 /**
  * Attach entity to current transient session if possible.
  */
-fun TransientEntity.reattach(session: TransientStoreSession? = null): TransientEntity {
+fun TransientEntity.reattach(session: TransientStoreSession? = null, checkEntityRemoved: Boolean = true): TransientEntity {
     if (isReadonly || isWrapper) return this
     val s = session ?: store.threadSessionOrThrow
-    return s.newLocalCopy(this)
+    return s.newLocalCopy(this, checkEntityRemoved)
 }
 
 val Entity.threadSessionOrThrow: TransientStoreSession get() = (this as TransientEntity).store.threadSessionOrThrow
 
-fun Entity.reattachTransient(session: TransientStoreSession? = null): TransientEntity {
-    return (this as TransientEntity).reattach(session)
+fun Entity.reattachTransient(session: TransientStoreSession? = null, checkEntityRemoved: Boolean = true): TransientEntity {
+    return (this as TransientEntity).reattach(session, checkEntityRemoved)
 }
 
 val TransientEntityStore.threadSessionOrThrow

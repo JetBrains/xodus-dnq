@@ -63,7 +63,7 @@ interface TransientStoreSession : StoreTransaction {
     /**
      * Used by dnq to create session local copies of transient entities that come from another session
      */
-    fun newLocalCopy(entity: TransientEntity): TransientEntity
+    fun newLocalCopy(entity: TransientEntity, checkEntityRemoved: Boolean = true): TransientEntity
 
     fun hasChanges(): Boolean
 
