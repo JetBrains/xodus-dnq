@@ -392,7 +392,7 @@ class TransientSessionImpl(
         changesTracker.changesDescription.filter {
             it.changeType == EntityChangeType.REMOVE
         }.map {
-            RemovedTransientEntity(it.transientEntity)
+            it.transientEntity
         }.forEach { txnEntity ->
             val processed = HashSet<Entity>()
             val modelMetaData = store.modelMetaData!!
@@ -407,7 +407,8 @@ class TransientSessionImpl(
                     entityMetaData,
                     modelMetaData,
                     false,
-                    processed
+                    processed,
+                    checkEntityRemoved = false
                 )
             }
         }
@@ -491,12 +492,12 @@ class TransientSessionImpl(
      * @param entity
      * @return
      */
-    override fun newLocalCopy(entity: TransientEntity): TransientEntity {
+    override fun newLocalCopy(entity: TransientEntity, checkEntityRemoved: Boolean): TransientEntity {
         assertOpen("create local copy")
         val tracker = transientChangesTracker
         return when {
             entity.isReadonly || entity.isWrapper -> entity
-            tracker.isRemoved(entity) -> {
+            checkEntityRemoved && tracker.isRemoved(entity) -> {
                 logger.warn { "Entity [$entity] was removed by you." }
                 throw EntityRemovedException(entity)
             }

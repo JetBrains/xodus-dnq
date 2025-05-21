@@ -156,7 +156,8 @@ object ConstraintsUtil: KLogging() {
             entityMetaData: EntityMetaData,
             modelMetaData: ModelMetaData,
             callDestructorsPhase: Boolean,
-            processed: MutableSet<Entity>) {
+            processed: MutableSet<Entity>,
+            checkEntityRemoved: Boolean = true) {
 
         // outgoing associations
         entityMetaData.associationEndsMetaData
@@ -169,7 +170,7 @@ object ConstraintsUtil: KLogging() {
                     if (associationEndMetaData.clearOnDelete) {
                         logger.debug { "Clear associations with targets for link [$entity].${associationEndMetaData.name}" }
                     }
-                    processOnSourceDeleteConstrains(entity, associationEndMetaData, callDestructorsPhase, processed)
+                    processOnSourceDeleteConstrains(entity, associationEndMetaData, callDestructorsPhase, processed, checkEntityRemoved)
                 }
 
         // incoming associations
@@ -187,14 +188,15 @@ object ConstraintsUtil: KLogging() {
             entity: Entity,
             associationEndMetaData: AssociationEndMetaData,
             callDestructorsPhase: Boolean,
-            processed: MutableSet<Entity>) {
+            processed: MutableSet<Entity>,
+            checkEntityRemoved: Boolean) {
         when (associationEndMetaData.cardinality) {
             AssociationEndCardinality._0_1,
             AssociationEndCardinality._1 ->
-                processOnSourceDeleteConstraintForSingleLink(entity, associationEndMetaData, callDestructorsPhase, processed)
+                processOnSourceDeleteConstraintForSingleLink(entity, associationEndMetaData, callDestructorsPhase, processed, checkEntityRemoved)
             AssociationEndCardinality._0_n,
             AssociationEndCardinality._1_n ->
-                processOnSourceDeleteConstraintForMultipleLink(entity, associationEndMetaData, callDestructorsPhase, processed)
+                processOnSourceDeleteConstraintForMultipleLink(entity, associationEndMetaData, callDestructorsPhase, processed, checkEntityRemoved)
         }
     }
 
@@ -202,8 +204,9 @@ object ConstraintsUtil: KLogging() {
             source: Entity,
             associationEndMetaData: AssociationEndMetaData,
             callDestructorsPhase: Boolean,
-            processed: MutableSet<Entity>) {
-        val target = AssociationSemantics.getToOne(source, associationEndMetaData.name)
+            processed: MutableSet<Entity>,
+            checkEntityRemoved: Boolean) {
+        val target = AssociationSemantics.getToOne(source, associationEndMetaData.name, checkEntityRemoved)
         if (target != null && !EntityOperations.isRemoved(target)) {
             if (associationEndMetaData.cascadeDelete || associationEndMetaData.oppositeEndOrNull?.targetCascadeDelete == true) {
                 EntityOperations.remove(target, callDestructorsPhase, processed)
@@ -264,8 +267,9 @@ object ConstraintsUtil: KLogging() {
             source: Entity,
             associationEndMetaData: AssociationEndMetaData,
             callDestructorsPhase: Boolean,
-            processed: MutableSet<Entity>) {
-        AssociationSemantics.getToMany(source, associationEndMetaData.name)
+            processed: MutableSet<Entity>,
+            checkEntityRemoved: Boolean) {
+        AssociationSemantics.getToMany(source, associationEndMetaData.name, checkEntityRemoved)
                 .toList()
                 .asSequence()
                 .filterNot { EntityOperations.isRemoved(it) }
