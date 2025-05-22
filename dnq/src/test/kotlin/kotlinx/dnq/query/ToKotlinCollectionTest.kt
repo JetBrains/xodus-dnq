@@ -38,20 +38,6 @@ class ToKotlinCollectionTest : DBTest() {
     }
 
     @Test
-    fun asIterable() {
-        assertToCollectionOperation {
-            assertThat(it.asIterable())
-        }
-    }
-
-    @Test
-    fun iterator() {
-        assertToCollectionOperation {
-            assertThat(it.iterator().asSequence().toList())
-        }
-    }
-
-    @Test
     fun toCollection() {
         assertToCollectionOperation {
             val destination = LinkedList<Thing>()

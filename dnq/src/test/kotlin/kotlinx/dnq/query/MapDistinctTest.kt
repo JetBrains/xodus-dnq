@@ -112,6 +112,6 @@ class MapDistinctTest : DBTest() {
 
     private fun <XD : XdEntity> XdQuery<XD>.assertThatSizeIsEqualTo(value: Int) {
         Truth.assertThat(this.size()).isEqualTo(value)
-        Truth.assertThat(this.asSequence().count()).isEqualTo(value)
+        Truth.assertThat(this.toList().count()).isEqualTo(value)
     }
 }

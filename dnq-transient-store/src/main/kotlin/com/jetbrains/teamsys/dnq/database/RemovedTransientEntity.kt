@@ -328,7 +328,7 @@ internal class RemovedLinksEntityIterable(
             }
 
             override fun shouldBeDisposed(): Boolean {
-                throw IllegalStateException("Must not be called")
+                return false
             }
 
 

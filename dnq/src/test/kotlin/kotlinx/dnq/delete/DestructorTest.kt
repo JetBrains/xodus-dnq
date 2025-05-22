@@ -20,9 +20,10 @@ import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy.CASCADE
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
-import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.eq
+import kotlinx.dnq.query.forEach
 import kotlinx.dnq.query.query
+import kotlinx.dnq.query.toList
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.isDefined
 import org.junit.Test
@@ -42,9 +43,7 @@ class DestructorTest : DBTest() {
         companion object : XdNaturalEntityType<C1>()
 
         override fun destructor() {
-            C2.query(C2::c1 eq this)
-                    .asSequence()
-                    .forEach { it.c1 = null }
+            C2.query(C2::c1 eq this).forEach { it.c1 = null }
             System.out.println("destructor finished!")
         }
     }

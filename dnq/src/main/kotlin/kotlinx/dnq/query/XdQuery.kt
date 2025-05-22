@@ -21,6 +21,7 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.asOStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
@@ -67,82 +68,85 @@ fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQue
 }
 
 /**
- * Creates a [Sequence] instance that wraps the original query returning its results when being iterated.
+ * Performs an operation on `iterable`, disposing all used resources if it is an [EntityIterable].
  */
-fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
-    return entityIterable
-        .asSequence()
-        .map { entityType.wrap(it) }
+fun <T, R> useIterable(iterable: Iterable<T>, f: (Sequence<T>) -> R): R {
+    val iterator = iterable.iterator()
+
+    try {
+        return f(iterator.asSequence())
+    } finally {
+        if (iterator is EntityIterator && iterator.shouldBeDisposed()) {
+            iterator.dispose()
+        }
+    }
 }
 
 /**
- * Creates a [Sequence] instance that wraps the original query returning its results as entity ids when being iterated.
+ * Performs an operation on the results of this query, disposing all used resources after.
  */
-fun <T : XdEntity> XdQuery<T>.asIdSequence(): Sequence<EntityId> {
-    return entityIterable
-        .asSequence()
-        .map { it.id }
-}
-
+fun <T : XdEntity, R> XdQuery<T>.useEntitySequence(f: (Sequence<Entity>) -> R): R =
+    useIterable(entityIterable, f)
 
 /**
- * Creates an [Iterable] instance that wraps the original query returning its results when being iterated.
+ * Performs an operation on [XdEntity]s from the results of this query, disposing all used resources after.
  */
-fun <T : XdEntity> XdQuery<T>.asIterable(): Iterable<T> {
-    return asSequence().asIterable()
-}
+fun <T : XdEntity, R> XdQuery<T>.useSequence(f: (Sequence<T>) -> R): R =
+    useEntitySequence { s -> f(s.map { entityType.wrap(it) }) }
 
 /**
- * Creates an [Iterator] instance that iterates over query results.
+ * Performs an operation of [EntityId]s of the results of this query, disposing all used resources after.
  */
-operator fun <T : XdEntity> XdQuery<T>.iterator(): Iterator<T> = this.asSequence().iterator()
+fun <T : XdEntity, R> XdQuery<T>.useIdsSequence(f: (Sequence<EntityId>) -> R): R =
+    useEntitySequence { s -> f(s.map { it.id }) }
 
 /**
  * Appends all elements to the given [destination] collection.
  */
 fun <T : XdEntity, C : MutableCollection<in T>> XdQuery<T>.toCollection(destination: C) =
-    asSequence().toCollection(destination)
+    useSequence { it.toCollection(destination) }
 
 /**
  * Returns a [List] containing all results of the original query.
  */
-fun <T : XdEntity> XdQuery<T>.toList() = asSequence().toList()
+fun <T : XdEntity> XdQuery<T>.toList(): List<T> = useSequence { it.toList() }
 
 /**
  * Returns a [List] containing ids of all results of the original query.
  */
-fun <T : XdEntity> XdQuery<T>.toIdList() = asIdSequence().toList()
+fun <T : XdEntity> XdQuery<T>.toIdList(): List<EntityId> = useIdsSequence { it.toList() }
 
 /**
  * Returns a [MutableList] filled with all results of the original query.
  */
-fun <T : XdEntity> XdQuery<T>.toMutableList() = asSequence().toMutableList()
+fun <T : XdEntity> XdQuery<T>.toMutableList(): MutableList<T> = useSequence { it.toMutableList() }
 
 /**
  * Returns a [Set] of all results of the original query.
  *
  * The returned set preserves the element iteration order of the original query.
  */
-fun <T : XdEntity> XdQuery<T>.toSet() = asSequence().toSet()
+fun <T : XdEntity> XdQuery<T>.toSet(): Set<T> = useSequence { it.toSet() }
 
 /**
  * Returns a [HashSet] of all results of the original query.
  */
-fun <T : XdEntity> XdQuery<T>.toHashSet() = asSequence().toHashSet()
+fun <T : XdEntity> XdQuery<T>.toHashSet(): HashSet<T> = useSequence { it.toHashSet() }
 
 /**
  * Returns a [SortedSet] of all results of the original query.
  *
  * Elements in the set returned are sorted according to the given [comparator].
  */
-fun <T : XdEntity> XdQuery<T>.toSortedSet(comparator: Comparator<T>) = asSequence().toSortedSet(comparator)
+fun <T : XdEntity> XdQuery<T>.toSortedSet(comparator: Comparator<T>): SortedSet<T> =
+    useSequence { it.toSortedSet(comparator) }
 
 /**
  * Returns a mutable set containing all distinct results of the original query.
  *
  * The returned set preserves the element iteration order of the original query.
  */
-fun <T : XdEntity> XdQuery<T>.toMutableSet() = asSequence().toMutableSet()
+fun <T : XdEntity> XdQuery<T>.toMutableSet(): MutableSet<T> = useSequence { it.toMutableSet() }
 
 /**
  * Returns an empty query.
@@ -245,7 +249,7 @@ fun <T : XdEntity, S : XdEntity> XdQuery<S>.unionEach(
     entityType: XdEntityType<T>,
     queryFun: (S) -> XdQuery<T>
 ): XdQuery<T> {
-    return asIterable().unionEach(entityType, queryFun)
+    return useSequence { it.asIterable().unionEach(entityType, queryFun) }
 }
 
 /**
@@ -339,7 +343,7 @@ inline fun <reified T : XdEntity> XdEntityType<T>.query(it: Iterable<T?>): XdQue
     if (it is Collection && it.isEmpty()) {
         return emptyQuery()
     }
-    return return XdQueryImpl(it.mapNotNull { it?.entity }, this)
+    return XdQueryImpl(it.mapNotNull { it?.entity }, this)
 }
 
 /**
@@ -441,7 +445,7 @@ fun <T : XdEntity> XdQuery<T>?.size(): Int {
         YTDBEntityIterableBase.EMPTY -> 0
         is EntityIterable -> it.size().toInt()
         is Collection<*> -> it.size
-        else -> it.count()
+        else -> useEntitySequence { it.count() }
     }
 }
 
@@ -456,7 +460,7 @@ fun <T : XdEntity> XdQuery<T>?.roughSize(): Int {
         when (it) {
             is EntityIterable -> it.roughSize.toInt()
             is Collection<*> -> it.size
-            else -> it.count()
+            else -> useEntitySequence { it.count() }
         }
     }
 }
@@ -489,7 +493,7 @@ val <T : XdEntity> XdQuery<T>?.isEmpty: Boolean
                 if (queryEngine.isPersistentIterable(entIt)) {
                     (entIt as EntityIterable).isEmpty
                 } else {
-                    entIt.none()
+                    useIterable(entIt) { it.none() }
                 }
             }
         }
@@ -668,18 +672,15 @@ fun <T : XdEntity> XdQuery<T>.first(node: NodeBase): T {
  */
 fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
     if (entityIterable is TransientEntityIterable){
-        return entityIterable.firstOrNull()?.let { entityType.wrap(it) }
+        return useIterable(entityIterable) { eit -> eit.firstOrNull()?.let { entityType.wrap(it) } }
     }
     val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is YTDBEntityIterableBase) {
-        it.unwrap().first?.let {
-            entityType.entityStore.session.newEntity(it)
-        }
+    val entity = if (it is YTDBEntityIterableBase) {
+        it.unwrap().first?.let { entityType.entityStore.session.newEntity(it) }
     } else {
-        it.firstOrNull()
-    }?.let {
-        entityType.wrap(it)
+        useIterable(it) { eit -> eit.firstOrNull() }
     }
+    return entity?.let { entityType.wrap(it) }
 }
 
 /**
@@ -716,15 +717,12 @@ fun <T : XdEntity> XdQuery<T>.last(node: NodeBase): T {
  */
 fun <T : XdEntity> XdQuery<T>.lastOrNull(): T? {
     val it = queryEngine.toEntityIterable(entityIterable)
-    return if (it is YTDBEntityIterableBase) {
-        it.unwrap().last?.let {
-            entityType.entityStore.session.newEntity(it)
-        }
+    val entity = if (it is YTDBEntityIterableBase) {
+        it.unwrap().last?.let { entityType.entityStore.session.newEntity(it) }
     } else {
-        it.lastOrNull()
-    }?.let {
-        entityType.wrap(it)
+        useIterable(it) { eit -> eit.lastOrNull() }
     }
+    return entity?.let { entityType.wrap(it) }
 }
 
 /**
@@ -741,7 +739,7 @@ fun <T : XdEntity> XdQuery<T>.lastOrNull(node: NodeBase): T? {
  * Returns the single query result, or throws an exception if the query is empty or has more than one result.
  */
 fun <T : XdEntity> XdQuery<T>.single(): T {
-    return asSequence().single()
+    return useSequence { it.single() }
 }
 
 /**
@@ -759,7 +757,7 @@ fun <T : XdEntity> XdQuery<T>.single(node: NodeBase): T {
  * Returns the single query result, or `null` if the query is empty or has more than one result.
  */
 fun <T : XdEntity> XdQuery<T>.singleOrNull(): T? {
-    return asSequence().singleOrNull()
+    return useSequence { it.singleOrNull() }
 }
 
 /**
@@ -802,7 +800,8 @@ fun <T : XdEntity> XdQuery<T>.reversed(): XdQuery<T> {
     return if (iterable is YTDBEntityIterableBase) {
         XdQueryImpl(wrap(iterable.unwrap().reverse()), entityType)
     } else {
-        XdQueryImpl(entityIterable.reversed(), entityType)
+
+        XdQueryImpl(useEntitySequence { it.asIterable().reversed() }, entityType)
     }
 }
 
@@ -813,7 +812,7 @@ fun <T : XdEntity> XdQuery<T>.reversed(): XdQuery<T> {
  * @see query
  */
 fun <T : XdEntity> XdQuery<T>.none(node: NodeBase): Boolean {
-    return query(node).asSequence().none()
+    return query(node).entityIterable.none()
 }
 
 /**
@@ -827,14 +826,14 @@ fun <T : XdEntity> XdMutableQuery<T>.addAll(elements: Sequence<T>) {
  * Adds all results of given [XdQuery] to this mutable query.
  */
 fun <T : XdEntity> XdMutableQuery<T>.addAll(elements: XdQuery<T>) {
-    addAll(elements.asSequence())
+    elements.useSequence { addAll(it) }
 }
 
 /**
  * Adds all results of given [Iterable] to this mutable query.
  */
 fun <T : XdEntity> XdMutableQuery<T>.addAll(elements: Iterable<T>) {
-    addAll(elements.asSequence())
+    useIterable(elements) { addAll(it) }
 }
 
 /**
@@ -848,7 +847,7 @@ fun <T : XdEntity> XdMutableQuery<T>.removeAll(elements: Sequence<T>) {
  * Removes all results of given [XdQuery] from this mutable query.
  */
 fun <T : XdEntity> XdMutableQuery<T>.removeAll(elements: XdQuery<T>) {
-    removeAll(elements.asSequence())
+    elements.useSequence { removeAll(it) }
 }
 
 /**
@@ -856,4 +855,8 @@ fun <T : XdEntity> XdMutableQuery<T>.removeAll(elements: XdQuery<T>) {
  */
 fun <T : XdEntity> XdMutableQuery<T>.removeAll(elements: Iterable<T>) {
     removeAll(elements.asSequence())
+}
+
+fun <T : XdEntity> XdQuery<T>.forEach(action: (T) -> Unit) {
+    useSequence { it.forEach(action) }
 }

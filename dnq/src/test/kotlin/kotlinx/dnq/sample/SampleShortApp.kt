@@ -18,7 +18,7 @@ package kotlinx.dnq.sample
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.query.firstOrNull
-import kotlinx.dnq.query.iterator
+import kotlinx.dnq.query.forEach
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.initMetaData
 import org.joda.time.DateTime
@@ -78,8 +78,8 @@ fun main(args: Array<String>) {
     // Do in read-only transaction
     xodusStore.transactional(readonly = true) {
         // Print all blog posts
-        for (post in blog.posts) {
-            println("${post.publishedAt}: ${post.text}")
+        blog.posts.forEach {
+            println("${it.publishedAt}: ${it.text}")
         }
     }
 }

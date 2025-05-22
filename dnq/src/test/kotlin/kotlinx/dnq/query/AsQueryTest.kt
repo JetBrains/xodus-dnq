@@ -52,7 +52,7 @@ class AsQueryTest : DBTest() {
         }
 
         val user = transactional {
-            val users = XdUser.all().asSequence().filter {
+            val users = XdUser.all().toList().filter {
                 (it.contacts.firstOrNull() as? XdEmail)?.address?.contains("@example.com") == true
             }.map { it.entity }
             users.asIterable().asQuery(XdUser).filter { it.login eq "user_one" }.firstOrNull()

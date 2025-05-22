@@ -238,12 +238,12 @@ class DeleteCycleTest : DBTest() {
 
     private fun <XD : XdEntity> bulkDelete(txn: TransientStoreSession, seq: XdQuery<XD>) {
         var count = 0
-        var it = seq.iterator()
+        var it = seq.toList().iterator()
         while (it.hasNext()) {
             it.next().delete()
             if (++count % 100 == 0) {
                 txn.flush()
-                it = seq.iterator()
+                it = seq.toList().iterator()
             }
         }
         if (count % 100 != 0) {

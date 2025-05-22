@@ -22,7 +22,6 @@ import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
-import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.size
 import kotlinx.dnq.query.toList
 import org.junit.Assert
@@ -195,7 +194,7 @@ class ListenersTest : DBTest() {
         Truth.assertThat(ref.get()).isEqualTo(0)
         Truth.assertThat(
             store.transactional {
-                Foo.all().asSequence().map { it.intField }.all { it == 99 }
+                Foo.all().toList().map { it.intField }.all { it == 99 }
             }
 
         ).isTrue()
@@ -283,7 +282,7 @@ class ListenersTest : DBTest() {
         Truth.assertThat(ref.get()).isEqualTo(4)
         Truth.assertThat(
             store.transactional {
-                Foo.all().asSequence().map { it.intField }.all { it == 11 }
+                Foo.all().toList().map { it.intField }.all { it == 11 }
             }
 
         ).isTrue()
@@ -310,7 +309,7 @@ class ListenersTest : DBTest() {
             }
         }
         transactional {
-            Foo.all().asSequence().forEach { foo->
+            Foo.all().toList().forEach { foo->
                 idToValue[foo.entityId] = foo.intField
             }
         }

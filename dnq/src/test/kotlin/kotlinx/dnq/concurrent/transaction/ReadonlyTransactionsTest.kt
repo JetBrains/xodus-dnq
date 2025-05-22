@@ -20,7 +20,7 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.query.first
-import kotlinx.dnq.query.iterator
+import kotlinx.dnq.query.toList
 import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -60,7 +60,7 @@ class ReadonlyTransactionsTest : DBTest() {
                 assertQuery(Something.all()).hasSize(count)
 
             }
-            val i = Something.all().iterator().asSequence().count()
+            val i = Something.all().toList().size
             assertThat(i).isEqualTo(count)
             assertQuery(Something.all()).hasSize(count)
         }
@@ -86,7 +86,7 @@ class ReadonlyTransactionsTest : DBTest() {
     fun `WD-2054 Read access to an instance of persistent class upgrades transaction to R-W`() {
         transactional { txn ->
             txn.setUpgradeHook(Runnable { fail("Transaction was upgraded") })
-            for (s in Something.all()) {
+            for (s in Something.all().toList()) {
                 assertThat(s.sometext).isNotNull()
             }
         }
