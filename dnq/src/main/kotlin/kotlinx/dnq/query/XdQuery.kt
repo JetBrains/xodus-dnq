@@ -101,6 +101,41 @@ fun <T : XdEntity, R> XdQuery<T>.useIdsSequence(f: (Sequence<EntityId>) -> R): R
     useEntitySequence { s -> f(s.map { it.id }) }
 
 /**
+ * Creates a [Sequence] instance that wraps the original query returning its results when being iterated.
+ */
+@Deprecated("Unsafe, because doesn't close the underlying EntityIterator, use useSequence instead", ReplaceWith("useSequence(f)"))
+fun <T : XdEntity> XdQuery<T>.asSequence(): Sequence<T> {
+    return entityIterable
+        .asSequence()
+        .map { entityType.wrap(it) }
+}
+
+/**
+ * Creates a [Sequence] instance that wraps the original query returning its results as entity ids when being iterated.
+ */
+@Deprecated("Unsafe, because doesn't close the underlying EntityIterator, use useIdSequence instead", ReplaceWith("useIdSequence(f)"))
+fun <T : XdEntity> XdQuery<T>.asIdSequence(): Sequence<EntityId> {
+    return entityIterable
+        .asSequence()
+        .map { it.id }
+}
+
+
+/**
+ * Creates an [Iterable] instance that wraps the original query returning its results when being iterated.
+ */
+@Deprecated("Unsafe, because doesn't close the underlying EntityIterator, use useSequence instead", ReplaceWith("useSequence(f)"))
+fun <T : XdEntity> XdQuery<T>.asIterable(): Iterable<T> {
+    return asSequence().asIterable()
+}
+
+/**
+ * Creates an [Iterator] instance that iterates over query results.
+ */
+@Deprecated("Unsafe, because the resulting iterator is not closed upon completion of the query.", ReplaceWith("useSequence(f)"))
+operator fun <T : XdEntity> XdQuery<T>.iterator(): Iterator<T> = this.asSequence().iterator()
+
+/**
  * Appends all elements to the given [destination] collection.
  */
 fun <T : XdEntity, C : MutableCollection<in T>> XdQuery<T>.toCollection(destination: C) =
