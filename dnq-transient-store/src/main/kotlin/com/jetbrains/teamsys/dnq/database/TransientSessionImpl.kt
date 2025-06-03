@@ -27,6 +27,7 @@ import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBReadonlyVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.env.ReadonlyTransactionException
 import jetbrains.exodus.env.TransactionFinishedException
 import mu.KLogging
@@ -504,16 +505,20 @@ class TransientSessionImpl(
 
             tracker.isNew(entity) -> entity
             else -> {
-                val entityId = entity.id
-                if (entityId in loadedIds) {
-                    return entity
-                }
-                try {
-                    // load persistent entity from database by id
-                    newEntityImpl(transactionInternal.getEntity(entityId))
-                } catch (e: EntityRemovedInDatabaseException) {
-                    logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
-                    throw e
+                val yTDBEntity = entity.entity
+                if (yTDBEntity is YTDBVertexEntity && (yTDBEntity.isUnloaded ||
+                            yTDBEntity.vertex.isNotBound(store.persistentStore.databaseSession))
+                ) {
+                    try {
+                        // load persistent entity from database by id
+                        newEntityImpl(transactionInternal.getEntity(entity.id))
+                    } catch (e: EntityRemovedInDatabaseException) {
+                        logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
+                        throw e
+                    }
+
+                } else {
+                    entity
                 }
             }
         }
