@@ -19,7 +19,6 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.StoreTransaction
-import org.jetbrains.annotations.NotNull
 
 interface TransientStoreSession : StoreTransaction {
 
