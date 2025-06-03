@@ -44,7 +44,7 @@ class LinksTest : DBTest() {
                     .isNotEmpty()
             assertThat(root.nestedGroups.toList().map { it.name })
                     .containsExactly("A", "B", "C")
-            root.nestedGroups.asSequence().forEach {
+            root.nestedGroups.toList().forEach {
                 assertThat(it.parentGroup).isEqualTo(root)
                 assertThat(it.entity.getLink("parent")).isEqualTo(root.entity)
             }

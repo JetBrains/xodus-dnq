@@ -18,9 +18,9 @@ package kotlinx.dnq.concurrent.transaction
 
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
-import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.isNotEmpty
+import kotlinx.dnq.query.toList
 import org.junit.Test
 import kotlin.concurrent.thread
 
@@ -44,7 +44,7 @@ class TransactionsIsolationTest : DBTest() {
     val sizes: IntArray
         get() {
             val res = IntArray(3)
-            Something.all().asSequence().forEach { it ->
+            Something.all().toList().forEach { it ->
                 when {
                     it.sometext == "asomething" -> res[0] += 1
                     it.sometext == "bsomething" -> res[1] += 1
@@ -124,7 +124,7 @@ class TransactionsIsolationTest : DBTest() {
             var a = true
             while (!stopped) {
                 transactional { txn ->
-                    Something.all().asSequence().forEach {
+                    Something.all().toList().forEach {
                         it.sometext = if (a) "bsomething" else "asomething"
                     }
                     println("Update before flush.")

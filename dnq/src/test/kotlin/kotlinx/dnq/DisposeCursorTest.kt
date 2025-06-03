@@ -17,8 +17,8 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
-import kotlinx.dnq.query.asSequence
 import kotlinx.dnq.query.isEmpty
+import kotlinx.dnq.query.toList
 import org.junit.Before
 import org.junit.Test
 
@@ -66,9 +66,9 @@ class DisposeCursorTest : DBTest() {
     @Test
     fun testDisposeCursor() {
         transactional {
-            val user = XdUser.all()
-                    .asSequence()
-                    .firstOrNull { it.login == "vadim" && it.password == "vadim" }
+            val users = XdUser.all().toList()
+            val usersIsEmpty = XdUser.all().isEmpty
+            val user = users.firstOrNull { it.login == "vadim" && it.password == "vadim" }
 
             assertThat(user).isNotNull()
         }

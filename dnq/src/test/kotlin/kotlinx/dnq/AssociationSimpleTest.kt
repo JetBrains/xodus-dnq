@@ -138,6 +138,7 @@ class AssociationSimpleTest : DBTest() {
         transactional {
             t1.tome2 = t2
             assertQuery(t2.tome1).containsExactly(t1)
+
             transactional(isNew = true) {
                 t2.delete()
             }

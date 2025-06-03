@@ -33,7 +33,7 @@ class XdUser(entity: Entity) : XdEntity(entity) {
     val contacts by xdChildren0_N(XdContact::owner)
 
     override fun toString(): String {
-        return "$login, ${gender?.presentation ?: "N/A"}, ${contacts.asSequence().joinToString()}"
+        return "$login, ${gender?.presentation ?: "N/A"}, ${contacts.useSequence { it.joinToString() }}"
     }
 }
 
@@ -109,9 +109,7 @@ fun main(args: Array<String>) {
     }
 
     store.transactional {
-        for (contact in user.contacts) {
-            contact.verify()
-        }
+        user.contacts.forEach { it.verify() }
     }
 
     store.transactional(readonly = true) {
