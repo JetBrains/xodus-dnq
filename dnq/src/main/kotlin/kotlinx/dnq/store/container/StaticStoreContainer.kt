@@ -50,7 +50,7 @@ object StaticStoreContainer : StoreContainer {
         //TODO use dbFolder
         db = YouTrackDBFactory.createEmbedded(params)
 
-        dbProvider = YTDBDatabaseProviderImpl(params, db!!)
+        dbProvider = YTDBDatabaseProviderImpl(params, db!!, null)
         val store = createTransientEntityStore(dbProvider!!, entityStoreName)
         this.store = store
         return store

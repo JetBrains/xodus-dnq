@@ -393,7 +393,7 @@ inline infix fun <reified T : XdEntity, reified R : Comparable<*>> KProperty1<T,
  * value of `this` Set property contains the given [value].
  */
 inline infix fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, Set<T>>.contains(value: T): NodeBase {
-    return eq(this.getDBName(R::class), value)
+    return PropertyCollectionContains(this.getDBName(R::class), value)
 }
 
 /**
