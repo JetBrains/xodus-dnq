@@ -40,8 +40,7 @@ object StaticStoreContainer : StoreContainer {
 
     fun init(dbFolder: File, entityStoreName: String, configure: YouTrackDBConfigBuilder.() -> Unit = {}): TransientEntityStoreImpl {
         val params = YTDBDatabaseParams.builder()
-            .withUserName("admin")
-            .withPassword("admin")
+            .withAppUser("admin", "admin")
             .withDatabaseType(DatabaseType.MEMORY)
             .withDatabasePath(dbFolder.absolutePath)
             .withDatabaseName("memory")
