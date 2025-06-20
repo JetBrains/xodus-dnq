@@ -78,7 +78,7 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun generateIdIfNew() {
         if (isNew) {
-            entity.generateId()
+            entity.generateId(id?.localId)
             id = entity.id
         }
     }
