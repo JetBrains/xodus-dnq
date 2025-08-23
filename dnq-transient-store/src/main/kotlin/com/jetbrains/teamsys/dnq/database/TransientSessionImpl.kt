@@ -29,7 +29,6 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBReadonlyVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.env.ReadonlyTransactionException
-import jetbrains.exodus.env.TransactionFinishedException
 import mu.KLogging
 import java.util.*
 
@@ -862,9 +861,6 @@ class TransientSessionImpl(
                     throw e
                 } else {
                     logger.error(e) { "Exception inside listener [$listener]" }
-                    if (e is TransactionFinishedException && e.trace != null) {
-                        logger.error { "Transaction was early finished inside listener: ${e.trace}" }
-                    }
                 }
             }
         }

@@ -21,7 +21,7 @@ import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import java.io.File
 import java.io.InputStream
 
@@ -268,7 +268,7 @@ open class RemovedTransientEntity(
                 tx
             )
         }
-        return YTDBEntityIterableBase.EMPTY
+        return GremlinEntityIterable.EMPTY
     }
 
     //endregion

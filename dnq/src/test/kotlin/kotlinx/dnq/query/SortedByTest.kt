@@ -76,14 +76,14 @@ class SortedByTest : DBTest() {
     
     fun `sort by property of a link ascending`() {
         transactional {
-            assertQuery(User.all().sortedBy(User::badge, Badge::name, asc = true))
+            val query = User.all().sortedBy(User::badge, Badge::name, asc = true)
+            assertQuery(query)
                     .containsExactlyElementsIn(users.sortedBy { it.badge?.name })
                     .inOrder()
         }
     }
 
     @Test
-    
     fun `sort by property of a link descending`() {
         transactional {
             assertQuery(User.all().sortedBy(User::badge, Badge::name, asc = false))

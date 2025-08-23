@@ -59,7 +59,7 @@ class ReflectionUtilTest : DBTest() {
 
             val admin = User.new {
                 login = "admin"
-                skill = 1
+                skill = 1410065403
             }
             rootGroup.users.add(admin)
         }

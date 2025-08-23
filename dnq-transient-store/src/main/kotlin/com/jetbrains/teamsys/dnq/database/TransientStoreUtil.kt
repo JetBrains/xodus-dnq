@@ -23,7 +23,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 
 /**
  * @author Vadim.Gurov
@@ -121,7 +121,7 @@ object TransientStoreUtil {
     fun getSize(iterable: Iterable<Entity>?): Int {
         return when {
             iterable == null -> 0
-            iterable === YTDBEntityIterableBase.EMPTY -> 0
+            iterable === GremlinEntityIterable.EMPTY -> 0
             iterable is EntityIterable -> iterable.size().toInt()
             iterable is Collection<*> -> (iterable as Collection<*>).size
             else -> iterable.count()

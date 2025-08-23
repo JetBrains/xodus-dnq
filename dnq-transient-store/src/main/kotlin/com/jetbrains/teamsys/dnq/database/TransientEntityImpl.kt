@@ -23,6 +23,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 import java.io.File
 import java.io.InputStream
@@ -358,7 +359,7 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     private fun getAddedRemovedLinks(name: String, removed: Boolean): EntityIterable {
-        if (isNew) return YTDBEntityIterableBase.EMPTY
+        if (isNew) return GremlinEntityIterable.EMPTY
 
         return threadSessionOrThrow.transientChangesTracker
             .getChangedLinksDetailed(this)
@@ -370,7 +371,7 @@ open class TransientEntityImpl : TransientEntity {
                     getAddedWrapper(linkChange)
                 }
             }
-            ?: YTDBEntityIterableBase.EMPTY
+            ?: GremlinEntityIterable.EMPTY
     }
 
     private fun concat(left: TransientEntityIterable?, right: TransientEntityIterable?) =
@@ -414,7 +415,7 @@ open class TransientEntityImpl : TransientEntity {
     }
 
     private fun getAddedRemovedLinks(linkNames: Set<String>, removed: Boolean): EntityIterable {
-        if (isNew) return YTDBEntityIterableBase.EMPTY
+        if (isNew) return GremlinEntityIterable.EMPTY
 
         val changedLinksDetailed =
             threadSessionOrThrow.transientChangesTracker.getChangedLinksDetailed(this)
@@ -425,7 +426,7 @@ open class TransientEntityImpl : TransientEntity {
                 removed
             )
         } else {
-            YTDBEntityIterableBase.EMPTY
+            GremlinEntityIterable.EMPTY
         }
     }
 
