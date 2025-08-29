@@ -524,8 +524,8 @@ fun <T : XdEntity, S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(
         NodeFactory.sortByLinked(
 //            null,
 //            linkKlass.java.entityType.entityType,
-            property.getDBName(linkKlass),
             linkProperty.getDBName(klass),
+            property.getDBName(linkKlass),
             if (asc) GremlinBlock.SortDirection.ASC else GremlinBlock.SortDirection.DESC
         )
     ).asQuery(entityType)
