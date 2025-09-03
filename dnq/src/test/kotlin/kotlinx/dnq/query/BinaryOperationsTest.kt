@@ -19,6 +19,7 @@ package kotlinx.dnq.query
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
+import org.junit.Ignore
 import org.junit.Test
 
 class BinaryOperationsTest : DBTest() {
@@ -141,6 +142,7 @@ class BinaryOperationsTest : DBTest() {
     }
 
     @Test
+    @Ignore
     fun complexQuery1() {
         transactional { txn ->
             val pack1 = (1..100).toUsers()

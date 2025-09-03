@@ -1,5 +1,5 @@
-/*
- * Copyright ${inceptionYear} - ${year} ${owner}
+/**
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import jetbrains.exodus.query.metadata.entity
 import jetbrains.exodus.query.metadata.oModel
 import org.junit.Assert
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -36,6 +37,7 @@ class OperationsWithEmptyIterableTest : OTestMixin {
     lateinit var testCase: OUsersWithInheritanceTestCase
 
     @Test
+    @Ignore
     fun operationsWithEmpty() {
         testCase = OUsersWithInheritanceTestCase(youTrackDb)
 

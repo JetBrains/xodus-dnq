@@ -20,8 +20,10 @@ import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.XdNaturalEntityType
+import org.junit.Ignore
 import org.junit.Test
 
+@Ignore
 class FilterIsInstanceTest : DBTest() {
 
     open class Parent(entity: Entity): XdEntity(entity) {

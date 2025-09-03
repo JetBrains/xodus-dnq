@@ -16,7 +16,7 @@ dependencies {
 //    implementation "org.jetbrains.xodus:xodus-environment:$exodus_version"
     // implementation "org.jetbrains.xodus:xodus-query:$exodus_version"
     // implementation "org.jetbrains.xodus:xodus-utils:$exodus_version"
-    // implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
 
     implementation "org.reflections:reflections:0.10.2"
     implementation "javax.servlet:javax.servlet-api:3.0.1"

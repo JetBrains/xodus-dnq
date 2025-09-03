@@ -98,8 +98,8 @@ subprojects {
 
 
     test {
-        minHeapSize = '512m'
-        maxHeapSize = '512m'
+        minHeapSize = '2g'
+        maxHeapSize = '2g'
         systemProperty 'exodus.tests.buildDirectory', project.buildDir
     }
 

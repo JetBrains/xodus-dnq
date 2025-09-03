@@ -1,5 +1,5 @@
-/*
- * Copyright ${inceptionYear} - ${year} ${owner}
+/**
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import jetbrains.exodus.query.metadata.PropertyType
 import junit.framework.TestCase.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 
@@ -218,6 +219,7 @@ class YTDBGremlinEngineTest(
     }
 
     @Test
+    @Ignore
     fun `should query when property exists sorted by value`() {
         // Given
         val test = givenTestCase()

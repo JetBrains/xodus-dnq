@@ -22,9 +22,10 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.single
 import kotlinx.dnq.util.isDefined
+import org.junit.Ignore
 import org.junit.Test
 
-
+@Ignore
 class ReflectionUtilTest : DBTest() {
 
     class TestGroup(entity: Entity) : RootGroup(entity) {

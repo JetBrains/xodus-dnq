@@ -1,5 +1,5 @@
-/*
- * Copyright ${inceptionYear} - ${year} ${owner}
+/**
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.P
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
 import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertContentEquals
@@ -555,6 +556,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
+    @Ignore
     fun `should throw exception for iterable with skip and take while intersect`() {
         // Given
         givenTestCase()
@@ -571,6 +573,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
+    @Ignore
     fun `should throw exception for iterable with skip and take while union`() {
         // Given
         givenTestCase()

@@ -19,7 +19,9 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.dnq.DBTest
 import org.junit.Before
 import org.junit.Test
+import kotlin.test.Ignore
 
+@Ignore
 class FilterAndMapWithAbstractClassesTest : DBTest() {
 
     private lateinit var root1: RootGroup

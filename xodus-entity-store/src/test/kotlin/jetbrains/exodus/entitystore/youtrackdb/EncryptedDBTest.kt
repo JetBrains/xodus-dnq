@@ -1,5 +1,5 @@
-/*
- * Copyright ${inceptionYear} - ${year} ${owner}
+/**
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import com.jetbrains.youtrack.db.api.DatabaseType
 import com.jetbrains.youtrack.db.api.exception.RecordNotFoundException
 import com.jetbrains.youtrack.db.internal.core.YouTrackDBEnginesManager
 import com.jetbrains.youtrack.db.internal.core.exception.StorageException
-import jetbrains.exodus.crypto.toByteArray
+import jetbrains.exodus.util.toByteArray
 import mu.KLogging
 import org.junit.After
 import org.junit.Assert

@@ -1,5 +1,5 @@
-/*
- * Copyright ${inceptionYear} - ${year} ${owner}
+/**
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
  */
 package jetbrains.exodus.query.metadata;
 
-import jetbrains.exodus.entitystore.EntityStoreTestBase;
+import junit.framework.TestCase;
 import org.junit.Assert;
 
 import static jetbrains.exodus.query.metadata.MetaBuilder.clazz;
 import static jetbrains.exodus.query.metadata.MetaBuilder.model;
 
-public class ModelMetaDataTests extends EntityStoreTestBase {
+public class ModelMetaDataTests extends TestCase {
 
     final private static String TARGET_CLASS_NAME = "TstTarget";
     final private static String SOURCE_SUPER_CLASS_NAME = "TstSuperSource";

@@ -13,23 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.util;
+package jetbrains.exodus.util
 
-import org.junit.Assert;
-import org.junit.Test;
+import java.lang.Byte
 
-public class MathTest {
+const val LONG_BYTES = java.lang.Long.SIZE / Byte.SIZE
 
-    @Test
-    public void testLog() {
-        int power = 1;
-        int expected = 0;
-        for (int i = 0; i < 10000; i++) {
-            Assert.assertEquals(expected, MathUtil.integerLogarithm(i));
-            if (i == power) {
-                power <<= 1;
-                expected++;
-            }
-        }
+/**
+ * Converts `Long` initialization vector to a `ByteArray` of size 8.
+ */
+fun Long.toByteArray(): ByteArray {
+    return toByteArray(LONG_BYTES)
+}
+
+/**
+ * Converts `Long` initialization vector to a `ByteArray` of specified `size`.
+ */
+fun Long.toByteArray(size: Int): ByteArray {
+    val result = ByteArray(size)
+    var l = this
+    repeat(size) {
+        result[it] = (l and 0xff).toByte()
+        l = l shr Byte.SIZE
     }
+    return result
 }

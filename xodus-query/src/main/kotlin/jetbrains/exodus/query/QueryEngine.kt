@@ -1,5 +1,5 @@
-/*
- * Copyright ${inceptionYear} - ${year} ${owner}
+/**
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.PersistentEntityStore
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
-import jetbrains.exodus.entitystore.iterate.SingleEntityIterable
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
@@ -212,7 +211,12 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     open fun isWrapped(it: Iterable<Entity>?): Boolean = true
 
     open fun wrap(entity: Entity): Iterable<Entity> {
-        return SingleEntityIterable(persistentStore.andCheckCurrentTransaction, entity.id)
+        return GremlinEntityIterable.query(
+            persistentStore.currentTransaction as YTDBStoreTransaction,
+            GremlinQuery.ByIds(listOf((entity.id as YTDBEntityId).asOId()))
+        )
+        // xodus original code
+        // return SingleEntityIterable(persistentStore.andCheckCurrentTransaction, entity.id)
     }
 
     internal open fun inMemorySelectDistinct(it: Iterable<Entity>, linkName: String): Iterable<Entity> {

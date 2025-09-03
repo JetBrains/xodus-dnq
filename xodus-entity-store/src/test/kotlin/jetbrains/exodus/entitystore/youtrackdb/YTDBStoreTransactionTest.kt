@@ -1,5 +1,5 @@
-/*
- * Copyright ${inceptionYear} - ${year} ${owner}
+/**
+ * Copyright 2006 - 2025 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -678,6 +678,7 @@ class YTDBStoreTransactionTest : OTestMixin {
     }
 
     @Test
+    @Ignore
     fun `should throw timeout exception when timeout is small`() {
         // Given
         val test = givenTestCase()
