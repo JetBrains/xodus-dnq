@@ -130,8 +130,8 @@ open class PersistentEntityIterableWrapper(
         return store.threadSessionOrThrow.newEntity(this)
     }
 
-    override fun unwrap(): YTDBEntityIterable {
-        return (wrappedIterable as? YTDBEntityIterable) ?: (wrappedIterable.unwrap() as YTDBEntityIterable)
+    override fun unwrap(): EntityIterable {
+        return wrappedIterable.unwrap()
     }
 
     override fun query(): YTDBSelect {
