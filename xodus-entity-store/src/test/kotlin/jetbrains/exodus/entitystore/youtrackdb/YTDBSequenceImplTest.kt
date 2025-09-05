@@ -15,9 +15,9 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.exception.RecordNotFoundException
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrack.db.internal.core.metadata.sequence.DBSequence
+import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.Sequence
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.OTestMixin

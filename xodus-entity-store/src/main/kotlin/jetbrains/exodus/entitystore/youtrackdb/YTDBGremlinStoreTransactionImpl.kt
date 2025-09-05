@@ -15,18 +15,25 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.api.common.BasicDatabaseSession.STATUS
-import com.jetbrains.youtrack.db.api.exception.ModificationOperationProhibitedException
-import com.jetbrains.youtrack.db.api.exception.RecordNotFoundException
-import com.jetbrains.youtrack.db.api.query.ResultSet
-import com.jetbrains.youtrack.db.api.record.DBRecord
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrack.db.internal.core.id.ImmutableRecordId
-import com.jetbrains.youtrack.db.internal.core.metadata.sequence.DBSequence
-import com.jetbrains.youtrack.db.internal.core.tx.FrontendTransaction
+import com.jetbrains.youtrackdb.api.common.BasicDatabaseSession.STATUS
+import com.jetbrains.youtrackdb.api.exception.ModificationOperationProhibitedException
+import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
+import com.jetbrains.youtrackdb.api.gremlin.YTDBGraphTraversalSource
+import com.jetbrains.youtrackdb.api.gremlin.__
+import com.jetbrains.youtrackdb.api.record.Blob
+import com.jetbrains.youtrackdb.api.record.Edge
+import com.jetbrains.youtrackdb.api.record.RID
+import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBEdgeInternal
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBStatefulEdgeImpl
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBVertexInternal
+import com.jetbrains.youtrackdb.internal.core.id.ImmutableRecordId
+import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
@@ -37,12 +44,13 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.iterate.property.YTDBSequenceImpl
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryCancellingPolicy
 import jetbrains.exodus.env.ReadonlyTransactionException
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
+import java.util.Optional
+import kotlin.jvm.optionals.getOrNull
 
-internal typealias TransactionEventHandler = (DatabaseSession, YTDBStoreTransaction) -> Unit
+internal typealias TransactionEventHandler = (YTDBStoreTransaction) -> Unit
 
 class YTDBGremlinStoreTransactionImpl(
-    private val session: DatabaseSession,
+    private val graph: YTDBGraph,
     private val store: YTDBPersistentEntityStore,
     private val schemaBuddy: YTDBSchemaBuddy,
     private val onFinished: TransactionEventHandler,
@@ -51,6 +59,14 @@ class YTDBGremlinStoreTransactionImpl(
     private val readOnly: Boolean = false
 ) : YTDBStoreTransaction {
     private var queryCancellingPolicy: YTDBQueryCancellingPolicy? = null
+
+    private fun ytdbSession(): DatabaseSessionEmbedded {
+        return (graph as YTDBGraphEmbedded).underlyingDatabaseSession
+    }
+
+    override fun underlyingSession(): DatabaseSessionEmbedded {
+        return ytdbSession()
+    }
 
     /**
      * The Orient transaction gets changed on flush(), so its id gets changed too.
@@ -61,97 +77,65 @@ class YTDBGremlinStoreTransactionImpl(
      */
     private val transactionIdImpl by lazy {
         requireActiveTransaction()
-        (session as DatabaseSessionInternal).activeTransaction.id
+        ytdbSession().activeTransaction.id
     }
-
-    private val resultSets: MutableCollection<ResultSet> = arrayListOf()
 
     override fun getTransactionId(): Long {
         return transactionIdImpl
     }
 
-    override fun <T> getRecord(id: YTDBEntityId): T
-            where T : DBRecord {
-        try {
-            return requireActiveTransaction().load(id.asOId())
-        } catch (_: RecordNotFoundException) {
-            throw EntityRemovedInDatabaseException(id.getTypeName(), id)
+    fun loadVertex(id: RID): Optional<Vertex> =
+        g().V(id)
+            .tryNext()
+            .map { (it as YTDBVertexInternal).rawEntity }
+
+    override fun g(): YTDBGraphTraversalSource = graph.traversal()
+
+    override fun getStore(): YTDBEntityStore = store
+
+    override fun isIdempotent(): Boolean =
+        readOnly || ytdbSession().activeTransaction.recordOperations.findAny().isEmpty
+
+    override fun isReadonly(): Boolean = readOnly
+
+    override fun isFinished(): Boolean = !graph.tx().isOpen
+
+    override fun requireActiveTransaction() {
+        check(!isFinished) {
+            "The transaction is finished, the internal session state: ${ytdbSession().status}"
         }
-
+//        check((session as DatabaseSessionInternal).isActiveOnCurrentThread) {
+//            "The active session is no the session the transaction was started in"
+//        }
+//        val currentTx = session.activeTransaction
+//        check(currentTx.status == FrontendTransaction.TXSTATUS.BEGUN) {
+//            "The current OTransaction status is ${currentTx.status}, but the status ${FrontendTransaction.TXSTATUS.BEGUN} was expected."
+//        }
     }
 
-    @Deprecated("should be removed")
-    override fun query(sql: String, params: Map<String, Any>): ResultSet {
-        return requireActiveTransaction().query(sql, params)
-    }
-
-    override fun g(): GraphTraversalSource {
-        return requireActiveTransaction().traversal();
-    }
-
-    override fun getStore(): EntityStore {
-        return store
-    }
-
-    override fun isIdempotent(): Boolean {
-        return readOnly || (session as DatabaseSessionInternal).activeTransaction.recordOperations.findAny().isEmpty
-    }
-
-    override fun isReadonly(): Boolean {
-        return readOnly
-    }
-
-    override fun isFinished(): Boolean {
-        return session.isClosed
-    }
-
-    override fun isCurrent(): Boolean {
-        return !isFinished && (session as DatabaseSessionInternal).isActiveOnCurrentThread
-    }
-
-    override val databaseSession: DatabaseSession
-        get() = session
-
-    override fun getOEntityStore(): YTDBEntityStore {
-        return store
-    }
-
-    override fun requireActiveTransaction(): FrontendTransaction {
-        check(session.status == STATUS.OPEN) {
-            "The transaction is finished, the internal session state: ${session.status}"
-        }
-        check((session as DatabaseSessionInternal).isActiveOnCurrentThread) {
-            "The active session is no the session the transaction was started in"
-        }
-        val currentTx = session.activeTransaction
-        check(currentTx.status == FrontendTransaction.TXSTATUS.BEGUN) {
-            "The current OTransaction status is ${currentTx.status}, but the status ${FrontendTransaction.TXSTATUS.BEGUN} was expected."
-        }
-        return currentTx;
-    }
-
-    override fun requireActiveWritableTransaction(): FrontendTransaction {
+    override fun requireActiveWritableTransaction() {
         check(!readOnly) { "Cannot modify read-only transaction" }
-        return requireActiveTransaction()
+        requireActiveTransaction()
     }
 
     override fun deactivateOnCurrentThread() {
         requireActiveTransaction()
-        onDeactivated(session, this)
+        onDeactivated(this)
     }
 
     override fun activateOnCurrentThread() {
+        val session = ytdbSession()
         check(session.status == STATUS.OPEN) { "The transaction is finished, the internal session state: ${session.status}" }
-        onActivated(session, this)
+        onActivated(this)
     }
 
     fun begin() {
-        check(session.status == STATUS.OPEN) { "The session status is ${session.status}. But ${STATUS.OPEN} is required." }
-        check((session as DatabaseSessionInternal).isActiveOnCurrentThread) { "The session is not active on the current thread" }
-        check(session.activeTxCount() == 0) { "The session must not have a transaction" }
+        // check(session.status == STATUS.OPEN) { "The session status is ${session.status}. But ${STATUS.OPEN} is required." }
+        // check((session as DatabaseSessionInternal).isActiveOnCurrentThread) { "The session is not active on the current thread" }
+        check(ytdbSession().activeTxCount() == 0) { "The session must not have a transaction" }
         try {
-            session.begin()
             // initialize transaction id
+            // todo: it might be not initialized yet?
             transactionIdImpl
         } finally {
             cleanUpTxIfNeeded()
@@ -160,7 +144,8 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun commit(): Boolean {
         try {
-            requireActiveTransaction().commit()
+            requireActiveTransaction()
+            graph.tx().commit()
         } finally {
             cleanUpTxIfNeeded()
         }
@@ -170,8 +155,9 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun flush(): Boolean {
         try {
-            requireActiveTransaction().commit()
-            session.begin()
+            requireActiveTransaction()
+            graph.tx().commit()
+            graph.tx().begin()
         } catch (_: ModificationOperationProhibitedException) {
             throw ReadonlyTransactionException()
         } finally {
@@ -183,14 +169,20 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun abort() {
         try {
-            requireActiveTransaction().rollback()
+            requireActiveTransaction()
+            graph.tx().rollback()
         } finally {
             cleanUpTxIfNeeded()
         }
     }
 
     override fun bindToSession(vertex: Vertex): Vertex {
-        return requireActiveTransaction().loadVertex(vertex)
+        requireActiveTransaction()
+        return loadVertex(vertex.identity)
+            .orElseThrow {
+                val entityId = RIDEntityId.fromVertex(vertex)
+                EntityRemovedInDatabaseException(entityId.getTypeName(), entityId)
+            }
     }
 
     override fun bindToSession(entity: YTDBVertexEntity): YTDBVertexEntity {
@@ -205,76 +197,98 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun revert() {
         try {
-            requireActiveTransaction().rollback()
-            session.begin()
+            requireActiveTransaction()
+            graph.tx().rollback()
+            graph.tx().begin<YTDBGraphTraversalSource>()
         } finally {
             cleanUpTxIfNeeded()
         }
     }
 
     private fun cleanUpTxIfNeeded() {
+        val session = ytdbSession()
         if (session.status == STATUS.OPEN && session.activeTxCount() == 0) {
-            resultSets.forEach(ResultSet::close)
-            resultSets.clear()
-            onFinished(session, this)
+            onFinished(this)
         }
     }
 
-    override fun getSnapshot(): StoreTransaction {
-        return this
+    override fun getSnapshot(): YTDBStoreTransaction = this
+
+    override fun newVertex(entityType: String?): Vertex {
+        if (entityType != null) {
+            schemaBuddy.requireTypeExists(ytdbSession(), entityType)
+        }
+
+        requireActiveWritableTransaction()
+        return (g().addV(entityType).next() as YTDBVertexInternal).rawEntity
     }
 
-    override fun newEntity(entityType: String): Entity {
-        schemaBuddy.requireTypeExists(session, entityType)
-        val vertex = requireActiveWritableTransaction().newVertex(entityType)
-        session.setLocalEntityId(entityType, vertex)
+    override fun newEntity(entityType: String): YTDBVertexEntity {
+        val vertex = newVertex(entityType)
+        setLocalEntityId(ytdbSession(), entityType, vertex)
         return YTDBVertexEntity(vertex, store)
     }
 
     override fun newEntity(entityType: String, localEntityId: Long): YTDBVertexEntity {
-        schemaBuddy.requireTypeExists(session, entityType)
-        val vertex = requireActiveWritableTransaction().newVertex(entityType)
+        val vertex = newVertex(entityType)
         vertex.setProperty(LOCAL_ENTITY_ID_PROPERTY_NAME, localEntityId)
         return YTDBVertexEntity(vertex, store)
     }
 
+    override fun newBlob(bytes: ByteArray): Blob {
+        return ytdbSession().newBlob(bytes)
+    }
+
     override fun generateEntityId(entityType: String, vertex: Vertex) {
-        session.setLocalEntityId(entityType, vertex)
+        setLocalEntityId(ytdbSession(), entityType, vertex)
     }
 
-    override fun saveEntity(entity: Entity) {
-        require(entity is YTDBVertexEntity) { "Only OVertexEntity is supported, but was ${entity.javaClass.simpleName}" }
-        requireActiveWritableTransaction()
-    }
+    override fun getEntity(id: EntityId): YTDBVertexEntity =
+        YTDBVertexEntity(
+            getVertex(store.requireOEntityId(id)),
+            store
+        )
 
-    override fun getEntity(id: EntityId): Entity {
-        val tx = requireActiveTransaction()
-        val oId = store.requireOEntityId(id)
-        val ytdbId = oId.asOId()
+    override fun getVertex(id: YTDBEntityId): Vertex {
+        requireActiveTransaction()
+        val ytdbId = id.asOId()
         if (ytdbId == ImmutableRecordId.EMPTY_RECORD_ID) {
-            throw EntityRemovedInDatabaseException(oId.getTypeName(), id)
+            throw EntityRemovedInDatabaseException(id.getTypeName(), id)
         }
-        try {
-            val vertex: Vertex = tx.load(ytdbId)
-            return YTDBVertexEntity(vertex, store)
-        } catch (_: RecordNotFoundException) {
-            throw EntityRemovedInDatabaseException(oId.getTypeName(), id)
-        }
+        return loadVertex(ytdbId)
+            .orElseThrow { EntityRemovedInDatabaseException(id.getTypeName(), id) }
     }
+
+    override fun getBlob(rid: RID): Blob {
+        requireActiveTransaction()
+        return ytdbSession().loadBlob(rid)
+    }
+
+    @Questionable("Not tested")
+    override fun findEdge(edgeClassName: String, outId: RID, inId: RID): Edge? {
+        return g().V(outId)
+            .outE(edgeClassName)
+            .where(`__`.inV().hasId(inId))
+            .tryNext()
+            .map { e -> (e as YTDBStatefulEdgeImpl).rawEntity }
+            .getOrNull()
+    }
+
+    override fun isNotBound(v: YTDBVertexEntity): Boolean = v.vertex.isNotBound(ytdbSession())
 
     override fun getEntityTypes(): List<String> {
         requireActiveTransaction()
-        return session.schema.classes
+        return ytdbSession().schema.classes
             .filter { it.isVertexType && it.name != Vertex.CLASS_NAME }
             .map { it.name }
     }
 
-    override fun getAll(entityType: String): EntityIterable {
+    override fun getAll(entityType: String): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.where(entityType, this, GremlinBlock.All)
     }
 
-    override fun getSingletonIterable(entity: Entity): EntityIterable {
+    override fun getSingletonIterable(entity: Entity): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.query(
             this, GremlinQuery.all
@@ -286,7 +300,7 @@ class YTDBGremlinStoreTransactionImpl(
         entityType: String,
         propertyName: String,
         value: Comparable<Nothing>
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.where(entityType, this, GremlinBlock.PropEqual(propertyName, value))
     }
@@ -296,7 +310,7 @@ class YTDBGremlinStoreTransactionImpl(
         propertyName: String,
         minValue: Comparable<Nothing>,
         maxValue: Comparable<Nothing>
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.where(
             entityType,
@@ -310,7 +324,7 @@ class YTDBGremlinStoreTransactionImpl(
         propertyName: String,
         value: String,
         ignoreCase: Boolean
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.where(
             entityType,
@@ -323,12 +337,12 @@ class YTDBGremlinStoreTransactionImpl(
         entityType: String,
         propertyName: String,
         value: String
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.where(entityType, this, GremlinBlock.HasPrefix(propertyName, value, false))
     }
 
-    override fun findIds(entityType: String, minValue: Long, maxValue: Long): EntityIterable {
+    override fun findIds(entityType: String, minValue: Long, maxValue: Long): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.where(
             entityType,
@@ -337,7 +351,7 @@ class YTDBGremlinStoreTransactionImpl(
         )
     }
 
-    override fun findWithProp(entityType: String, propertyName: String): EntityIterable {
+    override fun findWithProp(entityType: String, propertyName: String): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.where(entityType, this, GremlinBlock.PropNotNull(propertyName))
     }
@@ -345,7 +359,7 @@ class YTDBGremlinStoreTransactionImpl(
     override fun findWithPropSortedByValue(
         entityType: String,
         propertyName: String
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.query(
             this,
@@ -357,11 +371,11 @@ class YTDBGremlinStoreTransactionImpl(
         )
     }
 
-    override fun findWithBlob(entityType: String, blobName: String): EntityIterable {
+    override fun findWithBlob(entityType: String, blobName: String): GremlinEntityIterable {
         return findWithProp(entityType, blobName)
     }
 
-    override fun findLinks(entityType: String, entity: Entity, linkName: String): EntityIterable {
+    override fun findLinks(entityType: String, entity: Entity, linkName: String): GremlinEntityIterable {
         requireActiveTransaction()
 
         return GremlinEntityIterable.query(
@@ -377,7 +391,7 @@ class YTDBGremlinStoreTransactionImpl(
         entityType: String,
         entities: EntityIterable,
         linkName: String
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         val entityQuery = entities.asGremlinIterable().query
         return GremlinEntityIterable.query(
@@ -388,7 +402,7 @@ class YTDBGremlinStoreTransactionImpl(
         )
     }
 
-    override fun findWithLinks(entityType: String, linkName: String): EntityIterable {
+    override fun findWithLinks(entityType: String, linkName: String): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.where(entityType, this, GremlinBlock.HasLink(linkName))
     }
@@ -398,7 +412,7 @@ class YTDBGremlinStoreTransactionImpl(
         linkName: String,
         oppositeEntityType: String,
         oppositeLinkName: String
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.where(entityType, this, GremlinBlock.HasLink(linkName))
     }
@@ -407,7 +421,7 @@ class YTDBGremlinStoreTransactionImpl(
         entityType: String,
         propertyName: String,
         ascending: Boolean
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.query(
             this,
@@ -427,7 +441,7 @@ class YTDBGremlinStoreTransactionImpl(
         propertyName: String,
         rightOrder: EntityIterable,
         ascending: Boolean
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterableImpl(
             this,
@@ -487,7 +501,7 @@ class YTDBGremlinStoreTransactionImpl(
         isMultiple: Boolean,
         linkName: String,
         rightOrder: EntityIterable
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         return GremlinEntityIterable.query(
             this,
@@ -506,7 +520,7 @@ class YTDBGremlinStoreTransactionImpl(
         rightOrder: EntityIterable,
         oppositeEntityType: String,
         oppositeLinkName: String
-    ): EntityIterable {
+    ): GremlinEntityIterable {
         requireActiveTransaction()
         // todo: check if we need this
         // Not sure about skipping oppositeEntityType and oppositeLinkName values
@@ -521,7 +535,7 @@ class YTDBGremlinStoreTransactionImpl(
 
     @Deprecated("Deprecated in Java")
     override fun mergeSorted(
-        sorted: MutableList<EntityIterable>,
+        sorted: List<EntityIterable>,
         comparator: Comparator<Entity>
     ): EntityIterable {
         throw UnsupportedOperationException("Not implemented")
@@ -530,12 +544,12 @@ class YTDBGremlinStoreTransactionImpl(
     override fun mergeSorted(
         sorted: List<EntityIterable>,
         valueGetter: ComparableGetter,
-        comparator: java.util.Comparator<Comparable<Any>?>
+        comparator: Comparator<Comparable<Any>>
     ): EntityIterable {
         throw UnsupportedOperationException("Not implemented")
     }
 
-    override fun toEntityId(representation: String): EntityId {
+    override fun toEntityId(representation: String): YTDBEntityId {
         requireActiveTransaction()
         val legacyId = PersistentEntityId.toEntityId(representation)
         val oEntityId = store.requireOEntityId(legacyId)
@@ -555,6 +569,7 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun getSequence(sequenceName: String, initialValue: Long): Sequence {
         requireActiveTransaction()
+        val session = ytdbSession()
         // make sure the OSequence created
         schemaBuddy.getOrCreateSequence(session, sequenceName, initialValue)
         return YTDBSequenceImpl(session as DatabaseSessionInternal, sequenceName, store)
@@ -562,22 +577,22 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun getOSequence(sequenceName: String): DBSequence {
         requireActiveTransaction()
-        return schemaBuddy.getSequence(session, sequenceName)
+        return schemaBuddy.getSequence(ytdbSession(), sequenceName)
     }
 
     override fun updateOSequence(sequenceName: String, currentValue: Long) {
         requireActiveTransaction()
-        return schemaBuddy.updateSequence(session, sequenceName, currentValue)
+        return schemaBuddy.updateSequence(ytdbSession(), sequenceName, currentValue)
     }
 
     override fun renameOClass(oldName: String, newName: String) {
         requireActiveTransaction()
-        schemaBuddy.renameOClass(session, oldName, newName)
+        schemaBuddy.renameOClass(ytdbSession(), oldName, newName)
     }
 
     override fun deleteOClass(entityTypeName: String) {
         requireActiveTransaction()
-        schemaBuddy.deleteOClass(session, entityTypeName)
+        schemaBuddy.deleteOClass(ytdbSession(), entityTypeName)
     }
 
     override fun getOrCreateEdgeClass(
@@ -586,7 +601,7 @@ class YTDBGremlinStoreTransactionImpl(
         inClassName: String
     ): SchemaClass {
         requireActiveTransaction()
-        return schemaBuddy.getOrCreateEdgeClass(session, linkName, outClassName, inClassName)
+        return schemaBuddy.getOrCreateEdgeClass(ytdbSession(), linkName, outClassName, inClassName)
     }
 
     override fun setQueryCancellingPolicy(policy: QueryCancellingPolicy?) {
@@ -598,22 +613,16 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId {
         requireActiveTransaction()
-        return schemaBuddy.getOEntityId(session, entityId)
+        return schemaBuddy.getOEntityId(ytdbSession(), entityId)
     }
 
     override fun getTypeId(entityType: String): Int {
         requireActiveTransaction()
-        return schemaBuddy.getTypeId(session, entityType)
+        return schemaBuddy.getTypeId(ytdbSession(), entityType)
     }
 
     override fun getType(entityTypeId: Int): String {
         requireActiveTransaction()
-        return schemaBuddy.getType(session, entityTypeId)
+        return schemaBuddy.getType(ytdbSession(), entityTypeId)
     }
-
-
-    override fun bindResultSet(resultSet: ResultSet) {
-        resultSets.add(resultSet)
-    }
-
 }

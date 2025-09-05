@@ -96,7 +96,7 @@ class OModelMetaDataTest : OTestMixin {
             entity("type2")
         }
 
-        youTrackDb.provider.acquireSession().use {
+        youTrackDb.provider.withSession {
             model.prepare()
             model.addAssociation(
                 "type2", "type1", AssociationType.Directed, "ass1", AssociationEndCardinality._1,
@@ -167,7 +167,7 @@ class OModelMetaDataTest : OTestMixin {
             }
 
         // We have not yet called prepare() for the model, autoInitialize is disabled
-        youTrackDb.provider.acquireSession().use {
+        youTrackDb.provider.withSession {
             it.createVertexClassWithClassId("type1")
         }
         val entityId = youTrackDb.withStoreTx { tx ->

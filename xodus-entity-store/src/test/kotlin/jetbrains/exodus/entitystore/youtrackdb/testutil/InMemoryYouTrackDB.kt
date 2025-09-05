@@ -17,9 +17,11 @@ package jetbrains.exodus.entitystore.youtrackdb.testutil
 
 import YTDBDatabaseProviderFactory
 import YouTrackDBFactory
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.api.DatabaseType
-import com.jetbrains.youtrack.db.api.YouTrackDB
+import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.DatabaseType
+import com.jetbrains.youtrackdb.api.YouTrackDB
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.youtrackdb.*
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues.Links.IN_PROJECT
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues.Links.ON_BOARD
@@ -86,33 +88,27 @@ class InMemoryYouTrackDB(
     }
 
     fun <R> withTxSession(block: (DatabaseSession) -> R): R {
-        val session = provider.acquireSession()
-        try {
+        return provider.withSession { session ->
             val tx = session.begin()
             val result = block(session)
             if (session.hasActiveTransaction()) {
                 tx.commit()
             }
-            return result
-        } finally {
-            if (!session.isClosed) {
-                session.close()
-            }
+            result
         }
     }
 
     fun <R> withSession(block: (DatabaseSession) -> R): R {
-        val session = provider.acquireSession()
-        try {
-            return block(session)
-        } finally {
-            if (!session.isClosed) {
-                session.close()
-            }
-        }
+        return provider.withSession(block)
     }
 
+    @Questionable("Not sure why we need this at all")
     fun openSession(): DatabaseSession {
-        return db.cachedPool(dbName, username, password).acquire()
+        TODO()
+        // return db.cachedPool(dbName, username, password).acquire()
     }
+}
+
+internal fun DatabaseSession.hasActiveTransaction(): Boolean {
+    return (this as DatabaseSessionInternal).isActiveOnCurrentThread && activeTxCount() > 0
 }

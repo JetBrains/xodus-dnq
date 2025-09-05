@@ -15,10 +15,10 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.DatabaseType
-import com.jetbrains.youtrack.db.api.config.GlobalConfiguration
-import com.jetbrains.youtrack.db.api.config.YouTrackDBConfig
-import com.jetbrains.youtrack.db.api.config.YouTrackDBConfigBuilder
+import com.jetbrains.youtrackdb.api.DatabaseType
+import com.jetbrains.youtrackdb.api.config.GlobalConfiguration
+import com.jetbrains.youtrackdb.api.config.YouTrackDBConfig
+import com.jetbrains.youtrackdb.api.config.YouTrackDBConfigBuilder
 import java.util.*
 import kotlin.math.min
 
@@ -45,6 +45,7 @@ class YTDBDatabaseParams private constructor(
     val youTrackDBConfig: YouTrackDBConfig = YouTrackDBConfig.builder()
         .addGlobalConfigurationParameter(GlobalConfiguration.AUTO_CLOSE_AFTER_DELAY, true)
         .addGlobalConfigurationParameter(GlobalConfiguration.AUTO_CLOSE_DELAY, closeAfterDelayTimeout)
+        .addGlobalConfigurationParameter(GlobalConfiguration.QUERY_GREMLIN_POLYMORPHIC_BY_DEFAULT, true)
         .apply {
             encryptionKey?.let { addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_ENCRYPTION_KEY, it) }
         }

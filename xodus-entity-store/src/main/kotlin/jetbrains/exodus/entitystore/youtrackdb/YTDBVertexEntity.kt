@@ -15,13 +15,13 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.record.*
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrack.db.internal.core.db.record.TrackedMultiValue
-import com.jetbrains.youtrack.db.internal.core.db.record.ridbag.LinkBag
-import com.jetbrains.youtrack.db.internal.core.metadata.schema.SchemaClassInternal
-import com.jetbrains.youtrack.db.internal.core.record.impl.RecordBytes
+import com.jetbrains.youtrackdb.api.record.*
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.record.TrackedMultiValue
+import com.jetbrains.youtrackdb.internal.core.db.record.ridbag.LinkBag
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
+import com.jetbrains.youtrackdb.internal.core.record.impl.RecordBytes
 import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
@@ -40,7 +40,6 @@ import mu.KLogging
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
-import kotlin.jvm.optionals.getOrNull
 
 open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) : YTDBEntity {
 
@@ -144,7 +143,7 @@ open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) 
 
     override fun resetToNew() {
         val className = vertexRecord.schemaClassName
-        vertexRecord = (store.databaseSession as DatabaseSessionInternal).newVertex(className)
+        vertexRecord = store.requireActiveTransaction().newVertex(className)
     }
 
     override fun generateId(localId: Long?) {
@@ -197,20 +196,13 @@ open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) 
             is MutableSet<*> -> newValue
             else -> throw IllegalArgumentException("Unexpected value: $newValue")
         }
-        val databaseSet =
-            if (set is TrackedMultiValue<*, *>) set
-            else {
-                val it = set.iterator()
-                if (it.hasNext() && it.next() is Identifiable) {
-                    // we can suppress unchecked cast here because "newLinkSet" validates the input
-                    @Suppress("UNCHECKED_CAST")
-                    store.databaseSession.newLinkSet(set as MutableSet<Identifiable>)
-                } else {
-                    store.databaseSession.newEmbeddedSet(set)
-                }
-            }
-
-        vertex.setProperty(propertyName, databaseSet)
+        if (set is TrackedMultiValue<*, *>)
+            vertex.setProperty(propertyName, set)
+        else if (set.firstOrNull() is Identifiable)
+            @Suppress("UNCHECKED_CAST")
+            vertex.newLinkSet(propertyName, set as MutableSet<Identifiable>)
+        else
+            vertex.newEmbeddedSet(propertyName, set)
 
         return vertex.getProperty<TrackedMultiValue<*, *>>(propertyName)?.isTransactionModified == true
     }
@@ -254,7 +246,7 @@ open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) 
         }
 
         val allBytes = blob.readAllBytes()
-        val oBlob = store.databaseSession.activeTransaction.newBlob(allBytes)
+        val oBlob = store.requireActiveTransaction().newBlob(allBytes)
         vertex.setProperty(blobName, oBlob)
         vertex.setProperty(blobSizeProperty(blobName), allBytes.size.toLong())
     }
@@ -301,7 +293,7 @@ open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) 
             vertex.removeProperty<Any>(blobName)
         }
 
-        val oBlob = store.databaseSession.activeTransaction.newBlob(baos.toByteArray())
+        val oBlob = store.requireActiveTransaction().newBlob(baos.toByteArray())
         vertex.setProperty(blobName, oBlob)
         vertex.setProperty(blobHashProperty(blobName), blobString.hashCode())
         vertex.setProperty(blobSizeProperty(blobName), baos.size().toLong())
@@ -330,7 +322,7 @@ open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) 
             return false
         }
         try {
-            val target = currentTx.getRecord<Vertex>(targetOId)
+            val target = currentTx.getVertex(targetOId)
             return currentTx.addLinkImpl(linkName, target)
         } catch (e: EntityRemovedInDatabaseException) {
             return false
@@ -362,7 +354,7 @@ open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) 
                     Edge.DIRECTION_OUT
                 )
             ) {
-                findEdge(edgeClassName, target.identity)
+                findEdge(edgeClassName, vertex.identity, target.identity)
             } else null
 
         if (currentEdge == null) {
@@ -413,7 +405,7 @@ open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) 
     private fun YTDBStoreTransaction.deleteLinkImpl(linkName: String, targetId: RID): Boolean {
         val edgeClassName = edgeClassName(linkName)
 
-        val edge = findEdge(edgeClassName, targetId)
+        val edge = findEdge(edgeClassName, vertex.identity, targetId)
         if (edge != null) {
             edge.delete()
             // if the link in a composite index, we have to update the complementary internal property.
@@ -457,7 +449,7 @@ open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) 
             return false
         }
         try {
-            val target = currentTx.getRecord<Vertex>(targetOId)
+            val target = currentTx.getVertex(targetOId)
             return currentTx.setLinkImpl(linkName, target)
         } catch (e: EntityRemovedInDatabaseException) {
             return false
@@ -524,14 +516,6 @@ open class YTDBVertexEntity(vertex: Vertex, private val store: YTDBEntityStore) 
             vertex.getEdgeNames(Direction.OUT)
                 .filter { it.endsWith(EDGE_CLASS_SUFFIX) }
                 .map { it.substringAfter(Vertex.DIRECTION_OUT_PREFIX).substringBefore(EDGE_CLASS_SUFFIX) })
-    }
-
-    private fun YTDBStoreTransaction.findEdge(edgeClassName: String, targetId: RID): Edge? {
-        val query =
-            "SELECT FROM $edgeClassName WHERE outV() = :outId AND inV() = :inId"
-        return query(query, mapOf("outId" to vertex.identity, "inId" to targetId))
-            .use { it.edgeStream().findFirst() }
-            .getOrNull()
     }
 
     override fun compareTo(other: Entity) = id.compareTo(other.id)

@@ -15,13 +15,9 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionInternal
 import jetbrains.exodus.backup.BackupStrategy
 import jetbrains.exodus.bindings.ComparableBinding
 import jetbrains.exodus.entitystore.*
-import mu.withLoggingContext
-import javax.xml.crypto.Data
 
 class YTDBPersistentEntityStore(
     private val databaseProvider: YTDBDatabaseProvider,
@@ -32,12 +28,6 @@ class YTDBPersistentEntityStore(
     private val currentTransaction = ThreadLocal<YTDBStoreTransaction>()
 
     override val statistics: YTDBStatistics = YTDBStatisticsImpl(this, databaseProvider)
-
-    override val databaseSession: DatabaseSession
-        get() {
-            val tx = currentTransaction.get() ?: throw IllegalStateException("There is no active database session")
-            return tx.databaseSession
-        }
 
     override fun close() {
         //or it should be closed independently
@@ -67,10 +57,8 @@ class YTDBPersistentEntityStore(
         var currentTx: YTDBStoreTransaction? = currentTransaction.get()
         check(currentTx == null) { "EntityStore has a transaction on the current thread. Finish it before starting a new one." }
 
-        val session = databaseProvider.acquireSession()
-
         currentTx = YTDBGremlinStoreTransactionImpl(
-            session,
+            databaseProvider.graph,
             store = this,
             schemaBuddy,
             onFinished = ::onTransactionFinished,
@@ -84,30 +72,28 @@ class YTDBPersistentEntityStore(
         return currentTx
     }
 
-    private fun onTransactionFinished(session: DatabaseSession, tx: YTDBStoreTransaction) {
+    private fun onTransactionFinished(tx: YTDBStoreTransaction) {
         check(currentTransaction.get() == tx) { "The current transaction at EntityStore is different for one that just has finished. It must not happen." }
-        check(!session.isClosed) { "The session should not be closed at this point." }
+        // check(!session.isClosed) { "The session should not be closed at this point." }
         currentTransaction.remove()
-        session.close()
+        // session.close()
     }
 
-    private fun onTransactionDeactivated(session: DatabaseSession, tx: YTDBStoreTransaction) {
+    private fun onTransactionDeactivated(tx: YTDBStoreTransaction) {
         check(currentTransaction.get() == tx) { "Impossible to deactivate the transaction. The transaction on the current thread is different from one that wants to suspend. It must not ever happen." }
         check(!tx.isFinished) { "Cannot deactivate a finished transaction" }
-        check(!session.isClosed) { "Cannot deactivate a closed session" }
+        // check(!session.isClosed) { "Cannot deactivate a closed session" }
         currentTransaction.remove()
     }
 
-    private fun onTransactionActivated(session: DatabaseSession, tx: YTDBStoreTransaction) {
+    private fun onTransactionActivated( tx: YTDBStoreTransaction) {
         check(currentTransaction.get() == null) { "Impossible to activate the transaction. There is already an active transaction on the current thread." }
         check(!tx.isFinished) { "Cannot activate a finished transaction" }
-        check(!session.isClosed) { "Cannot activate a closed session" }
+        // check(!session.isClosed) { "Cannot activate a closed session" }
         currentTransaction.set(tx)
     }
 
-    override fun getCurrentTransaction(): StoreTransaction? {
-        return currentTransaction.get()
-    }
+    override fun getCurrentTransaction(): YTDBStoreTransaction = currentTransaction.get()
 
     override fun getBackupStrategy(): BackupStrategy {
         return object : BackupStrategy() {}

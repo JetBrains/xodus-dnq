@@ -16,10 +16,10 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import YTDBDatabaseProviderFactory
-import com.jetbrains.youtrack.db.api.DatabaseType
-import com.jetbrains.youtrack.db.api.exception.RecordNotFoundException
-import com.jetbrains.youtrack.db.internal.core.YouTrackDBEnginesManager
-import com.jetbrains.youtrack.db.internal.core.exception.StorageException
+import com.jetbrains.youtrackdb.api.DatabaseType
+import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
+import com.jetbrains.youtrackdb.internal.core.YouTrackDBEnginesManager
+import com.jetbrains.youtrackdb.internal.core.exception.StorageException
 import jetbrains.exodus.util.toByteArray
 import mu.KLogging
 import org.junit.After

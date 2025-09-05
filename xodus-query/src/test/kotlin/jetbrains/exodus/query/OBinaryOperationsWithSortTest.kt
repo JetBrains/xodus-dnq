@@ -57,7 +57,6 @@ class OBinaryOperationsWithSortTest : OTestMixin {
 
 
     @Test
-    @Ignore
     fun intersect() {
         testCase = OUsersWithInheritanceTestCase(youTrackDb)
 
@@ -82,7 +81,6 @@ class OBinaryOperationsWithSortTest : OTestMixin {
     }
 
     @Test
-    @Ignore
     fun minus() {
         testCase = OUsersWithInheritanceTestCase(youTrackDb)
 

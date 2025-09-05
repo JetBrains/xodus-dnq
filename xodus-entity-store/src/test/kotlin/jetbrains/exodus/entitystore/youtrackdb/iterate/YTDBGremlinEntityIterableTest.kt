@@ -16,23 +16,15 @@
 package jetbrains.exodus.entitystore.youtrackdb.iterate
 
 import com.google.common.truth.Truth.assertThat
-import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.iterate.property.YTDBInstanceOfIterable
-import jetbrains.exodus.entitystore.youtrackdb.query.buildSql
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
-import org.apache.tinkerpop.gremlin.process.traversal.Order
 import org.apache.tinkerpop.gremlin.process.traversal.P
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
-import org.apache.tinkerpop.gremlin.structure.Vertex
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
@@ -662,7 +654,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     @Test
     fun `instance of should work`() {
         // Create 10 Issue and 1 SubIssue and their classes
-        youTrackDb.provider.acquireSession().use { session ->
+        youTrackDb.provider.withSession { session ->
             val subIssue = session.getOrCreateVertexClass("ChildIssue")
             val issueClass = session.getOrCreateVertexClass(Issues.CLASS)
             subIssue.addSuperClass(issueClass)
@@ -754,15 +746,5 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 //        val sql = this.buildSql(iterable.query())
 //        assertEquals(expectedSql, sql.sql)
 //        assertContentEquals(expectedParams.toList(), sql.params.toList())
-    }
-
-    private fun YTDBStoreTransaction.checkSql(
-        iterable: YTDBEntityIterable,
-        expectedSql: String,
-        expectedParams: Map<String, Any> = mapOf()
-    ) {
-        val sql = this.buildSql(iterable.query())
-        assertEquals(expectedSql, sql.sql)
-        assertContentEquals(expectedParams.toList(), sql.params.toList())
     }
 }

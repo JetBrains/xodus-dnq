@@ -16,6 +16,9 @@
 package jetbrains.exodus.query;
 
 
+import jetbrains.exodus.query.obsolete.And;
+import jetbrains.exodus.query.obsolete.PropertyRange;
+
 class MergePropertyRanges extends ConversionWildcard<And> {
     /**
      * Create a wildcard node of type {@code t}.

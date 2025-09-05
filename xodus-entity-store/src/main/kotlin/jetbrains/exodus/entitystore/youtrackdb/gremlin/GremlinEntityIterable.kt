@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.gremlin
 
-import com.jetbrains.youtrack.db.api.gremlin.YTDBVertex
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.util.unsupported
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
@@ -83,7 +83,7 @@ class GremlinEntityIterableImpl(
 ) : GremlinEntityIterable {
 
 
-    private val oStore: YTDBEntityStore = tx.getOEntityStore()
+    private val oStore: YTDBEntityStore = tx.getStore()
 
     @Volatile
     private var cachedSize: Long = -1

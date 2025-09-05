@@ -17,7 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb.testutil
 
 import com.google.common.truth.Ordered
 import com.google.common.truth.Truth.assertThat
-import com.jetbrains.youtrack.db.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.DatabaseSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBGremlinStoreTransactionImpl

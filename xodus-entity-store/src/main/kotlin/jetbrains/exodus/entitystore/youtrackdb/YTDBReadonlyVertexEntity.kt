@@ -15,9 +15,10 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.record.Vertex
+import com.jetbrains.youtrackdb.api.record.Vertex
+import jetbrains.exodus.Questionable
 
-
+@Questionable("Not used probably")
 class YTDBReadonlyVertexEntity(vertex: Vertex, store: YTDBEntityStore) : YTDBVertexEntity(vertex, store) {
     override fun requireActiveWritableTransaction(): YTDBStoreTransaction {
         throw IllegalArgumentException("Can't update readonly entity (id=${id})")

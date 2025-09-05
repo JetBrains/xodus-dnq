@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.query
 
-import com.jetbrains.youtrack.db.internal.common.concur.TimeoutException
+import com.jetbrains.youtrackdb.internal.common.concur.TimeoutException
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
 
 class YTDBQueryTimeoutException(message: String, source: Throwable) : RuntimeException(message, source) {

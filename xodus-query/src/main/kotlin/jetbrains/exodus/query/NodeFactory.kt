@@ -20,6 +20,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.*
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.Or
+import jetbrains.exodus.query.obsolete.GetAll
 import java.util.stream.Collectors
 import java.util.stream.StreamSupport
 

@@ -17,7 +17,7 @@
 
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrack.db.api.record.Vertex
+import com.jetbrains.youtrackdb.api.record.Vertex
 import jetbrains.exodus.bindings.ComparableSet
 import jetbrains.exodus.bindings.StringBinding
 import jetbrains.exodus.entitystore.StoreTransaction

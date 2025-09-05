@@ -15,6 +15,8 @@
  */
 package jetbrains.exodus.query;
 
+import jetbrains.exodus.query.obsolete.*;
+
 import java.util.ArrayList;
 import java.util.List;
 

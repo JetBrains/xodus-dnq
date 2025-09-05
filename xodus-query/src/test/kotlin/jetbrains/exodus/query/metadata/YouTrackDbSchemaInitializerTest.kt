@@ -15,11 +15,11 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrack.db.api.exception.RecordDuplicatedException
-import com.jetbrains.youtrack.db.api.schema.SchemaProperty
-import com.jetbrains.youtrack.db.api.schema.PropertyType
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrack.db.internal.core.metadata.schema.SchemaClassInternal
+import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
+import com.jetbrains.youtrackdb.api.schema.SchemaProperty
+import com.jetbrains.youtrackdb.api.schema.PropertyType
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
 import jetbrains.exodus.entitystore.youtrackdb.requireClassId
@@ -40,7 +40,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `create vertex-class for every entity`() =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1")
                 entity("type2")
@@ -53,7 +53,7 @@ class YouTrackDbSchemaInitializerTest {
         }
 
     @Test
-    fun `set super-classes`() = orientDb.provider.acquireSession().use { oSession ->
+    fun `set super-classes`() = orientDb.provider.withSession { oSession ->
         val model = model {
             entity("type1")
             entity("type2", "type1")
@@ -68,7 +68,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `simple properties of known types are created`() =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1") {
                     for (type in supportedSimplePropertyTypes) {
@@ -95,7 +95,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `simple properties of not-known types cause exception`(): Unit =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1") {
                     property("prop1", "notSupportedType")
@@ -133,7 +133,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `embedded set properties with supported types`() {
-        val indices = orientDb.provider.acquireSession().use { oSession ->
+        val indices = orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1") {
                     for (type in supportedSimplePropertyTypes) {
@@ -155,7 +155,7 @@ class YouTrackDbSchemaInitializerTest {
             indices
         }
 
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             oSession.applyIndices(indices)
 
             for (type in supportedSimplePropertyTypes) {
@@ -166,7 +166,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `embedded set properties with not-supported types cause exception`(): Unit =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1") {
                     setProperty("setProp$type", "cavaBanga")
@@ -180,7 +180,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `one-directional associations`(): Unit =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1")
                 entity("type2")
@@ -199,7 +199,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `two association with the same name to a single type`(): Unit =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1")
                 entity("type2")
@@ -227,7 +227,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `one-directional associations ignore cardinality`(): Unit =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1")
                 entity("type2")
@@ -246,7 +246,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `two-directional associations`(): Unit =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1")
                 entity("type2")
@@ -289,7 +289,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `own indices`() {
-        val indices = orientDb.provider.acquireSession().use { oSession ->
+        val indices = orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1") {
                     property("prop1", "int")
@@ -320,7 +320,7 @@ class YouTrackDbSchemaInitializerTest {
             indices
         }
 
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             oSession.applyIndices(indices)
 
             oSession.checkIndex("type1", true, "prop1", "prop2")
@@ -348,13 +348,13 @@ class YouTrackDbSchemaInitializerTest {
                 val tx = oSession.activeTransaction
                 val oClass = oSession.schema.getClass("type1")!!
                 val v1 = tx.newVertex(oClass)
-                oSession.setLocalEntityId("type1", v1)
+                setLocalEntityId(oSession, "type1", v1)
                 v1.requireLocalEntityId()
                 v1.setProperty("prop1", 3)
                 v1.setProperty("prop2", 4)
 
                 val v2 = tx.newVertex(oClass)
-                oSession.setLocalEntityId("type1", v2)
+                setLocalEntityId(oSession, "type1", v2)
                 v2.setProperty("prop1", 3L)
                 v2.setProperty("prop2", 4L)
             }
@@ -363,7 +363,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `index for every simple property if required`() =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1") {
                     property("prop1", "int")
@@ -387,7 +387,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `no indices for simple properties by default`() =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val model = model {
                 entity("type1") {
                     property("prop1", "int")
@@ -403,7 +403,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `addAssociation, removeAssociation`(): Unit =
-        orientDb.provider.acquireSession().use { session ->
+        orientDb.provider.withSession { session ->
             val model = model {
                 entity("type1")
                 entity("type2")
@@ -464,7 +464,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `classId is a monotonically increasing long`(): Unit =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val types = mutableListOf("type0", "type1", "type2")
             val model = model {
                 for (type in types) {
@@ -520,10 +520,10 @@ class YouTrackDbSchemaInitializerTest {
             val tx = oSession.activeTransaction
             tx.newVertex("type1").apply {
                 setProperty("prop1", true)
-                oSession.setLocalEntityId("type1", this)
+                setLocalEntityId(oSession, "type1", this)
             }
             tx.newVertex("type1").apply {
-                oSession.setLocalEntityId("type1", this)
+                setLocalEntityId(oSession, "type1", this)
             }
 
         }
@@ -542,7 +542,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `every class gets localEntityId property`(): Unit =
-        orientDb.provider.acquireSession().use { oSession ->
+        orientDb.provider.withSession { oSession ->
             val types = mutableListOf("type0", "type1", "type2")
             val model = model {
                 for (type in types) {

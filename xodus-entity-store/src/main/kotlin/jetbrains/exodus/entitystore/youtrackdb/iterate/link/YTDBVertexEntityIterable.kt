@@ -15,8 +15,8 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.iterate.link
 
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.internal.common.util.Sizeable
+import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.internal.common.util.Sizeable
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator

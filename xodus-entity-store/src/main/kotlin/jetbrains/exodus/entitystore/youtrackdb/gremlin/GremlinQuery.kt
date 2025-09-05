@@ -15,8 +15,8 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.gremlin
 
-import com.jetbrains.youtrack.db.api.gremlin.YTDBVertex
-import com.jetbrains.youtrack.db.api.record.RID
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
+import com.jetbrains.youtrackdb.api.record.RID
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import org.apache.commons.lang3.StringUtils

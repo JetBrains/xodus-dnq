@@ -15,8 +15,8 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import jetbrains.exodus.entitystore.youtrackdb.*
 
 class YTDBModelMetaData(

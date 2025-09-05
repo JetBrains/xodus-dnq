@@ -15,10 +15,10 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.record.RID
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
-import com.jetbrains.youtrack.db.internal.core.id.ImmutableRecordId
+import com.jetbrains.youtrackdb.api.record.RID
+import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.id.ImmutableRecordId
 import jetbrains.exodus.entitystore.EntityId
 
 class RIDEntityId(

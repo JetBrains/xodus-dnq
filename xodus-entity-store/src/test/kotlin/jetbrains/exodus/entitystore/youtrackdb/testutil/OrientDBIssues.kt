@@ -15,10 +15,10 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.testutil
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.api.record.Direction
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.api.schema.PropertyType
+import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.record.Direction
+import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.api.schema.PropertyType
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity

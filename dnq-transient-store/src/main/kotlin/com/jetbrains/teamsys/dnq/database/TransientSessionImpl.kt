@@ -15,8 +15,8 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.youtrack.db.api.exception.RecordDuplicatedException
-import com.jetbrains.youtrack.db.internal.common.concur.NeedRetryException
+import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
+import com.jetbrains.youtrackdb.internal.common.concur.NeedRetryException
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.database.*
@@ -334,10 +334,6 @@ class TransientSessionImpl(
         })
     }
 
-    override fun isCurrent(): Boolean {
-        return transactionInternal.isCurrent
-    }
-
     override fun findWithPropSortedByValue(
         entityType: String,
         propertyName: String
@@ -505,8 +501,9 @@ class TransientSessionImpl(
             tracker.isNew(entity) -> entity
             else -> {
                 val yTDBEntity = entity.entity
-                if (yTDBEntity is YTDBVertexEntity && (yTDBEntity.isUnloaded ||
-                            yTDBEntity.vertex.isNotBound(store.persistentStore.databaseSession))
+                if (yTDBEntity is YTDBVertexEntity &&
+                    (yTDBEntity.isUnloaded ||
+                            store.persistentStore.currentTransaction.isNotBound(yTDBEntity))
                 ) {
                     try {
                         // load persistent entity from database by id
@@ -747,7 +744,6 @@ class TransientSessionImpl(
     }
 
     private fun saveEntityInternal(persistentEntity: YTDBEntity, e: TransientEntityImpl): Boolean {
-        transactionInternal.saveEntity(persistentEntity)
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(e)
         return true
@@ -811,10 +807,6 @@ class TransientSessionImpl(
         val childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
             ?: return null
         return child.getLink(childToParentLinkName)
-    }
-
-    override fun saveEntity(entity: Entity) {
-        throw UnsupportedOperationException()
     }
 
     override fun getUserObject(key: Any): Any? {

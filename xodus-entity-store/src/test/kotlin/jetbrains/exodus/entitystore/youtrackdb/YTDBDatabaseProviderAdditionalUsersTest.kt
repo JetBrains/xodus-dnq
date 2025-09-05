@@ -16,9 +16,11 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.google.common.truth.Truth.assertThat
-import com.jetbrains.youtrack.db.api.DatabaseType
-import com.jetbrains.youtrack.db.api.YourTracks
-import com.jetbrains.youtrack.db.api.exception.SecurityAccessException
+import com.jetbrains.youtrackdb.api.DatabaseType
+import com.jetbrains.youtrackdb.api.YourTracks
+import com.jetbrains.youtrackdb.api.exception.SecurityAccessException
+import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
 import java.nio.file.Files
 import kotlin.io.path.absolutePathString
 import kotlin.test.Test
@@ -49,6 +51,8 @@ class YTDBDatabaseProviderAdditionalUsersTest {
         try {
             provider1.withSession { session ->
                 session.schema.createVertexClass("Test")
+            }
+            provider1.withSession { session ->
                 session.transaction { tx ->
                     repeat(100) {
                         tx.newVertex("Test").setProperty("initial", true)
@@ -81,35 +85,37 @@ class YTDBDatabaseProviderAdditionalUsersTest {
         additionalUsers: List<YTDBUser>,
         classSuffix: String
     ) {
-        val youtrackdb = YourTracks.embedded(dbPath)
+        val youtrackdb = YourTracks.instance(dbPath)
         try {
             additionalUsers.forEach { user ->
-                youtrackdb.open("testDB", user.name, user.password).use { session ->
-                    session.transaction { tx ->
-                        assertThat(tx.query("select from Test where initial = true").entityStream()).hasSize(100)
-                    }
-
-                    try {
+                youtrackdb.openGraph("testDB", user.name, user.password).use { graph ->
+                    (graph as YTDBGraphEmbedded).acquireSession().use { session ->
                         session.transaction { tx ->
-                            tx.newVertex("Test")
+                            assertThat(tx.query("select from Test where initial = true").entityStream()).hasSize(100)
                         }
-                        if (user.role == "reader") {
-                            fail("User '${user.name}' should not be able to create new entities")
-                        }
-                    } catch (_: SecurityAccessException) {
-                        if (user.role != "reader") {
-                            fail("User '${user.name}' should be able to create new entities")
-                        }
-                    }
 
-                    try {
-                        session.schema.createVertexClass("AnotherTest_${user.name}_$classSuffix")
-                        if (user.role != "admin") {
-                            fail("User '${user.name}' should not be able to create new classes")
+                        try {
+                            session.transaction { tx ->
+                                tx.newVertex("Test")
+                            }
+                            if (user.role == "reader") {
+                                fail("User '${user.name}' should not be able to create new entities")
+                            }
+                        } catch (_: SecurityAccessException) {
+                            if (user.role != "reader") {
+                                fail("User '${user.name}' should be able to create new entities")
+                            }
                         }
-                    } catch (_: SecurityAccessException) {
-                        if (user.role == "admin") {
-                            fail("User '${user.name}' should be able to create new classes")
+
+                        try {
+                            session.schema.createVertexClass("AnotherTest_${user.name}_$classSuffix")
+                            if (user.role != "admin") {
+                                fail("User '${user.name}' should not be able to create new classes")
+                            }
+                        } catch (_: SecurityAccessException) {
+                            if (user.role == "admin") {
+                                fail("User '${user.name}' should be able to create new classes")
+                            }
                         }
                     }
                 }

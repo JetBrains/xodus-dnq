@@ -16,13 +16,12 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.google.common.truth.Truth.assertThat
-import com.jetbrains.youtrack.db.api.record.DBRecord
-import com.jetbrains.youtrack.db.api.record.Direction
-import com.jetbrains.youtrack.db.api.record.Vertex
+import com.jetbrains.youtrackdb.api.record.DBRecord
+import com.jetbrains.youtrackdb.api.record.Direction
+import com.jetbrains.youtrackdb.api.record.Vertex
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityOfTypeIterable
 import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBLinkToEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryCancellingPolicy
@@ -671,10 +670,9 @@ class YTDBStoreTransactionTest : OTestMixin {
 
     @Test
     fun `read-only transaction forbids changing data in it`() {
-        val issue = youTrackDb.createIssue("trista")
+        youTrackDb.createIssue("trista")
         val tx = youTrackDb.store.beginReadonlyTransaction()
         assertFailsWith<IllegalStateException> { tx.newEntity(Issues.CLASS) }
-        assertFailsWith<IllegalStateException> { tx.saveEntity(issue) }
     }
 
     @Test
@@ -808,7 +806,7 @@ class YTDBStoreTransactionTest : OTestMixin {
         }
 
         withStoreTx { tx ->
-            val vertex: Vertex = tx.getRecord(id)
+            val vertex: Vertex = tx.getVertex(id)
             assertEquals("caramba", vertex.getProperty("mamba"))
             val e1 = tx.getEntity(id)
             e1.delete()
@@ -816,7 +814,7 @@ class YTDBStoreTransactionTest : OTestMixin {
 
         withStoreTx { tx ->
             try {
-                tx.getRecord<DBRecord>(id)
+                tx.getVertex(id)
                 Assert.fail()
             } catch (e: EntityRemovedInDatabaseException) {
                 // expected
@@ -848,7 +846,7 @@ class YTDBStoreTransactionTest : OTestMixin {
         }
 
         withStoreTx { tx ->
-            val allClassesByName = tx.databaseSession.schema.classes.associateBy { it.name }
+            val allClassesByName = tx.underlyingSession().schema.classes.associateBy { it.name }
 
             // Verify edge classes are properly marked
             val expectedEdgeClasses = listOf("OWNS_PROJECT_link", "OWNED_BY_link", "HAS_ISSUE_link", "IN_PROJECT_link")

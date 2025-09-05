@@ -15,11 +15,11 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.api.record.Direction
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.record.Direction
+import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.edgeClassName
 import jetbrains.exodus.entitystore.youtrackdb.getTargetLocalEntityIds
 import jetbrains.exodus.entitystore.youtrackdb.setTargetLocalEntityIds

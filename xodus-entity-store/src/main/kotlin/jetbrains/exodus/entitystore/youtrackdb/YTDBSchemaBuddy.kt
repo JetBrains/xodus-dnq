@@ -15,11 +15,11 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrack.db.internal.core.metadata.sequence.DBSequence
+import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_CUSTOM_PROPERTY_NAME
@@ -254,16 +254,15 @@ fun DatabaseSession.setClassIdIfAbsent(oClass: SchemaClass) {
     }
 }
 
-fun DatabaseSession.setLocalEntityId(className: String, vertex: Vertex) {
-    val sequences = (this as DatabaseSessionInternal).metadata.sequenceLibrary
+fun setLocalEntityId(session: DatabaseSession, className: String, vertex: Vertex) {
+    val sequences = (session as DatabaseSessionInternal).metadata.sequenceLibrary
     val sequenceName = localEntityIdSequenceName(className)
     val sequence: DBSequence = sequences.getSequence(sequenceName)
         ?: throw IllegalStateException("$sequenceName not found")
-    vertex.setProperty(LOCAL_ENTITY_ID_PROPERTY_NAME, sequence.next(this))
+    vertex.setProperty(LOCAL_ENTITY_ID_PROPERTY_NAME, sequence.next(session))
 }
 
 fun DatabaseSession.createVertexClassWithClassId(className: String): SchemaClass {
-    requireNoActiveTransaction()
     createClassIdSequenceIfAbsent()
     val oClass = schema.createVertexClass(className)
     setClassIdIfAbsent(oClass)

@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.DatabaseSession
 import jetbrains.exodus.entitystore.PersistentEntityStore
 import jetbrains.exodus.entitystore.StoreTransaction
 

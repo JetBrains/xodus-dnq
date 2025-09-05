@@ -15,9 +15,9 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrack.db.api.exception.RecordDuplicatedException
-import com.jetbrains.youtrack.db.api.record.Direction
-import com.jetbrains.youtrack.db.api.record.Vertex
+import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
+import com.jetbrains.youtrackdb.api.record.Direction
+import com.jetbrains.youtrackdb.api.record.Vertex
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.youtrackdb.RIDEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity

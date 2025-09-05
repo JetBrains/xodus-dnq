@@ -15,20 +15,21 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.common.BasicDatabaseSession.STATUS
-import com.jetbrains.youtrack.db.api.exception.ModificationOperationProhibitedException
-import com.jetbrains.youtrack.db.api.exception.RecordDuplicatedException
-import com.jetbrains.youtrack.db.api.exception.RecordNotFoundException
-import com.jetbrains.youtrack.db.api.exception.TransactionException
-import com.jetbrains.youtrack.db.api.record.DBRecord
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.api.schema.PropertyType
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrack.db.internal.core.tx.FrontendTransaction.TXSTATUS
-import com.jetbrains.youtrack.db.internal.core.tx.FrontendTransactionNoTx
+import com.jetbrains.youtrackdb.api.common.BasicDatabaseSession.STATUS
+import com.jetbrains.youtrackdb.api.exception.ModificationOperationProhibitedException
+import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
+import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
+import com.jetbrains.youtrackdb.api.exception.TransactionException
+import com.jetbrains.youtrackdb.api.record.DBRecord
+import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.api.schema.PropertyType
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.tx.FrontendTransaction.TXSTATUS
+import com.jetbrains.youtrackdb.internal.core.tx.FrontendTransactionNoTx
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.OTestMixin
+import jetbrains.exodus.entitystore.youtrackdb.testutil.hasActiveTransaction
 import junit.framework.TestCase.assertFalse
 import org.junit.Assert
 import org.junit.Rule

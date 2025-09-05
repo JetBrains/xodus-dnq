@@ -24,8 +24,8 @@ import jetbrains.exodus.query.metadata.ModelMetaData;
  * {@code isOk()} on the matched node must be true.
  * Matched node is substituted by {@code convert(matched)}.
  */
-abstract class ConversionWildcard<E extends NodeBase> extends NodeBase {
-    final int type;
+public abstract class ConversionWildcard<E extends NodeBase> extends NodeBase {
+    protected final int type;
 
     protected ConversionWildcard(final int type) {
         this.type = type;

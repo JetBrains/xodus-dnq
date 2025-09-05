@@ -18,13 +18,9 @@ package jetbrains.exodus.query
 import jetbrains.exodus.entitystore.ComparableGetter
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.YTDBGremlinStoreTransactionImpl
-import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
-import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBMultipleEntitiesIterable
 import jetbrains.exodus.query.metadata.ModelMetaData
 
 open class SortEngine {
@@ -141,10 +137,6 @@ open class SortEngine {
             }
         }
         return it
-    }
-
-    private interface IterableGetter {
-        fun getIterable(type: String): YTDBEntityIterableBase
     }
 
     private class EntityComparator(private val selector: ComparableGetter) : Comparator<Entity> {

@@ -15,7 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.youtrack.db.api.record.Vertex
+import com.jetbrains.youtrackdb.api.record.Vertex
 import jetbrains.exodus.core.dataStructures.hash.LongHashSet
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
@@ -78,7 +78,7 @@ object TransientStoreUtil {
             is YTDBVertexEntity -> {
                 val store = entity.store as YTDBPersistentEntityStore
                 try {
-                    store.requireActiveTransaction().getRecord<Vertex>(entity.id)
+                    store.requireActiveTransaction().getVertex(entity.id)
                     false
                 } catch (e:Throwable){
                     true

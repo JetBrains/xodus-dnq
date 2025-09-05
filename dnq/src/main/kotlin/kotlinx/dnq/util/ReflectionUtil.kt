@@ -15,7 +15,7 @@
  */
 package kotlinx.dnq.util
 
-import com.jetbrains.youtrack.db.api.exception.RecordNotFoundException
+import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
 import jetbrains.exodus.core.dataStructures.SoftConcurrentObjectCache
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException

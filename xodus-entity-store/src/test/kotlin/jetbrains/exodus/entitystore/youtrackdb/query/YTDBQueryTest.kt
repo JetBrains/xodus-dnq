@@ -16,7 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb.query
 
 import com.google.common.truth.Truth.assertThat
-import com.jetbrains.youtrack.db.internal.core.id.RecordId
+import com.jetbrains.youtrackdb.internal.core.id.RecordId
 import org.junit.Test
 
 class YTDBQueryTest {

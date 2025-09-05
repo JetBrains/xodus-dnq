@@ -15,12 +15,15 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.api.YouTrackDB
-import com.jetbrains.youtrack.db.internal.core.metadata.security.SecurityUserImpl
-import com.jetbrains.youtrack.db.internal.server.YouTrackDBServer
+import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.YouTrackDB
+import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
+import com.jetbrains.youtrackdb.internal.core.metadata.security.SecurityUserImpl
+import com.jetbrains.youtrackdb.internal.server.YouTrackDBServer
 import mu.KLogging
 import java.io.File
+import kotlin.io.use
 import kotlin.streams.asSequence
 
 //username and password are considered to be same for all databases
@@ -28,13 +31,15 @@ import kotlin.streams.asSequence
 class YTDBDatabaseProviderImpl(
     private val params: YTDBDatabaseParams,
     private val database: YouTrackDB,
-    private val server: YouTrackDBServer?
+    private val server: YouTrackDBServer?,
 ) : YTDBDatabaseProvider {
 
     override var isOpen: Boolean = false
         private set
 
     companion object : KLogging()
+
+    override val graph: YTDBGraph
 
     init {
         val userNames = listOf(params.appUser.name) + params.additionalUsers.map { it.name }
@@ -55,7 +60,7 @@ class YTDBDatabaseProviderImpl(
         }
 
         if (params.additionalUsers.any()) {
-            acquireSessionImpl().use { session ->
+            withSession { session ->
                 session.transaction { tx ->
                     val existingNames = tx.query("SELECT name FROM " + SecurityUserImpl.CLASS_NAME)
                         .stream()
@@ -79,6 +84,12 @@ class YTDBDatabaseProviderImpl(
         }
 
         isOpen = true
+        graph = database.openGraph(
+            params.databaseName,
+            params.appUser.name,
+            params.appUser.password,
+            params.youTrackDBConfig.toApacheConfiguration()
+        )
     }
 
     fun compact() {
@@ -88,9 +99,11 @@ class YTDBDatabaseProviderImpl(
     override val databaseLocation: String
         get() = File(params.databasePath, params.databaseName).absolutePath
 
-    override fun acquireSession(): DatabaseSession {
-        return acquireSessionImpl()
-    }
+
+    override fun <R> withSession(block: (DatabaseSession) -> R): R =
+        acquireSession().use(block)
+
+    private fun acquireSession(): DatabaseSession = (graph as YTDBGraphEmbedded).acquireSession()
 
     // it is always false at the beginning (it is impossible to close the database in the frozen state)
     private var _readOnly: Boolean = false
@@ -110,15 +123,6 @@ class YTDBDatabaseProviderImpl(
             }
             _readOnly = value
         }
-
-    private fun acquireSessionImpl(): DatabaseSession {
-        return database.cachedPool(
-            params.databaseName,
-            params.appUser.name,
-            params.appUser.password,
-            params.youTrackDBConfig
-        ).acquire()
-    }
 
     override fun close() {
         isOpen = false

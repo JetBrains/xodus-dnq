@@ -16,7 +16,7 @@
 package jetbrains.exodus.query.metadata
 
 
-import com.jetbrains.youtrack.db.api.schema.PropertyType
+import com.jetbrains.youtrackdb.api.schema.PropertyType
 import jetbrains.exodus.bindings.ComparableSet
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException

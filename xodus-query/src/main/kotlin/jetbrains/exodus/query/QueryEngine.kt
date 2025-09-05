@@ -27,7 +27,6 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
 import jetbrains.exodus.kotlin.notNull
 import jetbrains.exodus.query.metadata.ModelMetaData
 import mu.KLogging
@@ -302,5 +301,4 @@ private val Iterable<Entity>?.isEmpty: Boolean
         return this == null || this === GremlinEntityIterable.EMPTY
     }
 
-private val Iterable<Entity>?.isPersistent: Boolean
-    get() = this is YTDBEntityIterableBase || this is GremlinEntityIterable
+private val Iterable<Entity>?.isPersistent: Boolean get() = this is GremlinEntityIterable

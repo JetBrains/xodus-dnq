@@ -17,15 +17,16 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import YTDBDatabaseProviderFactory
 import com.google.common.truth.Truth.assertThat
-import com.jetbrains.youtrack.db.api.DatabaseType
-import com.jetbrains.youtrack.db.api.YourTracks
-import com.jetbrains.youtrack.db.api.config.GlobalConfiguration
-import com.jetbrains.youtrack.db.api.config.YouTrackDBConfig
-import com.jetbrains.youtrack.db.api.exception.DatabaseException
-import com.jetbrains.youtrack.db.api.remote.RemoteDatabaseSession
+import com.jetbrains.youtrackdb.api.DatabaseType
+import com.jetbrains.youtrackdb.api.YourTracks
+import com.jetbrains.youtrackdb.api.config.GlobalConfiguration
+import com.jetbrains.youtrackdb.api.config.YouTrackDBConfig
+import com.jetbrains.youtrackdb.api.exception.DatabaseException
+import com.jetbrains.youtrackdb.api.remote.RemoteDatabaseSession
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import jetbrains.exodus.Questionable
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -80,15 +81,16 @@ class YTDBServerTest {
 
         val db = YTDBDatabaseProviderFactory.createProvider(params)
 
-        db.acquireSession().use { session ->
+        db.withSession { session ->
             session.schema.createVertexClass("Test")
+        }
+        db.withSession { session ->
             session.transaction { tx ->
                 repeat(100) {
                     tx.newVertex("Test")
                 }
             }
         }
-
         assertThat(remoteEntityCount("Test")).isEqualTo(100)
         assertThat(httpEntityCount("Test")).isEqualTo(100)
         db.close()
@@ -119,14 +121,17 @@ class YTDBServerTest {
             }
 
         val dbNoServer = YTDBDatabaseProviderFactory.createProvider(params.build())
-        dbNoServer.acquireSession().use { session ->
+        dbNoServer.withSession { session ->
             session.schema.createVertexClass("Test")
+        }
+        dbNoServer.withSession { session ->
             session.transaction { tx ->
                 repeat(100) {
                     tx.newVertex("Test")
                 }
             }
         }
+
         dbNoServer.close()
 
         val dbWithServer = YTDBDatabaseProviderFactory.createProvider(
@@ -144,7 +149,7 @@ class YTDBServerTest {
         assertThat(remoteEntityCount("Test")).isEqualTo(100)
         assertThat(httpEntityCount("Test")).isEqualTo(100)
 
-        dbWithServer.acquireSession().use { session ->
+        dbWithServer.withSession { session ->
             session.transaction { tx ->
                 assertThat(tx.query("SELECT FROM Test").toList()).hasSize(100)
             }
@@ -171,10 +176,12 @@ class YTDBServerTest {
         }
     }
 
+    @Questionable("Find a way to connect to a remote database")
     private fun remoteSession(): RemoteDatabaseSession {
-        return YourTracks
-            .remote("remote:localhost", serverConnectUser, serverConnectPassword, YouTrackDBConfig.defaultConfig())
-            .open(dbName, username, password)
+        return TODO()
+//        return YourTracks
+//            .remote("remote:localhost", serverConnectUser, serverConnectPassword, YouTrackDBConfig.defaultConfig())
+//            .open(dbName, username, password)
     }
 
     private fun remoteEntityCount(className: String): Int =

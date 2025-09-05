@@ -15,12 +15,16 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
 
 interface YTDBDatabaseProvider {
     val databaseLocation: String
-    fun acquireSession(): DatabaseSession
+
+    val graph: YTDBGraph
+
+    fun <R> withSession(block: (DatabaseSession) -> R): R
 
     /**
      * Database-wise read-only mode.
@@ -28,18 +32,9 @@ interface YTDBDatabaseProvider {
      */
     var readOnly: Boolean
 
+    // is it even needed?
     val isOpen: Boolean
 
     fun close()
 }
 
-fun <R> YTDBDatabaseProvider.withSession(block: (DatabaseSession) -> R): R =
-    acquireSession().use { block(it) }
-
-internal fun DatabaseSession.hasActiveTransaction(): Boolean {
-    return (this as DatabaseSessionInternal).isActiveOnCurrentThread && activeTxCount() > 0
-}
-
-internal fun DatabaseSession.requireNoActiveTransaction() {
-    assert((this as DatabaseSessionInternal).isActiveOnCurrentThread && activeTxCount() == 0) { "Active transaction is detected. Changes in the schema must not happen in a transaction." }
-}

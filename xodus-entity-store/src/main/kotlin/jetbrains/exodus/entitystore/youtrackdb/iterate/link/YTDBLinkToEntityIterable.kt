@@ -18,7 +18,7 @@ package jetbrains.exodus.entitystore.youtrackdb.iterate.link
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.asEdgeClass
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
+import jetbrains.exodus.entitystore.obsolete.YTDBEntityIterableBase
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBLinkInFromIdsSelect
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBSelect
 

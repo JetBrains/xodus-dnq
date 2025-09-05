@@ -15,9 +15,9 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.exception.RecordDuplicatedException
-import com.jetbrains.youtrack.db.api.schema.PropertyType
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
+import com.jetbrains.youtrackdb.api.schema.PropertyType
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.OTestMixin
@@ -105,11 +105,17 @@ class YTDBStoreTransactionLifecycleTest : OTestMixin {
         allTxActions.forEach { (actionName, txAction) ->
             val tx = beginTransaction()
 
+            tx.g().addV("trista")
+                .property("name", "dvesti").next()
 
-            val trista1 = tx.databaseSession.activeTransaction.newVertex("trista")
-            trista1.setProperty("name", "dvesti")
-            val trista2 = tx.databaseSession.activeTransaction.newVertex("trista")
-            trista2.setProperty("name", "dvesti")
+            tx.g().addV("trista")
+                .property("name", "dvesti").next()
+
+//
+//            val trista1 = tx.databaseSession.activeTransaction.newVertex("trista")
+//            trista1.setProperty("name", "dvesti")
+//            val trista2 = tx.databaseSession.activeTransaction.newVertex("trista")
+//            trista2.setProperty("name", "dvesti")
 
             when (actionName) {
                 "commit",

@@ -17,9 +17,9 @@ package kotlinx.dnq.store.container
 
 import YouTrackDBFactory
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
-import com.jetbrains.youtrack.db.api.DatabaseType
-import com.jetbrains.youtrack.db.api.YouTrackDB
-import com.jetbrains.youtrack.db.api.config.YouTrackDBConfigBuilder
+import com.jetbrains.youtrackdb.api.DatabaseType
+import com.jetbrains.youtrackdb.api.YouTrackDB
+import com.jetbrains.youtrackdb.api.config.YouTrackDBConfigBuilder
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.*
 import java.io.File

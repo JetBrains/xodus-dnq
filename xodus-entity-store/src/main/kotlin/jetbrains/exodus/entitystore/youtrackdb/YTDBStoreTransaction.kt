@@ -15,37 +15,33 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.api.query.ResultSet
-import com.jetbrains.youtrack.db.api.record.DBRecord
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
-import com.jetbrains.youtrack.db.internal.core.metadata.sequence.DBSequence
-import com.jetbrains.youtrack.db.internal.core.tx.FrontendTransaction
-import jetbrains.exodus.entitystore.PersistentEntityId
-import jetbrains.exodus.entitystore.StoreTransaction
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
+import com.jetbrains.youtrackdb.api.gremlin.YTDBGraphTraversalSource
+import com.jetbrains.youtrackdb.api.record.Blob
+import com.jetbrains.youtrackdb.api.record.Edge
+import com.jetbrains.youtrackdb.api.record.RID
+import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
+import jetbrains.exodus.Questionable
+import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 
 interface YTDBStoreTransaction : StoreTransaction {
-    val databaseSession: DatabaseSession
 
-    fun getOEntityStore(): YTDBEntityStore
+    @Deprecated("session should not be used directly")
+    @Questionable("Think about changing this in tests")
+    fun underlyingSession(): DatabaseSessionEmbedded
 
     fun getTransactionId(): Long
 
-    fun requireActiveTransaction(): FrontendTransaction
+    fun requireActiveTransaction()
 
-    fun requireActiveWritableTransaction(): FrontendTransaction
+    fun requireActiveWritableTransaction()
 
     fun deactivateOnCurrentThread()
 
     fun activateOnCurrentThread()
-
-
-    fun <T> getRecord(id: YTDBEntityId): T
-            where T : DBRecord
-
-    fun newEntity(entityType: String, localEntityId: Long): YTDBVertexEntity
 
     fun generateEntityId(entityType: String, vertex: Vertex)
 
@@ -53,9 +49,7 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     fun bindToSession(entity: YTDBVertexEntity): YTDBVertexEntity
 
-    fun query(sql: String, params: Map<String, Any>): ResultSet
-
-    fun g(): GraphTraversalSource
+    fun g(): YTDBGraphTraversalSource
 
     fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId
 
@@ -81,6 +75,135 @@ interface YTDBStoreTransaction : StoreTransaction {
         inClassName: String
     ): SchemaClass
 
-    fun bindResultSet(resultSet: ResultSet)
     fun deleteOClass(entityTypeName: String)
+
+    fun getVertex(id: YTDBEntityId): Vertex
+
+    override fun getEntity(id: EntityId): YTDBVertexEntity
+
+    fun getBlob(rid: RID): Blob
+
+    fun findEdge(edgeClassName: String, outId: RID, inId: RID): Edge?
+
+    fun newEntity(entityType: String, localEntityId: Long): YTDBVertexEntity
+
+    fun newVertex(entityType: String?): Vertex
+
+    override fun newEntity(entityType: String): YTDBVertexEntity
+
+    fun newBlob(bytes: ByteArray): Blob
+
+    fun isNotBound(v: YTDBVertexEntity): Boolean
+
+    override fun getStore(): YTDBEntityStore
+
+    override fun getSnapshot(): YTDBStoreTransaction
+
+    override fun getAll(entityType: String): GremlinEntityIterable
+
+    override fun getSingletonIterable(entity: Entity): GremlinEntityIterable
+
+    override fun find(
+        entityType: String,
+        propertyName: String,
+        value: Comparable<*>
+    ): GremlinEntityIterable
+
+    override fun find(
+        entityType: String,
+        propertyName: String,
+        minValue: Comparable<*>,
+        maxValue: Comparable<*>
+    ): GremlinEntityIterable
+
+    override fun findContaining(
+        entityType: String,
+        propertyName: String,
+        value: String,
+        ignoreCase: Boolean
+    ): GremlinEntityIterable
+
+    override fun findStartingWith(
+        entityType: String,
+        propertyName: String,
+        value: String
+    ): GremlinEntityIterable
+
+    override fun findIds(
+        entityType: String,
+        minValue: Long,
+        maxValue: Long
+    ): GremlinEntityIterable
+
+    override fun findWithProp(
+        entityType: String,
+        propertyName: String
+    ): GremlinEntityIterable
+
+    override fun findWithPropSortedByValue(
+        entityType: String,
+        propertyName: String
+    ): GremlinEntityIterable
+
+    override fun findWithBlob(
+        entityType: String,
+        blobName: String
+    ): GremlinEntityIterable
+
+    override fun findLinks(
+        entityType: String,
+        entity: Entity,
+        linkName: String
+    ): GremlinEntityIterable
+
+    override fun findLinks(
+        entityType: String,
+        entities: EntityIterable,
+        linkName: String
+    ): GremlinEntityIterable
+
+    override fun findWithLinks(
+        entityType: String,
+        linkName: String
+    ): GremlinEntityIterable
+
+    override fun findWithLinks(
+        entityType: String,
+        linkName: String,
+        oppositeEntityType: String,
+        oppositeLinkName: String
+    ): GremlinEntityIterable
+
+    override fun sort(
+        entityType: String,
+        propertyName: String,
+        ascending: Boolean
+    ): GremlinEntityIterable
+
+    override fun sort(
+        entityType: String,
+        propertyName: String,
+        rightOrder: EntityIterable,
+        ascending: Boolean
+    ): GremlinEntityIterable
+
+    override fun sortLinks(
+        entityType: String,
+        sortedLinks: EntityIterable,
+        isMultiple: Boolean,
+        linkName: String,
+        rightOrder: EntityIterable
+    ): GremlinEntityIterable
+
+    override fun sortLinks(
+        entityType: String,
+        sortedLinks: EntityIterable,
+        isMultiple: Boolean,
+        linkName: String,
+        rightOrder: EntityIterable,
+        oppositeEntityType: String,
+        oppositeLinkName: String
+    ): GremlinEntityIterable
+
+    override fun toEntityId(representation: String): YTDBEntityId
 }

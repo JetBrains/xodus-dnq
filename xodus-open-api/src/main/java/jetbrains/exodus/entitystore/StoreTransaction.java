@@ -108,8 +108,6 @@ public interface StoreTransaction {
      */
     boolean commit();
 
-    boolean isCurrent();
-
     /**
      * Ignores all changes and finishes the {@code StoreTransaction}.
      * <p> Typical pattern for committing changes ({@code abort()} is called in {@code catch} block) can look like this:
@@ -181,32 +179,11 @@ public interface StoreTransaction {
      *
      * @param entityType entity type
      * @return new {@linkplain Entity} instance
-     * @see #saveEntity(Entity)
      * @see Entity
      * @see EntityId
      */
     @NotNull
     Entity newEntity(@NotNull final String entityType);
-
-    /**
-     * Saves new {@linkplain Entity} which earlier was created by {@linkplain #newEntity(String)} but
-     * {@code StoreTransaction} failed to {@linkplain #flush()} or {@linkplain #commit()}.
-     * <pre>
-     * final Entity user = txn.newEntity("User"|;
-     * if (!txn.flush()) {
-     *     // if flush didn't succeed you don't need to create one more new entity since <b>user</b> has already got its
-     *     // unique id, and it is enough to save it against the new database snapshot
-     *     txn.saveEntity(user);
-     *     // ...
-     * }
-     * </pre>
-     *
-     * @param entity entity earlier returned by {@linkplain #newEntity(String)}
-     * @see #newEntity(String)
-     * @see Entity
-     * @see EntityId
-     */
-    void saveEntity(@NotNull final Entity entity);
 
     /**
      * Loads up-to-date version of entity by its {@linkplain EntityId} if it exists in the database.

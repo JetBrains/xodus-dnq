@@ -15,12 +15,10 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
 import jetbrains.exodus.entitystore.EntityStore
 import jetbrains.exodus.entitystore.PersistentEntityId
 
 interface YTDBEntityStore : EntityStore {
-    val databaseSession: DatabaseSession
 
     val statistics: YTDBStatistics
 
@@ -29,4 +27,6 @@ interface YTDBEntityStore : EntityStore {
     fun requireActiveWritableTransaction(): YTDBStoreTransaction
 
     fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId
+
+    override fun getCurrentTransaction(): YTDBStoreTransaction
 }

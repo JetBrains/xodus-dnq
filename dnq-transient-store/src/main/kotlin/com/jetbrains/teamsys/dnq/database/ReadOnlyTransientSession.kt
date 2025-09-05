@@ -66,8 +66,6 @@ class ReadOnlyTransientSession(
 
     override fun newEntity(creator: EntityCreator) = throw UnsupportedOperationException()
 
-    override fun saveEntity(entity: Entity) = throw UnsupportedOperationException()
-
     override fun newLocalCopy(entity: TransientEntity, checkEntityRemoved: Boolean): TransientEntity = entity
 
     override fun newEntity(persistentEntity: Entity): ReadonlyTransientEntityImpl {
@@ -97,10 +95,6 @@ class ReadOnlyTransientSession(
 
     override fun commit(): Boolean {
         return true
-    }
-
-    override fun isCurrent(): Boolean {
-        return transactionInternal.isCurrent
     }
 
     override fun abort() {

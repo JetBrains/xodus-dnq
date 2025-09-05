@@ -18,6 +18,7 @@ package jetbrains.exodus.query
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.query.metadata.ModelMetaData
+import jetbrains.exodus.query.obsolete.GetAll
 
 @Suppress("EqualsOrHashCode")
 class Or(left: NodeBase, right: NodeBase) : BinaryOperator(left, right, true) {

@@ -15,11 +15,11 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrack.db.api.YouTrackDB
-import com.jetbrains.youtrack.db.internal.core.command.CommandOutputListener
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionEmbedded
-import com.jetbrains.youtrack.db.internal.core.db.tool.DatabaseExport
-import com.jetbrains.youtrack.db.internal.core.db.tool.DatabaseImport
+import com.jetbrains.youtrackdb.api.YouTrackDB
+import com.jetbrains.youtrackdb.internal.core.command.CommandOutputListener
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.tool.DatabaseExport
+import com.jetbrains.youtrackdb.internal.core.db.tool.DatabaseImport
 import mu.KLogging
 import java.io.File
 

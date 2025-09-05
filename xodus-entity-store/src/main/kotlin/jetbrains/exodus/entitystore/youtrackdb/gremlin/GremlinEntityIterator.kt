@@ -15,8 +15,8 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.gremlin
 
-import com.jetbrains.youtrack.db.api.gremlin.YTDBVertex
-import com.jetbrains.youtrack.db.internal.core.gremlin.YTDBVertexInternal
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBVertexInternal
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterator

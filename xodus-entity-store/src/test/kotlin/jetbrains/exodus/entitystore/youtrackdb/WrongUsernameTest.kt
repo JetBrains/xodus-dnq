@@ -16,7 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import YTDBDatabaseProviderFactory
-import com.jetbrains.youtrack.db.api.DatabaseType
+import com.jetbrains.youtrackdb.api.DatabaseType
 import org.junit.Test
 import java.nio.file.Files
 import kotlin.io.path.absolutePathString

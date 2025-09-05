@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.jetbrains.youtrack.db.api.YouTrackDB
-import com.jetbrains.youtrack.db.api.YourTracks
-import com.jetbrains.youtrack.db.api.config.GlobalConfiguration
-import com.jetbrains.youtrack.db.internal.core.db.YouTrackDBConfigImpl
-import com.jetbrains.youtrack.db.internal.core.db.YouTrackDBImpl
-import com.jetbrains.youtrack.db.internal.server.YouTrackDBServer
-import com.jetbrains.youtrack.db.internal.server.network.protocol.binary.NetworkProtocolBinary
-import com.jetbrains.youtrack.db.internal.server.network.protocol.http.NetworkProtocolHttpDb
-import com.jetbrains.youtrack.db.internal.tools.config.*
+import com.jetbrains.youtrackdb.api.YouTrackDB
+import com.jetbrains.youtrackdb.api.YourTracks
+import com.jetbrains.youtrackdb.api.config.GlobalConfiguration
+import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBConfigImpl
+import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
+import com.jetbrains.youtrackdb.internal.server.YouTrackDBServer
+import com.jetbrains.youtrackdb.internal.server.network.protocol.binary.NetworkProtocolBinary
+import com.jetbrains.youtrackdb.internal.server.network.protocol.http.NetworkProtocolHttpDb
+import com.jetbrains.youtrackdb.internal.tools.config.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseParams
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProviderImpl
@@ -30,8 +30,8 @@ import org.apache.commons.lang.RandomStringUtils
 object YouTrackDBFactory {
 
     fun createEmbedded(params: YTDBDatabaseParams): YouTrackDB {
-        val config = params.youTrackDBConfig
-        return YourTracks.embedded(params.databasePath, config).apply {
+        val config = params.youTrackDBConfig.toApacheConfiguration()
+        return YourTracks.instance(params.databasePath, config).apply {
             (this as? YouTrackDBImpl)?.let {
                 it.serverPassword = params.appUser.name
                 it.serverUser = params.appUser.password

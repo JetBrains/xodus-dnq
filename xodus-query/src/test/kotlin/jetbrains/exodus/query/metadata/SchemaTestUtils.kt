@@ -15,14 +15,14 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrack.db.api.DatabaseSession
-import com.jetbrains.youtrack.db.api.record.Direction
-import com.jetbrains.youtrack.db.api.record.Edge
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.api.schema.SchemaProperty
-import com.jetbrains.youtrack.db.api.schema.SchemaClass
-import com.jetbrains.youtrack.db.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrack.db.internal.core.metadata.schema.SchemaClassInternal
+import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.record.Direction
+import com.jetbrains.youtrackdb.api.record.Edge
+import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.api.schema.SchemaProperty
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
 import jetbrains.exodus.entitystore.youtrackdb.*
 import org.junit.Assert.*
 
@@ -78,12 +78,12 @@ internal fun DatabaseSession.assertAssociationExists(
     if (cardinality != null) {
         val outPropName = Vertex.getEdgeLinkFieldName(Direction.OUT, edgeClassName)
         val directOutProp = outClass.getProperty(outPropName)!!
-        assertEquals(com.jetbrains.youtrack.db.api.schema.PropertyType.LINKBAG, directOutProp.type)
+        assertEquals(com.jetbrains.youtrackdb.api.schema.PropertyType.LINKBAG, directOutProp.type)
         directOutProp.assertCardinality(cardinality)
 
         val inPropName = Vertex.getEdgeLinkFieldName(Direction.IN, edgeClassName)
         val directInProp = inClass.getProperty(inPropName)!!
-        assertEquals(com.jetbrains.youtrack.db.api.schema.PropertyType.LINKBAG, directInProp.type)
+        assertEquals(com.jetbrains.youtrackdb.api.schema.PropertyType.LINKBAG, directInProp.type)
     }
 }
 
@@ -279,7 +279,7 @@ internal fun ModelMetaData.twoDirectionalAssociation(
 
 internal fun DatabaseSession.createVertexAndSetLocalEntityId(className: String): Vertex {
     val v = activeTransaction.newVertex(className)
-    setLocalEntityId(className, v)
+    setLocalEntityId(this, className, v)
     return v
 }
 

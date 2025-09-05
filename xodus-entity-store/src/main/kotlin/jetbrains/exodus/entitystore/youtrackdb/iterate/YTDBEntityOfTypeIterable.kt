@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.iterate
 
+import jetbrains.exodus.entitystore.obsolete.YTDBEntityIterableBase
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBClassSelect
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBSelect
