@@ -21,6 +21,8 @@ import com.jetbrains.youtrackdb.api.DatabaseSession
 import com.jetbrains.youtrackdb.api.DatabaseType
 import com.jetbrains.youtrackdb.api.YouTrackDB
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphImplAbstract
 import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.youtrackdb.*
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues.Links.IN_PROJECT
@@ -104,8 +106,7 @@ class InMemoryYouTrackDB(
 
     @Questionable("Not sure why we need this at all")
     fun openSession(): DatabaseSession {
-        TODO()
-        // return db.cachedPool(dbName, username, password).acquire()
+        return (db.openGraph(dbName, username, password) as YTDBGraphEmbedded).acquireSession()
     }
 }
 

@@ -132,8 +132,10 @@ class YTDBGremlinStoreTransactionImpl(
     fun begin() {
         // check(session.status == STATUS.OPEN) { "The session status is ${session.status}. But ${STATUS.OPEN} is required." }
         // check((session as DatabaseSessionInternal).isActiveOnCurrentThread) { "The session is not active on the current thread" }
-        check(ytdbSession().activeTxCount() == 0) { "The session must not have a transaction" }
+        val session = ytdbSession()
+        check(session.activeTxCount() == 0) { "The session must not have a transaction" }
         try {
+            graph.tx().open()
             // initialize transaction id
             // todo: it might be not initialized yet?
             transactionIdImpl
