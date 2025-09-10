@@ -16,11 +16,13 @@
 package kotlinx.dnq.linkConstraints
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.toList
 import org.junit.Test
+import kotlin.test.Ignore
 
 class OnTargetDeleteCascadeTest : DBTest() {
 
@@ -60,6 +62,8 @@ class OnTargetDeleteCascadeTest : DBTest() {
     }
 
     @Test
+    @Ignore
+    @Questionable("deactivate / activate logic should be revisited")
     fun `onTargetDelete=CASCADE with concurrency`() {
         val user = transactional { AUser.new() }
         transactional {

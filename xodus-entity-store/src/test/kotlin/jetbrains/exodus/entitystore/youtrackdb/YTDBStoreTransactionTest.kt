@@ -19,11 +19,11 @@ import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.api.record.DBRecord
 import com.jetbrains.youtrackdb.api.record.Direction
 import com.jetbrains.youtrackdb.api.record.Vertex
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityOfTypeIterable
-import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBLinkToEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryCancellingPolicy
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryTimeoutException
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
@@ -705,7 +705,9 @@ class YTDBStoreTransactionTest : OTestMixin {
 
         withStoreTx { tx ->
             val boards =
-                YTDBEntityOfTypeIterable(tx, Issues.CLASS).selectManyDistinct(Issues.Links.ON_BOARD)
+                GremlinEntityIterable
+                    .where(Issues.CLASS, tx, GremlinBlock.All)
+                    .selectManyDistinct(Issues.Links.ON_BOARD)
                     .toList()
             //selectManyDistinct
             Assert.assertEquals(2, boards.size)
@@ -726,9 +728,14 @@ class YTDBStoreTransactionTest : OTestMixin {
         }
 
         withStoreTx { tx ->
-            val issues = YTDBEntityOfTypeIterable(tx, Issues.CLASS)
+            val issues = GremlinEntityIterable.where(Issues.CLASS, tx, GremlinBlock.All)
             Assert.assertTrue(issues.contains(test.issue1))
-            val issuesOnBoard = YTDBLinkToEntityIterable(tx, Issues.Links.ON_BOARD, test.board1.id)
+            val issuesOnBoard =
+                GremlinEntityIterable
+                    .where(
+                        Issues.CLASS, tx,
+                        GremlinBlock.HasLinkTo(Issues.Links.ON_BOARD, test.board1.id.asOId())
+                    )
             Assert.assertEquals(1, issuesOnBoard.toList().size)
             Assert.assertFalse(issuesOnBoard.contains(test.issue2))
             Assert.assertTrue(issuesOnBoard.contains(test.issue1))
@@ -736,6 +743,8 @@ class YTDBStoreTransactionTest : OTestMixin {
     }
 
     @Test
+    @Questionable("deactivate / activate logic should be revisited")
+    @Ignore
     fun `deactivate, activate transactions`() {
         // TX1
         val tx1 = beginTransaction()

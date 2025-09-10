@@ -131,7 +131,7 @@ sealed class GremlinQuery {
     ): GremlinQuery? {
         fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label else null
         fun extractCondition(q: GremlinQuery): GremlinBlock? = when (q) {
-            is Labeled -> extractCondition(q.inner)
+            // is Labeled -> extractCondition(q.inner)
             is Condition -> q.asBlock()
             else -> null
         }
@@ -238,8 +238,10 @@ sealed class GremlinQuery {
         Chained(inner, GremlinBlock.HasLabel(label)) {
         companion object {
             fun of(query: GremlinQuery, label: String): GremlinQuery =
-                Labeled((query as? Labeled)?.inner ?: query, label)
+                Labeled(inner = query, label = label)
+            // Labeled((query as? Labeled)?.inner ?: query, label)
         }
+
     }
 
     data class AndThen(val inner: GremlinQuery, val block: GremlinBlock) :

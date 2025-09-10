@@ -82,7 +82,6 @@ class GremlinEntityIterableImpl(
     override val query: GremlinQuery
 ) : GremlinEntityIterable {
 
-
     private val oStore: YTDBEntityStore = tx.getStore()
 
     @Volatile

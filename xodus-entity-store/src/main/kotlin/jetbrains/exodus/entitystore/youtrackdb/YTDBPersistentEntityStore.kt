@@ -73,7 +73,9 @@ class YTDBPersistentEntityStore(
     }
 
     private fun onTransactionFinished(tx: YTDBStoreTransaction) {
-        check(currentTransaction.get() == tx) { "The current transaction at EntityStore is different for one that just has finished. It must not happen." }
+        check(currentTransaction.get() == tx) {
+            "The current transaction at EntityStore is different for one that just has finished. It must not happen."
+        }
         // check(!session.isClosed) { "The session should not be closed at this point." }
         currentTransaction.remove()
         // session.close()
@@ -93,7 +95,7 @@ class YTDBPersistentEntityStore(
         currentTransaction.set(tx)
     }
 
-    override fun getCurrentTransaction(): YTDBStoreTransaction = currentTransaction.get()
+    override fun getCurrentTransaction(): YTDBStoreTransaction? = currentTransaction.get()
 
     override fun getBackupStrategy(): BackupStrategy {
         return object : BackupStrategy() {}

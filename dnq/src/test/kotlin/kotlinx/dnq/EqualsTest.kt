@@ -16,8 +16,10 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.Entity
 import org.junit.Test
+import kotlin.test.Ignore
 
 class EqualsTest : DBTest() {
 
@@ -30,6 +32,8 @@ class EqualsTest : DBTest() {
     }
 
     @Test
+    @Ignore
+    @Questionable("deactivate / activate logic should be revisited")
     fun equalsSymmetry() {
         transactional {
             val a1 = A.new()

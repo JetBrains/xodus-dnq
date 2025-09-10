@@ -18,7 +18,7 @@ package jetbrains.exodus.query.obsolete;
 
 import jetbrains.exodus.core.dataStructures.NanoSet;
 import jetbrains.exodus.entitystore.Entity;
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityOfTypeIterable;
+import jetbrains.exodus.entitystore.obsolete.YTDBEntityOfTypeIterable;
 import jetbrains.exodus.query.NodeBase;
 import jetbrains.exodus.query.NodeFactory;
 import jetbrains.exodus.query.QueryEngine;

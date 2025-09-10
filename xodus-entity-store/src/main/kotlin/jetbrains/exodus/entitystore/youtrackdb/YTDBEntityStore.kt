@@ -28,5 +28,5 @@ interface YTDBEntityStore : EntityStore {
 
     fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId
 
-    override fun getCurrentTransaction(): YTDBStoreTransaction
+    override fun getCurrentTransaction(): YTDBStoreTransaction?
 }

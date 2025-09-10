@@ -38,7 +38,7 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
 
     override fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
 
-        val tx = (session.store.persistentStore as YTDBPersistentEntityStore).currentTransaction
+        val tx = (session.store.persistentStore as YTDBPersistentEntityStore).requireActiveTransaction()
         val id = e.entity.id
 
         if (id.asOId().isNew) {
@@ -55,7 +55,7 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
     }
 
     override fun getOriginalBlobStringValue(e: TransientEntity, blobName: String): String? {
-        val tx = (session.store.persistentStore as YTDBPersistentEntityStore).currentTransaction
+        val tx = (session.store.persistentStore as YTDBPersistentEntityStore).requireActiveTransaction()
         val oVertex = tx.getVertex(e.entity.id)
         val blobHolderOrId = oVertex.getPropertyOnLoadValue<Identifiable?>(blobName)
         var blobHolder: Blob? = null
@@ -70,7 +70,7 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
     }
 
     override fun getOriginalBlobValue(e: TransientEntity, blobName: String): InputStream? {
-        val tx = (session.store.persistentStore as YTDBPersistentEntityStore).currentTransaction
+        val tx = (session.store.persistentStore as YTDBPersistentEntityStore).requireActiveTransaction()
         val oVertex = tx.getVertex(e.entity.id)
         var blobHolder: Blob? = null
         val blobHolderOrId = oVertex.getPropertyOnLoadValue<Identifiable?>(blobName)

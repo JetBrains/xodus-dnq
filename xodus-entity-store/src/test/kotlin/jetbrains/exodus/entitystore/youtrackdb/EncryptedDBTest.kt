@@ -99,8 +99,8 @@ class EncryptedDBTest(val number: Int) {
 
         // Reopen the DB without the encryption key
         logger.info("Connect to db one more time without encryption")
-        provider = YTDBDatabaseProviderFactory.createProvider(noEncryptionParams)
         try {
+            provider = YTDBDatabaseProviderFactory.createProvider(noEncryptionParams)
             provider.withSession { session ->
                 session.transaction { tx ->
                     val vertex = tx.query("SELECT FROM TEST").vertexStream().toList()

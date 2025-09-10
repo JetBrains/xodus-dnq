@@ -19,7 +19,6 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.iterate.property.YTDBInstanceOfIterable
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import org.apache.tinkerpop.gremlin.process.traversal.P
 import org.junit.Ignore
@@ -667,8 +666,11 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         }
 
         withStoreTx { txn ->
-            val childIssues = YTDBInstanceOfIterable(txn, "Issue", "ChildIssue", false)
-            val notChildIssues = YTDBInstanceOfIterable(txn, "Issue", "ChildIssue", true)
+            val childIssues =
+                GremlinEntityIterable.where("Issue", txn, GremlinBlock.HasLabel("ChildIssue"))
+
+            val notChildIssues =
+                GremlinEntityIterable.where("Issue", txn, GremlinBlock.Not(GremlinBlock.HasLabel("ChildIssue")))
             assertEquals(10, notChildIssues.toList().size)
             assertEquals(1, childIssues.toList().size)
         }

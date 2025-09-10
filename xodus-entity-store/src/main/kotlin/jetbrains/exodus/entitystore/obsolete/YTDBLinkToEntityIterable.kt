@@ -13,19 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore.youtrackdb.iterate
+package jetbrains.exodus.entitystore.obsolete
 
-import jetbrains.exodus.entitystore.obsolete.YTDBEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.query.YTDBClassSelect
+import jetbrains.exodus.entitystore.youtrackdb.asEdgeClass
+import jetbrains.exodus.entitystore.youtrackdb.query.YTDBLinkInFromIdsSelect
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBSelect
 
-class YTDBEntityOfTypeIterable(
+class YTDBLinkToEntityIterable(
     txn: YTDBStoreTransaction,
-    private val entityType: String,
+    private val linkName: String,
+    private val linkEntityId: YTDBEntityId,
 ) : YTDBEntityIterableBase(txn) {
 
     override fun query(): YTDBSelect {
-        return YTDBClassSelect(entityType)
+        return YTDBLinkInFromIdsSelect(linkName.asEdgeClass, listOf(linkEntityId.asOId()))
     }
 }

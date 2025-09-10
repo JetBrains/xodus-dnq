@@ -27,7 +27,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
-import jetbrains.exodus.query.InstanceOf
+import jetbrains.exodus.query.GremlinLeaf
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.NodeFactory
 import jetbrains.exodus.query.QueryEngine
@@ -445,8 +445,11 @@ inline fun <reified T : XdEntity> XdEntityType<T>.query(it: Iterable<T?>): XdQue
  */
 fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S>): XdQuery<S> {
     val queryEngine = this.queryEngine
-    return queryEngine.query(this.entityIterable, this.entityType.entityType, InstanceOf(entityType.entityType, false))
-        .asQuery(entityType)
+    return queryEngine.query(
+        this.entityIterable,
+        this.entityType.entityType,
+        GremlinLeaf(GremlinBlock.HasLabel(entityType.entityType))
+    ).asQuery(entityType)
 }
 
 /**
@@ -454,8 +457,11 @@ fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S
  */
 fun <T : XdEntity, S : T> XdQuery<T>.filterIsNotInstance(entityType: XdEntityType<S>): XdQuery<T> {
     val queryEngine = this.queryEngine
-    return queryEngine.query(this.entityIterable, this.entityType.entityType, InstanceOf(entityType.entityType, true))
-        .asQuery(entityType)
+    return queryEngine.query(
+        this.entityIterable,
+        this.entityType.entityType,
+        GremlinLeaf(GremlinBlock.Not(GremlinBlock.HasLabel(entityType.entityType)))
+    ).asQuery(entityType)
 }
 
 /**

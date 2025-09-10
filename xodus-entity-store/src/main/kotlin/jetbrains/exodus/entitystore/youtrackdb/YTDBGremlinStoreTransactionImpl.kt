@@ -17,6 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.common.BasicDatabaseSession.STATUS
 import com.jetbrains.youtrackdb.api.exception.ModificationOperationProhibitedException
+import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraphTraversalSource
 import com.jetbrains.youtrackdb.api.gremlin.__
@@ -159,7 +160,7 @@ class YTDBGremlinStoreTransactionImpl(
         try {
             requireActiveTransaction()
             graph.tx().commit()
-            graph.tx().begin()
+            graph.tx().open()
         } catch (_: ModificationOperationProhibitedException) {
             throw ReadonlyTransactionException()
         } finally {
@@ -182,8 +183,10 @@ class YTDBGremlinStoreTransactionImpl(
         requireActiveTransaction()
         return loadVertex(vertex.identity)
             .orElseThrow {
-                val entityId = RIDEntityId.fromVertex(vertex)
-                EntityRemovedInDatabaseException(entityId.getTypeName(), entityId)
+                RecordNotFoundException(
+                    "Cannot find a vertex with id ${vertex.identity} in the database",
+                    vertex.identity,
+                )
             }
     }
 
@@ -201,7 +204,7 @@ class YTDBGremlinStoreTransactionImpl(
         try {
             requireActiveTransaction()
             graph.tx().rollback()
-            graph.tx().begin<YTDBGraphTraversalSource>()
+            graph.tx().open()
         } finally {
             cleanUpTxIfNeeded()
         }

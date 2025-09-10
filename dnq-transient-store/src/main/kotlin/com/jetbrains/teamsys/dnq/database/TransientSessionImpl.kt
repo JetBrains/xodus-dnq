@@ -503,7 +503,7 @@ class TransientSessionImpl(
                 val yTDBEntity = entity.entity
                 if (yTDBEntity is YTDBVertexEntity &&
                     (yTDBEntity.isUnloaded ||
-                            store.persistentStore.currentTransaction.isNotBound(yTDBEntity))
+                            store.persistentStore.currentTransaction?.isNotBound(yTDBEntity) ?: true)
                 ) {
                     try {
                         // load persistent entity from database by id

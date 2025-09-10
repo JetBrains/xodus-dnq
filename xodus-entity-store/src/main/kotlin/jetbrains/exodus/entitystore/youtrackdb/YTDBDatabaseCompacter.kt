@@ -25,7 +25,7 @@ import java.io.File
 
 class YTDBDatabaseCompacter(
     private val db: YouTrackDB,
-    private val dbProvider: YTDBDatabaseProvider,
+    private val dbProvider: YTDBDatabaseProviderImpl,
     private val params: YTDBDatabaseParams
 ) {
     companion object : KLogging()
@@ -56,6 +56,8 @@ class YTDBDatabaseCompacter(
             params.appUser.password,
             "admin"
         )
+        // close the current graph and create a new one after the database drop and create
+        dbProvider.initGraph()
 
         dbProvider.withSession { session ->
             logger.info("Importing database from dump")

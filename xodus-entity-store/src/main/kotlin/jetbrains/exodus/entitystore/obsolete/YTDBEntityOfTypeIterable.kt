@@ -1,3 +1,9 @@
+package jetbrains.exodus.entitystore.obsolete
+
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.query.YTDBClassSelect
+import jetbrains.exodus.entitystore.youtrackdb.query.YTDBSelect
+
 /**
  * Copyright 2006 - 2025 JetBrains s.r.o.
  *
@@ -13,22 +19,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore.youtrackdb.iterate.property
-
-import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
-import jetbrains.exodus.entitystore.obsolete.YTDBEntityIterableBase
-import jetbrains.exodus.entitystore.youtrackdb.query.YTDBClassSelect
-import jetbrains.exodus.entitystore.youtrackdb.query.YTDBInstanceOfCondition
-import jetbrains.exodus.entitystore.youtrackdb.query.YTDBSelect
-
-class YTDBInstanceOfIterable(
+class YTDBEntityOfTypeIterable(
     txn: YTDBStoreTransaction,
     private val entityType: String,
-    private val instanceOf: String,
-    private val invert: Boolean
 ) : YTDBEntityIterableBase(txn) {
 
     override fun query(): YTDBSelect {
-        return YTDBClassSelect(entityType, YTDBInstanceOfCondition(instanceOf, invert))
+        return YTDBClassSelect(entityType)
     }
 }

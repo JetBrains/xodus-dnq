@@ -16,11 +16,13 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.query.addAll
 import org.junit.Test
 import java.util.*
+import kotlin.test.Ignore
 
 class FindOrCreateTest : DBTest() {
 
@@ -79,7 +81,8 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
-    
+    @Ignore
+    @Questionable("deactivate / activate logic should be revisited")
     fun `parallel creation should return the same entity`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }

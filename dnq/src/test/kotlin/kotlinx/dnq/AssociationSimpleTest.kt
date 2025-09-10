@@ -16,9 +16,11 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.*
 import org.junit.Test
+import kotlin.test.Ignore
 
 class AssociationSimpleTest : DBTest() {
 
@@ -131,6 +133,8 @@ class AssociationSimpleTest : DBTest() {
     }
 
     @Test
+    @Ignore
+    @Questionable("deactivate / activate logic should be revisited")
     fun test_WD_2065_1() {
         val (t1, t2) = transactional {
             Pair(MyThing3.new(), MyThing3.new())

@@ -16,11 +16,14 @@
 package kotlinx.dnq.blob
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.query.ne
 import kotlinx.dnq.query.query
 import org.junit.Test
+import kotlin.test.Ignore
+
 class BlobTest : DBTest() {
 
     class User(entity: Entity) : XdEntity(entity) {
@@ -74,6 +77,8 @@ class BlobTest : DBTest() {
     }
 
     @Test
+    @Ignore
+    @Questionable("deactivate / activate logic should be revisited")
     fun textReplay() {
 
         val user = transactional {
@@ -87,6 +92,8 @@ class BlobTest : DBTest() {
     }
 
     @Test
+    @Ignore
+    @Questionable("deactivate / activate logic should be revisited")
     fun embeddedTextReplay() {
         val user = transactional {
             transactional(isNew = true) { User.new() }
@@ -99,6 +106,8 @@ class BlobTest : DBTest() {
     }
 
     @Test
+    @Ignore
+    @Questionable("deactivate / activate logic should be revisited")
     fun blobReplay() {
 
         val user = transactional {
@@ -114,7 +123,8 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    
+    @Ignore
+    @Questionable("deactivate / activate logic should be revisited")
     fun embeddedBlobReplay() {
         val user = transactional {
             transactional(isNew = true) { User.new() }

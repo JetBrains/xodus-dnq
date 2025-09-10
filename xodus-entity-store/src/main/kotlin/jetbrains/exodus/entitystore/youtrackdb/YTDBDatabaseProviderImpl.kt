@@ -39,7 +39,10 @@ class YTDBDatabaseProviderImpl(
 
     companion object : KLogging()
 
-    override val graph: YTDBGraph
+    private var _graph: YTDBGraph? = null
+
+    // _graph is always initialized in the constructor and never nullified
+    override val graph: YTDBGraph get() = _graph!!
 
     init {
         val userNames = listOf(params.appUser.name) + params.additionalUsers.map { it.name }
@@ -59,6 +62,7 @@ class YTDBDatabaseProviderImpl(
             compact()
         }
 
+        initGraph()
         if (params.additionalUsers.any()) {
             withSession { session ->
                 session.transaction { tx ->
@@ -84,7 +88,11 @@ class YTDBDatabaseProviderImpl(
         }
 
         isOpen = true
-        graph = database.openGraph(
+    }
+
+    fun initGraph() {
+        _graph?.close()
+        _graph = database.openGraph(
             params.databaseName,
             params.appUser.name,
             params.appUser.password,

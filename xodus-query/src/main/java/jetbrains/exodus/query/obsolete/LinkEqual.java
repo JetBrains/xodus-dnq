@@ -21,7 +21,7 @@ import jetbrains.exodus.entitystore.EntityId;
 import jetbrains.exodus.entitystore.PersistentEntityId;
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId;
 import jetbrains.exodus.entitystore.obsolete.YTDBLinkIsNullEntityIterable;
-import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBLinkToEntityIterable;
+import jetbrains.exodus.entitystore.obsolete.YTDBLinkToEntityIterable;
 import jetbrains.exodus.query.NodeBase;
 import jetbrains.exodus.query.QueryEngine;
 import jetbrains.exodus.query.metadata.ModelMetaData;
