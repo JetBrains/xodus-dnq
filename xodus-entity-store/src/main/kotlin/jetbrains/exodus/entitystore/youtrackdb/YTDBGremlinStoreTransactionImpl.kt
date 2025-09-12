@@ -28,7 +28,6 @@ import com.jetbrains.youtrackdb.api.record.Vertex
 import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBEdgeInternal
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBStatefulEdgeImpl
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBVertexInternal
@@ -61,16 +60,9 @@ class YTDBGremlinStoreTransactionImpl(
 ) : YTDBStoreTransaction {
     private var queryCancellingPolicy: YTDBQueryCancellingPolicy? = null
 
-    private fun ytdbSession(): DatabaseSessionEmbedded {
-        if (isFinished()) {
-            // if we don't check this, we will acquire a new session and can cause session leak
-            throw IllegalStateException("Can't get database session, no active transaction")
-        }
+    private fun activeYtdbSession(): DatabaseSessionEmbedded {
+        requireActiveTransaction()
         return (graph as YTDBGraphEmbedded).underlyingDatabaseSession
-    }
-
-    override fun underlyingSession(): DatabaseSessionEmbedded {
-        return ytdbSession()
     }
 
     /**
@@ -81,8 +73,7 @@ class YTDBGremlinStoreTransactionImpl(
      * If you think that it should be implemented differently, come and let's discuss.
      */
     private val transactionIdImpl by lazy {
-        requireActiveTransaction()
-        ytdbSession().activeTransaction.id
+        activeYtdbSession().activeTransaction.id
     }
 
     override fun getTransactionId(): Long {
@@ -99,7 +90,7 @@ class YTDBGremlinStoreTransactionImpl(
     override fun getStore(): YTDBEntityStore = store
 
     override fun isIdempotent(): Boolean =
-        readOnly || ytdbSession().activeTransaction.recordOperations.findAny().isEmpty
+        readOnly || activeYtdbSession().activeTransaction.recordOperations.findAny().isEmpty
 
     override fun isReadonly(): Boolean = readOnly
 
@@ -107,7 +98,7 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun requireActiveTransaction() {
         check(!isFinished) {
-            "The transaction is finished, the internal session state: ${ytdbSession().status}"
+            "The transaction is finished"
         }
 //        check((session as DatabaseSessionInternal).isActiveOnCurrentThread) {
 //            "The active session is no the session the transaction was started in"
@@ -129,7 +120,7 @@ class YTDBGremlinStoreTransactionImpl(
     }
 
     override fun activateOnCurrentThread() {
-        val session = ytdbSession()
+        val session = activeYtdbSession()
         check(session.status == STATUS.OPEN) { "The transaction is finished, the internal session state: ${session.status}" }
         onActivated(this)
     }
@@ -224,7 +215,7 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun newVertex(entityType: String?): Vertex {
         if (entityType != null) {
-            schemaBuddy.requireTypeExists(ytdbSession(), entityType)
+            schemaBuddy.requireTypeExists(activeYtdbSession(), entityType)
         }
 
         requireActiveWritableTransaction()
@@ -233,7 +224,7 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun newEntity(entityType: String): YTDBVertexEntity {
         val vertex = newVertex(entityType)
-        setLocalEntityId(ytdbSession(), entityType, vertex)
+        setLocalEntityId(activeYtdbSession(), entityType, vertex)
         return YTDBVertexEntity(vertex, store)
     }
 
@@ -244,11 +235,11 @@ class YTDBGremlinStoreTransactionImpl(
     }
 
     override fun newBlob(bytes: ByteArray): Blob {
-        return ytdbSession().newBlob(bytes)
+        return activeYtdbSession().newBlob(bytes)
     }
 
     override fun generateEntityId(entityType: String, vertex: Vertex) {
-        setLocalEntityId(ytdbSession(), entityType, vertex)
+        setLocalEntityId(activeYtdbSession(), entityType, vertex)
     }
 
     override fun getEntity(id: EntityId): YTDBVertexEntity =
@@ -268,8 +259,7 @@ class YTDBGremlinStoreTransactionImpl(
     }
 
     override fun getBlob(rid: RID): Blob {
-        requireActiveTransaction()
-        return ytdbSession().loadBlob(rid)
+        return activeYtdbSession().loadBlob(rid)
     }
 
     @Questionable("Not tested")
@@ -282,11 +272,10 @@ class YTDBGremlinStoreTransactionImpl(
             .getOrNull()
     }
 
-    override fun isNotBound(v: YTDBVertexEntity): Boolean = v.vertex.isNotBound(ytdbSession())
+    override fun isNotBound(v: YTDBVertexEntity): Boolean = v.vertex.isNotBound(activeYtdbSession())
 
     override fun getEntityTypes(): List<String> {
-        requireActiveTransaction()
-        return ytdbSession().schema.classes
+        return activeYtdbSession().schema.classes
             .filter { it.isVertexType && it.name != Vertex.CLASS_NAME }
             .map { it.name }
     }
@@ -576,31 +565,26 @@ class YTDBGremlinStoreTransactionImpl(
     }
 
     override fun getSequence(sequenceName: String, initialValue: Long): Sequence {
-        requireActiveTransaction()
-        val session = ytdbSession()
+        val session = activeYtdbSession()
         // make sure the OSequence created
         schemaBuddy.getOrCreateSequence(session, sequenceName, initialValue)
         return YTDBSequenceImpl(session as DatabaseSessionInternal, sequenceName, store)
     }
 
     override fun getOSequence(sequenceName: String): DBSequence {
-        requireActiveTransaction()
-        return schemaBuddy.getSequence(ytdbSession(), sequenceName)
+        return schemaBuddy.getSequence(activeYtdbSession(), sequenceName)
     }
 
     override fun updateOSequence(sequenceName: String, currentValue: Long) {
-        requireActiveTransaction()
-        return schemaBuddy.updateSequence(ytdbSession(), sequenceName, currentValue)
+        return schemaBuddy.updateSequence(activeYtdbSession(), sequenceName, currentValue)
     }
 
     override fun renameOClass(oldName: String, newName: String) {
-        requireActiveTransaction()
-        schemaBuddy.renameOClass(ytdbSession(), oldName, newName)
+        schemaBuddy.renameOClass(activeYtdbSession(), oldName, newName)
     }
 
     override fun deleteOClass(entityTypeName: String) {
-        requireActiveTransaction()
-        schemaBuddy.deleteOClass(ytdbSession(), entityTypeName)
+        schemaBuddy.deleteOClass(activeYtdbSession(), entityTypeName)
     }
 
     override fun getOrCreateEdgeClass(
@@ -608,8 +592,7 @@ class YTDBGremlinStoreTransactionImpl(
         outClassName: String,
         inClassName: String
     ): SchemaClass {
-        requireActiveTransaction()
-        return schemaBuddy.getOrCreateEdgeClass(ytdbSession(), linkName, outClassName, inClassName)
+        return schemaBuddy.getOrCreateEdgeClass(activeYtdbSession(), linkName, outClassName, inClassName)
     }
 
     override fun setQueryCancellingPolicy(policy: QueryCancellingPolicy?) {
@@ -620,17 +603,14 @@ class YTDBGremlinStoreTransactionImpl(
     override fun getQueryCancellingPolicy() = this.queryCancellingPolicy
 
     override fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId {
-        requireActiveTransaction()
-        return schemaBuddy.getOEntityId(ytdbSession(), entityId)
+        return schemaBuddy.getOEntityId(activeYtdbSession(), entityId)
     }
 
     override fun getTypeId(entityType: String): Int {
-        requireActiveTransaction()
-        return schemaBuddy.getTypeId(ytdbSession(), entityType)
+        return schemaBuddy.getTypeId(activeYtdbSession(), entityType)
     }
 
     override fun getType(entityTypeId: Int): String {
-        requireActiveTransaction()
-        return schemaBuddy.getType(ytdbSession(), entityTypeId)
+        return schemaBuddy.getType(activeYtdbSession(), entityTypeId)
     }
 }

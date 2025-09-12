@@ -854,20 +854,23 @@ class YTDBStoreTransactionTest : OTestMixin {
             session.addAssociation("Project", "Issue", "HAS_ISSUE", "IN_PROJECT")
         }
 
-        withStoreTx { tx ->
-            val allClassesByName = tx.underlyingSession().schema.classes.associateBy { it.name }
+        val expectedEdgeClasses = listOf("OWNS_PROJECT_link", "OWNED_BY_link", "HAS_ISSUE_link", "IN_PROJECT_link")
+        val expectedVertexClasses = listOf("User", "Project", "Issue", "BaseEntity")
+        withSession { session ->
+            val allClassesByName = session.schema.classes.associateBy { it.name }
 
             // Verify edge classes are properly marked
-            val expectedEdgeClasses = listOf("OWNS_PROJECT_link", "OWNED_BY_link", "HAS_ISSUE_link", "IN_PROJECT_link")
             expectedEdgeClasses.forEach {
                 assertThat(allClassesByName[it]!!.isEdgeType).isTrue()
             }
 
             // Verify all vertex classes (including abstract) are properly marked
-            val expectedVertexClasses = listOf("User", "Project", "Issue", "BaseEntity")
             expectedVertexClasses.forEach {
                 assertThat(allClassesByName[it]!!.isVertexType).isTrue()
             }
+        }
+
+        withStoreTx { tx ->
 
             val entityTypes = tx.entityTypes
 

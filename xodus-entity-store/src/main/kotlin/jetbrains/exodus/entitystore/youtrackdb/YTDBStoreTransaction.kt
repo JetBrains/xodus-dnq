@@ -29,10 +29,6 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 
 interface YTDBStoreTransaction : StoreTransaction {
 
-    @Deprecated("session should not be used directly")
-    @Questionable("Think about changing this in tests")
-    fun underlyingSession(): DatabaseSessionEmbedded
-
     fun getTransactionId(): Long
 
     fun requireActiveTransaction()
