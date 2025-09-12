@@ -20,6 +20,7 @@ import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.singleton.XdSingletonEntityType
 import org.junit.Test
+import kotlin.concurrent.thread
 
 class SingletonTest : DBTest() {
 
@@ -43,9 +44,12 @@ class SingletonTest : DBTest() {
     fun `singleton should be alone`() {
         val (first, second) = store.transactional {
             val first = TheKing.get()
-            val second = store.transactional(isNew = true) {
-                TheKing.get()
-            }
+            var second: TheKing? = null
+            thread {
+                second = store.transactional {
+                    TheKing.get()
+                }
+            }.join()
             Pair(first, second)
         }
 

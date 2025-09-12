@@ -62,6 +62,10 @@ class YTDBGremlinStoreTransactionImpl(
     private var queryCancellingPolicy: YTDBQueryCancellingPolicy? = null
 
     private fun ytdbSession(): DatabaseSessionEmbedded {
+        if (isFinished()) {
+            // if we don't check this, we will acquire a new session and can cause session leak
+            throw IllegalStateException("Can't get database session, no active transaction")
+        }
         return (graph as YTDBGraphEmbedded).underlyingDatabaseSession
     }
 
@@ -133,8 +137,8 @@ class YTDBGremlinStoreTransactionImpl(
     fun begin() {
         // check(session.status == STATUS.OPEN) { "The session status is ${session.status}. But ${STATUS.OPEN} is required." }
         // check((session as DatabaseSessionInternal).isActiveOnCurrentThread) { "The session is not active on the current thread" }
-        val session = ytdbSession()
-        check(session.activeTxCount() == 0) { "The session must not have a transaction" }
+        val tx = graph.tx()
+        check(!tx.isOpen) { "The session must not have a transaction" }
         try {
             graph.tx().open()
             // initialize transaction id
@@ -211,8 +215,7 @@ class YTDBGremlinStoreTransactionImpl(
     }
 
     private fun cleanUpTxIfNeeded() {
-        val session = ytdbSession()
-        if (session.status == STATUS.OPEN && session.activeTxCount() == 0) {
+        if (isFinished) {
             onFinished(this)
         }
     }
@@ -385,8 +388,8 @@ class YTDBGremlinStoreTransactionImpl(
 
         return GremlinEntityIterable.query(
             this,
-            GremlinQuery.all
-                .then(GremlinBlock.IdEqual((entity.id as YTDBEntityId).asOId()))
+            GremlinQuery
+                .ByIds(listOf((entity.id as YTDBEntityId).asOId()))
                 .then(GremlinBlock.InLink(linkName))
                 .then(GremlinBlock.HasLabel(entityType))
         )

@@ -16,13 +16,12 @@
 package kotlinx.dnq.blob
 
 import com.google.common.truth.Truth.assertThat
-import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.query.ne
 import kotlinx.dnq.query.query
 import org.junit.Test
-import kotlin.test.Ignore
+import kotlin.concurrent.thread
 
 class BlobTest : DBTest() {
 
@@ -77,12 +76,12 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    @Ignore
-    @Questionable("deactivate / activate logic should be revisited")
     fun textReplay() {
 
         val user = transactional {
-            transactional(isNew = true) { User.new() }
+            thread {
+                transactional { User.new() }
+            }.join()
             User.new { bio = "born in 1900" }
         }
 
@@ -92,11 +91,11 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    @Ignore
-    @Questionable("deactivate / activate logic should be revisited")
     fun embeddedTextReplay() {
         val user = transactional {
-            transactional(isNew = true) { User.new() }
+            thread {
+                transactional { User.new() }
+            }.join()
             User.new { bio = "born in 1900" }
         }
 
@@ -106,12 +105,12 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    @Ignore
-    @Questionable("deactivate / activate logic should be revisited")
     fun blobReplay() {
 
         val user = transactional {
-            transactional(isNew = true) { User.new() }
+            thread {
+                transactional { User.new() }
+            }.join()
             User.new { this.photo = sampleBlob }
         }
         transactional {
@@ -123,11 +122,11 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    @Ignore
-    @Questionable("deactivate / activate logic should be revisited")
     fun embeddedBlobReplay() {
         val user = transactional {
-            transactional(isNew = true) { User.new() }
+            thread {
+                transactional { User.new() }
+            }.join()
             User.new { this.photo = sampleBlob }
         }
         transactional {

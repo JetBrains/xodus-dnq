@@ -202,7 +202,10 @@ sealed class GremlinQuery {
 
     // todo: think how to preserve the order of the parameters
     // todo: handle Take & Skip differently too
-    data class ByIds(val ids: List<RID>) : Condition(GremlinBlock.IdWithin(ids))
+    data class ByIds(val ids: List<RID>) : Condition(GremlinBlock.IdWithin(ids)) {
+        override fun startTraversal(gs: GraphTraversalSource): YTBuilder =
+            YTBuilder(gs.V(*ids.toTypedArray()).asYT(), 0)
+    }
 
     data class NestedCondition(val structure: List<String>, val condition: Condition) : Condition(
         GremlinBlock.Where(

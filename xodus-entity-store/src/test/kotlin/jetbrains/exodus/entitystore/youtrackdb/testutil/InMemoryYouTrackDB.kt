@@ -104,7 +104,6 @@ class InMemoryYouTrackDB(
         return provider.withSession(block)
     }
 
-    @Questionable("Not sure why we need this at all")
     fun openSession(): DatabaseSession {
         return (db.openGraph(dbName, username, password) as YTDBGraphEmbedded).acquireSession()
     }
