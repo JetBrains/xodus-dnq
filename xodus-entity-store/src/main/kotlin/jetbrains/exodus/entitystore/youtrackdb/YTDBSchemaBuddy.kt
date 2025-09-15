@@ -16,6 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.record.Vertex
 import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
@@ -254,12 +255,12 @@ fun DatabaseSession.setClassIdIfAbsent(oClass: SchemaClass) {
     }
 }
 
-fun setLocalEntityId(session: DatabaseSession, className: String, vertex: Vertex) {
+fun setLocalEntityId(session: DatabaseSession, className: String, vertex: YTDBVertex) {
     val sequences = (session as DatabaseSessionInternal).metadata.sequenceLibrary
     val sequenceName = localEntityIdSequenceName(className)
     val sequence: DBSequence = sequences.getSequence(sequenceName)
         ?: throw IllegalStateException("$sequenceName not found")
-    vertex.setProperty(LOCAL_ENTITY_ID_PROPERTY_NAME, sequence.next(session))
+    vertex.property(LOCAL_ENTITY_ID_PROPERTY_NAME, sequence.next(session))
 }
 
 fun DatabaseSession.createVertexClassWithClassId(className: String): SchemaClass {

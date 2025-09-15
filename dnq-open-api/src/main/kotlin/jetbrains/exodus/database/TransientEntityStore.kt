@@ -73,15 +73,12 @@ interface TransientEntityStore : EntityStore, EntityStoreRefactorings {
      * @receiver Xodus-DNQ entity store (database) which will be read or updated in the transaction.
      * @param T type of value returned by the executed code block.
      * @param readonly if `true` database update operations are not allowed in the transaction. Is `false` by default.
-     * @param isNew if `false` and the method is invoked in the context of already opened transaction then no new
-     *        transaction is opened. Is `false` by default.
      * @param block code to execute in the transaction.
      *
      */
     fun <T> transactional(
             readonly: Boolean = false,
             queryCancellingPolicy: QueryCancellingPolicy? = null,
-            isNew: Boolean = false,
             block: (TransientStoreSession) -> T
     ): T
 }

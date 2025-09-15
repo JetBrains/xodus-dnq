@@ -25,22 +25,11 @@ internal object TransientEntityStoreExt : KLogging() {
     fun <T> transactional(
         store: TransientEntityStore,
         queryCancellingPolicy: QueryCancellingPolicy? = null,
-        isNew: Boolean,
         block: (TransientStoreSession) -> T
     ): T {
         val currentSession = store.threadSession
-        var currentPersistentSession: YTDBStoreTransaction? = null
-        var sessionSuspended = false
-
         if (currentSession != null) {
-            if (isNew) {
-                currentPersistentSession = currentSession.transactionInternal as YTDBStoreTransaction
-                currentPersistentSession.deactivateOnCurrentThread()
-                store.suspendThreadSession()
-                sessionSuspended = true
-            } else {
-                return block(currentSession)
-            }
+            return block(currentSession)
         }
 
         try {
@@ -62,11 +51,6 @@ internal object TransientEntityStoreExt : KLogging() {
         } catch (e: Throwable) {
             e.printStackTrace()
             throw e
-        } finally {
-            if (sessionSuspended) {
-                store.resumeSession(currentSession)
-                currentPersistentSession?.activateOnCurrentThread()
-            }
         }
     }
 

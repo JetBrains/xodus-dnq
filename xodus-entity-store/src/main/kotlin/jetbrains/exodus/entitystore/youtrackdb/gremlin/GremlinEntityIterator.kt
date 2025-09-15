@@ -36,10 +36,7 @@ class GremlinEntityIterator(
 
         fun of(traversal: GraphTraversal<*, YTDBVertex>, store: YTDBEntityStore) = GremlinEntityIterator(
             gremlinVertices = traversal.iterator().asSequence().map {
-                YTDBVertexEntity(
-                    (it as YTDBVertexInternal).rawEntity,
-                    store
-                )
+                YTDBVertexEntity(it, store)
             }.iterator(),
             closed = false,
             disposeResources = { traversal.close() }

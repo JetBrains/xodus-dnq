@@ -141,4 +141,3 @@ internal fun SchemaClass.makeDeferredIndexForEmbeddedSet(propertyName: String): 
         unique = false
     )
 }
-

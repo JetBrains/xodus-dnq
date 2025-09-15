@@ -16,14 +16,12 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraphTraversalSource
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBEdge
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.record.Blob
-import com.jetbrains.youtrackdb.api.record.Edge
 import com.jetbrains.youtrackdb.api.record.RID
-import com.jetbrains.youtrackdb.api.record.Vertex
 import com.jetbrains.youtrackdb.api.schema.SchemaClass
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
-import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 
@@ -35,15 +33,7 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     fun requireActiveWritableTransaction()
 
-    fun deactivateOnCurrentThread()
-
-    fun activateOnCurrentThread()
-
-    fun generateEntityId(entityType: String, vertex: Vertex)
-
-    fun bindToSession(vertex: Vertex): Vertex
-
-    fun bindToSession(entity: YTDBVertexEntity): YTDBVertexEntity
+    fun generateEntityId(entityType: String, vertex: YTDBVertex)
 
     fun g(): YTDBGraphTraversalSource
 
@@ -73,23 +63,24 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     fun deleteOClass(entityTypeName: String)
 
-    fun getVertex(id: YTDBEntityId): Vertex
+    fun getVertex(id: YTDBEntityId): YTDBVertex
+
+    fun deleteVertex(id: RID)
+    fun deleteEdge(id: RID)
 
     override fun getEntity(id: EntityId): YTDBVertexEntity
 
     fun getBlob(rid: RID): Blob
 
-    fun findEdge(edgeClassName: String, outId: RID, inId: RID): Edge?
+    fun findEdge(edgeClassName: String, outId: RID, inId: RID): YTDBEdge?
 
     fun newEntity(entityType: String, localEntityId: Long): YTDBVertexEntity
 
-    fun newVertex(entityType: String?): Vertex
+    fun newVertex(entityType: String?): YTDBVertex
 
     override fun newEntity(entityType: String): YTDBVertexEntity
 
     fun newBlob(bytes: ByteArray): Blob
-
-    fun isNotBound(v: YTDBVertexEntity): Boolean
 
     override fun getStore(): YTDBEntityStore
 

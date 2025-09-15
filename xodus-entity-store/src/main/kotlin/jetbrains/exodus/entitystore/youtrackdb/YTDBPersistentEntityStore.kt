@@ -62,8 +62,6 @@ class YTDBPersistentEntityStore(
             store = this,
             schemaBuddy,
             onFinished = ::onTransactionFinished,
-            onDeactivated = ::onTransactionDeactivated,
-            onActivated = ::onTransactionActivated,
             readOnly = readOnly
         )
         currentTransaction.set(currentTx)
@@ -76,23 +74,7 @@ class YTDBPersistentEntityStore(
         check(currentTransaction.get() == tx) {
             "The current transaction at EntityStore is different for one that just has finished. It must not happen."
         }
-        // check(!session.isClosed) { "The session should not be closed at this point." }
         currentTransaction.remove()
-        // session.close()
-    }
-
-    private fun onTransactionDeactivated(tx: YTDBStoreTransaction) {
-        check(currentTransaction.get() == tx) { "Impossible to deactivate the transaction. The transaction on the current thread is different from one that wants to suspend. It must not ever happen." }
-        check(!tx.isFinished) { "Cannot deactivate a finished transaction" }
-        // check(!session.isClosed) { "Cannot deactivate a closed session" }
-        currentTransaction.remove()
-    }
-
-    private fun onTransactionActivated( tx: YTDBStoreTransaction) {
-        check(currentTransaction.get() == null) { "Impossible to activate the transaction. There is already an active transaction on the current thread." }
-        check(!tx.isFinished) { "Cannot activate a finished transaction" }
-        // check(!session.isClosed) { "Cannot activate a closed session" }
-        currentTransaction.set(tx)
     }
 
     override fun getCurrentTransaction(): YTDBStoreTransaction? = currentTransaction.get()

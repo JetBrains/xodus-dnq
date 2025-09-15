@@ -21,5 +21,6 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
  * limitations under the License.
  */
 fun ResultSet.toEntityIterator(store: YTDBEntityStore): Iterator<Entity> {
-    return this.vertexStream().map { YTDBVertexEntity(it, store) }.iterator()
+    TODO()
+    // return this.vertexStream().map { YTDBVertexEntity(it, store) }.iterator()
 }

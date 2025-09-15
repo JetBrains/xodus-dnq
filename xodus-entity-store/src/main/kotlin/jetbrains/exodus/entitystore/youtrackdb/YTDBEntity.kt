@@ -24,6 +24,4 @@ interface YTDBEntity : Entity {
     fun resetToNew()
 
     fun generateId(localId: Long?)
-
-    val isLoaded : Boolean
 }

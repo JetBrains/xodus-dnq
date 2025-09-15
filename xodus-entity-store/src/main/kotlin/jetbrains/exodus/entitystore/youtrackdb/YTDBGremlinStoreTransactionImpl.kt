@@ -15,23 +15,19 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.common.BasicDatabaseSession.STATUS
 import com.jetbrains.youtrackdb.api.exception.ModificationOperationProhibitedException
-import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraphTraversalSource
 import com.jetbrains.youtrackdb.api.gremlin.__
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBEdge
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.record.Blob
-import com.jetbrains.youtrackdb.api.record.Edge
 import com.jetbrains.youtrackdb.api.record.RID
 import com.jetbrains.youtrackdb.api.record.Vertex
 import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
-import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBStatefulEdgeImpl
-import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBVertexInternal
-import com.jetbrains.youtrackdb.internal.core.id.ImmutableRecordId
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.*
@@ -44,7 +40,7 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.iterate.property.YTDBSequenceImpl
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryCancellingPolicy
 import jetbrains.exodus.env.ReadonlyTransactionException
-import java.util.Optional
+import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 internal typealias TransactionEventHandler = (YTDBStoreTransaction) -> Unit
@@ -54,8 +50,6 @@ class YTDBGremlinStoreTransactionImpl(
     private val store: YTDBPersistentEntityStore,
     private val schemaBuddy: YTDBSchemaBuddy,
     private val onFinished: TransactionEventHandler,
-    private val onDeactivated: TransactionEventHandler,
-    private val onActivated: TransactionEventHandler,
     private val readOnly: Boolean = false
 ) : YTDBStoreTransaction {
     private var queryCancellingPolicy: YTDBQueryCancellingPolicy? = null
@@ -80,10 +74,10 @@ class YTDBGremlinStoreTransactionImpl(
         return transactionIdImpl
     }
 
-    fun loadVertex(id: RID): Optional<Vertex> =
+    fun loadVertex(id: RID): Optional<YTDBVertex> =
         g().V(id)
             .tryNext()
-            .map { (it as YTDBVertexInternal).rawEntity }
+            .map { (it as YTDBVertex) }
 
     override fun g(): YTDBGraphTraversalSource = graph.traversal()
 
@@ -112,17 +106,6 @@ class YTDBGremlinStoreTransactionImpl(
     override fun requireActiveWritableTransaction() {
         check(!readOnly) { "Cannot modify read-only transaction" }
         requireActiveTransaction()
-    }
-
-    override fun deactivateOnCurrentThread() {
-        requireActiveTransaction()
-        onDeactivated(this)
-    }
-
-    override fun activateOnCurrentThread() {
-        val session = activeYtdbSession()
-        check(session.status == STATUS.OPEN) { "The transaction is finished, the internal session state: ${session.status}" }
-        onActivated(this)
     }
 
     fun begin() {
@@ -174,27 +157,6 @@ class YTDBGremlinStoreTransactionImpl(
         }
     }
 
-    override fun bindToSession(vertex: Vertex): Vertex {
-        requireActiveTransaction()
-        return loadVertex(vertex.identity)
-            .orElseThrow {
-                RecordNotFoundException(
-                    "Cannot find a vertex with id ${vertex.identity} in the database",
-                    vertex.identity,
-                )
-            }
-    }
-
-    override fun bindToSession(entity: YTDBVertexEntity): YTDBVertexEntity {
-        requireActiveTransaction()
-
-        if (entity.isUnloaded) {
-            return YTDBVertexEntity(bindToSession(entity.vertex), store)
-        }
-
-        return entity
-    }
-
     override fun revert() {
         try {
             requireActiveTransaction()
@@ -213,13 +175,13 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun getSnapshot(): YTDBStoreTransaction = this
 
-    override fun newVertex(entityType: String?): Vertex {
+    override fun newVertex(entityType: String?): YTDBVertex {
         if (entityType != null) {
             schemaBuddy.requireTypeExists(activeYtdbSession(), entityType)
         }
 
         requireActiveWritableTransaction()
-        return (g().addV(entityType).next() as YTDBVertexInternal).rawEntity
+        return (g().addV(entityType).next() as YTDBVertex)
     }
 
     override fun newEntity(entityType: String): YTDBVertexEntity {
@@ -230,7 +192,7 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun newEntity(entityType: String, localEntityId: Long): YTDBVertexEntity {
         val vertex = newVertex(entityType)
-        vertex.setProperty(LOCAL_ENTITY_ID_PROPERTY_NAME, localEntityId)
+        vertex.property(LOCAL_ENTITY_ID_PROPERTY_NAME, localEntityId)
         return YTDBVertexEntity(vertex, store)
     }
 
@@ -238,7 +200,7 @@ class YTDBGremlinStoreTransactionImpl(
         return activeYtdbSession().newBlob(bytes)
     }
 
-    override fun generateEntityId(entityType: String, vertex: Vertex) {
+    override fun generateEntityId(entityType: String, vertex: YTDBVertex) {
         setLocalEntityId(activeYtdbSession(), entityType, vertex)
     }
 
@@ -248,10 +210,18 @@ class YTDBGremlinStoreTransactionImpl(
             store
         )
 
-    override fun getVertex(id: YTDBEntityId): Vertex {
+    override fun deleteVertex(id: RID) {
+        g().V(id).drop().iterate()
+    }
+
+    override fun deleteEdge(id: RID) {
+        g().E(id).drop().iterate()
+    }
+
+    override fun getVertex(id: YTDBEntityId): YTDBVertex {
         requireActiveTransaction()
         val ytdbId = id.asOId()
-        if (ytdbId == ImmutableRecordId.EMPTY_RECORD_ID) {
+        if (ytdbId == RIDEntityId.EMPTY_YTDB_ID) {
             throw EntityRemovedInDatabaseException(id.getTypeName(), id)
         }
         return loadVertex(ytdbId)
@@ -263,16 +233,14 @@ class YTDBGremlinStoreTransactionImpl(
     }
 
     @Questionable("Not tested")
-    override fun findEdge(edgeClassName: String, outId: RID, inId: RID): Edge? {
+    override fun findEdge(edgeClassName: String, outId: RID, inId: RID): YTDBEdge? {
         return g().V(outId)
             .outE(edgeClassName)
             .where(`__`.inV().hasId(inId))
             .tryNext()
-            .map { e -> (e as YTDBStatefulEdgeImpl).rawEntity }
+            .map { e -> (e as YTDBEdge) }
             .getOrNull()
     }
-
-    override fun isNotBound(v: YTDBVertexEntity): Boolean = v.vertex.isNotBound(activeYtdbSession())
 
     override fun getEntityTypes(): List<String> {
         return activeYtdbSession().schema.classes
@@ -553,7 +521,7 @@ class YTDBGremlinStoreTransactionImpl(
         return if (oEntityId == RIDEntityId.EMPTY_ID) {
             RIDEntityId(
                 legacyId.typeId, legacyId.localId,
-                ImmutableRecordId.EMPTY_RECORD_ID, null
+                RIDEntityId.EMPTY_YTDB_ID, null
             )
         } else {
             oEntityId

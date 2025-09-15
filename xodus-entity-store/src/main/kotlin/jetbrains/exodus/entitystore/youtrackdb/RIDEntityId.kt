@@ -15,10 +15,8 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.record.RID
-import com.jetbrains.youtrackdb.api.record.Vertex
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
-import com.jetbrains.youtrackdb.internal.core.id.ImmutableRecordId
 import jetbrains.exodus.entitystore.EntityId
 
 class RIDEntityId(
@@ -29,15 +27,17 @@ class RIDEntityId(
 ) : YTDBEntityId {
 
     companion object {
+        val EMPTY_YTDB_ID = RID.of(RID.COLLECTION_ID_INVALID, RID.COLLECTION_POS_INVALID)
         @JvmStatic
         val EMPTY_ID: RIDEntityId = RIDEntityId(-1, -1,
-            ImmutableRecordId.EMPTY_RECORD_ID, null)
+            EMPTY_YTDB_ID, null
+        )
 
-        fun fromVertex(vertex: Vertex): RIDEntityId {
+        fun fromVertex(vertex: YTDBVertex): RIDEntityId {
             val oClass = vertex.requireSchemaClass()
             val classId = oClass.requireClassId()
             val localEntityId = vertex.requireLocalEntityId()
-            return RIDEntityId(classId, localEntityId, vertex.identity, oClass.name)
+            return RIDEntityId(classId, localEntityId, vertex.id(), oClass.name)
         }
     }
 

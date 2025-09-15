@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.iterate.link
 
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.record.Vertex
 import com.jetbrains.youtrackdb.internal.common.util.Sizeable
 import jetbrains.exodus.entitystore.Entity
@@ -35,7 +36,7 @@ import org.apache.commons.collections4.functors.EqualPredicate
 
 class YTDBVertexEntityIterable(
     private val tx: YTDBStoreTransaction,
-    private val vertices: Iterable<Vertex>,
+    private val vertices: Iterable<YTDBVertex>,
     private val store: YTDBEntityStore,
     private val linkName: String,
     private val targetEntityID: YTDBEntityId
@@ -48,7 +49,7 @@ class YTDBVertexEntityIterable(
         override fun skip(number: Int) =
             (0 until number).count { iterator.hasNext() }.also { iterator.next() } == number
 
-        override fun nextId() = iterator.next().run { PersistentEntityId(identity.collectionId, identity.collectionPosition) }
+        override fun nextId() = iterator.next().run { PersistentEntityId(id().collectionId, id().collectionPosition) }
 
         override fun dispose() = true
 
