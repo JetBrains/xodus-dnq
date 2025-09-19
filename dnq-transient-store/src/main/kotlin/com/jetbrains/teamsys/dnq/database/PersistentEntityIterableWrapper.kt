@@ -132,8 +132,8 @@ open class PersistentEntityIterableWrapper(
         return store.threadSessionOrThrow.newEntity(this)
     }
 
-    override fun unwrap(): GremlinEntityIterable {
-        return (wrappedIterable as? GremlinEntityIterable) ?: (wrappedIterable.unwrap() as GremlinEntityIterable)
+    override fun unwrap(): EntityIterable {
+        return wrappedIterable.unwrap()
     }
 
     override val query: GremlinQuery get() = unwrap().query
