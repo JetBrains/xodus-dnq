@@ -90,9 +90,7 @@ open class PersistentEntityIterableWrapper(
     }
 
     override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
-        //TODO move findLinks to interface
-        return (wrappedIterable as? GremlinEntityIterable)?.findLinks(entities, linkName)
-            ?: GremlinEntityIterable.EMPTY
+        return wrappedIterable.findLinks(entities, linkName)
     }
 
     override fun distinct(): EntityIterable {
@@ -136,7 +134,9 @@ open class PersistentEntityIterableWrapper(
         return wrappedIterable.unwrap()
     }
 
-    override val query: GremlinQuery get() = unwrap().query
+    override val query: GremlinQuery
+        get() = (unwrap() as? GremlinEntityIterable)?.query
+            ?: throw IllegalStateException("EntityIterable is not a GremlinEntityIterable")
 
     // todo: remove this from GremlinEntityIterable interface ?
     override fun selectMany(linkName: String): EntityIterable = (wrappedIterable as? GremlinEntityIterable)?.selectMany(linkName)
