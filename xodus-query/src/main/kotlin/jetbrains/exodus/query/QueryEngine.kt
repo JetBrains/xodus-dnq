@@ -50,9 +50,9 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     open fun query(instance: Iterable<Entity>?, entityType: String, tree: NodeBase): EntityIterable {
         return when {
             modelMetaData != null && modelMetaData.getEntityMetaData(entityType) == null -> GremlinEntityIterable.EMPTY
-            instance == null -> tree.instantiate(entityType, this, modelMetaData, NodeBase.InstantiateContext()) as EntityIterable
+            instance == null -> tree.instantiate(entityType, this, modelMetaData) as EntityIterable
             instance is EntityIterable -> {
-                if (tree is GremlinLeaf && tree.query is GremlinQuery.SortBy) {
+                if (tree is LeafNode && tree.query is GremlinQuery.SortBy) {
                     val sorted = applySort(tree, entityType, instance)
                     sorted as? EntityIterable ?: InMemoryEntityIterable(sorted, txn = persistentStore.andCheckCurrentTransaction, this)
                 } else {
@@ -60,20 +60,19 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
                         tree.instantiate(
                             entityType,
                             this,
-                            modelMetaData,
-                            NodeBase.InstantiateContext()
+                            modelMetaData
                         ) as EntityIterable
                     )
                 }
             }
             else -> {
-                if (tree is GremlinLeaf && tree.query is GremlinQuery.SortBy) {
+                if (tree is LeafNode && tree.query is GremlinQuery.SortBy) {
                     val sorted = applySort(tree, entityType, instance)
                     InMemoryEntityIterable(sorted, txn = persistentStore.andCheckCurrentTransaction, this)
                 } else {
                     intersect(
                         instance,
-                        tree.instantiate(entityType, this, modelMetaData, NodeBase.InstantiateContext())
+                        tree.instantiate(entityType, this, modelMetaData)
                     ) as EntityIterable
                 }
             }
@@ -81,7 +80,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     }
 
     private fun applySort(
-        tree: GremlinLeaf,
+        tree: LeafNode,
         entityType: String,
         instance: Iterable<Entity>
     ): Iterable<Entity> {

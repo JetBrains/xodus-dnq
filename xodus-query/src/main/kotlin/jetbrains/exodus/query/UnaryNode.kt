@@ -15,21 +15,33 @@
  */
 package jetbrains.exodus.query
 
+import jetbrains.exodus.core.dataStructures.NanoSet
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.metadata.ModelMetaData
 
-class GremlinUnaryNode(
-    child: NodeBase,
+class UnaryNode(
+    val child: NodeBase,
     val shortName: String,
     val op: (GremlinBlock) -> GremlinBlock
-) : UnaryNode(child), GremlinNode {
-    override fun getQuery(): GremlinQuery? {
-        val childNode = (child as? GremlinNode) ?: return null
+) : NodeBase() {
+    private var children: Set<NodeBase>? = null
 
-        val condition = childNode.query as? GremlinQuery.Condition
+    init {
+        this.child.parent = this
+    }
+
+    override fun getChildren(): Collection<NodeBase> {
+        if (children == null) {
+            children = NanoSet(child)
+        }
+        return children!!
+    }
+
+    override fun getQuery(): GremlinQuery {
+        val condition = child.query as? GremlinQuery.Condition
             ?: throw IllegalArgumentException("Only Condition instances can be used in the chain")
 
         return condition.combineUnary(op)
@@ -38,20 +50,25 @@ class GremlinUnaryNode(
     override fun instantiate(
         entityType: String,
         queryEngine: QueryEngine,
-        metaData: ModelMetaData?,
-        context: InstantiateContext?
-    ): Iterable<Entity> {
-        val newQuery = query ?: run {
-            throw IllegalStateException("Only GremlinNode instances can be used in the chain")
-        }
+        metaData: ModelMetaData?
+    ): Iterable<Entity> = GremlinEntityIterable.query(
+        queryEngine.oStore.requireActiveTransaction(),
+        query.then(GremlinBlock.HasLabel(entityType))
+    )
 
-        return GremlinEntityIterable.query(
-            queryEngine.oStore.requireActiveTransaction(),
-            newQuery.then(GremlinBlock.HasLabel(entityType))
-        )
-    }
-
-    override fun getClone(): NodeBase = GremlinUnaryNode(child.clone, shortName, op)
+    override fun getClone(): NodeBase = UnaryNode(child.clone, shortName, op)
 
     override fun getSimpleName(): String = shortName
+
+    override fun equals(other: Any?): Boolean {
+        if (other === this) {
+            return true
+        }
+
+        if (other == null) {
+            return false
+        }
+
+        return other is UnaryNode && other.shortName == this.shortName && super.equals(other)
+    }
 }

@@ -571,10 +571,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         // When
         withStoreTx { tx ->
             val skippedIssues = tx.getAll(Issues.CLASS).skip(1).take(1)
-            val limitIssues = tx.getAll(Issues.CLASS).take(2)
+            val limitIssues = tx.getAll(Issues.CLASS).take(1)
             val issues = skippedIssues.union(limitIssues)
 
-            assertThat(issues).hasSize(1)
+            assertThat(issues).hasSize(2)
         }
     }
 

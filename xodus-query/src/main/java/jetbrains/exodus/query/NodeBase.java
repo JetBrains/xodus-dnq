@@ -15,19 +15,17 @@
  */
 package jetbrains.exodus.query;
 
-import jetbrains.exodus.ExodusException;
-import jetbrains.exodus.core.dataStructures.hash.HashMap;
 import jetbrains.exodus.entitystore.Entity;
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery;
 import jetbrains.exodus.query.metadata.ModelMetaData;
-import jetbrains.exodus.util.StringInterner;
 
-import java.util.*;
+import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 
-
-@SuppressWarnings("HardcodedLineSeparator")
 public abstract class NodeBase {
-    protected static final List<NodeBase> NO_CHILDREN = Collections.emptyList();
-    static final String TREE_LEVEL_INDENT = "  ";
+    private static final String TREE_LEVEL_INDENT = "  ";
 
     private NodeBase parent;
 
@@ -39,54 +37,20 @@ public abstract class NodeBase {
     }
 
     public void setParent(NodeBase parent) {
-        if (this.parent != null) {
-            this.parent = null;
-        }
         this.parent = parent;
     }
 
-    public NodeBase replaceChild(NodeBase child, NodeBase newChild) {
-        throw new ExodusException(getClass() + ": can't replace child.");
-    }
+    @Nonnull
+    public abstract GremlinQuery getQuery();
 
     public abstract Iterable<Entity> instantiate(String entityType,
                                                  QueryEngine queryEngine,
-                                                 ModelMetaData metaData,
-                                                 InstantiateContext context);
+                                                 ModelMetaData metaData);
 
     public abstract NodeBase getClone();
 
     public Collection<NodeBase> getChildren() {
-        return NO_CHILDREN;
-    }
-
-    public void optimize(Sorts sorts, OptimizationPlan rules) {
-        boolean applied = true;
-        while (applied) {
-            applied = false;
-            for (final NodeBase child : getChildren()) {
-                child.optimize(sorts, rules);
-                if (child.optimize(rules)) {
-                    applied = true;
-                    break;
-                }
-            }
-        }
-    }
-
-    private boolean optimize(OptimizationPlan rules) {
-        for (OptimizationRule rule : rules.rules) {
-            if (replaceIfMatches(rule)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public void cleanSorts(Sorts sorts) {
-        for (NodeBase child : getChildren()) {
-            child.cleanSorts(sorts);
-        }
+        return List.<NodeBase>of();
     }
 
     @SuppressWarnings({"EqualsWhichDoesntCheckParameterClass"})
@@ -100,63 +64,6 @@ public abstract class NodeBase {
                 return false;
             }
         }
-        return true;
-    }
-
-    public void checkWildcard(Object obj) {
-        if (obj instanceof Wildcard || obj instanceof ConversionWildcard) {
-            throw new RuntimeException("Can't compare wildcard with " + obj.getClass() + '.');
-        }
-    }
-
-    boolean canBeCached() {
-        for (final NodeBase child : getChildren()) {
-            if (child != this && !child.canBeCached()) return false;
-        }
-        return true;
-    }
-
-    boolean replaceIfMatches(OptimizationRule rule) {
-        NodeBase.MatchContext ctx = new NodeBase.MatchContext();
-        if (!(match(rule.getSource(), ctx))) {
-            return false;
-        }
-        parent.replaceChild(this, substituteMatches(rule.getDest(), ctx));
-        return true;
-    }
-
-    protected boolean match(NodeBase node, NodeBase.MatchContext ctx) {
-        if (node instanceof Wildcard) {
-            final NodeBase nodeInst = ctx.getNode((Wildcard) node);
-            if (nodeInst == null) {
-                ctx.putNode((Wildcard) node, this);
-                return true;
-            }
-            return equals(nodeInst);
-        }
-        if (node instanceof ConversionWildcard) {
-            ConversionWildcard customWildcard = (ConversionWildcard) node;
-            if (!(getClass().equals(customWildcard.getClazz()))) {
-                return false;
-            }
-            if (!customWildcard.isOk(this)) {
-                return false;
-            }
-            NodeBase leafInst = ctx.getLeave((ConversionWildcard) node);
-            if (leafInst == null) {
-                ctx.putLeave(customWildcard, this);
-                return true;
-            }
-            return equals(leafInst);
-        }
-        return getClass().equals(node.getClass()) && matchChildren(node, ctx);
-    }
-
-    protected boolean polymorphic() {
-        return false;
-    }
-
-    boolean matchChildren(NodeBase node, NodeBase.MatchContext ctx) {
         return true;
     }
 
@@ -199,14 +106,6 @@ public abstract class NodeBase {
         return used;
     }
 
-    String getHandle() {
-        return StringInterner.intern(getHandle(new StringBuilder(32)), 100);
-    }
-
-    public StringBuilder getHandle(StringBuilder sb) {
-        return sb.append(getSimpleName());
-    }
-
     public abstract String getSimpleName();
 
     public int size() {
@@ -215,93 +114,5 @@ public abstract class NodeBase {
             r += child.size();
         }
         return r;
-    }
-
-    public Iterable<NodeBase> getDescendants() {
-        return () -> {
-            final List<NodeBase> stack = new LinkedList<>();
-            stack.add(NodeBase.this); // push root
-            return new Iterator<NodeBase>() {
-                @Override
-                public boolean hasNext() {
-                    return !stack.isEmpty();
-                }
-
-                @Override
-                public NodeBase next() {
-                    if (stack.isEmpty()) {
-                        throw new NoSuchElementException();
-                    } else {
-                        final NodeBase result = stack.remove(0); // pop
-                        stack.addAll(0, result.getChildren()); // push all children (first will be on top)
-                        return result;
-                    }
-                }
-
-                @Override
-                public void remove() {
-                    throw new UnsupportedOperationException();
-                }
-            };
-        };
-    }
-
-    public static NodeBase getUnderRoot(NodeBase root) {
-        while (root instanceof Root) {
-            root = ((UnaryNode) root).getChild();
-        }
-        return root;
-    }
-
-    private static NodeBase substituteMatches(NodeBase pattern, NodeBase.MatchContext ctx) {
-        Root root = new Root(pattern.getClone());
-        for (NodeBase node : root.getDescendants()) {
-            if (node instanceof Wildcard) {
-                node.parent.replaceChild(node, ctx.getNode((Wildcard) node));
-            } else if (node instanceof ConversionWildcard) {
-                ConversionWildcard customWildcard = (ConversionWildcard) node;
-                node.parent.replaceChild(node, customWildcard.convert(ctx.getLeave((ConversionWildcard) node)));
-            }
-        }
-        return root.getChild();
-    }
-
-    static class MatchContext {
-        private Map<Wildcard, NodeBase> nodes;
-        private Map<ConversionWildcard, NodeBase> leaves;
-
-        private MatchContext() {
-        }
-
-        private NodeBase getNode(Wildcard wildcard) {
-            return nodes == null ?
-                null :
-                nodes.get(wildcard);
-        }
-
-        private void putNode(Wildcard wildcard, NodeBase node) {
-            if (nodes == null) {
-                nodes = new HashMap<>();
-            }
-            nodes.put(wildcard, node);
-        }
-
-        private NodeBase getLeave(ConversionWildcard wildcard) {
-            return leaves == null ?
-                null :
-                leaves.get(wildcard);
-        }
-
-        private void putLeave(ConversionWildcard wildcard, NodeBase node) {
-            if (leaves == null) {
-                leaves = new HashMap<>();
-            }
-            leaves.put(wildcard, node);
-        }
-    }
-
-    public static class InstantiateContext {
-
-        final Set<NodeBase> visited = Collections.newSetFromMap(new IdentityHashMap<>());
     }
 }

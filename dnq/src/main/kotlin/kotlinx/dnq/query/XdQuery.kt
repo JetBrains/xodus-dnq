@@ -27,7 +27,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
-import jetbrains.exodus.query.GremlinLeaf
+import jetbrains.exodus.query.LeafNode
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.NodeFactory
 import jetbrains.exodus.query.QueryEngine
@@ -448,7 +448,7 @@ fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S
     return queryEngine.query(
         this.entityIterable,
         this.entityType.entityType,
-        GremlinLeaf(GremlinBlock.HasLabel(entityType.entityType))
+        LeafNode(GremlinBlock.HasLabel(entityType.entityType))
     ).asQuery(entityType)
 }
 
@@ -460,7 +460,7 @@ fun <T : XdEntity, S : T> XdQuery<T>.filterIsNotInstance(entityType: XdEntityTyp
     return queryEngine.query(
         this.entityIterable,
         this.entityType.entityType,
-        GremlinLeaf(GremlinBlock.Not(GremlinBlock.HasLabel(entityType.entityType)))
+        LeafNode(GremlinBlock.Not(GremlinBlock.HasLabel(entityType.entityType)))
     ).asQuery(entityType)
 }
 

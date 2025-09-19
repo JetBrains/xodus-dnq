@@ -156,7 +156,7 @@ object FilteringContext {
 
     @DnqFilterDsl
     infix fun <T : XdEntity> T?.isIn(entities: Iterable<T?>): XdSearchingNode {
-        return withNode(entities.fold(None as NodeBase) { tree, e ->
+        return withNode(entities.fold(LeafNode.none as NodeBase) { tree, e ->
             tree or (NodeFactory.hasLinkTo(
                 deepestNodeName,
                 e?.entity
@@ -173,7 +173,7 @@ object FilteringContext {
     // todo: re-write this using Gremlin's within ?
     @DnqFilterDsl
     infix fun <T : Comparable<*>> T?.isIn(values: Iterable<T?>): XdSearchingNode {
-        return withNode(values.fold(None as NodeBase) { tree, v ->
+        return withNode(values.fold(LeafNode.none as NodeBase) { tree, v ->
             tree or (NodeFactory.propEqual(deepestNodeName, v).decorateIfNeeded())
         })
     }
@@ -181,7 +181,7 @@ object FilteringContext {
     @DnqFilterDsl
     infix fun <T : XdEntity> XdQuery<T>?.containsIn(values: Iterable<T?>): XdSearchingNode {
         size() // to call getLinks()
-        return withNode(values.fold(None as NodeBase) { tree, v ->
+        return withNode(values.fold(LeafNode.none as NodeBase) { tree, v ->
             tree or (NodeFactory.hasLinkTo(
                 deepestNodeName,
                 v?.entity
@@ -228,10 +228,10 @@ internal fun NodeBase.decorateIfNeeded(): NodeBase {
     var result = this
     var temp = child.parentEntity
     while (temp != null) {
-        if (result !is GremlinLeaf) return this
+        if (result !is LeafNode) return this
         val condition = result.query as? GremlinQuery.Condition ?: return this
         val newNesting = listOf(temp.currentNodeName!!)
-        result = GremlinLeaf(
+        result = LeafNode(
             when (condition) {
                 is GremlinQuery.NestedCondition -> GremlinQuery.NestedCondition(
                     newNesting + condition.structure,
@@ -269,7 +269,7 @@ open class XdSearchingNode(val target: NodeBase) {
     }
 
     private fun process(another: XdSearchingNode,
-                        factory: () -> GremlinBinaryNode
+                        factory: () -> BinaryNode
     ): XdSearchingNode {
         return XdSearchingNode(factory()).also {
             SearchingEntity.get().nodes.apply {

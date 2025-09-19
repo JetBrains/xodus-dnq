@@ -17,78 +17,75 @@ package jetbrains.exodus.query
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.*
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.Or
-import jetbrains.exodus.query.obsolete.GetAll
 import java.util.stream.Collectors
 import java.util.stream.StreamSupport
 
 
 object NodeFactory {
+
     @JvmStatic
-    fun all_old(): NodeBase = GetAll()
+    fun all(): LeafNode = LeafNode(All)
 
-    fun all(): GremlinLeaf = GremlinLeaf(All)
-
-    fun propEqual(property: String, value: Comparable<*>?): GremlinLeaf =
-        GremlinLeaf(
+    fun propEqual(property: String, value: Comparable<*>?): LeafNode =
+        LeafNode(
             if (value == null) PropNull((property))
             else PropEqual(property, value)
         )
 
-    fun propNull(property: String): GremlinLeaf =
-        GremlinLeaf(PropNull(property))
+    fun propNull(property: String): LeafNode =
+        LeafNode(PropNull(property))
 
-    fun propNotNull(property: String): GremlinLeaf =
-        GremlinLeaf(PropNotNull(property))
+    fun propNotNull(property: String): LeafNode =
+        LeafNode(PropNotNull(property))
 
-    fun hasSubstring(property: String, value: String?, ignoreCase: Boolean): GremlinLeaf =
-        GremlinLeaf(HasSubstring(property, value, !ignoreCase))
+    fun hasSubstring(property: String, value: String?, ignoreCase: Boolean): LeafNode =
+        LeafNode(HasSubstring(property, value, !ignoreCase))
 
-    fun hasPrefix(property: String, value: String): GremlinLeaf =
-        GremlinLeaf(HasPrefix(property, value, false))
+    fun hasPrefix(property: String, value: String): LeafNode =
+        LeafNode(HasPrefix(property, value, false))
 
-    fun hasElement(property: String, value: Any): GremlinLeaf =
-        GremlinLeaf(HasElement(property, value))
+    fun hasElement(property: String, value: Any): LeafNode =
+        LeafNode(HasElement(property, value))
 
     fun hasLinkTo(linkName: String, entity: Entity?) =
         if (entity == null) hasNoLink(linkName)
-        else GremlinLeaf(HasLinkTo(linkName, (entity.id as YTDBEntityId).asOId()))
+        else LeafNode(HasLinkTo(linkName, (entity.id as YTDBEntityId).asOId()))
 
-    fun hasNoLink(linkName: String) = GremlinLeaf(HasNoLink(linkName))
-    fun hasLink(linkName: String) = GremlinLeaf(HasLink(linkName))
+    fun hasNoLink(linkName: String) = LeafNode(HasNoLink(linkName))
+    fun hasLink(linkName: String) = LeafNode(HasLink(linkName))
 
     fun inRange(property: String, min: Comparable<*>, max: Comparable<*>) =
-        GremlinLeaf(PropInRange(property, min, max))
+        LeafNode(PropInRange(property, min, max))
 
-    fun or(left: NodeBase, right: NodeBase): GremlinBinaryNode =
-        GremlinBinaryNode(
+    fun or(left: NodeBase, right: NodeBase): BinaryNode =
+        BinaryNode(
             left, right, true, "or",
             // todo: is it valid to use "union", which returns Set here?
             ::Or, Iterable<Entity>::union
         )
 
-    fun and(left: NodeBase, right: NodeBase): GremlinBinaryNode =
-        GremlinBinaryNode(
+    fun and(left: NodeBase, right: NodeBase): BinaryNode =
+        BinaryNode(
             left, right, true, "and",
             ::And, ::intersectTwoIts
         )
 
-    fun combine(first: NodeBase, second: NodeBase) =
-        GremlinBinaryNode(
+    fun combine(first: NodeBase, second: NodeBase): BinaryNode =
+        BinaryNode(
             first, second, commutative = false, "andThen",
             ::AndThen
         )
 
-    fun not(nodeBase: NodeBase): GremlinUnaryNode =
-        GremlinUnaryNode(nodeBase, "not", ::Not)
+    fun not(nodeBase: NodeBase): UnaryNode =
+        UnaryNode(nodeBase, "not", ::Not)
 
     fun sortBy(propName: String, direction: SortDirection) =
-        GremlinLeaf(Sort(GremlinBlock.Sort.ByProp(propName), direction))
+        LeafNode(Sort(Sort.ByProp(propName), direction))
 
     fun sortByLinked(linkName: String, propName: String, direction: SortDirection) =
-        GremlinLeaf(Sort(GremlinBlock.Sort.ByLinked(linkName, propName), direction))
+        LeafNode(Sort(Sort.ByLinked(linkName, propName), direction))
 
     private fun intersectTwoIts(it1: Iterable<Entity>, it2: Iterable<Entity>): Iterable<Entity> {
         val s1 = StreamSupport.stream(it1.spliterator(), false)

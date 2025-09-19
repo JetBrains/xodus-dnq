@@ -35,6 +35,9 @@ sealed class GremlinQuery {
     companion object {
         @JvmStatic
         val all = Where(GremlinBlock.All)
+
+        @JvmStatic
+        val none = Where(GremlinBlock.None)
     }
 
     fun then(block: GremlinBlock): GremlinQuery = when {
@@ -130,11 +133,10 @@ sealed class GremlinQuery {
         condCombiner: ConditionCombiner
     ): GremlinQuery? {
         fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label else null
-        fun extractCondition(q: GremlinQuery): GremlinBlock? = when (q) {
-            // is Labeled -> extractCondition(q.inner)
-            is Condition -> q.asBlock()
-            else -> null
-        }
+        fun extractCondition(q: GremlinQuery): GremlinBlock? =
+            if (q is Labeled && q.inner is Condition) q.inner.asBlock()
+            else if (q is Condition) q.asBlock()
+            else null
 
         val thisLabel = extractLabel(this)
         val otherLabel = extractLabel(other)
@@ -491,11 +493,11 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
     }
 
     data object None : GremlinBlock("none", BlockType.CONDITION) {
-        override fun traverse(g: YT): YT = g.where(`__`.constant(false).asYT())
+        override fun traverse(g: YT): YT = g.not(`__`.identity<Any>())
 
         override fun describe(s: StringBuilder): StringBuilder = s.append("none")
 
-        override fun describeGremlin(s: StringBuilder): StringBuilder = s.append(".where(__.constant(false))")
+        override fun describeGremlin(s: StringBuilder): StringBuilder = s.append(".not(__.identity())")
     }
 
     data object Dedup : GremlinBlock("dedup", BlockType.ORDER) {

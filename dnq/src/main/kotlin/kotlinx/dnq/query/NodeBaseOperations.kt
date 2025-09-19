@@ -15,11 +15,8 @@
  */
 package kotlinx.dnq.query
 
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.*
-import jetbrains.exodus.query.metadata.ModelMetaData
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.maxValue
 import kotlinx.dnq.simple.minValue
@@ -45,8 +42,8 @@ infix fun NodeBase.and(that: NodeBase): NodeBase = NodeFactory.and(this, that)
  * Returns new [NodeBase] representing disjunction of `this` and [that] nodes.
  */
 infix fun NodeBase.or(that: NodeBase): NodeBase = when {
-    this is None -> that
-    that is None -> this
+    this === LeafNode.none -> that
+    that === LeafNode.none -> this
     else -> NodeFactory.or(this, that)
 }
 
@@ -329,10 +326,10 @@ inline fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.link(node: Nod
  * ```
  */
 fun <R : XdEntity, T : XdEntity> KProperty1<R, T?>.matches(entityKClass: KClass<R>, node: NodeBase): NodeBase {
-    val query = (node as? GremlinNode)?.query ?: throw IllegalArgumentException("Only Gremlin nodes can be used in matches")
+    val query = node.getQuery()
     val condition = query as? GremlinQuery.Condition ?: throw IllegalArgumentException("Only condition queries can be used in matches")
 
-    return GremlinLeaf(
+    return LeafNode(
         GremlinQuery.NestedCondition(listOf(getDBName(entityKClass)), condition)
     )
 //    @Suppress("UNCHECKED_CAST")
@@ -353,36 +350,12 @@ inline fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.matches(node: 
     return matches(R::class, node)
 }
 
-/**
- * Query node base condition that always returns nothing
- */
-object None : NodeBase() {
-    override fun getSimpleName(): String = "none"
-
-    override fun getClone(): NodeBase = this
-
-    override fun instantiate(entityType: String?, queryEngine: QueryEngine?, metaData: ModelMetaData?, context: InstantiateContext): MutableIterable<Entity> {
-        return GremlinEntityIterable.EMPTY
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (other === this) {
-            return true
-        }
-        return false
-    }
-
-    override fun replaceChild(child: NodeBase, newChild: NodeBase): NodeBase {
-        throw UnsupportedOperationException()
-    }
-}
-
 inline fun <reified T : XdEntity, R : XdEntity> KProperty1<T, R?>.containsIn(vararg entities: R?): NodeBase {
-    return entities.fold(None as NodeBase) { tree, e -> tree or (this eq e) }
+    return entities.fold(LeafNode.none as NodeBase) { tree, e -> tree or (this eq e) }
 }
 
 inline fun <reified T : XdEntity, R : Comparable<*>> KProperty1<T, R?>.containsIn(vararg values: R?): NodeBase {
-    return values.fold(None as NodeBase) { tree, value -> tree or (this eq value) }
+    return values.fold(LeafNode.none as NodeBase) { tree, value -> tree or (this eq value) }
 }
 
 inline infix fun <reified T : XdEntity, reified R : XdEntity> KProperty1<T, R?>.inEntities(entities: Iterable<R?>): NodeBase {
