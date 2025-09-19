@@ -58,7 +58,7 @@ class YTDBPersistentEntityStore(
         var currentTx: YTDBStoreTransaction? = currentTransaction.get()
         check(currentTx == null) { "EntityStore has a transaction on the current thread. Finish it before starting a new one." }
 
-        currentTx = YTDBGremlinStoreTransactionImpl(
+        currentTx = YTDBStoreTransactionImpl(
             databaseProvider.graph,
             store = this,
             schemaBuddy,

@@ -16,13 +16,12 @@
 package jetbrains.exodus.query
 
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterableImpl
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableImpl
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import jetbrains.exodus.query.metadata.entity
 import jetbrains.exodus.query.metadata.oModel
 import org.junit.Assert
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertContentEquals
@@ -45,8 +44,8 @@ class OBinaryOperationsWithSortTest : OTestMixin {
         val engine = QueryEngine(model, youTrackDb.store)
         engine.sortEngine = SortEngine()
         youTrackDb.withStoreTx { txn ->
-            val users = GremlinEntityIterableImpl(txn, GremlinQuery.all.then(GremlinBlock.HasLabel(User.CLASS)))
-            val agents = GremlinEntityIterableImpl(txn, GremlinQuery.all.then(GremlinBlock.HasLabel(Agent.CLASS)))
+            val users = YTDBEntityIterableImpl(txn, GremlinQuery.all.then(GremlinBlock.HasLabel(User.CLASS)))
+            val agents = YTDBEntityIterableImpl(txn, GremlinQuery.all.then(GremlinBlock.HasLabel(Agent.CLASS)))
             val union = engine.union(users, agents)
             val sorted = engine.query(union, BaseUser.CLASS, NodeFactory.sortBy("name", GremlinBlock.SortDirection.ASC))
             assertContentEquals(

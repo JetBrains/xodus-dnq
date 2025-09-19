@@ -22,8 +22,6 @@ import com.jetbrains.youtrackdb.api.DatabaseType
 import com.jetbrains.youtrackdb.api.YouTrackDB
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
-import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphImplAbstract
-import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.youtrackdb.*
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues.Links.IN_PROJECT
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues.Links.ON_BOARD
@@ -83,9 +81,9 @@ class InMemoryYouTrackDB(
 
     val database get() = db
 
-    fun <R> withStoreTx(failOnRollback: Boolean = true, block: (YTDBGremlinStoreTransactionImpl) -> R): R {
+    fun <R> withStoreTx(failOnRollback: Boolean = true, block: (YTDBStoreTransactionImpl) -> R): R {
         return store.computeInTransaction(failOnRollback) { tx ->
-            block(tx as YTDBGremlinStoreTransactionImpl)
+            block(tx as YTDBStoreTransactionImpl)
         }
     }
 

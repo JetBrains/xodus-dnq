@@ -22,7 +22,7 @@ import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import java.io.File
 import java.io.InputStream
 
@@ -175,7 +175,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: YTDB
                 override fun count() = this@asEntityIterable.size.toLong()
             }
         } else {
-            GremlinEntityIterable.EMPTY
+            YTDBEntityIterable.EMPTY
         }
     }
 
@@ -183,7 +183,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: YTDB
         return if (changedLinks.isNotEmpty()) {
             AddedOrRemovedLinksFromSetTransientEntityIterable.get(changedLinks, linkNames, removed = false)
         } else {
-            GremlinEntityIterable.EMPTY
+            YTDBEntityIterable.EMPTY
         }
     }
 
@@ -191,7 +191,7 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: YTDB
         return if (changedLinks.isNotEmpty()) {
             AddedOrRemovedLinksFromSetTransientEntityIterable.get(changedLinks, linkNames, removed = true)
         } else {
-            GremlinEntityIterable.EMPTY
+            YTDBEntityIterable.EMPTY
         }
     }
 

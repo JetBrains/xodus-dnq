@@ -22,7 +22,7 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.NodeFactory
 import kotlinx.dnq.XdEntity
@@ -382,7 +382,7 @@ internal class SearchingEntity(_type: String, _entityStore: TransientEntityStore
 
     override fun getLinks(linkName: String): EntityIterable {
         currentNodeName = linkName
-        return GremlinEntityIterable.EMPTY
+        return YTDBEntityIterable.EMPTY
     }
 
     override fun setProperty(propertyName: String, value: Comparable<Nothing>): Boolean {
@@ -468,7 +468,7 @@ internal class MappingEntity(_type: String, _entityStore: TransientEntityStore) 
         val node = XdModel.getOrThrow(_type)
         node.findLink(linkName).let {
             link = it ?: throw IllegalStateException("can't found model name for $linkName")
-            return GremlinEntityIterable.EMPTY
+            return YTDBEntityIterable.EMPTY
         }
     }
 

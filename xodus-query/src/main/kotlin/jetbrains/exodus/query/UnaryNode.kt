@@ -18,7 +18,7 @@ package jetbrains.exodus.query
 import jetbrains.exodus.core.dataStructures.NanoSet
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.metadata.ModelMetaData
 
@@ -51,7 +51,7 @@ class UnaryNode(
         entityType: String,
         queryEngine: QueryEngine,
         metaData: ModelMetaData?
-    ): Iterable<Entity> = GremlinEntityIterable.query(
+    ): Iterable<Entity> = YTDBEntityIterable.query(
         queryEngine.oStore.requireActiveTransaction(),
         query.then(GremlinBlock.HasLabel(entityType))
     )

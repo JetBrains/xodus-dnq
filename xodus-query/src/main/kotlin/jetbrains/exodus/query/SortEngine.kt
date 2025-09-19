@@ -18,8 +18,8 @@ package jetbrains.exodus.query
 import jetbrains.exodus.entitystore.ComparableGetter
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.YTDBGremlinStoreTransactionImpl
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.metadata.ModelMetaData
 
@@ -46,11 +46,11 @@ open class SortEngine {
                 val i = queryEngine.toEntityIterable(source)
                 if (queryEngine.isPersistentIterable(i)) {
                     val it = (i as EntityIterable).unwrap()
-                    if (it === GremlinEntityIterable.EMPTY) {
-                        GremlinEntityIterable.EMPTY
+                    if (it === YTDBEntityIterable.EMPTY) {
+                        YTDBEntityIterable.EMPTY
                     }
                     return if (it.roughCount == 0L && it.count() == 0L) {
-                        GremlinEntityIterable.EMPTY
+                        YTDBEntityIterable.EMPTY
                     } else {
                         txn.sort(entityType, propertyName, (source as EntityIterable).unwrap(), asc)
                     }
@@ -69,9 +69,9 @@ open class SortEngine {
         asc: Boolean
     ): Iterable<Entity> {
         // todo: validate this logic
-        if (source is GremlinEntityIterable && source.query !is GremlinQuery.ByIds) {
+        if (source is YTDBEntityIterable && source.query !is GremlinQuery.ByIds) {
             val txn = queryEngine.persistentStore.andCheckCurrentTransaction
-            return (txn as YTDBGremlinStoreTransactionImpl).sortLinked(
+            return (txn as YTDBStoreTransactionImpl).sortLinked(
                 entityType, linkName, propName, source, asc
             )
         } else {
@@ -124,7 +124,7 @@ open class SortEngine {
         queryEngine.assertOperational()
         val emd = mmd?.getEntityMetaData(entityType)
         var it = if (emd != null && emd.isAbstract)
-            GremlinEntityIterable.EMPTY
+            YTDBEntityIterable.EMPTY
         else
             queryEngine.instantiateGetAll(entityType)
         if (emd != null) {

@@ -21,7 +21,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 
 internal open class AddedOrRemovedLinksFromSetTransientEntityIterable(
         values: Set<TransientEntity>,
@@ -122,7 +122,7 @@ internal open class AddedOrRemovedLinksFromSetTransientEntityIterable(
             return if (!changedEntities.isEmpty()) {
                 AddedOrRemovedLinksFromSetTransientEntityIterable(changedEntities, removed, linkNames, changesLinks)
             } else {
-                GremlinEntityIterable.EMPTY
+                YTDBEntityIterable.EMPTY
             }
         }
     }

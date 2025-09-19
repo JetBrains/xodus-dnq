@@ -22,9 +22,7 @@ import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryCancellingPolicy
-import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryTimeoutException
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import org.apache.tinkerpop.gremlin.structure.Direction
 import org.junit.Assert
@@ -513,7 +511,7 @@ class YTDBStoreTransactionTest : OTestMixin {
 
         // When
         withStoreTx { tx ->
-            val issues = tx.getAll(Issues.CLASS) as GremlinEntityIterable
+            val issues = tx.getAll(Issues.CLASS) as YTDBEntityIterable
             val boards = issues.selectMany(Issues.Links.ON_BOARD)
 
             // Then
@@ -705,7 +703,7 @@ class YTDBStoreTransactionTest : OTestMixin {
 
         withStoreTx { tx ->
             val boards =
-                GremlinEntityIterable
+                YTDBEntityIterable
                     .where(Issues.CLASS, tx, GremlinBlock.All)
                     .selectManyDistinct(Issues.Links.ON_BOARD)
                     .toList()
@@ -728,10 +726,10 @@ class YTDBStoreTransactionTest : OTestMixin {
         }
 
         withStoreTx { tx ->
-            val issues = GremlinEntityIterable.where(Issues.CLASS, tx, GremlinBlock.All)
+            val issues = YTDBEntityIterable.where(Issues.CLASS, tx, GremlinBlock.All)
             Assert.assertTrue(issues.contains(test.issue1))
             val issuesOnBoard =
-                GremlinEntityIterable
+                YTDBEntityIterable
                     .where(
                         Issues.CLASS, tx,
                         GremlinBlock.HasLinkTo(Issues.Links.ON_BOARD, test.board1.id.asOId())

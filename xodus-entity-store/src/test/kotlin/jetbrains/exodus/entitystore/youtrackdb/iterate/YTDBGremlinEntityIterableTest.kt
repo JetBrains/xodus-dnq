@@ -18,14 +18,11 @@ package jetbrains.exodus.entitystore.youtrackdb.iterate
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import org.apache.tinkerpop.gremlin.process.traversal.P
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class YTDBGremlinEntityIterableTest : OTestMixin {
 
@@ -45,7 +42,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
         // When
         withStoreTx { tx ->
-            val issues = GremlinEntityIterable.where(
+            val issues = YTDBEntityIterable.where(
                 Issues.CLASS, tx, GremlinBlock.PropNull("none")
             )
 
@@ -70,7 +67,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
         // When
         withStoreTx { tx ->
-            val issues = GremlinEntityIterable.where(
+            val issues = YTDBEntityIterable.where(
                 Issues.CLASS, tx,
                 GremlinBlock.HasNoLink(Issues.Links.IN_PROJECT)
             )
@@ -100,7 +97,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
         // When
         withStoreTx { tx ->
-            val issues = GremlinEntityIterable.where(
+            val issues = YTDBEntityIterable.where(
                 Issues.CLASS,
                 tx,
                 GremlinBlock.PropEqual("opca", 300)
@@ -241,7 +238,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
                 Issues.CLASS,
                 test.board1,
                 Issues.Links.ON_BOARD
-            ) as GremlinEntityIterable
+            ) as YTDBEntityIterable
 
             // Then
             // todo:
@@ -665,10 +662,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
         withStoreTx { txn ->
             val childIssues =
-                GremlinEntityIterable.where("Issue", txn, GremlinBlock.HasLabel("ChildIssue"))
+                YTDBEntityIterable.where("Issue", txn, GremlinBlock.HasLabel("ChildIssue"))
 
             val notChildIssues =
-                GremlinEntityIterable.where("Issue", txn, GremlinBlock.Not(GremlinBlock.HasLabel("ChildIssue")))
+                YTDBEntityIterable.where("Issue", txn, GremlinBlock.Not(GremlinBlock.HasLabel("ChildIssue")))
             assertEquals(10, notChildIssues.toList().size)
             assertEquals(1, childIssues.toList().size)
         }
@@ -739,7 +736,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     private fun checkGremlin(
-        iterable: GremlinEntityIterable,
+        iterable: YTDBEntityIterable,
     ) {
         //  todo:
 //        iterable.query.traverse(tx)

@@ -25,7 +25,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.kotlin.notNull
 import jetbrains.exodus.query.metadata.ModelMetaData
@@ -49,7 +49,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
 
     open fun query(instance: Iterable<Entity>?, entityType: String, tree: NodeBase): EntityIterable {
         return when {
-            modelMetaData != null && modelMetaData.getEntityMetaData(entityType) == null -> GremlinEntityIterable.EMPTY
+            modelMetaData != null && modelMetaData.getEntityMetaData(entityType) == null -> YTDBEntityIterable.EMPTY
             instance == null -> tree.instantiate(entityType, this, modelMetaData) as EntityIterable
             instance is EntityIterable -> {
                 if (tree is LeafNode && tree.query is GremlinQuery.SortBy) {
@@ -114,7 +114,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
             return left
         }
         if (left.isEmpty || right.isEmpty) {
-            return GremlinEntityIterable.EMPTY
+            return YTDBEntityIterable.EMPTY
         }
         return if (left is EntityIterable && right is EntityIterable) {
             @Suppress("USELESS_CAST")
@@ -160,7 +160,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
 
     open fun exclude(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
         if (left.isEmpty || left === right) {
-            return GremlinEntityIterable.EMPTY
+            return YTDBEntityIterable.EMPTY
         }
         if (right.isEmpty) {
             return left
@@ -177,7 +177,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         return if (it is EntityIterable) {
             it.selectDistinct(linkName)
         } else {
-            it?.let { inMemorySelectDistinct(it, linkName) } ?: GremlinEntityIterable.EMPTY
+            it?.let { inMemorySelectDistinct(it, linkName) } ?: YTDBEntityIterable.EMPTY
         }
 
     }
@@ -186,7 +186,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         return if (it is EntityIterable) {
             it.selectManyDistinct(linkName)
         } else {
-            return it?.let { inMemorySelectManyDistinct(it, linkName) } ?: GremlinEntityIterable.EMPTY
+            return it?.let { inMemorySelectManyDistinct(it, linkName) } ?: YTDBEntityIterable.EMPTY
         }
     }
 
@@ -209,7 +209,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     open fun isWrapped(it: Iterable<Entity>?): Boolean = true
 
     open fun wrap(entity: Entity): Iterable<Entity> {
-        return GremlinEntityIterable.query(
+        return YTDBEntityIterable.query(
             persistentStore.currentTransaction as YTDBStoreTransaction,
             GremlinQuery.ByIds(listOf((entity.id as YTDBEntityId).asOId()))
         )
@@ -235,11 +235,11 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         val sequence: Sequence<Entity>
 
         val txn = persistentStore.andCheckCurrentTransaction
-        if (left is GremlinEntityIterable) {
+        if (left is YTDBEntityIterable) {
             //May be rewrite it. Constant from nowhere
             val rightIds = right.asSequence().map { e -> (e.id as YTDBEntityId).asOId() }.take(20).toList()
             if (rightIds.size < 20) {
-                return GremlinEntityIterable.query(
+                return YTDBEntityIterable.query(
                     txn as YTDBStoreTransaction,
                     left.query.intersect(
                         GremlinQuery.ByIds(rightIds)
@@ -249,10 +249,10 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
                 ids = getAsEntityIdSet(left)
                 sequence = right.asSequence()
             }
-        } else if (right is GremlinEntityIterable) {
+        } else if (right is YTDBEntityIterable) {
             val leftValues = left.asSequence().map { e -> (e.id as YTDBEntityId).asOId() }.take(20).toList()
             if (leftValues.size < 20) {
-                return GremlinEntityIterable.query(
+                return YTDBEntityIterable.query(
                     txn as YTDBStoreTransaction,
                     GremlinQuery.ByIds(leftValues).intersect(right.query)
                 )
@@ -297,7 +297,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
 
 private val Iterable<Entity>?.isEmpty: Boolean
     get() {
-        return this == null || this === GremlinEntityIterable.EMPTY
+        return this == null || this === YTDBEntityIterable.EMPTY
     }
 
-private val Iterable<Entity>?.isPersistent: Boolean get() = this is GremlinEntityIterable
+private val Iterable<Entity>?.isPersistent: Boolean get() = this is YTDBEntityIterable

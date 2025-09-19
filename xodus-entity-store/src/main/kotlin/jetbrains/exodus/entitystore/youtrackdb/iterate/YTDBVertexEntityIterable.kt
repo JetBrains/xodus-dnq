@@ -13,22 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore.youtrackdb.iterate.link
+package jetbrains.exodus.entitystore.youtrackdb.iterate
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.api.record.Vertex
 import com.jetbrains.youtrackdb.internal.common.util.Sizeable
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.PersistentEntityId
+import jetbrains.exodus.entitystore.util.unsupported
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
-import jetbrains.exodus.entitystore.util.unsupported
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import org.apache.commons.collections4.IterableUtils
 import org.apache.commons.collections4.IteratorUtils
@@ -123,7 +121,7 @@ class YTDBVertexEntityIterable(
         return asQueryIterable().findLinks(entities, linkName)
     }
 
-    private fun asQueryIterable() = GremlinEntityIterable.query(
+    private fun asQueryIterable() = YTDBEntityIterable.Companion.query(
         tx,
         GremlinQuery.ByIds(listOf(targetEntityID.asOId()))
             .then(GremlinBlock.OutLink(linkName))

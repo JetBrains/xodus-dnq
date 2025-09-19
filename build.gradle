@@ -36,6 +36,7 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
+        maven { url 'https://central.sonatype.com/repository/maven-snapshots' } // required for youtrackdb
         maven { url 'https://packages.jetbrains.team/maven/p/xodus/xodus-daily' }
         maven { url = uri("https://packages.jetbrains.team/maven/p/xodus/youtrackdb-daily") }
         // necessary for dokka 1.4.30

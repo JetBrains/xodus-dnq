@@ -15,24 +15,17 @@
  */
 package jetbrains.exodus.entitystore
 
-import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
-
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 
 /**
  * This method is used where a [PersistentStoreTransaction] is expected but a [StoreTransaction] is provided.
  */
-fun StoreTransaction.asOStoreTransaction(): YTDBStoreTransaction {
+fun StoreTransaction.asYTDBTransaction(): YTDBStoreTransaction {
     return this as YTDBStoreTransaction
 }
 
-fun EntityIterable.asGremlinIterable(): GremlinEntityIterable {
-    require(this is GremlinEntityIterable) { "Only GremlinEntityIterable is supported, but was ${this.javaClass.simpleName}" }
-    return this
-}
-
-fun EntityStore.asOStore(): YTDBEntityStore {
-    require(this is YTDBEntityStore) { "Only OEntityStore is supported, but was ${this.javaClass.simpleName}" }
+fun EntityIterable.asYTDBIterable(): YTDBEntityIterable {
+    require(this is YTDBEntityIterable) { "Only GremlinEntityIterable is supported, but was ${this.javaClass.simpleName}" }
     return this
 }

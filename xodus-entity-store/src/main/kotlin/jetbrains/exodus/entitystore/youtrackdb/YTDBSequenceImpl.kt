@@ -1,3 +1,9 @@
+package jetbrains.exodus.entitystore.youtrackdb
+
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
+import jetbrains.exodus.entitystore.Sequence
+
 /**
  * Copyright 2006 - 2025 JetBrains s.r.o.
  *
@@ -13,13 +19,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore.youtrackdb.iterate.property
-
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
-import jetbrains.exodus.entitystore.Sequence
-import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
-
 internal class YTDBSequenceImpl(
     private val session: DatabaseSessionInternal,
     private val sequenceName: String,

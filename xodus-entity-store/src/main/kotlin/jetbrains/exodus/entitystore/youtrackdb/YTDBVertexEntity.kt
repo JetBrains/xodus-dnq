@@ -39,9 +39,9 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.linkTargetEntityIdPropertyName
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
-import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBVertexEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBVertexEntityIterable
 import jetbrains.exodus.util.LightByteArrayOutputStream
 import jetbrains.exodus.util.UTFUtil
 import mu.KLogging
@@ -496,7 +496,7 @@ open class YTDBVertexEntity(
             getLinks(linkNames.first())
         } else {
             // todo: Gremlin supports querying multiple links at once, rewrite this query
-            GremlinEntityIterable.query(
+            YTDBEntityIterable.query(
                 tx,
                 linkNames.asSequence()
                     .map { ln ->

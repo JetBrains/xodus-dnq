@@ -35,18 +35,16 @@ import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterableImpl
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableImpl
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
-import jetbrains.exodus.entitystore.youtrackdb.iterate.property.YTDBSequenceImpl
-import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryCancellingPolicy
 import jetbrains.exodus.env.ReadonlyTransactionException
 import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 internal typealias TransactionEventHandler = (YTDBStoreTransaction) -> Unit
 
-class YTDBGremlinStoreTransactionImpl(
+class YTDBStoreTransactionImpl(
     private val graph: YTDBGraph,
     private val store: YTDBPersistentEntityStore,
     private val schemaBuddy: YTDBSchemaBuddy,
@@ -263,14 +261,14 @@ class YTDBGremlinStoreTransactionImpl(
             .map { it.name }
     }
 
-    override fun getAll(entityType: String): GremlinEntityIterable {
+    override fun getAll(entityType: String): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.where(entityType, this, GremlinBlock.All)
+        return YTDBEntityIterable.where(entityType, this, GremlinBlock.All)
     }
 
-    override fun getSingletonIterable(entity: Entity): GremlinEntityIterable {
+    override fun getSingletonIterable(entity: Entity): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.query(
+        return YTDBEntityIterable.query(
             this, GremlinQuery.all
                 .then(GremlinBlock.IdEqual((entity.id as YTDBEntityId).asOId()))
         )
@@ -280,9 +278,9 @@ class YTDBGremlinStoreTransactionImpl(
         entityType: String,
         propertyName: String,
         value: Comparable<Nothing>
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.where(entityType, this, GremlinBlock.PropEqual(propertyName, value))
+        return YTDBEntityIterable.where(entityType, this, GremlinBlock.PropEqual(propertyName, value))
     }
 
     override fun find(
@@ -290,9 +288,9 @@ class YTDBGremlinStoreTransactionImpl(
         propertyName: String,
         minValue: Comparable<Nothing>,
         maxValue: Comparable<Nothing>
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.where(
+        return YTDBEntityIterable.where(
             entityType,
             this,
             GremlinBlock.PropInRange(propertyName, minValue, maxValue)
@@ -304,9 +302,9 @@ class YTDBGremlinStoreTransactionImpl(
         propertyName: String,
         value: String,
         ignoreCase: Boolean
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.where(
+        return YTDBEntityIterable.where(
             entityType,
             this,
             GremlinBlock.HasSubstring(propertyName, value, !ignoreCase)
@@ -317,31 +315,31 @@ class YTDBGremlinStoreTransactionImpl(
         entityType: String,
         propertyName: String,
         value: String
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.where(entityType, this, GremlinBlock.HasPrefix(propertyName, value, false))
+        return YTDBEntityIterable.where(entityType, this, GremlinBlock.HasPrefix(propertyName, value, false))
     }
 
-    override fun findIds(entityType: String, minValue: Long, maxValue: Long): GremlinEntityIterable {
+    override fun findIds(entityType: String, minValue: Long, maxValue: Long): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.where(
+        return YTDBEntityIterable.where(
             entityType,
             this,
             GremlinBlock.PropInRange(LOCAL_ENTITY_ID_PROPERTY_NAME, minValue, maxValue)
         )
     }
 
-    override fun findWithProp(entityType: String, propertyName: String): GremlinEntityIterable {
+    override fun findWithProp(entityType: String, propertyName: String): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.where(entityType, this, GremlinBlock.PropNotNull(propertyName))
+        return YTDBEntityIterable.where(entityType, this, GremlinBlock.PropNotNull(propertyName))
     }
 
     override fun findWithPropSortedByValue(
         entityType: String,
         propertyName: String
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.query(
+        return YTDBEntityIterable.query(
             this,
             GremlinQuery.all
                 .then(GremlinBlock.HasLabel(entityType))
@@ -351,14 +349,14 @@ class YTDBGremlinStoreTransactionImpl(
         )
     }
 
-    override fun findWithBlob(entityType: String, blobName: String): GremlinEntityIterable {
+    override fun findWithBlob(entityType: String, blobName: String): YTDBEntityIterable {
         return findWithProp(entityType, blobName)
     }
 
-    override fun findLinks(entityType: String, entity: Entity, linkName: String): GremlinEntityIterable {
+    override fun findLinks(entityType: String, entity: Entity, linkName: String): YTDBEntityIterable {
         requireActiveTransaction()
 
-        return GremlinEntityIterable.query(
+        return YTDBEntityIterable.query(
             this,
             GremlinQuery
                 .ByIds(listOf((entity.id as YTDBEntityId).asOId()))
@@ -371,10 +369,10 @@ class YTDBGremlinStoreTransactionImpl(
         entityType: String,
         entities: EntityIterable,
         linkName: String
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        val entityQuery = entities.asGremlinIterable().query
-        return GremlinEntityIterable.query(
+        val entityQuery = entities.asYTDBIterable().query
+        return YTDBEntityIterable.query(
             this,
             entityQuery
                 .then(GremlinBlock.InLink(linkName))
@@ -382,9 +380,9 @@ class YTDBGremlinStoreTransactionImpl(
         )
     }
 
-    override fun findWithLinks(entityType: String, linkName: String): GremlinEntityIterable {
+    override fun findWithLinks(entityType: String, linkName: String): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.where(entityType, this, GremlinBlock.HasLink(linkName))
+        return YTDBEntityIterable.where(entityType, this, GremlinBlock.HasLink(linkName))
     }
 
     override fun findWithLinks(
@@ -392,18 +390,18 @@ class YTDBGremlinStoreTransactionImpl(
         linkName: String,
         oppositeEntityType: String,
         oppositeLinkName: String
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.where(entityType, this, GremlinBlock.HasLink(linkName))
+        return YTDBEntityIterable.where(entityType, this, GremlinBlock.HasLink(linkName))
     }
 
     override fun sort(
         entityType: String,
         propertyName: String,
         ascending: Boolean
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.query(
+        return YTDBEntityIterable.query(
             this,
             GremlinQuery.all
                 .then(GremlinBlock.HasLabel(entityType))
@@ -421,11 +419,11 @@ class YTDBGremlinStoreTransactionImpl(
         propertyName: String,
         rightOrder: EntityIterable,
         ascending: Boolean
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterableImpl(
+        return YTDBEntityIterableImpl(
             this,
-            rightOrder.asGremlinIterable().query
+            rightOrder.asYTDBIterable().query
                 .then(
                     GremlinBlock.Sort(
                         GremlinBlock.Sort.ByProp(propertyName),
@@ -442,7 +440,7 @@ class YTDBGremlinStoreTransactionImpl(
         ascending: Boolean
     ): EntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.query(
+        return YTDBEntityIterable.query(
             this,
             GremlinQuery.all
                 .then(GremlinBlock.HasLabel(entityType))
@@ -463,9 +461,9 @@ class YTDBGremlinStoreTransactionImpl(
         ascending: Boolean
     ): EntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterableImpl(
+        return YTDBEntityIterableImpl(
             this,
-            rightOrder.asGremlinIterable().query
+            rightOrder.asYTDBIterable().query
                 .then(
                     GremlinBlock.Sort(
                         GremlinBlock.Sort.ByLinked(linkName, propertyName),
@@ -481,13 +479,13 @@ class YTDBGremlinStoreTransactionImpl(
         isMultiple: Boolean,
         linkName: String,
         rightOrder: EntityIterable
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
-        return GremlinEntityIterable.query(
+        return YTDBEntityIterable.query(
             this,
-            sortedLinks.asGremlinIterable().query
+            sortedLinks.asYTDBIterable().query
                 .then(GremlinBlock.InLink(linkName))
-                .intersect(rightOrder.asGremlinIterable().query)
+                .intersect(rightOrder.asYTDBIterable().query)
                 .then(GremlinBlock.HasLabel(entityType))
         )
     }
@@ -500,15 +498,15 @@ class YTDBGremlinStoreTransactionImpl(
         rightOrder: EntityIterable,
         oppositeEntityType: String,
         oppositeLinkName: String
-    ): GremlinEntityIterable {
+    ): YTDBEntityIterable {
         requireActiveTransaction()
         // todo: check if we need this
         // Not sure about skipping oppositeEntityType and oppositeLinkName values
-        return GremlinEntityIterable.query(
+        return YTDBEntityIterable.query(
             this,
-            sortedLinks.asGremlinIterable().query
+            sortedLinks.asYTDBIterable().query
                 .then(GremlinBlock.InLink(linkName))
-                .intersect(rightOrder.asGremlinIterable().query)
+                .intersect(rightOrder.asYTDBIterable().query)
                 .then(GremlinBlock.HasLabel(entityType))
         )
     }

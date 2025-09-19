@@ -1,3 +1,8 @@
+package jetbrains.exodus.entitystore.youtrackdb
+
+import com.jetbrains.youtrackdb.internal.common.concur.TimeoutException
+import jetbrains.exodus.entitystore.QueryCancellingPolicy
+
 /**
  * Copyright 2006 - 2025 JetBrains s.r.o.
  *
@@ -13,11 +18,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore.youtrackdb.query
-
-import com.jetbrains.youtrackdb.internal.common.concur.TimeoutException
-import jetbrains.exodus.entitystore.QueryCancellingPolicy
-
 class YTDBQueryTimeoutException(message: String, source: Throwable) : RuntimeException(message, source) {
 
     companion object {

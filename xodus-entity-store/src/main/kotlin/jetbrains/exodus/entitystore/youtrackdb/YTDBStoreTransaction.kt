@@ -23,7 +23,7 @@ import com.jetbrains.youtrackdb.api.record.RID
 import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.*
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 
 interface YTDBStoreTransaction : StoreTransaction {
 
@@ -90,93 +90,93 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     override fun getSnapshot(): YTDBStoreTransaction
 
-    override fun getAll(entityType: String): GremlinEntityIterable
+    override fun getAll(entityType: String): YTDBEntityIterable
 
-    override fun getSingletonIterable(entity: Entity): GremlinEntityIterable
+    override fun getSingletonIterable(entity: Entity): YTDBEntityIterable
 
     override fun find(
         entityType: String,
         propertyName: String,
         value: Comparable<*>
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun find(
         entityType: String,
         propertyName: String,
         minValue: Comparable<*>,
         maxValue: Comparable<*>
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findContaining(
         entityType: String,
         propertyName: String,
         value: String,
         ignoreCase: Boolean
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findStartingWith(
         entityType: String,
         propertyName: String,
         value: String
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findIds(
         entityType: String,
         minValue: Long,
         maxValue: Long
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findWithProp(
         entityType: String,
         propertyName: String
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findWithPropSortedByValue(
         entityType: String,
         propertyName: String
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findWithBlob(
         entityType: String,
         blobName: String
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findLinks(
         entityType: String,
         entity: Entity,
         linkName: String
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findLinks(
         entityType: String,
         entities: EntityIterable,
         linkName: String
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findWithLinks(
         entityType: String,
         linkName: String
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun findWithLinks(
         entityType: String,
         linkName: String,
         oppositeEntityType: String,
         oppositeLinkName: String
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun sort(
         entityType: String,
         propertyName: String,
         ascending: Boolean
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun sort(
         entityType: String,
         propertyName: String,
         rightOrder: EntityIterable,
         ascending: Boolean
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun sortLinks(
         entityType: String,
@@ -184,7 +184,7 @@ interface YTDBStoreTransaction : StoreTransaction {
         isMultiple: Boolean,
         linkName: String,
         rightOrder: EntityIterable
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun sortLinks(
         entityType: String,
@@ -194,7 +194,7 @@ interface YTDBStoreTransaction : StoreTransaction {
         rightOrder: EntityIterable,
         oppositeEntityType: String,
         oppositeLinkName: String
-    ): GremlinEntityIterable
+    ): YTDBEntityIterable
 
     override fun toEntityId(representation: String): YTDBEntityId
 }

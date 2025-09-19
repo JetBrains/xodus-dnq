@@ -19,7 +19,7 @@ import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues
@@ -434,7 +434,7 @@ class YTDBGremlinEngineTest(
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query(Issues.CLASS, NodeFactory.all()) as GremlinEntityIterable
+            val issues = engine.query(Issues.CLASS, NodeFactory.all()) as YTDBEntityIterable
             val boards = issues.selectMany(Issues.Links.ON_BOARD)
 
             // Then
@@ -472,7 +472,7 @@ class YTDBGremlinEngineTest(
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query(Issues.CLASS, NodeFactory.all()) as GremlinEntityIterable
+            val issues = engine.query(Issues.CLASS, NodeFactory.all()) as YTDBEntityIterable
             val boardsDistinct = engine.selectManyDistinct(issues, Issues.Links.ON_BOARD)
 
             // Then

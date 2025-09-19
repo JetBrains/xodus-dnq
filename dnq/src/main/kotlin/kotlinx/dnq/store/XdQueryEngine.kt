@@ -24,9 +24,9 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.asOStoreTransaction
+import jetbrains.exodus.entitystore.asYTDBTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.InMemoryEntityIterable
 import jetbrains.exodus.query.NodeBase
@@ -111,8 +111,8 @@ class XdQueryEngine(val store: TransientEntityStore) :
             ?.takeUnless { session.isRemoved(it) }
             ?.takeIf { it.isSaved }
             ?.let {
-                GremlinEntityIterable.query(
-                    session.transactionInternal.asOStoreTransaction(),
+                YTDBEntityIterable.query(
+                    session.transactionInternal.asYTDBTransaction(),
                     GremlinQuery.ByIds(listOf(it.entity.id.asOId()))
                 )
             } ?: throw IllegalArgumentException()

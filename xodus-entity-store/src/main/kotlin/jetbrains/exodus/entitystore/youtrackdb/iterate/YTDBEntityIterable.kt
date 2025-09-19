@@ -13,35 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore.youtrackdb.gremlin
+package jetbrains.exodus.entitystore.youtrackdb.iterate
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.EntityIterator
+import jetbrains.exodus.entitystore.StoreTransaction
+import jetbrains.exodus.entitystore.asYTDBIterable
 import jetbrains.exodus.entitystore.util.unsupported
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable.Companion.EMPTY
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 
-interface GremlinEntityIterable : EntityIterable {
+interface YTDBEntityIterable : EntityIterable {
     companion object {
         @JvmStatic
-        fun where(entityType: String, tx: YTDBStoreTransaction, condition: GremlinBlock): GremlinEntityIterable =
+        fun where(entityType: String, tx: YTDBStoreTransaction, condition: GremlinBlock): YTDBEntityIterable =
             query(
                 tx,
-                GremlinQuery.all
+                GremlinQuery.Companion.all
                     .then(condition)
                     .then(GremlinBlock.HasLabel(entityType))
             )
 
         @JvmStatic
         fun query(tx: YTDBStoreTransaction, query: GremlinQuery) =
-            GremlinEntityIterableImpl(tx, query);
+            YTDBEntityIterableImpl(tx, query);
 
-        val EMPTY = object : GremlinEntityIterable {
+        val EMPTY = object : YTDBEntityIterable {
 
-            override fun iterator(): EntityIterator = GremlinEntityIterator.EMPTY
+            override fun iterator(): EntityIterator = YTDBEntityIterator.Companion.EMPTY
             override fun selectMany(linkName: String): EntityIterable = this
             override val query: GremlinQuery get() = unsupported { "Should never be called" }
             override fun unwrap(): EntityIterable = this
@@ -77,26 +82,26 @@ interface GremlinEntityIterable : EntityIterable {
     val query: GremlinQuery
 }
 
-class GremlinEntityIterableImpl(
+class YTDBEntityIterableImpl(
     private val tx: YTDBStoreTransaction,
     override val query: GremlinQuery
-) : GremlinEntityIterable {
+) : YTDBEntityIterable {
 
     private val oStore: YTDBEntityStore = tx.getStore()
 
     @Volatile
     private var cachedSize: Long = -1
 
-    private fun modify(block: GremlinBlock): GremlinEntityIterableImpl =
-        GremlinEntityIterableImpl(tx, this.query.then(block))
+    private fun modify(block: GremlinBlock): YTDBEntityIterableImpl =
+        YTDBEntityIterableImpl(tx, this.query.then(block))
 
-    private fun iterator(traversal: GraphTraversal<*, YTDBVertex>): GremlinEntityIterator =
-        GremlinEntityIterator.of(traversal, oStore)
+    private fun iterator(traversal: GraphTraversal<*, YTDBVertex>): YTDBEntityIterator =
+        YTDBEntityIterator.Companion.of(traversal, oStore)
 
     private fun traversal(): GraphTraversal<*, YTDBVertex> =
         query.start(oStore.requireActiveTransaction().g())
 
-    override fun iterator(): GremlinEntityIterator = iterator(traversal())
+    override fun iterator(): YTDBEntityIterator = iterator(traversal())
 
     override fun getTransaction(): StoreTransaction = oStore.requireActiveTransaction()
 
@@ -146,22 +151,22 @@ class GremlinEntityIterableImpl(
         .use { it.hasNext() }
 
     override fun intersect(right: EntityIterable): EntityIterable =
-        if (right === EMPTY) EMPTY
-        else GremlinEntityIterableImpl(tx, query.intersect(right.asGremlinIterable().query))
+        if (right === YTDBEntityIterable.Companion.EMPTY) YTDBEntityIterable.Companion.EMPTY
+        else YTDBEntityIterableImpl(tx, query.intersect(right.asYTDBIterable().query))
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable = intersect(right)
 
     override fun union(right: EntityIterable): EntityIterable =
-        if (right === EMPTY) this
-        else GremlinEntityIterableImpl(tx, query.union(right.asGremlinIterable().query))
+        if (right === YTDBEntityIterable.Companion.EMPTY) this
+        else YTDBEntityIterableImpl(tx, query.union(right.asYTDBIterable().query))
 
     override fun minus(right: EntityIterable): EntityIterable =
-        if (right === EMPTY) this
-        else GremlinEntityIterableImpl(tx, query.difference(right.asGremlinIterable().query))
+        if (right === YTDBEntityIterable.Companion.EMPTY) this
+        else YTDBEntityIterableImpl(tx, query.difference(right.asYTDBIterable().query))
 
     override fun concat(right: EntityIterable): EntityIterable =
-        if (right === EMPTY) this
-        else GremlinEntityIterableImpl(tx, query.unionAll(right.asGremlinIterable().query))
+        if (right === YTDBEntityIterable.Companion.EMPTY) this
+        else YTDBEntityIterableImpl(tx, query.unionAll(right.asYTDBIterable().query))
 
     override fun skip(number: Int): EntityIterable = modify(GremlinBlock.Skip(number.toLong()))
 
@@ -172,7 +177,7 @@ class GremlinEntityIterableImpl(
     override fun selectDistinct(linkName: String): EntityIterable = selectManyDistinct(linkName)
 
     override fun selectMany(linkName: String): EntityIterable =
-        GremlinEntityIterable.query(
+        YTDBEntityIterable.query(
             tx,
             GremlinQuery.FollowLink(
                 this.query,
@@ -206,10 +211,10 @@ class GremlinEntityIterableImpl(
         entities: EntityIterable,
         linkName: String
     ): EntityIterable {
-        return GremlinEntityIterableImpl(
+        return YTDBEntityIterableImpl(
             this.tx,
             entities
-                .asGremlinIterable()
+                .asYTDBIterable()
                 .query
                 .then(GremlinBlock.InLink(linkName))
         )

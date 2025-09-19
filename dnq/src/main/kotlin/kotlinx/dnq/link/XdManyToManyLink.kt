@@ -19,7 +19,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
@@ -66,7 +66,7 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
                             val session = thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction
                             queryEngine.wrap(
 
-                                GremlinEntityIterable.query(
+                                YTDBEntityIterable.query(
                                     session,
                                     GremlinQuery.all
                                         .then(GremlinBlock.IdEqual((thisRef.entityId as YTDBEntityId).asOId()))

@@ -21,7 +21,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 
 
@@ -35,7 +35,7 @@ open class PersistentEntityIterableWrapper(
     wrappedIterable: EntityIterable
 ) :
     EntityIterableWrapper,
-    GremlinEntityIterable {
+    YTDBEntityIterable {
 
     protected val wrappedIterable: EntityIterable = wrappedIterable.let {
         if (wrappedIterable is PersistentEntityIterableWrapper) {
@@ -135,18 +135,18 @@ open class PersistentEntityIterableWrapper(
     }
 
     override val query: GremlinQuery
-        get() = (unwrap() as? GremlinEntityIterable)?.query
+        get() = (unwrap() as? YTDBEntityIterable)?.query
             ?: throw IllegalStateException("EntityIterable is not a GremlinEntityIterable")
 
     // todo: remove this from GremlinEntityIterable interface ?
-    override fun selectMany(linkName: String): EntityIterable = (wrappedIterable as? GremlinEntityIterable)?.selectMany(linkName)
-        ?: GremlinEntityIterable.EMPTY
+    override fun selectMany(linkName: String): EntityIterable = (wrappedIterable as? YTDBEntityIterable)?.selectMany(linkName)
+        ?: YTDBEntityIterable.EMPTY
 
     override fun getTransaction(): StoreTransaction {
-        return if (wrappedIterable == GremlinEntityIterable.EMPTY) {
+        return if (wrappedIterable == YTDBEntityIterable.EMPTY) {
             store.currentTransaction ?: throw IllegalStateException("EntityStore: current transaction is not set")
         } else {
-            (wrappedIterable as GremlinEntityIterable).transaction
+            (wrappedIterable as YTDBEntityIterable).transaction
         }
     }
 

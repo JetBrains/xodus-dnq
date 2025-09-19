@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore.youtrackdb.gremlin
+package jetbrains.exodus.entitystore.youtrackdb.iterate
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBVertexInternal
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterator
@@ -25,17 +24,17 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import java.lang.AutoCloseable
 
-class GremlinEntityIterator(
-    private val gremlinVertices: Iterator<YTDBVertexEntity>,
+class YTDBEntityIterator(
+    private val vertices: Iterator<YTDBVertexEntity>,
     private var closed: Boolean = false,
     private val disposeResources: () -> Unit = {},
 ) : EntityIterator, AutoCloseable {
 
     companion object {
-        val EMPTY = GremlinEntityIterator(emptyList<YTDBVertexEntity>().iterator(), closed = true)
+        val EMPTY = YTDBEntityIterator(emptyList<YTDBVertexEntity>().iterator(), closed = true)
 
-        fun of(traversal: GraphTraversal<*, YTDBVertex>, store: YTDBEntityStore) = GremlinEntityIterator(
-            gremlinVertices = traversal.iterator().asSequence().map {
+        fun of(traversal: GraphTraversal<*, YTDBVertex>, store: YTDBEntityStore) = YTDBEntityIterator(
+            vertices = traversal.iterator().asSequence().map {
                 YTDBVertexEntity(it, store)
             }.iterator(),
             closed = false,
@@ -70,7 +69,7 @@ class GremlinEntityIterator(
     override fun remove() = throw UnsupportedOperationException()
 
     override fun hasNext(): Boolean {
-        val hasNext = gremlinVertices.hasNext()
+        val hasNext = vertices.hasNext()
 
         if (!hasNext) dispose()
 
@@ -78,7 +77,7 @@ class GremlinEntityIterator(
     };
 
     // todo: special TimeoutException handling?
-    override fun next(): Entity = gremlinVertices.next();
+    override fun next(): Entity = vertices.next();
 
     override fun close() {
         dispose()

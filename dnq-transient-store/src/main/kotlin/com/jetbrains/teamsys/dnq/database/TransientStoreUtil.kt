@@ -15,7 +15,6 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.youtrackdb.api.record.Vertex
 import jetbrains.exodus.core.dataStructures.hash.LongHashSet
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientStoreSession
@@ -23,7 +22,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 
 /**
  * @author Vadim.Gurov
@@ -121,7 +120,7 @@ object TransientStoreUtil {
     fun getSize(iterable: Iterable<Entity>?): Int {
         return when {
             iterable == null -> 0
-            iterable === GremlinEntityIterable.EMPTY -> 0
+            iterable === YTDBEntityIterable.EMPTY -> 0
             iterable is EntityIterable -> iterable.size().toInt()
             iterable is Collection<*> -> (iterable as Collection<*>).size
             else -> iterable.count()
