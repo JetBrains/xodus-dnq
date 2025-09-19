@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
+import com.jetbrains.youtrackdb.internal.core.tx.RollbackException
 import jetbrains.exodus.backup.BackupStrategy
 import jetbrains.exodus.bindings.ComparableBinding
 import jetbrains.exodus.entitystore.*
@@ -71,7 +72,8 @@ class YTDBPersistentEntityStore(
     }
 
     private fun onTransactionFinished(tx: YTDBStoreTransaction) {
-        check(currentTransaction.get() == tx) {
+        val get = currentTransaction.get()
+        check(get == tx) {
             "The current transaction at EntityStore is different for one that just has finished. It must not happen."
         }
         currentTransaction.remove()
@@ -96,10 +98,21 @@ class YTDBPersistentEntityStore(
         executeInTransaction(executable)
 
     override fun <T : Any?> computeInTransaction(computable: StoreTransactionalComputable<T>): T {
+        return computeInTransaction(failOnRollback = true, computable)
+    }
+
+    override fun <T : Any?> computeInTransaction(
+        failOnRollback: Boolean,
+        computable: StoreTransactionalComputable<T>
+    ): T {
         val tx = beginTransaction()
         try {
             val result = computable.compute(tx)
-            tx.commit()
+            if (!tx.isFinished) {
+                tx.commit()
+            } else if (failOnRollback) {
+                throw RollbackException("Transaction was rolled back")
+            }
             return result
         } finally {
             if (!tx.isFinished) {

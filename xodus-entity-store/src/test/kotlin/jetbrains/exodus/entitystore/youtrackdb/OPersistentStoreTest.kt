@@ -164,8 +164,8 @@ class OPersistentStoreTest : OTestMixin {
         val aId = youTrackDb.createIssue("A").id
 
         // delete the issue
-        youTrackDb.withTxSession { oSession ->
-            oSession.activeTransaction.load<DBRecord>(aId.asOId()).delete()
+        youTrackDb.withStoreTx { tx ->
+            tx.deleteVertex(aId.asOId())
         }
 
         // entity not found

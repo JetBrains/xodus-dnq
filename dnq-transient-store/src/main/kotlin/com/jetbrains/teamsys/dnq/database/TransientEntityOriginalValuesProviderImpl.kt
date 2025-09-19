@@ -18,7 +18,6 @@ package com.jetbrains.teamsys.dnq.database
 import com.jetbrains.youtrackdb.api.record.Blob
 import com.jetbrains.youtrackdb.api.record.Identifiable
 import com.jetbrains.youtrackdb.api.record.RID
-import com.jetbrains.youtrackdb.api.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.record.impl.RecordBytes
 import jetbrains.exodus.database.LinkChangeType
 import jetbrains.exodus.database.TransientEntity
@@ -27,7 +26,7 @@ import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
-import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.raw
 import jetbrains.exodus.util.UTFUtil
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -46,7 +45,7 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
         }
 
         val oVertex = tx.getVertex(id)
-        val onLoadValue = oVertex.getPropertyOnLoadValue<Any>(propertyName)
+        val onLoadValue = oVertex.raw().getPropertyOnLoadValue<Any>(propertyName)
         return if (onLoadValue is MutableSet<*>) {
             YTDBComparableSet(onLoadValue)
         } else {
@@ -57,7 +56,7 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
     override fun getOriginalBlobStringValue(e: TransientEntity, blobName: String): String? {
         val tx = (session.store.persistentStore as YTDBPersistentEntityStore).requireActiveTransaction()
         val oVertex = tx.getVertex(e.entity.id)
-        val blobHolderOrId = oVertex.getPropertyOnLoadValue<Identifiable?>(blobName)
+        val blobHolderOrId = oVertex.raw().getPropertyOnLoadValue<Identifiable?>(blobName)
         var blobHolder: Blob? = null
         if (blobHolderOrId !is RecordBytes && blobHolderOrId is RID) {
             blobHolder = tx.getBlob(blobHolderOrId)
@@ -73,7 +72,7 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
         val tx = (session.store.persistentStore as YTDBPersistentEntityStore).requireActiveTransaction()
         val oVertex = tx.getVertex(e.entity.id)
         var blobHolder: Blob? = null
-        val blobHolderOrId = oVertex.getPropertyOnLoadValue<Identifiable?>(blobName)
+        val blobHolderOrId = oVertex.raw().getPropertyOnLoadValue<Identifiable?>(blobName)
         if (blobHolderOrId !is RecordBytes && blobHolderOrId is RID) {
             blobHolder = tx.getBlob(blobHolderOrId)
         } else if (blobHolderOrId is RecordBytes) {

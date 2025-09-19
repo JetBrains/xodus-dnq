@@ -255,12 +255,10 @@ fun DatabaseSession.setClassIdIfAbsent(oClass: SchemaClass) {
     }
 }
 
-fun setLocalEntityId(session: DatabaseSession, className: String, vertex: YTDBVertex) {
-    val sequences = (session as DatabaseSessionInternal).metadata.sequenceLibrary
+fun setLocalEntityId(tx: YTDBStoreTransaction, className: String, vertex: YTDBVertex) {
     val sequenceName = localEntityIdSequenceName(className)
-    val sequence: DBSequence = sequences.getSequence(sequenceName)
-        ?: throw IllegalStateException("$sequenceName not found")
-    vertex.property(LOCAL_ENTITY_ID_PROPERTY_NAME, sequence.next(session))
+    val id = tx.getSequenceNextValue(sequenceName)
+    vertex.property(LOCAL_ENTITY_ID_PROPERTY_NAME, id)
 }
 
 fun DatabaseSession.createVertexClassWithClassId(className: String): SchemaClass {

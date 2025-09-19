@@ -16,6 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.exception.ModificationOperationProhibitedException
+import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraphTraversalSource
 import com.jetbrains.youtrackdb.api.gremlin.__
@@ -54,7 +55,12 @@ class YTDBGremlinStoreTransactionImpl(
 ) : YTDBStoreTransaction {
     private var queryCancellingPolicy: YTDBQueryCancellingPolicy? = null
 
-    private fun activeYtdbSession(): DatabaseSessionEmbedded {
+    /**
+     * Get access to the underlying YTDB database session. This method should not be used in general,
+     * and is made public only for unit tests. Once YTDB supports sequences and schema manipulation via
+     * Gremlin API, this method should be removed or made private at least.
+     */
+    fun activeYtdbSession(): DatabaseSessionEmbedded {
         requireActiveTransaction()
         return (graph as YTDBGraphEmbedded).underlyingDatabaseSession
     }
@@ -74,10 +80,6 @@ class YTDBGremlinStoreTransactionImpl(
         return transactionIdImpl
     }
 
-    fun loadVertex(id: RID): Optional<YTDBVertex> =
-        g().V(id)
-            .tryNext()
-            .map { (it as YTDBVertex) }
 
     override fun g(): YTDBGraphTraversalSource = graph.traversal()
 
@@ -181,12 +183,13 @@ class YTDBGremlinStoreTransactionImpl(
         }
 
         requireActiveWritableTransaction()
-        return (g().addV(entityType).next() as YTDBVertex)
+        val t = if (entityType == null) g().addV() else g().addV(entityType)
+        return t.next() as YTDBVertex
     }
 
     override fun newEntity(entityType: String): YTDBVertexEntity {
         val vertex = newVertex(entityType)
-        setLocalEntityId(activeYtdbSession(), entityType, vertex)
+        setLocalEntityId(this, entityType, vertex)
         return YTDBVertexEntity(vertex, store)
     }
 
@@ -201,7 +204,7 @@ class YTDBGremlinStoreTransactionImpl(
     }
 
     override fun generateEntityId(entityType: String, vertex: YTDBVertex) {
-        setLocalEntityId(activeYtdbSession(), entityType, vertex)
+        setLocalEntityId(this, entityType, vertex)
     }
 
     override fun getEntity(id: EntityId): YTDBVertexEntity =
@@ -216,6 +219,18 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun deleteEdge(id: RID) {
         g().E(id).drop().iterate()
+    }
+
+    private fun loadVertex(id: RID): Optional<YTDBVertex> =
+        g().V(id)
+            .tryNext()
+            .map { (it as YTDBVertex) }
+
+    override fun getVertex(id: RID): YTDBVertex {
+        val session = activeYtdbSession()
+        return loadVertex(id).orElseThrow {
+            RecordNotFoundException(session, id)
+        }
     }
 
     override fun getVertex(id: YTDBEntityId): YTDBVertex {
@@ -541,6 +556,11 @@ class YTDBGremlinStoreTransactionImpl(
 
     override fun getOSequence(sequenceName: String): DBSequence {
         return schemaBuddy.getSequence(activeYtdbSession(), sequenceName)
+    }
+
+    override fun getSequenceNextValue(sequenceName: String): Long {
+        val session = activeYtdbSession()
+        return schemaBuddy.getSequence(session, sequenceName).next(session)
     }
 
     override fun updateOSequence(sequenceName: String, currentValue: Long) {

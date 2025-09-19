@@ -16,10 +16,9 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.google.common.truth.Truth.assertThat
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.record.DBRecord
-import com.jetbrains.youtrackdb.api.record.Direction
 import com.jetbrains.youtrackdb.api.record.Vertex
-import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
@@ -27,6 +26,7 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryCancellingPolicy
 import jetbrains.exodus.entitystore.youtrackdb.query.YTDBQueryTimeoutException
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
+import org.apache.tinkerpop.gremlin.structure.Direction
 import org.junit.Assert
 import org.junit.Ignore
 import org.junit.Rule
@@ -90,11 +90,11 @@ class YTDBStoreTransactionTest : OTestMixin {
             )
             Assert.assertEquals(
                 2,
-                test.issue1.vertex.getEdges(
+                test.issue1.vertex.edges(
                     Direction.IN,
                     YTDBVertexEntity.edgeClassName(Boards.Links.HAS_ISSUE)
                 )
-                    .toList().size
+                    .asSequence().toList().size
             )
         }
     }
@@ -597,8 +597,8 @@ class YTDBStoreTransactionTest : OTestMixin {
         val aId = youTrackDb.createIssue("A").id
 
         // delete the issue
-        youTrackDb.withTxSession { oSession ->
-            oSession.activeTransaction.load<DBRecord>(aId.asOId()).delete()
+        youTrackDb.withStoreTx { tx ->
+            tx.deleteVertex(aId.asOId())
         }
 
         // entity not found
@@ -751,8 +751,8 @@ class YTDBStoreTransactionTest : OTestMixin {
         }
 
         withStoreTx { tx ->
-            val vertex: Vertex = tx.getVertex(id)
-            assertEquals("caramba", vertex.getProperty("mamba"))
+            val vertex: YTDBVertex = tx.getVertex(id)
+            assertEquals("caramba", vertex.property<String>("mamba").value())
             val e1 = tx.getEntity(id)
             e1.delete()
         }

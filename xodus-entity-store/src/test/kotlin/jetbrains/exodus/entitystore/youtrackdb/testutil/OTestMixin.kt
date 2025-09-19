@@ -42,7 +42,7 @@ interface OTestMixin {
     }
 
     fun <R> withStoreTx(block: (YTDBStoreTransaction) -> R): R {
-        return youTrackDb.withStoreTx(block)
+        return youTrackDb.withStoreTx(true, block)
     }
 
     fun <R> withSession(block: (DatabaseSession) -> R): R {

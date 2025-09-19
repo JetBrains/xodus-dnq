@@ -344,9 +344,9 @@ class YTDBEntityTest : OTestMixin {
             assertEquals(1, links.size())
             assertTrue(links.any { it.id == issueD.id })
 
-            val bag = issueA.vertex.getTargetLocalEntityIds(linkName)
+            val bag = issueA.vertex.raw().getTargetLocalEntityIds(linkName)
             assertEquals(1, bag.size())
-            assertTrue(bag.contains(issueD.vertex.identity))
+            assertTrue(bag.contains(issueD.vertex.id()))
         }
     }
 
@@ -372,18 +372,18 @@ class YTDBEntityTest : OTestMixin {
             assertFalse(issueA.setLink(linkName, issueB))
 
             assertEquals(issueB, issueA.getLink(linkName))
-            val bag = issueA.vertex.getTargetLocalEntityIds(linkName)
+            val bag = issueA.vertex.raw().getTargetLocalEntityIds(linkName)
             assertEquals(1, bag.size())
-            assertTrue(bag.contains(issueB.vertex.identity))
+            assertTrue(bag.contains(issueB.vertex.id()))
         }
 
         youTrackDb.withStoreTx {
             assertTrue(issueA.setLink(linkName, issueC))
 
             assertEquals(issueC, issueA.getLink(linkName))
-            val bag = issueA.vertex.getTargetLocalEntityIds(linkName)
+            val bag = issueA.vertex.raw().getTargetLocalEntityIds(linkName)
             assertEquals(1, bag.size())
-            assertTrue(bag.contains(issueC.vertex.identity))
+            assertTrue(bag.contains(issueC.vertex.id()))
         }
 
         youTrackDb.withStoreTx {
@@ -391,9 +391,9 @@ class YTDBEntityTest : OTestMixin {
             assertFalse(issueA.setLink(linkName, issueB.id))
 
             assertEquals(issueB, issueA.getLink(linkName))
-            val bag = issueA.vertex.getTargetLocalEntityIds(linkName)
+            val bag = issueA.vertex.raw().getTargetLocalEntityIds(linkName)
             assertEquals(1, bag.size())
-            assertTrue(bag.contains(issueB.vertex.identity))
+            assertTrue(bag.contains(issueB.vertex.id()))
         }
     }
 
@@ -424,7 +424,7 @@ class YTDBEntityTest : OTestMixin {
             val links = issueA.getLinks(linkName)
             assertEquals(0, links.size())
             // the complementary property must also be cleared
-            val bag = issueA.vertex.getTargetLocalEntityIds(linkName)
+            val bag = issueA.vertex.raw().getTargetLocalEntityIds(linkName)
             assertEquals(0, bag.size())
         }
     }

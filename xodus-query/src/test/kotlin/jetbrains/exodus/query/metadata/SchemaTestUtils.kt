@@ -16,6 +16,8 @@
 package jetbrains.exodus.query.metadata
 
 import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBEdge
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.record.Direction
 import com.jetbrains.youtrackdb.api.record.Edge
 import com.jetbrains.youtrackdb.api.record.Vertex
@@ -277,36 +279,32 @@ internal fun ModelMetaData.twoDirectionalAssociation(
     )
 }
 
-internal fun DatabaseSession.createVertexAndSetLocalEntityId(className: String): Vertex {
-    val v = activeTransaction.newVertex(className)
-    setLocalEntityId(this, className, v)
-    return v
-}
+internal fun createVertexAndSetLocalEntityId(tx: YTDBStoreTransaction, className: String): YTDBVertex =
+    tx
+        .newVertex(className)
+        .apply { tx.generateEntityId(className, this) }
 
-internal fun Vertex.setPropertyAndSave(propName: String, value: Any) {
-    setProperty(propName, value)
-}
-
-internal fun Vertex.addEdge(linkName: String, target: Vertex) {
+internal fun YTDBVertex.addSimpleEdge(linkName: String, target: YTDBVertex) {
     val edgeClassName = YTDBVertexEntity.edgeClassName(linkName)
-    addEdge(target, edgeClassName)
+    addEdge( edgeClassName, target)
 }
 
-internal fun Vertex.addIndexedEdge(linkName: String, target: Vertex) {
-    val bag = getTargetLocalEntityIds(linkName)
-    addEdge(target, YTDBVertexEntity.edgeClassName(linkName))
-    bag.add(target.identity)
-    setTargetLocalEntityIds(linkName, bag)
+internal fun YTDBVertex.addIndexedEdge(linkName: String, target: YTDBVertex) {
+    val bag = raw().getTargetLocalEntityIds(linkName)
+    addEdge(YTDBVertexEntity.edgeClassName(linkName), target)
+    bag.add(target.id())
+    raw().setTargetLocalEntityIds(linkName, bag)
 }
 
-internal fun Vertex.deleteIndexedEdge(linkName: String, target: Vertex) {
-    val bag = getTargetLocalEntityIds(linkName)
+internal fun YTDBVertex.deleteIndexedEdge(linkName: String, target: YTDBVertex) {
+    val bag = raw().getTargetLocalEntityIds(linkName)
 
-    for (e in getEdges(Direction.OUT, YTDBVertexEntity.edgeClassName(linkName))) {
-        if (e.toLink?.identity == target.identity) {
-            e.delete()
+    for (e in edges(org.apache.tinkerpop.gremlin.structure.Direction.OUT, YTDBVertexEntity.edgeClassName(linkName))) {
+        val edge = e as YTDBEdge
+        if (e.outVertex().id() == target.id()) {
+            e.remove()
         }
     }
-    bag.remove(target.identity)
-    setTargetLocalEntityIds(linkName, bag)
+    bag.remove(target.id())
+    raw().setTargetLocalEntityIds(linkName, bag)
 }

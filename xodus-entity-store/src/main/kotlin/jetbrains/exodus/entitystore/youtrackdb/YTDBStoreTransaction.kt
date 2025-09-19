@@ -51,6 +51,8 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     fun getOSequence(sequenceName: String): DBSequence
 
+    fun getSequenceNextValue(sequenceName: String): Long
+
     fun updateOSequence(sequenceName: String, currentValue: Long)
 
     fun renameOClass(oldName: String, newName: String)
@@ -63,6 +65,7 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     fun deleteOClass(entityTypeName: String)
 
+    fun getVertex(id: RID): YTDBVertex
     fun getVertex(id: YTDBEntityId): YTDBVertex
 
     fun deleteVertex(id: RID)
@@ -77,6 +80,7 @@ interface YTDBStoreTransaction : StoreTransaction {
     fun newEntity(entityType: String, localEntityId: Long): YTDBVertexEntity
 
     fun newVertex(entityType: String?): YTDBVertex
+
 
     override fun newEntity(entityType: String): YTDBVertexEntity
 

@@ -108,18 +108,14 @@ class YTDBSchemaBuddyTest : OTestMixin {
             )
         }
 
-        youTrackDb.withTxSession { session ->
-            val res =
-                (session as DatabaseSessionInternal).metadata.sequenceLibrary.getSequence("seq")
-                    .next(session)
+        youTrackDb.withStoreTx(failOnRollback = false) { tx ->
+            val res = tx.getSequenceNextValue("seq")
             assertEquals(1, res)
-            session.rollback()
+            tx.abort()
         }
 
-        youTrackDb.withTxSession { session ->
-            val res =
-                (session as DatabaseSessionInternal).metadata.sequenceLibrary.getSequence("seq")
-                    .next(session)
+        youTrackDb.withStoreTx { tx ->
+            val res = tx.getSequenceNextValue("seq")
             assertEquals(2, res)
         }
     }
@@ -149,8 +145,8 @@ class YTDBSchemaBuddyTest : OTestMixin {
         }
 
         // the changes made in the transaction are still there
-        withTxSession { session ->
-            assertNotNull(session.activeTransaction.loadVertex(issId))
+        withStoreTx { tx ->
+            assertNotNull(tx.getVertex(issId))
         }
     }
 

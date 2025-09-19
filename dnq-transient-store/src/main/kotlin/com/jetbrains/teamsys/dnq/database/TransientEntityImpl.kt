@@ -47,27 +47,13 @@ open class TransientEntityImpl : TransientEntity {
                 current = store.threadSessionOrThrow.transactionInternal.getEntity(id) as YTDBVertexEntity
 
                 currentEntity.set(current)
-            } else if (!current.isLoaded) {
-                current =
-                    (store.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction).bindToSession(current as YTDBVertexEntity)
-
-                currentEntity.set(current)
             }
 
             return current
         }
         set(persistentEntity) {
             id = persistentEntity.id
-
-            if (persistentEntity.isLoaded) {
-                currentEntity.set(persistentEntity)
-            } else {
-                currentEntity.set(
-                    store.threadSessionOrThrow.asOStoreTransaction().bindToSession(
-                        persistentEntity as YTDBVertexEntity
-                    )
-                )
-            }
+            currentEntity.set(persistentEntity)
         }
 
     override fun resetIfNew() {

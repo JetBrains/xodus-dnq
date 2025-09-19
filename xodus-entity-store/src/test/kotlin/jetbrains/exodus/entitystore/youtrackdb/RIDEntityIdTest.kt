@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.createIssue
@@ -34,29 +34,21 @@ class RIDEntityIdTest {
         youTrackDb.provider.withSession { oSession ->
             oSession.schema.createVertexClass("type1")
         }
-        var vertex: Vertex = youTrackDb.withTxSession { oSession ->
-            oSession.activeTransaction.newVertex("type1")
-        }
-        youTrackDb.withTxSession {
-            assertFailsWith<IllegalStateException> {
-                vertex = it.activeTransaction.loadVertex(vertex)
-                RIDEntityId.fromVertex(vertex)
-            }
+        val vertex: YTDBVertex = youTrackDb.provider.graph.addVertex("type1")
+        assertFailsWith<IllegalStateException> {
+            RIDEntityId.fromVertex(vertex)
         }
 
         youTrackDb.provider.withSession { oSession ->
             val oClass = oSession.schema.getClass("type1")
             oClass.setCustom(YTDBVertexEntity.CLASS_ID_CUSTOM_PROPERTY_NAME, 300.toString())
         }
-        youTrackDb.withTxSession {
-            vertex = it.activeTransaction.loadVertex(vertex)
-            assertFailsWith<IllegalStateException> {
-                RIDEntityId.fromVertex(vertex)
-            }
-
-            vertex.setProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, 200L)
+        assertFailsWith<IllegalStateException> {
             RIDEntityId.fromVertex(vertex)
         }
+
+        vertex.property(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, 200L)
+        RIDEntityId.fromVertex(vertex)
     }
 
     @Test

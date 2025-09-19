@@ -18,9 +18,6 @@ package jetbrains.exodus.query.metadata
 import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
 import com.jetbrains.youtrackdb.api.record.Direction
 import com.jetbrains.youtrackdb.api.record.Vertex
-import jetbrains.exodus.entitystore.EntityId
-import jetbrains.exodus.entitystore.youtrackdb.RIDEntityId
-import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.edgeClassName
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.linkTargetEntityIdPropertyName
 import jetbrains.exodus.entitystore.youtrackdb.getTargetLocalEntityIds
@@ -96,15 +93,15 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
             session.applySchema(model)
         }
 
-        val (id11, id12, id21) = youTrackDb.withTxSession { oSession ->
-            val v11 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v12 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v21 = oSession.createVertexAndSetLocalEntityId("type2")
+        val (id11, id12, id21) = youTrackDb.withStoreTx { tx ->
+            val v11 = createVertexAndSetLocalEntityId(tx, "type1")
+            val v12 = createVertexAndSetLocalEntityId(tx, "type1")
+            val v21 = createVertexAndSetLocalEntityId(tx, "type2")
 
-            v11.addEdge("ass1", v21)
-            v21.addEdge("ass2", v11)
-            v21.addEdge("ass2", v12)
-            Triple(v11.identity, v12.identity, v21.identity)
+            v11.addSimpleEdge("ass1", v21)
+            v21.addSimpleEdge("ass2", v11)
+            v21.addSimpleEdge("ass2", v12)
+            Triple(v11.id(), v12.id(), v21.id())
         }
 
         youTrackDb.withTxSession { session ->
@@ -142,9 +139,9 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
             val bag11 = v11.getTargetLocalEntityIds("ass1")
             val bag21 = v21.getTargetLocalEntityIds("ass2")
 
-            assertTrue(bag11.size() == 1)
+            kotlin.test.assertEquals(1, bag11.size())
             assertTrue(bag11.contains(v21.identity))
-            assertTrue(bag21.size() == 2)
+            kotlin.test.assertEquals(2,bag21.size())
             assertTrue(bag21.contains(v11.identity))
             assertTrue(bag21.contains(v12.identity))
         }
@@ -167,28 +164,28 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
 
         // (no links) == (no links)
         assertFailsWith<RecordDuplicatedException> {
-            youTrackDb.withTxSession { oSession ->
-                oSession.createVertexAndSetLocalEntityId("type1")
-                oSession.createVertexAndSetLocalEntityId("type1")
+            youTrackDb.withStoreTx { tx ->
+                createVertexAndSetLocalEntityId(tx, "type1")
+                createVertexAndSetLocalEntityId(tx, "type1")
             }
         }
 
         // ({ v3 }) != (no links)
-        val (id1, id2, id3) = youTrackDb.withTxSession { oSession ->
-            val v1 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v2 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v3 = oSession.createVertexAndSetLocalEntityId("type2")
+        val (id1, id2, id3) = youTrackDb.withStoreTx { tx ->
+            val v1 = createVertexAndSetLocalEntityId(tx, "type1")
+            val v2 = createVertexAndSetLocalEntityId(tx, "type1")
+            val v3 = createVertexAndSetLocalEntityId(tx, "type2")
 
             v1.addIndexedEdge("ass1", v3)
 
-            Triple(v1.identity, v2.identity, v3.identity)
+            Triple(v1.id(), v2.id(), v3.id())
         }
 
         // ({ v3 }) == ({ v3 })
         assertFailsWith<RecordDuplicatedException> {
-            youTrackDb.withTxSession { oSession ->
-                val v1 = oSession.activeTransaction.loadVertex(id1)
-                val v3 = oSession.activeTransaction.loadVertex(id3)
+            youTrackDb.withStoreTx { tx ->
+                val v1 = tx.getVertex(id1)
+                val v3 = tx.getVertex(id3)
 
                 v1.addIndexedEdge("ass1", v3)
             }
@@ -196,11 +193,10 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
 
         // ({ v2, v3 }) == ({ v3 })
         assertFailsWith<RecordDuplicatedException> {
-            youTrackDb.withTxSession { oSession ->
-                val tx = oSession.activeTransaction
-                val v1 = tx.loadVertex(id1)
-                val v2 = tx.loadVertex(id2)
-                val v3 = tx.loadVertex(id3)
+            youTrackDb.withStoreTx { tx ->
+                val v1 = tx.getVertex(id1)
+                val v2 = tx.getVertex(id2)
+                val v3 = tx.getVertex(id3)
 
                 v1.addIndexedEdge("ass1", v2)
                 v2.addIndexedEdge("ass1", v3)
@@ -208,11 +204,10 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         // ({ v2 }) != ({ v3 })
-        youTrackDb.withTxSession { oSession ->
-            val tx = oSession.activeTransaction
-            val v1 = tx.loadVertex(id1)
-            val v2 = tx.loadVertex(id2)
-            val v3 = tx.loadVertex(id3)
+        youTrackDb.withStoreTx { tx ->
+            val v1 = tx.getVertex(id1)
+            val v2 = tx.getVertex(id2)
+            val v3 = tx.getVertex(id3)
 
             v2.addIndexedEdge("ass1", v3)
             v1.deleteIndexedEdge("ass1", v3)
@@ -240,70 +235,67 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
 
         // (1, no links) == (1, no links)
         assertFailsWith<RecordDuplicatedException> {
-            youTrackDb.withTxSession { oSession ->
-                val v1 = oSession.createVertexAndSetLocalEntityId("type1")
-                val v2 = oSession.createVertexAndSetLocalEntityId("type1")
+            youTrackDb.withStoreTx{ tx ->
+                val v1 = createVertexAndSetLocalEntityId(tx,"type1")
+                val v2 = createVertexAndSetLocalEntityId(tx,"type1")
 
-                v1.setPropertyAndSave("prop1", 1)
-                v2.setPropertyAndSave("prop1", 1)
+                v1.property("prop1", 1)
+                v2.property("prop1", 1)
             }
         }
 
         // (1, { v3 }) == (1, { v3 }), trying to set in the same transaction
         assertFailsWith<RecordDuplicatedException> {
-            youTrackDb.withTxSession { oSession ->
-                val v1 = oSession.createVertexAndSetLocalEntityId("type1")
-                val v2 = oSession.createVertexAndSetLocalEntityId("type1")
-                val v3 = oSession.createVertexAndSetLocalEntityId("type2")
+            youTrackDb.withStoreTx { tx ->
+                val v1 = createVertexAndSetLocalEntityId(tx,"type1")
+                val v2 = createVertexAndSetLocalEntityId(tx,"type1")
+                val v3 = createVertexAndSetLocalEntityId(tx,"type2")
 
-                v1.setPropertyAndSave("prop1", 1)
-                v2.setPropertyAndSave("prop1", 1)
+                v1.property("prop1", 1)
+                v2.property("prop1", 1)
 
                 v1.addIndexedEdge("ass1", v3)
                 v2.addIndexedEdge("ass1", v3)
-                Triple(v1.identity, v2.identity, v3.identity)
+                Triple(v1.id(), v2.id(), v3.id())
             }
         }
 
         // (1, { v3 } ) != (1, no links)
-        val (id1, id2, id3) = youTrackDb.withTxSession { oSession ->
-            val v1 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v2 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v3 = oSession.createVertexAndSetLocalEntityId("type2")
+        val (id1, id2, id3) = youTrackDb.withStoreTx { tx ->
+            val v1 = createVertexAndSetLocalEntityId(tx,"type1")
+            val v2 = createVertexAndSetLocalEntityId(tx,"type1")
+            val v3 = createVertexAndSetLocalEntityId(tx,"type2")
 
-            v1.setPropertyAndSave("prop1", 1)
-            v2.setPropertyAndSave("prop1", 1)
+            v1.property("prop1", 1)
+            v2.property("prop1", 1)
 
             v1.addIndexedEdge("ass1", v3)
-            Triple(v1.identity, v2.identity, v3.identity)
+            Triple(v1.id(), v2.id(), v3.id())
         }
 
         // (1, { v3 } ) == (1, { v3 } )
         assertFailsWith<RecordDuplicatedException> {
-            youTrackDb.withTxSession { oSession ->
-                val tx = oSession.activeTransaction
-                val v2 = tx.loadVertex(id2)
-                val v3 = tx.loadVertex(id3)
+            youTrackDb.withStoreTx { tx ->
+                val v2 = tx.getVertex(id2)
+                val v3 = tx.getVertex(id3)
 
                 v2.addIndexedEdge("ass1", v3)
             }
         }
 
         // (1, { v2, v3 } ) != (1, no links)
-        youTrackDb.withTxSession { oSession ->
-            val tx = oSession.activeTransaction
-            val v1 = tx.loadVertex(id1)
-            val v2 = tx.loadVertex(id2)
+        youTrackDb.withStoreTx { tx ->
+            val v1 = tx.getVertex(id1)
+            val v2 = tx.getVertex(id2)
 
             v1.addIndexedEdge("ass1", v2)
         }
 
         // (1, { v2, v3 } ) == (1, { v3 } ), who could think...
         assertFailsWith<RecordDuplicatedException> {
-            youTrackDb.withTxSession { oSession ->
-                val tx = oSession.activeTransaction
-                val v2 = tx.loadVertex(id2)
-                val v3 = tx.loadVertex(id3)
+            youTrackDb.withStoreTx { tx ->
+                val v2 = tx.getVertex(id2)
+                val v3 = tx.getVertex(id3)
 
                 v2.addIndexedEdge("ass1", v3)
             }
@@ -330,24 +322,23 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         // (1, { v3 } ) != (1, no links)
-        val (id1, id2, id3) = youTrackDb.withTxSession { oSession ->
-            val v1 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v2 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v3 = oSession.createVertexAndSetLocalEntityId("type2")
+        val (id1, id2, id3) = youTrackDb.withStoreTx { tx ->
+            val v1 = createVertexAndSetLocalEntityId(tx,"type1")
+            val v2 = createVertexAndSetLocalEntityId(tx,"type1")
+            val v3 = createVertexAndSetLocalEntityId(tx,"type2")
 
-            v1.setPropertyAndSave("prop1", 1)
-            v2.setPropertyAndSave("prop1", 1)
+            v1.property("prop1", 1)
+            v2.property("prop1", 1)
 
             v1.addIndexedEdge("ass1", v3)
-            Triple(v1.identity, v2.identity, v3.identity)
+            Triple(v1.id(), v2.id(), v3.id())
         }
 
         // (1, no links) != (1, { v3 })
-        youTrackDb.withTxSession { oSession ->
-            val tx = oSession.activeTransaction
-            val v1 = tx.loadVertex(id1)
-            val v2 = tx.loadVertex(id2)
-            val v3 = tx.loadVertex(id3)
+        youTrackDb.withStoreTx { tx ->
+            val v1 = tx.getVertex(id1)
+            val v2 = tx.getVertex(id2)
+            val v3 = tx.getVertex(id3)
 
             v2.addIndexedEdge("ass1", v3)
             v1.deleteIndexedEdge("ass1", v3)

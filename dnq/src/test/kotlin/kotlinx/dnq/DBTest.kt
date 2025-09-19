@@ -194,9 +194,8 @@ abstract class DBTest {
     fun <T> transactional(
             readonly: Boolean = false,
             queryCancellingPolicy: QueryCancellingPolicy? = null,
-            isNew: Boolean = false,
             block: (TransientStoreSession) -> T
-    ) = store.transactional(readonly, queryCancellingPolicy, isNew, block)
+    ) = store.transactional(readonly, queryCancellingPolicy, block)
 
     fun <XD : XdEntity> XdEntityType<XD>.onUpdate(mode: Where = SYNC_AFTER_FLUSH, action: (XD, XD) -> Unit): XdEntityListener<XD> {
         val listener = makeListener(mode, action)

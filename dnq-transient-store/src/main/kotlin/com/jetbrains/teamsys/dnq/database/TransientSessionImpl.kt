@@ -500,22 +500,23 @@ class TransientSessionImpl(
 
             tracker.isNew(entity) -> entity
             else -> {
-                val yTDBEntity = entity.entity
-                if (yTDBEntity is YTDBVertexEntity &&
-                    (yTDBEntity.isUnloaded ||
-                            store.persistentStore.currentTransaction?.isNotBound(yTDBEntity) ?: true)
-                ) {
-                    try {
-                        // load persistent entity from database by id
-                        newEntityImpl(transactionInternal.getEntity(entity.id))
-                    } catch (e: EntityRemovedInDatabaseException) {
-                        logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
-                        throw e
-                    }
-
-                } else {
-                    entity
-                }
+                entity
+//                val yTDBEntity = entity.entity
+//                if (yTDBEntity is YTDBVertexEntity &&
+//                    (yTDBEntity.isUnloaded ||
+//                            store.persistentStore.currentTransaction?.isNotBound(yTDBEntity) ?: true)
+//                ) {
+//                    try {
+//                        // load persistent entity from database by id
+//                        newEntityImpl(transactionInternal.getEntity(entity.id))
+//                    } catch (e: EntityRemovedInDatabaseException) {
+//                        logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
+//                        throw e
+//                    }
+//
+//                } else {
+//                    entity
+//                }
             }
         }
     }

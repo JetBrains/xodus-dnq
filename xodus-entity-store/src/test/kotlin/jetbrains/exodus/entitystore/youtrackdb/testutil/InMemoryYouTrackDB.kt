@@ -83,9 +83,9 @@ class InMemoryYouTrackDB(
 
     val database get() = db
 
-    fun <R> withStoreTx(block: (YTDBStoreTransaction) -> R): R {
-        return store.computeInTransaction { tx ->
-            block(tx as YTDBStoreTransaction)
+    fun <R> withStoreTx(failOnRollback: Boolean = true, block: (YTDBGremlinStoreTransactionImpl) -> R): R {
+        return store.computeInTransaction(failOnRollback) { tx ->
+            block(tx as YTDBGremlinStoreTransactionImpl)
         }
     }
 

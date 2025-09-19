@@ -344,19 +344,18 @@ class YouTrackDbSchemaInitializerTest {
         }
 
         assertFailsWith<RecordDuplicatedException> {
-            orientDb.withTxSession { oSession ->
-                val tx = oSession.activeTransaction
-                val oClass = oSession.schema.getClass("type1")!!
-                val v1 = tx.newVertex(oClass)
-                setLocalEntityId(oSession, "type1", v1)
+            orientDb.withStoreTx { tx ->
+                val oClass = tx.activeYtdbSession().schema.getClass("type1")!!
+                val v1 = tx.newVertex(oClass.name)
+                tx.generateEntityId("type1", v1)
                 v1.requireLocalEntityId()
-                v1.setProperty("prop1", 3)
-                v1.setProperty("prop2", 4)
+                v1.property("prop1", 3)
+                v1.property("prop2", 4)
 
-                val v2 = tx.newVertex(oClass)
-                setLocalEntityId(oSession, "type1", v2)
-                v2.setProperty("prop1", 3L)
-                v2.setProperty("prop2", 4L)
+                val v2 = tx.newVertex(oClass.name)
+                tx.generateEntityId("type1", v2)
+                v2.property("prop1", 3L)
+                v2.property("prop2", 4L)
             }
         }
     }
@@ -516,14 +515,13 @@ class YouTrackDbSchemaInitializerTest {
             }
         }
         model.prepare()
-        orientDb.withTxSession { oSession ->
-            val tx = oSession.activeTransaction
+        orientDb.withStoreTx { tx ->
             tx.newVertex("type1").apply {
-                setProperty("prop1", true)
-                setLocalEntityId(oSession, "type1", this)
+                property("prop1", true)
+                tx.generateEntityId("type1", this)
             }
             tx.newVertex("type1").apply {
-                setLocalEntityId(oSession, "type1", this)
+                tx.generateEntityId("type1", this)
             }
 
         }

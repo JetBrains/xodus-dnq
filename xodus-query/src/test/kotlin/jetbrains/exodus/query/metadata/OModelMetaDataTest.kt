@@ -200,16 +200,16 @@ class OModelMetaDataTest : OTestMixin {
 
         // the schema is already initialized because addAssociation implicitly calls prepare()
 
-        val (id11, id12, id21) = youTrackDb.withTxSession { oSession ->
-            val v11 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v12 = oSession.createVertexAndSetLocalEntityId("type1")
-            val v21 = oSession.createVertexAndSetLocalEntityId("type2")
+        val (id11, id12, id21) = youTrackDb.withStoreTx { tx ->
+            val v11 = createVertexAndSetLocalEntityId(tx, "type1")
+            val v12 = createVertexAndSetLocalEntityId(tx, "type1")
+            val v21 = createVertexAndSetLocalEntityId(tx, "type2")
 
-            v11.addEdge("ass1", v21)
-            v21.addEdge("ass2", v11)
-            v21.addEdge("ass2", v12)
+            v11.addSimpleEdge("ass1", v21)
+            v21.addSimpleEdge("ass2", v11)
+            v21.addSimpleEdge("ass2", v12)
 
-            Triple(v11.identity, v12.identity, v21.identity)
+            Triple(v11.id(), v12.id(), v21.id())
         }
 
         // links are not indexes, so there are no complementary properties
