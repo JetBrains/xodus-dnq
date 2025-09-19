@@ -37,7 +37,6 @@ class OperationsWithEmptyIterableTest : OTestMixin {
     lateinit var testCase: OUsersWithInheritanceTestCase
 
     @Test
-    @Ignore
     fun operationsWithEmpty() {
         testCase = OUsersWithInheritanceTestCase(youTrackDb)
 

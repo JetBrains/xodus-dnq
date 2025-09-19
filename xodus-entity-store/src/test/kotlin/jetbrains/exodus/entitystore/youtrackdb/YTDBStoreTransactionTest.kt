@@ -17,8 +17,8 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.api.record.DBRecord
 import com.jetbrains.youtrackdb.api.record.Vertex
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
@@ -422,7 +422,6 @@ class YTDBStoreTransactionTest : OTestMixin {
     }
 
     @Test
-    @Ignore
     fun `should sort links by property`() {
         // Given
         val test = givenTestCase()
@@ -677,6 +676,7 @@ class YTDBStoreTransactionTest : OTestMixin {
 
     @Test
     @Ignore
+    @Questionable("Un-ignore this when we add timeout logic")
     fun `should throw timeout exception when timeout is small`() {
         // Given
         val test = givenTestCase()

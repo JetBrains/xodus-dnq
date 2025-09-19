@@ -149,9 +149,7 @@ class GremlinEntityIterableImpl(
         if (right === EMPTY) EMPTY
         else GremlinEntityIterableImpl(tx, query.intersect(right.asGremlinIterable().query))
 
-    override fun intersectSavingOrder(right: EntityIterable): EntityIterable {
-        TODO("Not yet implemented")
-    }
+    override fun intersectSavingOrder(right: EntityIterable): EntityIterable = intersect(right)
 
     override fun union(right: EntityIterable): EntityIterable =
         if (right === EMPTY) this

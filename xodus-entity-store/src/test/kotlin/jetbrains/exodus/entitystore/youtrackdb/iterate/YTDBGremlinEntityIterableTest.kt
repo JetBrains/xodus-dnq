@@ -547,25 +547,24 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
-    @Ignore
-    fun `should throw exception for iterable with skip and take while intersect`() {
+    fun `skip and take while intersect`() {
         // Given
         givenTestCase()
 
         // When
         withStoreTx { tx ->
             val skippedIssues = tx.getAll(Issues.CLASS).skip(1).take(2)
-            val limitIssues = tx.getAll(Issues.CLASS).take(1)
-            val issues = skippedIssues.intersect(limitIssues)
+            val limitIssues1 = tx.getAll(Issues.CLASS).take(1)
+            val limitIssues2 = tx.getAll(Issues.CLASS).take(2)
 
             // Then
-            assertFailsWith<IllegalStateException>("Skip can not be used for sub-query") { issues.toList() }
+            assertThat(skippedIssues.intersect(limitIssues1)).isEmpty()
+            assertThat(skippedIssues.intersect(limitIssues2)).hasSize(1)
         }
     }
 
     @Test
-    @Ignore
-    fun `should throw exception for iterable with skip and take while union`() {
+    fun `skip and take while union`() {
         // Given
         givenTestCase()
 
@@ -575,8 +574,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val limitIssues = tx.getAll(Issues.CLASS).take(2)
             val issues = skippedIssues.union(limitIssues)
 
-            // Then
-            assertFailsWith<IllegalStateException>("Skip can not be used for sub-query") { issues.toList() }
+            assertThat(issues).hasSize(1)
         }
     }
 

@@ -142,7 +142,6 @@ class BinaryOperationsTest : DBTest() {
     }
 
     @Test
-    @Ignore
     fun complexQuery1() {
         transactional { txn ->
             val pack1 = (1..100).toUsers()
