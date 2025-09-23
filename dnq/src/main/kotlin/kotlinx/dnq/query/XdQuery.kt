@@ -610,6 +610,7 @@ val <T : XdEntity> XdQuery<T>?.isNotEmpty: Boolean
 
 /**
  * Returns a new query containing all results of `this` query except first [n] elements.
+import jetbrains.exodus.query.PropertyEqual
  */
 fun <T : XdEntity> XdQuery<T>.drop(n: Int): XdQuery<T> {
     return operation({ it.skip(n) }, { it.drop(n) })

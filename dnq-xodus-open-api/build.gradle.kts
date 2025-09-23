@@ -1,7 +1,7 @@
 dependencies {
     implementation(libs.jetbrains.annotations)
-    implementation(project(":xodus-utils"))
-    testImplementation(project(":xodus-utils", "testArtifacts"))
+    implementation(project(":dnq-utils"))
+    testImplementation(project(":dnq-utils", "testArtifacts"))
 }
 
 val testArtifacts by configurations.creating

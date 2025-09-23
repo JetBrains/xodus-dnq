@@ -160,8 +160,9 @@ rootProject.name = 'xodus-dnq'
 include 'dnq-open-api',
         'dnq-transient-store',
         'dnq',
-        'xodus-open-api',
-        'xodus-entity-store',
-        'xodus-query',
-        'xodus-utils'
+        'dnq-xodus-open-api',
+        'dnq-entity-store',
+        'dnq-query',
+        'dnq-utils',
+        'dnq-crypto'
          //, 'benchmark'

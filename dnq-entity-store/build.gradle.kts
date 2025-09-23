@@ -3,7 +3,7 @@ val ytdbVersion = "0.5.0-3f65b8a-SNAPSHOT"
 val ktorVersion = "3.1.3"
 
 dependencies {
-    api(project(":xodus-open-api"))
+    api(project(":dnq-xodus-open-api"))
     api("io.youtrackdb:youtrackdb-core:$ytdbVersion")
     implementation("io.youtrackdb:youtrackdb-tools:$ytdbVersion") {
         exclude("io.youtrackdb", "youtrackdb-core")
@@ -16,13 +16,13 @@ dependencies {
         exclude("io.youtrackdb", "youtrackdb-tools")
     }
 
-    implementation(project(":xodus-utils"))
+    implementation(project(":dnq-utils"))
     // implementation(project(":xodus-environment"))
     // implementation(project(":xodus-compress"))
     implementation(libs.commons.io)
 
     testImplementation("io.github.classgraph:classgraph:4.8.112")
-    testImplementation(project(":xodus-utils", "testArtifacts"))
+    testImplementation(project(":dnq-utils", "testArtifacts"))
     testImplementation(libs.mockk)
     testImplementation(libs.truth)
     testImplementation(kotlin("test"))
