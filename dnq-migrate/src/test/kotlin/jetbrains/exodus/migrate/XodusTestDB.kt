@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore
+package jetbrains.exodus.migrate
 
 import jetbrains.exodus.TestUtil
-import jetbrains.shaded.exodus.entitystore.PersistentEntityStores
 import jetbrains.shaded.exodus.entitystore.PersistentEntityStore
+import jetbrains.shaded.exodus.entitystore.PersistentEntityStores
 import jetbrains.shaded.exodus.entitystore.StoreTransaction
 import mu.KotlinLogging
 import org.junit.rules.ExternalResource

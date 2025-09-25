@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.query.metadata
-
+package jetbrains.exodus.migrate
 
 import com.jetbrains.youtrackdb.api.schema.PropertyType
 import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
@@ -110,15 +109,15 @@ internal class XodusToOrientDataMigrator(
     private var totalEntities = 0L
     private var totalProperties = 0L
     private var totalBlobs = 0L
-    private var createEntitiesDuration = Duration.ZERO
-    private var copyPropertiesDuration = Duration.ZERO
-    private var copyBlobsDuration = Duration.ZERO
-    private var commitEntitiesDuration = Duration.ZERO
+    private var createEntitiesDuration = Duration.Companion.ZERO
+    private var copyPropertiesDuration = Duration.Companion.ZERO
+    private var copyBlobsDuration = Duration.Companion.ZERO
+    private var commitEntitiesDuration = Duration.Companion.ZERO
 
     private var totalLinksProcessed = 0L
     private var totalLinksCopied = 0L
-    private var copyLinksDuration = Duration.ZERO
-    private var commitLinksDuration = Duration.ZERO
+    private var copyLinksDuration = Duration.Companion.ZERO
+    private var commitLinksDuration = Duration.Companion.ZERO
 
     private var copyEntitiesPropertiesAndBlobsTransactions = 0L
     private var copyLinksTransactions = 0L
@@ -185,7 +184,7 @@ internal class XodusToOrientDataMigrator(
 
                     // create localEntityId property if absent
                     if (oClass.getProperty(LOCAL_ENTITY_ID_PROPERTY_NAME) == null) {
-                        oClass.createProperty(LOCAL_ENTITY_ID_PROPERTY_NAME,PropertyType.LONG)
+                        oClass.createProperty(LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
                     }
                 }
                 entityClassesCount = entityTypes.size

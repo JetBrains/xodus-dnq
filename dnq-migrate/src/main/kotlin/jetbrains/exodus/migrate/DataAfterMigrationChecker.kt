@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.query.metadata
+package jetbrains.exodus.migrate
 
 import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
@@ -29,7 +29,6 @@ import java.io.InputStream
 import kotlin.time.Duration
 import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
-
 private val log = KotlinLogging.logger { }
 
 fun checkDataIsSame(
@@ -57,10 +56,10 @@ internal class DataAfterMigrationChecker(
     private val xEntityIdToOEntityId: Map<EntityId, YTDBEntityId>,
     private val printProgressAtLeastOnceIn: Int = 5_000
 ) {
-    private var findEntitiesDuration = Duration.ZERO
-    private var checkPropertiesDuration = Duration.ZERO
-    private var checkBlobsDuration = Duration.ZERO
-    private var checkLinksDuration = Duration.ZERO
+    private var findEntitiesDuration = Duration.Companion.ZERO
+    private var checkPropertiesDuration = Duration.Companion.ZERO
+    private var checkBlobsDuration = Duration.Companion.ZERO
+    private var checkLinksDuration = Duration.Companion.ZERO
 
     fun checkDataIsSame(): DataAfterMigrationCheckingStats {
         val checkEntityTypesDuration = measureTime {
@@ -132,10 +131,14 @@ internal class DataAfterMigrationChecker(
 
                         checkPropertiesDuration += measureTime {
                             val xdPropertyNames = xodusEntity.propertyNames
-                            for (propName in xdPropertyNames.filter(YTDBVertexEntity.validPropertyNamesPredicate(ytdbEntity))) {
+                            for (propName in xdPropertyNames.filter(
+                                YTDBVertexEntity.validPropertyNamesPredicate(
+                                    ytdbEntity
+                                )
+                            )) {
                                 val xodusValue = xodusEntity.getProperty(propName)
                                 val ytdbValue = ytdbEntity.getProperty(propName)
-                                withEntityFieldExceptionLogging(xodusEntity, propName,"property") {
+                                withEntityFieldExceptionLogging(xodusEntity, propName, "property") {
                                     when {
                                         xodusValue is ComparableSet<*> -> {
                                             checkSets(
@@ -155,7 +158,11 @@ internal class DataAfterMigrationChecker(
                                         }
 
                                         else -> {
-                                            require((xodusValue == null && ytdbValue == null) || xodusValue?.compareTo(ytdbValue) == 0) {
+                                            require(
+                                                (xodusValue == null && ytdbValue == null) || xodusValue?.compareTo(
+                                                    ytdbValue
+                                                ) == 0
+                                            ) {
                                                 """
                                                 $type $entityIdx/$xSize ${xodusEntity.id} $propName properties are different. 
                                                 xStore type: ${xodusValue?.javaClass}, oStore type: ${ytdbValue?.javaClass}

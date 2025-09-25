@@ -4,11 +4,6 @@ dependencies {
     api(project(":dnq-xodus-open-api"))
     implementation("com.github.penemue:keap:0.3.0")
 
-    api("org.jetbrains.xodus:xodus-entity-store:3.1-dev-shaded")
-    api("org.jetbrains.xodus:xodus-environment:3.1-dev-shaded")
-    api("org.jetbrains.xodus:xodus-utils:3.1-dev-shaded")
-    api("org.jetbrains.xodus:xodus-openAPI:3.1-dev-shaded")
-
     implementation("commons-io:commons-io:2.15.1")
     implementation(libs.slf4j.simple)
 
@@ -18,8 +13,21 @@ dependencies {
     testImplementation(libs.truth)
     testImplementation(kotlin("test"))
 }
+val testArtifacts by configurations.creating
+
+configurations {
+    testArtifacts.extendsFrom(testRuntimeOnly.get())
+}
 
 tasks {
+    val jarTest by creating(Jar::class) {
+        archiveClassifier.set("test")
+        from(sourceSets.test.get().output)
+    }
+    artifacts {
+        add("testArtifacts", jarTest)
+    }
+
     register<JavaExec>("migrateXodusToOrient") {
         group = "application"
         mainClass = "jetbrains.exodus.query.metadata.MigrateXodusToOrientKt"

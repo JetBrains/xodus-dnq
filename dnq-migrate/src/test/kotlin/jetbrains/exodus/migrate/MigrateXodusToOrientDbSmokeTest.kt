@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.query.metadata
+package jetbrains.exodus.migrate
 
 import YTDBDatabaseProviderFactory
 import YouTrackDBFactory
@@ -22,12 +22,8 @@ import com.jetbrains.youtrackdb.api.record.Direction
 import com.jetbrains.youtrackdb.api.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
 import jetbrains.exodus.TestUtil
-import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseParams
-import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
-import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
-import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddyImpl
-import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.asEdgeClass
+import jetbrains.exodus.entitystore.youtrackdb.*
+import jetbrains.exodus.query.metadata.*
 import jetbrains.shaded.exodus.entitystore.PersistentEntityStoreImpl
 import jetbrains.shaded.exodus.entitystore.PersistentEntityStores
 import org.junit.Test

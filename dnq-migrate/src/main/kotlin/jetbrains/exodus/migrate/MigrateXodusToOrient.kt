@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.query.metadata
-
+package jetbrains.exodus.migrate
 
 import YTDBDatabaseProviderFactory
 import YouTrackDBFactory
@@ -36,12 +35,13 @@ fun main() {
 
     val validateDataAfterMigrationStr = System.getProperty("validateDataAfterMigration")
     val entitiesPerTransactionStr = System.getProperty("entitiesPerTransaction")
-    println("""
+    println(
+        """
             Provided params:
                 xodusDatabaseDirectory: $xodusDatabaseDirectory
                 xodusStoreName: $xodusStoreName
-                xodusCipherKey: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "null" }
-                xodusCipherIV: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "null" }
+                xodusCipherKey: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "null"}
+                xodusCipherIV: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "null"}
                 xodusMemoryUsagePercentage: $xodusMemoryUsagePercentageStr
                 
                 orientDatabaseType: $orientDatabaseTypeStr
@@ -52,15 +52,17 @@ fun main() {
                 
                 validateDataAfterMigration: $validateDataAfterMigrationStr
                 entitiesPerTransaction: $entitiesPerTransactionStr
-        """.trimIndent())
+        """.trimIndent()
+    )
 
     val xodusCypherIV = xodusCipherIVStr.toLongOrNull() ?: 0L
     val xodusMemoryUsagePercentage = xodusMemoryUsagePercentageStr.toIntOrNull() ?: 10
-    val orientDatabaseType = if (orientDatabaseTypeStr.isNullOrBlank() || orientDatabaseTypeStr.lowercase() == "memory") {
-        DatabaseType.MEMORY
-    } else {
-        DatabaseType.DISK
-    }
+    val orientDatabaseType =
+        if (orientDatabaseTypeStr.isNullOrBlank() || orientDatabaseTypeStr.lowercase() == "memory") {
+            DatabaseType.MEMORY
+        } else {
+            DatabaseType.DISK
+        }
     val orientDatabaseDirectory = if (orientDatabaseType == DatabaseType.MEMORY) {
         "memory"
     } else {
@@ -74,12 +76,13 @@ fun main() {
     val validateDataAfterMigration = validateDataAfterMigrationStr?.toBooleanStrictOrNull() ?: true
     val entitiesPerTransaction = validateDataAfterMigrationStr?.toIntOrNull() ?: 100
 
-    println("""
+    println(
+        """
             Effective params:
                 xodusDatabaseDirectory: $xodusDatabaseDirectory
                 xodusStoreName: $xodusStoreName
-                xodusCipherKey: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "null" }
-                xodusCipherIV: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "0" }
+                xodusCipherKey: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "null"}
+                xodusCipherIV: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "0"}
                 xodusMemoryUsagePercentage: $xodusMemoryUsagePercentage
                 
                 orientDatabaseType: $orientDatabaseType
@@ -90,7 +93,8 @@ fun main() {
                
                 validateDataAfterMigration: $validateDataAfterMigration
                 entitiesPerTransaction: $entitiesPerTransaction
-        """.trimIndent())
+        """.trimIndent()
+    )
 
     val params = YTDBDatabaseParams.builder()
         .withDatabasePath(orientDatabaseDirectory)

@@ -1,3 +1,9 @@
+package jetbrains.exodus.migrate
+
+import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+
 /**
  * Copyright 2006 - 2025 JetBrains s.r.o.
  *
@@ -13,13 +19,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.query.metadata
-
-import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
-import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
-
-
 /**
  * These classes provide functionality for commiting a transaction every X changes.
  *

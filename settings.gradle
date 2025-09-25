@@ -165,5 +165,6 @@ include 'dnq-open-api',
         'dnq-query',
         'dnq-utils',
         'dnq-crypto',
-        'dnq-compress'
-         //, 'benchmark'
+        'dnq-compress',
+        'dnq-migrate'
+

@@ -187,7 +187,7 @@ internal fun oModel(
     return model
 }
 
-internal fun ModelMetaDataImpl.entity(
+fun ModelMetaDataImpl.entity(
     type: String,
     superType: String? = null,
     init: EntityMetaDataImpl.() -> Unit = {}
@@ -199,13 +199,13 @@ internal fun ModelMetaDataImpl.entity(
     entity.init()
 }
 
-internal fun EntityMetaDataImpl.index(vararg fieldNames: String) {
+fun EntityMetaDataImpl.index(vararg fieldNames: String) {
     index(*fieldNames.map { IndexedField(it, true) }.toTypedArray())
 }
 
 data class IndexedField(val name: String, val isProperty: Boolean)
 
-internal fun EntityMetaDataImpl.index(vararg fields: IndexedField) {
+fun EntityMetaDataImpl.index(vararg fields: IndexedField) {
     val index = IndexImpl()
     index.fields = fields.map { (fieldName, isProperty) ->
         val field = IndexFieldImpl()
@@ -217,7 +217,7 @@ internal fun EntityMetaDataImpl.index(vararg fields: IndexedField) {
     this.ownIndexes = this.ownIndexes + setOf(index)
 }
 
-internal fun EntityMetaDataImpl.property(
+fun EntityMetaDataImpl.property(
     name: String,
     typeName: String,
     required: Boolean = false
@@ -241,7 +241,7 @@ internal fun EntityMetaDataImpl.setProperty(name: String, dataType: String) {
     this.propertiesMetaData = listOf(SimplePropertyMetaDataImpl(name, "Set", listOf(dataType)))
 }
 
-internal fun ModelMetaData.association(
+fun ModelMetaData.association(
     sourceEntity: String,
     associationName: String,
     targetEntity: String,

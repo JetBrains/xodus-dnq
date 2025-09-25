@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.query.metadata
+package jetbrains.exodus.migrate
 
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseParams
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddyImpl
-
+import jetbrains.exodus.query.metadata.YTDBModelMetaData
 import jetbrains.shaded.exodus.entitystore.PersistentEntityStores
-import jetbrains.shaded.exodus.env.Environments
 import jetbrains.shaded.exodus.env.EnvironmentUtil.Companion.newEnvironmentConfig
+import jetbrains.shaded.exodus.env.Environments
 import jetbrains.shaded.exodus.log.BackupMetadata
 import jetbrains.shaded.exodus.log.StartupMetadata
 import mu.KotlinLogging
@@ -33,7 +33,6 @@ import kotlin.time.measureTimedValue
 private val log = KotlinLogging.logger { }
 
 val VERTEX_CLASSES_TO_SKIP_MIGRATION = 10
-
 
 /**
  * Configuration for migrating to OrientDB from another system.
