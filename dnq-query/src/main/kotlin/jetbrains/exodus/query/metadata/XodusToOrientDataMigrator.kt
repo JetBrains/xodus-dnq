@@ -17,15 +17,21 @@ package jetbrains.exodus.query.metadata
 
 
 import com.jetbrains.youtrackdb.api.schema.PropertyType
-import jetbrains.exodus.bindings.ComparableSet
-import jetbrains.exodus.entitystore.EntityId
-import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
-import jetbrains.exodus.entitystore.PersistentEntityStore
-import jetbrains.exodus.entitystore.youtrackdb.*
+import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
+import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
+import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddy
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_CUSTOM_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_SEQUENCE_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
+import jetbrains.exodus.entitystore.youtrackdb.asEdgeClass
+import jetbrains.exodus.entitystore.youtrackdb.createClassIdSequenceIfAbsent
+import jetbrains.shaded.exodus.bindings.ComparableSet
+import jetbrains.shaded.exodus.entitystore.EntityId
+import jetbrains.shaded.exodus.entitystore.EntityRemovedInDatabaseException
+import jetbrains.shaded.exodus.entitystore.PersistentEntityStore
 import mu.KotlinLogging
 import kotlin.time.Duration
 import kotlin.time.measureTime
@@ -75,7 +81,7 @@ data class XodusToOrientMigrationStats(
     val copyLinksDuration: Duration,
     val commitLinksDuration: Duration,
 
-    val xEntityIdToOEntityId: Map<EntityId, EntityId>
+    val xEntityIdToOEntityId: Map<EntityId, YTDBEntityId>
 )
 
 /**
@@ -96,7 +102,7 @@ internal class XodusToOrientDataMigrator(
     private val entitiesPerTransaction: Int = 10,
     private val printProgressAtLeastOnceIn: Int = 5_000
 ) {
-    private val xEntityIdToOEntityId = HashMap<EntityId, EntityId>()
+    private val xEntityIdToOEntityId = HashMap<EntityId, YTDBEntityId>()
 
     private var entityClassesCount = 0
     private var edgeClassesCount = 0

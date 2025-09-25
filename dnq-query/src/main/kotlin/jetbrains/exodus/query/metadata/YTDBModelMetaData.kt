@@ -17,7 +17,10 @@ package jetbrains.exodus.query.metadata
 
 import com.jetbrains.youtrackdb.api.DatabaseSession
 import com.jetbrains.youtrackdb.api.schema.SchemaClass
-import jetbrains.exodus.entitystore.youtrackdb.*
+import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
+import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddy
+import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddyImpl
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 
 class YTDBModelMetaData(
     private val dbProvider: YTDBDatabaseProvider,

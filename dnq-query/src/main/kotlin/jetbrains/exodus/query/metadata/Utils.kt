@@ -16,8 +16,10 @@
 package jetbrains.exodus.query.metadata
 
 import com.jetbrains.youtrackdb.api.DatabaseSession
-import jetbrains.exodus.entitystore.PersistentEntityStore
-import jetbrains.exodus.entitystore.StoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.shaded.exodus.entitystore.PersistentEntityStore
+import jetbrains.shaded.exodus.entitystore.StoreTransaction
 
 fun <R> PersistentEntityStore.withReadonlyTx(block: (StoreTransaction) -> R): R {
     val tx = this.beginReadonlyTransaction()
@@ -33,6 +35,19 @@ fun <R> PersistentEntityStore.withReadonlyTx(block: (StoreTransaction) -> R): R 
     }
 }
 
+fun <R> YTDBPersistentEntityStore.withReadonlyTx(block: (YTDBStoreTransaction) -> R): R {
+    val tx = this.beginReadonlyTransaction()
+    try {
+        val result = block(tx)
+        tx.abort()
+        return result
+    } catch(e: Throwable) {
+        if (!tx.isFinished) {
+            tx.abort()
+        }
+        throw e
+    }
+}
 fun <R> DatabaseSession.withTx(block: (DatabaseSession) -> R): R {
     val tx = this.begin()
     try {

@@ -1,10 +1,14 @@
 dependencies {
     implementation(project(":dnq-entity-store"))
-    // implementation(project(":xodus-persistent-entity-store"))
     implementation(project(":dnq-utils"))
     api(project(":dnq-xodus-open-api"))
     implementation("com.github.penemue:keap:0.3.0")
-    // implementation(project(":xodus-environment"))
+
+    api("org.jetbrains.xodus:xodus-entity-store:3.1-dev-shaded")
+    api("org.jetbrains.xodus:xodus-environment:3.1-dev-shaded")
+    api("org.jetbrains.xodus:xodus-utils:3.1-dev-shaded")
+    api("org.jetbrains.xodus:xodus-openAPI:3.1-dev-shaded")
+
     implementation("commons-io:commons-io:2.15.1")
     implementation(libs.slf4j.simple)
 

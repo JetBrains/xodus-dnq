@@ -42,19 +42,19 @@ class YTDBPersistentEntityStore(
         return databaseProvider.databaseLocation
     }
 
-    override fun beginTransaction(): StoreTransaction {
+    override fun beginTransaction(): YTDBStoreTransaction {
         return beginTransactionImpl(readOnly = false)
     }
 
-    override fun beginExclusiveTransaction(): StoreTransaction {
+    override fun beginExclusiveTransaction(): YTDBStoreTransaction {
         return beginTransactionImpl(readOnly = false)
     }
 
-    override fun beginReadonlyTransaction(): StoreTransaction {
+    override fun beginReadonlyTransaction(): YTDBStoreTransaction {
         return beginTransactionImpl(readOnly = true)
     }
 
-    private fun beginTransactionImpl(readOnly: Boolean): StoreTransaction {
+    private fun beginTransactionImpl(readOnly: Boolean): YTDBStoreTransaction {
         var currentTx: YTDBStoreTransaction? = currentTransaction.get()
         check(currentTx == null) { "EntityStore has a transaction on the current thread. Finish it before starting a new one." }
 

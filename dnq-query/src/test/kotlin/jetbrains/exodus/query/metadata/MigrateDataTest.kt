@@ -18,18 +18,19 @@
 package jetbrains.exodus.query.metadata
 
 import com.jetbrains.youtrackdb.api.record.Vertex
-import jetbrains.exodus.bindings.ComparableSet
-import jetbrains.exodus.bindings.StringBinding
-import jetbrains.exodus.entitystore.StoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
-import jetbrains.exodus.util.ByteArraySizedInputStream
-import jetbrains.exodus.util.LightOutputStream
+import jetbrains.shaded.exodus.bindings.ComparableSet
+import jetbrains.shaded.exodus.bindings.StringBinding
+import jetbrains.shaded.exodus.entitystore.StoreTransaction
+import jetbrains.shaded.exodus.util.ByteArraySizedInputStream
+import jetbrains.shaded.exodus.util.LightOutputStream
 import org.junit.Assert
 import java.io.ByteArrayInputStream
 import kotlin.random.Random
 
 
-internal fun StoreTransaction.assertOrientContainsAllTheEntities(pile: PileOfEntities) {
+internal fun YTDBStoreTransaction.assertOrientContainsAllTheEntities(pile: PileOfEntities) {
     for (type in pile.types) {
         for (record in this.getAll(type).map { it as YTDBVertexEntity }) {
             val entity = pile.getEntity(type, record.getTestId())

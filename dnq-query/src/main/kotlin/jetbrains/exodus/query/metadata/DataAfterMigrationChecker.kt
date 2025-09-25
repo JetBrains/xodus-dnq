@@ -15,14 +15,15 @@
  */
 package jetbrains.exodus.query.metadata
 
-import jetbrains.exodus.bindings.ComparableSet
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.EntityId
-import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
-import jetbrains.exodus.entitystore.PersistentEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+import jetbrains.shaded.exodus.bindings.ComparableSet
+import jetbrains.shaded.exodus.entitystore.Entity
+import jetbrains.shaded.exodus.entitystore.EntityId
+import jetbrains.shaded.exodus.entitystore.EntityRemovedInDatabaseException
+import jetbrains.shaded.exodus.entitystore.PersistentEntityStore
 import mu.KotlinLogging
 import java.io.InputStream
 import kotlin.time.Duration
@@ -31,7 +32,11 @@ import kotlin.time.measureTimedValue
 
 private val log = KotlinLogging.logger { }
 
-fun checkDataIsSame(xStore: PersistentEntityStore, oStore: YTDBPersistentEntityStore, xEntityIdToOEntityId: Map<EntityId, EntityId>): DataAfterMigrationCheckingStats {
+fun checkDataIsSame(
+    xStore: PersistentEntityStore,
+    oStore: YTDBPersistentEntityStore,
+    xEntityIdToOEntityId: Map<EntityId, YTDBEntityId>
+): DataAfterMigrationCheckingStats {
     return DataAfterMigrationChecker(xStore, oStore, xEntityIdToOEntityId).checkDataIsSame()
 }
 
@@ -49,7 +54,7 @@ data class DataAfterMigrationCheckingStats(
 internal class DataAfterMigrationChecker(
     private val xStore: PersistentEntityStore,
     private val oStore: YTDBPersistentEntityStore,
-    private val xEntityIdToOEntityId: Map<EntityId, EntityId>,
+    private val xEntityIdToOEntityId: Map<EntityId, YTDBEntityId>,
     private val printProgressAtLeastOnceIn: Int = 5_000
 ) {
     private var findEntitiesDuration = Duration.ZERO
@@ -116,46 +121,46 @@ internal class DataAfterMigrationChecker(
                         lastProgressPrintedAt = System.currentTimeMillis()
                     }
                 }
-                xEntities.forEachIndexed { entityIdx, e1 ->
+                xEntities.forEachIndexed { entityIdx, xodusEntity ->
                     // oStore does not close resultSets, it causes a flood in the log and out of memory crash,
                     // so we have to process entity by entity until it is fixed :(
                     oStore.withReadonlyTx { oTx ->
-                        val (e2, findEntityDuration) = measureTimedValue {
-                            oTx.getEntity(xEntityIdToOEntityId.getValue(e1.id))
+                        val (ytdbEntity, findEntityDuration) = measureTimedValue {
+                            oTx.getEntity(xEntityIdToOEntityId.getValue(xodusEntity.id))
                         }
                         findEntitiesDuration += findEntityDuration
 
                         checkPropertiesDuration += measureTime {
-                            val xdPropertyNames = e1.propertyNames
-                            for (propName in xdPropertyNames.filter(YTDBVertexEntity.validPropertyNamesPredicate(e2 as YTDBVertexEntity))) {
-                                val v1 = e1.getProperty(propName)
-                                val v2 = e2.getProperty(propName)
-                                withEntityFieldExceptionLogging(e1, propName,"property") {
+                            val xdPropertyNames = xodusEntity.propertyNames
+                            for (propName in xdPropertyNames.filter(YTDBVertexEntity.validPropertyNamesPredicate(ytdbEntity))) {
+                                val xodusValue = xodusEntity.getProperty(propName)
+                                val ytdbValue = ytdbEntity.getProperty(propName)
+                                withEntityFieldExceptionLogging(xodusEntity, propName,"property") {
                                     when {
-                                        v1 is ComparableSet<*> -> {
+                                        xodusValue is ComparableSet<*> -> {
                                             checkSets(
-                                                setsInfo = "$type $entityIdx/$xSize ${e1.id} $propName sets",
-                                                xSet = v1.toSet(),
-                                                oSet = (v2 as YTDBComparableSet<*>).toSet()
+                                                setsInfo = "$type $entityIdx/$xSize ${xodusEntity.id} $propName sets",
+                                                xSet = xodusValue.toSet(),
+                                                oSet = (ytdbValue as YTDBComparableSet<*>).toSet()
                                             )
                                         }
 
-                                        v1 is String -> {
+                                        xodusValue is String -> {
                                             checkStrings(
-                                                strsInfo = "$type $entityIdx/$xSize ${e1.id} $propName strings",
-                                                xStr = v1,
-                                                oStr = v2 as String,
-                                                xGetRawBytes = { e1.getRawProperty(propName)?.bytesUnsafe!! }
+                                                strsInfo = "$type $entityIdx/$xSize ${xodusEntity.id} $propName strings",
+                                                xStr = xodusValue,
+                                                oStr = ytdbValue as String,
+                                                xGetRawBytes = { xodusEntity.getRawProperty(propName)?.bytesUnsafe!! }
                                             )
                                         }
 
                                         else -> {
-                                            require((v1 == null && v2 == null) || v1?.compareTo(v2) == 0) {
+                                            require((xodusValue == null && ytdbValue == null) || xodusValue?.compareTo(ytdbValue) == 0) {
                                                 """
-                                                $type $entityIdx/$xSize ${e1.id} $propName properties are different. 
-                                                xStore type: ${v1?.javaClass}, oStore type: ${v2?.javaClass}
-                                                xStore value: '${v1}', oStore value: '${v2}'
-                                                comparison result ${v1?.compareTo(v2)}
+                                                $type $entityIdx/$xSize ${xodusEntity.id} $propName properties are different. 
+                                                xStore type: ${xodusValue?.javaClass}, oStore type: ${ytdbValue?.javaClass}
+                                                xStore value: '${xodusValue}', oStore value: '${ytdbValue}'
+                                                comparison result ${xodusValue?.compareTo(ytdbValue)}
                                             """.trimIndent()
                                             }
                                         }
@@ -167,12 +172,12 @@ internal class DataAfterMigrationChecker(
                         }
 
                         checkBlobsDuration += measureTime {
-                            for (blobName in e1.blobNames) {
-                                withEntityFieldExceptionLogging(e1, blobName, "blob") {
+                            for (blobName in xodusEntity.blobNames) {
+                                withEntityFieldExceptionLogging(xodusEntity, blobName, "blob") {
                                     checkBlobs(
-                                        blobsInfo = "$type $entityIdx/$xSize ${e1.id} $blobName blobs",
-                                        xBlob = e1.getBlob(blobName),
-                                        oBlob = e2.getBlob(blobName)
+                                        blobsInfo = "$type $entityIdx/$xSize ${xodusEntity.id} $blobName blobs",
+                                        xBlob = xodusEntity.getBlob(blobName),
+                                        oBlob = ytdbEntity.getBlob(blobName)
                                     )
                                 }
                                 blobsCount++
@@ -181,9 +186,9 @@ internal class DataAfterMigrationChecker(
                         }
 
                         checkLinksDuration += measureTime {
-                            for (linkName in e1.linkNames) {
-                                withEntityFieldExceptionLogging(e1, linkName, "link") {
-                                    val xTargetEntities = e1.getLinks(linkName).filter { xTargetEntity ->
+                            for (linkName in xodusEntity.linkNames) {
+                                withEntityFieldExceptionLogging(xodusEntity, linkName, "link") {
+                                    val xTargetEntities = xodusEntity.getLinks(linkName).filter { xTargetEntity ->
                                         // filter "dead" links
                                         try {
                                             xTx.getEntity(xTargetEntity.id)
@@ -192,13 +197,13 @@ internal class DataAfterMigrationChecker(
                                             false
                                         }
                                     }.map { it.id.toString() }.toSet()
-                                    val oTargetEntities = e2.getLinks(linkName).map { it.id.toString() }.toSet()
+                                    val oTargetEntities = ytdbEntity.getLinks(linkName).map { it.id.toString() }.toSet()
                                     require(
                                         xTargetEntities.size == oTargetEntities.size
                                                 && xTargetEntities.containsAll(oTargetEntities)
                                                 && oTargetEntities.containsAll(xTargetEntities)
                                     ) {
-                                        "$type $entityIdx/$xSize ${e1.id} $linkName links are different. xStore: ${xTargetEntities.size}, oStore: ${oTargetEntities.size}"
+                                        "$type $entityIdx/$xSize ${xodusEntity.id} $linkName links are different. xStore: ${xTargetEntities.size}, oStore: ${oTargetEntities.size}"
                                     }
                                     linksCount += oTargetEntities.size
                                 }
