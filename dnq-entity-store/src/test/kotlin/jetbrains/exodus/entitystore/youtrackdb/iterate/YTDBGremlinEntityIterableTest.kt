@@ -485,6 +485,28 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
+    fun `iterable take 0`() {
+        givenTestCase()
+
+        withStoreTx { tx ->
+            val issues = tx.sort(Issues.CLASS, "name", true).take(0)
+
+            assertThat(issues).isEmpty()
+        }
+    }
+
+    @Test
+    fun `iterable skip 0`() {
+        givenTestCase()
+
+        withStoreTx { tx ->
+            val issues = tx.sort(Issues.CLASS, "name", true).skip(0)
+
+            assertNamesExactlyInOrder(issues, "issue1", "issue2", "issue3")
+        }
+    }
+
+    @Test
     fun `iterable sort and reverse`() {
         // Given
         givenTestCase()

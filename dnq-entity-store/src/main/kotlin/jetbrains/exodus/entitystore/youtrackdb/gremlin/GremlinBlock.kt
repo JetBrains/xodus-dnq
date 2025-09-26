@@ -178,7 +178,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
 
     data class Limit(val limit: Long) : GremlinBlock("lim", BlockType.SLICE) {
         init {
-            require(limit > 0) { "Limit must be positive" }
+            require(limit >= 0) { "Limit must be non-negative" }
         }
 
         override fun traverse(g: YT): YT = g.limit(limit)

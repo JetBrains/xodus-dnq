@@ -151,26 +151,30 @@ class YTDBEntityIterableImpl(
         .use { it.hasNext() }
 
     override fun intersect(right: EntityIterable): EntityIterable =
-        if (right === YTDBEntityIterable.Companion.EMPTY) YTDBEntityIterable.Companion.EMPTY
+        if (right === YTDBEntityIterable.EMPTY) YTDBEntityIterable.Companion.EMPTY
         else YTDBEntityIterableImpl(tx, query.intersect(right.asYTDBIterable().query))
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable = intersect(right)
 
     override fun union(right: EntityIterable): EntityIterable =
-        if (right === YTDBEntityIterable.Companion.EMPTY) this
+        if (right === YTDBEntityIterable.EMPTY) this
         else YTDBEntityIterableImpl(tx, query.union(right.asYTDBIterable().query))
 
     override fun minus(right: EntityIterable): EntityIterable =
-        if (right === YTDBEntityIterable.Companion.EMPTY) this
+        if (right === YTDBEntityIterable.EMPTY) this
         else YTDBEntityIterableImpl(tx, query.difference(right.asYTDBIterable().query))
 
     override fun concat(right: EntityIterable): EntityIterable =
-        if (right === YTDBEntityIterable.Companion.EMPTY) this
+        if (right === YTDBEntityIterable.EMPTY) this
         else YTDBEntityIterableImpl(tx, query.unionAll(right.asYTDBIterable().query))
 
-    override fun skip(number: Int): EntityIterable = modify(GremlinBlock.Skip(number.toLong()))
+    override fun skip(number: Int): EntityIterable =
+        if (number == 0) this
+        else modify(GremlinBlock.Skip(number.toLong()))
 
-    override fun take(number: Int): EntityIterable = modify(GremlinBlock.Limit(number.toLong()))
+    override fun take(number: Int): EntityIterable =
+        if (number == 0) YTDBEntityIterable.EMPTY
+        else modify(GremlinBlock.Limit(number.toLong()))
 
     override fun distinct(): EntityIterable = modify(GremlinBlock.Dedup)
 
