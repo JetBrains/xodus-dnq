@@ -53,7 +53,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         else if (query is All) this
         else AndThen(this, query)
 
-    // todo: make this private, don't expose it to the outside. users should
+    // todo: make this private, don't expose it to the outside. query parts should be composed using GremlinQuery.
     data class AndThen(val left: GremlinBlock, val right: GremlinBlock) : GremlinBlock("andThen", BlockType.COMPOSE) {
         override fun traverse(g: YT): YT {
             val h = left.traverse(g)
