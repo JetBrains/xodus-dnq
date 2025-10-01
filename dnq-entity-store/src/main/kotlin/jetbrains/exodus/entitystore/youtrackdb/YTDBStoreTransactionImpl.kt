@@ -371,10 +371,11 @@ class YTDBStoreTransactionImpl(
         linkName: String
     ): YTDBEntityIterable {
         requireActiveTransaction()
-        val entityQuery = entities.asYTDBIterable().query
-        return YTDBEntityIterable.query(
+
+        return if (entities === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
+        else YTDBEntityIterable.query(
             this,
-            entityQuery
+            entities.asYTDBIterable().query
                 .then(GremlinBlock.InLink(linkName))
                 .then(GremlinBlock.HasLabel(entityType))
         )
@@ -421,7 +422,9 @@ class YTDBStoreTransactionImpl(
         ascending: Boolean
     ): YTDBEntityIterable {
         requireActiveTransaction()
-        return YTDBEntityIterableImpl(
+
+        return if (rightOrder === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
+        else YTDBEntityIterableImpl(
             this,
             rightOrder.asYTDBIterable().query
                 .then(
@@ -461,7 +464,8 @@ class YTDBStoreTransactionImpl(
         ascending: Boolean
     ): EntityIterable {
         requireActiveTransaction()
-        return YTDBEntityIterableImpl(
+        return if (rightOrder === YTDBEntityIterable.EMPTY) return YTDBEntityIterable.EMPTY
+        else YTDBEntityIterableImpl(
             this,
             rightOrder.asYTDBIterable().query
                 .then(
@@ -481,7 +485,9 @@ class YTDBStoreTransactionImpl(
         rightOrder: EntityIterable
     ): YTDBEntityIterable {
         requireActiveTransaction()
-        return YTDBEntityIterable.query(
+        return if (rightOrder === YTDBEntityIterable.EMPTY || sortedLinks === YTDBEntityIterable.EMPTY)
+            YTDBEntityIterable.EMPTY
+        else YTDBEntityIterable.query(
             this,
             sortedLinks.asYTDBIterable().query
                 .then(GremlinBlock.InLink(linkName))
@@ -502,7 +508,9 @@ class YTDBStoreTransactionImpl(
         requireActiveTransaction()
         // todo: check if we need this
         // Not sure about skipping oppositeEntityType and oppositeLinkName values
-        return YTDBEntityIterable.query(
+        return if (rightOrder === YTDBEntityIterable.EMPTY || sortedLinks === YTDBEntityIterable.EMPTY)
+            YTDBEntityIterable.EMPTY
+        else YTDBEntityIterable.query(
             this,
             sortedLinks.asYTDBIterable().query
                 .then(GremlinBlock.InLink(linkName))

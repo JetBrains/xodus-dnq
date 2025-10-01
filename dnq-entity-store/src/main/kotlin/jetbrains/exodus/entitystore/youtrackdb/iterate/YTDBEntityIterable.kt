@@ -35,18 +35,18 @@ interface YTDBEntityIterable : EntityIterable {
         fun where(entityType: String, tx: YTDBStoreTransaction, condition: GremlinBlock): YTDBEntityIterable =
             query(
                 tx,
-                GremlinQuery.Companion.all
+                GremlinQuery.all
                     .then(condition)
                     .then(GremlinBlock.HasLabel(entityType))
             )
 
         @JvmStatic
         fun query(tx: YTDBStoreTransaction, query: GremlinQuery) =
-            YTDBEntityIterableImpl(tx, query);
+            YTDBEntityIterableImpl(tx, query)
 
         val EMPTY = object : YTDBEntityIterable {
 
-            override fun iterator(): EntityIterator = YTDBEntityIterator.Companion.EMPTY
+            override fun iterator(): EntityIterator = YTDBEntityIterator.EMPTY
             override fun selectMany(linkName: String): EntityIterable = this
             override val query: GremlinQuery get() = unsupported { "Should never be called" }
             override fun unwrap(): EntityIterable = this
@@ -96,7 +96,7 @@ class YTDBEntityIterableImpl(
         YTDBEntityIterableImpl(tx, this.query.then(block))
 
     private fun iterator(traversal: GraphTraversal<*, YTDBVertex>): YTDBEntityIterator =
-        YTDBEntityIterator.Companion.of(traversal, oStore)
+        YTDBEntityIterator.of(traversal, oStore)
 
     private fun traversal(): GraphTraversal<*, YTDBVertex> =
         query.start(oStore.requireActiveTransaction().g())
@@ -134,8 +134,7 @@ class YTDBEntityIterableImpl(
         val it = iterator()
         try {
             while (it.hasNext()) {
-                val nextId = it.nextId()
-                if (nextId != null && nextId == entityId) {
+                if (it.nextId() == entityId) {
                     return result
                 }
                 ++result
@@ -151,7 +150,7 @@ class YTDBEntityIterableImpl(
         .use { it.hasNext() }
 
     override fun intersect(right: EntityIterable): EntityIterable =
-        if (right === YTDBEntityIterable.EMPTY) YTDBEntityIterable.Companion.EMPTY
+        if (right === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
         else YTDBEntityIterableImpl(tx, query.intersect(right.asYTDBIterable().query))
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable = intersect(right)
@@ -214,14 +213,13 @@ class YTDBEntityIterableImpl(
     override fun findLinks(
         entities: EntityIterable,
         linkName: String
-    ): EntityIterable {
-        return YTDBEntityIterableImpl(
+    ): EntityIterable =
+        if (entities === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
+        else YTDBEntityIterableImpl(
             this.tx,
             entities
                 .asYTDBIterable()
                 .query
                 .then(GremlinBlock.InLink(linkName))
-        )
-            .distinct()
-    }
+        ).distinct()
 }

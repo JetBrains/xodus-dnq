@@ -233,13 +233,13 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
     }
 
     data class OutLink(val linkName: String) : GremlinBlock("olnk", BlockType.LINK) {
-        override fun traverse(g: YT): YT = g.out(YTDBVertexEntity.Companion.edgeClassName(linkName)).asYT()
+        override fun traverse(g: YT): YT = g.out(YTDBVertexEntity.edgeClassName(linkName)).asYT()
         override fun describe(s: StringBuilder): StringBuilder = s.append(".out(").append(linkName).append(")")
         override fun describeGremlin(s: StringBuilder): StringBuilder = s.append(".out(").append(linkName).append(")")
     }
 
     data class InLink(val linkName: String) : GremlinBlock("ilnk", BlockType.LINK) {
-        override fun traverse(g: YT): YT = g.`in`(YTDBVertexEntity.Companion.edgeClassName(linkName)).asYT()
+        override fun traverse(g: YT): YT = g.`in`(YTDBVertexEntity.edgeClassName(linkName)).asYT()
         override fun describe(s: StringBuilder): StringBuilder = s.append(".in(").append(linkName).append(")")
         override fun describeGremlin(s: StringBuilder): StringBuilder = s.append(".in(").append(linkName).append(")")
     }
@@ -315,7 +315,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         override fun traverse(g: YT): YT =
             g.where(
                 `__`
-                    .out(YTDBVertexEntity.Companion.edgeClassName(linkName))
+                    .out(YTDBVertexEntity.edgeClassName(linkName))
                     .hasId(rid)
             )
                 .asYT()
@@ -333,7 +333,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
 
     data class HasLink(val linkName: String) : GremlinBlock("hl", BlockType.CONDITION) {
         override fun traverse(g: YT): YT =
-            g.where(`__`.out(YTDBVertexEntity.Companion.edgeClassName(linkName)))
+            g.where(`__`.out(YTDBVertexEntity.edgeClassName(linkName)))
 
         override fun describeGremlin(s: StringBuilder): StringBuilder {
             return s.appendLine("where(")
@@ -347,7 +347,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
 
     data class HasNoLink(val linkName: String) : GremlinBlock("hnl", BlockType.CONDITION) {
         override fun traverse(g: YT): YT =
-            g.not(`__`.out(YTDBVertexEntity.Companion.edgeClassName(linkName)))
+            g.not(`__`.out(YTDBVertexEntity.edgeClassName(linkName)))
 
         override fun describeGremlin(s: StringBuilder): StringBuilder {
             return s.appendLine("not(")
@@ -421,7 +421,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
             return when (by) {
                 is ByProp -> g.order().by(by.propName, order)
                 is ByLinked -> g.order().by(
-                    `__`.out(YTDBVertexEntity.Companion.edgeClassName(by.linkName)).values<Any>(by.propName),
+                    `__`.out(YTDBVertexEntity.edgeClassName(by.linkName)).values<Any>(by.propName),
                     order
                 )
             }

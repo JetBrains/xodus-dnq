@@ -110,68 +110,49 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     }
 
     open fun intersect(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
-        if (left === right) {
-            return left
-        }
-        if (left.isEmpty || right.isEmpty) {
-            return YTDBEntityIterable.EMPTY
-        }
-        return if (left is EntityIterable && right is EntityIterable) {
-            @Suppress("USELESS_CAST")
+        if (left === right) return left
+        if (left.isEmpty) return YTDBEntityIterable.EMPTY
+        if (right.isEmpty) return YTDBEntityIterable.EMPTY
+
+        return if (canAggregate(left, right))
             (left as EntityIterable).intersect(right as EntityIterable)
-        } else {
-            inMemoryIntersect(left, right)
-        }
+        else inMemoryIntersect(left, right)
     }
 
     open fun union(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
-        if (left === right) {
-            return left
-        }
-        if (left.isEmpty) {
-            return right
-        }
-        if (right.isEmpty) {
-            return left
-        }
-        return if (left is EntityIterable && right is EntityIterable) {
-            @Suppress("USELESS_CAST")
+        if (left === right) return left
+        if (left.isEmpty) return right
+        if (right.isEmpty) return left
+
+        return if (canAggregate(left, right))
             (left as EntityIterable).union(right as EntityIterable)
-        } else {
-            inMemoryUnion(left, right)
-        }
+        else inMemoryUnion(left, right)
     }
 
     open fun concat(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
-        if (left.isEmpty) {
-            return right
-        }
-        if (right.isEmpty) {
-            return left
-        }
+        if (left.isEmpty) return right
+        if (right.isEmpty) return left
 
-        return if (left is EntityIterable && right is EntityIterable) {
-            @Suppress("USELESS_CAST")
+        return if (canAggregate(left, right))
             (left as EntityIterable).concat(right as EntityIterable)
-        } else {
-            inMemoryConcat(left, right)
-        }
+        else inMemoryConcat(left, right)
     }
 
     open fun exclude(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
-        if (left.isEmpty || left === right) {
-            return YTDBEntityIterable.EMPTY
-        }
-        if (right.isEmpty) {
-            return left
-        }
-        return if (left is EntityIterable && right is EntityIterable) {
-            @Suppress("USELESS_CAST")
+        if (left.isEmpty) return YTDBEntityIterable.EMPTY
+        if (right.isEmpty) return left
+        if (left === right) return YTDBEntityIterable.EMPTY
+
+        return if (canAggregate(left, right)) {
             (left as EntityIterable).minus(right as EntityIterable)
         } else {
             inMemoryExclude(left, right)
         }
     }
+
+    private fun canAggregate(left: Iterable<Entity>, right: Iterable<Entity>): Boolean =
+        if (left.isPersistent) right.isPersistent
+        else left is EntityIterable && right is EntityIterable
 
     open fun selectDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> {
         return if (it is EntityIterable) {
