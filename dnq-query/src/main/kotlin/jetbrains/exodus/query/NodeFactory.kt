@@ -18,7 +18,6 @@ package jetbrains.exodus.query
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.*
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.Or
 import java.util.stream.Collectors
 import java.util.stream.StreamSupport
 
@@ -40,11 +39,33 @@ object NodeFactory {
     fun propNotNull(property: String): LeafNode =
         LeafNode(PropNotNull(property))
 
-    fun hasSubstring(property: String, value: String?, ignoreCase: Boolean): LeafNode =
-        LeafNode(HasSubstring(property, value, !ignoreCase))
+    fun hasSubstring(
+        property: String,
+        value: String?,
+        ignoreCase: Boolean = true
+    ): LeafNode =
+        LeafNode(HasSubstring(property, value, isCollection = false, caseSensitive = !ignoreCase))
 
-    fun hasPrefix(property: String, value: String): LeafNode =
-        LeafNode(HasPrefix(property, value, false))
+    fun hasElementWithSubstring(
+        property: String,
+        value: String?,
+        ignoreCase: Boolean = true
+    ): LeafNode =
+        LeafNode(HasSubstring(property, value, isCollection = true, caseSensitive = !ignoreCase))
+
+    fun hasPrefix(
+        property: String,
+        value: String?,
+        ignoreCase: Boolean = true
+    ): LeafNode =
+        LeafNode(HasPrefix(property, value, isCollection = false, caseSensitive = !ignoreCase))
+
+    fun hasElementWithPrefix(
+        property: String,
+        value: String?,
+        ignoreCase: Boolean = true
+    ): LeafNode =
+        LeafNode(HasPrefix(property, value, isCollection = true, caseSensitive = !ignoreCase))
 
     fun hasElement(property: String, value: Any): LeafNode =
         LeafNode(HasElement(property, value))

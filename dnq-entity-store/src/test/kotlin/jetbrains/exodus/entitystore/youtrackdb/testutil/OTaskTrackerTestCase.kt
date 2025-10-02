@@ -33,7 +33,7 @@ class OTaskTrackerTestCase(val youtrackDB: InMemoryYouTrackDB) {
     val board3: YTDBVertexEntity
 
     init {
-        val tx = youtrackDB.store.beginTransaction() as YTDBStoreTransaction
+        val tx = youtrackDB.store.beginTransaction()
         project1 = tx.createProjectImpl("project1")
         project2 = tx.createProjectImpl("project2")
         project3 = tx.createProjectImpl("project3")

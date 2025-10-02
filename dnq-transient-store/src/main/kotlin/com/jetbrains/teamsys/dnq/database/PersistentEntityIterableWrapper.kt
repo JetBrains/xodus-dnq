@@ -130,17 +130,15 @@ open class PersistentEntityIterableWrapper(
         return store.threadSessionOrThrow.newEntity(this)
     }
 
-    override fun unwrap(): EntityIterable {
-        return wrappedIterable.unwrap()
-    }
+    override fun unwrap(): EntityIterable = wrappedIterable.unwrap()
 
     override val query: GremlinQuery
         get() = (unwrap() as? YTDBEntityIterable)?.query
             ?: throw IllegalStateException("EntityIterable is not a GremlinEntityIterable")
 
     // todo: remove this from GremlinEntityIterable interface ?
-    override fun selectMany(linkName: String): EntityIterable = (wrappedIterable as? YTDBEntityIterable)?.selectMany(linkName)
-        ?: YTDBEntityIterable.EMPTY
+    override fun selectMany(linkName: String): EntityIterable =
+        (wrappedIterable as? YTDBEntityIterable)?.selectMany(linkName) ?: YTDBEntityIterable.EMPTY
 
     override fun getTransaction(): StoreTransaction {
         return if (wrappedIterable == YTDBEntityIterable.EMPTY) {
@@ -149,5 +147,4 @@ open class PersistentEntityIterableWrapper(
             (wrappedIterable as YTDBEntityIterable).transaction
         }
     }
-
 }

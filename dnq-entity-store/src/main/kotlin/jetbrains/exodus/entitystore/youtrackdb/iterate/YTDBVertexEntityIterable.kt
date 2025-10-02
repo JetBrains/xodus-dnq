@@ -121,7 +121,7 @@ class YTDBVertexEntityIterable(
         return asQueryIterable().findLinks(entities, linkName)
     }
 
-    private fun asQueryIterable() = YTDBEntityIterable.Companion.query(
+    private fun asQueryIterable() = YTDBEntityIterable.query(
         tx,
         GremlinQuery.ByIds(listOf(targetEntityID.asOId()))
             .then(GremlinBlock.OutLink(linkName))

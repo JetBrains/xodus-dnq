@@ -19,8 +19,8 @@ import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
 import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues
 import jetbrains.exodus.entitystore.youtrackdb.testutil.OTestMixin
@@ -148,7 +148,7 @@ class YTDBGremlinEngineTest(
         withStoreTx { test.issue2.setProperty("case", "Find me if YOU can") }
 
         // When
-        withStoreTx { tx ->
+        withStoreTx {
             val issues = engine.query("Issue", NodeFactory.hasSubstring("case", "YOU", false))
             val issuesIgnoreCase =
                 engine.query("Issue", NodeFactory.hasSubstring("case", "yOu", true))
@@ -169,7 +169,7 @@ class YTDBGremlinEngineTest(
         givenTestCase()
         val engine = givenOQueryEngine()
 
-        withStoreTx { tx ->
+        withStoreTx {
             val bugs = engine.query("Issue", NodeFactory.hasElement("tags", "bug"))
             val inProgress = engine.query("Issue", NodeFactory.hasElement("tags", "in_progress"))
             val abandoned = engine.query("Issue", NodeFactory.hasElement("tags", "abandoned"))
@@ -177,6 +177,34 @@ class YTDBGremlinEngineTest(
             assertNamesExactly(bugs, "issue1")
             assertNamesExactly(inProgress, "issue1", "issue3")
             assertThat(abandoned).isEmpty()
+        }
+    }
+
+    @Test
+    fun `should filter entities by substring or prefix of collection elements`() {
+        givenTestCase()
+        val engine = givenOQueryEngine()
+
+        withStoreTx {
+            assertNamesExactly(
+                engine.query("Issue", NodeFactory.hasElementWithPrefix("tags", "b")),
+                "issue1"
+            )
+            assertNamesExactly(
+                engine.query("Issue", NodeFactory.hasElementWithSubstring("tags", "_")),
+                "issue1", "issue3"
+            )
+            assertNamesExactly(
+                engine.query(
+                    "Issue",
+                    NodeFactory.and(
+                        NodeFactory.hasElementWithPrefix("tags", "i"),
+                        NodeFactory.hasElementWithSubstring("tags", "orm"),
+                    )
+                ),
+                "issue3"
+            )
+
         }
     }
 

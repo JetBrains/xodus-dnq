@@ -419,9 +419,6 @@ internal class RemovedLinksEntityIterable(
         throw IllegalStateException("Must not be called")
     }
 
-    override fun unwrap(): EntityIterable {
-        throw IllegalStateException("Must not be called")
-    }
-
+    override fun unwrap(): EntityIterable = this
 }
 

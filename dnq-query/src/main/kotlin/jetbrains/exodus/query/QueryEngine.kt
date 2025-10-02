@@ -277,8 +277,9 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
 }
 
 private val Iterable<Entity>?.isEmpty: Boolean
-    get() {
-        return this == null || this === YTDBEntityIterable.EMPTY
-    }
+    get() =
+        this == null || this === YTDBEntityIterable.EMPTY
 
-private val Iterable<Entity>?.isPersistent: Boolean get() = this is YTDBEntityIterable
+private val Iterable<Entity>?.isPersistent: Boolean
+    get() =
+        this is EntityIterable && this.unwrap() is YTDBEntityIterable

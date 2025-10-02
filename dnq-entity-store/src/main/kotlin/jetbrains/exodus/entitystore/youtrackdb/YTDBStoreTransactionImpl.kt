@@ -307,7 +307,7 @@ class YTDBStoreTransactionImpl(
         return YTDBEntityIterable.where(
             entityType,
             this,
-            GremlinBlock.HasSubstring(propertyName, value, !ignoreCase)
+            GremlinBlock.HasSubstring(propertyName, value, isCollection = false, caseSensitive = !ignoreCase)
         )
     }
 
@@ -317,7 +317,11 @@ class YTDBStoreTransactionImpl(
         value: String
     ): YTDBEntityIterable {
         requireActiveTransaction()
-        return YTDBEntityIterable.where(entityType, this, GremlinBlock.HasPrefix(propertyName, value, false))
+        return YTDBEntityIterable.where(
+            entityType,
+            this,
+            GremlinBlock.HasPrefix(propertyName, value, isCollection = false, caseSensitive = false)
+        )
     }
 
     override fun findIds(entityType: String, minValue: Long, maxValue: Long): YTDBEntityIterable {
