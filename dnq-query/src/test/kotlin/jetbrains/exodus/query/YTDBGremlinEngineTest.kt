@@ -19,6 +19,8 @@ import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
@@ -35,36 +37,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
 
 
-// todo: parameterized
-//@RunWith(Parameterized::class)
+@RunWith(Parameterized::class)
 class YTDBGremlinEngineTest(
-//    val iterableGetter: ((QueryEngine, YTDBStoreTransaction) -> (EntityIterable?)),
-//    val argName: String
+    val iterableGetter: (QueryEngine, YTDBStoreTransaction) -> (EntityIterable?),
+    val argName: String
 ) : OTestMixin {
 
-//    companion object {
-//        @JvmStatic
-//        @Parameterized.Parameters(name = "{1}")
-//        fun data(): Collection<Array<Any>> {
-//            return listOf(
-//                arrayOf({ _: QueryEngine, _: YTDBStoreTransaction -> null }, "Query"),
-//                arrayOf({ engine: QueryEngine, currentTx: YTDBStoreTransaction ->
-//                    val filteringSequence = engine.instantiateGetAll(Issues.CLASS).asSequence().filter {
-//                        it.id.typeId >= 0
-//                    }
-//                    InMemoryEntityIterable(filteringSequence.asIterable(), currentTx, engine)
-//                }, "InMemory"),
-//                arrayOf({ engine: QueryEngine, currentTx: YTDBStoreTransaction ->
-//                    val filteringSequence = engine.instantiateGetAll(Issues.CLASS).asSequence().filter {
-//                        it.id.typeId >= 0
-//                    }
-//                    YTDBMultipleEntitiesIterable(currentTx, filteringSequence.toList())
-//                }, "MultipleEntitiesIterable")
-//            )
-//        }
-//    }
+    companion object {
+        @JvmStatic
+        @Parameterized.Parameters(name = "{1}")
+        fun data(): Collection<Array<Any>> {
+            return listOf(
+                arrayOf({ _: QueryEngine, _: YTDBStoreTransaction -> null }, "Query"),
+                arrayOf({ engine: QueryEngine, currentTx: YTDBStoreTransaction ->
+                    val filteringSequence = engine.instantiateGetAll(Issues.CLASS).asSequence().filter {
+                        it.id.typeId >= 0
+                    }
+                    InMemoryEntityIterable(filteringSequence.asIterable(), currentTx, engine)
+                }, "InMemory"),
+            )
+        }
+    }
 
 
     @Rule
@@ -80,8 +77,12 @@ class YTDBGremlinEngineTest(
         val engine = givenOQueryEngine()
 
         // When
-        withStoreTx {
-            val issues = engine.query("Issue", NodeFactory.all())
+        withStoreTx { tx ->
+            val issues = engine.query(
+                iterableGetter(engine, tx),
+                "Issue",
+                NodeFactory.all()
+            )
 
             // Then
             assertNamesExactly(issues, "issue1", "issue2", "issue3")
@@ -96,7 +97,11 @@ class YTDBGremlinEngineTest(
 
         // When
         withStoreTx { tx ->
-            val result = engine.query("Issue", NodeFactory.propEqual("name", "issue2"))
+            val result = engine.query(
+                iterableGetter(engine, tx),
+                "Issue",
+                NodeFactory.propEqual("name", "issue2")
+            )
 
             // Then
             assertNamesExactly(result, "issue2")
@@ -110,11 +115,11 @@ class YTDBGremlinEngineTest(
         val engine = givenOQueryEngine()
 
         withStoreTx { tx ->
-            assertTrue(engine.query("Issue", NodeFactory.all()).contains(testCase.issue1))
-            assertTrue(engine.query("Issue", NodeFactory.all()).contains(testCase.issue2))
-            assertTrue(engine.query("Issue", NodeFactory.all()).contains(testCase.issue3))
+            assertTrue(engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.all()).contains(testCase.issue1))
+            assertTrue(engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.all()).contains(testCase.issue2))
+            assertTrue(engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.all()).contains(testCase.issue3))
 
-            val onlyIssue1 = engine.query("Issue", NodeFactory.propEqual("name", "issue1"))
+            val onlyIssue1 = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.propEqual("name", "issue1"))
             assertTrue(onlyIssue1.contains(testCase.issue1))
             assertFalse(onlyIssue1.contains(testCase.issue2))
             assertFalse(onlyIssue1.contains(testCase.issue3))
@@ -133,7 +138,9 @@ class YTDBGremlinEngineTest(
 
         // When
         withStoreTx { tx ->
-            val result = engine.query("Issue", NodeFactory.propEqual("none", null)).toList()
+            val result = engine.query(
+                iterableGetter(engine, tx), "Issue", NodeFactory.propEqual("none", null)
+            ).toList()
 
             // Then
             assertNamesExactly(result, "issue2", "issue3")
@@ -148,12 +155,19 @@ class YTDBGremlinEngineTest(
         withStoreTx { test.issue2.setProperty("case", "Find me if YOU can") }
 
         // When
-        withStoreTx {
-            val issues = engine.query("Issue", NodeFactory.hasSubstring("case", "YOU", false))
-            val issuesIgnoreCase =
-                engine.query("Issue", NodeFactory.hasSubstring("case", "yOu", true))
-            val issuesIgnoreNotIgnoreCase = engine.query("Issue", NodeFactory.hasSubstring("case", "yOu", false))
-            val empty = engine.query("Issue", NodeFactory.hasSubstring("case", "not", true))
+        withStoreTx { tx ->
+            val issues = engine.query(
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "YOU", false)
+            )
+            val issuesIgnoreCase = engine.query(
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "yOu", true)
+            )
+            val issuesIgnoreNotIgnoreCase = engine.query(
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "yOu", false)
+            )
+            val empty = engine.query(
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "not", true)
+            )
 
             // Then
             assertNamesExactly(issues, "issue2")
@@ -169,10 +183,12 @@ class YTDBGremlinEngineTest(
         givenTestCase()
         val engine = givenOQueryEngine()
 
-        withStoreTx {
-            val bugs = engine.query("Issue", NodeFactory.hasElement("tags", "bug"))
-            val inProgress = engine.query("Issue", NodeFactory.hasElement("tags", "in_progress"))
-            val abandoned = engine.query("Issue", NodeFactory.hasElement("tags", "abandoned"))
+        withStoreTx { tx ->
+            val bugs = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasElement("tags", "bug"))
+            val inProgress =
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasElement("tags", "in_progress"))
+            val abandoned =
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasElement("tags", "abandoned"))
 
             assertNamesExactly(bugs, "issue1")
             assertNamesExactly(inProgress, "issue1", "issue3")
@@ -185,17 +201,18 @@ class YTDBGremlinEngineTest(
         givenTestCase()
         val engine = givenOQueryEngine()
 
-        withStoreTx {
+        withStoreTx { tx ->
             assertNamesExactly(
-                engine.query("Issue", NodeFactory.hasElementWithPrefix("tags", "b")),
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasElementWithPrefix("tags", "b")),
                 "issue1"
             )
             assertNamesExactly(
-                engine.query("Issue", NodeFactory.hasElementWithSubstring("tags", "_")),
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasElementWithSubstring("tags", "_")),
                 "issue1", "issue3"
             )
             assertNamesExactly(
                 engine.query(
+                    iterableGetter(engine, tx),
                     "Issue",
                     NodeFactory.and(
                         NodeFactory.hasElementWithPrefix("tags", "i"),
@@ -217,9 +234,10 @@ class YTDBGremlinEngineTest(
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query("Issue", NodeFactory.hasPrefix("case", "Find"))
-            val issuesOtherCase = engine.query("Issue", NodeFactory.hasPrefix("case", "find"))
-            val empty = engine.query("Issue", NodeFactory.hasPrefix("case", "you"))
+            val issues = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("case", "Find"))
+            val issuesOtherCase =
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("case", "find"))
+            val empty = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("case", "you"))
 
             // Then
             assertNamesExactly(issues, "issue2")
@@ -237,8 +255,8 @@ class YTDBGremlinEngineTest(
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query("Issue", NodeFactory.propNotNull("prop"))
-            val empty = engine.query("Issue", NodeFactory.propNotNull("no_prop"))
+            val issues = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.propNotNull("prop"))
+            val empty = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.propNotNull("no_prop"))
 
             // Then
             assertNamesExactly(issues, "issue2")
@@ -262,6 +280,7 @@ class YTDBGremlinEngineTest(
         // When
         withStoreTx { tx ->
             val issuesAscending = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS,
                 NodeFactory.combine(
                     NodeFactory.propNotNull("order"),
@@ -269,6 +288,7 @@ class YTDBGremlinEngineTest(
                 )
             )
             val issuesDescending = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS,
                 NodeFactory.combine(
                     NodeFactory.propNotNull("order"),
@@ -291,6 +311,7 @@ class YTDBGremlinEngineTest(
         // When
         withStoreTx { tx ->
             val issues = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS, NodeFactory.or(
                     NodeFactory.propEqual("name", test.issue1.name()),
                     NodeFactory.propEqual("name", test.issue2.name())
@@ -324,7 +345,7 @@ class YTDBGremlinEngineTest(
 
         withStoreTx { tx ->
             val issues =
-                engine.query(Issues.CLASS, NodeFactory.propNotNull("myBlob"))
+                engine.query(iterableGetter(engine, tx), Issues.CLASS, NodeFactory.propNotNull("myBlob"))
                     .toList()
                     .sortedBy { it.getProperty("name") }
             assertEquals(2, issues.size)
@@ -346,10 +367,12 @@ class YTDBGremlinEngineTest(
         // When
         withStoreTx { tx ->
             val issuesOnBoard1 = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS,
                 NodeFactory.hasLinkTo(Issues.Links.ON_BOARD, test.board1)
             )
             val issuesOnBoard2 = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS,
                 NodeFactory.hasLinkTo(Issues.Links.ON_BOARD, test.board2)
             )
@@ -377,11 +400,13 @@ class YTDBGremlinEngineTest(
         withStoreTx { tx ->
 
             val issuesFromBoard1 = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS,
                 NodeFactory.hasLinkTo(Issues.Links.ON_BOARD, test.board1)
             )
 
             val issuesFromBoard2 = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS,
                 NodeFactory.hasLinkTo(Issues.Links.ON_BOARD, test.board2)
             )
@@ -408,6 +433,7 @@ class YTDBGremlinEngineTest(
         withStoreTx { tx ->
 
             val issues = engine.query(
+                iterableGetter(engine, tx),
 
                 Issues.CLASS,
                 NodeFactory.or(
@@ -436,6 +462,7 @@ class YTDBGremlinEngineTest(
         // When
         withStoreTx { tx ->
             val issues = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS,
                 NodeFactory.and(
                     NodeFactory.hasLinkTo(Issues.Links.ON_BOARD, test.board1),
@@ -500,7 +527,7 @@ class YTDBGremlinEngineTest(
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query(Issues.CLASS, NodeFactory.all()) as YTDBEntityIterable
+            val issues = engine.query(iterableGetter(engine, tx), Issues.CLASS, NodeFactory.all())
             val boardsDistinct = engine.selectManyDistinct(issues, Issues.Links.ON_BOARD)
 
             // Then
@@ -525,6 +552,7 @@ class YTDBGremlinEngineTest(
             // Find all issues that are either in project1 or board2
             val issues =
                 engine.query(
+                    iterableGetter(engine, tx),
                     Issues.CLASS,
                     NodeFactory.or(
                         NodeFactory.hasLinkTo(Issues.Links.IN_PROJECT, test.project1),
@@ -553,6 +581,7 @@ class YTDBGremlinEngineTest(
         withStoreTx { tx ->
             // Find all issues that in project1 or project2
             val issues = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS, NodeFactory.or(
                     NodeFactory.hasLinkTo(Issues.Links.IN_PROJECT, testCase.project1),
                     NodeFactory.hasLinkTo(Issues.Links.IN_PROJECT, testCase.project2)
@@ -580,6 +609,7 @@ class YTDBGremlinEngineTest(
         withStoreTx { tx ->
             // Find all issues that are on board1 and board2 at the same time
             val issues = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS, NodeFactory.and(
                     NodeFactory.hasLinkTo(Issues.Links.ON_BOARD, test.board1),
                     NodeFactory.hasLinkTo(Issues.Links.ON_BOARD, test.board2)
@@ -606,6 +636,7 @@ class YTDBGremlinEngineTest(
         // When
         withStoreTx { tx ->
             val issues = engine.query(
+                iterableGetter(engine, tx),
                 Issues.CLASS,
                 NodeFactory.hasLinkTo(Issues.Links.IN_PROJECT, testCase.project1)
             )
@@ -628,7 +659,7 @@ class YTDBGremlinEngineTest(
         // When
         withStoreTx { tx ->
             val issuesNotInProject = NodeFactory.hasLinkTo(Issues.Links.IN_PROJECT, null)
-            val issues = engine.query(Issues.CLASS, issuesNotInProject)
+            val issues = engine.query(iterableGetter(engine, tx), Issues.CLASS, issuesNotInProject)
 
             // Then
             assertNamesExactly(issues, "issue2", "issue3")
@@ -649,9 +680,9 @@ class YTDBGremlinEngineTest(
         // When
         withStoreTx { tx ->
             val issuesOnBoard =
-                engine.query(Issues.CLASS, NodeFactory.hasLink(Issues.Links.ON_BOARD))
+                engine.query(iterableGetter(engine, tx), Issues.CLASS, NodeFactory.hasLink(Issues.Links.ON_BOARD))
             val issuesInProject =
-                engine.query(Issues.CLASS, NodeFactory.hasLink(Issues.Links.IN_PROJECT))
+                engine.query(iterableGetter(engine, tx), Issues.CLASS, NodeFactory.hasLink(Issues.Links.IN_PROJECT))
 
             // Then
             assertNamesExactly(issuesOnBoard, "issue1", "issue2")
@@ -671,7 +702,11 @@ class YTDBGremlinEngineTest(
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query(Issues.CLASS, NodeFactory.not(NodeFactory.hasNoLink(Issues.Links.IN_PROJECT)))
+            val issues = engine.query(
+                iterableGetter(engine, tx),
+                Issues.CLASS,
+                NodeFactory.not(NodeFactory.hasNoLink(Issues.Links.IN_PROJECT))
+            )
 
             // Then
             assertNamesExactly(issues, "issue1")
@@ -689,6 +724,7 @@ class YTDBGremlinEngineTest(
             test.issue2.setProperty(Issues.Props.PRIORITY, "normal")
 
             val issues = engine.query(
+                iterableGetter(engine, tx),
                 "Issue", NodeFactory.and(
                     NodeFactory.propEqual("name", "issue2"),
                     NodeFactory.propEqual(Issues.Props.PRIORITY, "normal")
@@ -710,11 +746,11 @@ class YTDBGremlinEngineTest(
         withStoreTx { test.issue2.setProperty("value", 3) }
 
         // When
-        withStoreTx {
-            val exclusive = engine.query("Issue", NodeFactory.inRange("value", 1, 5))
-            val inclusiveMin = engine.query("Issue", NodeFactory.inRange("value", 3, 5))
-            val inclusiveMax = engine.query("Issue", NodeFactory.inRange("value", 1, 3))
-            val empty = engine.query("Issue", NodeFactory.inRange("value", 6, 12))
+        withStoreTx { tx ->
+            val exclusive = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange("value", 1, 5))
+            val inclusiveMin = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange("value", 3, 5))
+            val inclusiveMax = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange("value", 1, 3))
+            val empty = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange("value", 6, 12))
 
             // Then
             assertNamesExactly(exclusive, "issue2")
@@ -745,8 +781,8 @@ class YTDBGremlinEngineTest(
                 NodeFactory.sortByLinked(Issues.Links.IN_PROJECT, "name", SortDirection.ASC)
             val sortByLinkPropertyDesc =
                 NodeFactory.sortByLinked(Issues.Links.IN_PROJECT, "name", SortDirection.DESC)
-            val issueAsc = engine.query(Issues.CLASS, sortByLinkPropertyAsc)
-            val issuesDesc = engine.query(Issues.CLASS, sortByLinkPropertyDesc)
+            val issueAsc = engine.query(iterableGetter(engine, tx), Issues.CLASS, sortByLinkPropertyAsc)
+            val issuesDesc = engine.query(iterableGetter(engine, tx), Issues.CLASS, sortByLinkPropertyDesc)
 
             // Then
             // As sorted by project name
@@ -769,10 +805,10 @@ class YTDBGremlinEngineTest(
             val sortByPropertyAsc =
                 NodeFactory.sortBy("name", SortDirection.ASC)
 //
-            val issuesAsc = engine.query(Issues.CLASS, sortByPropertyAsc)
+            val issuesAsc = engine.query(iterableGetter(engine, tx), Issues.CLASS, sortByPropertyAsc)
 
             val sortByLinkPropertyDesc = NodeFactory.sortBy("name", SortDirection.DESC)
-            val issuesDesc = engine.query(Issues.CLASS, sortByLinkPropertyDesc)
+            val issuesDesc = engine.query(iterableGetter(engine, tx), Issues.CLASS, sortByLinkPropertyDesc)
 
             // Then
             // As sorted by project name
