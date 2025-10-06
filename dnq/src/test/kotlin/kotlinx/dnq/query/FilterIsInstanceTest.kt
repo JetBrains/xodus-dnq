@@ -78,8 +78,6 @@ class FilterIsInstanceTest : DBTest() {
     }
 
     @Test
-    @Ignore
-    @Questionable("not(hasLabel) seems to be not polymorphic, what should we do?")
     fun `filter not parent`() {
         transactional {
             Parent.new()

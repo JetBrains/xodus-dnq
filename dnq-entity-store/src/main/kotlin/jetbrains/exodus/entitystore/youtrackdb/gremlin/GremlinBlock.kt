@@ -147,7 +147,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
     }
 
     data object None : GremlinBlock("none", BlockType.CONDITION) {
-        override fun traverse(g: YT): YT = g.not(`__`.identity<Any>())
+        override fun traverse(g: YT): YT = g.none()
 
         override fun describe(s: StringBuilder): StringBuilder = s.append("none")
 

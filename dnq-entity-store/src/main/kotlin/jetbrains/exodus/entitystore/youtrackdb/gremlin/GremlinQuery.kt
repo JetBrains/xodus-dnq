@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.gremlin
 
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.record.RID
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import org.apache.tinkerpop.gremlin.process.traversal.P
@@ -326,6 +327,35 @@ sealed class GremlinQuery {
         }
 
         override fun shortName(): String = "aggregate"
+    }
+
+    data class AggregateNoOrder(
+        val query1: GremlinQuery,
+        val query2: GremlinQuery,
+        val combiner: (GraphTraversal<*, *>, GraphTraversal<*, *>) -> GraphTraversal<*, *>
+    ) : GremlinQuery() {
+
+        override fun startTraversal(gs: GraphTraversalSource): YTBuilder {
+            val res1 = query1.startTraversal(gs)
+            val res2 = query2.continueTraversal(`__`.start(), res1.counter, false)
+            return aggregate(res1, res2)
+        }
+
+        override fun continueTraversal(t: YT, paramCounter: Int, ignoreSort: Boolean): YTBuilder {
+            val res1 = query1.continueTraversal(t, paramCounter, ignoreSort)
+            val res2 = query2.continueTraversal(`__`.start(), res1.counter, ignoreSort)
+            return aggregate(res1, res2)
+        }
+
+        private fun aggregate(
+            res1: YTBuilder,
+            res2: YTBuilder
+        ): YTBuilder = YTBuilder.of(
+            combiner(res1.traversal.fold(), res2.traversal.fold()).unfold<YTDBVertex>(),
+            counter = res2.counter
+        )
+
+        override fun shortName(): String = "aggregateNoOrder"
     }
 
     data class SortBy(val inner: GremlinQuery, val sortBlock: GremlinBlock.Sort) :
