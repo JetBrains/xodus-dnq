@@ -24,6 +24,7 @@ import com.jetbrains.youtrackdb.api.record.RID
 import com.jetbrains.youtrackdb.api.record.Vertex
 import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.record.RecordElement
 import com.jetbrains.youtrackdb.internal.core.db.record.TrackedMultiValue
 import com.jetbrains.youtrackdb.internal.core.db.record.ridbag.LinkBag
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBVertexInternal
@@ -186,7 +187,7 @@ open class YTDBVertexEntity(
             is MutableSet<*> -> newValue
             else -> throw IllegalArgumentException("Unexpected value: $newValue")
         }
-        if (set is TrackedMultiValue<*, *>)
+        if (set is TrackedMultiValue<*, *> && set.isOneOfOwners(safeVertex { raw() } as RecordElement))
             safeVertex { property(propertyName, set) }
         else if (set.firstOrNull() is Identifiable)
             @Suppress("UNCHECKED_CAST")
