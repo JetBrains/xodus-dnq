@@ -65,6 +65,8 @@ interface TransientChangesTracker {
 
     fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity
 
+    fun getSnapshotBeforeRemoval(transientEntity: TransientEntity): TransientEntity
+
     fun upgrade(): TransientChangesTracker
 
     fun dispose()

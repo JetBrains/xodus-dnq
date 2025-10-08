@@ -51,6 +51,7 @@ import java.io.File
 import java.io.InputStream
 
 open class YTDBVertexEntity(
+    private var oEntityId: RIDEntityId,
     private var ytdbVertex: YTDBVertex,
     private val store: YTDBEntityStore
 ) : YTDBEntity {
@@ -112,11 +113,10 @@ open class YTDBVertexEntity(
 
     val vertex: YTDBVertex get() = ytdbVertex
 
-    private var oEntityId: RIDEntityId
-
-    init {
-        oEntityId = RIDEntityId.fromVertex(ytdbVertex)
-    }
+    constructor(
+        ytdbVertex: YTDBVertex,
+        store: YTDBEntityStore
+    ) : this(RIDEntityId.fromVertex(ytdbVertex), ytdbVertex, store)
 
     override fun getStore() = store
 
@@ -541,8 +541,8 @@ open class YTDBVertexEntity(
     private inline fun <T> safeVertex(block: YTDBVertex.() -> T): T {
         try {
             return block(ytdbVertex)
-        } catch (_: RecordNotFoundException) {
-            throw EntityRemovedInDatabaseException(oEntityId.getTypeName(), oEntityId)
+        } catch (rnf: RecordNotFoundException) {
+            throw EntityRemovedInDatabaseException(oEntityId.getTypeName(), oEntityId, rnf)
         }
     }
 }

@@ -65,6 +65,9 @@ class ReadOnlyTransientChangesTrackerImpl : TransientChangesTracker {
 
     override fun isRemoved(transientEntity: TransientEntity) = false
 
+    override fun getSnapshotBeforeRemoval(transientEntity: TransientEntity): TransientEntity =
+        throw UnsupportedOperationException()
+
     override fun linkChanged(
             source: TransientEntity,
             linkName: String,

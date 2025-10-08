@@ -17,7 +17,10 @@ package com.jetbrains.teamsys.dnq.database
 
 import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.database.*
-import jetbrains.exodus.entitystore.*
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.EntityStore
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
@@ -33,26 +36,23 @@ open class TransientEntityImpl : TransientEntity {
     private val store: TransientEntityStore
 
     private var id: YTDBEntityId? = null
-    private val currentEntity = ThreadLocal<YTDBEntity>()
+    private var currentEntity: YTDBEntity? = null
 
     private val entityType: String by lazy(LazyThreadSafetyMode.NONE) { entity.type }
 
     override var entity: YTDBEntity
         get() {
-            var current = currentEntity.get()
 
-            if (current == null) {
+            if (currentEntity == null) {
                 val id = id ?: throwWrappedPersistentEntityUndefined()
-                current = store.threadSessionOrThrow.transactionInternal.getEntity(id) as YTDBVertexEntity
-
-                currentEntity.set(current)
+                currentEntity = store.persistentStore.getEntity(id) as YTDBVertexEntity
             }
 
-            return current
+            return currentEntity!!
         }
         set(persistentEntity) {
             id = persistentEntity.id
-            currentEntity.set(persistentEntity)
+            currentEntity = persistentEntity
         }
 
     override fun resetIfNew() {

@@ -37,4 +37,13 @@ public class EntityRemovedInDatabaseException extends EntityStoreException {
     public EntityRemovedInDatabaseException(final String entityType, final EntityId id) {
         super(entityType + '[' + id + "] was removed.");
     }
+
+    /**
+     * @param entityType type of the entity that was not found in database
+     * @param id         id of the entity that was not found in database
+     * @param cause      original "record not found" exception
+     */
+    public EntityRemovedInDatabaseException(final String entityType, final EntityId id, Throwable cause) {
+        super(entityType + '[' + id + "] was removed.", cause);
+    }
 }
