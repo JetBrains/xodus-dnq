@@ -187,7 +187,7 @@ open class YTDBVertexEntity(
             is MutableSet<*> -> newValue
             else -> throw IllegalArgumentException("Unexpected value: $newValue")
         }
-        if (set is TrackedMultiValue<*, *> && set.isOneOfOwners(safeVertex { raw() } as RecordElement))
+        if (set is TrackedMultiValue<*, *> && set.owner == safeVertex { raw() })
             safeVertex { property(propertyName, set) }
         else if (set.firstOrNull() is Identifiable)
             @Suppress("UNCHECKED_CAST")
