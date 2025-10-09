@@ -63,7 +63,7 @@ class ReadOnlyTransientChangesTrackerImpl : TransientChangesTracker {
 
     override fun isSaved(transientEntity: TransientEntity) = true
 
-    override fun isRemoved(transientEntity: TransientEntity) = false
+    override fun isRemoved(entityId: EntityId) = false
 
     override fun getSnapshotBeforeRemoval(transientEntity: TransientEntity): TransientEntity =
         throw UnsupportedOperationException()

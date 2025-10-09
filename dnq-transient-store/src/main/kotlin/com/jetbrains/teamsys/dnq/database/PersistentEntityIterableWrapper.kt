@@ -57,27 +57,22 @@ open class PersistentEntityIterableWrapper(
     override fun contains(entity: Entity) = wrappedIterable.contains(entity)
 
     override fun intersect(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.intersect(right.unwrap())
     }
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.intersectSavingOrder(right.unwrap())
     }
 
     override fun union(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.union(right.unwrap())
     }
 
     override fun minus(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.minus(right.unwrap())
     }
 
     override fun concat(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.concat(right.unwrap())
     }
 
@@ -123,8 +118,6 @@ open class PersistentEntityIterableWrapper(
     }
 
     override fun isEmpty() = wrappedIterable.isEmpty
-
-    private fun throwUnsupported(): Nothing = throw UnsupportedOperationException("Should never be called")
 
     private fun Entity.wrap(store: TransientEntityStore): TransientEntity {
         return store.threadSessionOrThrow.newEntity(this)

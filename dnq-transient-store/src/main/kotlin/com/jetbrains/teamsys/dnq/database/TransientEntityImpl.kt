@@ -78,7 +78,7 @@ open class TransientEntityImpl : TransientEntity {
         get() = threadSessionOrThrow.transientChangesTracker.isSaved(this)
 
     override val isRemoved: Boolean
-        get() = threadSessionOrThrow.transientChangesTracker.isRemoved(this)
+        get() = id?.let(threadSessionOrThrow.transientChangesTracker::isRemoved) ?: false
 
     override val isReadonly: Boolean
         get() = false
@@ -293,7 +293,7 @@ open class TransientEntityImpl : TransientEntity {
     open fun getLink(linkName: String, session: TransientStoreSession? = null): Entity? {
         val link = this.entity.getLink(linkName) ?: return null
         val s = session ?: store.threadSessionOrThrow
-        return s.newEntity(link).takeUnless { s.transientChangesTracker.isRemoved(it) }
+        return s.newEntity(link).takeUnless { s.transientChangesTracker.isRemoved(it.id) }
     }
 
     override fun getLinks(linkNames: Collection<String>): EntityIterable {

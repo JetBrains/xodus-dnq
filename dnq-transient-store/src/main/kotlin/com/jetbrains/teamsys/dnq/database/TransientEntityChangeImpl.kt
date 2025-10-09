@@ -28,7 +28,7 @@ class TransientEntityChangeImpl(
 
     override val snapshotEntity: TransientEntity
         get() =
-            if (changesTracker.isRemoved(transientEntity))
+            if (changesTracker.isRemoved(transientEntity.id))
                 changesTracker.getSnapshotBeforeRemoval(transientEntity)
             else changesTracker.getSnapshotEntity(transientEntity)
 

@@ -160,8 +160,8 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
         return transientEntity.id in addedEntities
     }
 
-    override fun isRemoved(transientEntity: TransientEntity): Boolean {
-        return transientEntity.id in removedEntities
+    override fun isRemoved(entityId: EntityId): Boolean {
+        return entityId in removedEntities
     }
 
     override fun getSnapshotBeforeRemoval(transientEntity: TransientEntity): TransientEntity = RemovedTransientEntity(

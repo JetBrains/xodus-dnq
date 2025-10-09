@@ -15,31 +15,53 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterator
 
 class PersistentEntityIteratorWrapper(
-        protected val source: EntityIterator,
-        private val session: TransientStoreSession) : EntityIterator {
+    private val source: EntityIterator,
+    private val session: TransientStoreSession
+) : EntityIterator {
 
-    override fun hasNext(): Boolean {
-        return source.hasNext()
+    private val changes: TransientChangesTracker = session.transientChangesTracker
+
+    private var _current: Entity? = null
+
+    private fun initCurrent(): Entity? {
+
+        while (_current == null && source.hasNext()) {
+            val n = source.next()
+            if (!changes.isRemoved(n.id)) {
+                _current = n
+            }
+        }
+        return _current
     }
 
-    override fun next(): Entity? {
+    private fun consumeCurrent(): Entity =
+        initCurrent()
+            ?.also { _current = null }
+            ?: throw NoSuchElementException()
+
+    override fun hasNext(): Boolean {
+        return initCurrent() != null
+    }
+
+    override fun next(): Entity {
         //TODO: do not save in session?
-        val persistentEntity = source.next() ?: return null
-        return session.newEntity(persistentEntity)
+        return session.newEntity(consumeCurrent())
     }
 
     override fun remove() {
+        consumeCurrent()
         source.remove()
     }
 
-    override fun nextId(): EntityId? {
-        return source.nextId()
+    override fun nextId(): EntityId {
+        return consumeCurrent().id
     }
 
     override fun dispose(): Boolean {
@@ -47,7 +69,14 @@ class PersistentEntityIteratorWrapper(
     }
 
     override fun skip(number: Int): Boolean {
-        return source.skip(number)
+
+        repeat(number) {
+            if (initCurrent() == null) {
+                return false
+            }
+            consumeCurrent()
+        }
+        return true
     }
 
     override fun shouldBeDisposed(): Boolean {

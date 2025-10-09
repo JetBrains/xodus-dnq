@@ -326,6 +326,9 @@ class TransientSessionImpl(
 
     override fun getEntity(id: EntityId): Entity {
         assertOpen("get entity")
+        if (changesTracker.isRemoved(id)) {
+            throw EntityRemovedException(id)
+        }
         if (id in loadedIds) {
             return newEntityImpl(persistentStore.getEntity(id))
         }
@@ -493,9 +496,9 @@ class TransientSessionImpl(
         val tracker = transientChangesTracker
         return when {
             entity.isReadonly || entity.isWrapper -> entity
-            checkEntityRemoved && tracker.isRemoved(entity) -> {
+            checkEntityRemoved && tracker.isRemoved(entity.id) -> {
                 logger.warn { "Entity [$entity] was removed by you." }
-                throw EntityRemovedException(entity)
+                throw EntityRemovedException(entity.id)
             }
 
             tracker.isNew(entity) -> entity
@@ -532,7 +535,7 @@ class TransientSessionImpl(
             if (entity.isWrapper) {
                 return entity.isRemoved
             }
-            if (transientChangesTracker.isRemoved(entity)) {
+            if (transientChangesTracker.isRemoved(entity.id)) {
                 return true
             } else if (entity.isReadonly || transientChangesTracker.isNew(entity)) {
                 return false
