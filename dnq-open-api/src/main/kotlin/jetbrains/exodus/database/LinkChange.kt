@@ -52,12 +52,6 @@ class LinkChange(
     val deletedEntitiesSnapshots: List<TransientEntity>?
         get() = _deletedEntities?.map { changesTracker.getSnapshotEntity(it) }
 
-    val addedEntitiesSnapshots: List<TransientEntity>?
-        get() = _addedEntities?.map { changesTracker.getSnapshotEntity(it) }
-
-    val removedEntitiesSnapshots: List<TransientEntity>?
-        get() = _removedEntities?.map { changesTracker.getSnapshotEntity(it) }
-
     fun isNotEmpty(): Boolean {
         return addedEntitiesSize > 0 || removedEntitiesSize > 0 || deletedEntitiesSize > 0
     }
