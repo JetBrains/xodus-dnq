@@ -205,7 +205,8 @@ open class TransientChangesMultiplexer :
             EntityChangeType.ADD -> listeners.visit(true) { it.addedSyncBeforeConstraints(c.transientEntity) }
             EntityChangeType.UPDATE -> listeners.visit(true) { it.updatedSyncBeforeConstraints(c.snapshotEntity, c.transientEntity) }
             EntityChangeType.REMOVE -> listeners.visit(true) { listener ->
-                listener.removedSyncBeforeConstraints(c.snapshotEntity, session.createRemovedEntityData(listener, c.snapshotEntity))
+                val snapshot = c.snapshotEntity
+                listener.removedSyncBeforeConstraints(snapshot, session.createRemovedEntityData(listener, snapshot))
             }
         }
 

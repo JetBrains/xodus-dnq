@@ -15,6 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import com.jetbrains.teamsys.dnq.database.ReadonlyTransientEntityImpl
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator
 import jetbrains.exodus.core.dataStructures.hash.HashMap
@@ -103,12 +104,23 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
             return changedEntities.size - addedAndRemovedCount
         }
 
-    override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntityImpl {
-        return ReadonlyTransientEntityImpl(
-            getChangeDescription(transientEntity),
-            transientEntity.entity,
-            transientEntity.store
-        )
+    override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity {
+        return removedEntities[transientEntity.id]
+            ?.let {
+                val entity = YTDBVertexEntity(
+                    transientEntity.id as RIDEntityId,
+                    it,
+                    transientEntity.store.persistentStore as YTDBEntityStore
+                )
+                RemovedTransientEntity(
+                    TransientEntityImpl(entity, transientEntity.store)
+                )
+            }
+            ?: ReadonlyTransientEntityImpl(
+                getChangeDescription(transientEntity),
+                transientEntity.entity,
+                transientEntity.store
+            )
     }
 
     private fun getEntityChangeType(transientEntity: TransientEntity): EntityChangeType {
@@ -164,15 +176,6 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
         return entityId in removedEntities
     }
 
-    override fun getSnapshotBeforeRemoval(transientEntity: TransientEntity): TransientEntity = RemovedTransientEntity(
-        removedEntities[transientEntity.id]
-            ?.let {
-                val entity = YTDBVertexEntity(transientEntity.id as RIDEntityId,it, transientEntity.store.persistentStore as YTDBEntityStore)
-                TransientEntityImpl(entity, transientEntity.store)
-            }
-            ?: transientEntity
-    )
-
     override fun isSaved(transientEntity: TransientEntity): Boolean {
         val id = transientEntity.id
         return id !in addedEntities && id !in removedEntities
@@ -195,7 +198,7 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
         linkName: String
     ): Pair<MutableMap<String, LinkChange>, LinkChange> {
         val linksDetailed = entityToChangedLinksDetailed.getOrPut(source) { HashMap() }
-        val linkChange = linksDetailed.getOrPut(linkName) { LinkChange(linkName) }
+        val linkChange = linksDetailed.getOrPut(linkName) { LinkChange(linkName, this) }
         return Pair(linksDetailed, linkChange)
     }
 
