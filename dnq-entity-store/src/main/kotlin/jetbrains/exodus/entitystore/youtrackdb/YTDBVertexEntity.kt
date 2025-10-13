@@ -199,11 +199,10 @@ open class YTDBVertexEntity(
         return propValue.isPresent && propValue.value().isTransactionModified
     }
 
-    @Questionable("Can we avoid using raw() here?")
     override fun deleteProperty(propertyName: String): Boolean {
         requireActiveWritableTransaction()
-        if (safeVertex { raw() }.hasProperty(propertyName)) {
-            safeVertex { raw() }.removeProperty<Any>(propertyName)
+        if (safeVertex { hasProperty(propertyName) }) {
+            safeVertex { removeProperty(propertyName) }
             return true
         } else {
             return false
