@@ -18,6 +18,7 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator
 import jetbrains.exodus.database.TransientEntitiesUpdater
 import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import mu.KLogging
 import java.io.File
 import java.io.InputStream
@@ -400,10 +401,10 @@ class TransientEntitiesUpdaterImpl(
         child: TransientEntity
     ) {
         deleteLinkInternal(parent, parentToChildLinkName, child)
-        deletePropertyInternal(child, PARENT_TO_CHILD_LINK_NAME)
+        deletePropertyInternal(child, YTDBVertexEntity.PARENT_TO_CHILD_LINK_NAME)
         if (childToParentLinkName != null) {
             deleteLinkInternal(child, childToParentLinkName, parent)
-            deletePropertyInternal(child, CHILD_TO_PARENT_LINK_NAME)
+            deletePropertyInternal(child, YTDBVertexEntity.CHILD_TO_PARENT_LINK_NAME)
         }
     }
 
@@ -421,8 +422,8 @@ class TransientEntitiesUpdaterImpl(
                 }
                 setLinkInternal(parent, parentToChildLinkName, child)
                 setLinkInternal(child, childToParentLinkName, parent)
-                setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName)
-                setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName)
+                setPropertyInternal(child, YTDBVertexEntity.PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName)
+                setPropertyInternal(child, YTDBVertexEntity.CHILD_TO_PARENT_LINK_NAME, childToParentLinkName)
             }
             true
         }
@@ -434,7 +435,7 @@ class TransientEntitiesUpdaterImpl(
         parentToChildLinkName: String,
         newParent: TransientEntity
     ): Boolean {
-        val oldChildToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
+        val oldChildToParentLinkName = child.getProperty(YTDBVertexEntity.CHILD_TO_PARENT_LINK_NAME) as String?
         if (oldChildToParentLinkName != null) {
             if (childToParentLinkName == oldChildToParentLinkName) {
                 val oldParent = child.getLink(childToParentLinkName) as TransientEntity?
@@ -448,7 +449,8 @@ class TransientEntitiesUpdaterImpl(
             } else {
                 val oldParent = child.getLink(oldChildToParentLinkName) as TransientEntity?
                 if (oldParent != null) {
-                    val oldParentToChildLinkName = child.getProperty(PARENT_TO_CHILD_LINK_NAME) as String?
+                    val oldParentToChildLinkName =
+                        child.getProperty(YTDBVertexEntity.PARENT_TO_CHILD_LINK_NAME) as String?
                     deleteLinkInternal(oldParent, oldParentToChildLinkName ?: parentToChildLinkName, child)
                     deleteLinkInternal(child, oldChildToParentLinkName, oldParent)
                 }
@@ -460,7 +462,7 @@ class TransientEntitiesUpdaterImpl(
     override fun clearChildren(parent: TransientEntity, parentToChildLinkName: String) {
         addChangeAndRun {
             for (child in parent.getLinks(parentToChildLinkName)) {
-                val childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
+                val childToParentLinkName = child.getProperty(YTDBVertexEntity.CHILD_TO_PARENT_LINK_NAME) as String?
                 removeChildFromParentInternal(
                     parent,
                     parentToChildLinkName,
@@ -482,8 +484,8 @@ class TransientEntitiesUpdaterImpl(
             if (removeChildFromCurrentParentInternal(child, childToParentLinkName, parentToChildLinkName, parent)) {
                 addLinkInternal(parent, parentToChildLinkName, child)
                 setLinkInternal(child, childToParentLinkName, parent)
-                setPropertyInternal(child, PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName)
-                setPropertyInternal(child, CHILD_TO_PARENT_LINK_NAME, childToParentLinkName)
+                setPropertyInternal(child, YTDBVertexEntity.PARENT_TO_CHILD_LINK_NAME, parentToChildLinkName)
+                setPropertyInternal(child, YTDBVertexEntity.CHILD_TO_PARENT_LINK_NAME, childToParentLinkName)
             }
             true
         }

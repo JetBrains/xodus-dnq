@@ -90,6 +90,7 @@ class OTransactionLifecycleTest : OTestMixin {
     fun `open, begin, commit, close - changes`() {
         val session = youTrackDb.openSession() as DatabaseSessionInternal
         val oClass = session.getOrCreateVertexClass("trista")
+        oClass.createProperty("name", PropertyType.STRING)
 
         assertFalse(session.transactionInternal == null)
 
@@ -266,7 +267,8 @@ class OTransactionLifecycleTest : OTestMixin {
     @Test
     fun `embedded transactions successful case`() {
         val session = youTrackDb.openSession() as DatabaseSessionInternal
-        session.getOrCreateVertexClass("trista")
+        val clazz = session.getOrCreateVertexClass("trista")
+        clazz.createProperty("name", PropertyType.STRING)
         assertEquals(TXSTATUS.INVALID, session.transactionInternal.status)
         assertEquals(0, session.transactionInternal.amountOfNestedTxs())
 

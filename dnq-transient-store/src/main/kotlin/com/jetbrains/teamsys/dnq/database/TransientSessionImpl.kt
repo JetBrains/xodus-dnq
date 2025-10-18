@@ -38,8 +38,6 @@ private fun createChangesTracker(
     return if (readonly) ReadOnlyTransientChangesTrackerImpl() else TransientChangesTrackerImpl()
 }
 
-internal const val CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__"
-internal const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 
 class TransientSessionImpl(
     private val store: TransientEntityStoreImpl,
@@ -808,7 +806,7 @@ class TransientSessionImpl(
     }
 
     fun getParent(child: TransientEntity): Entity? {
-        val childToParentLinkName = child.getProperty(CHILD_TO_PARENT_LINK_NAME) as String?
+        val childToParentLinkName = child.getProperty(YTDBVertexEntity.CHILD_TO_PARENT_LINK_NAME) as String?
             ?: return null
         return child.getLink(childToParentLinkName)
     }

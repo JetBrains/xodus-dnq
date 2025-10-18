@@ -17,12 +17,14 @@ package kotlinx.dnq.query
 
 import com.google.common.truth.IterableSubject
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.Questionable
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.xdStringProp
 import org.joda.time.DateTime
 import org.junit.Test
+import kotlin.test.Ignore
 
 private var DBTest.User.inn by xdStringProp<DBTest.User>(dbName = "_inn_")
 
@@ -282,6 +284,8 @@ class FilterQueryPropertiesTest : DBTest() {
     }
 
     @Test
+    @Ignore
+    @Questionable("Not supported with YouTrackDB strict schema mode")
     fun `should search by extension property`() {
         val date = DateTime()
         store.transactional {

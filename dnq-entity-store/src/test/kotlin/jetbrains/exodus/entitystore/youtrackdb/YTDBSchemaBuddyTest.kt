@@ -15,6 +15,8 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
+import com.jetbrains.youtrackdb.api.schema.PropertyType
+import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.PersistentEntityId
@@ -40,7 +42,11 @@ class YTDBSchemaBuddyTest : OTestMixin {
     @Test
     fun `if autoInitialize is false, explicit initialization is required`() {
         withSession { session ->
-            session.getOrCreateVertexClass(Issues.CLASS)
+            if (session.schema.getClass(Issues.CLASS) == null) {
+                val issueClass = session.createVertexClassWithClassId(Issues.CLASS)
+                issueClass.createProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
+                issueClass.createProperty(Issues.Props.NAME, PropertyType.STRING)
+            }
         }
         val issueId = withStoreTx { tx ->
             tx.createIssue("trista").id
@@ -74,7 +80,11 @@ class YTDBSchemaBuddyTest : OTestMixin {
     @Test
     fun `getOEntityId() works with both existing and not existing EntityId`() {
         withSession { session ->
-            session.getOrCreateVertexClass(Issues.CLASS)
+            if (session.schema.getClass(Issues.CLASS) == null) {
+                val issueClass = session.createVertexClassWithClassId(Issues.CLASS)
+                issueClass.createProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
+                issueClass.createProperty(Issues.Props.NAME, PropertyType.STRING)
+            }
         }
         val issueId = withStoreTx { tx ->
             tx.createIssue("trista").id

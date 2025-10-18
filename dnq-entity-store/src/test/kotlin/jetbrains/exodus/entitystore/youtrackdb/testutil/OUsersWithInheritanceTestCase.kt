@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.testutil
 
+import com.jetbrains.youtrackdb.api.schema.PropertyType
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
@@ -38,6 +39,8 @@ class OUsersWithInheritanceTestCase(youTrackDB: InMemoryYouTrackDB) {
 
         youTrackDB.withSession { session ->
             val baseClass = session.getOrCreateVertexClass(BaseUser.CLASS)
+            baseClass.createProperty("name", PropertyType.STRING)
+            baseClass.createProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
             val subclasses = listOf(
                 session.getOrCreateVertexClass(Guest.CLASS),
                 session.getOrCreateVertexClass(User.CLASS),

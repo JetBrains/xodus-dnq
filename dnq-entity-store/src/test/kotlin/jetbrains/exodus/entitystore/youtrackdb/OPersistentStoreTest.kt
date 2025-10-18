@@ -248,14 +248,14 @@ class OPersistentStoreTest : OTestMixin {
             val issue = txn.createIssue("Hello", "Critical")
             val project = txn.createProject("World")
             txn.addIssueToProject(issue, project)
-            issue.setBlobString("bober", "bober")
-            issue.setBlob("biba", "hello".toByteArray().inputStream())
-            issue.setProperty("hello", 1995)
+            issue.setBlobString(Issues.Props.BLOB1, "bober")
+            issue.setBlob(Issues.Props.BLOB2, "hello".toByteArray().inputStream())
+            issue.setProperty("version", 1995)
             issue
         }
         youTrackDb.store.executeInTransaction {
             assertEquals(
-                listOf(Issues.Props.PRIORITY, "name", "hello").sorted(),
+                listOf(Issues.Props.PRIORITY, "name", "version").sorted(),
                 issue.propertyNames.sorted()
             )
         }
@@ -303,6 +303,7 @@ class OPersistentStoreTest : OTestMixin {
             val t1 = session.getOrCreateVertexClass("type1")
             t1.createProperty("name", PropertyType.STRING)
             t1.createIndex("opca_index", SchemaClass.INDEX_TYPE.UNIQUE, "name")
+            t1.createProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
         }
         fun StoreTransaction.violateIndexRestriction() {
             val e1 = this.newEntity("type1")

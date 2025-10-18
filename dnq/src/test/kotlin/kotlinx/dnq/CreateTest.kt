@@ -83,5 +83,4 @@ class CreateTest : DBTest() {
             }.name).isEqualTo("mega admin")
         }
     }
-
 }

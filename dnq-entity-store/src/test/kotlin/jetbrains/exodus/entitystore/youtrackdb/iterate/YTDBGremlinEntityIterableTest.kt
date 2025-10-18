@@ -37,13 +37,13 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         // Given
         val test = givenTestCase()
         withStoreTx {
-            test.issue1.setProperty("none", "n1")
+            test.issue1.setProperty(Issues.Props.TYPE, "n1")
         }
 
         // When
         withStoreTx { tx ->
             val issues = YTDBEntityIterable.where(
-                Issues.CLASS, tx, GremlinBlock.PropNull("none")
+                Issues.CLASS, tx, GremlinBlock.PropNull(Issues.Props.TYPE)
             )
 
             // Then
@@ -90,9 +90,9 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         // Given
         val test = givenTestCase()
         withStoreTx { tx ->
-            test.issue1.setProperty("opca", 300)
-            test.issue2.setProperty("opca", 200)
-            test.issue3.setProperty("opca", 300)
+            test.issue1.setProperty(Issues.Props.VERSION, 300)
+            test.issue2.setProperty(Issues.Props.VERSION, 200)
+            test.issue3.setProperty(Issues.Props.VERSION, 300)
         }
 
         // When
@@ -100,7 +100,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = YTDBEntityIterable.where(
                 Issues.CLASS,
                 tx,
-                GremlinBlock.PropEqual("opca", 300)
+                GremlinBlock.PropEqual(Issues.Props.VERSION, 300)
             )
 
             // Then
@@ -323,14 +323,14 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         // Given
         val test = givenTestCase()
         withStoreTx {
-            test.issue1.setProperty("complex", "true")
-            test.issue2.setProperty("complex", "true")
+            test.issue1.setProperty(Issues.Props.TYPE, "complex")
+            test.issue2.setProperty(Issues.Props.TYPE, "complex")
         }
 
         // When
         withStoreTx { tx ->
             val issues = tx.getAll(Issues.CLASS)
-            val complexIssues = tx.find(Issues.CLASS, "complex", "true")
+            val complexIssues = tx.find(Issues.CLASS, Issues.Props.TYPE, "complex")
             val simpleIssues = issues.minus(complexIssues)
 
             // Then
@@ -349,21 +349,21 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         // Given
         val test = givenTestCase()
         withStoreTx {
-            test.issue1.setProperty("complex", "true")
-            test.issue1.setProperty("blocked", "true")
+            test.issue1.setProperty(Issues.Props.TYPE, "complex")
+            test.issue1.setProperty(Issues.Props.DESCRIPTION, "blocked")
 
-            test.issue2.setProperty("complex", "true")
-            test.issue2.setProperty("blocked", "false")
+            test.issue2.setProperty(Issues.Props.TYPE, "complex")
+            test.issue2.setProperty(Issues.Props.DESCRIPTION, "work in progress")
 
-            test.issue3.setProperty("complex", "false")
-            test.issue3.setProperty("blocked", "true")
+            test.issue3.setProperty(Issues.Props.TYPE, "simple")
+            test.issue3.setProperty(Issues.Props.DESCRIPTION, "blocked")
 
         }
 
         // When
         withStoreTx { tx ->
-            val complexIssues = tx.find(Issues.CLASS, "complex", "true")
-            val blockedIssues = tx.find(Issues.CLASS, "blocked", "true")
+            val complexIssues = tx.find(Issues.CLASS, Issues.Props.TYPE, "complex")
+            val blockedIssues = tx.find(Issues.CLASS, Issues.Props.DESCRIPTION, "blocked")
             val complexUnblockedIssues = complexIssues.minus(blockedIssues)
 
             // Then

@@ -17,17 +17,22 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.jetbrains.youtrackdb.api.exception.ValidationException
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.database.exceptions.NullPropertyException
 import jetbrains.exodus.database.exceptions.SimplePropertyValidationException
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.createVertexClassWithClassId
 import kotlinx.dnq.query.*
 import kotlinx.dnq.simple.email
 import kotlinx.dnq.simple.regex
 import kotlinx.dnq.simple.requireIf
+import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.util.findById
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.hasChanges
+import kotlinx.dnq.util.initMetaData
 import org.joda.time.DateTime
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -83,6 +88,11 @@ class PropertiesTest : DBTest() {
         val mutableSetOfStrings by xdMutableSetProp<SetContainer, String>()
     }
 
+    class UnregisteredEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<UnregisteredEntity>()
+
+        var name by xdRequiredStringProp()
+    }
 
     override fun registerEntityTypes() {
         super.registerEntityTypes()
@@ -389,6 +399,70 @@ class PropertiesTest : DBTest() {
 
             assertEquals(setOf("value1", "value2"), r.setOfStrings)
             assertEquals(setOf("value3", "value4"), r.mutableSetOfStrings)
+        }
+    }
+
+    @Test
+    fun `strict class`() {
+        assertFailsWith<ValidationException> {
+            store.transactional {
+                val test = Employee.new {
+                    login = "boss"
+                    skill = 555
+                    hireDate = DateTime.now().minusHours(1)
+                }
+                test.entity.setProperty("nonexistent", "abc")
+            }
+        }
+    }
+
+    @Test
+    fun `strict existing class`() {
+        XdModel.hierarchy.clear()
+        XdModel.registerNodes(UnregisteredEntity)
+        val db = StaticStoreContainer.dbProvider!!
+        // create class, but with non-strict mode
+        db.withSession { session ->
+            session.createVertexClassWithClassId("UnregisteredEntity", strict = false)
+
+        }
+
+        // create entity in non-strict mode
+        db.withSession { s ->
+            s.transaction { tx ->
+                tx
+                    .newVertex("UnregisteredEntity")
+                    .also { it.setProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, 45789L) }
+                    .also { it.setProperty("name", "new name") }
+            }!!
+        }
+
+        // init metadata, should apply strict mode to the class
+        initMetaData(XdModel.hierarchy, store)
+        store.transactional {
+            assertEquals(1, UnregisteredEntity.all().toList().size)
+        }
+
+        // this should work:
+        db.withSession { s ->
+            s.transaction { tx ->
+                tx
+                    .newVertex("UnregisteredEntity")
+                    .also { it.setProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, 654321L) }
+                    .also { it.setProperty("name", "another name") }
+            }!!
+        }
+
+        // but this should fail for "custom" property:
+        assertFailsWith<ValidationException> {
+            db.withSession { s ->
+                s.transaction { tx ->
+                    tx
+                        .newVertex("UnregisteredEntity")
+                        .also { it.setProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, 654321L) }
+                        .also { it.setProperty("custom", "custom value") }
+                }!!
+            }
         }
     }
 }

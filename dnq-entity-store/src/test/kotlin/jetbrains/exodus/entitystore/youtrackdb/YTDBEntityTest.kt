@@ -302,13 +302,12 @@ class YTDBEntityTest : OTestMixin {
     fun `set the same string blob should return false`() {
         val issue = youTrackDb.createIssue("GetPropertyTest")
 
-        val propertyName = "SampleProperty"
         val propertyValue = "SampleValue"
         youTrackDb.withStoreTx {
-            issue.setBlobString(propertyName, propertyValue)
+            issue.setBlobString(Issues.Props.BLOB1, propertyValue)
         }
         youTrackDb.withStoreTx {
-            assertEquals(false, issue.setBlobString(propertyName, propertyValue))
+            assertEquals(false, issue.setBlobString(Issues.Props.BLOB1, propertyValue))
         }
     }
 
@@ -513,13 +512,12 @@ class YTDBEntityTest : OTestMixin {
     fun `should get property`() {
         val issue = youTrackDb.createIssue("GetPropertyTest")
 
-        val propertyName = "SampleProperty"
         val propertyValue = "SampleValue"
         youTrackDb.withStoreTx {
-            issue.setProperty(propertyName, propertyValue)
+            issue.setProperty(Issues.Props.DESCRIPTION, propertyValue)
         }
         youTrackDb.withStoreTx {
-            val value = issue.getProperty(propertyName)
+            val value = issue.getProperty(Issues.Props.DESCRIPTION)
             assertEquals(propertyValue, value)
         }
     }
@@ -528,92 +526,106 @@ class YTDBEntityTest : OTestMixin {
     fun `should delete property`() {
         val issue = youTrackDb.createIssue("DeletePropertyTest")
 
-        val propertyName = "SampleProperty"
         val propertyValue = "SampleValue"
         youTrackDb.withStoreTx {
-            issue.setProperty(propertyName, propertyValue)
+            issue.setProperty(Issues.Props.DESCRIPTION, propertyValue)
         }
         youTrackDb.withStoreTx {
-            issue.deleteProperty(propertyName)
-            val value = issue.getProperty(propertyName)
+            issue.deleteProperty(Issues.Props.DESCRIPTION)
+            val value = issue.getProperty(Issues.Props.DESCRIPTION)
             assertNull(value)
         }
     }
 
     @Test
     fun `set, read, change and delete properties`() {
-        val issue = youTrackDb.createIssue("Test1")
-
-        youTrackDb.withStoreTx {
-            issue.setProperty("hello", "world")
-            issue.setProperty("june", 6)
-            issue.setProperty("year", 44L)
-            issue.setProperty("floatProp", 1.3f)
-            issue.setProperty("doubleProp", 2.3)
-            issue.setProperty("dateProp", Date(300))
-            issue.setProperty("boolProp", true)
-        }
-
-        youTrackDb.withStoreTx {
-            assertEquals("world", issue.getProperty("hello"))
-            assertEquals(6, issue.getProperty("june"))
-            assertEquals(44L, issue.getProperty("year"))
-            assertEquals(1.3f, issue.getProperty("floatProp"))
-            assertEquals(2.3, issue.getProperty("doubleProp"))
-            assertEquals(Date(300), issue.getProperty("dateProp"))
-            assertEquals(true, issue.getProperty("boolProp"))
-        }
-
-        youTrackDb.withStoreTx {
-            assertEquals(false, issue.setProperty("hello", "world"))
-            assertEquals(false, issue.setProperty("june", 6))
-            assertEquals(false, issue.setProperty("year", 44L))
-            assertEquals(false, issue.setProperty("floatProp", 1.3f))
-            assertEquals(false, issue.setProperty("doubleProp", 2.3))
-            assertEquals(false, issue.setProperty("dateProp", Date(300)))
-            assertEquals(false, issue.setProperty("boolProp", true))
-        }
-
-        youTrackDb.withStoreTx {
-            assertEquals(true, issue.setProperty("hello", "xodus"))
-            assertEquals(true, issue.setProperty("june", 8))
-            assertEquals(true, issue.setProperty("year", 34L))
-            assertEquals(true, issue.setProperty("floatProp", 2.3f))
-            assertEquals(true, issue.setProperty("doubleProp", 4.3))
-            assertEquals(true, issue.setProperty("dateProp", Date(303)))
-            assertEquals(true, issue.setProperty("boolProp", false))
-        }
-
-        youTrackDb.withStoreTx {
-            assertEquals("xodus", issue.getProperty("hello"))
-            assertEquals(8, issue.getProperty("june"))
-            assertEquals(34L, issue.getProperty("year"))
-            assertEquals(2.3f, issue.getProperty("floatProp"))
-            assertEquals(4.3, issue.getProperty("doubleProp"))
-            assertEquals(Date(303), issue.getProperty("dateProp"))
-            assertEquals(false, issue.getProperty("boolProp"))
+        val className = "propertyTestClass"
+        youTrackDb.withSession { session ->
+            val testClass = session.createVertexClassWithClassId(className)
+            testClass.createProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
+            testClass.createProperty("hello", PropertyType.STRING)
+            testClass.createProperty("june", PropertyType.INTEGER)
+            testClass.createProperty("year", PropertyType.LONG)
+            testClass.createProperty("floatProp", PropertyType.FLOAT)
+            testClass.createProperty("doubleProp", PropertyType.DOUBLE)
+            testClass.createProperty("dateProp", PropertyType.DATETIME)
+            testClass.createProperty("boolProp", PropertyType.BOOLEAN)
         }
 
 
+        val testEntity = youTrackDb.withStoreTx { tx ->
+            tx.newEntity(className)
+        }
+
         youTrackDb.withStoreTx {
-            issue.deleteProperty("dateProp")
-            assertNull(issue.getProperty("dateProp"))
+            testEntity.setProperty("hello", "world")
+            testEntity.setProperty("june", 6)
+            testEntity.setProperty("year", 44L)
+            testEntity.setProperty("floatProp", 1.3f)
+            testEntity.setProperty("doubleProp", 2.3)
+            testEntity.setProperty("dateProp", Date(300))
+            testEntity.setProperty("boolProp", true)
+        }
+
+        youTrackDb.withStoreTx {
+            assertEquals("world", testEntity.getProperty("hello"))
+            assertEquals(6, testEntity.getProperty("june"))
+            assertEquals(44L, testEntity.getProperty("year"))
+            assertEquals(1.3f, testEntity.getProperty("floatProp"))
+            assertEquals(2.3, testEntity.getProperty("doubleProp"))
+            assertEquals(Date(300), testEntity.getProperty("dateProp"))
+            assertEquals(true, testEntity.getProperty("boolProp"))
+        }
+
+        youTrackDb.withStoreTx {
+            assertEquals(false, testEntity.setProperty("hello", "world"))
+            assertEquals(false, testEntity.setProperty("june", 6))
+            assertEquals(false, testEntity.setProperty("year", 44L))
+            assertEquals(false, testEntity.setProperty("floatProp", 1.3f))
+            assertEquals(false, testEntity.setProperty("doubleProp", 2.3))
+            assertEquals(false, testEntity.setProperty("dateProp", Date(300)))
+            assertEquals(false, testEntity.setProperty("boolProp", true))
+        }
+
+        youTrackDb.withStoreTx {
+            assertEquals(true, testEntity.setProperty("hello", "xodus"))
+            assertEquals(true, testEntity.setProperty("june", 8))
+            assertEquals(true, testEntity.setProperty("year", 34L))
+            assertEquals(true, testEntity.setProperty("floatProp", 2.3f))
+            assertEquals(true, testEntity.setProperty("doubleProp", 4.3))
+            assertEquals(true, testEntity.setProperty("dateProp", Date(303)))
+            assertEquals(true, testEntity.setProperty("boolProp", false))
+        }
+
+        youTrackDb.withStoreTx {
+            assertEquals("xodus", testEntity.getProperty("hello"))
+            assertEquals(8, testEntity.getProperty("june"))
+            assertEquals(34L, testEntity.getProperty("year"))
+            assertEquals(2.3f, testEntity.getProperty("floatProp"))
+            assertEquals(4.3, testEntity.getProperty("doubleProp"))
+            assertEquals(Date(303), testEntity.getProperty("dateProp"))
+            assertEquals(false, testEntity.getProperty("boolProp"))
+        }
+
+
+        youTrackDb.withStoreTx {
+            testEntity.deleteProperty("dateProp")
+            assertNull(testEntity.getProperty("dateProp"))
             // check that other properties are still there
-            assertEquals("xodus", issue.getProperty("hello"))
+            assertEquals("xodus", testEntity.getProperty("hello"))
         }
 
         youTrackDb.withStoreTx {
             assertEquals(
                 listOf(
                     "hello",
-                    "name",
                     "june",
                     "year",
                     "floatProp",
                     "doubleProp",
                     "boolProp"
                 ).sorted(),
-                issue.propertyNames.sorted()
+                testEntity.propertyNames.sorted()
             )
         }
     }
@@ -673,12 +685,12 @@ class YTDBEntityTest : OTestMixin {
     fun `setProperty and setBlobString returns false in case of equal values`() {
         val iss = youTrackDb.createIssue("trista")
         withStoreTx { tx ->
-            iss.setProperty("test", 1)
-            iss.setBlobString("blobString", "hello")
+            iss.setProperty(Issues.Props.VERSION, 1)
+            iss.setBlobString(Issues.Props.BLOB1, "hello")
         }
         withStoreTx { tx ->
-            assertEquals(false, iss.setProperty("test", 1))
-            assertEquals(false, iss.setBlobString("blobString", "hello"))
+            assertEquals(false, iss.setProperty(Issues.Props.VERSION, 1))
+            assertEquals(false, iss.setBlobString(Issues.Props.BLOB1, "hello"))
         }
     }
 

@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.query.metadata
 
+import com.jetbrains.youtrackdb.api.schema.PropertyType
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.linkTargetEntityIdPropertyName
@@ -168,7 +169,8 @@ class OModelMetaDataTest : OTestMixin {
 
         // We have not yet called prepare() for the model, autoInitialize is disabled
         youTrackDb.provider.withSession {
-            it.createVertexClassWithClassId("type1")
+            val clazz = it.createVertexClassWithClassId("type1")
+            clazz.createProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
         }
         val entityId = youTrackDb.withStoreTx { tx ->
             tx.newEntity("type1").id
@@ -308,7 +310,9 @@ class OModelMetaDataTest : OTestMixin {
     @Test
     fun `adding new link type does not cause OConcurrentModificationException`() {
         val model = oModel(youTrackDb.provider) {
-            entity("type1")
+            entity("type1") {
+                property("trista", "string")
+            }
             entity("type2")
         }
         // initialize the entity types

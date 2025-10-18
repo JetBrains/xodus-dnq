@@ -133,13 +133,13 @@ class YTDBGremlinEngineTest(
         val test = givenTestCase()
         val engine = givenOQueryEngine()
         withStoreTx {
-            test.issue1.setProperty("none", "n1")
+            test.issue1.setProperty(Issues.Props.TYPE, "n1")
         }
 
         // When
         withStoreTx { tx ->
             val result = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.propEqual("none", null)
+                iterableGetter(engine, tx), "Issue", NodeFactory.propEqual(Issues.Props.TYPE, null)
             ).toList()
 
             // Then
@@ -152,21 +152,21 @@ class YTDBGremlinEngineTest(
         // Given
         val test = givenTestCase()
         val engine = givenOQueryEngine()
-        withStoreTx { test.issue2.setProperty("case", "Find me if YOU can") }
+        withStoreTx { test.issue2.setProperty(Issues.Props.DESCRIPTION, "Find me if YOU can") }
 
         // When
         withStoreTx { tx ->
             val issues = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "YOU", false)
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring(Issues.Props.DESCRIPTION, "YOU", false)
             )
             val issuesIgnoreCase = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "yOu", true)
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring(Issues.Props.DESCRIPTION, "yOu", true)
             )
             val issuesIgnoreNotIgnoreCase = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "yOu", false)
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring(Issues.Props.DESCRIPTION, "yOu", false)
             )
             val empty = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "not", true)
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring(Issues.Props.DESCRIPTION, "not", true)
             )
 
             // Then
@@ -230,14 +230,26 @@ class YTDBGremlinEngineTest(
         // Given
         val test = givenTestCase()
         val engine = givenOQueryEngine()
-        withStoreTx { test.issue2.setProperty("case", "Find me if YOU can") }
+        withStoreTx { test.issue2.setProperty(Issues.Props.DESCRIPTION, "Find me if YOU can") }
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("case", "Find"))
+            val issues = engine.query(
+                iterableGetter(engine, tx),
+                "Issue",
+                NodeFactory.hasPrefix(Issues.Props.DESCRIPTION, "Find")
+            )
             val issuesOtherCase =
-                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("case", "find"))
-            val empty = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("case", "you"))
+                engine.query(
+                    iterableGetter(engine, tx),
+                    "Issue",
+                    NodeFactory.hasPrefix(Issues.Props.DESCRIPTION, "find")
+                )
+            val empty = engine.query(
+                iterableGetter(engine, tx),
+                "Issue",
+                NodeFactory.hasPrefix(Issues.Props.DESCRIPTION, "you")
+            )
 
             // Then
             assertNamesExactly(issues, "issue2")
@@ -252,28 +264,28 @@ class YTDBGremlinEngineTest(
         val test = givenTestCase()
         val engine = givenOQueryEngine()
         withStoreTx {
-            test.issue2.setProperty("case", "Find me if YOU can")
-            test.issue3.setProperty("case", "find me IF you CAN")
+            test.issue2.setProperty(Issues.Props.DESCRIPTION, "Find me if YOU can")
+            test.issue3.setProperty(Issues.Props.DESCRIPTION, "find me IF you CAN")
         }
 
         withStoreTx { tx ->
             assertNamesExactly(
                 engine.query(
                     iterableGetter(engine, tx), "Issue",
-                    NodeFactory.stringPropEqual("case", "find me if you can", ignoreCase = true)
+                    NodeFactory.stringPropEqual(Issues.Props.DESCRIPTION, "find me if you can", ignoreCase = true)
                 ),
                 "issue2", "issue3"
             )
             assertThat(
                 engine.query(
                     iterableGetter(engine, tx), "Issue",
-                    NodeFactory.stringPropEqual("case", "find me if you can", ignoreCase = false)
+                    NodeFactory.stringPropEqual(Issues.Props.DESCRIPTION, "find me if you can", ignoreCase = false)
                 )
             ).isEmpty()
             assertNamesExactly(
                 engine.query(
                     iterableGetter(engine, tx), "Issue",
-                    NodeFactory.stringPropEqual("case", "Find me if YOU can", ignoreCase = false)
+                    NodeFactory.stringPropEqual(Issues.Props.DESCRIPTION, "Find me if YOU can", ignoreCase = false)
                 ),
                 "issue2"
             )
@@ -308,11 +320,12 @@ class YTDBGremlinEngineTest(
         // Given
         val test = givenTestCase()
         val engine = givenOQueryEngine()
-        withStoreTx { test.issue2.setProperty("prop", "test") }
+        withStoreTx { test.issue2.setProperty(Issues.Props.DESCRIPTION, "test") }
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.propNotNull("prop"))
+            val issues =
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.propNotNull(Issues.Props.DESCRIPTION))
             val empty = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.propNotNull("no_prop"))
 
             // Then
@@ -388,21 +401,21 @@ class YTDBGremlinEngineTest(
             every { getEntityMetaData(Issues.CLASS) }.returns(issueMetaData)
 
             val blobMetaData = mockk<PropertyMetaData>(relaxed = true)
-            every { issueMetaData.getPropertyMetaData("myBlob") }.returns(blobMetaData)
+            every { issueMetaData.getPropertyMetaData("blob1") }.returns(blobMetaData)
             every { blobMetaData.type }.returns(PropertyType.BLOB)
         }
         val engine = givenOQueryEngine(metadata)
 
         withStoreTx {
             //correct blob (can be found)
-            test.issue1.setBlob("myBlob", "Hello".toByteArray().inputStream())
+            test.issue1.setBlob("blob1", "Hello".toByteArray().inputStream())
             //blob with content of size 0 (can be found)
-            test.issue2.setBlob("myBlob", ByteArray(0).inputStream())
+            test.issue2.setBlob("blob1", ByteArray(0).inputStream())
         }
 
         withStoreTx { tx ->
             val issues =
-                engine.query(iterableGetter(engine, tx), Issues.CLASS, NodeFactory.propNotNull("myBlob"))
+                engine.query(iterableGetter(engine, tx), Issues.CLASS, NodeFactory.propNotNull("blob1"))
                     .toList()
                     .sortedBy { it.getProperty("name") }
             assertEquals(2, issues.size)
@@ -800,14 +813,18 @@ class YTDBGremlinEngineTest(
         // Given
         val test = givenTestCase()
         val engine = givenOQueryEngine()
-        withStoreTx { test.issue2.setProperty("value", 3) }
+        withStoreTx { test.issue2.setProperty(Issues.Props.VERSION, 3) }
 
         // When
         withStoreTx { tx ->
-            val exclusive = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange("value", 1, 5))
-            val inclusiveMin = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange("value", 3, 5))
-            val inclusiveMax = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange("value", 1, 3))
-            val empty = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange("value", 6, 12))
+            val exclusive =
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange(Issues.Props.VERSION, 1, 5))
+            val inclusiveMin =
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange(Issues.Props.VERSION, 3, 5))
+            val inclusiveMax =
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange(Issues.Props.VERSION, 1, 3))
+            val empty =
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.inRange(Issues.Props.VERSION, 6, 12))
 
             // Then
             assertNamesExactly(exclusive, "issue2")

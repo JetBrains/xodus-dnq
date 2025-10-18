@@ -120,7 +120,8 @@ internal data class LinkMetadata(
     val name: String,
     val outClassName: String,
     val inClassName: String,
-    val cardinality: AssociationEndCardinality
+    val cardinality: AssociationEndCardinality,
+    val associationEndType: AssociationEndType? = null
 )
 
 internal fun AssociationEndMetaData.toLinkMetadata(outClassName: String): LinkMetadata =
@@ -128,7 +129,8 @@ internal fun AssociationEndMetaData.toLinkMetadata(outClassName: String): LinkMe
         name = name,
         outClassName = outClassName,
         inClassName = oppositeEntityMetaData.type,
-        cardinality = cardinality
+        cardinality = cardinality,
+        associationEndType = associationEndType
     )
 
 private fun EntityMetaData.getIndicesContainingLink(linkName: String): List<Index> {
@@ -325,7 +327,11 @@ internal class YouTrackDbSchemaInitializer(
         var oClass: SchemaClass? = schema.getClass(name)
         if (oClass == null) {
             oClass = oSession.schema.createVertexClass(name)!!
+            oClass.isStrictMode = true
             append(", created")
+        } else if (!oClass.isStrictMode) {
+            oClass.isStrictMode = true
+            append(", strict mode set")
         } else {
             append(", already created")
         }
@@ -382,6 +388,7 @@ internal class YouTrackDbSchemaInitializer(
                     edgeClass,
                     outClass,
                     link.cardinality,
+                    link.associationEndType,
                     inClass,
                 )
             }
@@ -398,11 +405,16 @@ internal class YouTrackDbSchemaInitializer(
         edgeClass: SchemaClass,
         outClass: SchemaClass,
         outCardinality: AssociationEndCardinality,
+        outAssociationType: AssociationEndType?,
         inClass: SchemaClass,
     ) {
         val linkOutPropName = Vertex.getEdgeLinkFieldName(Direction.OUT, edgeClass.name)
         append("outProp: ${outClass.name}.$linkOutPropName")
         val outProp = outClass.createLinkPropertyIfAbsent(linkOutPropName)
+        if (outAssociationType == AssociationEndType.ChildEnd) {
+            outClass.createPropertyIfAbsent(YTDBVertexEntity.PARENT_TO_CHILD_LINK_NAME, PropertyType.STRING)
+            outClass.createPropertyIfAbsent(YTDBVertexEntity.CHILD_TO_PARENT_LINK_NAME, PropertyType.STRING)
+        }
         // applying cardinality only to out direct property
         outProp.applyCardinality(outCardinality)
         appendLine()
@@ -657,11 +669,14 @@ internal class YouTrackDbSchemaInitializer(
 
             jetbrains.exodus.query.metadata.PropertyType.TEXT -> {
                 val oProperty = createPropertyIfAbsent(propertyName, PropertyType.LINK)
+                createPropertyIfAbsent(YTDBVertexEntity.blobHashProperty(propertyName), PropertyType.INTEGER)
+                createPropertyIfAbsent(YTDBVertexEntity.blobSizeProperty(propertyName), PropertyType.LONG)
                 oProperty.setRequirement(required)
             }
 
             jetbrains.exodus.query.metadata.PropertyType.BLOB -> {
                 val oProperty = createPropertyIfAbsent(propertyName, PropertyType.LINK)
+                createPropertyIfAbsent(YTDBVertexEntity.blobSizeProperty(propertyName), PropertyType.LONG)
                 oProperty.setRequirement(required)
             }
         }

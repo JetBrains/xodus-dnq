@@ -88,7 +88,7 @@ class MigrateDataTest {
     @Test
     fun `migrate string blobs`() {
         youTrackDB.withSession { session ->
-            session.createVertexClassWithClassId("type1")
+            session.createVertexClassWithClassId("type1", strict = false)
         }
 
         val str = """

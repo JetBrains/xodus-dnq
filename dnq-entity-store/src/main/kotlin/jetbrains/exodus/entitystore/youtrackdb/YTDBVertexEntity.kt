@@ -73,6 +73,9 @@ open class YTDBVertexEntity(
         const val CLASS_ID_CUSTOM_PROPERTY_NAME = "classId"
         const val CLASS_ID_SEQUENCE_NAME = "sequence_classId"
 
+        const val CHILD_TO_PARENT_LINK_NAME = "__CHILD_TO_PARENT_LINK_NAME__"
+        const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
+
         const val LOCAL_ENTITY_ID_PROPERTY_NAME = "localEntityId"
         val IGNORED_PROPERTY_NAMES = setOf(LOCAL_ENTITY_ID_PROPERTY_NAME)
         val IGNORED_SUFFIXES = setOf(

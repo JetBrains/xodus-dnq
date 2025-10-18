@@ -35,8 +35,15 @@ object Issues {
     const val CLASS = "Issue"
 
     object Props {
-        const val PRIORITY = "priority"
+        const val NAME = "name"
+        const val TYPE = "type"
         const val TAGS = "tags"
+        const val BLOB1 = "blob1"
+        const val BLOB2 = "blob2"
+        const val BLOB3 = "blob3"
+        const val DESCRIPTION = "description"
+        const val PRIORITY = "priority"
+        const val VERSION = "version"
     }
 
     object Links {
@@ -48,6 +55,10 @@ object Issues {
 object Projects {
     const val CLASS = "Project"
 
+    object Props {
+        const val NAME = "name"
+    }
+
     object Links {
         const val HAS_ISSUE = "HasIssue"
     }
@@ -56,6 +67,9 @@ object Projects {
 object Boards {
     const val CLASS = "Board"
 
+    object Props {
+        const val NAME = "name"
+    }
     object Links {
         const val HAS_ISSUE = "HasIssue"
     }

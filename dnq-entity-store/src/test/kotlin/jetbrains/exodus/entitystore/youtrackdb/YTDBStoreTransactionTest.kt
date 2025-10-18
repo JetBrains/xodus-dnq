@@ -102,13 +102,13 @@ class YTDBStoreTransactionTest : OTestMixin {
         // Given
         val test = givenTestCase()
         withStoreTx {
-            test.issue2.setProperty("case", "Find me if YOU can")
+            test.issue2.setProperty(Issues.Props.DESCRIPTION, "Find me if YOU can")
         }
 
         // When
         withStoreTx { tx ->
-            val issues = tx.findContaining(Issues.CLASS, "case", "YOU", true)
-            val empty = tx.findContaining(Issues.CLASS, "case", "not", true)
+            val issues = tx.findContaining(Issues.CLASS, Issues.Props.DESCRIPTION, "YOU", true)
+            val empty = tx.findContaining(Issues.CLASS, Issues.Props.DESCRIPTION, "not", true)
 
             // Then
             assertNamesExactly(issues, "issue2")
@@ -120,12 +120,12 @@ class YTDBStoreTransactionTest : OTestMixin {
     fun `should find property starts with`() {
         // Given
         val test = givenTestCase()
-        withStoreTx { test.issue2.setProperty("case", "Find me if YOU can") }
+        withStoreTx { test.issue2.setProperty(Issues.Props.DESCRIPTION, "Find me if YOU can") }
 
         // When
         withStoreTx { tx ->
-            val issues = tx.findStartingWith(Issues.CLASS, "case", "Find")
-            val empty = tx.findStartingWith(Issues.CLASS, "case", "you")
+            val issues = tx.findStartingWith(Issues.CLASS, Issues.Props.DESCRIPTION, "Find")
+            val empty = tx.findStartingWith(Issues.CLASS, Issues.Props.DESCRIPTION, "you")
 
             // Then
             assertNamesExactly(issues, "issue2")
@@ -138,15 +138,15 @@ class YTDBStoreTransactionTest : OTestMixin {
         // Given
         val test = givenTestCase()
         withStoreTx {
-            test.issue2.setProperty("value", 3)
+            test.issue2.setProperty(Issues.Props.VERSION, 3)
         }
 
         // When
         withStoreTx { tx ->
-            val exclusive = tx.find(Issues.CLASS, "value", 1, 5)
-            val inclusiveMin = tx.find(Issues.CLASS, "value", 3, 5)
-            val inclusiveMax = tx.find(Issues.CLASS, "value", 1, 3)
-            val empty = tx.find(Issues.CLASS, "value", 6, 12)
+            val exclusive = tx.find(Issues.CLASS, Issues.Props.VERSION, 1, 5)
+            val inclusiveMin = tx.find(Issues.CLASS, Issues.Props.VERSION, 3, 5)
+            val inclusiveMax = tx.find(Issues.CLASS, Issues.Props.VERSION, 1, 3)
+            val empty = tx.find(Issues.CLASS, Issues.Props.VERSION, 6, 12)
 
             // Then
             assertNamesExactly(exclusive, "issue2")
@@ -161,11 +161,11 @@ class YTDBStoreTransactionTest : OTestMixin {
         // Given
         val test = givenTestCase()
 
-        withStoreTx { test.issue2.setProperty("prop", "test") }
+        withStoreTx { test.issue2.setProperty(Issues.Props.DESCRIPTION, "test") }
 
         // When
         withStoreTx { tx ->
-            val issues = tx.findWithProp(Issues.CLASS, "prop")
+            val issues = tx.findWithProp(Issues.CLASS, Issues.Props.DESCRIPTION)
             val empty = tx.findWithProp(Issues.CLASS, "no_prop")
 
             // Then
@@ -181,18 +181,18 @@ class YTDBStoreTransactionTest : OTestMixin {
 
         youTrackDb.withStoreTx {
             //correct blob (can be found)
-            test.issue1.setBlob("myBlob", "Hello".toByteArray().inputStream())
+            test.issue1.setBlob(Issues.Props.BLOB1, "Hello".toByteArray().inputStream())
 
             //blob with content of size 0 (can be found)
-            test.issue2.setBlob("myBlob", ByteArray(0).inputStream())
+            test.issue2.setBlob(Issues.Props.BLOB1, ByteArray(0).inputStream())
 
             //blob with removed content (cannot be found)
-            test.issue3.setBlob("myBlob", "World".toByteArray().inputStream())
+            test.issue3.setBlob(Issues.Props.BLOB1, "World".toByteArray().inputStream())
         }
 
         // When
         youTrackDb.withStoreTx { tx ->
-            val issues = tx.findWithBlob(Issues.CLASS, "myBlob")
+            val issues = tx.findWithBlob(Issues.CLASS, Issues.Props.BLOB1)
 
             // Then
             assertNamesExactly(issues, "issue1", "issue2", "issue3")
@@ -205,15 +205,15 @@ class YTDBStoreTransactionTest : OTestMixin {
         val test = givenTestCase()
 
         withStoreTx {
-            test.issue1.setProperty("order", "1")
-            test.issue2.setProperty("order", "2")
-            test.issue3.setProperty("order", "3")
+            test.issue1.setProperty(Issues.Props.VERSION, "1")
+            test.issue2.setProperty(Issues.Props.VERSION, "2")
+            test.issue3.setProperty(Issues.Props.VERSION, "3")
         }
 
         // When
         withStoreTx { tx ->
-            val issuesAscending = tx.sort(Issues.CLASS, "order", true)
-            val issuesDescending = tx.sort(Issues.CLASS, "order", false)
+            val issuesAscending = tx.sort(Issues.CLASS, Issues.Props.VERSION, true)
+            val issuesDescending = tx.sort(Issues.CLASS, Issues.Props.VERSION, false)
 
             // Then
             assertNamesExactlyInOrder(issuesAscending, "issue1", "issue2", "issue3")
@@ -236,15 +236,15 @@ class YTDBStoreTransactionTest : OTestMixin {
         val test = givenTestCase()
 
         withStoreTx {
-            test.issue1.setProperty("order", "1")
-            test.issue3.setProperty("order", "3")
+            test.issue1.setProperty(Issues.Props.VERSION, "1")
+            test.issue3.setProperty(Issues.Props.VERSION, "3")
         }
 
         // When
         withStoreTx { tx ->
-            val issues = tx.findWithProp(Issues.CLASS, "order")
-            val issuesAscending = tx.sort(Issues.CLASS, "order", issues, true)
-            val issuesDescending = tx.sort(Issues.CLASS, "order", issues, false)
+            val issues = tx.findWithProp(Issues.CLASS, Issues.Props.VERSION)
+            val issuesAscending = tx.sort(Issues.CLASS, Issues.Props.VERSION, issues, true)
+            val issuesDescending = tx.sort(Issues.CLASS, Issues.Props.VERSION, issues, false)
 
             // Then
             assertNamesExactlyInOrder(issuesAscending, "issue1", "issue3")
@@ -259,23 +259,23 @@ class YTDBStoreTransactionTest : OTestMixin {
 
         withStoreTx {
             // Apple -> Appointment -> 3
-            test.issue3.setProperty("project", "Apple")
-            test.issue3.setProperty("type", "Appointment")
+            test.issue3.setProperty(Issues.Props.DESCRIPTION, "Apple")
+            test.issue3.setProperty(Issues.Props.TYPE, "Appointment")
 
             // Apple -> Billing -> 1
-            test.issue1.setProperty("project", "Apple")
-            test.issue1.setProperty("type", "Billing")
+            test.issue1.setProperty(Issues.Props.DESCRIPTION, "Apple")
+            test.issue1.setProperty(Issues.Props.TYPE, "Billing")
 
             // Pear -> Appointment -> 2
-            test.issue2.setProperty("project", "Pear")
-            test.issue2.setProperty("type", "Appointment")
+            test.issue2.setProperty(Issues.Props.DESCRIPTION, "Pear")
+            test.issue2.setProperty(Issues.Props.TYPE, "Appointment")
         }
 
         // When
         withStoreTx { tx ->
             // Sorted by project then by type in ascending order
-            val sortedByProject = tx.findWithPropSortedByValue(Issues.CLASS, "type")
-            val issues = tx.sort(Issues.CLASS, "project", sortedByProject, true)
+            val sortedByProject = tx.findWithPropSortedByValue(Issues.CLASS, Issues.Props.TYPE)
+            val issues = tx.sort(Issues.CLASS, Issues.Props.DESCRIPTION, sortedByProject, true)
 
             // Then
             // Apple -> Appointment -> 3
@@ -744,13 +744,13 @@ class YTDBStoreTransactionTest : OTestMixin {
     fun `getRecord()`() {
         val id = withStoreTx { tx ->
             val e1 = tx.createIssue("opca trista")
-            e1.setProperty("mamba", "caramba")
+            e1.setProperty(Issues.Props.TAGS, YTDBComparableSet(mutableSetOf("caramba")))
             e1.id
         }
 
         withStoreTx { tx ->
             val vertex: YTDBVertex = tx.getVertex(id)
-            assertEquals("caramba", vertex.property<String>("mamba").value())
+            assertEquals(mutableSetOf("caramba"), vertex.property<MutableSet<String>>(Issues.Props.TAGS).value())
             val e1 = tx.getEntity(id)
             e1.delete()
         }

@@ -20,6 +20,7 @@ import YouTrackDBFactory
 import com.jetbrains.youtrackdb.api.DatabaseSession
 import com.jetbrains.youtrackdb.api.DatabaseType
 import com.jetbrains.youtrackdb.api.YouTrackDB
+import com.jetbrains.youtrackdb.api.schema.PropertyType
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
 import jetbrains.exodus.entitystore.youtrackdb.*
@@ -59,9 +60,31 @@ class InMemoryYouTrackDB(
 
         if (initializeIssueSchema) {
             provider.withSession { session ->
-                session.getOrCreateVertexClass(Issues.CLASS)
-                session.getOrCreateVertexClass(Boards.CLASS)
-                session.getOrCreateVertexClass(Projects.CLASS)
+                if (session.schema.getClass(Issues.CLASS) == null) {
+                    val issueClass = session.createVertexClassWithClassId(Issues.CLASS)
+                    issueClass.createProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
+                    issueClass.createProperty(Issues.Props.TAGS, PropertyType.EMBEDDEDSET, PropertyType.STRING)
+                    issueClass.createProperty(Issues.Props.PRIORITY, PropertyType.STRING)
+                    issueClass.createProperty(Issues.Props.NAME, PropertyType.STRING)
+                    issueClass.createProperty(Issues.Props.DESCRIPTION, PropertyType.STRING)
+                    issueClass.createProperty(Issues.Props.VERSION, PropertyType.INTEGER)
+                    issueClass.createProperty(Issues.Props.TYPE, PropertyType.STRING)
+                    listOf(Issues.Props.BLOB1, Issues.Props.BLOB2, Issues.Props.BLOB3).forEach { blobName ->
+                        issueClass.createProperty(blobName, PropertyType.LINK)
+                        issueClass.createProperty(YTDBVertexEntity.blobSizeProperty(blobName), PropertyType.LONG)
+                        issueClass.createProperty(YTDBVertexEntity.blobHashProperty(blobName), PropertyType.INTEGER)
+                    }
+                }
+                if (session.schema.getClass(Boards.CLASS) == null) {
+                    val boardClass = session.createVertexClassWithClassId(Boards.CLASS)
+                    boardClass.createProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
+                    boardClass.createProperty(Boards.Props.NAME, PropertyType.STRING)
+                }
+                if (session.schema.getClass(Projects.CLASS) == null) {
+                    val projectClass = session.createVertexClassWithClassId(Projects.CLASS)
+                    projectClass.createProperty(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
+                    projectClass.createProperty(Projects.Props.NAME, PropertyType.STRING)
+                }
                 session.addAssociation(Issues.CLASS, Boards.CLASS, ON_BOARD, HAS_ISSUE)
                 session.addAssociation(Boards.CLASS, Issues.CLASS, HAS_ISSUE, ON_BOARD)
                 session.addAssociation(Issues.CLASS, Projects.CLASS, IN_PROJECT, HAS_ISSUE)

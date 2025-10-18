@@ -261,9 +261,10 @@ fun setLocalEntityId(tx: YTDBStoreTransaction, className: String, vertex: YTDBVe
     vertex.property(LOCAL_ENTITY_ID_PROPERTY_NAME, id)
 }
 
-fun DatabaseSession.createVertexClassWithClassId(className: String): SchemaClass {
+fun DatabaseSession.createVertexClassWithClassId(className: String, strict: Boolean = true): SchemaClass {
     createClassIdSequenceIfAbsent()
     val oClass = schema.createVertexClass(className)
+    oClass.isStrictMode = strict
     setClassIdIfAbsent(oClass)
     createLocalEntityIdSequenceIfAbsent(oClass)
     return oClass
