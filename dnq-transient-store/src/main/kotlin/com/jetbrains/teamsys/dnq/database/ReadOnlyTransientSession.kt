@@ -68,11 +68,11 @@ class ReadOnlyTransientSession(
 
     override fun newLocalCopy(entity: TransientEntity, checkEntityRemoved: Boolean): TransientEntity = entity
 
-    override fun newEntity(persistentEntity: Entity): ReadonlyTransientEntityImpl {
+    override fun newEntity(persistentEntity: Entity): ReadonlyTransientEntity {
         if (persistentEntity !is YTDBVertexEntity)
             throw IllegalArgumentException("Cannot create transient entity wrapper for non persistent entity")
 
-        return ReadonlyTransientEntityImpl(persistentEntity, store)
+        return ReadonlyTransientEntity(persistentEntity, store)
     }
 
     override fun getEntity(id: EntityId): Entity = newEntity(transactionInternal.getEntity(id))

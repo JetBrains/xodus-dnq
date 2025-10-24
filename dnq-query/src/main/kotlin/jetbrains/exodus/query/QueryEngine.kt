@@ -251,17 +251,17 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         return InMemoryEntityIterable(result.asIterable(), txn = txn, this)
     }
 
-    internal open fun inMemoryUnion(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
+    internal open fun inMemoryUnion(left: Iterable<Entity>, right: Iterable<Entity>): EntityIterable {
         val result = left.union(right)
         return InMemoryEntityIterable(result.asIterable(), txn = persistentStore.andCheckCurrentTransaction, this)
     }
 
-    internal open fun inMemoryConcat(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
+    open fun inMemoryConcat(left: Iterable<Entity>, right: Iterable<Entity>): EntityIterable {
         val result = left.toMutableList().apply { addAll(right) }
         return InMemoryEntityIterable(result.asIterable(), txn = persistentStore.andCheckCurrentTransaction, this)
     }
 
-    internal open fun inMemoryExclude(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
+    internal open fun inMemoryExclude(left: Iterable<Entity>, right: Iterable<Entity>): EntityIterable {
         val ids = getAsEntityIdSet(right)
         val result = if (ids.isEmpty) left.asSequence() else left.asSequence().filter { it.id !in ids }
         return InMemoryEntityIterable(result.asIterable(), txn = persistentStore.andCheckCurrentTransaction, this)

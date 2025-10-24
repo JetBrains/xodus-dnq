@@ -31,6 +31,11 @@ object EntityOperations {
            2. remove links and entities
         */
 
+        (e as? TransientEntity)?.let {
+            // calling "before removed" to create links snaphsot
+            (it.threadSessionOrThrow.transientChangesTracker as TransientChangesTrackerImpl).entityBeforeRemoved(e)
+        }
+
         remove(e, true, HashSet())
         remove(e, false, HashSet())
     }

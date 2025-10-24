@@ -15,47 +15,53 @@
  */
 package kotlinx.dnq
 
-import jetbrains.exodus.database.EntityChangeType
-import jetbrains.exodus.database.TransientEntityChange
-import jetbrains.exodus.database.TransientStoreSession
-import jetbrains.exodus.database.TransientStoreSessionListener
+import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class TransientStoreSessionListenerTest : DBTest() {
 
-    class SimpleEntity(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<SimpleEntity>()
+    class Parent(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Parent>()
 
         var name by xdRequiredStringProp()
     }
 
-    class EntityWithLink(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<EntityWithLink>()
+    class Child(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Child>()
 
         var name by xdRequiredStringProp()
-        var link by xdLink0_1(SimpleEntity, onTargetDelete = OnDeletePolicy.CLEAR)
+        var parent by xdLink0_1(Parent, onTargetDelete = OnDeletePolicy.CLEAR)
+    }
+
+    class Grandchild(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Grandchild>()
+
+        var name by xdRequiredStringProp()
+        var parent by xdLink0_1(Parent, onTargetDelete = OnDeletePolicy.CLEAR)
+        val childs by xdLink0_N(Child, onTargetDelete = OnDeletePolicy.CLEAR)
     }
 
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNodes(SimpleEntity, EntityWithLink)
+        XdModel.registerNodes(Parent, Child, Grandchild)
     }
 
     @Test
     fun `listener should bring events about basic create-update-delete operations`() {
 
-        val listener = Listener()
+        val listener = RememberingListener()
         store.addListener(listener)
 
         val (entity1, entity2) = store.transactional {
             Pair(
-                SimpleEntity.new { name = "abc" },
-                SimpleEntity.new { name = "xyz" }
+                Parent.new { name = "abc" },
+                Parent.new { name = "xyz" }
             )
         }
 
@@ -89,12 +95,12 @@ class TransientStoreSessionListenerTest : DBTest() {
     @Test
     fun `listener should bring events about changes in links`() {
 
-        val listener = Listener()
+        val listener = RememberingListener()
         store.addListener(listener)
 
         val (parent, child) = store.transactional {
-            val parent = SimpleEntity.new { name = "parent1" }
-            val child = EntityWithLink.new { name = "child"; link = parent }
+            val parent = Parent.new { name = "parent1" }
+            val child = Child.new { name = "child"; this.parent = parent }
 
             Pair(parent, child)
         }
@@ -104,10 +110,10 @@ class TransientStoreSessionListenerTest : DBTest() {
         listener.clear()
 
         val parent2 = store.transactional {
-            val newParent = SimpleEntity.new { name = "parent2" }
-            val tempParent = SimpleEntity.new { name = "tempParent" }
-            child.link = tempParent
-            child.link = newParent
+            val newParent = Parent.new { name = "parent2" }
+            val tempParent = Parent.new { name = "tempParent" }
+            child.parent = tempParent
+            child.parent = newParent
             newParent
         }
         assertEquals(setOf("parent1"), listener.removedLinks)
@@ -126,65 +132,178 @@ class TransientStoreSessionListenerTest : DBTest() {
         listener.clear()
     }
 
-    class Listener : TransientStoreSessionListener {
-        val added = mutableSetOf<String>()
-        val removed = mutableSetOf<String>()
-        val updated = mutableMapOf<String, String>()
+    @Test
+    fun `listener should allow loading links from removed entities`() {
+        val listener = CallbackListener()
+        store.addListener(listener)
 
-        val addedLinks = mutableSetOf<String>()
-        val removedLinks = mutableSetOf<String>()
-        val deletedLinks = mutableSetOf<String>()
+        var parent: Parent? = null
+        var child1: Child? = null
+        var child2: Child? = null
+        var grandchild: Grandchild? = null
 
-        fun clear() {
-            added.clear()
-            removed.clear()
-            updated.clear()
-            addedLinks.clear()
-            removedLinks.clear()
-            deletedLinks.clear()
-        }
+        store.transactional {
+            parent = Parent.new { name = "parent1" }
+            child1 = Child.new { name = "child1"; this.parent = parent }
+            child2 = Child.new { name = "child2"; this.parent = parent }
 
-        override fun flushed(
-            session: TransientStoreSession,
-            changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>
-        ) {
-            for (change in changedEntities) {
-                when (change.changeType) {
-                    EntityChangeType.ADD -> added.add(change.transientEntity.getProperty("name") as String)
-                    EntityChangeType.REMOVE -> removed.add(change.snapshotEntity.getProperty("name") as String)
-                    EntityChangeType.UPDATE -> updated[change.snapshotEntity.getProperty("name") as String] =
-                        change.transientEntity.getProperty("name") as String
-                }
-
-                change.changedLinksDetailed?.let { changes ->
-                    changes.forEach { (_, change) ->
-                        change.addedEntities?.forEach {
-                            addedLinks.add(it.getProperty("name") as String)
-                        }
-
-                        change.removedEntities?.forEach {
-                            removedLinks.add(it.getProperty("name") as String)
-                        }
-
-                        change.deletedEntitiesSnapshots?.forEach {
-                            deletedLinks.add(it.getProperty("name") as String)
-                        }
-                    }
-                }
-
+            grandchild = Grandchild.new {
+                name = "grandchild1"
+                this.parent = parent
+                childs.add(child1)
+                childs.add(child2)
             }
         }
 
-        override fun beforeFlushBeforeConstraints(
-            session: TransientStoreSession,
-            changedEntities: @JvmSuppressWildcards Set<TransientEntityChange>
-        ) {
+        store.transactional {
+            val ll = child1?.parent
+
+            println(ll)
         }
 
-        override fun afterConstraintsFail(
-            session: TransientStoreSession,
-            exceptions: @JvmSuppressWildcards Set<DataIntegrityViolationException>
-        ) {
+        listener.onFlush { changes ->
+            assertEquals(2, changes.size)
+            val child1change = changes.find { it.transientEntity.id == child1!!.entityId }!!
+            val grandchildChange = changes.find { it.transientEntity.id == grandchild!!.entityId }!!
+
+            val childSnapshot = child1change.snapshotEntity
+            assertTrue(childSnapshot.isRemoved)
+            val grandchildSnapshot = grandchildChange.snapshotEntity
+            assertTrue(grandchildSnapshot.isRemoved)
+
+            assertEquals("child1", childSnapshot.getProperty("name"))
+            assertEquals("grandchild1", grandchildSnapshot.getProperty("name"))
+
+            val parentFromChild = childSnapshot.getLink("parent")
+            assertFalse((parentFromChild as TransientEntity).isRemoved)
+
+            val parentFromGrandchild = grandchildSnapshot.getLink("parent")
+            assertFalse((parentFromGrandchild as TransientEntity).isRemoved)
+
+            val childsFromGrandchild = grandchildSnapshot.getLinks("childs").toList()
+            assertEquals(2, childsFromGrandchild.size)
+
+            val child1Linked = childsFromGrandchild.find { it.id == child1!!.entityId }
+            assertTrue((child1Linked as TransientEntity).isRemoved)
+            assertEquals("child1", child1Linked.getProperty("name"))
+            val child2Linked = childsFromGrandchild.find { it.id == child2!!.entityId }
+            assertFalse((child2Linked as TransientEntity).isRemoved)
+            assertEquals("child2", child2Linked.getProperty("name"))
+
+            // accessing parent again:
+            val parentAgain = child1Linked.getLink("parent")
+            assertFalse((parentAgain as TransientEntity).isRemoved)
+            val parentAgain2 = child2Linked.getLink("parent")
+            assertFalse((parentAgain2 as TransientEntity).isRemoved)
         }
+
+        store.transactional {
+            grandchild?.delete()
+            child1?.delete()
+        }
+        listener.checkError()
+    }
+}
+
+class CallbackListener : TransientStoreSessionListener {
+
+    var callback: (Set<TransientEntityChange>) -> Unit = { _ -> }
+    var callbackError: Throwable? = null
+
+    fun onFlush(callback: (Set<TransientEntityChange>) -> Unit) {
+        callbackError = null
+        this.callback = { it: Set<TransientEntityChange> ->
+            try {
+                callback(it)
+            } catch (e: Throwable) {
+                callbackError = e
+            }
+            this.callback = { _ -> }
+        }
+    }
+
+    fun checkError() {
+        callbackError?.let { throw it }
+    }
+
+    override fun flushed(
+        session: TransientStoreSession,
+        changedEntities: Set<TransientEntityChange>
+    ) {
+        callback(changedEntities)
+    }
+
+    override fun beforeFlushBeforeConstraints(
+        session: TransientStoreSession,
+        changedEntities: Set<TransientEntityChange>
+    ) {
+    }
+
+    override fun afterConstraintsFail(
+        session: TransientStoreSession,
+        exceptions: Set<DataIntegrityViolationException>
+    ) {
+    }
+}
+
+class RememberingListener : TransientStoreSessionListener {
+    val added = mutableSetOf<String>()
+    val removed = mutableSetOf<String>()
+    val updated = mutableMapOf<String, String>()
+
+    val addedLinks = mutableSetOf<String>()
+    val removedLinks = mutableSetOf<String>()
+    val deletedLinks = mutableSetOf<String>()
+
+    fun clear() {
+        added.clear()
+        removed.clear()
+        updated.clear()
+        addedLinks.clear()
+        removedLinks.clear()
+        deletedLinks.clear()
+    }
+
+    override fun flushed(
+        session: TransientStoreSession,
+        changedEntities: Set<TransientEntityChange>
+    ) {
+        for (change in changedEntities) {
+            when (change.changeType) {
+                EntityChangeType.ADD -> added.add(change.transientEntity.getProperty("name") as String)
+                EntityChangeType.REMOVE -> removed.add(change.snapshotEntity.getProperty("name") as String)
+                EntityChangeType.UPDATE -> updated[change.snapshotEntity.getProperty("name") as String] =
+                    change.transientEntity.getProperty("name") as String
+            }
+
+            change.changedLinksDetailed?.let { changes ->
+                changes.forEach { (_, change) ->
+                    change.addedEntities?.forEach {
+                        addedLinks.add(it.getProperty("name") as String)
+                    }
+
+                    change.removedEntities?.forEach {
+                        removedLinks.add(it.getProperty("name") as String)
+                    }
+
+                    change.deletedEntitiesSnapshots?.forEach {
+                        deletedLinks.add(it.getProperty("name") as String)
+                    }
+                }
+            }
+
+        }
+    }
+
+    override fun beforeFlushBeforeConstraints(
+        session: TransientStoreSession,
+        changedEntities: Set<TransientEntityChange>
+    ) {
+    }
+
+    override fun afterConstraintsFail(
+        session: TransientStoreSession,
+        exceptions: @JvmSuppressWildcards Set<DataIntegrityViolationException>
+    ) {
     }
 }

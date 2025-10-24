@@ -15,7 +15,6 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.teamsys.dnq.database.ReadonlyTransientEntityImpl
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.core.dataStructures.decorators.LinkedHashSetDecorator
 import jetbrains.exodus.core.dataStructures.hash.HashMap
@@ -26,8 +25,6 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.entitystore.youtrackdb.RIDEntityId
-import jetbrains.exodus.entitystore.youtrackdb.YTDBDetachedVertex
-import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import java.math.BigInteger
 import java.util.*
@@ -43,7 +40,8 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
 
     private var addedEntities = EntityIdSetFactory.newSet()
 
-    private val removedEntities = mutableMapOf<EntityId, YTDBDetachedVertex?>()
+    private val removedSnapshots = mutableMapOf<EntityId, YTDBVertexEntityRemoved>()
+    private val removedEntities = mutableMapOf<EntityId, YTDBVertexEntityRemoved>()
 
     private val _affectedEntityTypes = HashSet<String>()
     override val affectedEntityTypes: Set<String>
@@ -104,19 +102,12 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
             return changedEntities.size - addedAndRemovedCount
         }
 
+    fun getRemoved(entityId: EntityId): YTDBVertexEntityRemoved? = removedEntities[entityId]
+
     override fun getSnapshotEntity(transientEntity: TransientEntity): TransientEntity {
         return removedEntities[transientEntity.id]
-            ?.let {
-                val entity = YTDBVertexEntity(
-                    transientEntity.id as RIDEntityId,
-                    it,
-                    transientEntity.store.persistentStore as YTDBEntityStore
-                )
-                RemovedTransientEntity(
-                    TransientEntityImpl(entity, transientEntity.store)
-                )
-            }
-            ?: ReadonlyTransientEntityImpl(
+            ?.let { removed -> RemovedTransientEntity(removed, transientEntity.store) }
+            ?: ReadonlyTransientEntity(
                 getChangeDescription(transientEntity),
                 transientEntity.entity,
                 transientEntity.store
@@ -263,17 +254,32 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
         addedEntities = addedEntities.add(e.id)
     }
 
+    // we create a detached entity (snapshot) because at this point we have information about entity links
+    fun entityBeforeRemoved(e: TransientEntity) {
+        removedSnapshots[e.id] = createRemovedSnapshot(e)
+    }
+
     override fun entityRemoved(e: TransientEntity) {
         entityChanged(e)
-        val detached = (e.entity as? YTDBVertexEntity)?.vertex
-            ?.let { it as? YTDBDetachedVertex ?: YTDBDetachedVertex(it) }
-        removedEntities[e.id] = detached
+        val removed = removedSnapshots.remove(e.id) ?: createRemovedSnapshot(e)
+        removedEntities[e.id] = removed
         val changes = removedFrom[e]
         if (changes != null) {
             for (change in changes) {
                 change.addDeleted(e)
             }
         }
+    }
+
+    private fun createRemovedSnapshot(e: TransientEntity): YTDBVertexEntityRemoved {
+        val ytdbEntity = e.entity as YTDBVertexEntity
+        val removed = YTDBVertexEntityRemoved(
+            ytdbEntity.id as RIDEntityId, ytdbEntity,
+            ytdbEntity.store,
+            e.store.queryEngine,
+            this
+        )
+        return removed
     }
 
     override fun upgrade(): TransientChangesTracker {

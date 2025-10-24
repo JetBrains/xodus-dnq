@@ -148,7 +148,7 @@ open class YTDBVertexEntity(
         oEntityId = RIDEntityId.fromVertex(ytdbVertex)
     }
 
-    private fun requireActiveTx(): YTDBStoreTransaction {
+    fun requireActiveTx(): YTDBStoreTransaction {
         return store.requireActiveTransaction()
     }
 

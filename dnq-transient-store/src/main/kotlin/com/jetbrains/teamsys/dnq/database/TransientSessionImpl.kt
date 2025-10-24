@@ -726,7 +726,7 @@ class TransientSessionImpl(
     private fun newEntityImpl(persistent: Entity): TransientEntity {
         return when (persistent) {
             is YTDBReadonlyVertexEntity -> {
-                ReadonlyTransientEntityImpl(persistent, store)
+                ReadonlyTransientEntity(persistent, store)
             }
 
             is TransientEntity -> {

@@ -26,7 +26,7 @@ import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import java.io.File
 import java.io.InputStream
 
-class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: YTDBEntity, store: TransientEntityStore) :
+class ReadonlyTransientEntity(change: TransientEntityChange?, snapshot: YTDBEntity, store: TransientEntityStore) :
     TransientEntityImpl(snapshot, store) {
 
     constructor(snapshot: YTDBEntity, store: TransientEntityStore) : this(null, snapshot, store)
@@ -94,9 +94,9 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: YTDB
     }
     //endregion
 
-    override fun getLink(linkName: String): Entity? {
-        return originalValuesProvider.getOriginalLinkValue(this, linkName)
-    }
+    override fun getLink(linkName: String): Entity? =
+        originalValuesProvider.getOriginalLinkValue(this, linkName)
+            ?.let { SnapshotEntityIterator.wrapEntity(it, store) }
 
     override fun getLink(linkName: String, session: TransientStoreSession?): Entity? {
         return getLink(linkName)
@@ -108,9 +108,9 @@ class ReadonlyTransientEntityImpl(change: TransientEntityChange?, snapshot: YTDB
         // we get the current state and revert changes that have happened during the transaction
         val oldLinksState = entity
             .getLinks(linkName)
-            .map { ReadonlyTransientEntityImpl(null, it as YTDBEntity, store) }
+            .map { ReadonlyTransientEntity(null, it as YTDBEntity, store) }
             .toSet()
-            .plus(changedLinks[linkName]?.deletedEntities?.map { RemovedTransientEntity(it) } ?: setOf())
+            .plus(changedLinks[linkName]?.deletedEntitiesSnapshots ?: setOf())
             .plus(getRemovedLinks(linkName))
             .minus(getAddedLinks(linkName))
         return (oldLinksState as Set<TransientEntity>).asEntityIterable()

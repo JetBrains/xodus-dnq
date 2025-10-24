@@ -65,6 +65,7 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     fun deleteOClass(entityTypeName: String)
 
+    fun loadVertexOrNull(id: RID): YTDBVertex?
     fun getVertex(id: RID): YTDBVertex
     fun getVertex(id: YTDBEntityId): YTDBVertex
 

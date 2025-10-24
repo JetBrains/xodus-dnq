@@ -187,7 +187,7 @@ class YTDBPersistentEntityStore(
     }
 }
 
-internal fun YTDBEntityStore.requireOEntityId(id: EntityId): YTDBEntityId {
+fun YTDBEntityStore.requireOEntityId(id: EntityId): YTDBEntityId {
     return when (id) {
         is RIDEntityId -> id
         PersistentEntityId.EMPTY_ID -> RIDEntityId.EMPTY_ID

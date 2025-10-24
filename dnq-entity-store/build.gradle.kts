@@ -1,9 +1,18 @@
-val ytdbVersion = "0.5.0-e88e8b7-SNAPSHOT"
+val ytdbVersion = "0.5.0-eb1fe6c-SNAPSHOT"
 val ktorVersion = "3.1.3"
+val graalVmVersion = "22.0.0.2"
 
 dependencies {
+    implementation("org.graalvm.sdk:graal-sdk:${graalVmVersion}")
+    implementation("org.graalvm.truffle:truffle-api:${graalVmVersion}")
+    implementation("org.graalvm.js:js-scriptengine:${graalVmVersion}")
+
     api(project(":dnq-xodus-open-api"))
-    api("io.youtrackdb:youtrackdb-core:$ytdbVersion")
+    api("io.youtrackdb:youtrackdb-core:$ytdbVersion") {
+        exclude("org.graalvm.sdk", "graal-sdk")
+        exclude("org.graalvm.truffle", "truffle-api")
+        exclude("org.graalvm.js", "js-scriptengine")
+    }
     implementation("io.youtrackdb:youtrackdb-tools:$ytdbVersion") {
         exclude("io.youtrackdb", "youtrackdb-core")
         exclude("io.youtrackdb", "youtrackdb-client")

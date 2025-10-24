@@ -219,16 +219,15 @@ class YTDBStoreTransactionImpl(
         g().E(id).drop().iterate()
     }
 
-    private fun loadVertex(id: RID): Optional<YTDBVertex> =
+    override fun loadVertexOrNull(id: RID): YTDBVertex? =
         g().V(id)
             .tryNext()
             .map { (it as YTDBVertex) }
+            .getOrNull()
 
     override fun getVertex(id: RID): YTDBVertex {
         val session = activeYtdbSession()
-        return loadVertex(id).orElseThrow {
-            RecordNotFoundException(session, id)
-        }
+        return loadVertexOrNull(id) ?: throw RecordNotFoundException(session, id)
     }
 
     override fun getVertex(id: YTDBEntityId): YTDBVertex {
@@ -237,8 +236,7 @@ class YTDBStoreTransactionImpl(
         if (ytdbId == RIDEntityId.EMPTY_YTDB_ID) {
             throw EntityRemovedInDatabaseException(id.getTypeName(), id)
         }
-        return loadVertex(ytdbId)
-            .orElseThrow { EntityRemovedInDatabaseException(id.getTypeName(), id) }
+        return loadVertexOrNull(ytdbId) ?: throw EntityRemovedInDatabaseException(id.getTypeName(), id)
     }
 
     override fun getBlob(rid: RID): Blob {
