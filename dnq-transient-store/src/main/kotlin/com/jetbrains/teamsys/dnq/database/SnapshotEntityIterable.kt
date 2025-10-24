@@ -15,11 +15,12 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
-import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 import java.util.*
 import java.util.function.Consumer
 
@@ -94,7 +95,8 @@ internal class SnapshotEntityIterator(
 
         fun wrapEntity(entity: Entity, store: TransientEntityStore) = when (entity) {
             is YTDBVertexEntityRemoved -> RemovedTransientEntity(entity, store)
-            is YTDBVertexEntity -> ReadonlyTransientEntity(entity, store)
+            is TransientEntity -> entity
+            is YTDBEntity -> TransientEntityImpl(entity, store)
             else -> entity
         }
     }

@@ -255,7 +255,7 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
     }
 
     // we create a detached entity (snapshot) because at this point we have information about entity links
-    fun entityBeforeRemoved(e: TransientEntity) {
+    override fun entityBeforeRemoved(e: TransientEntity) {
         removedSnapshots[e.id] = createRemovedSnapshot(e)
     }
 

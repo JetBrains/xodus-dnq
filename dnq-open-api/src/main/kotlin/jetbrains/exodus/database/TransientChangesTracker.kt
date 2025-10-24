@@ -92,6 +92,8 @@ interface TransientChangesTracker {
 
     fun entityAdded(e: TransientEntity)
 
+    fun entityBeforeRemoved(e: TransientEntity)
+
     fun entityRemoved(e: TransientEntity)
 
     fun getRemovedEntitiesIds(): Collection<EntityId>
