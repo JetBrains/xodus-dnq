@@ -1,4 +1,5 @@
-val ytdbVersion = "0.5.0-eb1fe6c-SNAPSHOT"
+val ytdbVersion = "0.5.0-3efcb01-SNAPSHOT"
+
 val ktorVersion = "3.1.3"
 val graalVmVersion = "22.0.0.2"
 
