@@ -26,12 +26,6 @@ object EntityOperations {
 
     @JvmStatic
     fun remove(e: Entity?) {
-        // calling "before removed" to create links snaphsot
-        (e as? TransientEntity)
-            ?.threadSessionOrThrow
-            ?.transientChangesTracker
-            ?.entityBeforeRemoved(e)
-
         /* two-phase remove:
            1. call destructors
            2. remove links and entities
@@ -43,6 +37,14 @@ object EntityOperations {
 
     @JvmStatic
     internal fun remove(e: Entity?, callDestructorPhase: Boolean, processed: MutableSet<Entity>) {
+        if (callDestructorPhase) {
+            // calling "before removed" to create links snapshot
+            (e as? TransientEntity)
+                ?.threadSessionOrThrow
+                ?.transientChangesTracker
+                ?.entityBeforeRemoved(e)
+        }
+
         if (e == null || (e as TransientEntity).isRemoved) return
         val txnEntity = e.reattachTransient()
 

@@ -26,30 +26,47 @@ import kotlin.test.assertTrue
 
 class TransientStoreSessionListenerTest : DBTest() {
 
-    class Parent(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<Parent>()
+    class LevelOneEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<LevelOneEntity>()
 
         var name by xdRequiredStringProp()
     }
 
-    class Child(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<Child>()
+    class LevelTwoEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<LevelTwoEntity>()
 
         var name by xdRequiredStringProp()
-        var parent by xdLink0_1(Parent, onTargetDelete = OnDeletePolicy.CLEAR)
+        var parent by xdLink0_1(LevelOneEntity, onTargetDelete = OnDeletePolicy.CLEAR)
     }
 
-    class Grandchild(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<Grandchild>()
+    class LevelThreeEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<LevelThreeEntity>()
 
         var name by xdRequiredStringProp()
-        var parent by xdLink0_1(Parent, onTargetDelete = OnDeletePolicy.CLEAR)
-        val childs by xdLink0_N(Child, onTargetDelete = OnDeletePolicy.CLEAR)
+        var parent by xdLink0_1(LevelOneEntity, onTargetDelete = OnDeletePolicy.CLEAR)
+        val children by xdLink0_N(LevelTwoEntity, onTargetDelete = OnDeletePolicy.CLEAR)
+    }
+
+    class ParentEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<ParentEntity>()
+
+        var name by xdRequiredStringProp()
+        var child by xdChild0_1(ChildEntity::parent)
+    }
+
+    class ChildEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<ChildEntity>()
+
+        var name by xdRequiredStringProp()
+        var parent: ParentEntity by xdParent(ParentEntity::child)
     }
 
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNodes(Parent, Child, Grandchild)
+        XdModel.registerNodes(
+            LevelOneEntity, LevelTwoEntity, LevelThreeEntity,
+            ParentEntity, ChildEntity
+        )
     }
 
     @Test
@@ -60,8 +77,8 @@ class TransientStoreSessionListenerTest : DBTest() {
 
         val (entity1, entity2) = store.transactional {
             Pair(
-                Parent.new { name = "abc" },
-                Parent.new { name = "xyz" }
+                LevelOneEntity.new { name = "abc" },
+                LevelOneEntity.new { name = "xyz" }
             )
         }
 
@@ -99,8 +116,8 @@ class TransientStoreSessionListenerTest : DBTest() {
         store.addListener(listener)
 
         val (parent, child) = store.transactional {
-            val parent = Parent.new { name = "parent1" }
-            val child = Child.new { name = "child"; this.parent = parent }
+            val parent = LevelOneEntity.new { name = "parent1" }
+            val child = LevelTwoEntity.new { name = "child"; this.parent = parent }
 
             Pair(parent, child)
         }
@@ -110,8 +127,8 @@ class TransientStoreSessionListenerTest : DBTest() {
         listener.clear()
 
         val parent2 = store.transactional {
-            val newParent = Parent.new { name = "parent2" }
-            val tempParent = Parent.new { name = "tempParent" }
+            val newParent = LevelOneEntity.new { name = "parent2" }
+            val tempParent = LevelOneEntity.new { name = "tempParent" }
             child.parent = tempParent
             child.parent = newParent
             newParent
@@ -137,21 +154,21 @@ class TransientStoreSessionListenerTest : DBTest() {
         val listener = CallbackListener()
         store.addListener(listener)
 
-        var parent: Parent? = null
-        var child1: Child? = null
-        var child2: Child? = null
-        var grandchild: Grandchild? = null
+        var parent: LevelOneEntity? = null
+        var child1: LevelTwoEntity? = null
+        var child2: LevelTwoEntity? = null
+        var grandchild: LevelThreeEntity? = null
 
         store.transactional {
-            parent = Parent.new { name = "parent1" }
-            child1 = Child.new { name = "child1"; this.parent = parent }
-            child2 = Child.new { name = "child2"; this.parent = parent }
+            parent = LevelOneEntity.new { name = "parent1" }
+            child1 = LevelTwoEntity.new { name = "child1"; this.parent = parent }
+            child2 = LevelTwoEntity.new { name = "child2"; this.parent = parent }
 
-            grandchild = Grandchild.new {
+            grandchild = LevelThreeEntity.new {
                 name = "grandchild1"
                 this.parent = parent
-                childs.add(child1)
-                childs.add(child2)
+                children.add(child1)
+                children.add(child2)
             }
         }
 
@@ -180,7 +197,7 @@ class TransientStoreSessionListenerTest : DBTest() {
             val parentFromGrandchild = grandchildSnapshot.getLink("parent")
             assertFalse((parentFromGrandchild as TransientEntity).isRemoved)
 
-            val childsFromGrandchild = grandchildSnapshot.getLinks("childs").toList()
+            val childsFromGrandchild = grandchildSnapshot.getLinks("children").toList()
             assertEquals(2, childsFromGrandchild.size)
 
             val child1Linked = childsFromGrandchild.find { it.id == child1!!.entityId }
@@ -203,6 +220,41 @@ class TransientStoreSessionListenerTest : DBTest() {
         }
         listener.checkError()
     }
+
+    @Test
+    fun `listener should bring events from parent-child entities`() {
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        val (parentEntity, childEntity) = store.transactional {
+            val parentEntity = ParentEntity.new { name = "parentEntity" }
+            val childEntity = ChildEntity.new { name = "childEntity"; parent = parentEntity }
+
+            Pair(parentEntity, childEntity)
+        }
+
+        listener.onFlush { changes ->
+
+            assertEquals(2, changes.size)
+            changes.forEach { assertEquals(EntityChangeType.REMOVE, it.changeType) }
+            val parentSnapshot = changes.find { it.snapshotEntity.id == parentEntity.entityId }!!
+            val childSnapshot = changes.find { it.snapshotEntity.id == childEntity.entityId }!!
+
+            assertEquals(
+                childSnapshot.snapshotEntity,
+                parentSnapshot.snapshotEntity.getLink("child")
+            )
+            assertEquals(
+                parentSnapshot.snapshotEntity,
+                childSnapshot.snapshotEntity.getLink("parent")
+            )
+        }
+
+        store.transactional {
+            parentEntity.delete()
+        }
+        listener.checkError()
+    }
 }
 
 class CallbackListener : TransientStoreSessionListener {
@@ -222,16 +274,10 @@ class CallbackListener : TransientStoreSessionListener {
         }
     }
 
-    fun checkError() {
-        callbackError?.let { throw it }
-    }
+    fun checkError() = callbackError?.let { throw it }
 
-    override fun flushed(
-        session: TransientStoreSession,
-        changedEntities: Set<TransientEntityChange>
-    ) {
+    override fun flushed(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) =
         callback(changedEntities)
-    }
 
     override fun beforeFlushBeforeConstraints(
         session: TransientStoreSession,
