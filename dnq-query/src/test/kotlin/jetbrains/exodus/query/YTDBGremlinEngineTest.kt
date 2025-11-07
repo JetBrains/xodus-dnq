@@ -247,6 +247,63 @@ class YTDBGremlinEngineTest(
     }
 
     @Test
+    fun `should query string properties correctly`() {
+        // Given
+        val test = givenTestCase()
+        val engine = givenOQueryEngine()
+        withStoreTx {
+            test.issue2.setProperty("case", "Find me if YOU can")
+            test.issue3.setProperty("case", "find me IF you CAN")
+        }
+
+        withStoreTx { tx ->
+            assertNamesExactly(
+                engine.query(
+                    iterableGetter(engine, tx), "Issue",
+                    NodeFactory.stringPropEqual("case", "find me if you can", ignoreCase = true)
+                ),
+                "issue2", "issue3"
+            )
+            assertThat(
+                engine.query(
+                    iterableGetter(engine, tx), "Issue",
+                    NodeFactory.stringPropEqual("case", "find me if you can", ignoreCase = false)
+                )
+            ).isEmpty()
+            assertNamesExactly(
+                engine.query(
+                    iterableGetter(engine, tx), "Issue",
+                    NodeFactory.stringPropEqual("case", "Find me if YOU can", ignoreCase = false)
+                ),
+                "issue2"
+            )
+        }
+    }
+
+    @Test
+    fun `should query string collection properties correctly`() {
+        // Given
+        givenTestCase()
+        val engine = givenOQueryEngine()
+
+        withStoreTx { tx ->
+            assertNamesExactly(
+                engine.query(
+                    iterableGetter(engine, tx), "Issue",
+                    NodeFactory.hasStringElement("tags", "IN_ProGRess", ignoreCase = true)
+                ),
+                "issue1", "issue3"
+            )
+            assertThat(
+                engine.query(
+                    iterableGetter(engine, tx), "Issue",
+                    NodeFactory.hasStringElement("tags", "IN_ProGRess", ignoreCase = false)
+                ),
+            ).isEmpty()
+        }
+    }
+
+    @Test
     fun `should query when property exists`() {
         // Given
         val test = givenTestCase()
