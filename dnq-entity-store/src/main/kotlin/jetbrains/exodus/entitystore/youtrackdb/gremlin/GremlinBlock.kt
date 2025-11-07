@@ -25,6 +25,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Scope
 import org.apache.tinkerpop.gremlin.process.traversal.TextP
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.values
 
 typealias YT = GraphTraversal<*, YTDBVertex>
 
@@ -38,33 +39,6 @@ enum class BlockType {
 }
 
 sealed class GremlinBlock(val shortName: String, val type: BlockType) {
-
-    companion object {
-
-        internal fun matchStringProperty(
-            g: YT,
-            property: String,
-            predicate: P<String>,
-            isCollection: Boolean,
-            caseSensitive: Boolean
-        ): YT =
-            if (isCollection)
-                g.where(
-                    `__`
-                        .values<YTDBVertex, String>(property)
-                        .unfold<String>()
-                        .let { if (caseSensitive) it else it.toLower() }
-                        .`is`(predicate)
-                )
-            else if (caseSensitive)
-                g.has(property, predicate)
-            else
-                g.where(
-                    `__`
-                        .values<YTDBVertex, String>(property).toLower()
-                        .`is`(predicate)
-                )
-    }
 
     abstract fun traverse(g: YT): YT
 
@@ -215,42 +189,45 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         override fun describe(s: StringBuilder): StringBuilder = s.append(".in(").append(linkName).append(")")
     }
 
-    data class HasSubstring(
-        val property: String,
-        val substring: String?,
-        val isCollection: Boolean,
-        val caseSensitive: Boolean
-    ) : GremlinBlock("hsub", BlockType.CONDITION) {
-        override fun traverse(g: YT): YT =
-            matchStringProperty(
-                g, property,
-                TextP.containing(substring.let { if (caseSensitive) it else it?.lowercase() }),
-                isCollection, caseSensitive
-            )
-
-        override fun describe(s: StringBuilder): StringBuilder =
-            s.append(property).append(" hasSubstring ").append(substring)
-
-        override fun simplify(): GremlinBlock? = if (StringUtils.isEmpty(substring)) All else null
+    enum class StringCompare(
+        val shortName: String,
+        val predicate: (String?) -> P<String>
+    ) {
+        Equal("eq", { P.eq(it) }),
+        Prefix("prefix", { TextP.startingWith(it) }),
+        Suffix("suffix", { TextP.endingWith(it) }),
+        Substring("substr", { TextP.containing(it) }),
     }
 
-    data class HasPrefix(
+    data class MatchStringProp(
         val property: String,
-        val prefix: String?,
+        val op: StringCompare,
+        val matchValue: String?,
         val isCollection: Boolean,
-        val caseSensitive: Boolean
-    ) : GremlinBlock("hp", BlockType.CONDITION) {
-        override fun traverse(g: YT): YT =
-            matchStringProperty(
-                g, property,
-                TextP.startingWith(prefix.let { if (caseSensitive) it else it?.lowercase() }),
-                isCollection, caseSensitive
-            )
+        val caseSensitive: Boolean,
+    ) : GremlinBlock("str$op", BlockType.CONDITION) {
+        override fun traverse(g: YT): YT {
+            val predicate = op.predicate(if (caseSensitive) matchValue else matchValue?.lowercase())
+
+            return if (isCollection)
+                g.where(
+                    values<YTDBVertex, String>(property)
+                        .unfold<String>()
+                        .let { if (caseSensitive) it else it.toLower() }
+                        .`is`(predicate)
+                )
+            else if (caseSensitive)
+                g.has(property, predicate)
+            else
+                g.where(
+                    values<YTDBVertex, String>(property)
+                        .toLower()
+                        .`is`(predicate)
+                )
+        }
 
         override fun describe(s: StringBuilder): StringBuilder =
-            s.append(property).append(" hasPrefix ").append(prefix)
-
-        override fun simplify(): GremlinBlock? = if (StringUtils.isEmpty(prefix)) All else null
+            s.append(property).append(" ").append(op.shortName).append(" ").append(matchValue)
     }
 
     data class HasElement(val property: String, val value: Any) : GremlinBlock("he", BlockType.CONDITION) {

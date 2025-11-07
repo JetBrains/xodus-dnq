@@ -43,29 +43,81 @@ object NodeFactory {
         property: String,
         value: String?,
         ignoreCase: Boolean = true
-    ): LeafNode =
-        LeafNode(HasSubstring(property, value, isCollection = false, caseSensitive = !ignoreCase))
+    ): LeafNode = LeafNode(
+        MatchStringProp(
+            property,
+            StringCompare.Substring,
+            value,
+            isCollection = false,
+            caseSensitive = !ignoreCase
+        )
+    )
 
     fun hasElementWithSubstring(
         property: String,
         value: String?,
         ignoreCase: Boolean = true
-    ): LeafNode =
-        LeafNode(HasSubstring(property, value, isCollection = true, caseSensitive = !ignoreCase))
+    ): LeafNode = LeafNode(
+        MatchStringProp(
+            property,
+            StringCompare.Substring,
+            value,
+            isCollection = true,
+            caseSensitive = !ignoreCase
+        )
+    )
 
     fun hasPrefix(
         property: String,
         value: String?,
         ignoreCase: Boolean = true
-    ): LeafNode =
-        LeafNode(HasPrefix(property, value, isCollection = false, caseSensitive = !ignoreCase))
+    ): LeafNode = LeafNode(
+        MatchStringProp(
+            property,
+            StringCompare.Prefix,
+            value,
+            isCollection = false,
+            caseSensitive = !ignoreCase
+        )
+    )
 
     fun hasElementWithPrefix(
         property: String,
         value: String?,
         ignoreCase: Boolean = true
     ): LeafNode =
-        LeafNode(HasPrefix(property, value, isCollection = true, caseSensitive = !ignoreCase))
+        LeafNode(
+            MatchStringProp(
+                property,
+                StringCompare.Prefix,
+                value,
+                isCollection = true,
+                caseSensitive = !ignoreCase
+            )
+        )
+
+    fun stringPropEqual(property: String, value: String?, ignoreCase: Boolean = true): LeafNode =
+        if (value == null) LeafNode(PropNull(property))
+        else LeafNode(
+            MatchStringProp(
+                property,
+                StringCompare.Equal,
+                value,
+                isCollection = false,
+                caseSensitive = !ignoreCase
+            )
+        )
+
+    fun hasStringElement(property: String, value: String?, ignoreCase: Boolean = true): LeafNode =
+        LeafNode(
+            MatchStringProp(
+                property,
+                StringCompare.Equal,
+                value,
+                isCollection = true,
+                caseSensitive = !ignoreCase
+            )
+        )
 
     fun hasElement(property: String, value: Any): LeafNode =
         LeafNode(HasElement(property, value))

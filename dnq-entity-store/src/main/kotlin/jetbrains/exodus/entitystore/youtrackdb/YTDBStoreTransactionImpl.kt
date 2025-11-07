@@ -35,6 +35,7 @@ import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.StringCompare
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableImpl
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
@@ -305,7 +306,13 @@ class YTDBStoreTransactionImpl(
         return YTDBEntityIterable.where(
             entityType,
             this,
-            GremlinBlock.HasSubstring(propertyName, value, isCollection = false, caseSensitive = !ignoreCase)
+            GremlinBlock.MatchStringProp(
+                propertyName,
+                StringCompare.Substring,
+                value,
+                isCollection = false,
+                caseSensitive = !ignoreCase
+            )
         )
     }
 
@@ -318,7 +325,13 @@ class YTDBStoreTransactionImpl(
         return YTDBEntityIterable.where(
             entityType,
             this,
-            GremlinBlock.HasPrefix(propertyName, value, isCollection = false, caseSensitive = false)
+            GremlinBlock.MatchStringProp(
+                propertyName,
+                StringCompare.Prefix,
+                value,
+                isCollection = false,
+                caseSensitive = false
+            )
         )
     }
 
