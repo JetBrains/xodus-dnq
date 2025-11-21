@@ -15,10 +15,10 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.youtrack.db.api.record.Identifiable
-import com.jetbrains.youtrack.db.api.record.RID
-import com.jetbrains.youtrack.db.api.record.Vertex
-import com.jetbrains.youtrack.db.internal.core.record.impl.RecordBytes
+import com.jetbrains.youtrackdb.api.record.Blob
+import com.jetbrains.youtrackdb.api.record.Identifiable
+import com.jetbrains.youtrackdb.api.record.RID
+import com.jetbrains.youtrackdb.internal.core.record.impl.RecordBytes
 import jetbrains.exodus.database.LinkChangeType
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityOriginalValuesProvider
@@ -26,6 +26,7 @@ import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
+import jetbrains.exodus.entitystore.youtrackdb.raw
 import jetbrains.exodus.util.UTFUtil
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -36,15 +37,15 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
 
     override fun getOriginalPropertyValue(e: TransientEntity, propertyName: String): Comparable<*>? {
 
-        val ytdbTx = (session.store.persistentStore as YTDBPersistentEntityStore).databaseSession.activeTransaction
-        val id = e.entity.id.asOId()
+        val tx = (session.store.persistentStore as YTDBPersistentEntityStore).requireActiveTransaction()
+        val id = e.entity.id
 
-        if (id.isNew) {
+        if (id.asOId().isNew) {
             return null
         }
 
-        val oVertex = ytdbTx.load<Vertex>(id)
-        val onLoadValue = oVertex.getPropertyOnLoadValue<Any>(propertyName)
+        val oVertex = tx.getVertex(id)
+        val onLoadValue = oVertex.raw().getPropertyOnLoadValue<Any>(propertyName)
         return if (onLoadValue is MutableSet<*>) {
             YTDBComparableSet(onLoadValue)
         } else {
@@ -53,13 +54,12 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
     }
 
     override fun getOriginalBlobStringValue(e: TransientEntity, blobName: String): String? {
-        val ytdbTx = (session.store.persistentStore as YTDBPersistentEntityStore).databaseSession.activeTransaction
-        val id = e.entity.id.asOId()
-        val oVertex = ytdbTx.load<Vertex>(id)
-        val blobHolderOrId = oVertex.getPropertyOnLoadValue<Identifiable?>(blobName)
-        var blobHolder: RecordBytes? = null
+        val tx = (session.store.persistentStore as YTDBPersistentEntityStore).requireActiveTransaction()
+        val oVertex = tx.getVertex(e.entity.id)
+        val blobHolderOrId = oVertex.raw().getPropertyOnLoadValue<Identifiable?>(blobName)
+        var blobHolder: Blob? = null
         if (blobHolderOrId !is RecordBytes && blobHolderOrId is RID) {
-            blobHolder = ytdbTx.load(blobHolderOrId)
+            blobHolder = tx.getBlob(blobHolderOrId)
         } else if (blobHolderOrId is RecordBytes) {
             blobHolder = blobHolderOrId
         }
@@ -69,13 +69,12 @@ class TransientEntityOriginalValuesProviderImpl(private val session: TransientSt
     }
 
     override fun getOriginalBlobValue(e: TransientEntity, blobName: String): InputStream? {
-        val ytdbTx = (session.store.persistentStore as YTDBPersistentEntityStore).databaseSession.activeTransaction
-        val id = e.entity.id.asOId()
-        val oVertex = ytdbTx.load<Vertex>(id)
-        var blobHolder: RecordBytes? = null
-        val blobHolderOrId = oVertex.getPropertyOnLoadValue<Identifiable?>(blobName)
+        val tx = (session.store.persistentStore as YTDBPersistentEntityStore).requireActiveTransaction()
+        val oVertex = tx.getVertex(e.entity.id)
+        var blobHolder: Blob? = null
+        val blobHolderOrId = oVertex.raw().getPropertyOnLoadValue<Identifiable?>(blobName)
         if (blobHolderOrId !is RecordBytes && blobHolderOrId is RID) {
-            blobHolder = ytdbTx.load(blobHolderOrId)
+            blobHolder = tx.getBlob(blobHolderOrId)
         } else if (blobHolderOrId is RecordBytes) {
             blobHolder = blobHolderOrId
         }

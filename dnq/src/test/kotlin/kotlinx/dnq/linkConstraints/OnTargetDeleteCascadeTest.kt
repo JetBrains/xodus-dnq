@@ -21,6 +21,7 @@ import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.toList
 import org.junit.Test
+import kotlin.concurrent.thread
 
 class OnTargetDeleteCascadeTest : DBTest() {
 
@@ -64,9 +65,11 @@ class OnTargetDeleteCascadeTest : DBTest() {
         val user = transactional { AUser.new() }
         transactional {
             user.delete()
-            transactional(isNew = true) {
-                AExternalProfile.new { this.user = user }
-            }
+            thread {
+                transactional {
+                    AExternalProfile.new { this.user = user }
+                }
+            }.join()
         }
         transactional {
             assertThat(AExternalProfile.all().toList()).isEmpty()

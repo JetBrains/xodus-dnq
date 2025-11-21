@@ -17,7 +17,9 @@ package jetbrains.exodus.database
 
 import jetbrains.exodus.core.dataStructures.hash.LinkedHashSet
 
-class LinkChange(val linkName: String) {
+class LinkChange(
+    val linkName: String, private val changesTracker: TransientChangesTracker
+) {
 
     private var _addedEntities: MutableSet<TransientEntity>? = null
     val addedEntities get() = _addedEntities
@@ -47,6 +49,8 @@ class LinkChange(val linkName: String) {
             }
         }
 
+    val deletedEntitiesSnapshots: List<TransientEntity>?
+        get() = _deletedEntities?.map { changesTracker.getSnapshotEntity(it) }
 
     fun isNotEmpty(): Boolean {
         return addedEntitiesSize > 0 || removedEntitiesSize > 0 || deletedEntitiesSize > 0

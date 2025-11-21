@@ -18,6 +18,7 @@ package kotlinx.dnq
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import org.junit.Test
+import kotlin.concurrent.thread
 
 class SequenceTest : DBTest() {
     class XdProject(entity: Entity) : XdEntity(entity) {
@@ -69,9 +70,11 @@ class SequenceTest : DBTest() {
 
         transactional {
             assertThat(project.nextIssueNumber.increment()).isEqualTo(0)
-            transactional(isNew = true) {
-                assertThat(project.nextIssueNumber.increment()).isEqualTo(1)
-            }
+            thread {
+                transactional {
+                    assertThat(project.nextIssueNumber.increment()).isEqualTo(1)
+                }
+            }.join()
             assertThat(project.nextIssueNumber.get()).isEqualTo(1)
         }
     }

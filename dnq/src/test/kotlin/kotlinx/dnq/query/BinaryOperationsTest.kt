@@ -19,6 +19,7 @@ package kotlinx.dnq.query
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
+import org.junit.Ignore
 import org.junit.Test
 
 class BinaryOperationsTest : DBTest() {
@@ -154,6 +155,7 @@ class BinaryOperationsTest : DBTest() {
             assertQuery(someUsers intersect otherUsers).hasSize(20)
             assertQuery(User.all() intersect someUsers).hasSize(110)
             assertQuery(User.all() intersect otherUsers).hasSize(110)
+            // this query fails supposedly because of polymorphism
             assertQuery(someUsers.query(User::name startsWith "1").query(User::name startsWith "10")).hasSize(11)
         }
     }

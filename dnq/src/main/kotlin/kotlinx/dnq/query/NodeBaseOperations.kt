@@ -15,10 +15,8 @@
  */
 package kotlinx.dnq.query
 
-import jetbrains.exodus.entitystore.Entity
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.*
-import jetbrains.exodus.query.metadata.ModelMetaData
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.simple.maxValue
 import kotlinx.dnq.simple.minValue
@@ -29,25 +27,24 @@ import kotlinx.dnq.util.getDBName
 import org.joda.time.DateTime
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
-import kotlin.reflect.jvm.javaType
 
 /**
  * Returns new [NodeBase] representing negation of the given [node].
  */
-fun not(node: NodeBase): NodeBase = UnaryNot(node)
+fun not(node: NodeBase): NodeBase = NodeFactory.not(node)
 
 /**
  * Returns new [NodeBase] representing conjunction of `this` and [that] nodes.
  */
-infix fun NodeBase.and(that: NodeBase): NodeBase = And(this, that)
+infix fun NodeBase.and(that: NodeBase): NodeBase = NodeFactory.and(this, that)
 
 /**
  * Returns new [NodeBase] representing disjunction of `this` and [that] nodes.
  */
 infix fun NodeBase.or(that: NodeBase): NodeBase = when {
-    this is None -> that
-    that is None -> this
-    else -> Or(this, that)
+    this === LeafNode.none -> that
+    that === LeafNode.none -> this
+    else -> NodeFactory.or(this, that)
 }
 
 /**
@@ -56,7 +53,7 @@ infix fun NodeBase.or(that: NodeBase): NodeBase = when {
  * value of the property with name [dbPropertyName] equal to the given [value].
  */
 fun eq(dbPropertyName: String, value: Comparable<*>?): NodeBase {
-    return PropertyEqual(dbPropertyName, value)
+    return NodeFactory.propEqual(dbPropertyName, value)
 }
 
 /**
@@ -83,7 +80,7 @@ infix inline fun <reified R : XdEntity> KProperty1<R, DateTime?>.eq(value: DateT
  * value of the property with name [dbPropertyName] is not equal to the given [value].
  */
 fun ne(dbPropertyName: String, value: Comparable<*>?): NodeBase {
-    return not(PropertyEqual(dbPropertyName, value))
+    return not(NodeFactory.propEqual(dbPropertyName, value))
 }
 
 /**
@@ -110,7 +107,7 @@ infix inline fun <reified R : XdEntity> KProperty1<R, DateTime?>.ne(value: DateT
  * value of the property with name [dbPropertyName] falls into `this` range.
  */
 fun <T : Comparable<T>> ClosedRange<T>.contains(dbPropertyName: String): NodeBase {
-    return PropertyRange(dbPropertyName, start, endInclusive)
+    return NodeFactory.inRange(dbPropertyName, start, endInclusive)
 }
 
 /**
@@ -138,7 +135,7 @@ infix inline fun <reified R : XdEntity> ClosedRange<DateTime>.contains(property:
  * value of the property with name [dbPropertyName] is greater than the given [value].
  */
 fun <V : Comparable<V>> gt(dbPropertyName: String, value: V, valueKClass: KClass<V>): NodeBase {
-    return PropertyRange(dbPropertyName, valueKClass.next(value), valueKClass.maxValue())
+    return NodeFactory.inRange(dbPropertyName, valueKClass.next(value), valueKClass.maxValue())
 }
 
 /**
@@ -165,7 +162,7 @@ inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.gt(value: DateT
  * value of the property with name [dbPropertyName] is less than the given [value].
  */
 fun <V : Comparable<V>> lt(dbPropertyName: String, value: V, valueKClass: KClass<V>): NodeBase {
-    return PropertyRange(dbPropertyName, valueKClass.minValue(), valueKClass.prev(value))
+    return NodeFactory.inRange(dbPropertyName, valueKClass.minValue(), valueKClass.prev(value))
 }
 
 /**
@@ -191,8 +188,8 @@ inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.lt(value: DateT
  *
  * value of the property with name [dbPropertyName] is greater or equal to the given [value].
  */
-fun <V : Comparable<V>> ge(dbPropertyName: String, value: V, valueKClass: KClass<V>): PropertyRange {
-    return PropertyRange(dbPropertyName, value, valueKClass.maxValue())
+fun <V : Comparable<V>> ge(dbPropertyName: String, value: V, valueKClass: KClass<V>): NodeBase {
+    return NodeFactory.inRange(dbPropertyName, value, valueKClass.maxValue())
 }
 
 /**
@@ -200,7 +197,7 @@ fun <V : Comparable<V>> ge(dbPropertyName: String, value: V, valueKClass: KClass
  *
  * value of `this` property is greater or equal to the given [value].
  */
-inline infix fun <reified R : XdEntity, reified V : Comparable<V>> KProperty1<R, V?>.ge(value: V): PropertyRange {
+inline infix fun <reified R : XdEntity, reified V : Comparable<V>> KProperty1<R, V?>.ge(value: V): NodeBase {
     return ge(getDBName(R::class), value, V::class)
 }
 
@@ -209,7 +206,7 @@ inline infix fun <reified R : XdEntity, reified V : Comparable<V>> KProperty1<R,
  *
  * value of `this` property is greater or equal to the given [value].
  */
-inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.ge(value: DateTime): PropertyRange {
+inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.ge(value: DateTime): NodeBase {
     return ge(getDBName(R::class), value.millis, Long::class)
 }
 
@@ -218,8 +215,8 @@ inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.ge(value: DateT
  *
  * value of the property with name [dbPropertyName] is less or equal to the given [value].
  */
-fun <V : Comparable<V>> le(dbPropertyName: String, value: V, valueKClass: KClass<V>): PropertyRange {
-    return PropertyRange(dbPropertyName, valueKClass.minValue(), value)
+fun <V : Comparable<V>> le(dbPropertyName: String, value: V, valueKClass: KClass<V>): NodeBase {
+    return NodeFactory.inRange(dbPropertyName, valueKClass.minValue(), value)
 }
 
 /**
@@ -227,7 +224,7 @@ fun <V : Comparable<V>> le(dbPropertyName: String, value: V, valueKClass: KClass
  *
  * value of `this` property is less or equal to the given [value].
  */
-inline infix fun <reified R : XdEntity, reified V : Comparable<V>> KProperty1<R, V?>.le(value: V): PropertyRange {
+inline infix fun <reified R : XdEntity, reified V : Comparable<V>> KProperty1<R, V?>.le(value: V): NodeBase {
     return le(getDBName(R::class), value, V::class)
 }
 
@@ -236,7 +233,7 @@ inline infix fun <reified R : XdEntity, reified V : Comparable<V>> KProperty1<R,
  *
  * value of `this` property is less or equal to the given [value].
  */
-inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.le(value: DateTime): PropertyRange {
+inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.le(value: DateTime): NodeBase {
     return le(getDBName(R::class), value.millis, Long::class)
 }
 
@@ -246,7 +243,7 @@ inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.le(value: DateT
  * value of the String property with name [dbPropertyName] starts with the given [value].
  */
 fun startsWith(dbPropertyName: String, value: String?): NodeBase {
-    return PropertyStartsWith(dbPropertyName, value ?: "")
+    return NodeFactory.hasPrefix(dbPropertyName, value ?: "")
 }
 
 /**
@@ -264,7 +261,7 @@ inline infix fun <reified R : XdEntity> KProperty1<R, String?>.startsWith(value:
  * value of `this` property equal to the given [value].
  */
 fun <R : XdEntity, T : XdEntity> KProperty1<R, T?>.eq(entityKClass: KClass<R>, value: T?): NodeBase {
-    return LinkEqual(getDBName(entityKClass), value?.entity)
+    return NodeFactory.hasLinkTo(getDBName(entityKClass), value?.entity)
 }
 
 /**
@@ -282,7 +279,7 @@ inline infix fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.eq(value
  * value of `this` property contains the given [value].
  */
 fun <R : XdEntity, T : XdEntity> KProperty1<R, XdQuery<T>>.contains(entityKClass: KClass<R>, value: T): NodeBase {
-    return LinkEqual(getDBName(entityKClass), value.entity)
+    return NodeFactory.hasLinkTo(getDBName(entityKClass), value.entity)
 }
 
 /**
@@ -329,8 +326,14 @@ inline fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.link(node: Nod
  * ```
  */
 fun <R : XdEntity, T : XdEntity> KProperty1<R, T?>.matches(entityKClass: KClass<R>, node: NodeBase): NodeBase {
-    @Suppress("UNCHECKED_CAST")
-    return LinksEqualDecorator(getDBName(entityKClass), node, (this.returnType.javaType as Class<T>).entityType.entityType)
+    val query = node.getQuery()
+    val condition = query as? GremlinQuery.Condition ?: throw IllegalArgumentException("Only condition queries can be used in matches")
+
+    return LeafNode(
+        GremlinQuery.NestedCondition(listOf(getDBName(entityKClass)), condition)
+    )
+//    @Suppress("UNCHECKED_CAST")
+//    return LinksEqualDecorator(getDBName(entityKClass), node, (this.returnType.javaType as Class<T>).entityType.entityType)
 }
 
 /**
@@ -347,36 +350,12 @@ inline fun <reified R : XdEntity, T : XdEntity> KProperty1<R, T?>.matches(node: 
     return matches(R::class, node)
 }
 
-/**
- * Query node base condition that always returns nothing
- */
-object None : NodeBase() {
-    override fun getSimpleName(): String = "none"
-
-    override fun getClone(): NodeBase = this
-
-    override fun instantiate(entityType: String?, queryEngine: QueryEngine?, metaData: ModelMetaData?, context: InstantiateContext): MutableIterable<Entity> {
-        return YTDBEntityIterableBase.EMPTY
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (other === this) {
-            return true
-        }
-        return false
-    }
-
-    override fun replaceChild(child: NodeBase, newChild: NodeBase): NodeBase {
-        throw UnsupportedOperationException()
-    }
-}
-
 inline fun <reified T : XdEntity, R : XdEntity> KProperty1<T, R?>.containsIn(vararg entities: R?): NodeBase {
-    return entities.fold(None as NodeBase) { tree, e -> tree or (this eq e) }
+    return entities.fold(LeafNode.none as NodeBase) { tree, e -> tree or (this eq e) }
 }
 
 inline fun <reified T : XdEntity, R : Comparable<*>> KProperty1<T, R?>.containsIn(vararg values: R?): NodeBase {
-    return values.fold(None as NodeBase) { tree, value -> tree or (this eq value) }
+    return values.fold(LeafNode.none as NodeBase) { tree, value -> tree or (this eq value) }
 }
 
 inline infix fun <reified T : XdEntity, reified R : XdEntity> KProperty1<T, R?>.inEntities(entities: Iterable<R?>): NodeBase {
@@ -393,7 +372,7 @@ inline infix fun <reified T : XdEntity, reified R : Comparable<*>> KProperty1<T,
  * value of `this` Set property contains the given [value].
  */
 inline infix fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, Set<T>>.contains(value: T): NodeBase {
-    return PropertyCollectionContains(this.getDBName(R::class), value)
+    return NodeFactory.hasElement(this.getDBName(R::class), value)
 }
 
 /**
@@ -407,7 +386,7 @@ inline infix fun <reified R : XdEntity, T : Comparable<T>> KProperty1<R, Set<T>>
  */
 inline fun <reified XD : XdEntity, V : XdEntity> KProperty1<XD, XdQuery<V>>.isNotEmpty(): NodeBase {
     val entityType = XD::class.entityType
-    return LinkNotNull(this.getDBName(entityType))
+    return NodeFactory.hasLink(this.getDBName(entityType))
 }
 
 /**

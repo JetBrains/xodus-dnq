@@ -16,17 +16,22 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.database.exceptions.EntityRemovedException
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import kotlinx.dnq.link.OnDeletePolicy.CASCADE
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
+import kotlinx.dnq.query.filter
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
+import kotlinx.dnq.util.findById
 import org.junit.Test
-import java.util.Collections
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class DeleteTest : DBTest() {
 
@@ -38,12 +43,19 @@ class DeleteTest : DBTest() {
         val nestedTeams by xdLink0_N(CompanyTeam::parentTeam, onDelete = CASCADE)
     }
 
+    class Dummy(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Dummy>()
+
+        var name by xdRequiredStringProp()
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
         XdModel.registerNode(CompanyTeam)
         XdModel.registerNode(Domain)
         XdModel.registerNode(Server)
         XdModel.registerNode(Instance)
+        XdModel.registerNode(Dummy)
     }
 
     @Test
@@ -181,6 +193,31 @@ class DeleteTest : DBTest() {
         store.transactional {
             assertThat(Domain.all().toList()).isEmpty()
             assertThat(Instance.all().toList()).isEmpty()
+        }
+    }
+
+    @Test
+    fun `transaction should not see the records it has just deleted`() {
+        store.transactional {
+            Dummy.new { name = "name1" }
+            Dummy.new { name = "name2" }
+        }
+
+        store.transactional {
+            assertEquals(
+                setOf("name1", "name2"),
+                Dummy.all().toList().map { it.name }.toSet()
+            )
+            val found = Dummy.filter { it.name eq "name1" }.first()
+            found.delete()
+            assertEquals(
+                setOf("name2"),
+                Dummy.all().toList().map { it.name }.toSet()
+            )
+
+            assertFailsWith<EntityRemovedException> {
+                Dummy.findById(found.xdId)
+            }
         }
     }
 }

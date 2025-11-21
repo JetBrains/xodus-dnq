@@ -15,12 +15,14 @@
  */
 package kotlinx.dnq.query
 
+import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.XdNaturalEntityType
 import org.junit.Test
+import kotlin.test.Ignore
 
 class FilterIsInstanceTest : DBTest() {
 

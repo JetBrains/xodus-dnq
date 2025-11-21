@@ -63,7 +63,7 @@ class ReadOnlyTransientChangesTrackerImpl : TransientChangesTracker {
 
     override fun isSaved(transientEntity: TransientEntity) = true
 
-    override fun isRemoved(transientEntity: TransientEntity) = false
+    override fun isRemoved(entityId: EntityId) = false
 
     override fun linkChanged(
             source: TransientEntity,
@@ -84,6 +84,9 @@ class ReadOnlyTransientChangesTrackerImpl : TransientChangesTracker {
 
     override fun entityAdded(e: TransientEntity): Unit =
             throw UnsupportedOperationException()
+
+    override fun entityBeforeRemoved(e: TransientEntity) {
+    }
 
     override fun entityRemoved(e: TransientEntity): Unit =
             throw UnsupportedOperationException()

@@ -51,7 +51,7 @@ class TinyConcurrentStressTest : DBTest() {
                             transactional { txn ->
                                 s.i1 = Any().hashCode()
                                 txn.flush()
-                                transactional(isNew = true) {
+                                transactional() {
                                     s.i2 = Any().hashCode()
                                 }
                             }

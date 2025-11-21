@@ -18,6 +18,7 @@ package kotlinx.dnq
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import org.junit.Test
+import kotlin.concurrent.thread
 
 class EqualsTest : DBTest() {
 
@@ -33,11 +34,13 @@ class EqualsTest : DBTest() {
     fun equalsSymmetry() {
         transactional {
             val a1 = A.new()
-            transactional(isNew = true) {
-                val a2 = A.new()
-                assertThat(a1).isNotEqualTo(a2)
-                assertThat(a2).isNotEqualTo(a1)
-            }
+            thread {
+                transactional {
+                    val a2 = A.new()
+                    assertThat(a1).isNotEqualTo(a2)
+                    assertThat(a2).isNotEqualTo(a1)
+                }
+            }.join()
         }
     }
 

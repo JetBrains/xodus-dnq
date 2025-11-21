@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.query
 
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.*
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
@@ -73,13 +74,17 @@ object FilteringContext {
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.lt(value: T): XdSearchingNode {
         val returnType = value.javaClass.kotlin
-        return withNode(PropertyRange(deepestNodeName, returnType.minValue(), returnType.prev(value)).decorateIfNeeded())
+        return withNode(
+            NodeFactory.inRange(deepestNodeName, returnType.minValue(), returnType.prev(value)).decorateIfNeeded()
+        )
     }
 
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.le(value: T): XdSearchingNode {
         val returnType = value.javaClass.kotlin
-        return withNode(PropertyRange(deepestNodeName, returnType.minValue(), value.rawValue()).decorateIfNeeded())
+        return withNode(
+            NodeFactory.inRange(deepestNodeName, returnType.minValue(), value.rawValue()).decorateIfNeeded()
+        )
     }
 
     @DnqFilterDsl
@@ -91,84 +96,109 @@ object FilteringContext {
                 it
             }
         }
-        return withNode(PropertyEqual(deepestNodeName, correctedValue).decorateIfNeeded())
+        return withNode(NodeFactory.propEqual(deepestNodeName, correctedValue).decorateIfNeeded())
     }
 
     @DnqFilterDsl
     infix fun <T : XdEntity> T?.eq(value: T?): XdSearchingNode {
-        return withNode(LinkEqual(deepestNodeName, value?.entity).decorateIfNeeded())
+        return withNode(NodeFactory.hasLinkTo(deepestNodeName, value?.entity).decorateIfNeeded())
     }
 
     @DnqFilterDsl
     infix fun <T : XdEntity> T?.ne(value: T?): XdSearchingNode {
-        return withNode(UnaryNot(LinkEqual(deepestNodeName, value?.entity).decorateIfNeeded()))
+        return withNode(
+            NodeFactory.not(NodeFactory.hasLinkTo(deepestNodeName, value?.entity).decorateIfNeeded())
+        )
     }
 
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.gt(value: T): XdSearchingNode {
         val returnType = value.javaClass.kotlin
-        return withNode(PropertyRange(deepestNodeName, returnType.next(value), returnType.maxValue()).decorateIfNeeded())
+        return withNode(
+            NodeFactory.inRange(deepestNodeName, returnType.next(value), returnType.maxValue()).decorateIfNeeded()
+        )
     }
 
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.ge(value: T): XdSearchingNode {
         val returnType = value.javaClass.kotlin
-        return withNode(PropertyRange(deepestNodeName, value.rawValue(), returnType.maxValue()).decorateIfNeeded())
+        return withNode(
+            NodeFactory.inRange(deepestNodeName, value.rawValue(), returnType.maxValue()).decorateIfNeeded()
+        )
     }
 
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.between(value: kotlin.Pair<T, T>): XdSearchingNode {
         val returnType = value.first.javaClass.kotlin
-        return withNode(PropertyRange(deepestNodeName, returnType.prev(value.first), returnType.next(value.second)).decorateIfNeeded())
+        return withNode(
+            NodeFactory.inRange(
+                deepestNodeName,
+                returnType.prev(value.first),
+                returnType.next(value.second)
+            ).decorateIfNeeded()
+        )
     }
 
     @DnqFilterDsl
     infix fun String?.startsWith(value: String?): XdSearchingNode {
-        return withNode(PropertyStartsWith(deepestNodeName, value ?: "").decorateIfNeeded())
+        return withNode(NodeFactory.hasPrefix(deepestNodeName, value ?: "").decorateIfNeeded())
     }
 
     @DnqFilterDsl
     infix fun String?.contains(value: String?): XdSearchingNode {
-        return withNode(PropertyContains(deepestNodeName, value ?: "", true).decorateIfNeeded())
+        return withNode(NodeFactory.hasSubstring(deepestNodeName, value ?: "", true).decorateIfNeeded())
     }
 
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.ne(value: T?): XdSearchingNode {
-        return withNode(UnaryNot(PropertyEqual(deepestNodeName, value).decorateIfNeeded()))
+        return withNode(NodeFactory.not(NodeFactory.propEqual(deepestNodeName, value).decorateIfNeeded()))
     }
 
     @DnqFilterDsl
     infix fun <T : XdEntity> T?.isIn(entities: Iterable<T?>): XdSearchingNode {
-        return withNode(entities.fold(None as NodeBase) { tree, e -> tree or (LinkEqual(deepestNodeName, e?.entity)) })
+        return withNode(entities.fold(LeafNode.none as NodeBase) { tree, e ->
+            tree or (NodeFactory.hasLinkTo(
+                deepestNodeName,
+                e?.entity
+            ))
+        })
     }
 
     @DnqFilterDsl
     infix fun <T : XdEntity> XdQuery<T>?.contains(entity: T): XdSearchingNode {
         size() // to call getLinks()
-        return withNode(LinkEqual(deepestNodeName, entity.entity).decorateIfNeeded())
+        return withNode(NodeFactory.hasLinkTo(deepestNodeName, entity.entity).decorateIfNeeded())
     }
 
+    // todo: re-write this using Gremlin's within ?
     @DnqFilterDsl
     infix fun <T : Comparable<*>> T?.isIn(values: Iterable<T?>): XdSearchingNode {
-        return withNode(values.fold(None as NodeBase) { tree, v -> tree or (PropertyEqual(deepestNodeName, v).decorateIfNeeded()) })
+        return withNode(values.fold(LeafNode.none as NodeBase) { tree, v ->
+            tree or (NodeFactory.propEqual(deepestNodeName, v).decorateIfNeeded())
+        })
     }
 
     @DnqFilterDsl
     infix fun <T : XdEntity> XdQuery<T>?.containsIn(values: Iterable<T?>): XdSearchingNode {
         size() // to call getLinks()
-        return withNode(values.fold(None as NodeBase) { tree, v -> tree or (LinkEqual(deepestNodeName, v?.entity).decorateIfNeeded()) })
+        return withNode(values.fold(LeafNode.none as NodeBase) { tree, v ->
+            tree or (NodeFactory.hasLinkTo(
+                deepestNodeName,
+                v?.entity
+            ).decorateIfNeeded())
+        })
     }
 
     @DnqFilterDsl
     fun <T : XdEntity> XdQuery<T>?.isEmpty(): XdSearchingNode {
         size() // to call getLinks()
-        return withNode(LinkEqual(deepestNodeName, null).decorateIfNeeded())
+        return withNode(NodeFactory.hasLinkTo(deepestNodeName, null).decorateIfNeeded())
     }
 
     @DnqFilterDsl
     fun <T : XdEntity> XdQuery<T>?.isNotEmpty(): XdSearchingNode {
         size() // to call getLinks()
-        return withNode(LinkNotNull(deepestNodeName).decorateIfNeeded())
+        return withNode(NodeFactory.hasLink(deepestNodeName).decorateIfNeeded())
     }
 
 
@@ -198,7 +228,19 @@ internal fun NodeBase.decorateIfNeeded(): NodeBase {
     var result = this
     var temp = child.parentEntity
     while (temp != null) {
-        result = LinksEqualDecorator(temp.currentNodeName!!, result, temp.childEntity!!.type)
+        if (result !is LeafNode) return this
+        val condition = result.query as? GremlinQuery.Condition ?: return this
+        val newNesting = listOf(temp.currentNodeName!!)
+        result = LeafNode(
+            when (condition) {
+                is GremlinQuery.NestedCondition -> GremlinQuery.NestedCondition(
+                    newNesting + condition.structure,
+                    condition.condition
+                )
+
+                else -> GremlinQuery.NestedCondition(newNesting, condition)
+            }
+        )
         temp = temp.parentEntity
     }
     return result
@@ -218,16 +260,17 @@ open class XdSearchingNode(val target: NodeBase) {
 
     @DnqFilterDsl
     open infix fun and(another: XdSearchingNode): XdSearchingNode {
-        return process(another) { And(target, another.target) }
+        return process(another) { NodeFactory.and(target, another.target) }
     }
 
     @DnqFilterDsl
     open infix fun or(another: XdSearchingNode): XdSearchingNode {
-        return process(another) { Or(target, another.target) }
+        return process(another) { NodeFactory.or(target, another.target) }
     }
 
     private fun process(another: XdSearchingNode,
-                        factory: () -> CommutativeOperator): XdSearchingNode {
+                        factory: () -> BinaryNode
+    ): XdSearchingNode {
         return XdSearchingNode(factory()).also {
             SearchingEntity.get().nodes.apply {
                 removeAll(listOf(target, another.target))

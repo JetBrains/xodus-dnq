@@ -25,10 +25,12 @@ import kotlinx.dnq.query.*
 import kotlinx.dnq.simple.email
 import kotlinx.dnq.simple.regex
 import kotlinx.dnq.simple.requireIf
+import kotlinx.dnq.util.findById
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.hasChanges
 import org.joda.time.DateTime
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 var PropertiesTest.Employee.b by xdByteProp()
@@ -74,10 +76,17 @@ class PropertiesTest : DBTest() {
         var email by xdRequiredStringProp() { email() }
     }
 
+    class SetContainer(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<SetContainer>()
+
+        var setOfStrings by xdSetProp<SetContainer, String>()
+        val mutableSetOfStrings by xdMutableSetProp<SetContainer, String>()
+    }
+
 
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNodes(Derived, Employee, EmployeeContact)
+        XdModel.registerNodes(Derived, Employee, EmployeeContact, SetContainer)
     }
 
     @Test
@@ -341,7 +350,45 @@ class PropertiesTest : DBTest() {
             assertThat(User.all().mapDistinct(User::supervisor).toList())
                     .containsExactly(boss)
         }
-
     }
 
+    @Test
+    fun `set contents should be copied when sharing it between the entities`() {
+
+        val record1 = store.transactional {
+            SetContainer.new {
+                setOfStrings = setOf("value1", "value2")
+                mutableSetOfStrings.addAll(setOf("value3", "value4"))
+            }
+        }
+
+        val record2 = store.transactional {
+            SetContainer.new {
+                setOfStrings = setOf("value5", "value6")
+                mutableSetOfStrings.addAll(setOf("value7", "value8"))
+            }
+        }
+
+        store.transactional {
+            record2.setOfStrings = record1.setOfStrings
+            record2.mutableSetOfStrings.addAll(record1.mutableSetOfStrings)
+        }
+        store.transactional {
+            val r = SetContainer.findById(record2.entityId.toString())
+
+            assertEquals(setOf("value1", "value2"), r.setOfStrings)
+            assertEquals(setOf("value7", "value8", "value3", "value4"), r.mutableSetOfStrings)
+        }
+
+        store.transactional {
+            record2.entity.setProperty("setOfStrings", record1.entity.getProperty("setOfStrings")!!)
+            record2.entity.setProperty("mutableSetOfStrings", record1.entity.getProperty("mutableSetOfStrings")!!)
+        }
+        store.transactional {
+            val r = SetContainer.findById(record2.entityId.toString())
+
+            assertEquals(setOf("value1", "value2"), r.setOfStrings)
+            assertEquals(setOf("value3", "value4"), r.mutableSetOfStrings)
+        }
+    }
 }

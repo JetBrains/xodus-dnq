@@ -1,0 +1,419 @@
+/**
+ * Copyright 2006 - 2025 JetBrains s.r.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package kotlinx.dnq
+
+import jetbrains.exodus.database.*
+import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
+import jetbrains.exodus.entitystore.Entity
+import kotlinx.dnq.link.OnDeletePolicy
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class TransientStoreSessionListenerTest : DBTest() {
+
+    class LevelOneEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<LevelOneEntity>()
+
+        var name by xdRequiredStringProp()
+    }
+
+    class LevelTwoEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<LevelTwoEntity>()
+
+        var name by xdRequiredStringProp()
+        var parent by xdLink0_1(LevelOneEntity, onTargetDelete = OnDeletePolicy.CLEAR)
+    }
+
+    class LevelThreeEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<LevelThreeEntity>()
+
+        var name by xdRequiredStringProp()
+        var parent by xdLink0_1(LevelOneEntity, onTargetDelete = OnDeletePolicy.CLEAR)
+        val children by xdLink0_N(LevelTwoEntity, onTargetDelete = OnDeletePolicy.CLEAR)
+    }
+
+    class ParentEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<ParentEntity>()
+
+        var name by xdRequiredStringProp()
+        var child by xdChild0_1(ChildEntity::parent)
+    }
+
+    class ChildEntity(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<ChildEntity>()
+
+        var name by xdRequiredStringProp()
+        var parent: ParentEntity by xdParent(ParentEntity::child)
+    }
+
+    class TestUser(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<TestUser>()
+
+        var name by xdRequiredStringProp()
+        val roles by xdChildren0_N(BelongsToUser::user)
+    }
+
+    class TestProject(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<TestProject>()
+
+        var name by xdRequiredStringProp();
+    }
+
+    abstract class BelongsToUser(entity: Entity): XdEntity(entity) {
+        companion object : XdNaturalEntityType<BelongsToUser>()
+
+        var user: TestUser by xdParent(TestUser::roles)
+    }
+
+    class TestProjectRole(entity: Entity) : BelongsToUser(entity) {
+        companion object : XdNaturalEntityType<TestProjectRole>()
+
+        var name by xdRequiredStringProp()
+        var project by xdLink1(TestProject, onTargetDelete = OnDeletePolicy.CASCADE)
+    }
+
+    override fun registerEntityTypes() {
+        super.registerEntityTypes()
+        XdModel.registerNodes(
+            LevelOneEntity, LevelTwoEntity, LevelThreeEntity,
+            ParentEntity, ChildEntity,
+            TestUser, TestProject, TestProjectRole
+        )
+    }
+
+    @Test
+    fun `listener should bring events about basic create-update-delete operations`() {
+
+        val listener = RememberingListener()
+        store.addListener(listener)
+
+        val (entity1, entity2) = store.transactional {
+            Pair(
+                LevelOneEntity.new { name = "abc" },
+                LevelOneEntity.new { name = "xyz" }
+            )
+        }
+
+        assertEquals(setOf("abc", "xyz"), listener.added)
+        assertTrue(listener.removed.isEmpty())
+        assertTrue(listener.updated.isEmpty())
+        listener.clear()
+
+        store.transactional {
+            entity1.name = "000"
+            entity1.name = "123"
+        }
+        assertEquals(mapOf("abc" to "123"), listener.updated)
+        assertTrue(listener.removed.isEmpty())
+        assertTrue(listener.added.isEmpty())
+        listener.clear()
+
+        store.transactional {
+            // entity2.name = "000"
+            // this looks not right. if we update a record and then delete it, the listener will get
+            // a snapshot of the record's state before the deletion. would be great if it returned
+            // the state at transaction start
+            entity2.delete()
+        }
+        assertEquals(setOf("xyz"), listener.removed)
+        assertTrue(listener.updated.isEmpty())
+        assertTrue(listener.added.isEmpty())
+        listener.clear()
+    }
+
+    @Test
+    fun `listener should bring events about changes in links`() {
+
+        val listener = RememberingListener()
+        store.addListener(listener)
+
+        val (parent, child) = store.transactional {
+            val parent = LevelOneEntity.new { name = "parent1" }
+            val child = LevelTwoEntity.new { name = "child"; this.parent = parent }
+
+            Pair(parent, child)
+        }
+        assertEquals(setOf("parent1"), listener.addedLinks)
+        assertTrue(listener.removedLinks.isEmpty())
+        assertTrue(listener.deletedLinks.isEmpty())
+        listener.clear()
+
+        val parent2 = store.transactional {
+            val newParent = LevelOneEntity.new { name = "parent2" }
+            val tempParent = LevelOneEntity.new { name = "tempParent" }
+            child.parent = tempParent
+            child.parent = newParent
+            newParent
+        }
+        assertEquals(setOf("parent1"), listener.removedLinks)
+        assertEquals(setOf("parent2"), listener.addedLinks)
+        assertTrue(listener.deletedLinks.isEmpty())
+        listener.clear()
+
+        store.transactional {
+            // parent2.name = "someNewName"
+            // again, this doesn't work as expected. we don't see the state of the entity at the start of transaction
+            parent2.delete()
+        }
+        assertEquals(setOf("parent2"), listener.deletedLinks)
+        assertTrue(listener.addedLinks.isEmpty())
+        assertTrue(listener.removedLinks.isEmpty())
+        listener.clear()
+    }
+
+    @Test
+    fun `listener should allow loading links from removed entities`() {
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        var parent: LevelOneEntity? = null
+        var child1: LevelTwoEntity? = null
+        var child2: LevelTwoEntity? = null
+        var grandchild: LevelThreeEntity? = null
+
+        store.transactional {
+            parent = LevelOneEntity.new { name = "parent1" }
+            child1 = LevelTwoEntity.new { name = "child1"; this.parent = parent }
+            child2 = LevelTwoEntity.new { name = "child2"; this.parent = parent }
+
+            grandchild = LevelThreeEntity.new {
+                name = "grandchild1"
+                this.parent = parent
+                children.add(child1)
+                children.add(child2)
+            }
+        }
+
+        store.transactional {
+            val ll = child1?.parent
+
+            println(ll)
+        }
+
+        listener.onFlush { changes ->
+            assertEquals(2, changes.size)
+            val child1change = changes.find { it.transientEntity.id == child1!!.entityId }!!
+            val grandchildChange = changes.find { it.transientEntity.id == grandchild!!.entityId }!!
+
+            val childSnapshot = child1change.snapshotEntity
+            assertTrue(childSnapshot.isRemoved)
+            val grandchildSnapshot = grandchildChange.snapshotEntity
+            assertTrue(grandchildSnapshot.isRemoved)
+
+            assertEquals("child1", childSnapshot.getProperty("name"))
+            assertEquals("grandchild1", grandchildSnapshot.getProperty("name"))
+
+            val parentFromChild = childSnapshot.getLink("parent")
+            assertFalse((parentFromChild as TransientEntity).isRemoved)
+
+            val parentFromGrandchild = grandchildSnapshot.getLink("parent")
+            assertFalse((parentFromGrandchild as TransientEntity).isRemoved)
+
+            val childsFromGrandchild = grandchildSnapshot.getLinks("children").toList()
+            assertEquals(2, childsFromGrandchild.size)
+
+            val child1Linked = childsFromGrandchild.find { it.id == child1!!.entityId }
+            assertTrue((child1Linked as TransientEntity).isRemoved)
+            assertEquals("child1", child1Linked.getProperty("name"))
+            val child2Linked = childsFromGrandchild.find { it.id == child2!!.entityId }
+            assertFalse((child2Linked as TransientEntity).isRemoved)
+            assertEquals("child2", child2Linked.getProperty("name"))
+
+            // accessing parent again:
+            val parentAgain = child1Linked.getLink("parent")
+            assertFalse((parentAgain as TransientEntity).isRemoved)
+            val parentAgain2 = child2Linked.getLink("parent")
+            assertFalse((parentAgain2 as TransientEntity).isRemoved)
+        }
+
+        store.transactional {
+            grandchild?.delete()
+            child1?.delete()
+        }
+        listener.check()
+    }
+
+    @Test
+    fun `listener should bring events from parent-child entities`() {
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        val (parentEntity, childEntity) = store.transactional {
+            val parentEntity = ParentEntity.new { name = "parentEntity" }
+            val childEntity = ChildEntity.new { name = "childEntity"; parent = parentEntity }
+
+            Pair(parentEntity, childEntity)
+        }
+
+        listener.onFlush { changes ->
+
+            assertEquals(2, changes.size)
+            changes.forEach { assertEquals(EntityChangeType.REMOVE, it.changeType) }
+            val parentSnapshot = changes.find { it.snapshotEntity.id == parentEntity.entityId }!!
+            val childSnapshot = changes.find { it.snapshotEntity.id == childEntity.entityId }!!
+
+            assertEquals(
+                childSnapshot.snapshotEntity,
+                parentSnapshot.snapshotEntity.getLink("child")
+            )
+            assertEquals(
+                parentSnapshot.snapshotEntity,
+                childSnapshot.snapshotEntity.getLink("parent")
+            )
+        }
+
+        store.transactional {
+            parentEntity.delete()
+        }
+        listener.check()
+    }
+
+    @Test
+    fun ` listeners should work correctly with cascade deletions`() {
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        val (user, project, role) = store.transactional {
+            val user = TestUser.new { name = "user" }
+            val project = TestProject.new { name = "project" }
+            val role = TestProjectRole.new { name = "role"; this.user = user; this.project = project }
+
+            Triple(user, project, role)
+        }
+
+        listener.onFlush { changes ->
+            assertEquals(2, changes.size)
+            val userChange = changes.find { it.snapshotEntity.id == user.entityId }!!
+            assertEquals(EntityChangeType.REMOVE, userChange.changeType)
+            val roleChange = changes.find { it.snapshotEntity.id == role.entityId }!!
+            assertEquals(EntityChangeType.REMOVE, roleChange.changeType)
+
+            val roleSnapshot = XdModel.toXd<TestProjectRole>(roleChange.snapshotEntity)
+
+            assertEquals("user", roleSnapshot.user.name)
+            assertEquals("project", roleSnapshot.project.name)
+        }
+        store.transactional {
+            user.delete()
+        }
+        listener.check()
+    }
+}
+
+class CallbackListener : TransientStoreSessionListener {
+
+    var callback: (Set<TransientEntityChange>) -> Unit = { _ -> }
+    var callbackError: Throwable? = null
+    val callCount = AtomicInteger(0)
+
+    fun onFlush(callback: (Set<TransientEntityChange>) -> Unit) {
+        callbackError = null
+        callCount.set(0)
+        this.callback = { it: Set<TransientEntityChange> ->
+            try {
+                callback(it)
+            } catch (e: Throwable) {
+                callbackError = e
+            }
+            callCount.incrementAndGet()
+        }
+    }
+
+    fun check() {
+        callbackError?.let { throw it }
+        assertEquals(1, callCount.get())
+    }
+
+    override fun flushed(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) =
+        callback(changedEntities)
+
+    override fun beforeFlushBeforeConstraints(
+        session: TransientStoreSession,
+        changedEntities: Set<TransientEntityChange>
+    ) {
+    }
+
+    override fun afterConstraintsFail(
+        session: TransientStoreSession,
+        exceptions: Set<DataIntegrityViolationException>
+    ) {
+    }
+}
+
+class RememberingListener : TransientStoreSessionListener {
+    val added = mutableSetOf<String>()
+    val removed = mutableSetOf<String>()
+    val updated = mutableMapOf<String, String>()
+
+    val addedLinks = mutableSetOf<String>()
+    val removedLinks = mutableSetOf<String>()
+    val deletedLinks = mutableSetOf<String>()
+
+    fun clear() {
+        added.clear()
+        removed.clear()
+        updated.clear()
+        addedLinks.clear()
+        removedLinks.clear()
+        deletedLinks.clear()
+    }
+
+    override fun flushed(
+        session: TransientStoreSession,
+        changedEntities: Set<TransientEntityChange>
+    ) {
+        for (change in changedEntities) {
+            when (change.changeType) {
+                EntityChangeType.ADD -> added.add(change.transientEntity.getProperty("name") as String)
+                EntityChangeType.REMOVE -> removed.add(change.snapshotEntity.getProperty("name") as String)
+                EntityChangeType.UPDATE -> updated[change.snapshotEntity.getProperty("name") as String] =
+                    change.transientEntity.getProperty("name") as String
+            }
+
+            change.changedLinksDetailed?.let { changes ->
+                changes.forEach { (_, change) ->
+                    change.addedEntities?.forEach {
+                        addedLinks.add(it.getProperty("name") as String)
+                    }
+
+                    change.removedEntities?.forEach {
+                        removedLinks.add(it.getProperty("name") as String)
+                    }
+
+                    change.deletedEntitiesSnapshots?.forEach {
+                        deletedLinks.add(it.getProperty("name") as String)
+                    }
+                }
+            }
+
+        }
+    }
+
+    override fun beforeFlushBeforeConstraints(
+        session: TransientStoreSession,
+        changedEntities: Set<TransientEntityChange>
+    ) {
+    }
+
+    override fun afterConstraintsFail(
+        session: TransientStoreSession,
+        exceptions: @JvmSuppressWildcards Set<DataIntegrityViolationException>
+    ) {
+    }
+}

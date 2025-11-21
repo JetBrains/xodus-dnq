@@ -21,6 +21,8 @@ import kotlinx.dnq.*
 import kotlinx.dnq.query.ne
 import kotlinx.dnq.query.query
 import org.junit.Test
+import kotlin.concurrent.thread
+
 class BlobTest : DBTest() {
 
     class User(entity: Entity) : XdEntity(entity) {
@@ -77,7 +79,9 @@ class BlobTest : DBTest() {
     fun textReplay() {
 
         val user = transactional {
-            transactional(isNew = true) { User.new() }
+            thread {
+                transactional { User.new() }
+            }.join()
             User.new { bio = "born in 1900" }
         }
 
@@ -89,7 +93,9 @@ class BlobTest : DBTest() {
     @Test
     fun embeddedTextReplay() {
         val user = transactional {
-            transactional(isNew = true) { User.new() }
+            thread {
+                transactional { User.new() }
+            }.join()
             User.new { bio = "born in 1900" }
         }
 
@@ -102,7 +108,9 @@ class BlobTest : DBTest() {
     fun blobReplay() {
 
         val user = transactional {
-            transactional(isNew = true) { User.new() }
+            thread {
+                transactional { User.new() }
+            }.join()
             User.new { this.photo = sampleBlob }
         }
         transactional {
@@ -114,10 +122,11 @@ class BlobTest : DBTest() {
     }
 
     @Test
-    
     fun embeddedBlobReplay() {
         val user = transactional {
-            transactional(isNew = true) { User.new() }
+            thread {
+                transactional { User.new() }
+            }.join()
             User.new { this.photo = sampleBlob }
         }
         transactional {

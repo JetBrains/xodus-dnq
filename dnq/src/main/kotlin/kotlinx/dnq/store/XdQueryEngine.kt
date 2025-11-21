@@ -24,9 +24,10 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.asOStoreTransaction
+import jetbrains.exodus.entitystore.asYTDBTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
-import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBMultipleEntitiesIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.InMemoryEntityIterable
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.QueryEngine
@@ -105,10 +106,15 @@ class XdQueryEngine(val store: TransientEntityStore) :
     // ToDo: check if this is needed
     override fun wrap(entity: Entity): Iterable<Entity> {
         return (entity as? TransientEntity)
-                ?.takeIf { it.isSaved }
-                ?.reattach()
-                ?.takeUnless { session.isRemoved(it) }
-                ?.takeIf { it.isSaved }
-                ?.let { YTDBMultipleEntitiesIterable(session.transactionInternal.asOStoreTransaction(), listOf(it)) } ?: throw IllegalArgumentException()
+            ?.takeIf { it.isSaved }
+            ?.reattach()
+            ?.takeUnless { session.isRemoved(it) }
+            ?.takeIf { it.isSaved }
+            ?.let {
+                YTDBEntityIterable.query(
+                    session.transactionInternal.asYTDBTransaction(),
+                    GremlinQuery.ByIds(listOf(it.entity.id.asOId()))
+                )
+            } ?: throw IllegalArgumentException()
     }
 }

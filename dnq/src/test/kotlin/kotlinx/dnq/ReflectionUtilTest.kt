@@ -22,8 +22,8 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.single
 import kotlinx.dnq.util.isDefined
+import org.junit.Ignore
 import org.junit.Test
-
 
 class ReflectionUtilTest : DBTest() {
 
@@ -59,7 +59,7 @@ class ReflectionUtilTest : DBTest() {
 
             val admin = User.new {
                 login = "admin"
-                skill = 1
+                skill = 1410065403
             }
             rootGroup.users.add(admin)
         }

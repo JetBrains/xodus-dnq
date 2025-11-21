@@ -22,13 +22,15 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
-import jetbrains.exodus.entitystore.asOStoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityIterable
+import jetbrains.exodus.entitystore.asYTDBTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityOfTypeIterable
-import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBMultipleEntitiesIterable
-import jetbrains.exodus.query.*
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
+import jetbrains.exodus.query.LeafNode
+import jetbrains.exodus.query.NodeBase
+import jetbrains.exodus.query.NodeFactory
+import jetbrains.exodus.query.QueryEngine
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.XdModel
@@ -37,9 +39,65 @@ import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.getDBName
 import kotlinx.dnq.util.threadSessionOrThrow
 import java.util.*
+import kotlin.Boolean
+import kotlin.Comparable
+import kotlin.Comparator
+import kotlin.Deprecated
+import kotlin.Int
+import kotlin.NoSuchElementException
+import kotlin.String
+import kotlin.Suppress
+import kotlin.Unit
+import kotlin.apply
+import kotlin.collections.ArrayList
+import kotlin.collections.Collection
+import kotlin.collections.HashSet
+import kotlin.collections.Iterable
+import kotlin.collections.Iterator
+import kotlin.collections.List
+import kotlin.collections.MutableCollection
+import kotlin.collections.MutableList
+import kotlin.collections.MutableSet
+import kotlin.collections.Set
+import kotlin.collections.asSequence
+import kotlin.collections.filterNotNull
+import kotlin.collections.first
+import kotlin.collections.hashSetOf
+import kotlin.collections.indexOf
+import kotlin.collections.lastIndex
+import kotlin.collections.lastOrNull
+import kotlin.collections.map
+import kotlin.collections.mapNotNull
+import kotlin.collections.mapTo
+import kotlin.collections.none
+import kotlin.collections.reversed
+import kotlin.collections.toList
+import kotlin.collections.toSet
+import kotlin.collections.toTypedArray
+import kotlin.let
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.javaType
+import kotlin.sequences.Sequence
+import kotlin.sequences.asIterable
+import kotlin.sequences.count
+import kotlin.sequences.distinct
+import kotlin.sequences.drop
+import kotlin.sequences.firstOrNull
+import kotlin.sequences.forEach
+import kotlin.sequences.lastOrNull
+import kotlin.sequences.map
+import kotlin.sequences.none
+import kotlin.sequences.single
+import kotlin.sequences.singleOrNull
+import kotlin.sequences.take
+import kotlin.sequences.toCollection
+import kotlin.sequences.toHashSet
+import kotlin.sequences.toList
+import kotlin.sequences.toMutableList
+import kotlin.sequences.toMutableSet
+import kotlin.sequences.toSet
+import kotlin.sequences.toSortedSet
 
 /**
  * Representation of effective database collections that use Xodus indices.
@@ -63,7 +121,7 @@ fun <T : XdEntity> Iterable<Entity>?.asQuery(entityType: XdEntityType<T>): XdQue
     return if (this != null) {
         XdQueryImpl(this, entityType)
     } else {
-        XdQueryImpl(YTDBEntityIterableBase.EMPTY, entityType)
+        XdQueryImpl(YTDBEntityIterable.EMPTY, entityType)
     }
 }
 
@@ -186,7 +244,7 @@ fun <T : XdEntity> XdQuery<T>.toMutableSet(): MutableSet<T> = useSequence { it.t
  * Returns an empty query.
  */
 fun <T : XdEntity> XdEntityType<T>.emptyQuery(): XdQuery<T> {
-    return XdQueryImpl(YTDBEntityIterableBase.EMPTY, this)
+    return XdQueryImpl(YTDBEntityIterable.EMPTY, this)
 }
 
 fun <T : XdEntity> XdEntityType<T>.singleton(element: T?): XdQuery<T> {
@@ -195,7 +253,7 @@ fun <T : XdEntity> XdEntityType<T>.singleton(element: T?): XdQuery<T> {
 
 private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterable<Entity> {
     if (element == null) {
-        return YTDBEntityIterableBase.EMPTY
+        return YTDBEntityIterable.EMPTY
     }
     if ((element as TransientEntity).isNew) {
         return sequenceOf(element).asIterable()
@@ -211,14 +269,16 @@ private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterab
 fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
     val notNullElements = elements.filterNotNull()
     val iterable = if (notNullElements.isEmpty()){
-        YTDBEntityIterableBase.EMPTY
+        YTDBEntityIterable.EMPTY
     } else {
         val txn = notNullElements.first().threadSessionOrThrow
         PersistentEntityIterableWrapper(
             txn.store,
-            YTDBMultipleEntitiesIterable(
+            YTDBEntityIterable.query(
                 txn.transactionInternal as YTDBStoreTransaction,
-                notNullElements.map { txn.newEntity(it.entity) }
+                GremlinQuery.ByIds(
+                    notNullElements.map { txn.newEntity(it.entity).entity.id.asOId() }
+                )
             )
         )
     }
@@ -385,8 +445,11 @@ inline fun <reified T : XdEntity> XdEntityType<T>.query(it: Iterable<T?>): XdQue
  */
 fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S>): XdQuery<S> {
     val queryEngine = this.queryEngine
-    return queryEngine.query(this.entityIterable, this.entityType.entityType, InstanceOf(entityType.entityType, false))
-        .asQuery(entityType)
+    return queryEngine.query(
+        this.entityIterable,
+        this.entityType.entityType,
+        LeafNode(GremlinBlock.HasLabel(entityType.entityType))
+    ).asQuery(entityType)
 }
 
 /**
@@ -394,8 +457,11 @@ fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S
  */
 fun <T : XdEntity, S : T> XdQuery<T>.filterIsNotInstance(entityType: XdEntityType<S>): XdQuery<T> {
     val queryEngine = this.queryEngine
-    return queryEngine.query(this.entityIterable, this.entityType.entityType, InstanceOf(entityType.entityType, true))
-        .asQuery(entityType)
+    return queryEngine.query(
+        this.entityIterable,
+        this.entityType.entityType,
+        LeafNode(GremlinBlock.Not(GremlinBlock.HasLabel(entityType.entityType)))
+    ).asQuery(entityType)
 }
 
 /**
@@ -416,7 +482,10 @@ fun <T : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(
     return queryEngine.query(
         entityIterable,
         entityType.entityType,
-        SortByProperty(null, property.getDBName(entityType), asc)
+        NodeFactory.sortBy(
+            property.getDBName(entityType),
+            if (asc) GremlinBlock.SortDirection.ASC else GremlinBlock.SortDirection.DESC
+        )
     ).asQuery(entityType)
 }
 
@@ -458,12 +527,12 @@ fun <T : XdEntity, S : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(
     return queryEngine.query(
         entityIterable,
         entityType.entityType,
-        SortByLinkProperty(
-            null,
-            linkKlass.java.entityType.entityType,
-            property.getDBName(linkKlass),
+        NodeFactory.sortByLinked(
+//            null,
+//            linkKlass.java.entityType.entityType,
             linkProperty.getDBName(klass),
-            asc
+            property.getDBName(linkKlass),
+            if (asc) GremlinBlock.SortDirection.ASC else GremlinBlock.SortDirection.DESC
         )
     ).asQuery(entityType)
 }
@@ -476,7 +545,7 @@ fun <T : XdEntity> XdQuery<T>?.size(): Int {
 
     return when (it) {
         null -> 0
-        YTDBEntityIterableBase.EMPTY -> 0
+        YTDBEntityIterable.EMPTY -> 0
         is EntityIterable -> it.size().toInt()
         is Collection<*> -> it.size
         else -> useEntitySequence { it.count() }
@@ -541,6 +610,7 @@ val <T : XdEntity> XdQuery<T>?.isNotEmpty: Boolean
 
 /**
  * Returns a new query containing all results of `this` query except first [n] elements.
+import jetbrains.exodus.query.PropertyEqual
  */
 fun <T : XdEntity> XdQuery<T>.drop(n: Int): XdQuery<T> {
     return operation({ it.skip(n) }, { it.drop(n) })
@@ -559,7 +629,7 @@ private inline fun <T : XdEntity> XdQuery<T>.operation(
 ): XdQuery<T> {
     val it = queryEngine.toEntityIterable(entityIterable)
     return when (it) {
-        is YTDBEntityIterableBase -> wrap(ifEntityIterable(it.unwrap()))
+        is YTDBEntityIterable -> wrap(ifEntityIterable(it.unwrap()))
         is EntityIterable -> wrap(ifEntityIterable(it))
         else -> notEntityIterable(it.asSequence()).asIterable()
     }.asQuery(entityType)
@@ -591,7 +661,13 @@ private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterab
     val queryEngine = entityType.entityStore.queryEngine
 
     if (this is YTDBEntityIterable) {
-        return this.intersect(YTDBEntityOfTypeIterable(this.transaction.asOStoreTransaction(), entityTypeName))
+        return this.intersect(
+            YTDBEntityIterable.where(
+                entityTypeName,
+                this.transaction.asYTDBTransaction(),
+                GremlinBlock.All
+            )
+        )
     } else {
         val modelMetaData = queryEngine.modelMetaData
         val subTypes = modelMetaData?.getEntityMetaData(entityTypeName)?.allSubTypes?.toSet() ?: hashSetOf()
@@ -709,7 +785,7 @@ fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
         return useIterable(entityIterable) { eit -> eit.firstOrNull()?.let { entityType.wrap(it) } }
     }
     val it = queryEngine.toEntityIterable(entityIterable)
-    val entity = if (it is YTDBEntityIterableBase) {
+    val entity = if (it is YTDBEntityIterable) {
         it.unwrap().first?.let { entityType.entityStore.session.newEntity(it) }
     } else {
         useIterable(it) { eit -> eit.firstOrNull() }
@@ -751,7 +827,7 @@ fun <T : XdEntity> XdQuery<T>.last(node: NodeBase): T {
  */
 fun <T : XdEntity> XdQuery<T>.lastOrNull(): T? {
     val it = queryEngine.toEntityIterable(entityIterable)
-    val entity = if (it is YTDBEntityIterableBase) {
+    val entity = if (it is YTDBEntityIterable) {
         it.unwrap().last?.let { entityType.entityStore.session.newEntity(it) }
     } else {
         useIterable(it) { eit -> eit.lastOrNull() }
@@ -831,7 +907,7 @@ fun <T : XdEntity> XdQuery<T>.none() = isEmpty
 fun <T : XdEntity> XdQuery<T>.reversed(): XdQuery<T> {
     val engine = queryEngine
     val iterable = engine.toEntityIterable(entityIterable)
-    return if (iterable is YTDBEntityIterableBase) {
+    return if (iterable is YTDBEntityIterable) {
         XdQueryImpl(wrap(iterable.unwrap().reverse()), entityType)
     } else {
 

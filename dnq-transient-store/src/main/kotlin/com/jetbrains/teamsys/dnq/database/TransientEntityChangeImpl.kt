@@ -27,17 +27,7 @@ class TransientEntityChangeImpl(
 
 
     override val snapshotEntity: TransientEntity
-        get() {
-            return when {
-                changesTracker.isRemoved(transientEntity) -> RemovedTransientEntity(
-                    transientEntity
-                )
-
-                else -> changesTracker.getSnapshotEntity(transientEntity)
-            }
-        }
-
+        get() = changesTracker.getSnapshotEntity(transientEntity)
 
     override fun toString() = "$changeType:$transientEntity"
-
 }

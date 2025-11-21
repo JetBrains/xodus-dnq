@@ -1,0 +1,132 @@
+/**
+ * Copyright 2006 - 2025 JetBrains s.r.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package jetbrains.exodus.migrate
+
+import YTDBDatabaseProviderFactory
+import YouTrackDBFactory
+import com.jetbrains.youtrackdb.api.DatabaseType
+import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseParams
+
+fun main() {
+    val xodusDatabaseDirectory = requireParam("xodusDatabaseDirectory")
+    val xodusStoreName = requireParam("xodusStoreName")
+    val xodusCipherKey = System.getProperty("xodusCipherKey")
+    val xodusCipherIVStr = System.getProperty("xodusCipherIV")
+    val xodusMemoryUsagePercentageStr = System.getProperty("xodusMemoryUsagePercentage")
+
+    val orientDatabaseTypeStr = System.getProperty("orientDatabaseType")
+    val orientDatabaseDirectoryStr = System.getProperty("orientDatabaseDirectory")
+    val orientDatabaseNameStr = System.getProperty("orientDatabaseName")
+    val orientUsernameStr = System.getProperty("orientUsername")
+    val orientPasswordStr = System.getProperty("orientPassword")
+
+    val validateDataAfterMigrationStr = System.getProperty("validateDataAfterMigration")
+    val entitiesPerTransactionStr = System.getProperty("entitiesPerTransaction")
+    println(
+        """
+            Provided params:
+                xodusDatabaseDirectory: $xodusDatabaseDirectory
+                xodusStoreName: $xodusStoreName
+                xodusCipherKey: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "null"}
+                xodusCipherIV: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "null"}
+                xodusMemoryUsagePercentage: $xodusMemoryUsagePercentageStr
+                
+                orientDatabaseType: $orientDatabaseTypeStr
+                orientDatabaseDirectory: $orientDatabaseDirectoryStr
+                orientDatabaseName: $orientDatabaseNameStr
+                orientUsername: $orientUsernameStr
+                orientPassword: $orientPasswordStr
+                
+                validateDataAfterMigration: $validateDataAfterMigrationStr
+                entitiesPerTransaction: $entitiesPerTransactionStr
+        """.trimIndent()
+    )
+
+    val xodusCypherIV = xodusCipherIVStr.toLongOrNull() ?: 0L
+    val xodusMemoryUsagePercentage = xodusMemoryUsagePercentageStr.toIntOrNull() ?: 10
+    val orientDatabaseType =
+        if (orientDatabaseTypeStr.isNullOrBlank() || orientDatabaseTypeStr.lowercase() == "memory") {
+            DatabaseType.MEMORY
+        } else {
+            DatabaseType.DISK
+        }
+    val orientDatabaseDirectory = if (orientDatabaseType == DatabaseType.MEMORY) {
+        "memory"
+    } else {
+        require(!orientDatabaseDirectoryStr.isNullOrBlank()) { "For not in-memory OrientDB, the orientDatabaseDirectory param is required" }
+        if (orientDatabaseDirectoryStr.startsWith("plocal:")) orientDatabaseDirectoryStr else "plocal:$orientDatabaseDirectoryStr"
+    }
+    val orientDatabaseName = if (!orientDatabaseNameStr.isNullOrBlank()) orientDatabaseNameStr else "testDb"
+    val orientUsername = if (!orientUsernameStr.isNullOrBlank()) orientUsernameStr else "admin"
+    val orientPassword = if (!orientPasswordStr.isNullOrBlank()) orientPasswordStr else "password"
+
+    val validateDataAfterMigration = validateDataAfterMigrationStr?.toBooleanStrictOrNull() ?: true
+    val entitiesPerTransaction = validateDataAfterMigrationStr?.toIntOrNull() ?: 100
+
+    println(
+        """
+            Effective params:
+                xodusDatabaseDirectory: $xodusDatabaseDirectory
+                xodusStoreName: $xodusStoreName
+                xodusCipherKey: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "null"}
+                xodusCipherIV: ${if (!xodusCipherKey.isNullOrBlank()) "provided" else "0"}
+                xodusMemoryUsagePercentage: $xodusMemoryUsagePercentage
+                
+                orientDatabaseType: $orientDatabaseType
+                orientDatabaseDirectory: $orientDatabaseDirectory
+                orientDatabaseName: $orientDatabaseName
+                orientUsername: $orientUsername
+                orientPassword: $orientPassword
+               
+                validateDataAfterMigration: $validateDataAfterMigration
+                entitiesPerTransaction: $entitiesPerTransaction
+        """.trimIndent()
+    )
+
+    val params = YTDBDatabaseParams.builder()
+        .withDatabasePath(orientDatabaseDirectory)
+        .withAppUser(orientUsername, orientPassword)
+        .withDatabaseType(orientDatabaseType)
+        .withDatabaseName(orientDatabaseName)
+        .build()
+
+    val db = YouTrackDBFactory.createEmbedded(params)
+    val dbProvider = YTDBDatabaseProviderFactory.createProvider(params, db)
+
+    val launcher = XodusToOrientDataMigratorLauncher(
+        xodus = MigrateFromXodusConfig(
+            databaseDirectory = xodusDatabaseDirectory,
+            storeName = xodusStoreName,
+            cipherKey = xodusCipherKey,
+            cipherIV = xodusCypherIV,
+            memoryUsagePercentage = xodusMemoryUsagePercentage
+        ),
+        orient = MigrateToOrientConfig(
+            databaseProvider = dbProvider,
+            orientConfig = params,
+            true
+        ),
+        validateDataAfterMigration = validateDataAfterMigration,
+        entitiesPerTransaction = entitiesPerTransaction,
+    )
+    launcher.migrate()
+}
+
+private fun requireParam(name: String): String {
+    val value = System.getProperty(name)
+    require(!value.isNullOrBlank()) { "The required param '$name' is missing" }
+    return value
+}

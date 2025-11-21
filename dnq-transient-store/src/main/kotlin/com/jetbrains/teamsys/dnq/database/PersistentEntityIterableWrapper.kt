@@ -15,12 +15,16 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.*
-import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
-import jetbrains.exodus.entitystore.youtrackdb.query.YTDBSelect
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.EntityIterator
+import jetbrains.exodus.entitystore.StoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 
 
 /**
@@ -55,27 +59,22 @@ open class PersistentEntityIterableWrapper(
     override fun contains(entity: Entity) = wrappedIterable.contains(entity)
 
     override fun intersect(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.intersect(right.unwrap())
     }
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.intersectSavingOrder(right.unwrap())
     }
 
     override fun union(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.union(right.unwrap())
     }
 
     override fun minus(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.minus(right.unwrap())
     }
 
     override fun concat(right: EntityIterable): EntityIterable {
-        right as? EntityIterable ?: throwUnsupported()
         return wrappedIterable.concat(right.unwrap())
     }
 
@@ -88,9 +87,7 @@ open class PersistentEntityIterableWrapper(
     }
 
     override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
-        //TODO move findLinks to interface
-        return (wrappedIterable as? YTDBEntityIterableBase)?.findLinks(entities, linkName)
-            ?: YTDBEntityIterableBase.EMPTY
+        return wrappedIterable.findLinks(entities, linkName)
     }
 
     override fun distinct(): EntityIterable {
@@ -124,26 +121,29 @@ open class PersistentEntityIterableWrapper(
 
     override fun isEmpty() = wrappedIterable.isEmpty
 
-    private fun throwUnsupported(): Nothing = throw UnsupportedOperationException("Should never be called")
-
     private fun Entity.wrap(store: TransientEntityStore): TransientEntity {
         return store.threadSessionOrThrow.newEntity(this)
     }
 
-    override fun unwrap(): EntityIterable {
-        return wrappedIterable.unwrap()
-    }
+    override fun unwrap(): EntityIterable = wrappedIterable.unwrap()
 
-    override fun query(): YTDBSelect {
-        return wrappedIterable.asOQueryIterable().query()
-    }
+    override val query: GremlinQuery
+        get() = (unwrap() as? YTDBEntityIterable)?.query
+            ?: throw IllegalStateException("EntityIterable is not a YTDBEntityIterable")
+
+    override fun traversal(): GraphTraversal<*, YTDBVertex> =
+        (unwrap() as? YTDBEntityIterable)?.traversal()
+            ?: throw IllegalStateException("EntityIterable is not a YTDBEntityIterable")
+
+    // todo: remove this from GremlinEntityIterable interface ?
+    override fun selectMany(linkName: String): EntityIterable =
+        (wrappedIterable as? YTDBEntityIterable)?.selectMany(linkName) ?: YTDBEntityIterable.EMPTY
 
     override fun getTransaction(): StoreTransaction {
-        return if (wrappedIterable == YTDBEntityIterableBase.EMPTY) {
+        return if (wrappedIterable == YTDBEntityIterable.EMPTY) {
             store.currentTransaction ?: throw IllegalStateException("EntityStore: current transaction is not set")
         } else {
             (wrappedIterable as YTDBEntityIterable).transaction
         }
     }
-
 }

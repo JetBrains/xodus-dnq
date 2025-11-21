@@ -15,10 +15,10 @@
  */
 package jetbrains.exodus.database.exceptions
 
-import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityStoreException
 
 /**
  * @param entity transient entity that was removed in database
  */
-class EntityRemovedException(private val entity: TransientEntity) : EntityStoreException("Entity [$entity] was removed by you.")
+class EntityRemovedException(entityId: EntityId) : EntityStoreException("Entity [$entityId] was removed by you.")

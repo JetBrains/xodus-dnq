@@ -89,6 +89,8 @@ class FilterQueryDecoratedTest : DBTest() {
     @Test
     fun `searching by link property should works with OR`() {
         store.transactional {
+            val qq = Contact.filter { (it.user.login eq "test3") or (it.email eq "1@123.com") }
+            val res = qq.toList()
             Contact.assertThatFilterResult { (it.user.login eq "test3") or (it.email eq "1@123.com") }
                     .containsContacts("3@123.com", "1@123.com")
 

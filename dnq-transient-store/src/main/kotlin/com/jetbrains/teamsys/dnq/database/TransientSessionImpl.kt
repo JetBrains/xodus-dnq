@@ -15,8 +15,8 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.youtrack.db.api.exception.RecordDuplicatedException
-import com.jetbrains.youtrack.db.internal.common.concur.NeedRetryException
+import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
+import com.jetbrains.youtrackdb.internal.common.concur.NeedRetryException
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.database.*
@@ -29,7 +29,6 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBReadonlyVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.env.ReadonlyTransactionException
-import jetbrains.exodus.env.TransactionFinishedException
 import mu.KLogging
 import java.util.*
 
@@ -327,16 +326,15 @@ class TransientSessionImpl(
 
     override fun getEntity(id: EntityId): Entity {
         assertOpen("get entity")
+        if (changesTracker.isRemoved(id)) {
+            throw EntityRemovedException(id)
+        }
         if (id in loadedIds) {
             return newEntityImpl(persistentStore.getEntity(id))
         }
         return newEntityImpl(transactionInternal.getEntity(id).also {
             addLoadedId(id)
         })
-    }
-
-    override fun isCurrent(): Boolean {
-        return transactionInternal.isCurrent
     }
 
     override fun findWithPropSortedByValue(
@@ -498,28 +496,30 @@ class TransientSessionImpl(
         val tracker = transientChangesTracker
         return when {
             entity.isReadonly || entity.isWrapper -> entity
-            checkEntityRemoved && tracker.isRemoved(entity) -> {
+            checkEntityRemoved && tracker.isRemoved(entity.id) -> {
                 logger.warn { "Entity [$entity] was removed by you." }
-                throw EntityRemovedException(entity)
+                throw EntityRemovedException(entity.id)
             }
 
             tracker.isNew(entity) -> entity
             else -> {
-                val yTDBEntity = entity.entity
-                if (yTDBEntity is YTDBVertexEntity && (yTDBEntity.isUnloaded ||
-                            yTDBEntity.vertex.isNotBound(store.persistentStore.databaseSession))
-                ) {
-                    try {
-                        // load persistent entity from database by id
-                        newEntityImpl(transactionInternal.getEntity(entity.id))
-                    } catch (e: EntityRemovedInDatabaseException) {
-                        logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
-                        throw e
-                    }
-
-                } else {
-                    entity
-                }
+                entity
+//                val yTDBEntity = entity.entity
+//                if (yTDBEntity is YTDBVertexEntity &&
+//                    (yTDBEntity.isUnloaded ||
+//                            store.persistentStore.currentTransaction?.isNotBound(yTDBEntity) ?: true)
+//                ) {
+//                    try {
+//                        // load persistent entity from database by id
+//                        newEntityImpl(transactionInternal.getEntity(entity.id))
+//                    } catch (e: EntityRemovedInDatabaseException) {
+//                        logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
+//                        throw e
+//                    }
+//
+//                } else {
+//                    entity
+//                }
             }
         }
     }
@@ -535,7 +535,7 @@ class TransientSessionImpl(
             if (entity.isWrapper) {
                 return entity.isRemoved
             }
-            if (transientChangesTracker.isRemoved(entity)) {
+            if (transientChangesTracker.isRemoved(entity.id)) {
                 return true
             } else if (entity.isReadonly || transientChangesTracker.isNew(entity)) {
                 return false
@@ -726,7 +726,7 @@ class TransientSessionImpl(
     private fun newEntityImpl(persistent: Entity): TransientEntity {
         return when (persistent) {
             is YTDBReadonlyVertexEntity -> {
-                ReadonlyTransientEntityImpl(persistent, store)
+                ReadonlyTransientEntity(persistent, store)
             }
 
             is TransientEntity -> {
@@ -748,7 +748,6 @@ class TransientSessionImpl(
     }
 
     private fun saveEntityInternal(persistentEntity: YTDBEntity, e: TransientEntityImpl): Boolean {
-        transactionInternal.saveEntity(persistentEntity)
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(e)
         return true
@@ -814,10 +813,6 @@ class TransientSessionImpl(
         return child.getLink(childToParentLinkName)
     }
 
-    override fun saveEntity(entity: Entity) {
-        throw UnsupportedOperationException()
-    }
-
     override fun getUserObject(key: Any): Any? {
         return userObjects[key]
     }
@@ -862,9 +857,6 @@ class TransientSessionImpl(
                     throw e
                 } else {
                     logger.error(e) { "Exception inside listener [$listener]" }
-                    if (e is TransactionFinishedException && e.trace != null) {
-                        logger.error { "Transaction was early finished inside listener: ${e.trace}" }
-                    }
                 }
             }
         }

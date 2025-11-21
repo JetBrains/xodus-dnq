@@ -22,10 +22,9 @@ import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
-import jetbrains.exodus.query.LinkEqual
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.query.NodeBase
-import jetbrains.exodus.query.PropertyEqual
+import jetbrains.exodus.query.NodeFactory
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.XdNaturalWrapper
@@ -357,13 +356,13 @@ internal class SearchingEntity(_type: String, _entityStore: TransientEntityStore
 
     override fun deleteLink(linkName: String, entity: Entity): Boolean {
         currentNodeName = linkName
-        addToNodes(LinkEqual(linkName, null).decorateIfNeeded())
+        addToNodes(NodeFactory.hasNoLink(linkName).decorateIfNeeded())
         return true
     }
 
     override fun setLink(linkName: String, target: Entity?): Boolean {
         currentNodeName = linkName
-        addToNodes(LinkEqual(linkName, target).decorateIfNeeded())
+        addToNodes(NodeFactory.hasLinkTo(linkName, target).decorateIfNeeded())
         return true
     }
 
@@ -383,29 +382,29 @@ internal class SearchingEntity(_type: String, _entityStore: TransientEntityStore
 
     override fun getLinks(linkName: String): EntityIterable {
         currentNodeName = linkName
-        return YTDBEntityIterableBase.EMPTY
+        return YTDBEntityIterable.EMPTY
     }
 
     override fun setProperty(propertyName: String, value: Comparable<Nothing>): Boolean {
         currentNodeName = propertyName
-        addToNodes(PropertyEqual(propertyName, value).decorateIfNeeded())
+        addToNodes(NodeFactory.propEqual(propertyName, value).decorateIfNeeded())
         return true
     }
 
     override fun deleteProperty(propertyName: String): Boolean {
         currentNodeName = propertyName
-        addToNodes(PropertyEqual(propertyName, null).decorateIfNeeded())
+        addToNodes(NodeFactory.propNull(propertyName).decorateIfNeeded())
         return true
     }
 
     override fun setManyToOne(manyToOneLinkName: String, oneToManyLinkName: String, one: Entity?) {
         currentNodeName = manyToOneLinkName
-        addToNodes(LinkEqual(manyToOneLinkName, one).decorateIfNeeded())
+        addToNodes(NodeFactory.hasLinkTo(manyToOneLinkName, one).decorateIfNeeded())
     }
 
     override fun setToOne(linkName: String, target: Entity?) {
         currentNodeName = linkName
-        addToNodes(LinkEqual(linkName, target).decorateIfNeeded())
+        addToNodes(NodeFactory.hasLinkTo(linkName, target).decorateIfNeeded())
     }
 
     private fun getDefaultPropertyValue(propertyName: String): Comparable<Nothing>? {
@@ -469,7 +468,7 @@ internal class MappingEntity(_type: String, _entityStore: TransientEntityStore) 
         val node = XdModel.getOrThrow(_type)
         node.findLink(linkName).let {
             link = it ?: throw IllegalStateException("can't found model name for $linkName")
-            return YTDBEntityIterableBase.EMPTY
+            return YTDBEntityIterable.EMPTY
         }
     }
 

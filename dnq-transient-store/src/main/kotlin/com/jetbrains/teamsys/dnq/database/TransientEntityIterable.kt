@@ -20,7 +20,7 @@ import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableBase
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import mu.KLogging
 
 /**
@@ -89,7 +89,7 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
     }
 
     override fun take(number: Int): EntityIterable {
-        if (number == 0) return YTDBEntityIterableBase.EMPTY
+        if (number == 0) return YTDBEntityIterable.EMPTY
 
         return TransientEntityIterable(
                 values.asSequence()

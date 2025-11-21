@@ -18,7 +18,9 @@ package kotlinx.dnq.link
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.iterate.link.YTDBLinkOfTypeToEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.metadata.AssociationEndCardinality
 import jetbrains.exodus.query.metadata.AssociationEndType
 import kotlinx.dnq.XdEntity
@@ -60,9 +62,15 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                         if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
-                            (queryEngine as XdQueryEngine).wrap(YTDBLinkOfTypeToEntityIterable(
-                                thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction,
-                                oppositeField.oppositeDbName, thisRef.entityId as YTDBEntityId, oppositeType))
+                            (queryEngine as XdQueryEngine).wrap(
+                                YTDBEntityIterable.query(
+                                    thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction,
+                                    GremlinQuery.all
+                                        .then(GremlinBlock.IdEqual((thisRef.entityId as YTDBEntityId).asOId()))
+                                        .then(GremlinBlock.InLink(oppositeField.oppositeDbName))
+                                        .then(GremlinBlock.HasLabel(oppositeType))
+                                )
+                            )
                         }
                     } catch (_: UnsupportedOperationException) {
                         // to support weird FakeTransientEntity

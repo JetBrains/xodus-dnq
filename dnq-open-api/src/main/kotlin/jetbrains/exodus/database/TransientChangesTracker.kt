@@ -73,7 +73,7 @@ interface TransientChangesTracker {
 
     fun isSaved(transientEntity: TransientEntity): Boolean
 
-    fun isRemoved(transientEntity: TransientEntity): Boolean
+    fun isRemoved(entityId: EntityId): Boolean
 
     fun linkChanged(source: TransientEntity, linkName: String, target: TransientEntity, oldTarget: TransientEntity?, add: Boolean)
 
@@ -91,6 +91,8 @@ interface TransientChangesTracker {
     fun removePropertyChanged(e: TransientEntity, propertyName: String)
 
     fun entityAdded(e: TransientEntity)
+
+    fun entityBeforeRemoved(e: TransientEntity)
 
     fun entityRemoved(e: TransientEntity)
 
