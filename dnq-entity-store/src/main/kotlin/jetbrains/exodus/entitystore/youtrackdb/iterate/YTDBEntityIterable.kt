@@ -49,6 +49,7 @@ interface YTDBEntityIterable : EntityIterable {
             override fun iterator(): EntityIterator = YTDBEntityIterator.EMPTY
             override fun selectMany(linkName: String): EntityIterable = this
             override val query: GremlinQuery get() = unsupported { "Should never be called" }
+            override fun traversal(): GraphTraversal<*, YTDBVertex> = unsupported { "Should never be called" }
             override fun unwrap(): EntityIterable = this
             override fun getTransaction(): StoreTransaction = unsupported { "Should never be called" }
             override fun isEmpty(): Boolean = true
@@ -80,6 +81,8 @@ interface YTDBEntityIterable : EntityIterable {
     fun selectMany(linkName: String): EntityIterable
 
     val query: GremlinQuery
+
+    fun traversal(): GraphTraversal<*, YTDBVertex>
 }
 
 class YTDBEntityIterableImpl(
@@ -98,7 +101,7 @@ class YTDBEntityIterableImpl(
     private fun iterator(traversal: GraphTraversal<*, YTDBVertex>): YTDBEntityIterator =
         YTDBEntityIterator.of(traversal, oStore)
 
-    private fun traversal(): GraphTraversal<*, YTDBVertex> =
+    override fun traversal(): GraphTraversal<*, YTDBVertex> =
         query.start(oStore.requireActiveTransaction().g())
 
     override fun iterator(): YTDBEntityIterator = iterator(traversal())

@@ -15,6 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.entitystore.Entity
@@ -23,6 +24,7 @@ import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 
 
 /**
@@ -127,7 +129,11 @@ open class PersistentEntityIterableWrapper(
 
     override val query: GremlinQuery
         get() = (unwrap() as? YTDBEntityIterable)?.query
-            ?: throw IllegalStateException("EntityIterable is not a GremlinEntityIterable")
+            ?: throw IllegalStateException("EntityIterable is not a YTDBEntityIterable")
+
+    override fun traversal(): GraphTraversal<*, YTDBVertex> =
+        (unwrap() as? YTDBEntityIterable)?.traversal()
+            ?: throw IllegalStateException("EntityIterable is not a YTDBEntityIterable")
 
     // todo: remove this from GremlinEntityIterable interface ?
     override fun selectMany(linkName: String): EntityIterable =
