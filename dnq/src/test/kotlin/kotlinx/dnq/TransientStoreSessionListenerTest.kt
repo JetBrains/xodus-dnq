@@ -19,6 +19,7 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.link.OnDeletePolicy
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -61,11 +62,38 @@ class TransientStoreSessionListenerTest : DBTest() {
         var parent: ParentEntity by xdParent(ParentEntity::child)
     }
 
+    class TestUser(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<TestUser>()
+
+        var name by xdRequiredStringProp()
+        val roles by xdChildren0_N(BelongsToUser::user)
+    }
+
+    class TestProject(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<TestProject>()
+
+        var name by xdRequiredStringProp();
+    }
+
+    abstract class BelongsToUser(entity: Entity): XdEntity(entity) {
+        companion object : XdNaturalEntityType<BelongsToUser>()
+
+        var user: TestUser by xdParent(TestUser::roles)
+    }
+
+    class TestProjectRole(entity: Entity) : BelongsToUser(entity) {
+        companion object : XdNaturalEntityType<TestProjectRole>()
+
+        var name by xdRequiredStringProp()
+        var project by xdLink1(TestProject, onTargetDelete = OnDeletePolicy.CASCADE)
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
         XdModel.registerNodes(
             LevelOneEntity, LevelTwoEntity, LevelThreeEntity,
-            ParentEntity, ChildEntity
+            ParentEntity, ChildEntity,
+            TestUser, TestProject, TestProjectRole
         )
     }
 
@@ -218,7 +246,7 @@ class TransientStoreSessionListenerTest : DBTest() {
             grandchild?.delete()
             child1?.delete()
         }
-        listener.checkError()
+        listener.check()
     }
 
     @Test
@@ -253,7 +281,38 @@ class TransientStoreSessionListenerTest : DBTest() {
         store.transactional {
             parentEntity.delete()
         }
-        listener.checkError()
+        listener.check()
+    }
+
+    @Test
+    fun ` listeners should work correctly with cascade deletions`() {
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        val (user, project, role) = store.transactional {
+            val user = TestUser.new { name = "user" }
+            val project = TestProject.new { name = "project" }
+            val role = TestProjectRole.new { name = "role"; this.user = user; this.project = project }
+
+            Triple(user, project, role)
+        }
+
+        listener.onFlush { changes ->
+            assertEquals(2, changes.size)
+            val userChange = changes.find { it.snapshotEntity.id == user.entityId }!!
+            assertEquals(EntityChangeType.REMOVE, userChange.changeType)
+            val roleChange = changes.find { it.snapshotEntity.id == role.entityId }!!
+            assertEquals(EntityChangeType.REMOVE, roleChange.changeType)
+
+            val roleSnapshot = XdModel.toXd<TestProjectRole>(roleChange.snapshotEntity)
+
+            assertEquals("user", roleSnapshot.user.name)
+            assertEquals("project", roleSnapshot.project.name)
+        }
+        store.transactional {
+            user.delete()
+        }
+        listener.check()
     }
 }
 
@@ -261,20 +320,25 @@ class CallbackListener : TransientStoreSessionListener {
 
     var callback: (Set<TransientEntityChange>) -> Unit = { _ -> }
     var callbackError: Throwable? = null
+    val callCount = AtomicInteger(0)
 
     fun onFlush(callback: (Set<TransientEntityChange>) -> Unit) {
         callbackError = null
+        callCount.set(0)
         this.callback = { it: Set<TransientEntityChange> ->
             try {
                 callback(it)
             } catch (e: Throwable) {
                 callbackError = e
             }
-            this.callback = { _ -> }
+            callCount.incrementAndGet()
         }
     }
 
-    fun checkError() = callbackError?.let { throw it }
+    fun check() {
+        callbackError?.let { throw it }
+        assertEquals(1, callCount.get())
+    }
 
     override fun flushed(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) =
         callback(changedEntities)

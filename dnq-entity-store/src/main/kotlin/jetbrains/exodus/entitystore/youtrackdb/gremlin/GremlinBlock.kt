@@ -121,7 +121,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
     }
 
     data object None : GremlinBlock("none", BlockType.CONDITION) {
-        override fun traverse(g: YT): YT = g.none()
+        override fun traverse(g: YT): YT = g.discard()
 
         override fun describe(s: StringBuilder): StringBuilder = s.append("none")
 
@@ -337,11 +337,8 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
     }
 
     data object Reverse : GremlinBlock("rev", BlockType.ORDER) {
-        override fun traverse(g: YT): YT = g
-            .fold().index<Any>().unfold<Any>()
-            .order().by(`__`.tail<Any>(Scope.local, 1), Order.desc)
-            .limit<Any>(Scope.local, 1)
-            .asYT()
+        override fun traverse(g: YT): YT =
+            g.fold().reverse<Any>().unfold<Any>().asYT()
 
         override fun describe(s: StringBuilder): StringBuilder {
             TODO("Not yet implemented")

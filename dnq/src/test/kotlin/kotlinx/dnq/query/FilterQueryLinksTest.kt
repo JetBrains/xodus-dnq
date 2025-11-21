@@ -16,6 +16,7 @@
 package kotlinx.dnq.query
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.SimpleModelPlugin
 import kotlinx.dnq.XdModel
@@ -145,6 +146,50 @@ class FilterQueryLinksTest : DBTest() {
 
             result = User.filter { it.contacts containsIn listOf(contact1, contact2) }
             assertThat(result.toList()).containsExactly(user1)
+        }
+    }
+
+    @Test
+    fun `search, then union and intersect`() {
+        val (user0, user2) = store.transactional {
+            val user0 = User.new {
+                login = "user 0"
+                skill = 1
+            }
+            val user1 = User.new {
+                login = "user 1"
+                skill = 1
+                supervisor = user0
+            }
+            val user2 = User.new {
+                login = "user 2"
+                skill = 1
+                supervisor = user1
+            }
+            val user3 = User.new {
+                login = "user 3"
+                skill = 1
+                supervisor = user1
+            }
+
+            Pair(user0, user2)
+        }
+
+        store.transactional { tx ->
+            val user2and3 = User.filter { it.supervisor?.supervisor eq user0 }
+            val user2and3It = user2and3.entityIterable as YTDBEntityIterable
+
+            val user1ByLink = (User.queryOf(user2).entityIterable as YTDBEntityIterable).selectMany("boss") as YTDBEntityIterable
+            val user2ById = User.queryOf(user2).entityIterable as YTDBEntityIterable
+
+            val user1and2It = user1ByLink.union(user2ById) as YTDBEntityIterable
+
+            assertThat(user1and2It.toList().map { it.getProperty("login") }).containsExactly("user 1", "user 2")
+            assertThat(user2and3It.toList().map { it.getProperty("login") }).containsExactly("user 2", "user 3")
+
+            val user2Only = user2and3It.intersect(user1and2It) as YTDBEntityIterable
+
+            assertThat(user2Only.toList().map { it.getProperty("login") }).containsExactly("user 2")
         }
     }
 }

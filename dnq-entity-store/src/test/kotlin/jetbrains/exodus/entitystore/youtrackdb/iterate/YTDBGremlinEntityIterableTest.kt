@@ -188,6 +188,31 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
+    fun `intersect after union`() {
+        val test = givenTestCase()
+
+        withStoreTx {
+            test.issue2.setProperty(Issues.Props.PRIORITY, "normal")
+            test.issue3.setProperty(Issues.Props.PRIORITY, "normal")
+        }
+
+        withStoreTx { tx ->
+            val i1 = tx.find(Issues.CLASS, "name", test.issue1.name())
+            val i2and3 = tx.find(Issues.CLASS, "priority", "normal")
+
+            val i1and2and3 = i1.union(i2and3)
+            assertNamesExactly(i1and2and3, "issue1", "issue2", "issue3")
+
+            val i3 = tx.find(Issues.CLASS, "name", test.issue3.name())
+            assertNamesExactly(i3, "issue3")
+
+            val i3only = i3.intersect(i1and2and3)
+            val q = (i3only as YTDBEntityIterable).query.start(tx.g())
+            assertNamesExactly(i3only, "issue3")
+        }
+    }
+
+    @Test
     fun `concat iterables selected by properties`() {
         // Given
         val test = givenTestCase()
