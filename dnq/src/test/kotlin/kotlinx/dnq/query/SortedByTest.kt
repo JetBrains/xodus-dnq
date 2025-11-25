@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq.query
 
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import org.junit.Before
@@ -27,20 +28,32 @@ class SortedByTest : DBTest() {
 
         var login by xdStringProp()
         var badge by xdLink0_1(Badge)
+        override fun toString(): String {
+            return "User(login=$login, badge=$badge)"
+        }
     }
 
     class Badge(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Badge>()
 
         var name by xdStringProp()
+        override fun toString(): String {
+            return "Badge(name=$name)"
+        }
     }
 
     val users by lazy {
         transactional {
             listOf(
-                    User.new { login = "2"; badge = Badge.new { name = "c" } },
-                    User.new { login = "3"; badge = Badge.new { name = "b" } },
-                    User.new { login = "1"; badge = Badge.new { name = "a" } }
+                User.new { login = "2"; badge = Badge.new { name = "c" } },
+                User.new { login = "6"; badge = Badge.new { name = null } },
+                User.new { login = "3"; badge = Badge.new { name = "b" } },
+                User.new { login = "1"; badge = Badge.new { name = "a" } },
+                User.new { login = "4"; },
+                User.new {},
+                User.new { login = null },
+                User.new { login = "5"; badge = Badge.new {} }
+
             )
         }
     }
@@ -55,40 +68,51 @@ class SortedByTest : DBTest() {
     }
 
     @Test
-    fun `sort by int property ascending`() {
-        transactional {
-            assertQuery(User.all().sortedBy(User::login, asc = true))
-                    .containsExactlyElementsIn(users.sortedBy { it.login })
-                    .inOrder()
-        }
+    fun `sort by string property ascending`() {
+        checkOrder(
+            "asc",
+            { sortedBy(User::login, asc = true) },
+            compareBy(nullsLast()) { it.login }
+        )
     }
 
     @Test
-    fun `sort by int property descending`() {
-        transactional {
-            assertQuery(User.all().sortedBy(User::login, asc = false))
-                    .containsExactlyElementsIn(users.sortedByDescending { it.login })
-                    .inOrder()
-        }
+    fun `sort by string property descending`() {
+        checkOrder(
+            "desc",
+            { sortedBy(User::login, asc = false) },
+            compareBy(nullsLast(reverseOrder())) { it.login }
+        )
     }
 
     @Test
-    
     fun `sort by property of a link ascending`() {
-        transactional {
-            val query = User.all().sortedBy(User::badge, Badge::name, asc = true)
-            assertQuery(query)
-                    .containsExactlyElementsIn(users.sortedBy { it.badge?.name })
-                    .inOrder()
-        }
+        checkOrder(
+            "linked asc",
+            { sortedBy(User::badge, Badge::name, asc = true) },
+            compareBy(nullsLast()) { it.badge?.name }
+        )
     }
 
     @Test
     fun `sort by property of a link descending`() {
+        checkOrder(
+            "linked desc",
+            { sortedBy(User::badge, Badge::name, asc = false) },
+            compareBy(nullsLast(reverseOrder())) { it.badge?.name }
+        )
+    }
+
+    private fun checkOrder(
+        name: String,
+        queryOrder: XdQuery<User>.() -> XdQuery<User>,
+        expectedOrder: Comparator<User>
+    ) {
         transactional {
-            assertQuery(User.all().sortedBy(User::badge, Badge::name, asc = false))
-                    .containsExactlyElementsIn(users.sortedByDescending { it.badge?.name })
-                    .inOrder()
+            val result = queryOrder(User.all()).toList()
+            println("$name: $result")
+            assertThat(result).containsExactlyElementsIn(users)
+            assertThat(result).isInOrder(expectedOrder)
         }
     }
 }
