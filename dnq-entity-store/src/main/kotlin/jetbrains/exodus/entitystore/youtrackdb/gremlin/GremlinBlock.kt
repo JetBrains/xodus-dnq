@@ -18,10 +18,8 @@ package jetbrains.exodus.entitystore.youtrackdb.gremlin
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.record.RID
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
-import org.apache.commons.lang3.StringUtils
 import org.apache.tinkerpop.gremlin.process.traversal.Order
 import org.apache.tinkerpop.gremlin.process.traversal.P
-import org.apache.tinkerpop.gremlin.process.traversal.Scope
 import org.apache.tinkerpop.gremlin.process.traversal.TextP
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
@@ -233,8 +231,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
     data class HasElement(val property: String, val value: Any) : GremlinBlock("he", BlockType.CONDITION) {
         override fun traverse(g: YT): YT =
             g.where(
-                `__`
-                    .values<YTDBVertex, Any>(property)
+                values<YTDBVertex, Any>(property)
                     .unfold<Any>()
                     .`is`(value)
             )
@@ -310,7 +307,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         ASC, DESC
     }
 
-
+    // Always "nulls last", as the old xodus DNQ implementation worked like this.
     data class Sort(val by: By, val direction: SortDirection) : GremlinBlock("sb", BlockType.ORDER) {
         sealed interface By
         class ByProp(val propName: String) : By
@@ -323,11 +320,24 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
             }
 
             return when (by) {
-                is ByProp -> g.order().by(by.propName, order)
-                is ByLinked -> g.order().by(
-                    `__`.out(YTDBVertexEntity.edgeClassName(by.linkName)).values<Any>(by.propName),
-                    order
-                )
+                is ByProp -> g.order()
+                    .by(values<YTDBVertex, Any>(by.propName).count(), Order.desc)
+                    .by(
+                        `__`.values<YTDBVertex, Any>(by.propName).fold(),
+                        order
+                    )
+
+                is ByLinked -> {
+                    val edgeLabel = YTDBVertexEntity.edgeClassName(by.linkName)
+                    g.order()
+                        .by(`__`.out(edgeLabel).values<Any>(by.propName).count(), Order.desc)
+                        .by(
+                            `__`.out(edgeLabel)
+                                .values<Any>(by.propName)
+                                .fold(),
+                            order
+                        )
+                }
             }
         }
 
@@ -340,10 +350,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         override fun traverse(g: YT): YT =
             g.fold().reverse<Any>().unfold<Any>().asYT()
 
-        override fun describe(s: StringBuilder): StringBuilder {
-            TODO("Not yet implemented")
-        }
-
+        override fun describe(s: StringBuilder): StringBuilder = s.append(".reverse()")
     }
 }
 
