@@ -55,10 +55,16 @@ abstract class DBTest {
     val typeListeners = mutableListOf<Pair<XdEntityType<*>, XdEntityListener<*>>>()
     val instanceListeners = mutableListOf<Pair<XdEntity, XdEntityListener<*>>>()
 
-    class User(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<User>()
+    abstract class BaseUser(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<BaseUser>()
 
         var login by xdRequiredStringProp(trimmed = true, unique = true)
+        var supervisor by xdLink0_1(User, "boss")
+    }
+
+    class User(entity: Entity) : BaseUser(entity) {
+        companion object : XdNaturalEntityType<User>()
+
         var name by xdStringProp(dbName = "visibleName")
         var age by xdIntProp { this.min(0) }
         var skill by xdRequiredIntProp()
@@ -66,7 +72,6 @@ abstract class DBTest {
         var isGuest by xdBooleanProp()
         var registered by xdDateTimeProp()
         val contacts by xdLink0_N(Contact::user)
-        var supervisor by xdLink0_1(User, "boss")
         var isMale by xdBooleanProp()
 
         val groups by xdLink0_N(Group::users, onDelete = CLEAR, onTargetDelete = CLEAR)

@@ -140,7 +140,7 @@ class PropertiesTest : DBTest() {
                 User.new()
             }
         }
-        assertThat(e.causes.filterIsInstance<NullPropertyException>().map { it.propertyName })
+        assertThat(e.causes.filterIsInstance<NullPropertyException>().map { it.propertyName }.toSet())
                 .containsExactly(User::login.name, User::skill.name)
     }
 
