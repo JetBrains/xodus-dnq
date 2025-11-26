@@ -150,7 +150,7 @@ class FilterQueryLinksTest : DBTest() {
     }
 
     @Test
-    fun `search, then union and intersect`() {
+    fun `search, then union and intersect (polymorphic)`() {
         val (user0, user2) = store.transactional {
             val user0 = User.new {
                 login = "user 0"
@@ -176,11 +176,12 @@ class FilterQueryLinksTest : DBTest() {
         }
 
         store.transactional { tx ->
-            val user2and3 = User.filter { it.supervisor?.supervisor eq user0 }
+            val user2and3 = BaseUser.filter { it.supervisor?.supervisor eq user0 }
             val user2and3It = user2and3.entityIterable as YTDBEntityIterable
 
-            val user1ByLink = (User.queryOf(user2).entityIterable as YTDBEntityIterable).selectMany("boss") as YTDBEntityIterable
-            val user2ById = User.queryOf(user2).entityIterable as YTDBEntityIterable
+            val user1ByLink =
+                (BaseUser.queryOf(user2).entityIterable as YTDBEntityIterable).selectMany("boss") as YTDBEntityIterable
+            val user2ById = BaseUser.queryOf(user2).entityIterable as YTDBEntityIterable
 
             val user1and2It = user1ByLink.union(user2ById) as YTDBEntityIterable
 
