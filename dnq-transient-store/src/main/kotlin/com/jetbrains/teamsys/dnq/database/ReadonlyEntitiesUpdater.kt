@@ -163,9 +163,11 @@ class ReadonlyTransientEntitiesUpdater : TransientEntitiesUpdater {
 
     }
 
-    override fun apply() {
+    override fun replayChanges() {
 
     }
+
+    override fun getDeletedEntities(): List<TransientEntity> = listOf()
 
     override fun addChange(change: () -> Boolean): () -> Boolean {
         throw IllegalStateException("Readonly transaction cannot perform write operations")

@@ -45,6 +45,11 @@ class TransientEntitiesUpdaterImpl(
 
     private val changes = QueueDecorator<() -> Boolean>()
 
+    // we keep this collection to be able to call TransientChangesTracker.entityBeforeRemoved() during
+    // transaction replay. This is crucial for generating correct REMOVED events with
+    // correctly initialized links.
+    private val deletedEntities = mutableListOf<TransientEntity>()
+
     private val transientChangesTracker get() = session.transientChangesTracker
     private val originalValuesProvider get() = session.originalValuesProvider
 
@@ -238,6 +243,7 @@ class TransientEntitiesUpdaterImpl(
     }
 
     override fun deleteEntity(transientEntity: TransientEntity): Boolean {
+        deletedEntities.add(transientEntity)
         return addChangeAndRun { deleteEntityInternal(transientEntity) }
     }
 
@@ -503,9 +509,14 @@ class TransientEntitiesUpdaterImpl(
 
     override fun hasChanges() = changes.isNotEmpty()
 
-    override fun clear() = changes.clear()
+    override fun clear() {
+        changes.clear()
+        deletedEntities.clear()
+    }
 
-    override fun apply() {
+    override fun getDeletedEntities(): List<TransientEntity> = deletedEntities
+
+    override fun replayChanges() {
         changes.forEach { it() }
     }
 }

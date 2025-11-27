@@ -77,7 +77,8 @@ interface TransientEntitiesUpdater {
     fun clearChildren(parent: TransientEntity, parentToChildLinkName: String)
     fun hasChanges(): Boolean
     fun clear()
-    fun apply()
+    fun replayChanges()
+    fun getDeletedEntities(): List<TransientEntity>
     fun addChange(change: () -> Boolean): () -> Boolean
     fun addChangeAndRun(change: () -> Boolean): Boolean
 }
