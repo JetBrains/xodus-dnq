@@ -27,7 +27,6 @@ import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBReadonlyVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
-import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.env.ReadonlyTransactionException
 import mu.KLogging
 import java.util.*
@@ -387,7 +386,13 @@ class TransientSessionImpl(
         initChangesTracker(readonly = false)
         // some of the managed entities could be deleted
         loadedIds = EntityIdSetFactory.newSet()
-        entitiesUpdater.apply()
+
+        // initializing snapshots for deleted entities.
+        // necessary for listener events to work properly
+        entitiesUpdater.getDeletedEntities().forEach {
+            changesTracker.entityBeforeRemoved(it)
+        }
+        entitiesUpdater.replayChanges()
         changesTracker.changesDescription.filter {
             it.changeType == EntityChangeType.REMOVE
         }.map {

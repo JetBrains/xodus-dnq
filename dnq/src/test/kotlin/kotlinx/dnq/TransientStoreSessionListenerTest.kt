@@ -19,7 +19,9 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.link.OnDeletePolicy
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -88,11 +90,17 @@ class TransientStoreSessionListenerTest : DBTest() {
         var project by xdLink1(TestProject, onTargetDelete = OnDeletePolicy.CASCADE)
     }
 
+    class JustCounter(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<JustCounter>()
+
+        var value by xdRequiredIntProp()
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
         XdModel.registerNodes(
             LevelOneEntity, LevelTwoEntity, LevelThreeEntity,
-            ParentEntity, ChildEntity,
+            ParentEntity, ChildEntity, JustCounter,
             TestUser, TestProject, TestProjectRole
         )
     }
@@ -285,7 +293,7 @@ class TransientStoreSessionListenerTest : DBTest() {
     }
 
     @Test
-    fun ` listeners should work correctly with cascade deletions`() {
+    fun `listeners should work correctly with cascade deletions`() {
         val listener = CallbackListener()
         store.addListener(listener)
 
@@ -314,30 +322,87 @@ class TransientStoreSessionListenerTest : DBTest() {
         }
         listener.check()
     }
+
+    @Test
+    fun `listener should work correctly with cascade deletions on transaction replay`() {
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        val (parentEntity, childEntity, counter) = transactional {
+            val parentEntity = ParentEntity.new { name = "parentEntity" }
+            val childEntity = ChildEntity.new { name = "childEntity"; parent = parentEntity }
+            val counter = JustCounter.new { value = 0 }
+
+            Triple(parentEntity, childEntity, counter)
+        }
+
+        listener.onFlush { changes ->
+            if (changes.any { it.changeType == EntityChangeType.REMOVE }) {
+                val parentChange = changes.find { it.snapshotEntity.id == parentEntity.entityId }!!
+                val childChange = changes.find { it.snapshotEntity.id == childEntity.entityId }!!
+
+                assertEquals(EntityChangeType.REMOVE, parentChange.changeType)
+                assertEquals(EntityChangeType.REMOVE, childChange.changeType)
+
+                val parentSnapshot = XdModel.toXd<ParentEntity>(parentChange.snapshotEntity)
+                val childSnapshot = XdModel.toXd<ChildEntity>(childChange.snapshotEntity)
+
+                assertEquals(childSnapshot.parent, parentSnapshot)
+                assertEquals(parentSnapshot.child, childSnapshot)
+            }
+        }
+
+        val latch1 = CountDownLatch(1)
+        val latch2 = CountDownLatch(1)
+
+        val t1 = thread {
+            transactional {
+                counter.value += 1
+                latch1.countDown()
+                latch2.await()
+            }
+        }
+
+        val t2 = thread {
+            transactional {
+                latch1.await()
+                latch2.countDown()
+                counter.value += 1
+                parentEntity.delete()
+            }
+        }
+
+        listOf(t1, t2).forEach { it.join() }
+        listener.check(count = 2)
+    }
 }
 
 class CallbackListener : TransientStoreSessionListener {
 
     var callback: (Set<TransientEntityChange>) -> Unit = { _ -> }
-    var callbackError: Throwable? = null
+    val callbackErrors: MutableList<Throwable> = mutableListOf()
     val callCount = AtomicInteger(0)
 
     fun onFlush(callback: (Set<TransientEntityChange>) -> Unit) {
-        callbackError = null
+        callbackErrors.clear()
         callCount.set(0)
         this.callback = { it: Set<TransientEntityChange> ->
             try {
                 callback(it)
             } catch (e: Throwable) {
-                callbackError = e
+                callbackErrors.add(e)
             }
             callCount.incrementAndGet()
         }
     }
 
-    fun check() {
-        callbackError?.let { throw it }
-        assertEquals(1, callCount.get())
+    fun check(count: Int = 1) {
+        assertEquals(count, callCount.get())
+        if (callbackErrors.size == 1) {
+            throw callbackErrors[0]
+        } else if (callbackErrors.isNotEmpty()) {
+            throw AssertionError("More than one error: ${callbackErrors.joinToString("\n")}", callbackErrors[0])
+        }
     }
 
     override fun flushed(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) =
