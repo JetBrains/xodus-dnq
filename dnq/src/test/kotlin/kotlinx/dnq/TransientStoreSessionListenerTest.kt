@@ -19,6 +19,10 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.link.OnDeletePolicy
+import kotlinx.dnq.query.isEmpty
+import kotlinx.dnq.query.queryOf
+import kotlinx.dnq.query.toList
+import kotlinx.dnq.query.wrapAsQuery
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
@@ -186,6 +190,41 @@ class TransientStoreSessionListenerTest : DBTest() {
     }
 
     @Test
+    fun `XdEntityType#wrapAsQuery should work with removed entities in listeners`() {
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        val entity = transactional { TestProject.new { name = "someEntity" } }
+
+        listener.onFlush { changes ->
+            assertEquals(1, changes.size)
+            assertEquals(EntityChangeType.REMOVE, changes.first().changeType)
+
+            val original = changes.first().transientEntity.toXd<TestProject>()
+            val snapshot = changes.first().snapshotEntity.toXd<TestProject>()
+
+            // they are removed already
+            assertTrue(TestProject.queryOf(original).isEmpty)
+            assertTrue(TestProject.queryOf(snapshot).isEmpty)
+
+            // wrapAsQuery doesn't perform any queries
+            assertEquals(
+                listOf(snapshot),
+                TestProject.wrapAsQuery(snapshot).toList()
+            )
+            assertEquals(
+                listOf(original),
+                TestProject.wrapAsQuery(original).toList()
+            )
+        }
+
+        transactional {
+            entity.delete()
+        }
+        listener.check()
+    }
+
+    @Test
     fun `listener should allow loading links from removed entities`() {
         val listener = CallbackListener()
         store.addListener(listener)
@@ -206,12 +245,6 @@ class TransientStoreSessionListenerTest : DBTest() {
                 children.add(child1)
                 children.add(child2)
             }
-        }
-
-        store.transactional {
-            val ll = child1?.parent
-
-            println(ll)
         }
 
         listener.onFlush { changes ->
