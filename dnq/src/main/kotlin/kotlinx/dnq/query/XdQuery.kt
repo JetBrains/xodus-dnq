@@ -286,6 +286,16 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
     return XdQueryImpl(iterable, this)
 }
 
+fun <T : XdEntity> XdEntityType<T>.wrapAsQuery(vararg elements: T?): XdQuery<T> = XdQueryImpl(
+    elements
+        .asSequence()
+        .filterNotNull()
+        .map { it.entity }
+        .toList()
+        .ifEmpty { YTDBEntityIterable.EMPTY },
+    this
+)
+
 /**
  * Builds a query of given elements.
  *
