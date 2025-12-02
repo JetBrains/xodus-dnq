@@ -102,9 +102,9 @@ class TransactionsIsolationTest : DBTest() {
             var i = 0
             while (i < cycles) {
                 transactional {
-                    if (i % 1000 == 0) {
-                        println("Check cycle $i")
-                    }
+//                    if (i % 1000 == 0) {
+//                        println("Check cycle $i")
+//                    }
                     val s = sizes
                     if (s[0] == init && s[1] == 0 && s[2] == 0 || s[0] == 0 && s[1] == init && s[2] == 0) {
                         // ok
@@ -127,9 +127,7 @@ class TransactionsIsolationTest : DBTest() {
                     Something.all().toList().forEach {
                         it.sometext = if (a) "bsomething" else "asomething"
                     }
-                    println("Update before flush.")
                     txn.flush()
-                    println("Update after flush.")
                 }
                 a = !a
                 Thread.yield()
