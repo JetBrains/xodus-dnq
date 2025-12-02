@@ -44,6 +44,7 @@ class TransientEntitiesUpdaterImpl(
     }
 
     private val changes = QueueDecorator<() -> Boolean>()
+    private var replayInProgress = false;
 
     // we keep this collection to be able to call TransientChangesTracker.entityBeforeRemoved() during
     // transaction replay. This is crucial for generating correct REMOVED events with
@@ -52,8 +53,6 @@ class TransientEntitiesUpdaterImpl(
 
     private val transientChangesTracker get() = session.transientChangesTracker
     private val originalValuesProvider get() = session.originalValuesProvider
-
-    private var allowRunnable = true
 
     override fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream) {
         addChangeAndRun {
@@ -501,15 +500,19 @@ class TransientEntitiesUpdaterImpl(
     }
 
     override fun addChange(change: () -> Boolean): () -> Boolean {
-        if (allowRunnable) {
-            changes.offer(change)
+        if (replayInProgress) {
+            throw IllegalStateException("Changes can't be added during changes replay")
         }
+        changes.offer(change)
         return change
     }
 
     override fun hasChanges() = changes.isNotEmpty()
 
     override fun clear() {
+        if (replayInProgress) {
+            throw IllegalStateException("Changes can't be cleared during changes replay")
+        }
         changes.clear()
         deletedEntities.clear()
     }
@@ -517,6 +520,14 @@ class TransientEntitiesUpdaterImpl(
     override fun getDeletedEntities(): List<TransientEntity> = deletedEntities
 
     override fun replayChanges() {
-        changes.forEach { it() }
+        if (replayInProgress) {
+            throw IllegalStateException("Replay already in progress");
+        }
+        replayInProgress = true
+        try {
+            changes.forEach { it() }
+        } finally {
+            replayInProgress = false
+        }
     }
 }
