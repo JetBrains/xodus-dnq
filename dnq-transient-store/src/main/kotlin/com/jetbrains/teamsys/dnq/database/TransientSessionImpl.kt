@@ -59,7 +59,7 @@ class TransientSessionImpl(
     private var quietFlush = false
     private var loadedIds: EntityIdSet = EntityIdSetFactory.newSet()
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
-    private var allowRunnables = true
+    internal var allowRunnables = true
     internal val removedEntitiesData =
         IdentityHashMap<DNQListener<*>, MutableMap<EntityId, RemovedEntityData<*>>>()
 
