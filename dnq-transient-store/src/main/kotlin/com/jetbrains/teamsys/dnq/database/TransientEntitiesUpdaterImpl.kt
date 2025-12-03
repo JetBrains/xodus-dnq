@@ -44,7 +44,7 @@ class TransientEntitiesUpdaterImpl(
     }
 
     private val changes = QueueDecorator<() -> Boolean>()
-    private var replayInProgress = false;
+    private var replayInProgress = false
 
     // we keep this collection to be able to call TransientChangesTracker.entityBeforeRemoved() during
     // transaction replay. This is crucial for generating correct REMOVED events with
@@ -503,7 +503,9 @@ class TransientEntitiesUpdaterImpl(
         if (replayInProgress) {
             throw IllegalStateException("Changes can't be added during changes replay")
         }
-        changes.offer(change)
+        if (session.allowRunnables) {
+            changes.offer(change)
+        }
         return change
     }
 
