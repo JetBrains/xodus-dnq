@@ -500,10 +500,10 @@ class TransientEntitiesUpdaterImpl(
     }
 
     override fun addChange(change: () -> Boolean): () -> Boolean {
-        if (replayInProgress) {
-            throw IllegalStateException("Changes can't be added during changes replay")
-        }
         if (session.allowRunnables) {
+            if (replayInProgress) {
+                throw IllegalStateException("Changes can't be added during changes replay")
+            }
             changes.offer(change)
         }
         return change
