@@ -25,6 +25,6 @@ val Entity.wrapper: XdEntity get() = toXd(this)
 @Deprecated("Use toXd() instead. May be removed after 01.09.2017", ReplaceWith("toXd<T>()"))
 fun <T : XdEntity> Entity.wrapper() = XdModel.toXd<T>(this)
 
-fun <T : XdEntity> Entity.toXd() = XdModel.toXd<T>(this)
+fun <T : XdEntity> Entity.toXd(ignoreXdCache: Boolean = false) = XdModel.toXd<T>(this, ignoreXdCache)
 
 val TransientEntityStore.session: TransientStoreSession get() = threadSession ?: throw IllegalStateException("No current transient session.")

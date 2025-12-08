@@ -19,8 +19,13 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.query.addAll
+import kotlinx.dnq.query.filter
+import kotlinx.dnq.query.toList
 import org.junit.Test
 import java.util.*
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 
 class FindOrCreateTest : DBTest() {
@@ -54,13 +59,18 @@ class FindOrCreateTest : DBTest() {
         }
     }
 
+    class JustCounter(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<JustCounter>()
+
+        var value by xdRequiredIntProp()
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNode(ApprovedScope)
+        XdModel.registerNodes(ApprovedScope, JustCounter)
     }
 
     @Test
-    
     fun `sequential creation should return the same entity`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }
@@ -122,7 +132,6 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
-    
     fun `simple findOrNew`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }
@@ -142,6 +151,59 @@ class FindOrCreateTest : DBTest() {
         store.transactional {
             assertThat(user1).isNotEqualTo(user2)
             assertThat(user2).isEqualTo(user)
+        }
+    }
+
+    @Test
+    fun `findOrNew with replay`() {
+        val counter = transactional { JustCounter.new { value = 0 } }
+
+        val userName = "test findOrNew"
+        val boss = transactional { User.new { login = "supervisor"; skill = 123 } }
+        val user = transactional { User.new {
+            login = userName
+            skill = 123
+            supervisor = boss
+        } }
+
+        val start = CyclicBarrier(2)
+        val end = CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(2)
+
+        val t1 = pool.submit {
+            transactional {
+                start.await()
+                counter.value += 1
+                user.delete()
+            }
+            transactional {
+                assertThat(User.all().toList()).hasSize(1)
+            }
+            end.countDown()
+        }
+
+        val t2 = pool.submit {
+            transactional {
+                start.await()
+                counter.value += 1
+                User.findOrNew(User.filter { it.login eq userName }) {
+                    println(user)
+                    login = userName
+                    skill = 456
+                    supervisor = boss
+                }
+                end.await()
+            }
+        }
+
+        listOf(t1, t2).forEach { it.get() }
+
+        transactional {
+            val users = User.all().filter { it.login eq userName }.toList()
+
+            assertThat(users).hasSize(1)
+            assertThat(users.first().login).isEqualTo(userName)
+            assertThat(users.first().entityId).isNotEqualTo(user.entityId)
         }
     }
 }

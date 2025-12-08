@@ -790,7 +790,7 @@ fun <T : XdEntity> XdQuery<T>.first(node: NodeBase): T {
 /**
  * Returns the first result of the query, or `null` if the query is empty.
  */
-fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
+fun <T : XdEntity> XdQuery<T>.firstOrNull(ignoreXdCache: Boolean = false): T? {
     if (entityIterable is TransientEntityIterable){
         return useIterable(entityIterable) { eit -> eit.firstOrNull()?.let { entityType.wrap(it) } }
     }
@@ -800,7 +800,7 @@ fun <T : XdEntity> XdQuery<T>.firstOrNull(): T? {
     } else {
         useIterable(it) { eit -> eit.firstOrNull() }
     }
-    return entity?.let { entityType.wrap(it) }
+    return entity?.let { entityType.wrap(it, ignoreXdCache) }
 }
 
 /**
