@@ -149,13 +149,13 @@ object XdModel : KLogging() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <T : XdEntity> toXd(entity: Entity): T {
+    fun <T : XdEntity> toXd(entity: Entity, ignoreXdCache: Boolean = false): T {
         // this is hack to support abstract type in XdEntityType.filter {} api
         if (entity is FakeTransientEntity) {
             return entity.toXdHandlingAbstraction()
         }
 
-        if (entity is TransientEntityImpl && !entity.isReadonly /* filter entities created over snapshot transaction */) {
+        if (!ignoreXdCache && entity is TransientEntityImpl && !entity.isReadonly /* filter entities created over snapshot transaction */) {
             toXdCache.tryKey(entity.cacheKey)?.let { cachedValue ->
                 if (cachedValue.entity == entity) {
                     return cachedValue.xdEntity as T
@@ -166,14 +166,15 @@ object XdModel : KLogging() {
         val xdHierarchyNode = getOrThrow(entity.type)
         val entityType = xdHierarchyNode.entityType
         if (entityType is XdNaturalWrapper) {
-            return entityType.naturalWrap(entity).asCached as T
+            val wrapped = entityType.naturalWrap(entity)
+            return (if (ignoreXdCache) wrapped else wrapped.asCached) as T
         }
 
         val entityConstructor = xdHierarchyNode.entityConstructor
                 ?: throw UnsupportedOperationException("Constructor for the type ${entity.type} is not found")
 
-        return entityConstructor(entity).asCached as T
-
+        val wrapped = entityConstructor(entity)
+        return (if (ignoreXdCache) wrapped else wrapped.asCached) as T
     }
 
     fun <T : XdEntity> getCommonAncestor(typeA: XdEntityType<T>, typeB: XdEntityType<T>): XdEntityType<T>? {

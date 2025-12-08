@@ -24,7 +24,9 @@ import kotlinx.dnq.session
 
 fun <XD : XdEntity> XdEntityType<XD>.findOrNew(findQuery: XdQuery<XD>, initNew: XD.() -> Unit): XD {
     val entityCreator = object : EntityCreator(entityType) {
-        override fun find() = findQuery.firstOrNull()?.entity
+        // we need to ignore XD cache, because during transaction replays
+        // deleted and existing transient entities maybe be mixed up.
+        override fun find() = findQuery.firstOrNull(ignoreXdCache = true)?.entity
 
         override fun created(entity: Entity) {
             wrap(entity).also {
