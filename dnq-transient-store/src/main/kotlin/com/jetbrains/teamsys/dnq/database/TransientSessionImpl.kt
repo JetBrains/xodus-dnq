@@ -209,6 +209,10 @@ class TransientSessionImpl(
         return true
     }
 
+    private fun flushAfterReplay(): Boolean {
+        logger.debug { "Flushing changes after replay" }
+        return transactionInternal.flush()
+    }
 
     /**
      * Flushes changes
@@ -224,13 +228,17 @@ class TransientSessionImpl(
             if (this.isIdempotent) return
 
             try {
+                var replaying = false
                 while (true) {
                     try {
                         performDeferredEntitiesDeletion()
-                        if (transactionInternal.flush()) {
+                        // we want "flushAfterReplay" to appear as a separate call in the stack trace
+                        val success = if (replaying) flushAfterReplay() else transactionInternal.flush()
+                        if (success) {
                             return
                         }
                     } catch (nre: NeedRetryException) {
+                        replaying = true
                         logger.debug(nre) { "Replaying changes: ${nre.message}" }
 
                         // replay changes
