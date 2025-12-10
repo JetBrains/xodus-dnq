@@ -245,8 +245,6 @@ class TransientSessionImpl(
                         transactionInternal = this.store.persistentStore.beginTransaction()
                         transientChangesTracker.changedEntities.forEach {
                             it.resetIfNew()
-                        }
-                        transientChangesTracker.changedEntities.forEach {
                             it.generateIdIfNew()
                         }
 
