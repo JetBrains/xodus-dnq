@@ -297,7 +297,7 @@ sealed class GremlinQuery {
         }
 
         override fun continueTraversal(t: YT, paramCounter: Int, ignoreSort: Boolean): YTBuilder {
-            val subi = subtraversals(0, ignoreSort)
+            val subi = subtraversals(paramCounter, ignoreSort)
             return YTBuilder.of(t.union(*subi.first), counter = subi.second)
         }
 
