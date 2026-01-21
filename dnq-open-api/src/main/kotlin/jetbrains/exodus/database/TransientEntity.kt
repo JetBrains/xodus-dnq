@@ -32,7 +32,7 @@ interface TransientEntity : Entity {
     val isWrapper: Boolean
 
     /**
-     * @return underlying OEntity
+     * @return underlying YTDBEntity
      */
     val entity: YTDBEntity
 

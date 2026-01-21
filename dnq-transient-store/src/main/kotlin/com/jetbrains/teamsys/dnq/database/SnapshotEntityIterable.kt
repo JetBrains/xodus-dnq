@@ -95,8 +95,8 @@ internal class SnapshotEntityIterator(
 
         fun wrapEntity(entity: Entity, store: TransientEntityStore) = when (entity) {
             is YTDBVertexEntityRemoved -> RemovedTransientEntity(entity, store)
-            is TransientEntity -> entity
-            is YTDBEntity -> TransientEntityImpl(entity, store)
+            is TransientEntity -> ReadonlyTransientEntity(entity.entity, store)
+            is YTDBEntity -> ReadonlyTransientEntity(entity, store)
             else -> entity
         }
     }

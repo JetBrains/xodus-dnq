@@ -168,7 +168,6 @@ class ListenersTest : DBTest() {
     }
 
     @Test
-    @Ignore("Looks like listeners should prohibit updating linked entities of removed records in this particular scenario. Must be fixed")
     fun removedTestWithLinksTest() {
         var failedInWriteInOnRemoveHandler = false
         Goo.addListener(store, object : XdEntityListener<Goo> {
@@ -253,40 +252,6 @@ class ListenersTest : DBTest() {
         }
         Assert.assertEquals(0, refNew.get())
         Assert.assertEquals(2, refOld.get())
-    }
-
-    @Test
-    fun removedTestWithLinksTestWithStore() {
-        Goo.addListener(store, object : XdEntityListener<Goo> {
-            override fun removedSync(removed: Goo) {
-                val list: List<Foo> = removed.content.toList()
-                list.forEach {
-                    it.intField = 11
-                }
-                ref.set(list.size)
-            }
-        })
-
-        val goo = store.transactional {
-            Goo.new().apply {
-                repeat(4) {
-                    content.add(Foo.new().apply {
-                        intField = 99
-                    })
-                }
-            }
-        }
-        store.transactional {
-            goo.delete()
-        }
-
-        Truth.assertThat(ref.get()).isEqualTo(4)
-        Truth.assertThat(
-            store.transactional {
-                Foo.all().toList().map { it.intField }.all { it == 11 }
-            }
-
-        ).isTrue()
     }
 
     @Test
