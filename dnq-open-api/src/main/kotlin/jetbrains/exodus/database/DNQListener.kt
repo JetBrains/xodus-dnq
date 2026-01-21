@@ -27,18 +27,15 @@ interface DNQListener<in T : Any> {
     fun updatedSync(old: T, current: T)
 
     /**
-     * Processes an entity that has been removed before applying constraints. Links and properties of the removed entity are still available and can be stored in removedEntityData for further use.
-     *
+     * Processes an entity that has been removed before applying constraints.
      * @param removed The entity that has been removed.
-     * @param removedEntityData Data related to the removed entity.
      */
-    fun removedSyncBeforeConstraints(removed: T, removedEntityData: RemovedEntityData<T>)
+    fun removedSyncBeforeConstraints(removed: T)
     /**
-     * Processes an entity that has been removed. If any property or link is required in the removedSync handler, it should be stored in the removedSyncBeforeConstraints with removedEntityData.storeValue(...)
-     *
-     * @param removedEntityData Data related to the removed entity.
+     * Processes an entity that has been removed.
+     * @param removed The entity that has been removed.
      */
-    fun removedSync(removedEntityData: RemovedEntityData<T>)
+    fun removedSync(removed: T)
 }
 
 /**

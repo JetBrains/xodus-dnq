@@ -69,12 +69,12 @@ internal class EntityListenerWrapper<in XD : XdEntity>(val wrapped: XdEntityList
 
     override fun updatedSync(old: Entity, current: Entity) = wrapped.updatedSync(old.toXd(), current.toXd())
 
-    override fun removedSyncBeforeConstraints(removed: Entity, removedEntityData: RemovedEntityData<Entity>) {
-        wrapped.removedSyncBeforeConstraints(removed.toXd(), XdRemovedEntityData(removedEntityData))
+    override fun removedSyncBeforeConstraints(removed: Entity) {
+        wrapped.removedSyncBeforeConstraints(removed.toXd())
     }
 
-    override fun removedSync(removedEntityData: RemovedEntityData<Entity>) {
-        wrapped.removedSync(XdRemovedEntityData(removedEntityData))
+    override fun removedSync(removed: Entity) {
+        wrapped.removedSync(removed.toXd())
     }
 
     override fun hashCode() = wrapped.hashCode()
