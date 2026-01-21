@@ -27,18 +27,22 @@ object NodeFactory {
     @JvmStatic
     fun all(): LeafNode = LeafNode(All)
 
+    @JvmStatic
     fun propEqual(property: String, value: Comparable<*>?): LeafNode =
         LeafNode(
             if (value == null) PropNull((property))
             else PropEqual(property, value)
         )
 
+    @JvmStatic
     fun propNull(property: String): LeafNode =
         LeafNode(PropNull(property))
 
+    @JvmStatic
     fun propNotNull(property: String): LeafNode =
         LeafNode(PropNotNull(property))
 
+    @JvmStatic
     fun hasSubstring(
         property: String,
         value: String?,
@@ -53,6 +57,7 @@ object NodeFactory {
         )
     )
 
+    @JvmStatic
     fun hasElementWithSubstring(
         property: String,
         value: String?,
@@ -67,6 +72,7 @@ object NodeFactory {
         )
     )
 
+    @JvmStatic
     fun hasPrefix(
         property: String,
         value: String?,
@@ -81,6 +87,7 @@ object NodeFactory {
         )
     )
 
+    @JvmStatic
     fun hasElementWithPrefix(
         property: String,
         value: String?,
@@ -96,6 +103,7 @@ object NodeFactory {
             )
         )
 
+    @JvmStatic
     fun stringPropEqual(property: String, value: String?, ignoreCase: Boolean = true): LeafNode =
         if (value == null) LeafNode(PropNull(property))
         else LeafNode(
@@ -108,6 +116,7 @@ object NodeFactory {
             )
         )
 
+    @JvmStatic
     fun hasStringElement(property: String, value: String?, ignoreCase: Boolean = true): LeafNode =
         LeafNode(
             MatchStringProp(
@@ -119,19 +128,26 @@ object NodeFactory {
             )
         )
 
+    @JvmStatic
     fun hasElement(property: String, value: Any): LeafNode =
         LeafNode(HasElement(property, value))
 
+    @JvmStatic
     fun hasLinkTo(linkName: String, entity: Entity?) =
         if (entity == null) hasNoLink(linkName)
         else LeafNode(HasLinkTo(linkName, (entity.id as YTDBEntityId).asOId()))
 
+    @JvmStatic
     fun hasNoLink(linkName: String) = LeafNode(HasNoLink(linkName))
+
+    @JvmStatic
     fun hasLink(linkName: String) = LeafNode(HasLink(linkName))
 
+    @JvmStatic
     fun inRange(property: String, min: Comparable<*>, max: Comparable<*>) =
         LeafNode(PropInRange(property, min, max))
 
+    @JvmStatic
     fun or(left: NodeBase, right: NodeBase): BinaryNode =
         BinaryNode(
             left, right, true, "or",
@@ -139,24 +155,29 @@ object NodeFactory {
             ::Or, Iterable<Entity>::union
         )
 
+    @JvmStatic
     fun and(left: NodeBase, right: NodeBase): BinaryNode =
         BinaryNode(
             left, right, true, "and",
             ::And, ::intersectTwoIts
         )
 
+    @JvmStatic
     fun combine(first: NodeBase, second: NodeBase): BinaryNode =
         BinaryNode(
             first, second, commutative = false, "andThen",
             ::AndThen
         )
 
+    @JvmStatic
     fun not(nodeBase: NodeBase): UnaryNode =
         UnaryNode(nodeBase, "not", ::Not)
 
+    @JvmStatic
     fun sortBy(propName: String, direction: SortDirection) =
         LeafNode(Sort(Sort.ByProp(propName), direction))
 
+    @JvmStatic
     fun sortByLinked(linkName: String, propName: String, direction: SortDirection) =
         LeafNode(Sort(Sort.ByLinked(linkName, propName), direction))
 
