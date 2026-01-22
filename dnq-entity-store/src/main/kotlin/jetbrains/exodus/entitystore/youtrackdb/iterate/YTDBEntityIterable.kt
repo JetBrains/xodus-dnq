@@ -17,6 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb.iterate
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.StoreTransaction
@@ -46,6 +47,13 @@ interface YTDBEntityIterable : EntityIterable {
 
         @JvmStatic
         fun empty() = EMPTY
+
+        @JvmStatic
+        fun single(tx: YTDBStoreTransaction, entityId: EntityId) = query(
+            tx,
+            GremlinQuery.all
+                .then(GremlinBlock.IdEqual((entityId as YTDBEntityId).asOId()))
+        )
 
         val EMPTY = object : YTDBEntityIterable {
 

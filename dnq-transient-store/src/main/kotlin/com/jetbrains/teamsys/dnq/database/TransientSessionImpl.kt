@@ -25,7 +25,6 @@ import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
-import jetbrains.exodus.entitystore.youtrackdb.YTDBReadonlyVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.env.ReadonlyTransactionException
 import mu.KLogging
@@ -735,19 +734,8 @@ class TransientSessionImpl(
     }
 
     private fun newEntityImpl(persistent: Entity): TransientEntity {
-        return when (persistent) {
-            is YTDBReadonlyVertexEntity -> {
-                ReadonlyTransientEntity(persistent, store)
-            }
-
-            is TransientEntity -> {
-                persistent
-            }
-
-            else -> {
-                TransientEntityImpl(persistent as YTDBEntity, getStore())
-            }
-        }
+        return persistent as? TransientEntity ?:
+            TransientEntityImpl(persistent as YTDBEntity, getStore())
     }
 
     internal fun createEntity(transientEntity: TransientEntityImpl, type: String) {

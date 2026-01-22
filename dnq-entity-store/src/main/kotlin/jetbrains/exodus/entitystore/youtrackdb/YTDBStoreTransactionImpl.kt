@@ -266,10 +266,7 @@ class YTDBStoreTransactionImpl(
 
     override fun getSingletonIterable(entity: Entity): YTDBEntityIterable {
         requireActiveTransaction()
-        return YTDBEntityIterable.query(
-            this, GremlinQuery.all
-                .then(GremlinBlock.IdEqual((entity.id as YTDBEntityId).asOId()))
-        )
+        return YTDBEntityIterable.single(this, entity.id)
     }
 
     override fun find(
