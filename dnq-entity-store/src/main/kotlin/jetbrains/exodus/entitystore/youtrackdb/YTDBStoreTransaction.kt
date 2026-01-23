@@ -198,4 +198,21 @@ interface YTDBStoreTransaction : StoreTransaction {
     ): YTDBEntityIterable
 
     override fun toEntityId(representation: String): YTDBEntityId
+
+    /**
+     * Returns a user object identified by the specified key and bound to the transaction, or `null` if no
+     * object is bound to the transaction by the specified key.
+     *
+     * @param key a key identifying the user object
+     * @return a user object identified by the specified key and bound to the transaction
+     */
+    fun getUserObject(key: Any): Any?
+
+    /**
+     * Bind a user object (`value`) identified by a key to the transaction.
+     *
+     * @param key   a key identifying the user object
+     * @param value user object bound to the transaction
+     */
+    fun setUserObject(key: Any, value: Any)
 }

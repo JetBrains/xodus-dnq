@@ -30,16 +30,16 @@ import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.Questionable
+import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.StringCompare
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterableImpl
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.env.ReadonlyTransactionException
-import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 internal typealias TransactionEventHandler = (YTDBStoreTransaction) -> Unit
@@ -52,6 +52,8 @@ class YTDBStoreTransactionImpl(
     private val readOnly: Boolean = false
 ) : YTDBStoreTransaction {
     private var queryCancellingPolicy: YTDBQueryCancellingPolicy? = null
+
+    private val userObjects: MutableMap<Any, Any> = HashMapDecorator()
 
     /**
      * Get access to the underlying YTDB database session. This method should not be used in general,
@@ -94,13 +96,6 @@ class YTDBStoreTransactionImpl(
         check(!isFinished) {
             "The transaction is finished"
         }
-//        check((session as DatabaseSessionInternal).isActiveOnCurrentThread) {
-//            "The active session is no the session the transaction was started in"
-//        }
-//        val currentTx = session.activeTransaction
-//        check(currentTx.status == FrontendTransaction.TXSTATUS.BEGUN) {
-//            "The current OTransaction status is ${currentTx.status}, but the status ${FrontendTransaction.TXSTATUS.BEGUN} was expected."
-//        }
     }
 
     override fun requireActiveWritableTransaction() {
@@ -169,6 +164,7 @@ class YTDBStoreTransactionImpl(
 
     private fun cleanUpTxIfNeeded() {
         if (isFinished) {
+            clearUserObjects()
             onFinished(this)
         }
     }
@@ -618,4 +614,23 @@ class YTDBStoreTransactionImpl(
     override fun getType(entityTypeId: Int): String {
         return schemaBuddy.getType(activeYtdbSession(), entityTypeId)
     }
+
+    override fun getUserObject(key: Any): Any? {
+        synchronized(userObjects) {
+            return userObjects[key]
+        }
+    }
+
+    override fun setUserObject(key: Any, value: Any) {
+        synchronized(userObjects) {
+            userObjects[key] = value
+        }
+    }
+
+    private fun clearUserObjects() {
+        synchronized(userObjects) {
+            userObjects.clear()
+        }
+    }
+
 }
