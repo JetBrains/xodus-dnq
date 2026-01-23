@@ -61,7 +61,7 @@ fun eq(dbPropertyName: String, value: Comparable<*>?): NodeBase {
  *
  * value of `this` property equal to the given [value].
  */
-infix inline fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.eq(value: T?): NodeBase {
+inline infix fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.eq(value: T?): NodeBase {
     return eq(this.getDBName(R::class), value)
 }
 
@@ -70,7 +70,7 @@ infix inline fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.eq(
  *
  * value of `this` property equal to the given [value].
  */
-infix inline fun <reified R : XdEntity> KProperty1<R, DateTime?>.eq(value: DateTime?): NodeBase {
+inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.eq(value: DateTime?): NodeBase {
     return eq(this.getDBName(R::class), value?.millis)
 }
 
@@ -88,7 +88,7 @@ fun ne(dbPropertyName: String, value: Comparable<*>?): NodeBase {
  *
  * value of `this` property is not equal to the given [value].
  */
-infix inline fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.ne(value: T?): NodeBase {
+inline infix fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.ne(value: T?): NodeBase {
     return ne(this.getDBName(R::class), value)
 }
 
@@ -97,7 +97,7 @@ infix inline fun <reified R : XdEntity, T : Comparable<*>> KProperty1<R, T?>.ne(
  *
  * value of `this` property is not equal to the given [value].
  */
-infix inline fun <reified R : XdEntity> KProperty1<R, DateTime?>.ne(value: DateTime?): NodeBase {
+inline infix fun <reified R : XdEntity> KProperty1<R, DateTime?>.ne(value: DateTime?): NodeBase {
     return ne(this.getDBName(R::class), value?.millis)
 }
 
@@ -115,7 +115,7 @@ fun <T : Comparable<T>> ClosedRange<T>.contains(dbPropertyName: String): NodeBas
  *
  * value of the given [property] falls into `this` range.
  */
-infix inline fun <reified R : XdEntity, T : Comparable<T>> ClosedRange<T>.contains(property: KProperty1<R, T?>): NodeBase {
+inline infix fun <reified R : XdEntity, T : Comparable<T>> ClosedRange<T>.contains(property: KProperty1<R, T?>): NodeBase {
     return contains(property.getDBName(R::class))
 }
 
@@ -125,7 +125,7 @@ infix inline fun <reified R : XdEntity, T : Comparable<T>> ClosedRange<T>.contai
  * value of the given [property] falls into `this` range.
  */
 @JvmName("containsDate")
-infix inline fun <reified R : XdEntity> ClosedRange<DateTime>.contains(property: KProperty1<R, DateTime?>): NodeBase {
+inline infix fun <reified R : XdEntity> ClosedRange<DateTime>.contains(property: KProperty1<R, DateTime?>): NodeBase {
     return (start.millis..endInclusive.millis).contains(property.getDBName(R::class))
 }
 
@@ -136,6 +136,10 @@ infix inline fun <reified R : XdEntity> ClosedRange<DateTime>.contains(property:
  */
 fun <V : Comparable<V>> gt(dbPropertyName: String, value: V, valueKClass: KClass<V>): NodeBase {
     return NodeFactory.inRange(dbPropertyName, valueKClass.next(value), valueKClass.maxValue())
+}
+
+inline fun <reified R : XdEntity> KProperty1<R, String?>.contains(value: String?, ignoreCase: Boolean = true): NodeBase {
+    return NodeFactory.hasSubstring(this.getDBName(R::class), value, ignoreCase)
 }
 
 /**

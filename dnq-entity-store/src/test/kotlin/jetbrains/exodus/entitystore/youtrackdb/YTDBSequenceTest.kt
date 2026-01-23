@@ -26,7 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
-class YTDBSequenceImplTest : OTestMixin {
+class YTDBSequenceTest : OTestMixin {
     @Rule
     @JvmField
     val orientDbRule = InMemoryYouTrackDB()

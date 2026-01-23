@@ -33,6 +33,9 @@ class YTDBEntityIterator(
     companion object {
         val EMPTY = YTDBEntityIterator(emptyList<YTDBVertexEntity>().iterator(), closed = true)
 
+        @JvmStatic
+        fun empty() = EMPTY
+
         fun of(traversal: GraphTraversal<*, YTDBVertex>, store: YTDBEntityStore) = YTDBEntityIterator(
             vertices = traversal.iterator().asSequence().map {
                 YTDBVertexEntity(it, store)

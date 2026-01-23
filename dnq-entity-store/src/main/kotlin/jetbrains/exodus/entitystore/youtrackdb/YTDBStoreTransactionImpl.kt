@@ -568,7 +568,7 @@ class YTDBStoreTransactionImpl(
         val session = activeYtdbSession()
         // make sure the OSequence created
         schemaBuddy.getOrCreateSequence(session, sequenceName, initialValue)
-        return YTDBSequenceImpl(session as DatabaseSessionEmbedded, sequenceName, store)
+        return YTDBSequence(session as DatabaseSessionEmbedded, sequenceName, store)
     }
 
     override fun getOSequence(sequenceName: String): DBSequence {

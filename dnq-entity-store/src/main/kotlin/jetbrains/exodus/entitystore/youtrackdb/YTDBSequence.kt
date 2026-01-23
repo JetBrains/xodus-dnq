@@ -34,7 +34,7 @@ import jetbrains.exodus.entitystore.Sequence
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-internal class YTDBSequenceImpl(
+internal class YTDBSequence(
     private val session: DatabaseSessionEmbedded,
     private val sequenceName: String,
     private val store: YTDBPersistentEntityStore

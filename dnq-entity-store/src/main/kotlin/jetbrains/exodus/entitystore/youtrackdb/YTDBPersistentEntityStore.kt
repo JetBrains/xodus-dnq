@@ -160,7 +160,7 @@ class YTDBPersistentEntityStore(
         currentTx.deleteOClass(entityTypeName)
     }
 
-    override fun getAndCheckCurrentTransaction(): StoreTransaction {
+    override fun getAndCheckCurrentTransaction(): YTDBStoreTransaction {
         return requireActiveTransaction()
     }
 
