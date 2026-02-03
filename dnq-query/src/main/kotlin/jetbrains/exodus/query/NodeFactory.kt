@@ -28,6 +28,9 @@ object NodeFactory {
     fun all(): LeafNode = LeafNode(All)
 
     @JvmStatic
+    fun none(): LeafNode = LeafNode(None)
+
+    @JvmStatic
     fun propEqual(property: String, value: Comparable<*>?): LeafNode =
         LeafNode(
             if (value == null) PropNull((property))
