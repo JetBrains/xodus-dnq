@@ -98,7 +98,7 @@ interface YTDBEntityIterable : EntityIterable {
 
     fun traversal(): GraphTraversal<*, YTDBVertex>
 
-    fun idSet(): EntityIdSet
+    fun idSet(): EntityIdSet = this.fold(EntityIdSetFactory.newSet()) { acc, e -> acc.add(e.id) }
 }
 
 class YTDBEntityIterableImpl(
