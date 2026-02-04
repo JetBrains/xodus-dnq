@@ -36,6 +36,8 @@ class YTDBPersistentEntityStore(
         currentTransaction.remove()
     }
 
+    fun isDatabaseClosed(): Boolean = !databaseProvider.isOpen
+
     override fun getName() = name
 
     override fun getLocation(): String {
