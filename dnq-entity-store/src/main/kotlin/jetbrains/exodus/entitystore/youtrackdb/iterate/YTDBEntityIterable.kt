@@ -22,6 +22,8 @@ import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.asYTDBIterable
+import jetbrains.exodus.entitystore.iterate.EntityIdSet
+import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.entitystore.util.unsupported
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
@@ -86,6 +88,7 @@ interface YTDBEntityIterable : EntityIterable {
             override fun getLast(): Entity? = null
             override fun reverse(): EntityIterable = this
             override fun selectDistinct(linkName: String) = this
+            override fun idSet(): EntityIdSet = EntityIdSetFactory.newSet()
         }
     }
 
@@ -94,6 +97,8 @@ interface YTDBEntityIterable : EntityIterable {
     val query: GremlinQuery
 
     fun traversal(): GraphTraversal<*, YTDBVertex>
+
+    fun idSet(): EntityIdSet
 }
 
 class YTDBEntityIterableImpl(
@@ -236,4 +241,7 @@ class YTDBEntityIterableImpl(
                 .query
                 .then(GremlinBlock.InLink(linkName))
         ).distinct()
+
+    override fun idSet(): EntityIdSet =
+        this.fold(EntityIdSetFactory.newSet()) { acc, e -> acc.add(e.id) }
 }
