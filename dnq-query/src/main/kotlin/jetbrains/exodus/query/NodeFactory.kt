@@ -18,6 +18,7 @@ package jetbrains.exodus.query
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.*
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import java.util.stream.Collectors
 import java.util.stream.StreamSupport
 
@@ -175,6 +176,24 @@ object NodeFactory {
     @JvmStatic
     fun not(nodeBase: NodeBase): UnaryNode =
         UnaryNode(nodeBase, "not", ::Not)
+
+    /** Create a nested version of a node base representing a condition. If the query inside the node base
+     * is not a [GremlinQuery.Condition], then an IllegalArgumentException is thrown */
+    @JvmStatic
+    fun nested(linkName: String, nodeBase: NodeBase): LeafNode =
+        (nodeBase.query as? GremlinQuery.Condition)?.let { condition ->
+            val newNesting = listOf(linkName)
+            when (condition) {
+                is GremlinQuery.NestedCondition -> LeafNode(
+                    GremlinQuery.NestedCondition(
+                        newNesting + condition.structure,
+                        condition.condition
+                    )
+                )
+
+                else -> LeafNode(GremlinQuery.NestedCondition(newNesting, condition))
+            }
+        } ?: throw IllegalArgumentException("Only Condition instances can be used in the chain")
 
     @JvmStatic
     fun sortBy(propName: String, direction: SortDirection) =

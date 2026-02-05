@@ -228,19 +228,8 @@ internal fun NodeBase.decorateIfNeeded(): NodeBase {
     var result = this
     var temp = child.parentEntity
     while (temp != null) {
-        if (result !is LeafNode) return this
-        val condition = result.query as? GremlinQuery.Condition ?: return this
-        val newNesting = listOf(temp.currentNodeName!!)
-        result = LeafNode(
-            when (condition) {
-                is GremlinQuery.NestedCondition -> GremlinQuery.NestedCondition(
-                    newNesting + condition.structure,
-                    condition.condition
-                )
-
-                else -> GremlinQuery.NestedCondition(newNesting, condition)
-            }
-        )
+        if (result !is LeafNode || result.query !is GremlinQuery.Condition) return this
+        result = NodeFactory.nested(temp.currentNodeName!!, result)
         temp = temp.parentEntity
     }
     return result
