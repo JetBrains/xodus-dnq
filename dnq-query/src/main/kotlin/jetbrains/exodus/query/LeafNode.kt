@@ -28,6 +28,7 @@ class LeafNode(private val query: GremlinQuery) : NodeBase() {
 
     companion object {
         val none = LeafNode(GremlinBlock.None)
+        val all = LeafNode(GremlinBlock.All)
     }
 
     @Nonnull

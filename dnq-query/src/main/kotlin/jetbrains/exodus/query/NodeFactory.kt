@@ -26,10 +26,10 @@ import java.util.stream.StreamSupport
 object NodeFactory {
 
     @JvmStatic
-    fun all(): LeafNode = LeafNode(All)
+    fun all(): LeafNode = LeafNode.all
 
     @JvmStatic
-    fun none(): LeafNode = LeafNode(None)
+    fun none(): LeafNode = LeafNode.none
 
     @JvmStatic
     fun propEqual(property: String, value: Comparable<*>?): LeafNode =
