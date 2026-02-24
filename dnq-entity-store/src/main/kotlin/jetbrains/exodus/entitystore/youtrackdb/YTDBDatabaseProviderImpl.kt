@@ -15,23 +15,21 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.DatabaseSession
-import com.jetbrains.youtrackdb.api.YouTrackDB
-import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraph
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.security.SecurityUserImpl
-import com.jetbrains.youtrackdb.internal.server.YouTrackDBServer
 import mu.KLogging
 import java.io.File
-import kotlin.io.use
 import kotlin.streams.asSequence
 
 //username and password are considered to be same for all databases
 //todo this params also should be collected in some config entity
 class YTDBDatabaseProviderImpl(
     private val params: YTDBDatabaseParams,
-    private val database: YouTrackDB,
-    private val server: YouTrackDBServer?,
+    private val database: YouTrackDBImpl,
+//    private val server: YouTrackDBServer?,
 ) : YTDBDatabaseProvider {
 
     override var isOpen: Boolean = false
@@ -92,12 +90,12 @@ class YTDBDatabaseProviderImpl(
 
     fun initGraph() {
         _graph?.close()
-        _graph = database.openGraph(
+        _graph = database.cachedPool(
             params.databaseName,
             params.appUser.name,
             params.appUser.password,
-            params.youTrackDBConfig.toApacheConfiguration()
-        )
+            params.youTrackDBConfig
+        ).asGraph()
     }
 
     fun compact() {
@@ -108,10 +106,10 @@ class YTDBDatabaseProviderImpl(
         get() = File(params.databasePath, params.databaseName).absolutePath
 
 
-    override fun <R> withSession(block: (DatabaseSession) -> R): R =
+    override fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R =
         acquireSession().use(block)
 
-    private fun acquireSession(): DatabaseSession = (graph as YTDBGraphEmbedded).acquireSession()
+    private fun acquireSession(): DatabaseSessionEmbedded = (graph as YTDBGraphEmbedded).acquireSession()
 
     // it is always false at the beginning (it is impossible to close the database in the frozen state)
     private var _readOnly: Boolean = false
@@ -137,11 +135,11 @@ class YTDBDatabaseProviderImpl(
         // YouTrackDB cannot close the database if it is read-only (frozen)
         readOnly = false
         if (params.closeDatabaseInDbProvider) {
-            if (server != null) {
-                server.shutdown()
-            } else {
+//            if (server != null) {
+//                server.shutdown()
+//            } else {
                 database.close()
-            }
+//            }
         }
     }
 }

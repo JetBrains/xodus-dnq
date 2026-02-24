@@ -18,11 +18,9 @@ package jetbrains.exodus.entitystore.youtrackdb
 import YTDBDatabaseProviderFactory
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.api.DatabaseType
-import com.jetbrains.youtrackdb.api.YourTracks
 import com.jetbrains.youtrackdb.api.config.GlobalConfiguration
-import com.jetbrains.youtrackdb.api.config.YouTrackDBConfig
-import com.jetbrains.youtrackdb.api.exception.DatabaseException
-import com.jetbrains.youtrackdb.api.remote.RemoteDatabaseSession
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.exception.DatabaseException
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -37,9 +35,11 @@ import java.nio.file.Files
 import kotlin.io.path.absolutePathString
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
+import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.fail
 
+@Ignore("Server mode is disabled for now")
 class YTDBServerTest {
 
     val username = "admin"
@@ -177,7 +177,7 @@ class YTDBServerTest {
     }
 
     @Questionable("Find a way to connect to a remote database")
-    private fun remoteSession(): RemoteDatabaseSession {
+    private fun remoteSession(): DatabaseSessionEmbedded {
         return TODO()
 //        return YourTracks
 //            .remote("remote:localhost", serverConnectUser, serverConnectPassword, YouTrackDBConfig.defaultConfig())

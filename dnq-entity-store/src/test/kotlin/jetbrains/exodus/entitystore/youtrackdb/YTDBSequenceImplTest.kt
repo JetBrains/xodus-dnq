@@ -16,7 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.Sequence
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
@@ -82,7 +82,7 @@ class YTDBSequenceImplTest : OTestMixin {
     @Test
     fun `if you create a sequence in a transaction, nothing works`() {
         youTrackDb.withTxSession { session ->
-            val seq = (session as DatabaseSessionInternal).metadata.sequenceLibrary.createSequence(
+            val seq = (session as DatabaseSessionEmbedded).metadata.sequenceLibrary.createSequence(
                 "s1",
                 DBSequence.SEQUENCE_TYPE.ORDERED, DBSequence.CreateParams().setStart(300).setIncrement(1)
             )

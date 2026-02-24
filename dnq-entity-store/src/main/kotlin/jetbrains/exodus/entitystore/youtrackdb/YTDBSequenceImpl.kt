@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.Sequence
 
@@ -35,7 +35,7 @@ import jetbrains.exodus.entitystore.Sequence
  * limitations under the License.
  */
 internal class YTDBSequenceImpl(
-    private val session: DatabaseSessionInternal,
+    private val session: DatabaseSessionEmbedded,
     private val sequenceName: String,
     private val store: YTDBPersistentEntityStore
 ) : Sequence {

@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.migrate
 
-import com.jetbrains.youtrackdb.api.schema.PropertyType
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
 import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId

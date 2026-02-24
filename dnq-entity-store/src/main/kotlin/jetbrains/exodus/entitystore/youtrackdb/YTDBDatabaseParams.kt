@@ -17,8 +17,8 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.DatabaseType
 import com.jetbrains.youtrackdb.api.config.GlobalConfiguration
-import com.jetbrains.youtrackdb.api.config.YouTrackDBConfig
-import com.jetbrains.youtrackdb.api.config.YouTrackDBConfigBuilder
+import com.jetbrains.youtrackdb.internal.core.config.YouTrackDBConfig
+import com.jetbrains.youtrackdb.internal.core.config.YouTrackDBConfigBuilder
 import java.util.*
 import kotlin.math.min
 

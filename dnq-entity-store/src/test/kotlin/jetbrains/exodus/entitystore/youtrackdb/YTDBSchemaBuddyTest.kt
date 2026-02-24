@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
@@ -101,7 +101,7 @@ class YTDBSchemaBuddyTest : OTestMixin {
         withSession { session ->
             val params = DBSequence.CreateParams()
             params.start = 0
-            (session as DatabaseSessionInternal).metadata.sequenceLibrary.createSequence(
+            (session as DatabaseSessionEmbedded).metadata.sequenceLibrary.createSequence(
                 "seq",
                 DBSequence.SEQUENCE_TYPE.ORDERED,
                 params

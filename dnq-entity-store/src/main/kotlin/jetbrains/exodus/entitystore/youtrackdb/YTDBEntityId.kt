@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.record.RID
+import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import jetbrains.exodus.entitystore.EntityId
 
 interface YTDBEntityId : EntityId {

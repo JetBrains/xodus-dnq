@@ -15,11 +15,9 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.DatabaseSession
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.api.record.Vertex
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId
@@ -30,37 +28,37 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localE
 import java.util.concurrent.ConcurrentHashMap
 
 interface YTDBSchemaBuddy {
-    fun initialize(session: DatabaseSession)
+    fun initialize(session: DatabaseSessionEmbedded)
 
-    fun getOEntityId(session: DatabaseSession, entityId: PersistentEntityId): RIDEntityId
+    fun getOEntityId(session: DatabaseSessionEmbedded, entityId: PersistentEntityId): RIDEntityId
 
     /**
      * If the class has not been found, returns -1. It is how it was in the Classic Xodus.
      */
-    fun getTypeId(session: DatabaseSession, entityType: String): Int
+    fun getTypeId(session: DatabaseSessionEmbedded, entityType: String): Int
 
-    fun getType(session: DatabaseSession, entityTypeId: Int): String
+    fun getType(session: DatabaseSessionEmbedded, entityTypeId: Int): String
 
-    fun requireTypeExists(session: DatabaseSession, entityType: String)
+    fun requireTypeExists(session: DatabaseSessionEmbedded, entityType: String)
 
     fun getOrCreateSequence(
-        session: DatabaseSession,
+        session: DatabaseSessionEmbedded,
         sequenceName: String,
         initialValue: Long
     ): DBSequence
 
-    fun getSequence(session: DatabaseSession, sequenceName: String): DBSequence
+    fun getSequence(session: DatabaseSessionEmbedded, sequenceName: String): DBSequence
 
-    fun getSequenceOrNull(session: DatabaseSession, sequenceName: String): DBSequence?
+    fun getSequenceOrNull(session: DatabaseSessionEmbedded, sequenceName: String): DBSequence?
 
-    fun updateSequence(session: DatabaseSession, sequenceName: String, currentValue: Long)
+    fun updateSequence(session: DatabaseSessionEmbedded, sequenceName: String, currentValue: Long)
 
-    fun renameOClass(session: DatabaseSession, oldName: String, newName: String)
+    fun renameOClass(session: DatabaseSessionEmbedded, oldName: String, newName: String)
 
-    fun deleteOClass(session: DatabaseSession, name: String)
+    fun deleteOClass(session: DatabaseSessionEmbedded, name: String)
 
     fun getOrCreateEdgeClass(
-        session: DatabaseSession,
+        session: DatabaseSessionEmbedded,
         linkName: String,
         outClassName: String,
         inClassName: String
@@ -83,7 +81,7 @@ class YTDBSchemaBuddyImpl(
         }
     }
 
-    override fun initialize(session: DatabaseSession) {
+    override fun initialize(session: DatabaseSessionEmbedded) {
         session.createClassIdSequenceIfAbsent()
         for (oClass in session.schema.classes) {
             if (oClass.isVertexType && !INTERNAL_CLASS_NAMES.contains(oClass.name)) {
@@ -93,18 +91,18 @@ class YTDBSchemaBuddyImpl(
     }
 
     override fun getOrCreateSequence(
-        session: DatabaseSession,
+        session: DatabaseSessionEmbedded,
         sequenceName: String,
         initialValue: Long
     ): DBSequence {
         val oSequence =
-            (session as DatabaseSessionInternal).metadata.sequenceLibrary.getSequence(sequenceName)
+            (session as DatabaseSessionEmbedded).metadata.sequenceLibrary.getSequence(sequenceName)
         if (oSequence != null) return oSequence
 
 
         return dbProvider.withSession { dbSession ->
             val params = DBSequence.CreateParams().setStart(initialValue).setIncrement(1)
-            (dbSession as DatabaseSessionInternal).metadata.sequenceLibrary.createSequence(
+            (dbSession as DatabaseSessionEmbedded).metadata.sequenceLibrary.createSequence(
                 sequenceName,
                 DBSequence.SEQUENCE_TYPE.ORDERED,
                 params
@@ -112,7 +110,7 @@ class YTDBSchemaBuddyImpl(
         }
     }
 
-    override fun renameOClass(session: DatabaseSession, oldName: String, newName: String) {
+    override fun renameOClass(session: DatabaseSessionEmbedded, oldName: String, newName: String) {
         dbProvider.withSession { sessionToWork ->
             val oldClass = sessionToWork.schema.getClass(oldName)
                 ?: throw IllegalArgumentException("Class $oldName not found")
@@ -120,7 +118,7 @@ class YTDBSchemaBuddyImpl(
         }
     }
 
-    override fun deleteOClass(session: DatabaseSession, name: String) {
+    override fun deleteOClass(session: DatabaseSessionEmbedded, name: String) {
         dbProvider.withSession { sessionToWork ->
             val targetClass = sessionToWork.schema.getClass(name)
             if (targetClass != null) {
@@ -130,7 +128,7 @@ class YTDBSchemaBuddyImpl(
     }
 
     override fun getOrCreateEdgeClass(
-        session: DatabaseSession,
+        session: DatabaseSessionEmbedded,
         linkName: String,
         outClassName: String,
         inClassName: String
@@ -145,28 +143,28 @@ class YTDBSchemaBuddyImpl(
             ?: throw IllegalStateException("Class $edgeClassName could not be created")
     }
 
-    override fun getSequence(session: DatabaseSession, sequenceName: String): DBSequence {
-        return (session as DatabaseSessionInternal).metadata.sequenceLibrary.getSequence(
+    override fun getSequence(session: DatabaseSessionEmbedded, sequenceName: String): DBSequence {
+        return (session as DatabaseSessionEmbedded).metadata.sequenceLibrary.getSequence(
             sequenceName
         )
             ?: throw IllegalStateException("$sequenceName sequence not found")
     }
 
-    override fun getSequenceOrNull(session: DatabaseSession, sequenceName: String): DBSequence? {
-        return (session as DatabaseSessionInternal).metadata.sequenceLibrary.getSequence(
+    override fun getSequenceOrNull(session: DatabaseSessionEmbedded, sequenceName: String): DBSequence? {
+        return (session as DatabaseSessionEmbedded).metadata.sequenceLibrary.getSequence(
             sequenceName
         )
     }
 
     override fun updateSequence(
-        session: DatabaseSession,
+        session: DatabaseSessionEmbedded,
         sequenceName: String,
         currentValue: Long
     ) {
         dbProvider.withSession { sessionToWork ->
             sessionToWork.begin();
             getSequence(sessionToWork, sequenceName).updateParams(
-                sessionToWork as DatabaseSessionInternal,
+                sessionToWork as DatabaseSessionEmbedded,
                 DBSequence.CreateParams().setCurrentValue(
                     currentValue
                 )
@@ -176,7 +174,7 @@ class YTDBSchemaBuddyImpl(
     }
 
     override fun getOEntityId(
-        session: DatabaseSession,
+        session: DatabaseSessionEmbedded,
         entityId: PersistentEntityId
     ): RIDEntityId {
         // Keep in mind that it is possible that we are given an entityId that is not in the database.
@@ -201,12 +199,12 @@ class YTDBSchemaBuddyImpl(
         return RIDEntityId(classId, localEntityId, oid, oClass.name)
     }
 
-    override fun getTypeId(session: DatabaseSession, entityType: String): Int {
+    override fun getTypeId(session: DatabaseSessionEmbedded, entityType: String): Int {
         return session.schema.getClass(entityType)?.requireClassId() ?: -1
     }
 
     override fun getType(
-        session: DatabaseSession,
+        session: DatabaseSessionEmbedded,
         entityTypeId: Int
     ): String {
         val (_, typeName) = classIdToOClassId.computeIfAbsent(entityTypeId) {
@@ -218,26 +216,26 @@ class YTDBSchemaBuddyImpl(
         return typeName
     }
 
-    override fun requireTypeExists(session: DatabaseSession, entityType: String) {
+    override fun requireTypeExists(session: DatabaseSessionEmbedded, entityType: String) {
         val oClass = session.schema.getClass(entityType)
         check(oClass != null) { "$entityType has not been found" }
     }
 
 }
 
-fun DatabaseSession.createClassIdSequenceIfAbsent(startFrom: Long = -1L) {
+fun DatabaseSessionEmbedded.createClassIdSequenceIfAbsent(startFrom: Long = -1L) {
     createSequenceIfAbsent(CLASS_ID_SEQUENCE_NAME, startFrom)
 }
 
-fun DatabaseSession.createLocalEntityIdSequenceIfAbsent(
+fun DatabaseSessionEmbedded.createLocalEntityIdSequenceIfAbsent(
     oClass: SchemaClass,
     startFrom: Long = -1L
 ) {
     createSequenceIfAbsent(localEntityIdSequenceName(oClass.name), startFrom)
 }
 
-private fun DatabaseSession.createSequenceIfAbsent(sequenceName: String, startFrom: Long = 0L) {
-    val sequences = (this as DatabaseSessionInternal).metadata.sequenceLibrary
+private fun DatabaseSessionEmbedded.createSequenceIfAbsent(sequenceName: String, startFrom: Long = 0L) {
+    val sequences = (this as DatabaseSessionEmbedded).metadata.sequenceLibrary
     if (sequences.getSequence(sequenceName) == null) {
         val params = DBSequence.CreateParams()
         params.start = startFrom
@@ -245,9 +243,9 @@ private fun DatabaseSession.createSequenceIfAbsent(sequenceName: String, startFr
     }
 }
 
-fun DatabaseSession.setClassIdIfAbsent(oClass: SchemaClass) {
+fun DatabaseSessionEmbedded.setClassIdIfAbsent(oClass: SchemaClass) {
     if (oClass.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME) == null) {
-        val sequences = (this as DatabaseSessionInternal).metadata.sequenceLibrary
+        val sequences = (this as DatabaseSessionEmbedded).metadata.sequenceLibrary
         val sequence: DBSequence = sequences.getSequence(CLASS_ID_SEQUENCE_NAME)
             ?: throw IllegalStateException("$CLASS_ID_SEQUENCE_NAME not found")
 
@@ -261,7 +259,7 @@ fun setLocalEntityId(tx: YTDBStoreTransaction, className: String, vertex: YTDBVe
     vertex.property(LOCAL_ENTITY_ID_PROPERTY_NAME, id)
 }
 
-fun DatabaseSession.createVertexClassWithClassId(className: String): SchemaClass {
+fun DatabaseSessionEmbedded.createVertexClassWithClassId(className: String): SchemaClass {
     createClassIdSequenceIfAbsent()
     val oClass = schema.createVertexClass(className)
     setClassIdIfAbsent(oClass)
@@ -269,7 +267,7 @@ fun DatabaseSession.createVertexClassWithClassId(className: String): SchemaClass
     return oClass
 }
 
-internal fun DatabaseSession.getOrCreateVertexClass(className: String): SchemaClass {
+internal fun DatabaseSessionEmbedded.getOrCreateVertexClass(className: String): SchemaClass {
     val existingClass = this.schema.getClass(className)
     if (existingClass != null) return existingClass
 

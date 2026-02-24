@@ -15,10 +15,10 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.testutil
 
-import com.jetbrains.youtrackdb.api.DatabaseSession
-import com.jetbrains.youtrackdb.api.record.Direction
-import com.jetbrains.youtrackdb.api.record.Vertex
-import com.jetbrains.youtrackdb.api.schema.PropertyType
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Direction
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBComparableSet
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
@@ -111,7 +111,7 @@ internal fun addIssueToBoardImpl(issue: YTDBEntity, board: YTDBEntity) {
     board.addLink(Boards.Links.HAS_ISSUE, issue)
 }
 
-internal fun DatabaseSession.addAssociation(
+internal fun DatabaseSessionEmbedded.addAssociation(
     fromClassName: String,
     toClassName: String,
     outPropName: String,

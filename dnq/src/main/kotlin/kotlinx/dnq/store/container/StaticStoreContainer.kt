@@ -19,9 +19,12 @@ import YouTrackDBFactory
 import com.jetbrains.teamsys.dnq.database.TransientEntityStoreImpl
 import com.jetbrains.youtrackdb.api.DatabaseType
 import com.jetbrains.youtrackdb.api.YouTrackDB
-import com.jetbrains.youtrackdb.api.config.YouTrackDBConfigBuilder
+import com.jetbrains.youtrackdb.internal.core.config.YouTrackDBConfigBuilder
+import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
 import jetbrains.exodus.database.TransientEntityStore
-import jetbrains.exodus.entitystore.youtrackdb.*
+import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseParams
+import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
+import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProviderImpl
 import java.io.File
 
 object StaticStoreContainer : StoreContainer {
@@ -54,7 +57,7 @@ object StaticStoreContainer : StoreContainer {
         //TODO use dbFolder
         db = YouTrackDBFactory.createEmbedded(params)
 
-        dbProvider = YTDBDatabaseProviderImpl(params, db!!, null)
+        dbProvider = YTDBDatabaseProviderImpl(params, db!! as YouTrackDBImpl)
         val store = createTransientEntityStore(dbProvider!!, entityStoreName)
         this.store = store
         return store

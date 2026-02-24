@@ -16,7 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb.gremlin
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.api.record.RID
+import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import org.apache.tinkerpop.gremlin.process.traversal.Order
 import org.apache.tinkerpop.gremlin.process.traversal.P

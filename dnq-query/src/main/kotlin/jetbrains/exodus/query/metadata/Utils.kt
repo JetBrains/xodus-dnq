@@ -15,9 +15,9 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 
-fun <R> DatabaseSession.withTx(block: (DatabaseSession) -> R): R {
+fun <R> DatabaseSessionEmbedded.withTx(block: (DatabaseSessionEmbedded) -> R): R {
     val tx = this.begin()
     try {
         val result = block(this)

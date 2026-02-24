@@ -15,7 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.exception.ModificationOperationProhibitedException
+import com.jetbrains.youtrackdb.internal.core.exception.ModificationOperationProhibitedException
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.OTestMixin
 import org.junit.Rule

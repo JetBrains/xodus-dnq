@@ -15,19 +15,18 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.exception.ModificationOperationProhibitedException
+import com.jetbrains.youtrackdb.internal.core.exception.ModificationOperationProhibitedException
 import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
-import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraph
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraphTraversalSource
 import com.jetbrains.youtrackdb.api.gremlin.__
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBEdge
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.api.record.Blob
-import com.jetbrains.youtrackdb.api.record.RID
-import com.jetbrains.youtrackdb.api.record.Vertex
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Blob
+import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.Questionable
@@ -572,7 +571,7 @@ class YTDBStoreTransactionImpl(
         val session = activeYtdbSession()
         // make sure the OSequence created
         schemaBuddy.getOrCreateSequence(session, sequenceName, initialValue)
-        return YTDBSequenceImpl(session as DatabaseSessionInternal, sequenceName, store)
+        return YTDBSequenceImpl(session as DatabaseSessionEmbedded, sequenceName, store)
     }
 
     override fun getOSequence(sequenceName: String): DBSequence {

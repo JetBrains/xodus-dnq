@@ -18,8 +18,8 @@ package jetbrains.exodus.migrate
 import YTDBDatabaseProviderFactory
 import YouTrackDBFactory
 import com.jetbrains.youtrackdb.api.DatabaseType
-import com.jetbrains.youtrackdb.api.record.Direction
-import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Direction
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
 import jetbrains.exodus.TestUtil
 import jetbrains.exodus.entitystore.youtrackdb.*
@@ -52,7 +52,7 @@ class MigrateXodusToOrientDbSmokeTest {
             .build()
 
         val db = YouTrackDBFactory.createEmbedded(params) as YouTrackDBImpl
-        db.execute("create database $dbName MEMORY users ( $username identified by '$password' role admin )")
+        db.create(dbName, DatabaseType.MEMORY, username, password, "admin")
         // create a provider
         val dbProvider = YTDBDatabaseProviderFactory.createProvider(params, db)
 

@@ -15,11 +15,10 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrackdb.api.DatabaseSession
-import com.jetbrains.youtrackdb.api.record.Direction
-import com.jetbrains.youtrackdb.api.record.Vertex
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Direction
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.edgeClassName
 import jetbrains.exodus.entitystore.youtrackdb.getTargetLocalEntityIds
 import jetbrains.exodus.entitystore.youtrackdb.setTargetLocalEntityIds
@@ -27,7 +26,7 @@ import mu.KotlinLogging
 
 private val log = KotlinLogging.logger {}
 
-internal fun DatabaseSession.applyIndices(indices: Map<String, Set<DeferredIndex>>) {
+internal fun DatabaseSessionEmbedded.applyIndices(indices: Map<String, Set<DeferredIndex>>) {
     IndicesCreator(indices).createIndices(this)
 }
 
@@ -36,7 +35,7 @@ internal class IndicesCreator(
 ) {
     private val logger = PaddedLogger.logger(log)
 
-    fun createIndices(dbSession: DatabaseSession) {
+    fun createIndices(dbSession: DatabaseSessionEmbedded) {
         try {
             with(logger) {
                 appendLine("applying indices to OrientDB")
@@ -79,7 +78,7 @@ internal class IndicesCreator(
     }
 }
 
-internal fun DatabaseSession.initializeIndices(schemaApplicationResult: SchemaApplicationResult) {
+internal fun DatabaseSessionEmbedded.initializeIndices(schemaApplicationResult: SchemaApplicationResult) {
     /*
     * The order of operations matter.
     * We want to initialize complementary properties before creating indices,
@@ -90,7 +89,7 @@ internal fun DatabaseSession.initializeIndices(schemaApplicationResult: SchemaAp
 }
 
 
-internal fun DatabaseSession.initializeComplementaryPropertiesForNewIndexedLinks(
+internal fun DatabaseSessionEmbedded.initializeComplementaryPropertiesForNewIndexedLinks(
     newIndexedLinks: Map<String, Set<String>>, // ClassName -> set of link names
     commitEvery: Int = 50
 ) {

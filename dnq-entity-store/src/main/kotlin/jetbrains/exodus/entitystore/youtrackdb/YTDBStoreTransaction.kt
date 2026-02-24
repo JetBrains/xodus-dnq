@@ -18,9 +18,9 @@ package jetbrains.exodus.entitystore.youtrackdb
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraphTraversalSource
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBEdge
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.api.record.Blob
-import com.jetbrains.youtrackdb.api.record.RID
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Blob
+import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable

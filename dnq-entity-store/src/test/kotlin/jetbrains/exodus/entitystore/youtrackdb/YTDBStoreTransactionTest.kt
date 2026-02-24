@@ -17,7 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.api.record.Vertex
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId

@@ -15,16 +15,16 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.common.BasicDatabaseSession.STATUS
-import com.jetbrains.youtrackdb.api.exception.ModificationOperationProhibitedException
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded.STATUS
+import com.jetbrains.youtrackdb.internal.core.exception.ModificationOperationProhibitedException
 import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
 import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
-import com.jetbrains.youtrackdb.api.exception.TransactionException
-import com.jetbrains.youtrackdb.api.record.DBRecord
-import com.jetbrains.youtrackdb.api.record.Vertex
-import com.jetbrains.youtrackdb.api.schema.PropertyType
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.exception.TransactionException
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.record.record.DBRecord
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.tx.FrontendTransaction.TXSTATUS
 import com.jetbrains.youtrackdb.internal.core.tx.FrontendTransactionNoTx
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
@@ -65,7 +65,7 @@ class OTransactionLifecycleTest : OTestMixin {
 
     @Test
     fun `open, begin, commit, close - no changes`() {
-        val session = youTrackDb.openSession() as DatabaseSessionInternal
+        val session = youTrackDb.openSession() as DatabaseSessionEmbedded
 
         assertFalse(session.transactionInternal == null)
         assertEquals(STATUS.OPEN, session.status)
@@ -88,7 +88,7 @@ class OTransactionLifecycleTest : OTestMixin {
 
     @Test
     fun `open, begin, commit, close - changes`() {
-        val session = youTrackDb.openSession() as DatabaseSessionInternal
+        val session = youTrackDb.openSession() as DatabaseSessionEmbedded
         val oClass = session.getOrCreateVertexClass("trista")
 
         assertFalse(session.transactionInternal == null)
@@ -116,7 +116,7 @@ class OTransactionLifecycleTest : OTestMixin {
 
     @Test
     fun `open, begin, rollback, close - no changes`() {
-        val session = youTrackDb.openSession() as DatabaseSessionInternal
+        val session = youTrackDb.openSession() as DatabaseSessionEmbedded
 
         assertFalse(session.transactionInternal == null)
 
@@ -137,7 +137,7 @@ class OTransactionLifecycleTest : OTestMixin {
 
     @Test
     fun `open, begin, rollback, close - changes`() {
-        val session = youTrackDb.openSession() as DatabaseSessionInternal
+        val session = youTrackDb.openSession() as DatabaseSessionEmbedded
         val oClass = session.getOrCreateVertexClass("trista")
 
         assertFalse(session.transactionInternal == null)
@@ -171,7 +171,7 @@ class OTransactionLifecycleTest : OTestMixin {
 
     @Test
     fun `commit() throws an exception if there is no active transaction`() {
-        val session: DatabaseSessionInternal = youTrackDb.openSession() as DatabaseSessionInternal
+        val session: DatabaseSessionEmbedded = youTrackDb.openSession() as DatabaseSessionEmbedded
 
         assertFalse(session.hasActiveTransaction())
         assertFailsWith<TransactionException> { session.commit() }
@@ -201,7 +201,7 @@ class OTransactionLifecycleTest : OTestMixin {
 
     @Test
     fun `rollback() does NOT throw an exception if there is no active transaction`() {
-        val session = youTrackDb.openSession() as DatabaseSessionInternal
+        val session = youTrackDb.openSession() as DatabaseSessionEmbedded
 
         assertFalse(session.hasActiveTransaction())
 
@@ -226,7 +226,7 @@ class OTransactionLifecycleTest : OTestMixin {
 
     @Test
     fun `if commit() fails, changes get rolled back`() {
-        val session = youTrackDb.openSession() as DatabaseSessionInternal
+        val session = youTrackDb.openSession() as DatabaseSessionEmbedded
         val oClass = session.getOrCreateVertexClass("trista")
         oClass.createProperty("name", PropertyType.STRING)
         oClass.createIndex("idx_name", SchemaClass.INDEX_TYPE.UNIQUE, "name")
@@ -265,7 +265,7 @@ class OTransactionLifecycleTest : OTestMixin {
 
     @Test
     fun `embedded transactions successful case`() {
-        val session = youTrackDb.openSession() as DatabaseSessionInternal
+        val session = youTrackDb.openSession() as DatabaseSessionEmbedded
         session.getOrCreateVertexClass("trista")
         assertEquals(TXSTATUS.INVALID, session.transactionInternal.status)
         assertEquals(0, session.transactionInternal.amountOfNestedTxs())
@@ -316,7 +316,7 @@ class OTransactionLifecycleTest : OTestMixin {
 
     @Test
     fun `rollback() on an embedded transaction decreases amountOfNestedTxs by 1`() {
-        val session = youTrackDb.openSession() as DatabaseSessionInternal
+        val session = youTrackDb.openSession() as DatabaseSessionEmbedded
         session.getOrCreateVertexClass("trista")
 
         session.begin() // tx1

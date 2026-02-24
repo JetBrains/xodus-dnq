@@ -15,8 +15,8 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrackdb.api.DatabaseSession
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
 import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddy
 import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddyImpl
@@ -50,7 +50,7 @@ class YTDBModelMetaData(
     }
 
     override fun getOrCreateEdgeClass(
-        session: DatabaseSession,
+        session: DatabaseSessionEmbedded,
         linkName: String,
         outClassName: String,
         inClassName: String

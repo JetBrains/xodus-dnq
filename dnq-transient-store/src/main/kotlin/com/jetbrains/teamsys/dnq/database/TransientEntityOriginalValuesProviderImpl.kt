@@ -15,9 +15,9 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.youtrackdb.api.record.Blob
-import com.jetbrains.youtrackdb.api.record.Identifiable
-import com.jetbrains.youtrackdb.api.record.RID
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Blob
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Identifiable
+import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import com.jetbrains.youtrackdb.internal.core.record.impl.RecordBytes
 import jetbrains.exodus.database.LinkChangeType
 import jetbrains.exodus.database.TransientEntity

@@ -15,16 +15,15 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.DatabaseSession
-import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraph
 
 interface YTDBDatabaseProvider {
     val databaseLocation: String
 
     val graph: YTDBGraph
 
-    fun <R> withSession(block: (DatabaseSession) -> R): R
+    fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R
 
     /**
      * Database-wise read-only mode.

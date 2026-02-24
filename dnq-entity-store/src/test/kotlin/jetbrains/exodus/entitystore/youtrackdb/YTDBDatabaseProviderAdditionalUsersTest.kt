@@ -17,9 +17,11 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.api.DatabaseType
+import com.jetbrains.youtrackdb.api.YouTrackDB
 import com.jetbrains.youtrackdb.api.YourTracks
-import com.jetbrains.youtrackdb.api.exception.SecurityAccessException
-import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
+import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
+import com.jetbrains.youtrackdb.internal.core.exception.SecurityAccessException
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraph
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
 import java.nio.file.Files
 import kotlin.io.path.absolutePathString
@@ -85,10 +87,10 @@ class YTDBDatabaseProviderAdditionalUsersTest {
         additionalUsers: List<YTDBUser>,
         classSuffix: String
     ) {
-        val youtrackdb = YourTracks.instance(dbPath)
+        val youtrackdb = YourTracks.instance(dbPath) as YouTrackDBImpl
         try {
             additionalUsers.forEach { user ->
-                youtrackdb.openGraph("testDB", user.name, user.password).use { graph ->
+                youtrackdb.cachedPool("testDB", user.name, user.password).asGraph().use { graph ->
                     (graph as YTDBGraphEmbedded).acquireSession().use { session ->
                         session.transaction { tx ->
                             assertThat(tx.query("select from Test where initial = true").entityStream()).hasSize(100)

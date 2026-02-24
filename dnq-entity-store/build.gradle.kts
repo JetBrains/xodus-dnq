@@ -1,4 +1,4 @@
-val ytdbVersion = "0.5.0-ff14782-SNAPSHOT"
+val ytdbVersion = "0.5.0-20260223.115602-d8f40d4-dev-SNAPSHOT"
 
 val ktorVersion = "3.1.3"
 val graalVmVersion = "22.0.0.2"
@@ -14,16 +14,17 @@ dependencies {
         exclude("org.graalvm.truffle", "truffle-api")
         exclude("org.graalvm.js", "js-scriptengine")
     }
-    implementation("io.youtrackdb:youtrackdb-tools:$ytdbVersion") {
-        exclude("io.youtrackdb", "youtrackdb-core")
-        exclude("io.youtrackdb", "youtrackdb-client")
-    }
-    api("io.youtrackdb:youtrackdb-server:$ytdbVersion") {
-        exclude("org.slf4j", "slf4j-jdk14")
-        exclude("io.youtrackdb", "youtrackdb-core")
-        exclude("io.youtrackdb", "youtrackdb-client")
-        exclude("io.youtrackdb", "youtrackdb-tools")
-    }
+    // server is disabled for now:
+//    implementation("io.youtrackdb:youtrackdb-tools:$ytdbVersion") {
+//        exclude("io.youtrackdb", "youtrackdb-core")
+//        exclude("io.youtrackdb", "youtrackdb-client")
+//    }
+//    api("io.youtrackdb:youtrackdb-server:$ytdbVersion") {
+//        exclude("org.slf4j", "slf4j-jdk14")
+//        exclude("io.youtrackdb", "youtrackdb-core")
+//        exclude("io.youtrackdb", "youtrackdb-client")
+//        exclude("io.youtrackdb", "youtrackdb-tools")
+//    }
 
     implementation(project(":dnq-utils"))
     // implementation(project(":xodus-environment"))
@@ -38,7 +39,7 @@ dependencies {
     testImplementation("io.ktor:ktor-client-core:$ktorVersion")
     testImplementation("io.ktor:ktor-client-java:$ktorVersion")
     testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
-    testImplementation("io.youtrackdb:youtrackdb-client:$ytdbVersion")
+//    testImplementation("io.youtrackdb:youtrackdb-client:$ytdbVersion")
 }
 
 val testArtifacts: Configuration by configurations.creating

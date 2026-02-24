@@ -17,8 +17,8 @@
 
 package jetbrains.exodus.migrate
 
-import com.jetbrains.youtrackdb.api.record.Vertex
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
@@ -477,7 +477,7 @@ class MigrateDataTest {
                 assertTrue(maxClassId > 0)
 
                 val nextGeneratedClassId =
-                    (oSession as DatabaseSessionInternal).metadata.sequenceLibrary.getSequence(
+                    (oSession as DatabaseSessionEmbedded).metadata.sequenceLibrary.getSequence(
                         CLASS_ID_SEQUENCE_NAME
                     ).next(oSession)
                 assertEquals(maxClassId.toLong() + 1, nextGeneratedClassId)
@@ -525,7 +525,7 @@ class MigrateDataTest {
 
                     assertTrue(maxLocalEntityId > 0)
                     val nextGeneratedLocalEntityId =
-                        (oSession as DatabaseSessionInternal).metadata.sequenceLibrary.getSequence(
+                        (oSession as DatabaseSessionEmbedded).metadata.sequenceLibrary.getSequence(
                             localEntityIdSequenceName(type)
                         )
                             .next(oSession)

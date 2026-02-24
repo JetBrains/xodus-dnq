@@ -17,10 +17,10 @@ package jetbrains.exodus.entitystore.youtrackdb.testutil
 
 import YTDBDatabaseProviderFactory
 import YouTrackDBFactory
-import com.jetbrains.youtrackdb.api.DatabaseSession
 import com.jetbrains.youtrackdb.api.DatabaseType
 import com.jetbrains.youtrackdb.api.YouTrackDB
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
 import jetbrains.exodus.entitystore.youtrackdb.*
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues.Links.IN_PROJECT
@@ -35,7 +35,7 @@ class InMemoryYouTrackDB(
     private val autoInitializeSchemaBuddy: Boolean = true
 ) : ExternalResource() {
 
-    private lateinit var db: YouTrackDB
+    private lateinit var db: YouTrackDBImpl
     lateinit var store: YTDBPersistentEntityStore
         private set
 
@@ -54,7 +54,7 @@ class InMemoryYouTrackDB(
             .withDatabaseName(dbName)
             .build()
 
-        db = YouTrackDBFactory.createEmbedded(params)
+        db = YouTrackDBFactory.createEmbedded(params) as YouTrackDBImpl
         provider = YTDBDatabaseProviderFactory.createProvider(params, db) as YTDBDatabaseProviderImpl
 
         if (initializeIssueSchema) {
@@ -87,7 +87,7 @@ class InMemoryYouTrackDB(
         }
     }
 
-    fun <R> withTxSession(block: (DatabaseSession) -> R): R {
+    fun <R> withTxSession(block: (DatabaseSessionEmbedded) -> R): R {
         return provider.withSession { session ->
             val tx = session.begin()
             val result = block(session)
@@ -98,15 +98,15 @@ class InMemoryYouTrackDB(
         }
     }
 
-    fun <R> withSession(block: (DatabaseSession) -> R): R {
+    fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R {
         return provider.withSession(block)
     }
 
-    fun openSession(): DatabaseSession {
-        return (db.openGraph(dbName, username, password) as YTDBGraphEmbedded).acquireSession()
+    fun openSession(): DatabaseSessionEmbedded {
+        return (db.cachedPool(dbName, username, password).asGraph() as YTDBGraphEmbedded).acquireSession()
     }
 }
 
-internal fun DatabaseSession.hasActiveTransaction(): Boolean {
-    return (this as DatabaseSessionInternal).isActiveOnCurrentThread && activeTxCount() > 0
+internal fun DatabaseSessionEmbedded.hasActiveTransaction(): Boolean {
+    return this.isActiveOnCurrentThread && activeTxCount() > 0
 }

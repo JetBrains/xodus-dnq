@@ -15,22 +15,21 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrackdb.api.DatabaseSession
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBEdge
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.api.record.Direction
-import com.jetbrains.youtrackdb.api.record.Edge
-import com.jetbrains.youtrackdb.api.record.Vertex
-import com.jetbrains.youtrackdb.api.schema.SchemaProperty
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Direction
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Edge
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaProperty
 import jetbrains.exodus.entitystore.youtrackdb.*
 import org.junit.Assert.*
 
 // assertions
 
-internal fun DatabaseSession.assertAssociationNotExist(
+internal fun DatabaseSessionEmbedded.assertAssociationNotExist(
     outClassName: String,
     inClassName: String,
     edgeName: String,
@@ -41,7 +40,7 @@ internal fun DatabaseSession.assertAssociationNotExist(
         val edgeClass = requireEdgeClass(edgeClassName)
         assertTrue(
             (edgeClass as SchemaClassInternal).areIndexed(
-                this as DatabaseSessionInternal,
+                this as DatabaseSessionEmbedded,
                 Edge.DIRECTION_IN,
                 Edge.DIRECTION_OUT
             )
@@ -58,7 +57,7 @@ internal fun DatabaseSession.assertAssociationNotExist(
     assertNull(inClass.getProperty(inPropName))
 }
 
-internal fun DatabaseSession.assertAssociationExists(
+internal fun DatabaseSessionEmbedded.assertAssociationExists(
     outClassName: String,
     inClassName: String,
     edgeName: String,
@@ -71,7 +70,7 @@ internal fun DatabaseSession.assertAssociationExists(
 
     assertTrue(
         (edgeClass as SchemaClassInternal).areIndexed(
-            (this as DatabaseSessionInternal),
+            (this as DatabaseSessionEmbedded),
             Edge.DIRECTION_IN,
             Edge.DIRECTION_OUT
         )
@@ -80,12 +79,12 @@ internal fun DatabaseSession.assertAssociationExists(
     if (cardinality != null) {
         val outPropName = Vertex.getEdgeLinkFieldName(Direction.OUT, edgeClassName)
         val directOutProp = outClass.getProperty(outPropName)!!
-        assertEquals(com.jetbrains.youtrackdb.api.schema.PropertyType.LINKBAG, directOutProp.type)
+        assertEquals(com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType.LINKBAG, directOutProp.type)
         directOutProp.assertCardinality(cardinality)
 
         val inPropName = Vertex.getEdgeLinkFieldName(Direction.IN, edgeClassName)
         val directInProp = inClass.getProperty(inPropName)!!
-        assertEquals(com.jetbrains.youtrackdb.api.schema.PropertyType.LINKBAG, directInProp.type)
+        assertEquals(com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType.LINKBAG, directInProp.type)
     }
 }
 
@@ -117,21 +116,21 @@ private fun SchemaProperty.assertCardinality(cardinality: AssociationEndCardinal
     }
 }
 
-internal fun DatabaseSession.assertVertexClassExists(name: String) {
+internal fun DatabaseSessionEmbedded.assertVertexClassExists(name: String) {
     assertHasSuperClass(name, "V")
 }
 
-internal fun DatabaseSession.requireEdgeClass(name: String): SchemaClass {
+internal fun DatabaseSessionEmbedded.requireEdgeClass(name: String): SchemaClass {
     val edge = schema.getClass(name)!!
     assertTrue(edge.superClassesNames.contains("E"))
     return edge
 }
 
-internal fun DatabaseSession.assertHasSuperClass(className: String, superClassName: String) {
+internal fun DatabaseSessionEmbedded.assertHasSuperClass(className: String, superClassName: String) {
     assertTrue(schema.getClass(className)!!.superClassesNames.contains(superClassName))
 }
 
-internal fun DatabaseSession.checkIndex(
+internal fun DatabaseSessionEmbedded.checkIndex(
     className: String,
     unique: Boolean,
     vararg fieldNames: String

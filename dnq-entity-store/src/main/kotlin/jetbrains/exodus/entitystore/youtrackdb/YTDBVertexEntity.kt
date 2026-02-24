@@ -18,20 +18,18 @@ package jetbrains.exodus.entitystore.youtrackdb
 import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBEdge
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import com.jetbrains.youtrackdb.api.record.Edge
-import com.jetbrains.youtrackdb.api.record.Identifiable
-import com.jetbrains.youtrackdb.api.record.RID
-import com.jetbrains.youtrackdb.api.record.Vertex
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
-import com.jetbrains.youtrackdb.internal.core.db.record.RecordElement
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.db.record.TrackedMultiValue
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Edge
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Identifiable
+import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.db.record.ridbag.LinkBag
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBVertexInternal
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.record.impl.RecordBytes
 import jetbrains.exodus.ByteIterable
-import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
@@ -40,8 +38,8 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.linkTargetEntityIdPropertyName
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
-import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBVertexEntityIterable
 import jetbrains.exodus.util.LightByteArrayOutputStream
 import jetbrains.exodus.util.UTFUtil
@@ -344,7 +342,7 @@ open class YTDBVertexEntity(
          */
         val currentEdge: YTDBEdge? =
             if ((edgeClass as SchemaClassInternal).areIndexed(
-                    safeVertex { raw() }.boundedToSession as DatabaseSessionInternal,
+                    safeVertex { raw() }.boundedToSession as DatabaseSessionEmbedded,
                     Edge.DIRECTION_IN,
                     Edge.DIRECTION_OUT
                 )
@@ -366,7 +364,7 @@ open class YTDBVertexEntity(
         val linkTargetEntityIdPropertyName = linkTargetEntityIdPropertyName(linkName)
         if (requireSchemaClass().existsProperty(linkTargetEntityIdPropertyName)) {
             val bag = property<LinkBag>(linkTargetEntityIdPropertyName).orElse(null)
-                ?: LinkBag(raw().boundedToSession as DatabaseSessionInternal)
+                ?: LinkBag(raw().boundedToSession as DatabaseSessionEmbedded)
             bag.add(targetId)
             property(linkTargetEntityIdPropertyName, bag)
         }
@@ -415,7 +413,7 @@ open class YTDBVertexEntity(
         val linkTargetEntityIdPropertyName = linkTargetEntityIdPropertyName(linkName)
         if (requireSchemaClass().existsProperty(linkTargetEntityIdPropertyName)) {
             val bag = property<LinkBag>(linkTargetEntityIdPropertyName).orElse(null)
-                ?: LinkBag(raw().boundedToSession as DatabaseSessionInternal)
+                ?: LinkBag(raw().boundedToSession as DatabaseSessionEmbedded)
             bag.remove(targetId)
             property(linkTargetEntityIdPropertyName, bag)
         }
@@ -424,7 +422,7 @@ open class YTDBVertexEntity(
     private fun YTDBVertex.deleteAllTargetEntityIdsIfLinkIndexed(linkName: String) {
         val propName = linkTargetEntityIdPropertyName(linkName)
         if (requireSchemaClass().existsProperty(propName)) {
-            property(propName, LinkBag(raw().boundedToSession as DatabaseSessionInternal))
+            property(propName, LinkBag(raw().boundedToSession as DatabaseSessionEmbedded))
         }
     }
 
@@ -513,7 +511,7 @@ open class YTDBVertexEntity(
         // how to get all edge names from a vertex using tinkerpop api?
         return ArrayList(
             safeVertex { raw() }
-                .getEdgeNames(com.jetbrains.youtrackdb.api.record.Direction.OUT)
+                .getEdgeNames(com.jetbrains.youtrackdb.internal.core.db.record.record.Direction.OUT)
                 .filter { it.endsWith(EDGE_CLASS_SUFFIX) }
                 .map { it.substringAfter(Vertex.DIRECTION_OUT_PREFIX).substringBefore(EDGE_CLASS_SUFFIX) })
     }
@@ -554,7 +552,7 @@ fun SchemaClass.requireClassId(): Int {
 
 fun Vertex.getTargetLocalEntityIds(linkName: String): LinkBag =
     getProperty<LinkBag>(linkTargetEntityIdPropertyName(linkName))
-        ?: LinkBag(boundedToSession as DatabaseSessionInternal)
+        ?: LinkBag(boundedToSession as DatabaseSessionEmbedded)
 
 fun Vertex.setTargetLocalEntityIds(linkName: String, ids: LinkBag) {
     setProperty(linkTargetEntityIdPropertyName(linkName), ids)

@@ -16,9 +16,9 @@
 package jetbrains.exodus.query.metadata
 
 import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
-import com.jetbrains.youtrackdb.api.schema.SchemaProperty
-import com.jetbrains.youtrackdb.api.schema.PropertyType
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionInternal
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaProperty
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
@@ -550,7 +550,7 @@ class YouTrackDbSchemaInitializerTest {
 
             val (indices, _) = oSession.applySchema(model)
 
-            val sequences = (oSession as DatabaseSessionInternal).metadata.sequenceLibrary
+            val sequences = oSession.metadata.sequenceLibrary
             for (type in types) {
                 assertNotNull(oSession.getClass(type).getProperty(LOCAL_ENTITY_ID_PROPERTY_NAME))
                 // index for the localEntityId must be created regardless the indexForEverySimpleProperty param

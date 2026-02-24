@@ -16,9 +16,9 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
-import com.jetbrains.youtrackdb.api.record.DBRecord
-import com.jetbrains.youtrackdb.api.schema.PropertyType
-import com.jetbrains.youtrackdb.api.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.db.record.record.DBRecord
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.id.ChangeableRecordId
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId

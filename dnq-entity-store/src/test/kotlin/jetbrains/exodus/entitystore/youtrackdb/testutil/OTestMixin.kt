@@ -17,7 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb.testutil
 
 import com.google.common.truth.Ordered
 import com.google.common.truth.Truth.assertThat
-import com.jetbrains.youtrackdb.api.DatabaseSession
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
@@ -45,11 +45,11 @@ interface OTestMixin {
         return youTrackDb.withStoreTx(true, block)
     }
 
-    fun <R> withSession(block: (DatabaseSession) -> R): R {
+    fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R {
         return youTrackDb.withSession(block)
     }
 
-    fun <R> withTxSession(block: (DatabaseSession) -> R): R {
+    fun <R> withTxSession(block: (DatabaseSessionEmbedded) -> R): R {
         return youTrackDb.withTxSession(block)
     }
 

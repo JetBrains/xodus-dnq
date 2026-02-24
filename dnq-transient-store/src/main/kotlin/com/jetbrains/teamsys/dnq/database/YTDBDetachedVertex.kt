@@ -15,20 +15,26 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
-import com.jetbrains.youtrackdb.api.gremlin.YTDBGraph
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraph
 import com.jetbrains.youtrackdb.api.gremlin.YTDBVertexPropertyId
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBEdge
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBProperty
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertexProperty
-import com.jetbrains.youtrackdb.api.record.RID
-import com.jetbrains.youtrackdb.api.schema.PropertyType
+import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
 import org.apache.commons.configuration2.Configuration
 import org.apache.tinkerpop.gremlin.process.computer.GraphComputer
 import org.apache.tinkerpop.gremlin.structure.*
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedVertex
 import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyGraph
+import java.io.InputStream
+import java.io.OutputStream
+import java.nio.file.Path
 import java.util.*
+import java.util.function.Consumer
+import java.util.function.Function
+import java.util.function.Supplier
 
 class YTDBDetachedVertex(
     original: YTDBVertex,
@@ -192,5 +198,26 @@ object YTDBEmptyGraph : YTDBGraph {
 
     override fun toString(): String {
         return STD_INSTANCE.toString()
+    }
+
+    override fun backup(
+        ibuFilesSupplier: Supplier<Iterator<String?>?>?,
+        ibuInputStreamSupplier: Function<String?, InputStream?>?,
+        ibuOutputStreamSupplier: Function<String?, OutputStream?>?,
+        ibuFileRemover: Consumer<String?>?
+    ) {
+        throw UnsupportedOperationException("Not supported.")
+    }
+
+    override fun backup(path: Path?): String {
+        throw UnsupportedOperationException("Not supported.")
+    }
+
+    override fun fullBackup(path: Path?): String {
+        throw UnsupportedOperationException("Not supported.")
+    }
+
+    override fun uuid(): UUID {
+        throw UnsupportedOperationException("Not supported.")
     }
 }
