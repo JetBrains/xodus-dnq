@@ -148,6 +148,12 @@ interface YTDBStoreTransaction : StoreTransaction {
         linkName: String
     ): YTDBEntityIterable
 
+    fun findLinks(
+        entityType: String,
+        entityId: YTDBEntityId,
+        linkName: String
+    ): YTDBEntityIterable
+
     override fun findLinks(
         entityType: String,
         entities: EntityIterable,

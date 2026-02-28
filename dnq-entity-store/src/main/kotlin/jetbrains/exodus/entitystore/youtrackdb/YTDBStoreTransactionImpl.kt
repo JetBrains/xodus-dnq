@@ -360,16 +360,20 @@ class YTDBStoreTransactionImpl(
         return findWithProp(entityType, blobName)
     }
 
-    override fun findLinks(entityType: String, entity: Entity, linkName: String): YTDBEntityIterable {
+    override fun findLinks(entityType: String, entityId: YTDBEntityId, linkName: String): YTDBEntityIterable {
         requireActiveTransaction()
 
         return YTDBEntityIterable.query(
             this,
             GremlinQuery
-                .ByIds(listOf((entity.id as YTDBEntityId).asOId()))
+                .ByIds(listOf(entityId.asOId()))
                 .then(GremlinBlock.InLink(linkName))
                 .then(GremlinBlock.HasLabel(entityType))
         )
+    }
+
+    override fun findLinks(entityType: String, entity: Entity, linkName: String): YTDBEntityIterable {
+        return findLinks(entityType, entity.id as YTDBEntityId, linkName)
     }
 
     override fun findLinks(
