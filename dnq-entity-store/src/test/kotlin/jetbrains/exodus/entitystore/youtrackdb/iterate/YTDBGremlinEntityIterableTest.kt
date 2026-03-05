@@ -16,6 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb.iterate
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
@@ -718,6 +719,162 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
             assertThat(issues.toList().count()).isEqualTo(2)
             assertThat(issues.count()).isEqualTo(2)
+        }
+    }
+
+    @Test
+    fun `getAll produces hasLabel traversal`() {
+        givenTestCase()
+
+        withStoreTx { tx ->
+            val issues = tx.getAll(Issues.CLASS)
+
+            checkGremlin(issues, """g.V().hasLabel("Issue")""")
+            assertThat(issues).hasSize(3)
+        }
+    }
+
+    @Test
+    fun `findWithProp produces has-prop traversal`() {
+        val test = givenTestCase()
+        withStoreTx {
+            test.issue1.setProperty(Issues.Props.PRIORITY, "high")
+            test.issue2.setProperty(Issues.Props.PRIORITY, "low")
+        }
+
+        withStoreTx { tx ->
+            val issues = tx.findWithProp(Issues.CLASS, Issues.Props.PRIORITY)
+
+            checkGremlin(issues, """g.V().has("priority").hasLabel("Issue")""")
+            assertNamesExactly(issues, "issue1", "issue2")
+        }
+    }
+
+    @Test
+    fun `findWithLinks produces where out-edge traversal`() {
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+        }
+
+        withStoreTx { tx ->
+            val issues = tx.findWithLinks(Issues.CLASS, Issues.Links.ON_BOARD)
+
+            checkGremlin(issues, """g.V().where(__.out("OnBoard_link")).hasLabel("Issue")""")
+            assertNamesExactly(issues, "issue1", "issue2")
+        }
+    }
+
+    @Test
+    fun `findContaining produces toLower contains traversal`() {
+        givenTestCase()
+
+        withStoreTx { tx ->
+            val issues = tx.findContaining(Issues.CLASS, "name", "issue", true)
+
+            checkGremlin(issues, """g.V().where(__.values("name").toLower().is(TextP.containing("issue"))).hasLabel("Issue")""")
+            assertNamesExactly(issues, "issue1", "issue2", "issue3")
+        }
+    }
+
+    @Test
+    fun `findStartingWith produces toLower startingWith traversal`() {
+        givenTestCase()
+
+        withStoreTx { tx ->
+            val issues = tx.findStartingWith(Issues.CLASS, "name", "issu")
+
+            checkGremlin(issues, """g.V().where(__.values("name").toLower().is(TextP.startingWith("issu"))).hasLabel("Issue")""")
+            assertNamesExactly(issues, "issue1", "issue2", "issue3")
+        }
+    }
+
+    @Test
+    fun `sort descending produces Order desc traversal`() {
+        givenTestCase()
+
+        withStoreTx { tx ->
+            val issues = tx.sort(Issues.CLASS, "name", false)
+
+            checkGremlin(
+                issues,
+                """g.V().hasLabel("Issue").order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.desc)"""
+            )
+            assertNamesExactlyInOrder(issues, "issue3", "issue2", "issue1")
+        }
+    }
+
+    @Test
+    fun `sortLinked produces order by out-edge property traversal`() {
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board2)
+            tx.addIssueToBoard(test.issue3, test.board3)
+        }
+
+        withStoreTx { tx ->
+            val issues = (tx as YTDBStoreTransactionImpl).sortLinked(Issues.CLASS, Issues.Links.ON_BOARD, "name", true)
+
+            checkGremlin(
+                issues as YTDBEntityIterable,
+                """g.V().hasLabel("Issue").order().by(__.out("OnBoard_link").values("name").count(),Order.desc).by(__.out("OnBoard_link").values("name").fold(),Order.asc)"""
+            )
+            assertNamesExactlyInOrder(issues, "issue1", "issue2", "issue3")
+        }
+    }
+
+    @Test
+    fun `union of sort and condition falls back to union g-step with dedup`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            val sorted = tx.sort(Issues.CLASS, "name", true)
+            val found = tx.find(Issues.CLASS, "name", test.issue1.name())
+
+            // SortBy is not a Condition, so combineEfficient fails and falls back to UnionAll + Dedup
+            val result = sorted.union(found) as YTDBEntityIterable
+            assertThat(gremlinOf(result)).contains("g.union(")
+            assertThat(gremlinOf(result)).contains("dedup()")
+            assertNamesExactly(result, "issue1", "issue2", "issue3")
+        }
+    }
+
+    @Test
+    fun `intersect of sort and condition falls back to aggregate`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            val sorted = tx.sort(Issues.CLASS, "name", true)
+            val found = tx.find(Issues.CLASS, "name", test.issue1.name())
+
+            // SortBy is not a Condition, so combineEfficient fails and falls back to Aggregate
+            val result = sorted.intersect(found) as YTDBEntityIterable
+            assertThat(gremlinOf(result)).contains("aggregate(")
+            assertNamesExactly(result, "issue1")
+        }
+    }
+
+    @Test
+    fun `selectDistinct produces out-link dedup traversal`() {
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+            tx.addIssueToBoard(test.issue1, test.board2)
+        }
+
+        withStoreTx { tx ->
+            val boards = tx.find(Boards.CLASS, "name", test.board1.name())
+                .union(tx.find(Boards.CLASS, "name", test.board2.name()))
+            val issues = boards.selectDistinct(Boards.Links.HAS_ISSUE) as YTDBEntityIterable
+
+            checkGremlin(
+                issues,
+                """g.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").out("HasIssue_link").dedup()"""
+            )
+            assertNamesExactly(issues, "issue1", "issue2")
         }
     }
 
