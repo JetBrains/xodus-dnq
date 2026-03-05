@@ -19,7 +19,7 @@ import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
-import org.apache.tinkerpop.gremlin.process.traversal.P
+import org.apache.tinkerpop.gremlin.process.traversal.translator.GroovyTranslator
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -47,12 +47,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             )
 
             // Then
-            // todo:
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT FROM Issue WHERE none is null"
-//            )
-
+            checkGremlin(issues, """g.V().hasNot("none").hasLabel("Issue")""")
             assertNamesExactly(issues, "issue2", "issue3")
         }
     }
@@ -73,14 +68,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             )
 
             // Then
-            // todo
-            // tx.checkSql(
-            //     issues,
-            //     expectedSql = "SELECT FROM Issue WHERE outE('InProject_link').size() == 0",
-            //     expectedParams = mapOf()
-            // )
-
-
+            checkGremlin(issues, """g.V().not(__.out("InProject_link")).hasLabel("Issue")""")
             assertNamesExactly(issues, "issue2", "issue3")
         }
     }
@@ -104,12 +92,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             )
 
             // Then
-            // todo
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT FROM Issue WHERE opca = :opca0",
-//                expectedParams = mapOf("opca0" to 300)
-//            )
+            checkGremlin(issues, """g.V().has("opca",(int) 300).hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1", "issue3")
         }
     }
@@ -127,12 +110,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = equal1.union(equal2)
 
             // Then
-            // todo:
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT FROM Issue WHERE (name = :name0 OR name = :name1)",
-//                expectedParams = mapOf("name0" to "issue1", "name1" to "issue2")
-//            )
+            checkGremlin(issues as YTDBEntityIterable, """g.V().or(__.has("name","issue1"),__.has("name","issue2")).hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1", "issue2")
         }
     }
@@ -150,13 +128,8 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = equal1.union(equal2)
 
             // Then
-                // todo
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT FROM Issue WHERE (name = :name0 OR name = :name1)",
-//                expectedParams = mapOf("name0" to "issue1", "name1" to "issue1")
-//            )
-            // Union operation can distinct result set if query is optimized to OR conditions
+            // Union of same condition is optimised to OR, so dedup happens automatically
+            checkGremlin(issues as YTDBEntityIterable, """g.V().or(__.has("name","issue1"),__.has("name","issue1")).hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1")
         }
     }
@@ -176,12 +149,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = nameEqual.intersect(priorityEqual)
 
             // Then
-            // todo
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT FROM Issue WHERE (name = :name0 AND priority = :priority1)",
-//                expectedParams = mapOf("name0" to "issue2", "priority1" to "normal")
-//            )
+            checkGremlin(issues as YTDBEntityIterable, """g.V().and(__.has("name","issue2"),__.has("priority","normal")).hasLabel("Issue")""")
             assertNamesExactly(issues, "issue2")
             assertThat(issues.first().getProperty("priority")).isEqualTo("normal")
         }
@@ -252,12 +220,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val concat = issue1.concat(issue2)
 
             // Then
-            // todo
-//            tx.checkSql(
-//                concat,
-//                expectedSql = "SELECT expand(unionall(\$a0, \$b0)) LET \$a0=(SELECT FROM Issue WHERE name = :name1), \$b0=(SELECT FROM Issue WHERE name = :name2)",
-//                expectedParams = mapOf("name1" to "issue1", "name2" to "issue2")
-//            )
+            checkGremlin(
+                concat as YTDBEntityIterable,
+                """g.union(__.V().has("name","issue1").hasLabel("Issue"),__.V().has("name","issue2").hasLabel("Issue"))"""
+            )
             assertNamesExactlyInOrder(concat, "issue1", "issue2")
 
             val concatMore = concat.concat(issue1)
@@ -288,14 +254,8 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             ) as YTDBEntityIterable
 
             // Then
-            // todo:
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT FROM (SELECT expand(in('OnBoard_link')) FROM :targetIds0) WHERE @class='${Issues.CLASS}'",
-//                expectedParams = mapOf(
-//                    "targetIds0" to listOf(test.board1.id.asOId()),
-//                )
-//            )
+            // RID is dynamic — assert the structural shape only
+            assertThat(gremlinOf(issues)).contains("""in("OnBoard_link").hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1", "issue2")
         }
     }
@@ -318,15 +278,9 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val concat = issuesOnBoard1.concat(issuesOnBoard2)
 
             // Then
-            // todo
-//            tx.checkSql(
-//                concat,
-//                expectedSql = "SELECT expand(unionall(\$a0, \$b0)) LET \$a0=(SELECT FROM (SELECT expand(in('OnBoard_link')) FROM :targetIds1) WHERE @class='${Issues.CLASS}'), \$b0=(SELECT FROM (SELECT expand(in('OnBoard_link')) FROM :targetIds2) WHERE @class='${Issues.CLASS}')",
-//                expectedParams = mapOf(
-//                    "targetIds1" to listOf(test.board1.id.asOId()),
-//                    "targetIds2" to listOf(test.board2.id.asOId()),
-//                )
-//            )
+            // RIDs are dynamic — assert that both OnBoard_link traversals are present
+            val concatGremlin = gremlinOf(concat as YTDBEntityIterable)
+            assertThat(concatGremlin).contains("""in("OnBoard_link").hasLabel("Issue")""")
             assertNamesExactly(concat, "issue1", "issue2", "issue1")
         }
     }
@@ -351,15 +305,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issuesDistinct = issues.distinct()
 
             // Then
-            // todo
-//            tx.checkSql(
-//                issuesDistinct,
-//                expectedSql = "SELECT DISTINCT * FROM (SELECT expand(unionall(\$a0, \$b0).asSet()) LET \$a0=(SELECT FROM (SELECT expand(in('OnBoard_link')) FROM :targetIds1) WHERE @class='${Issues.CLASS}'), \$b0=(SELECT FROM (SELECT expand(in('OnBoard_link')) FROM :targetIds2) WHERE @class='${Issues.CLASS}'))",
-//                expectedParams = mapOf(
-//                    "targetIds1" to listOf(test.board1.id.asOId()),
-//                    "targetIds2" to listOf(test.board2.id.asOId()),
-//                )
-//            )
+            // RIDs are dynamic — assert structural shape
+            val distinctGremlin = gremlinOf(issuesDistinct as YTDBEntityIterable)
+            assertThat(distinctGremlin).contains("""in("OnBoard_link").hasLabel("Issue")""")
+            assertThat(distinctGremlin).contains("dedup()")
             assertThat(issuesDistinct).hasSize(3)
             assertNamesExactly(issuesDistinct, "issue1", "issue2", "issue3")
         }
@@ -381,12 +330,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val simpleIssues = issues.minus(complexIssues)
 
             // Then
-            // todo
-//            tx.checkSql(
-//                simpleIssues,
-//                expectedSql = "SELECT FROM Issue WHERE NOT (complex = :complex0)",
-//                expectedParams = mapOf("complex0" to "true")
-//            )
+            checkGremlin(simpleIssues as YTDBEntityIterable, """g.V().not(__.has("complex","true")).hasLabel("Issue")""")
             assertNamesExactly(simpleIssues, "issue3")
         }
     }
@@ -414,12 +358,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val complexUnblockedIssues = complexIssues.minus(blockedIssues)
 
             // Then
-            // todo
-//            tx.checkSql(
-//                complexUnblockedIssues,
-//                expectedSql = "SELECT FROM Issue WHERE (complex = :complex0 AND NOT (blocked = :blocked1))",
-//                expectedParams = mapOf("complex0" to "true", "blocked1" to "true")
-//            )
+            checkGremlin(
+                complexUnblockedIssues as YTDBEntityIterable,
+                """g.V().and(__.has("complex","true"),__.not(__.has("blocked","true"))).hasLabel("Issue")"""
+            )
             assertNamesExactly(complexUnblockedIssues, "issue2")
         }
     }
@@ -441,31 +383,13 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issuesOnBoard1 = tx.findLinks(Issues.CLASS, test.board1, Issues.Links.ON_BOARD)
             val issuesOnBoard2 = tx.findLinks(Issues.CLASS, test.board2, Issues.Links.ON_BOARD)
 
-            val res1 = tx.g()
-                .V()
-                .has("localEntityId", 1)
-                .`in`("OnBoard_link")
-                .hasLabel("Issue")
-                .aggregate("result1")
-                .V()
-                .has("localEntityId", 0)
-                .`in`("OnBoard_link")
-                .hasLabel("Issue")
-                .where(P.without("result1"))
-                .toList()
-
+            val issues = issuesOnBoard1.minus(issuesOnBoard2)
 
             // Then
-            // todo
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT expand(difference(\$a0, \$b0)) LET \$a0=(SELECT FROM (SELECT expand(in('OnBoard_link')) FROM :targetIds1) WHERE @class='${Issues.CLASS}'), \$b0=(SELECT FROM (SELECT expand(in('OnBoard_link')) FROM :targetIds2) WHERE @class='${Issues.CLASS}')",
-//                expectedParams = mapOf(
-//                    "targetIds1" to listOf(test.board1.id.asOId()),
-//                    "targetIds2" to listOf(test.board2.id.asOId()),
-//                ),
-//            )
-            val issues = issuesOnBoard1.minus(issuesOnBoard2)
+            // RIDs are dynamic — assert structural shape (Aggregate query: right first, then where-without)
+            val minusGremlin = gremlinOf(issues as YTDBEntityIterable)
+            assertThat(minusGremlin).contains("""in("OnBoard_link").hasLabel("Issue")""")
+            assertThat(minusGremlin).contains("where(")
             assertNamesExactly(issues, "issue2", "issue3")
         }
     }
@@ -481,12 +405,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = tx.sort(Issues.CLASS, "name", true).skip(1)
 
             // Then
-            // todo:
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT FROM Issue ORDER BY name ASC SKIP :skip0",
-//                expectedParams = mapOf("skip0" to 1)
-//            )
+            checkGremlin(
+                issues as YTDBEntityIterable,
+                "g.V().hasLabel(\"Issue\").order().by(__.values(\"name\").count(),Order.desc).by(__.values(\"name\").fold(),Order.asc).skip(1L)"
+            )
             assertNamesExactlyInOrder(issues, "issue2", "issue3")
         }
     }
@@ -501,12 +423,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = tx.sort(Issues.CLASS, "name", true).take(2)
 
             // Then
-            // todo
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT FROM Issue ORDER BY name ASC LIMIT :limit0",
-//                expectedParams = mapOf("limit0" to 2)
-//            )
+            checkGremlin(
+                issues as YTDBEntityIterable,
+                "g.V().hasLabel(\"Issue\").order().by(__.values(\"name\").count(),Order.desc).by(__.values(\"name\").fold(),Order.asc).limit(2L)"
+            )
             assertNamesExactlyInOrder(issues, "issue1", "issue2")
         }
     }
@@ -521,12 +441,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = tx.sort(Issues.CLASS, "name", true).skip(1).take(2)
 
             // Then
-            // todo
-//            tx.checkSql(
-//                issues,
-//                expectedSql = "SELECT FROM Issue ORDER BY name ASC SKIP :skip0 LIMIT :limit1",
-//                expectedParams = mapOf("skip0" to 1, "limit1" to 2)
-//            )
+            checkGremlin(
+                issues as YTDBEntityIterable,
+                "g.V().hasLabel(\"Issue\").order().by(__.values(\"name\").count(),Order.desc).by(__.values(\"name\").fold(),Order.asc).skip(1L).limit(2L)"
+            )
             assertNamesExactlyInOrder(issues, "issue2", "issue3")
         }
     }
@@ -567,11 +485,16 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
                 reversedByName.reverse()
 
             // Then
-            // todo
-//            tx.checkSql(
-//                reversedByName,
-//                expectedSql = "SELECT FROM Issue ORDER BY name DESC"
-//            )
+            // Note: Reverse has BlockType.ORDER so it goes through Order.of() rather than SortBy.reverseOrder(),
+            // producing fold().reverse().unfold() steps appended to the sort traversal.
+            checkGremlin(
+                reversedByName as YTDBEntityIterable,
+                "g.V().hasLabel(\"Issue\").order().by(__.values(\"name\").count(),Order.desc).by(__.values(\"name\").fold(),Order.asc).fold().reverse().unfold()"
+            )
+            checkGremlin(
+                reversedTwice as YTDBEntityIterable,
+                "g.V().hasLabel(\"Issue\").order().by(__.values(\"name\").count(),Order.desc).by(__.values(\"name\").fold(),Order.asc).fold().reverse().unfold().fold().reverse().unfold()"
+            )
             assertNamesExactlyInOrder(reversedByName, "issue3", "issue2", "issue1")
             assertNamesExactlyInOrder(reversedTwice, "issue1", "issue2", "issue3")
         }
@@ -599,15 +522,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
                 allIssues.findLinks(boards, Issues.Links.ON_BOARD)
 
             // Then
-            // todo
-//            tx.checkSql(
-//                issuesOnBoards,
-//                expectedSql = "SELECT expand(intersect(\$a0, \$b0)) LET \$a0=(SELECT FROM Issue), \$b0=(SELECT expand(in('OnBoard_link')) FROM (SELECT FROM Board WHERE (name = :name1 OR name = :name2)))",
-//                expectedParams = mapOf(
-//                    "name1" to "board1",
-//                    "name2" to "board2"
-//                )
-//            )
+            checkGremlin(
+                issuesOnBoards as YTDBEntityIterable,
+                """g.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").in("OnBoard_link").dedup()"""
+            )
             assertNamesExactly(issuesOnBoards, "issue1", "issue2")
         }
     }
@@ -655,11 +573,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val firstIssue = sortedIssues.first!!
 
             // Then
-            // todo
-//            tx.checkSql(
-//                sortedIssues,
-//                expectedSql = "SELECT FROM Issue ORDER BY name ASC"
-//            )
+            checkGremlin(
+                sortedIssues,
+                "g.V().hasLabel(\"Issue\").order().by(__.values(\"name\").count(),Order.desc).by(__.values(\"name\").fold(),Order.asc)"
+            )
             assertThat(firstIssue.getProperty("name")).isEqualTo("issue1")
         }
     }
@@ -804,13 +721,12 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         }
     }
 
-    private fun checkGremlin(
-        iterable: YTDBEntityIterable,
-    ) {
-        //  todo:
-//        iterable.query.traverse(tx)
-//        val sql = this.buildSql(iterable.query())
-//        assertEquals(expectedSql, sql.sql)
-//        assertContentEquals(expectedParams.toList(), sql.params.toList())
+    private fun gremlinOf(iterable: YTDBEntityIterable): String =
+        GroovyTranslator.of("g")
+            .translate(iterable.traversal().asAdmin().bytecode)
+            .script
+
+    private fun checkGremlin(iterable: YTDBEntityIterable, expectedGremlin: String) {
+        assertEquals(expectedGremlin, gremlinOf(iterable))
     }
 }
