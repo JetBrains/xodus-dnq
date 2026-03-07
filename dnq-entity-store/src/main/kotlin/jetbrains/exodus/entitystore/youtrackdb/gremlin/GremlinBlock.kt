@@ -42,6 +42,22 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
 
     abstract fun describe(s: StringBuilder): StringBuilder
 
+    /**
+     * Recursively simplifies this block by propagating [All] and [None] identities through
+     * compound blocks ([And], [Or], [Not], [AndThen], [Where]).
+     *
+     * Returns the simplified block if any simplification was possible, or `null` if the block
+     * is already in its simplest form. Returning `null` (rather than `this`) is deliberate:
+     * it lets callers use `block.simplify() ?: block` to avoid allocating a new object when
+     * nothing changed, giving structural sharing for free.
+     *
+     * Implementations are recursive: each compound block first simplifies its children, then
+     * applies its own identity rules (e.g. `And(All, x) → x`, `Or(None, x) → x`,
+     * `Not(Not(x)) → x`). A new parent node is only allocated when a child actually changed,
+     * so trees that need no simplification incur zero allocations beyond O(n) method calls.
+     *
+     * Leaf blocks (conditions, link steps, slice/order steps) always return `null`.
+     */
     open fun simplify(): GremlinBlock? = null
 
     // TODO: not stack safe potentially?
@@ -59,12 +75,20 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         }
 
         override fun describe(s: StringBuilder) = right.describe(left.describe(s).append(", THEN "))
-        override fun simplify(): GremlinBlock? =
-            when {
-                left is All -> right
-                right is All -> left
+        override fun simplify(): GremlinBlock? {
+            val sl = left.simplify()
+            val sr = right.simplify()
+            val l = sl ?: left
+            val r = sr ?: right
+            return when {
+                l is All -> r
+                r is All -> l
+                l is None -> None
+                r is None -> None
+                sl != null || sr != null -> AndThen(l, r)
                 else -> null
             }
+        }
     }
 
     data class Or(val left: GremlinBlock, val right: GremlinBlock) : GremlinBlock("or", BlockType.COMBINE) {
@@ -75,15 +99,33 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
             )
 
         override fun describe(s: StringBuilder) = right.describe(left.describe(s).append(" OR "))
-        override fun simplify(): GremlinBlock? =
-            if (left is All || right is All) All
-            else null
+        override fun simplify(): GremlinBlock? {
+            val sl = left.simplify()
+            val sr = right.simplify()
+            val l = sl ?: left
+            val r = sr ?: right
+            return when {
+                l is All || r is All -> All
+                l is None -> r
+                r is None -> l
+                sl != null || sr != null -> Or(l, r)
+                else -> null
+            }
+        }
     }
 
     data class Where(val inner: GremlinBlock) : GremlinBlock("where", BlockType.CONDITION) {
         override fun traverse(g: YT): YT = g.where(inner.traverse(`__`.start<Any>().asYT()))
         override fun describe(s: StringBuilder): StringBuilder = inner.describe(s.append("WHERE "))
-
+        override fun simplify(): GremlinBlock? {
+            val si = inner.simplify()
+            val i = si ?: inner
+            return when (i) {
+                is All -> All
+                is None -> None
+                else -> if (si != null) Where(i) else null
+            }
+        }
     }
 
     data class And(val left: GremlinBlock, val right: GremlinBlock) : GremlinBlock("and", BlockType.COMBINE) {
@@ -94,23 +136,36 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
             )
 
         override fun describe(s: StringBuilder): StringBuilder = right.describe(left.describe(s).append(" AND "))
-        override fun simplify(): GremlinBlock? =
-            when {
-                left is All -> right
-                right is All -> left
+        override fun simplify(): GremlinBlock? {
+            val sl = left.simplify()
+            val sr = right.simplify()
+            val l = sl ?: left
+            val r = sr ?: right
+            return when {
+                l is All -> r
+                r is All -> l
+                l is None -> None
+                r is None -> None
+                sl != null || sr != null -> And(l, r)
                 else -> null
             }
+        }
     }
 
     data class Not(val query: GremlinBlock) : GremlinBlock("not", BlockType.COMBINE) {
         override fun traverse(g: YT): YT = g.not(query.traverse(`__`.start<Any>().asYT()))
 
         override fun describe(s: StringBuilder): StringBuilder = query.describe(s.append("NOT "))
-        override fun simplify(): GremlinBlock? =
-            when (query) {
-                is Not -> query.query
-                else -> null
+        override fun simplify(): GremlinBlock? {
+            val sq = query.simplify()
+            val q = sq ?: query
+            return when (q) {
+                is Not -> q.query
+                is All -> None
+                is None -> All
+                else -> if (sq != null) Not(q) else null
             }
+        }
     }
 
     data object All : GremlinBlock("all", BlockType.CONDITION) {

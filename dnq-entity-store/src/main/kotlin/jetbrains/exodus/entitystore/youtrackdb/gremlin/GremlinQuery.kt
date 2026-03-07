@@ -232,7 +232,7 @@ sealed class GremlinQuery {
         companion object {
             fun of(block: GremlinBlock): Where {
                 require(block.type == BlockType.CONDITION || block.type == BlockType.COMBINE)
-                return Where(block)
+                return Where(block.simplify() ?: block)
             }
         }
     }
@@ -245,14 +245,20 @@ sealed class GremlinQuery {
     }
 
     data class NestedCondition(val structure: List<String>, val condition: Condition) : Condition(
-        GremlinBlock.Where(
-            structure
-                .fold(GremlinBlock.All as GremlinBlock) { a, b ->
-                    a.andThen(GremlinBlock.OutLink(b))
-                }
-                .andThen(condition.asBlock())
-        )
-    )
+        buildBlock(structure, condition)
+    ) {
+        companion object {
+            private fun buildBlock(structure: List<String>, condition: Condition): GremlinBlock {
+                val chain = structure
+                    .fold(GremlinBlock.All as GremlinBlock) { a, b ->
+                        a.andThen(GremlinBlock.OutLink(b))
+                    }
+                    .andThen(condition.asBlock())
+                val where = GremlinBlock.Where(chain)
+                return where.simplify() ?: where
+            }
+        }
+    }
 
     sealed class Chained(
         private val _inner: GremlinQuery,
