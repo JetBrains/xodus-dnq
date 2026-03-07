@@ -17,13 +17,19 @@ package jetbrains.exodus.entitystore.youtrackdb.query
 
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
-import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.*
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.ByIds
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.FollowLink
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.Labeled
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.LinkDirection
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.SortBy
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.asYT
 import org.apache.tinkerpop.gremlin.process.traversal.translator.GroovyTranslator
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__ as Anon
+import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyGraph
 import org.junit.Test
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__ as Anon
 
 /**
  * Tests that each GremlinBlock produces the expected Gremlin traversal.
@@ -35,9 +41,14 @@ import org.junit.Test
 class GremlinQueryTest {
 
     private val translator = GroovyTranslator.of("__")
+    private val queryTranslator = GroovyTranslator.of("g")
+    private val gs = EmptyGraph.instance().traversal()
 
     private fun GremlinBlock.toGremlin(): String =
         translator.translate(traverse(Anon.start<Any>().asYT()).asAdmin().bytecode).script
+
+    private fun GremlinQuery.toGremlin(): String =
+        queryTranslator.translate(start(gs).asAdmin().bytecode).script
 
     @Test
     fun `All produces empty traversal`() {
@@ -250,5 +261,232 @@ class GremlinQueryTest {
     fun `Sort by linked prop ascending traverses edge then orders`() {
         assertThat(Sort(Sort.ByLinked("rel", "name"), SortDirection.ASC).toGremlin())
             .isEqualTo("""__.order().by(__.out("rel_link").values("name").count(),Order.desc).by(__.out("rel_link").values("name").fold(),Order.asc)""")
+    }
+
+    // O3: SortBy passthrough in combineEfficient
+
+    private fun issueCondition(prop: String, value: String): Labeled =
+        Labeled(GremlinQuery.Where.of(PropEqual(prop, value)), "Issue")
+
+    private val sortByName = Sort(Sort.ByProp("name"), SortDirection.ASC)
+    private val sortByDate = Sort(Sort.ByProp("date"), SortDirection.ASC)
+
+    private val sortByNameGremlin =
+        """.order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)"""
+    private val unionGremlin =
+        """g.V().or(__.has("name","a"),__.has("name","b")).hasLabel("Issue")"""
+
+    @Test
+    fun `O3 - sorted union unsorted strips left sort and returns combined condition without sort`() {
+        // Sort on one union operand does not define the sort of the union result.
+        val result = SortBy(issueCondition("name", "a"), sortByName).union(issueCondition("name", "b"))
+        assertThat(result.toGremlin()).isEqualTo(unionGremlin)
+    }
+
+    @Test
+    fun `O3 - both sorted with same key union strips both sorts and returns combined condition without sort`() {
+        val result = SortBy(issueCondition("name", "a"), sortByName)
+            .union(SortBy(issueCondition("name", "b"), sortByName))
+        assertThat(result.toGremlin()).isEqualTo(unionGremlin)
+    }
+
+    @Test
+    fun `O3 - both sorted with different keys union strips both sorts and returns combined condition without sort`() {
+        val result = SortBy(issueCondition("name", "a"), sortByName)
+            .union(SortBy(issueCondition("name", "b"), sortByDate))
+        assertThat(result.toGremlin()).isEqualTo(unionGremlin)
+    }
+
+    @Test
+    fun `O3 - unsorted union sorted strips right sort and produces no sort wrapper`() {
+        val result = issueCondition("name", "a")
+            .union(SortBy(issueCondition("name", "b"), sortByName))
+        assertThat(result.toGremlin()).isEqualTo(unionGremlin)
+    }
+
+    @Test
+    fun `O3 - sorted intersect unsorted re-wraps combined condition preserving left sort`() {
+        // intersect/difference: result is a filtered subset of `this`, so the sort is valid to preserve.
+        val result = SortBy(issueCondition("name", "a"), sortByName).intersect(issueCondition("name", "b"))
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().and(__.has("name","a"),__.has("name","b")).hasLabel("Issue")$sortByNameGremlin""")
+    }
+
+    @Test
+    fun `O3 - sorted difference unsorted re-wraps combined condition preserving left sort`() {
+        val result = SortBy(issueCondition("name", "a"), sortByName).difference(issueCondition("name", "b"))
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().and(__.has("name","a"),__.not(__.has("name","b"))).hasLabel("Issue")$sortByNameGremlin""")
+    }
+
+    // O6: Labeled.of flattens nested Labeled wrappers
+
+    @Test
+    fun `O6 - Labeled of on already-labeled query flattens to single hasLabel`() {
+        // then(HasLabel) on an existing Labeled query used to produce Labeled(Labeled(X, T), T),
+        // which is structurally redundant and breaks extractCondition. Now it flattens.
+        val inner = issueCondition("name", "a")
+        val relabeled = GremlinQuery.Labeled.of(inner, "Issue")
+        assertThat(relabeled.toGremlin()).isEqualTo("""g.V().has("name","a").hasLabel("Issue")""")
+    }
+
+    @Test
+    fun `O6 - union of double-labeled queries combines correctly`() {
+        // Without the fix, Labeled(Labeled(X, "Issue"), "Issue").union(Labeled(Y, "Issue")) would fall back
+        // to UnionAll because extractCondition could not unwrap the nested Labeled.
+        val a = GremlinQuery.Labeled.of(issueCondition("name", "a"), "Issue")
+        val b = issueCondition("name", "b")
+        assertThat(a.union(b).toGremlin())
+            .isEqualTo("""g.V().or(__.has("name","a"),__.has("name","b")).hasLabel("Issue")""")
+    }
+
+    // O3 left branch — both operands are SortBy
+
+    @Test
+    fun `O3 - both sorted same key intersect strips right sort and preserves left sort`() {
+        val result = SortBy(issueCondition("name", "a"), sortByName)
+            .intersect(SortBy(issueCondition("name", "b"), sortByName))
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().and(__.has("name","a"),__.has("name","b")).hasLabel("Issue")$sortByNameGremlin""")
+    }
+
+    @Test
+    fun `O3 - both sorted same key difference strips right sort and preserves left sort`() {
+        val result = SortBy(issueCondition("name", "a"), sortByName)
+            .difference(SortBy(issueCondition("name", "b"), sortByName))
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().and(__.has("name","a"),__.not(__.has("name","b"))).hasLabel("Issue")$sortByNameGremlin""")
+    }
+
+    // O3 right branch — this is NOT SortBy, other IS SortBy, for intersect/difference
+
+    @Test
+    fun `O3 - unsorted intersect sorted strips right sort`() {
+        val result = issueCondition("name", "a")
+            .intersect(SortBy(issueCondition("name", "b"), sortByName))
+        // Right sort is stripped; no re-wrap since this is not SortBy
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().and(__.has("name","a"),__.has("name","b")).hasLabel("Issue")""")
+    }
+
+    @Test
+    fun `O3 - unsorted difference sorted strips right sort`() {
+        val result = issueCondition("name", "a")
+            .difference(SortBy(issueCondition("name", "b"), sortByName))
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().and(__.has("name","a"),__.not(__.has("name","b"))).hasLabel("Issue")""")
+    }
+
+    // O4 — FollowLink union shortcut
+
+    @Test
+    fun `O4 - union of in-link traversals with same link merges source queries`() {
+        val boardA = Labeled(GremlinQuery.Where.of(PropEqual("name", "board1")), "Board")
+        val boardB = Labeled(GremlinQuery.Where.of(PropEqual("name", "board2")), "Board")
+        val issuesA = Labeled(FollowLink(boardA, LinkDirection.IN, "OnBoard"), "Issue")
+        val issuesB = Labeled(FollowLink(boardB, LinkDirection.IN, "OnBoard"), "Issue")
+        assertThat(issuesA.union(issuesB).toGremlin())
+            .isEqualTo("""g.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup()""")
+    }
+
+    // Mismatched labels — falls back to UnionAll
+
+    @Test
+    fun `mismatched labels cause union to fall back to UnionAll with dedup`() {
+        val issue = issueCondition("name", "a")
+        val board = Labeled(GremlinQuery.Where.of(PropEqual("name", "b")), "Board")
+        assertThat(issue.union(board).toGremlin())
+            .isEqualTo("""g.union(__.V().has("name","a").hasLabel("Issue"),__.V().has("name","b").hasLabel("Board")).dedup()""")
+    }
+
+    // ByIds combination
+
+    @Test
+    fun `ByIds union ByIds produces distinct id union`() {
+        val rid1 = RID.of(34, 1)
+        val rid2 = RID.of(34, 2)
+        val result = ByIds(listOf(rid1)).union(ByIds(listOf(rid2)))
+        assertThat(result).isInstanceOf(ByIds::class.java)
+        assertThat((result as ByIds).ids).containsExactly(rid1, rid2)
+    }
+
+    @Test
+    fun `ByIds union ByIds deduplicates shared ids`() {
+        val rid1 = RID.of(34, 1)
+        val rid2 = RID.of(34, 2)
+        val result = ByIds(listOf(rid1, rid2)).union(ByIds(listOf(rid2)))
+        assertThat(result).isInstanceOf(ByIds::class.java)
+        assertThat((result as ByIds).ids).containsExactly(rid1, rid2)
+    }
+
+    @Test
+    fun `ByIds intersect ByIds produces id intersection`() {
+        val rid1 = RID.of(34, 1)
+        val rid2 = RID.of(34, 2)
+        val rid3 = RID.of(34, 3)
+        val result = ByIds(listOf(rid1, rid2)).intersect(ByIds(listOf(rid2, rid3)))
+        assertThat(result).isInstanceOf(ByIds::class.java)
+        assertThat((result as ByIds).ids).containsExactly(rid2)
+    }
+
+    @Test
+    fun `ByIds difference ByIds produces id difference`() {
+        val rid1 = RID.of(34, 1)
+        val rid2 = RID.of(34, 2)
+        val result = ByIds(listOf(rid1, rid2)).difference(ByIds(listOf(rid2)))
+        assertThat(result).isInstanceOf(ByIds::class.java)
+        assertThat((result as ByIds).ids).containsExactly(rid1)
+    }
+
+    // Pure conditions (no label) and mixed labeled/unlabeled
+
+    @Test
+    fun `unlabeled conditions union combines without hasLabel`() {
+        val a = GremlinQuery.Where.of(PropEqual("name", "a"))
+        val b = GremlinQuery.Where.of(PropEqual("name", "b"))
+        assertThat(a.union(b).toGremlin())
+            .isEqualTo("""g.V().or(__.has("name","a"),__.has("name","b"))""")
+    }
+
+    @Test
+    fun `labeled union unlabeled inherits the label`() {
+        val labeled = issueCondition("name", "a")
+        val unlabeled = GremlinQuery.Where.of(PropEqual("name", "b"))
+        assertThat(labeled.union(unlabeled).toGremlin())
+            .isEqualTo("""g.V().or(__.has("name","a"),__.has("name","b")).hasLabel("Issue")""")
+    }
+
+    @Test
+    fun `unlabeled union labeled inherits the label`() {
+        val unlabeled = GremlinQuery.Where.of(PropEqual("name", "a"))
+        val labeled = issueCondition("name", "b")
+        // label = thisLabel ?: otherLabel — label comes from the right side when left is unlabeled
+        assertThat(unlabeled.union(labeled).toGremlin())
+            .isEqualTo("""g.V().or(__.has("name","a"),__.has("name","b")).hasLabel("Issue")""")
+    }
+
+    // O2 — identity shortcuts in combineBlocks
+
+    @Test
+    fun `O2 - intersect of identical conditions returns the same condition`() {
+        val a = issueCondition("name", "a")
+        assertThat(a.intersect(a).toGremlin())
+            .isEqualTo("""g.V().has("name","a").hasLabel("Issue")""")
+    }
+
+    @Test
+    fun `O2 - union of identical conditions returns the same condition`() {
+        val a = issueCondition("name", "a")
+        assertThat(a.union(a).toGremlin())
+            .isEqualTo("""g.V().has("name","a").hasLabel("Issue")""")
+    }
+
+    @Test
+    fun `O2 - difference of identical conditions returns None`() {
+        val a = issueCondition("name", "a")
+        // Difference.combineBlocks(c, c) → None → Labeled(Where(None), "Issue")
+        // None renders as discard(); the hasLabel is dead code but preserved by the implementation
+        assertThat(a.difference(a).toGremlin())
+            .isEqualTo("""g.V().discard().hasLabel("Issue")""")
     }
 }

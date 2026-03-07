@@ -117,7 +117,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
-    fun `union two iterables having the same issue`() {
+    fun `union of identical iterables is optimised to the condition itself`() {
         // Given
         val test = givenTestCase()
 
@@ -129,8 +129,25 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = equal1.union(equal2)
 
             // Then
-            // Union of same condition is optimised to OR, so dedup happens automatically
-            checkGremlin(issues as YTDBEntityIterable, """g.V().or(__.has("name","issue1"),__.has("name","issue1")).hasLabel("Issue")""")
+            checkGremlin(issues as YTDBEntityIterable, """g.V().has("name","issue1").hasLabel("Issue")""")
+            assertNamesExactly(issues, "issue1")
+        }
+    }
+
+    @Test
+    fun `intersect of identical iterables is optimised to the condition itself`() {
+        // Given
+        val test = givenTestCase()
+
+        // When
+        withStoreTx { tx ->
+            val equal1 = tx.find(Issues.CLASS, "name", test.issue1.name())
+            val equal2 = tx.find(Issues.CLASS, "name", test.issue1.name())
+
+            val issues = equal1.intersect(equal2)
+
+            // Then
+            checkGremlin(issues as YTDBEntityIterable, """g.V().has("name","issue1").hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1")
         }
     }
@@ -176,7 +193,11 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             assertNamesExactly(i3, "issue3")
 
             val i3only = i3.intersect(i1and2and3)
-            val q = (i3only as YTDBEntityIterable).query.start(tx.g())
+            // combineEfficient merges: And(PropEqual("name","issue3"), Or(PropEqual("name","issue1"),PropEqual("priority","normal")))
+            checkGremlin(
+                i3only as YTDBEntityIterable,
+                """g.V().and(__.has("name","issue3"),__.or(__.has("name","issue1"),__.has("priority","normal"))).hasLabel("Issue")"""
+            )
             assertNamesExactly(i3only, "issue3")
         }
     }
@@ -255,8 +276,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             ) as YTDBEntityIterable
 
             // Then
-            // RID is dynamic — assert the structural shape only
-            assertThat(gremlinOf(issues)).contains("""in("OnBoard_link").hasLabel("Issue")""")
+            checkGremlinPattern(issues, """g.V({rid}).in("OnBoard_link").hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1", "issue2")
         }
     }
@@ -279,9 +299,12 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val concat = issuesOnBoard1.concat(issuesOnBoard2)
 
             // Then
-            // RIDs are dynamic — assert that both OnBoard_link traversals are present
-            val concatGremlin = gremlinOf(concat as YTDBEntityIterable)
-            assertThat(concatGremlin).contains("""in("OnBoard_link").hasLabel("Issue")""")
+            // concat produces UnionAll([board1_query, board2_query]); each ByIds uses P.within in continueTraversal
+            checkGremlinPattern(
+                concat as YTDBEntityIterable,
+                """g.union(__.V().hasId(P.within([{rid}])).in("OnBoard_link").hasLabel("Issue"),__.V().hasId(P.within([{rid}])).in("OnBoard_link").hasLabel("Issue"))"""
+            )
+            // Link traversal order is not guaranteed — use unordered check
             assertNamesExactly(concat, "issue1", "issue2", "issue1")
         }
     }
@@ -306,12 +329,149 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issuesDistinct = issues.distinct()
 
             // Then
-            // RIDs are dynamic — assert structural shape
-            val distinctGremlin = gremlinOf(issuesDistinct as YTDBEntityIterable)
-            assertThat(distinctGremlin).contains("""in("OnBoard_link").hasLabel("Issue")""")
-            assertThat(distinctGremlin).contains("dedup()")
+            // union fires O4 → g.V(rid1,rid2).in(...).dedup(); distinct() appends another dedup via Order.of squashing
+            checkGremlinPattern(
+                issuesDistinct as YTDBEntityIterable,
+                """g.V({rid},{rid}).in("OnBoard_link").hasLabel("Issue").dedup().dedup()"""
+            )
             assertThat(issuesDistinct).hasSize(3)
             assertNamesExactly(issuesDistinct, "issue1", "issue2", "issue3")
+        }
+    }
+
+    @Test
+    fun `union of findLinks queries merges source vertices into a single traversal`() {
+        // Given
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+            tx.addIssueToBoard(test.issue1, test.board2)  // issue1 on both boards — tests dedup
+        }
+
+        // When
+        withStoreTx { tx ->
+            val issuesOnBoard1 = tx.findLinks(Issues.CLASS, test.board1, Issues.Links.ON_BOARD)
+            val issuesOnBoard2 = tx.findLinks(Issues.CLASS, test.board2, Issues.Links.ON_BOARD)
+
+            // O4: both sides are Labeled(FollowLink(ByIds([rid]), IN, "OnBoard"), "Issue")
+            // Merges into: Order(Labeled(FollowLink(ByIds([rid1,rid2]), IN, "OnBoard"), "Issue"), Dedup)
+            // Gremlin: g.V(rid1,rid2).in("OnBoard_link").hasLabel("Issue").dedup()
+            // O4: Labeled(FollowLink(ByIds([rid1,rid2]), IN, "OnBoard"), "Issue") + Dedup
+            val issues = issuesOnBoard1.union(issuesOnBoard2) as YTDBEntityIterable
+            checkGremlinPattern(issues, """g.V({rid},{rid}).in("OnBoard_link").hasLabel("Issue").dedup()""")
+            // issue1 appears in both boards but must be deduplicated
+            assertNamesExactly(issues, "issue1", "issue2")
+        }
+    }
+
+    @Test
+    fun `union of condition-based findLinks queries merges inner traversal without RIDs`() {
+        // Given
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board2)
+            tx.addIssueToBoard(test.issue1, test.board2)  // issue1 on both boards — tests dedup
+        }
+
+        // When
+        withStoreTx { tx ->
+            val byBoard1 = tx.findLinks(Issues.CLASS, tx.find(Boards.CLASS, "name", test.board1.name()), Issues.Links.ON_BOARD)
+            val byBoard2 = tx.findLinks(Issues.CLASS, tx.find(Boards.CLASS, "name", test.board2.name()), Issues.Links.ON_BOARD)
+
+            // O4: both sides are Labeled(FollowLink(Labeled(Condition,"Board"),IN,"OnBoard"),"Issue")
+            // Inner sources are condition-based (not ByIds), so O4 merges them into a single traversal
+            // with no dynamic RIDs. The merged inner becomes:
+            //   Labeled(Where(Or(PropEqual("name","board1"),PropEqual("name","board2"))),"Board")
+            val issues = byBoard1.union(byBoard2) as YTDBEntityIterable
+            checkGremlin(
+                issues,
+                """g.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup()"""
+            )
+            assertNamesExactly(issues, "issue1", "issue2")
+        }
+    }
+
+    @Test
+    fun `union of three condition-based findLinks queries partially optimises — second pair falls back`() {
+        // Given
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board2)
+            tx.addIssueToBoard(test.issue3, test.board3)
+        }
+
+        // When
+        withStoreTx { tx ->
+            val byBoard1 = tx.findLinks(Issues.CLASS, tx.find(Boards.CLASS, "name", test.board1.name()), Issues.Links.ON_BOARD)
+            val byBoard2 = tx.findLinks(Issues.CLASS, tx.find(Boards.CLASS, "name", test.board2.name()), Issues.Links.ON_BOARD)
+            val byBoard3 = tx.findLinks(Issues.CLASS, tx.find(Boards.CLASS, "name", test.board3.name()), Issues.Links.ON_BOARD)
+
+            // O4 fires for byBoard1.union(byBoard2), producing Order(Labeled(FollowLink(...)), Dedup).
+            // The second union with byBoard3 falls back because Order(Labeled(FollowLink(...))) is not
+            // a Labeled(FollowLink(...)) itself, so O4 does not fire again.
+            // O1 also does not flatten here because the inner of the first result is Labeled(FollowLink(...)),
+            // not UnionAll — O1 only flattens Order(UnionAll([...]), Dedup) shapes.
+            // Result: g.union(optimised_board1_board2_traversal, plain_board3_traversal).dedup()
+            val issues = byBoard1.union(byBoard2).union(byBoard3) as YTDBEntityIterable
+            checkGremlin(
+                issues,
+                """g.union(__.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup(),__.V().has("name","board3").hasLabel("Board").in("OnBoard_link").hasLabel("Issue")).dedup()"""
+            )
+            assertNamesExactly(issues, "issue1", "issue2", "issue3")
+        }
+    }
+
+    @Test
+    fun `cascaded union fallbacks flatten into single UnionAll`() {
+        // Given
+        givenTestCase()
+
+        // When
+        withStoreTx { tx ->
+            // Sliced queries cannot be combined by combineEfficient → both unions fall back.
+            // First fallback: Order(UnionAll([skip1, skip2]), Dedup)
+            // Second fallback: O1 detects Order(UnionAll, Dedup) shape and flattens into
+            //   Order(UnionAll([skip1, skip2, skip3]), Dedup) — a single g.union(...).dedup()
+            val skip1 = tx.getAll(Issues.CLASS).skip(1)
+            val skip2 = tx.getAll(Issues.CLASS).skip(2)
+            val skip3 = tx.getAll(Issues.CLASS).skip(3)
+            val issues = skip1.union(skip2).union(skip3) as YTDBEntityIterable
+            checkGremlin(
+                issues,
+                """g.union(__.V().hasLabel("Issue").skip(1L),__.V().hasLabel("Issue").skip(2L),__.V().hasLabel("Issue").skip(3L)).dedup()"""
+            )
+        }
+    }
+
+    @Test
+    fun `union of findLinks queries with different link names does not optimise`() {
+        // Given
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToProject(test.issue2, test.project1)
+        }
+
+        // When
+        withStoreTx { tx ->
+            val byBoard = tx.findLinks(Issues.CLASS, tx.find(Boards.CLASS, "name", test.board1.name()), Issues.Links.ON_BOARD)
+            val byProject = tx.findLinks(Issues.CLASS, tx.find(Projects.CLASS, "name", test.project1.name()), Issues.Links.IN_PROJECT)
+
+            // O4 check: same label ("Issue"), same direction (IN), but different link names ("OnBoard" vs "InProject")
+            // → O4 does not fire, falls back to g.union(...)
+            val issues = byBoard.union(byProject) as YTDBEntityIterable
+            checkGremlin(
+                issues,
+                """g.union(__.V().has("name","board1").hasLabel("Board").in("OnBoard_link").hasLabel("Issue"),__.V().has("name","project1").hasLabel("Project").in("InProject_link").hasLabel("Issue")).dedup()"""
+            )
+            assertNamesExactly(issues, "issue1", "issue2")
         }
     }
 
@@ -387,10 +547,13 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = issuesOnBoard1.minus(issuesOnBoard2)
 
             // Then
-            // RIDs are dynamic — assert structural shape (Aggregate query: right first, then where-without)
-            val minusGremlin = gremlinOf(issues as YTDBEntityIterable)
-            assertThat(minusGremlin).contains("""in("OnBoard_link").hasLabel("Issue")""")
-            assertThat(minusGremlin).contains("where(")
+            // Falls back to Aggregate: right (board2) collected first, then left (board1) filtered against it.
+            // right.startTraversal → g.V(rid_board2).in(...).hasLabel("Issue")
+            // left.continueTraversal → .V().hasId(P.within([rid_board1])).in(...).hasLabel("Issue")
+            checkGremlinPattern(
+                issues as YTDBEntityIterable,
+                """g.V({rid}).in("OnBoard_link").hasLabel("Issue").aggregate("aggr_0").fold().V().hasId(P.within([{rid}])).in("OnBoard_link").hasLabel("Issue").where(P.without(["aggr_0"]))"""
+            )
             assertNamesExactly(issues, "issue2", "issue3")
         }
     }
@@ -486,8 +649,11 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
                 reversedByName.reverse()
 
             // Then
-            // Note: Reverse has BlockType.ORDER so it goes through Order.of() rather than SortBy.reverseOrder(),
-            // producing fold().reverse().unfold() steps appended to the sort traversal.
+            // Note: GremlinBlock.Reverse has BlockType.ORDER, so GremlinQuery.then() routes it through
+            // Order.of() (the `block.type == BlockType.ORDER` branch) before ever reaching the
+            // `block is GremlinBlock.Reverse` check. This means the entire `block is GremlinBlock.Reverse`
+            // branch — including the `is SortBy -> reverseOrder()` case — is dead code. Even a SortBy
+            // query gets fold().reverse().unfold() appended rather than having its sort direction flipped.
             checkGremlin(
                 reversedByName as YTDBEntityIterable,
                 "g.V().hasLabel(\"Issue\").order().by(__.values(\"name\").count(),Order.desc).by(__.values(\"name\").fold(),Order.asc).fold().reverse().unfold()"
@@ -519,6 +685,9 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val boards = tx.find(Boards.CLASS, "name", test.board1.name())
                 .union(tx.find(Boards.CLASS, "name", test.board2.name()))
             val allIssues = tx.getAll(Issues.CLASS)
+            // Note: EntityIterable.findLinks(entities, linkName) ignores 'this' — the receiver (allIssues)
+            // is not used in query construction. Only 'entities' (boards) determines the traversal source.
+            // No hasLabel("Issue") filter is added; the result type is unconstrained by the receiver.
             val issuesOnBoards =
                 allIssues.findLinks(boards, Issues.Links.ON_BOARD)
 
@@ -826,32 +995,161 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
-    fun `union of sort and condition falls back to union g-step with dedup`() {
+    fun `union of sort and condition combines efficiently stripping sort`() {
         val test = givenTestCase()
 
         withStoreTx { tx ->
             val sorted = tx.sort(Issues.CLASS, "name", true)
-            val found = tx.find(Issues.CLASS, "name", test.issue1.name())
+            // Build SortBy(PropEqual("name","issue1")) via intersect, then union with another condition.
+            // This ensures both sides of the union are non-trivial, so Or(...) is produced rather than collapsing to All.
+            val sortedIssue1 = sorted.intersect(tx.find(Issues.CLASS, "name", test.issue1.name()))
+            val found2 = tx.find(Issues.CLASS, "name", test.issue2.name())
 
-            // SortBy is not a Condition, so combineEfficient fails and falls back to UnionAll + Dedup
-            val result = sorted.union(found) as YTDBEntityIterable
-            assertThat(gremlinOf(result)).contains("g.union(")
-            assertThat(gremlinOf(result)).contains("dedup()")
-            assertNamesExactly(result, "issue1", "issue2", "issue3")
+            // O3: this=SortBy(Labeled(PropEqual("name","issue1"))), other=Labeled(PropEqual("name","issue2"))
+            // Union strips the left sort — sorting one operand does not define the union's sort order.
+            // Result: Labeled(Where(Or(...)), "Issue") — no sort wrapper
+            val result = sortedIssue1.union(found2) as YTDBEntityIterable
+            checkGremlin(result, """g.V().or(__.has("name","issue1"),__.has("name","issue2")).hasLabel("Issue")""")
+            assertNamesExactly(result, "issue1", "issue2")
         }
     }
 
     @Test
-    fun `intersect of sort and condition falls back to aggregate`() {
+    fun `intersect of sort and condition combines efficiently preserving sort`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            test.issue1.setProperty(Issues.Props.PRIORITY, "high")
+        }
+
+        withStoreTx { tx ->
+            val sorted = tx.sort(Issues.CLASS, "name", true)
+            // Build SortBy(PropEqual("name","issue1")) via first intersect, then intersect with another condition.
+            // This ensures both sides are non-trivial, producing And(...) rather than collapsing to the condition itself.
+            val sortedIssue1 = sorted.intersect(tx.find(Issues.CLASS, "name", test.issue1.name()))
+            val highPriority = tx.find(Issues.CLASS, Issues.Props.PRIORITY, "high")
+
+            // O3: this=SortBy(PropEqual("name","issue1")), other=Labeled(PropEqual("priority","high"))
+            // Intersect.combineBlocks(PropEqual("name","issue1"), PropEqual("priority","high")) = And(...)
+            // Result: SortBy(Labeled(Where(And(...)), "Issue"), sort)
+            val result = sortedIssue1.intersect(highPriority) as YTDBEntityIterable
+            checkGremlin(result, """g.V().and(__.has("name","issue1"),__.has("priority","high")).hasLabel("Issue").order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)""")
+            assertNamesExactly(result, "issue1")
+        }
+    }
+
+    @Test
+    fun `difference of sort and condition combines efficiently preserving sort`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            test.issue1.setProperty(Issues.Props.PRIORITY, "high")
+            test.issue2.setProperty(Issues.Props.PRIORITY, "high")
+        }
+
+        withStoreTx { tx ->
+            val sorted = tx.sort(Issues.CLASS, "name", true)
+            // Build SortBy(PropEqual("priority","high")) via intersect — matches issue1 and issue2.
+            // Then minus issue2 by name. Both sides are non-trivial, producing And(C, Not(C2)).
+            val sortedHighPriority = sorted.intersect(tx.find(Issues.CLASS, Issues.Props.PRIORITY, "high"))
+            val issue2ByName = tx.find(Issues.CLASS, "name", test.issue2.name())
+
+            // O3: this=SortBy(PropEqual("priority","high")), other=Labeled(PropEqual("name","issue2"))
+            // Difference.combineBlocks(PropEqual("priority","high"), PropEqual("name","issue2")) = And(C, Not(C2))
+            // Result: SortBy(Labeled(Where(And(PropEqual("priority","high"), Not(PropEqual("name","issue2")))), "Issue"), sort)
+            val result = sortedHighPriority.minus(issue2ByName) as YTDBEntityIterable
+            checkGremlin(result, """g.V().and(__.has("priority","high"),__.not(__.has("name","issue2"))).hasLabel("Issue").order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)""")
+            assertNamesExactly(result, "issue1")
+        }
+    }
+
+    @Test
+    fun `union of two sorts with same key combines into unsorted traversal stripping both sorts`() {
         val test = givenTestCase()
 
         withStoreTx { tx ->
             val sorted = tx.sort(Issues.CLASS, "name", true)
-            val found = tx.find(Issues.CLASS, "name", test.issue1.name())
+            // Build two SortBy(Condition) queries via intersect (O3 applied twice)
+            val sortedIssue1 = sorted.intersect(tx.find(Issues.CLASS, "name", test.issue1.name()))
+            val sortedIssue2 = sorted.intersect(tx.find(Issues.CLASS, "name", test.issue2.name()))
 
-            // SortBy is not a Condition, so combineEfficient fails and falls back to Aggregate
-            val result = sorted.intersect(found) as YTDBEntityIterable
-            assertThat(gremlinOf(result)).contains("aggregate(")
+            // Both sides are SortBy with same sort key.
+            // O3: strips both sorts — sorting each operand individually does not define the union's sort order.
+            // Result: Labeled(Where(Or(...)), "Issue") — no sort wrapper
+            val result = sortedIssue1.union(sortedIssue2) as YTDBEntityIterable
+            checkGremlin(result, """g.V().or(__.has("name","issue1"),__.has("name","issue2")).hasLabel("Issue")""")
+            assertNamesExactly(result, "issue1", "issue2")
+        }
+    }
+
+    @Test
+    fun `intersect of two sorts with different keys strips right sort and preserves left sort`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            test.issue1.setProperty(Issues.Props.PRIORITY, "high")
+        }
+
+        withStoreTx { tx ->
+            val sortedByName = tx.sort(Issues.CLASS, "name", true)
+            val sortedByPriority = tx.sort(Issues.CLASS, Issues.Props.PRIORITY, true)
+            // Build two SortBy queries with different sort keys via prior intersects
+            val sortedIssue1ByName = sortedByName.intersect(tx.find(Issues.CLASS, "name", test.issue1.name()))
+            val sortedHighByPriority = sortedByPriority.intersect(tx.find(Issues.CLASS, Issues.Props.PRIORITY, "high"))
+
+            // O3: different sort keys, ignoreRightSort=true — strip other's sort, keep this's sort (by name)
+            // Intersect.combineBlocks(PropEqual("name","issue1"), PropEqual("priority","high")) = And(...)
+            // Result: SortBy(Labeled(Where(And(...))), sortByName)
+            val result = sortedIssue1ByName.intersect(sortedHighByPriority) as YTDBEntityIterable
+            checkGremlin(result, """g.V().and(__.has("name","issue1"),__.has("priority","high")).hasLabel("Issue").order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)""")
+            assertNamesExactly(result, "issue1")
+        }
+    }
+
+    @Test
+    fun `intersect of condition and sort strips right sort`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            test.issue1.setProperty(Issues.Props.PRIORITY, "high")
+        }
+
+        withStoreTx { tx ->
+            val sortedByName = tx.sort(Issues.CLASS, "name", true)
+            val foundIssue1 = tx.find(Issues.CLASS, "name", test.issue1.name())
+            val sortedHighByName = sortedByName.intersect(tx.find(Issues.CLASS, Issues.Props.PRIORITY, "high"))
+
+            // this=Labeled(PropEqual("name","issue1")), other=SortBy(PropEqual("priority","high"), sortByName)
+            // Second block fires: other is SortBy && ignoreRightSort=true — retry with other.inner
+            // Intersect.combineBlocks(PropEqual("name","issue1"), PropEqual("priority","high")) = And(...)
+            // Result: Labeled(Where(And(...))) — no sort, since this was not sorted
+            val result = foundIssue1.intersect(sortedHighByName) as YTDBEntityIterable
+            checkGremlin(result, """g.V().and(__.has("name","issue1"),__.has("priority","high")).hasLabel("Issue")""")
+            assertNamesExactly(result, "issue1")
+        }
+    }
+
+    @Test
+    fun `difference of two sorts with different keys strips right sort and preserves left sort`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            test.issue2.setProperty(Issues.Props.PRIORITY, "high")
+        }
+
+        withStoreTx { tx ->
+            val sortedByName = tx.sort(Issues.CLASS, "name", true)
+            val sortedByPriority = tx.sort(Issues.CLASS, Issues.Props.PRIORITY, true)
+            // issue1 is in sortedIssue1ByName; issue2 (not issue1) is in sortedHighByPriority
+            val sortedIssue1ByName = sortedByName.intersect(tx.find(Issues.CLASS, "name", test.issue1.name()))
+            val sortedHighByPriority = sortedByPriority.intersect(tx.find(Issues.CLASS, Issues.Props.PRIORITY, "high"))
+
+            // O3: different sort keys, ignoreRightSort=true — strip other's sort, keep this's sort (by name)
+            // Difference.combineBlocks(PropEqual("name","issue1"), PropEqual("priority","high")) = And(C, Not(C2))
+            // Result: SortBy(Labeled(Where(And(PropEqual("name","issue1"), Not(PropEqual("priority","high"))))), sortByName)
+            // issue1 has no priority="high" → included; result: issue1
+            val result = sortedIssue1ByName.minus(sortedHighByPriority) as YTDBEntityIterable
+            checkGremlin(result, """g.V().and(__.has("name","issue1"),__.not(__.has("priority","high"))).hasLabel("Issue").order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)""")
             assertNamesExactly(result, "issue1")
         }
     }
@@ -885,5 +1183,18 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
     private fun checkGremlin(iterable: YTDBEntityIterable, expectedGremlin: String) {
         assertEquals(expectedGremlin, gremlinOf(iterable))
+    }
+
+    /**
+     * Checks the Gremlin query of [iterable] against [pattern], where `{rid}` is a placeholder
+     * matching any OrientDB RID (e.g. `#29:0`). All other characters are matched literally.
+     */
+    private fun checkGremlinPattern(iterable: YTDBEntityIterable, pattern: String) {
+        val regex = pattern
+            .split("{rid}")
+            .joinToString("""#\d+:\d+""") { Regex.escape(it) }
+            .toRegex()
+        val actual = gremlinOf(iterable)
+        assertThat(actual).matches(regex.pattern)
     }
 }

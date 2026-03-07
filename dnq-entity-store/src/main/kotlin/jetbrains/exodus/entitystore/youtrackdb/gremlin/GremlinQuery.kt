@@ -87,6 +87,7 @@ sealed class GremlinQuery {
                     a is GremlinBlock.None || b is GremlinBlock.None -> GremlinBlock.None
                     a is GremlinBlock.All -> b
                     b is GremlinBlock.All -> a
+                    a == b -> a
                     else -> GremlinBlock.And(a, b)
                 }
             },
@@ -99,6 +100,7 @@ sealed class GremlinQuery {
                     a is GremlinBlock.None -> b
                     b is GremlinBlock.None -> a
                     a is GremlinBlock.All || b is GremlinBlock.All -> GremlinBlock.All
+                    a == b -> a
                     else -> GremlinBlock.Or(a, b)
                 }
             },
@@ -112,6 +114,7 @@ sealed class GremlinQuery {
                     a is GremlinBlock.All -> GremlinBlock.Not(b)
                     b is GremlinBlock.All -> GremlinBlock.None
                     b is GremlinBlock.None -> a
+                    a == b -> GremlinBlock.None
                     else -> GremlinBlock.And(a, GremlinBlock.Not(b))
                 }
             },
@@ -120,11 +123,44 @@ sealed class GremlinQuery {
 
     }
 
-    // todo: handle SortBy here too
     private fun combineEfficient(
         other: GremlinQuery,
-        condCombiner: ConditionCombiner
+        condCombiner: ConditionCombiner,
     ): GremlinQuery? {
+        // O3: SortBy passthrough — strip sort wrappers, combine inner queries, re-wrap.
+        // The right-side sort is always irrelevant for set operations.
+        // For intersect/difference: the result is a filtered subset of `this`, so `this`'s sort is
+        // preserved by re-wrapping the combined query.
+        // For union: sorting one operand does NOT define the sort of their union — B's results should
+        // not be sorted by A's key. Strip the sort and return the combined query unsorted.
+        if (this is SortBy) {
+            val otherInner = if (other is SortBy) other.inner else other
+            val combined = this.inner.combineEfficient(otherInner, condCombiner) ?: return null
+            return if (condCombiner is ConditionCombiner.Union) combined
+                   else SortBy(combined, this.sortBlock)
+        }
+
+        // Strip right-side sort and retry
+        if (other is SortBy) {
+            return this.combineEfficient(other.inner, condCombiner)
+        }
+
+        // O4: FollowLink union shortcut — merge source queries, re-wrap with the shared link traversal
+        if (this is Labeled && other is Labeled && this.label == other.label &&
+            condCombiner is ConditionCombiner.Union) {
+            val thisLink = this.inner as? FollowLink
+            val otherLink = other.inner as? FollowLink
+            if (thisLink != null && otherLink != null &&
+                thisLink.direction == otherLink.direction &&
+                thisLink.linkName == otherLink.linkName) {
+                // Dedup is needed: multiple source vertices can reach the same target via separate edges.
+                return Labeled(
+                    FollowLink(thisLink.inner.union(otherLink.inner), thisLink.direction, thisLink.linkName),
+                    this.label
+                ).then(GremlinBlock.Dedup)
+            }
+        }
+
         fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label else null
         fun extractCondition(q: GremlinQuery): GremlinBlock? =
             if (q is Labeled && q.inner is Condition) q.inner.asBlock()
@@ -157,7 +193,13 @@ sealed class GremlinQuery {
 
     fun union(other: GremlinQuery): GremlinQuery =
         combineEfficient(other, ConditionCombiner.Union)
-            ?: this.unionAll(other).then(GremlinBlock.Dedup)
+            ?: run {
+                fun flatSubqueries(q: GremlinQuery): List<GremlinQuery> =
+                    if (q is Order && q.inner is UnionAll && q.orderBlock == GremlinBlock.Dedup)
+                        q.inner.subqueries
+                    else listOf(q)
+                UnionAll(flatSubqueries(this) + flatSubqueries(other)).then(GremlinBlock.Dedup)
+            }
 
     fun intersect(other: GremlinQuery): GremlinQuery =
         combineEfficient(other, ConditionCombiner.Intersect)
@@ -236,10 +278,11 @@ sealed class GremlinQuery {
         Chained(inner, GremlinBlock.HasLabel(label)) {
         companion object {
             fun of(query: GremlinQuery, label: String): GremlinQuery =
-                Labeled(inner = query, label = label)
-            // Labeled((query as? Labeled)?.inner ?: query, label)
+                // Flatten nested Labeled with the same label: applying hasLabel("T") twice is idempotent.
+                // Different labels (e.g. Labeled(X, "ChildIssue") inside Labeled(_, "Issue")) are kept
+                // as-is since they represent two distinct hasLabel filters.
+                Labeled(inner = if (query is Labeled && query.label == label) query.inner else query, label = label)
         }
-
     }
 
     data class AndThen(val inner: GremlinQuery, val block: GremlinBlock) :
