@@ -133,6 +133,46 @@ No real database is used. Tests assert the Gremlin string produced by each query
 - [ ] Q66 Issues assigned to an employee AND in a project whose lead is the same employee (illustrates NestedCondition / chained links)
 - [ ] Q67 All issues sorted by priority UNION all issues sorted by estimate — both sorts dropped, result unsorted (O3)
 
+### Group 9 — Aggregate fallback queries (~19)
+
+`Aggregate` is produced when `combineEfficient` returns null. This happens when `extractCondition`
+fails on either operand — i.e. for `FollowLink`, `Slice`, `UnionAll`/`Order`, `ReversedOrder`,
+or `SortBy(FollowLink)` (O3 strips SortBy but the inner FollowLink still fails). Scenarios are
+organized as a matrix: **left-side type × right-side type × operation (intersect / difference)**.
+
+**FollowLink on left:**
+- [ ] Q68 `FollowLink(left) ∩ condition` — issues via project link, filtered to open
+- [ ] Q69 `FollowLink(left) \ condition` — issues via project link, minus assigned
+- [ ] Q70 `condition(left) ∩ FollowLink(right)` — reversed roles: FollowLink used as filter set
+- [ ] Q71 `condition(left) \ FollowLink(right)` — reversed roles: FollowLink used as exclusion set
+- [ ] Q72 `FollowLink(left) ∩ FollowLink(right)` — both sides are link traversals
+- [ ] Q73 `FollowLink(left) \ FollowLink(right)` — both sides are link traversals, difference
+
+**Slice on left:**
+- [ ] Q74 `Slice(left) ∩ condition` — paginated result filtered by condition
+- [ ] Q75 `Slice(left) \ condition` — paginated result minus condition
+- [ ] Q76 `Slice(left) ∩ FollowLink(right)` — paginated result filtered by link-traversal set
+
+**UnionAll fallback on left:**
+- [ ] Q77 `UnionAll(left) ∩ condition` — fallback union intersected with a condition
+- [ ] Q78 `UnionAll(left) \ condition` — fallback union differenced with a condition
+
+**ReversedOrder on left:**
+- [ ] Q79 `ReversedOrder(left) ∩ condition` — reversed traversal filtered by condition
+
+**SortBy(FollowLink) on left — O3 strip fails, Aggregate fallback:**
+- [ ] Q80 `SortBy(FollowLink)(left) ∩ condition` — sort stripped by O3, inner FollowLink triggers Aggregate
+
+**Chained aggregates — Aggregate as left operand of another Aggregate:**
+- [ ] Q81 Double intersect: `(FollowLink ∩ condition) ∩ condition` — two sequential Aggregates, aggr_0 and aggr_1
+- [ ] Q82 Intersect then difference: `(FollowLink ∩ condition) \ condition` — first `P.within`, then `P.without`
+
+**ByIds × FollowLink — ByIds efficiently combines with plain conditions but not with FollowLink:**
+- [ ] Q83 `ByIds(left) ∩ FollowLink(right)` — IdWithin combined with FollowLink is not extractable
+- [ ] Q84 `ByIds(left) \ FollowLink(right)`
+- [ ] Q85 `FollowLink(left) ∩ ByIds(right)` — ByIds as filter set (uses its special `startTraversal`)
+- [ ] Q86 `FollowLink(left) \ ByIds(right)`
+
 ---
 
 ## Follow-up: Real Database Integration
@@ -141,6 +181,6 @@ No real database is used. Tests assert the Gremlin string produced by each query
 ---
 
 ## Part 2 — Optimization Analysis (to be done after Part 1)
-- [ ] Run through all 67 queries and identify which ones currently fall back to `UnionAll`/`Aggregate` where `combineEfficient` could potentially do better
+- [ ] Run through all 86 queries and identify which ones currently fall back to `UnionAll`/`Aggregate` where `combineEfficient` could potentially do better
 - [ ] Identify any patterns not yet handled by O1–O6
 - [ ] Propose new optimization candidates (O7+)

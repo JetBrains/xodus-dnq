@@ -25,6 +25,7 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.FollowLink
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.Labeled
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.LinkDirection
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.NestedCondition
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.ReversedOrder
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.SortBy
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.Where
 import org.apache.tinkerpop.gremlin.process.traversal.translator.GroovyTranslator
@@ -87,6 +88,17 @@ class GremlinQueryCoverageTest {
     private val tagRid     = RID.of(40, 1)
     private val sprintRid  = RID.of(50, 1)
     private val sprintRid2 = RID.of(50, 2)
+
+    // FollowLink helpers — "issues reachable via link from source entities matching cond"
+    // Direction is always IN: source vertices have the outgoing link, we traverse it backwards.
+    private fun issuesInProject(cond: GremlinBlock = All) =
+        Labeled(FollowLink(projects(cond), LinkDirection.IN, "project"), "Issue")
+
+    private fun issuesAssignedTo(cond: GremlinBlock = All) =
+        Labeled(FollowLink(employees(cond), LinkDirection.IN, "assignee"), "Issue")
+
+    private fun issuesInSprint(cond: GremlinBlock = All) =
+        Labeled(FollowLink(sprints(cond), LinkDirection.IN, "sprint"), "Issue")
 
     // Sort blocks reused across tests
     private val byPriority = Sort(Sort.ByProp("priority"), SortDirection.ASC)
@@ -752,5 +764,301 @@ class GremlinQueryCoverageTest {
         println("[Q67 sorted by priority union sorted by estimate drops both sorts] gremlin: ${q67.toGremlin()}")
         assertThat(q67.toGremlin())
             .isEqualTo("""g.V().hasLabel("Issue")""")
+    }
+
+    // =========================================================================
+    // Group 9 — Aggregate fallback queries
+    //
+    // Aggregate fires when combineEfficient returns null, which happens when
+    // extractCondition fails on either operand. extractCondition returns null
+    // for: FollowLink (Chained, not Condition), Slice, Order/UnionAll, ReversedOrder,
+    // and SortBy(FollowLink) (O3 strips SortBy but inner FollowLink still fails).
+    //
+    // Gremlin shape:
+    //   g.{right}.aggregate("aggr_N").fold().{left_via_continueTraversal}.where(P.within/without("aggr_N"))
+    //
+    // For chained Aggregates the counter increments: the inner Aggregate uses aggr_1,
+    // the outer uses aggr_0 (right side of the outer is collected first).
+    // =========================================================================
+
+    @Test
+    fun `group 9 - aggregate fallback queries`() {
+
+        // ------------------------------------------------------------------
+        // FollowLink on left
+        // ------------------------------------------------------------------
+
+        // Q68: FollowLink(left) ∩ condition(right)
+        // Issues in ENG project, filtered to only the open ones.
+        // extractCondition(Labeled(FollowLink,...)) = null → Aggregate.
+        // Right (condition) traversed first into aggr_0, then left (FollowLink) filtered by it.
+        val q68 = issuesInProject(PropEqual("key", "ENG"))
+            .intersect(issues(PropEqual("status", "open")))
+        println("[Q68 followlink-left intersect condition-right] query  : $q68")
+        println("[Q68 followlink-left intersect condition-right] gremlin: ${q68.toGremlin()}")
+        assertThat(q68.toGremlin()).isEqualTo(
+            """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // Q69: FollowLink(left) \ condition(right)
+        // Issues in ENG project, minus assigned ones.
+        val q69 = issuesInProject(PropEqual("key", "ENG"))
+            .difference(issues(HasLink("assignee")))
+        println("[Q69 followlink-left difference condition-right] query  : $q69")
+        println("[Q69 followlink-left difference condition-right] gremlin: ${q69.toGremlin()}")
+        assertThat(q69.toGremlin()).isEqualTo(
+            """g.V().where(__.out("assignee_link")).hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.without(["aggr_0"]))"""
+        )
+
+        // Q70: condition(left) ∩ FollowLink(right) — reversed roles
+        // Open issues filtered to only those also in ENG project.
+        // FollowLink is now the right side (the filter set), collected into aggr_0.
+        val q70 = issues(PropEqual("status", "open"))
+            .intersect(issuesInProject(PropEqual("key", "ENG")))
+        println("[Q70 condition-left intersect followlink-right] query  : $q70")
+        println("[Q70 condition-left intersect followlink-right] gremlin: ${q70.toGremlin()}")
+        assertThat(q70.toGremlin()).isEqualTo(
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().has("status","open").hasLabel("Issue")""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // Q71: condition(left) \ FollowLink(right) — reversed roles
+        // High-priority issues, excluding those in any sprint.
+        val q71 = issues(PropEqual("priority", "high"))
+            .difference(issuesInSprint())
+        println("[Q71 condition-left difference followlink-right] query  : $q71")
+        println("[Q71 condition-left difference followlink-right] gremlin: ${q71.toGremlin()}")
+        assertThat(q71.toGremlin()).isEqualTo(
+            """g.V().hasLabel("Sprint").in("sprint_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().has("priority","high").hasLabel("Issue")""" +
+            """.where(P.without(["aggr_0"]))"""
+        )
+
+        // Q72: FollowLink(left) ∩ FollowLink(right)
+        // Issues in any project, among those also assigned to an Engineering employee.
+        // Both sides are FollowLink → extractCondition fails for both → Aggregate.
+        val q72 = issuesInProject()
+            .intersect(issuesAssignedTo(PropEqual("department", "Engineering")))
+        println("[Q72 followlink-left intersect followlink-right] query  : $q72")
+        println("[Q72 followlink-left intersect followlink-right] gremlin: ${q72.toGremlin()}")
+        assertThat(q72.toGremlin()).isEqualTo(
+            """g.V().has("department","Engineering").hasLabel("Employee").in("assignee_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // Q73: FollowLink(left) \ FollowLink(right)
+        // Issues in ENG project, excluding those assigned to any employee.
+        val q73 = issuesInProject(PropEqual("key", "ENG"))
+            .difference(issuesAssignedTo())
+        println("[Q73 followlink-left difference followlink-right] query  : $q73")
+        println("[Q73 followlink-left difference followlink-right] gremlin: ${q73.toGremlin()}")
+        assertThat(q73.toGremlin()).isEqualTo(
+            """g.V().hasLabel("Employee").in("assignee_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.without(["aggr_0"]))"""
+        )
+
+        // ------------------------------------------------------------------
+        // Slice on left
+        // ------------------------------------------------------------------
+
+        // Q74: Slice(left) ∩ condition(right)
+        // Page of issues (skip 10), filtered to critical ones.
+        // Slice.continueTraversal(t, c, i) = inner.continueTraversal(t,c,i).combine(Skip) = t.V().hasLabel("Issue").skip(10)
+        val q74 = issues().then(Skip(10))
+            .intersect(issues(PropEqual("priority", "critical")))
+        println("[Q74 slice-left intersect condition-right] query  : $q74")
+        println("[Q74 slice-left intersect condition-right] gremlin: ${q74.toGremlin()}")
+        assertThat(q74.toGremlin()).isEqualTo(
+            """g.V().has("priority","critical").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().hasLabel("Issue").skip(10L)""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // Q75: Slice(left) \ condition(right)
+        // First 5 issues, excluding those in any sprint.
+        val q75 = issues().then(Limit(5))
+            .difference(issues(HasLink("sprint")))
+        println("[Q75 slice-left difference condition-right] query  : $q75")
+        println("[Q75 slice-left difference condition-right] gremlin: ${q75.toGremlin()}")
+        assertThat(q75.toGremlin()).isEqualTo(
+            """g.V().where(__.out("sprint_link")).hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().hasLabel("Issue").limit(5L)""" +
+            """.where(P.without(["aggr_0"]))"""
+        )
+
+        // Q76: Slice(left) ∩ FollowLink(right)
+        // Page of issues (skip 10), filtered to those also in ENG project.
+        // Both sides are non-extractable → Aggregate.
+        val q76 = issues().then(Skip(10))
+            .intersect(issuesInProject(PropEqual("key", "ENG")))
+        println("[Q76 slice-left intersect followlink-right] query  : $q76")
+        println("[Q76 slice-left intersect followlink-right] gremlin: ${q76.toGremlin()}")
+        assertThat(q76.toGremlin()).isEqualTo(
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().hasLabel("Issue").skip(10L)""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // ------------------------------------------------------------------
+        // UnionAll fallback on left
+        // ------------------------------------------------------------------
+
+        // Q77: UnionAll(left) ∩ condition(right)
+        // The union of two Slice queries falls back to Order(UnionAll, Dedup).
+        // Order.continueTraversal(t, c, i) = UnionAll.continueTraversal(t,c,i).combine(Dedup)
+        //   = t.union(__.V().hasLabel("Issue").skip(1), ...).dedup()
+        val unionFallback = issues().then(Skip(1)).union(issues().then(Skip(2)))
+        val q77 = unionFallback.intersect(issues(PropEqual("status", "open")))
+        println("[Q77 unionall-left intersect condition-right] query  : $q77")
+        println("[Q77 unionall-left intersect condition-right] gremlin: ${q77.toGremlin()}")
+        assertThat(q77.toGremlin()).isEqualTo(
+            """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.union(__.V().hasLabel("Issue").skip(1L),__.V().hasLabel("Issue").skip(2L)).dedup()""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // Q78: UnionAll(left) \ condition(right)
+        val q78 = unionFallback.difference(issues(PropEqual("priority", "critical")))
+        println("[Q78 unionall-left difference condition-right] query  : $q78")
+        println("[Q78 unionall-left difference condition-right] gremlin: ${q78.toGremlin()}")
+        assertThat(q78.toGremlin()).isEqualTo(
+            """g.V().has("priority","critical").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.union(__.V().hasLabel("Issue").skip(1L),__.V().hasLabel("Issue").skip(2L)).dedup()""" +
+            """.where(P.without(["aggr_0"]))"""
+        )
+
+        // ------------------------------------------------------------------
+        // ReversedOrder on left
+        // ------------------------------------------------------------------
+
+        // Q79: ReversedOrder(left) ∩ condition(right)
+        // Issues in reverse priority order, filtered to open ones.
+        // ReversedOrder.continueTraversal appends .order().by(...).fold().reverse().unfold()
+        val q79 = ReversedOrder(SortBy(issues(), byPriority))
+            .intersect(issues(PropEqual("status", "open")))
+        println("[Q79 reversedorder-left intersect condition-right] query  : $q79")
+        println("[Q79 reversedorder-left intersect condition-right] gremlin: ${q79.toGremlin()}")
+        assertThat(q79.toGremlin()).isEqualTo(
+            """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().hasLabel("Issue")""" +
+            """.order().by(__.values("priority").count(),Order.desc).by(__.values("priority").fold(),Order.asc)""" +
+            """.fold().reverse().unfold()""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // ------------------------------------------------------------------
+        // SortBy(FollowLink) on left — O3 tries to strip sort, inner FollowLink still fails
+        // ------------------------------------------------------------------
+
+        // Q80: SortBy(FollowLink)(left) ∩ condition(right)
+        // O3 branch: this.inner.combineEfficient(other, Intersect) is attempted for inner=FollowLink.
+        // extractCondition(FollowLink) = null → inner returns null → O3 returns null → Aggregate.
+        // The Aggregate includes the SortBy, so the left traversal has the sort step.
+        val q80 = SortBy(issuesInProject(PropEqual("key", "ENG")), byPriority)
+            .intersect(issues(PropEqual("status", "open")))
+        println("[Q80 sortby-followlink-left intersect condition-right] query  : $q80")
+        println("[Q80 sortby-followlink-left intersect condition-right] gremlin: ${q80.toGremlin()}")
+        assertThat(q80.toGremlin()).isEqualTo(
+            """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.order().by(__.values("priority").count(),Order.desc).by(__.values("priority").fold(),Order.asc)""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // ------------------------------------------------------------------
+        // Chained aggregates — Aggregate as left operand of another Aggregate
+        // ------------------------------------------------------------------
+
+        // Q81: (FollowLink ∩ condition) ∩ condition — double intersect
+        // Step 1: agg1 = issuesInProject("ENG").intersect(issues(open)) → Aggregate(followLink, open, within)
+        // Step 2: agg1.intersect(issues(critical)) → extractCondition(Aggregate) = null → Aggregate(agg1, critical, within)
+        // Counter: outer right=critical collected into aggr_0 (counter 0→1),
+        //          inner right=open collected into aggr_1 (counter 1→2), inner left=FollowLink filtered by aggr_1.
+        //          Then outer left filtered by aggr_0.
+        val agg1 = issuesInProject(PropEqual("key", "ENG"))
+            .intersect(issues(PropEqual("status", "open")))
+        val q81 = agg1.intersect(issues(PropEqual("priority", "critical")))
+        println("[Q81 chained double intersect] query  : $q81")
+        println("[Q81 chained double intersect] gremlin: ${q81.toGremlin()}")
+        assertThat(q81.toGremlin()).isEqualTo(
+            """g.V().has("priority","critical").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().has("status","open").hasLabel("Issue").aggregate("aggr_1").fold()""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.within(["aggr_1"]))""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // Q82: (FollowLink ∩ condition) \ condition — intersect then difference
+        // Outer op is difference → P.without for aggr_0; inner is still P.within for aggr_1.
+        val q82 = agg1.difference(issues(HasLink("assignee")))
+        println("[Q82 chained intersect then difference] query  : $q82")
+        println("[Q82 chained intersect then difference] gremlin: ${q82.toGremlin()}")
+        assertThat(q82.toGremlin()).isEqualTo(
+            """g.V().where(__.out("assignee_link")).hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().has("status","open").hasLabel("Issue").aggregate("aggr_1").fold()""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.within(["aggr_1"]))""" +
+            """.where(P.without(["aggr_0"]))"""
+        )
+
+        // ------------------------------------------------------------------
+        // ByIds × FollowLink — ByIds.asBlock()=IdWithin is extractable for plain
+        // conditions (see Q46/Q56) but not when the other side is a FollowLink.
+        // ------------------------------------------------------------------
+
+        // Q83: ByIds(left) ∩ FollowLink(right)
+        // extractCondition(ByIds) = IdWithin ✓, extractCondition(FollowLink) = null → Aggregate.
+        // FollowLink is the right side: its startTraversal produces the filter set.
+        val q83 = ByIds(listOf(issueRid1, issueRid2))
+            .intersect(issuesInProject(PropEqual("key", "ENG")))
+        println("[Q83 byids-left intersect followlink-right] query  : $q83")
+        println("[Q83 byids-left intersect followlink-right] gremlin: ${q83.toGremlin()}")
+        assertThat(q83.toGremlin()).isEqualTo(
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().hasId(P.within([#30:1, #30:2]))""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // Q84: ByIds(left) \ FollowLink(right)
+        val q84 = ByIds(listOf(issueRid1, issueRid2))
+            .difference(issuesInProject(PropEqual("key", "ENG")))
+        println("[Q84 byids-left difference followlink-right] query  : $q84")
+        println("[Q84 byids-left difference followlink-right] gremlin: ${q84.toGremlin()}")
+        assertThat(q84.toGremlin()).isEqualTo(
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().hasId(P.within([#30:1, #30:2]))""" +
+            """.where(P.without(["aggr_0"]))"""
+        )
+
+        // Q85: FollowLink(left) ∩ ByIds(right)
+        // ByIds is now the right side. Its startTraversal uses gs.V(*ids) directly —
+        // unlike Condition which does gs.V().hasId(...), ByIds starts with gs.V(rid1,rid2).
+        val q85 = issuesInProject(PropEqual("key", "ENG"))
+            .intersect(ByIds(listOf(issueRid1, issueRid2)))
+        println("[Q85 followlink-left intersect byids-right] query  : $q85")
+        println("[Q85 followlink-left intersect byids-right] gremlin: ${q85.toGremlin()}")
+        assertThat(q85.toGremlin()).isEqualTo(
+            """g.V(#30:1,#30:2).aggregate("aggr_0").fold()""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.within(["aggr_0"]))"""
+        )
+
+        // Q86: FollowLink(left) \ ByIds(right)
+        val q86 = issuesInProject(PropEqual("key", "ENG"))
+            .difference(ByIds(listOf(issueRid1, issueRid2)))
+        println("[Q86 followlink-left difference byids-right] query  : $q86")
+        println("[Q86 followlink-left difference byids-right] gremlin: ${q86.toGremlin()}")
+        assertThat(q86.toGremlin()).isEqualTo(
+            """g.V(#30:1,#30:2).aggregate("aggr_0").fold()""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.without(["aggr_0"]))"""
+        )
     }
 }
