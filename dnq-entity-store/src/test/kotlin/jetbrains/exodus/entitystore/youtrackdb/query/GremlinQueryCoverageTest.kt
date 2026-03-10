@@ -361,21 +361,23 @@ class GremlinQueryCoverageTest {
     @Test
     fun `group 5 - union queries`() {
 
-        // Q30: Critical OR high priority issues — combineEfficient merges into Or condition
+        // Q30: Critical OR high priority issues
+        // O9: both PropEqual on same property → PropWithin
         val q30 = issues(PropEqual("priority", "critical"))
             .union(issues(PropEqual("priority", "high")))
         println("[Q30 critical or high] query  : $q30")
         println("[Q30 critical or high] gremlin: ${q30.toGremlin()}")
         assertThat(q30.toGremlin())
-            .isEqualTo("""g.V().or(__.has("priority","critical"),__.has("priority","high")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("priority",P.within(["critical", "high"])).hasLabel("Issue")""")
 
         // Q31: Open OR in-progress issues
+        // O9: both PropEqual on same property → PropWithin
         val q31 = issues(PropEqual("status", "open"))
             .union(issues(PropEqual("status", "in-progress")))
         println("[Q31 open or in-progress] query  : $q31")
         println("[Q31 open or in-progress] gremlin: ${q31.toGremlin()}")
         assertThat(q31.toGremlin())
-            .isEqualTo("""g.V().or(__.has("status","open"),__.has("status","in-progress")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("status",P.within(["open", "in-progress"])).hasLabel("Issue")""")
 
         // Q32: Issues with no assignee OR with critical priority
         val q32 = issues(HasNoLink("assignee"))
@@ -401,16 +403,15 @@ class GremlinQueryCoverageTest {
             .isEqualTo("""g.V(#30:1,#30:2)""")
 
         // Q35: Open OR in-progress OR resolved — three-way union
-        // First union → Or([open, in-progress])
-        // Second union → combineBlocks produces Or([Or([open,in-progress]), resolved]);
-        //   simplify() in Where.of flattens the nested Or → Or([open, in-progress, resolved])
+        // First union: O9 → PropWithin("status", [open, in-progress])
+        // Second union: PropWithin ∪ PropEqual same property → O9 extends → PropWithin("status", [open, in-progress, resolved])
         val q35 = issues(PropEqual("status", "open"))
             .union(issues(PropEqual("status", "in-progress")))
             .union(issues(PropEqual("status", "resolved")))
         println("[Q35 open or in-progress or resolved] query  : $q35")
         println("[Q35 open or in-progress or resolved] gremlin: ${q35.toGremlin()}")
         assertThat(q35.toGremlin())
-            .isEqualTo("""g.V().or(__.has("status","open"),__.has("status","in-progress"),__.has("status","resolved")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("status",P.within(["open", "in-progress", "resolved"])).hasLabel("Issue")""")
 
         // Q36: Issues in sprint A OR issues with no sprint
         val q36 = issues(HasLinkTo("sprint", sprintRid))
@@ -436,13 +437,13 @@ class GremlinQueryCoverageTest {
         assertThat(q38.toGremlin())
             .isEqualTo("""g.V().or(__.has("status","open"),__.has("priority","critical")).hasLabel("Issue")""")
 
-        // Q39: SortBy(open).union(unresolved) — O3 strips left sort for union
+        // Q39: SortBy(open).union(unresolved) — O3 strips left sort; O9 coalesces same-property PropEquals
         val q39 = SortBy(issues(PropEqual("status", "open")), byPriority)
             .union(issues(PropEqual("status", "resolved")))
         println("[Q39 sorted union unsorted strips left sort] query  : $q39")
         println("[Q39 sorted union unsorted strips left sort] gremlin: ${q39.toGremlin()}")
         assertThat(q39.toGremlin())
-            .isEqualTo("""g.V().or(__.has("status","open"),__.has("status","resolved")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("status",P.within(["open", "resolved"])).hasLabel("Issue")""")
     }
 
     // =========================================================================
@@ -627,16 +628,16 @@ class GremlinQueryCoverageTest {
     @Test
     fun `group 8 - complex combined queries`() {
 
-        // Q58: (Critical OR high) AND open — union result intersected with condition
-        // Step 1: criticalOrHigh = critical.union(high) → Or(critical, high)
-        // Step 2: criticalOrHigh.intersect(open) → And(Or(critical,high), open)
+        // Q58: (Critical OR high) AND open
+        // Step 1: O9 → PropWithin("priority", [critical, high])
+        // Step 2: .intersect(open) → And([PropWithin("priority",[c,h]), open])
         val q58 = issues(PropEqual("priority", "critical"))
             .union(issues(PropEqual("priority", "high")))
             .intersect(issues(PropEqual("status", "open")))
         println("[Q58 (critical or high) and open] query  : $q58")
         println("[Q58 (critical or high) and open] gremlin: ${q58.toGremlin()}")
         assertThat(q58.toGremlin())
-            .isEqualTo("""g.V().and(__.or(__.has("priority","critical"),__.has("priority","high")),__.has("status","open")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.has("priority",P.within(["critical", "high"])),__.has("status","open")).hasLabel("Issue")""")
 
         // Q59: (Critical AND open) OR (high AND in-progress) — two intersects unioned
         // Step 1: a = critical.intersect(open) → And(critical, open)
@@ -654,10 +655,10 @@ class GremlinQueryCoverageTest {
             .isEqualTo("""g.V().or(__.and(__.has("priority","critical"),__.has("status","open")),__.and(__.has("priority","high"),__.has("status","in-progress"))).hasLabel("Issue")""")
 
         // Q60: (Critical OR high) AND NOT resolved AND in-sprint
-        // Step 1: critOrHigh = Or([critical, high])
-        // Step 2: critOrHigh.difference(resolved) → And([Or([c,h]), Not(resolved)])
-        // Step 3: .intersect(sprint) → combineBlocks produces And([And([Or,Not]), sprint]);
-        //   simplify() flattens outer And → And([Or([c,h]), Not(resolved), sprint])
+        // Step 1: O9 → PropWithin("priority", [critical, high])
+        // Step 2: .difference(resolved) → And([PropWithin, Not(resolved)])
+        // Step 3: .intersect(sprint) → And([And([PropWithin,Not]), sprint]);
+        //   O8 flattens outer And → And([PropWithin, Not(resolved), sprint])
         val q60 = issues(PropEqual("priority", "critical"))
             .union(issues(PropEqual("priority", "high")))
             .difference(issues(PropEqual("status", "resolved")))
@@ -665,7 +666,7 @@ class GremlinQueryCoverageTest {
         println("[Q60 (critical or high) not resolved and in-sprint] query  : $q60")
         println("[Q60 (critical or high) not resolved and in-sprint] gremlin: ${q60.toGremlin()}")
         assertThat(q60.toGremlin())
-            .isEqualTo("""g.V().and(__.or(__.has("priority","critical"),__.has("priority","high")),__.not(__.has("status","resolved")),__.where(__.out("sprint_link"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.has("priority",P.within(["critical", "high"])),__.not(__.has("status","resolved")),__.where(__.out("sprint_link"))).hasLabel("Issue")""")
 
         // Q61: Open issues in project A UNION open issues in project B, minus assigned issues
         // Step 1: openInA = open.intersect(inProjectA) → And(open, HasLinkTo(project,A))

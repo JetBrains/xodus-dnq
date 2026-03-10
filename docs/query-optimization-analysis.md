@@ -210,5 +210,5 @@ simplification incur zero allocations beyond O(n) method calls.
 |----|-------------|-----------------|------------|
 | O7 | FollowLink × Condition fusion — eliminates Aggregate | Q68, Q69, Q70, Q80, Q83, Q85, Q86 | ✅ Done |
 | O8 | And/Or flattening to n-ary form | Q35, Q47, Q60, Q65 | ✅ Done |
-| O9 | PropWithin coalescing from repeated PropEqual unions | Q30, Q31, Q35 | Low–Medium |
+| O9 | PropWithin coalescing from repeated PropEqual unions | Q30, Q31, Q35, Q39, Q58, Q60 | ✅ Done |
 | O5 | Recursive `simplify()` with full `None`/`All` coverage, wired into `Where.of()` and `NestedCondition` | edge cases | ✅ Done |
