@@ -44,6 +44,7 @@ is needed. The condition block can simply be appended to the `FollowLink` traver
 | Q80 `SortBy(FollowLink) ∩ condition` | O3 strips sort, inner FollowLink still fails → Aggregate | O3 strips sort, O7 fires on inner, sort re-wrapped |
 | Q83 `ByIds ∩ FollowLink` | Aggregate (`ByIds.asBlock()=IdWithin` extractable, but FollowLink side is not) | `g.V().src.in(link).hasId(P.within([...])).hasLabel(T)` |
 | Q85 `FollowLink ∩ ByIds` | Aggregate (ByIds as filter set via special `startTraversal`) | same result as Q83 — symmetric |
+| Q86 `FollowLink \ ByIds` | Aggregate (ByIds as filter set via special `startTraversal`) | `g.V().src.in(link).not(__.hasId(P.within([...]))).hasLabel(T)` |
 
 ### What does NOT apply
 
@@ -163,29 +164,29 @@ differently from `has(p, P.within([v1,v2]))` depends on the query planner.
 
 ---
 
-## O5 — `simplify()` after `combineBlocks` (existing, unimplemented)
+## O5 — `simplify()` recursive propagation ✅
 
-**Priority: Low. Existing.**
+**Priority: Low. Done.**
 
-`simplify()` is defined on several `GremlinBlock` subclasses but is never called from
-`combineEfficient`. The relevant simplifications:
+`simplify()` implementations were extended and made recursive, then wired into two call sites.
 
-| Pattern | Simplifies to | Notes |
-|---------|---------------|-------|
-| `And(All, x)` | `x` | already handled by `combineBlocks` itself for Intersect |
-| `Or(None, x)` | `x` | already handled by `combineBlocks` for Union |
-| `Not(Not(x))` | `x` | not yet handled; could arise from double-difference chains |
-| `And(x, x)` | `x` | O2 handles this at the `GremlinQuery` level already |
+**New identity cases added** (previously missing):
 
-In practice, most of these are already handled by `combineBlocks` identity rules.
-The only real gap is `Not(Not(x))` from a double-difference chain, which is rare.
+| Block | New cases |
+|-------|-----------|
+| `Or` | `None OR x → x`, `x OR None → x` |
+| `And` | `None AND x → None`, `x AND None → None` |
+| `Not` | `NOT(All) → None`, `NOT(None) → All` |
+| `Where` | `Where(All) → All`, `Where(None) → None` (new override) |
+| `AndThen` | `None THEN x → None`, `x THEN None → None` |
 
-**Fix:** add one line at the result site in `combineEfficient`:
-```kotlin
-val combined = condCombiner.combineBlocks(thisCondition, otherCondition)
-val simplified = combined.simplify() ?: combined   // O5
-val combinedCondition = Where.of(simplified)
-```
+**Recursive implementation:** each compound block simplifies its children first, then applies
+its own rules. A new parent node is only allocated when a child changed — trees requiring no
+simplification incur zero allocations beyond O(n) method calls.
+
+**Call sites:**
+- `GremlinQuery.Where.of(block)` — covers `combineBinary`, `combineUnary`, `combineEfficient`
+- `NestedCondition.buildBlock()` — extracted companion function covers the chained-link path
 
 ---
 
@@ -207,7 +208,7 @@ val combinedCondition = Where.of(simplified)
 
 | ID | Description | Queries affected | Complexity |
 |----|-------------|-----------------|------------|
-| O7 | FollowLink × Condition fusion — eliminates Aggregate | Q68, Q69, Q70, Q80, Q83, Q85 | Medium |
+| O7 | FollowLink × Condition fusion — eliminates Aggregate | Q68, Q69, Q70, Q80, Q83, Q85, Q86 | ✅ Done |
 | O8 | And/Or flattening to n-ary form | Q35, Q47, Q60, Q61, Q65 | Medium (new block types) |
 | O9 | PropWithin coalescing from repeated PropEqual unions | Q30, Q31, Q35 | Low–Medium |
-| O5 | Call `simplify()` after `combineBlocks` | edge cases (double-difference) | Trivial |
+| O5 | Recursive `simplify()` with full `None`/`All` coverage, wired into `Where.of()` and `NestedCondition` | edge cases | ✅ Done |

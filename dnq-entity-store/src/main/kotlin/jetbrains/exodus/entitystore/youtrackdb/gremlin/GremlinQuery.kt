@@ -178,6 +178,32 @@ sealed class GremlinQuery {
             return ByIds(condCombiner.combineIds(this.ids, other.ids))
         }
 
+        // O7: FollowLink × Condition fusion — avoids Aggregate for FollowLink ∩/\ Condition.
+        // When one side is Labeled(FollowLink, T) and the other has an extractable condition,
+        // append the condition directly to the FollowLink traversal instead of collecting into
+        // a named aggregate set. For difference, wrap the condition in Not first.
+        // Symmetric for intersect (either side can be the link); for difference only `this` can
+        // be the link side (condition \ FollowLink is not safe to rewrite this way).
+        if (condCombiner is ConditionCombiner.Intersect || condCombiner is ConditionCombiner.Difference) {
+            val linkQuery: Labeled?
+            val condBlock: GremlinBlock?
+            when {
+                this is Labeled && this.inner is FollowLink -> {
+                    condBlock = extractCondition(other)
+                    linkQuery = if (condBlock != null) this else null
+                }
+                condCombiner is ConditionCombiner.Intersect && other is Labeled && other.inner is FollowLink -> {
+                    condBlock = extractCondition(this)
+                    linkQuery = if (condBlock != null) other else null
+                }
+                else -> { linkQuery = null; condBlock = null }
+            }
+            if (linkQuery != null && condBlock != null) {
+                val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not(condBlock) else condBlock
+                return Labeled(linkQuery.inner.then(appended), linkQuery.label)
+            }
+        }
+
         val thisCondition = extractCondition(this)
         val otherCondition = extractCondition(other)
 

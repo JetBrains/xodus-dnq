@@ -769,16 +769,21 @@ class GremlinQueryCoverageTest {
     // =========================================================================
     // Group 9 — Aggregate fallback queries
     //
-    // Aggregate fires when combineEfficient returns null, which happens when
-    // extractCondition fails on either operand. extractCondition returns null
-    // for: FollowLink (Chained, not Condition), Slice, Order/UnionAll, ReversedOrder,
-    // and SortBy(FollowLink) (O3 strips SortBy but inner FollowLink still fails).
+    // Aggregate fires when combineEfficient returns null. This happens when neither
+    // O7 nor extractCondition can handle both operands.
+    //
+    // O7 handles: FollowLink ∩/\ Condition and Condition ∩ FollowLink (Q68–Q70, Q80, Q83, Q85, Q86).
+    // Remaining Aggregate cases:
+    //   - condition \ FollowLink (Q71, Q84): starting set is the condition side — not rewritable
+    //   - FollowLink ∩/\ FollowLink (Q72, Q73): both sides are traversals
+    //   - Slice ∩/\ anything (Q74–Q76): order-dependent, can't push condition before skip/limit
+    //   - UnionAll ∩/\ condition (Q77–Q78): can't push condition into union branches
+    //   - ReversedOrder ∩ condition (Q79): can't push condition before fold/reverse/unfold
+    //   - Labeled(AndThen(FollowLink,cond)) ∩/\ condition (Q81, Q82): O7 fires on inner,
+    //     outer falls to Aggregate because AndThen is not Condition
     //
     // Gremlin shape:
     //   g.{right}.aggregate("aggr_N").fold().{left_via_continueTraversal}.where(P.within/without("aggr_N"))
-    //
-    // For chained Aggregates the counter increments: the inner Aggregate uses aggr_1,
-    // the outer uses aggr_0 (right side of the outer is collected first).
     // =========================================================================
 
     @Test
@@ -790,41 +795,35 @@ class GremlinQueryCoverageTest {
 
         // Q68: FollowLink(left) ∩ condition(right)
         // Issues in ENG project, filtered to only the open ones.
-        // extractCondition(Labeled(FollowLink,...)) = null → Aggregate.
-        // Right (condition) traversed first into aggr_0, then left (FollowLink) filtered by it.
+        // O7: condition appended directly to the FollowLink traversal — no Aggregate.
         val q68 = issuesInProject(PropEqual("key", "ENG"))
             .intersect(issues(PropEqual("status", "open")))
         println("[Q68 followlink-left intersect condition-right] query  : $q68")
         println("[Q68 followlink-left intersect condition-right] gremlin: ${q68.toGremlin()}")
         assertThat(q68.toGremlin()).isEqualTo(
-            """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.where(P.within(["aggr_0"]))"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").has("status","open").hasLabel("Issue")"""
         )
 
         // Q69: FollowLink(left) \ condition(right)
         // Issues in ENG project, minus assigned ones.
+        // O7: Not(condition) appended to FollowLink traversal — no Aggregate.
         val q69 = issuesInProject(PropEqual("key", "ENG"))
             .difference(issues(HasLink("assignee")))
         println("[Q69 followlink-left difference condition-right] query  : $q69")
         println("[Q69 followlink-left difference condition-right] gremlin: ${q69.toGremlin()}")
         assertThat(q69.toGremlin()).isEqualTo(
-            """g.V().where(__.out("assignee_link")).hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.where(P.without(["aggr_0"]))"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").not(__.where(__.out("assignee_link"))).hasLabel("Issue")"""
         )
 
         // Q70: condition(left) ∩ FollowLink(right) — reversed roles
         // Open issues filtered to only those also in ENG project.
-        // FollowLink is now the right side (the filter set), collected into aggr_0.
+        // O7: symmetric — FollowLink on right, condition extracted from left, same result as Q68.
         val q70 = issues(PropEqual("status", "open"))
             .intersect(issuesInProject(PropEqual("key", "ENG")))
         println("[Q70 condition-left intersect followlink-right] query  : $q70")
         println("[Q70 condition-left intersect followlink-right] gremlin: ${q70.toGremlin()}")
         assertThat(q70.toGremlin()).isEqualTo(
-            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("status","open").hasLabel("Issue")""" +
-            """.where(P.within(["aggr_0"]))"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").has("status","open").hasLabel("Issue")"""
         )
 
         // Q71: condition(left) \ FollowLink(right) — reversed roles
@@ -958,18 +957,16 @@ class GremlinQueryCoverageTest {
         // ------------------------------------------------------------------
 
         // Q80: SortBy(FollowLink)(left) ∩ condition(right)
-        // O3 branch: this.inner.combineEfficient(other, Intersect) is attempted for inner=FollowLink.
-        // extractCondition(FollowLink) = null → inner returns null → O3 returns null → Aggregate.
-        // The Aggregate includes the SortBy, so the left traversal has the sort step.
+        // O3 strips the SortBy wrapper, delegates to inner FollowLink.intersect(condition).
+        // O7 fires on the inner call, producing Labeled(AndThen(FollowLink, condition), T).
+        // O3 re-wraps with the preserved left sort.
         val q80 = SortBy(issuesInProject(PropEqual("key", "ENG")), byPriority)
             .intersect(issues(PropEqual("status", "open")))
         println("[Q80 sortby-followlink-left intersect condition-right] query  : $q80")
         println("[Q80 sortby-followlink-left intersect condition-right] gremlin: ${q80.toGremlin()}")
         assertThat(q80.toGremlin()).isEqualTo(
-            """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.order().by(__.values("priority").count(),Order.desc).by(__.values("priority").fold(),Order.asc)""" +
-            """.where(P.within(["aggr_0"]))"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").has("status","open").hasLabel("Issue")""" +
+            byPriorityGremlin
         )
 
         // ------------------------------------------------------------------
@@ -977,11 +974,11 @@ class GremlinQueryCoverageTest {
         // ------------------------------------------------------------------
 
         // Q81: (FollowLink ∩ condition) ∩ condition — double intersect
-        // Step 1: agg1 = issuesInProject("ENG").intersect(issues(open)) → Aggregate(followLink, open, within)
-        // Step 2: agg1.intersect(issues(critical)) → extractCondition(Aggregate) = null → Aggregate(agg1, critical, within)
-        // Counter: outer right=critical collected into aggr_0 (counter 0→1),
-        //          inner right=open collected into aggr_1 (counter 1→2), inner left=FollowLink filtered by aggr_1.
-        //          Then outer left filtered by aggr_0.
+        // Step 1: agg1 = issuesInProject("ENG").intersect(issues(open))
+        //   → O7 fires: Labeled(AndThen(FollowLink(ENG), open), "Issue")  [no Aggregate]
+        // Step 2: agg1.intersect(issues(critical))
+        //   → extractCondition(Labeled(AndThen,...)) = null → Aggregate(agg1, critical, within)
+        //   → single Aggregate: critical collected into aggr_0, agg1 traversal filtered by it.
         val agg1 = issuesInProject(PropEqual("key", "ENG"))
             .intersect(issues(PropEqual("status", "open")))
         val q81 = agg1.intersect(issues(PropEqual("priority", "critical")))
@@ -989,22 +986,18 @@ class GremlinQueryCoverageTest {
         println("[Q81 chained double intersect] gremlin: ${q81.toGremlin()}")
         assertThat(q81.toGremlin()).isEqualTo(
             """g.V().has("priority","critical").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("status","open").hasLabel("Issue").aggregate("aggr_1").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.where(P.within(["aggr_1"]))""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").has("status","open").hasLabel("Issue")""" +
             """.where(P.within(["aggr_0"]))"""
         )
 
         // Q82: (FollowLink ∩ condition) \ condition — intersect then difference
-        // Outer op is difference → P.without for aggr_0; inner is still P.within for aggr_1.
+        // agg1 is O7-optimised (no inner Aggregate); outer difference falls to single Aggregate.
         val q82 = agg1.difference(issues(HasLink("assignee")))
         println("[Q82 chained intersect then difference] query  : $q82")
         println("[Q82 chained intersect then difference] gremlin: ${q82.toGremlin()}")
         assertThat(q82.toGremlin()).isEqualTo(
             """g.V().where(__.out("assignee_link")).hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("status","open").hasLabel("Issue").aggregate("aggr_1").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.where(P.within(["aggr_1"]))""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").has("status","open").hasLabel("Issue")""" +
             """.where(P.without(["aggr_0"]))"""
         )
 
@@ -1014,19 +1007,19 @@ class GremlinQueryCoverageTest {
         // ------------------------------------------------------------------
 
         // Q83: ByIds(left) ∩ FollowLink(right)
-        // extractCondition(ByIds) = IdWithin ✓, extractCondition(FollowLink) = null → Aggregate.
-        // FollowLink is the right side: its startTraversal produces the filter set.
+        // O7: FollowLink is the right side; ByIds.asBlock() = IdWithin is extractable.
+        // IdWithin appended directly to the FollowLink traversal — no Aggregate.
         val q83 = ByIds(listOf(issueRid1, issueRid2))
             .intersect(issuesInProject(PropEqual("key", "ENG")))
         println("[Q83 byids-left intersect followlink-right] query  : $q83")
         println("[Q83 byids-left intersect followlink-right] gremlin: ${q83.toGremlin()}")
         assertThat(q83.toGremlin()).isEqualTo(
-            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().hasId(P.within([#30:1, #30:2]))""" +
-            """.where(P.within(["aggr_0"]))"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasId(P.within([#30:1, #30:2])).hasLabel("Issue")"""
         )
 
         // Q84: ByIds(left) \ FollowLink(right)
+        // O7 does NOT apply: `condition \ FollowLink` cannot be rewritten as a FollowLink traversal
+        // (ByIds is `this`, not the link side). Falls to Aggregate.
         val q84 = ByIds(listOf(issueRid1, issueRid2))
             .difference(issuesInProject(PropEqual("key", "ENG")))
         println("[Q84 byids-left difference followlink-right] query  : $q84")
@@ -1038,27 +1031,23 @@ class GremlinQueryCoverageTest {
         )
 
         // Q85: FollowLink(left) ∩ ByIds(right)
-        // ByIds is now the right side. Its startTraversal uses gs.V(*ids) directly —
-        // unlike Condition which does gs.V().hasId(...), ByIds starts with gs.V(rid1,rid2).
+        // O7: FollowLink is `this`; IdWithin from ByIds appended to traversal — no Aggregate.
         val q85 = issuesInProject(PropEqual("key", "ENG"))
             .intersect(ByIds(listOf(issueRid1, issueRid2)))
         println("[Q85 followlink-left intersect byids-right] query  : $q85")
         println("[Q85 followlink-left intersect byids-right] gremlin: ${q85.toGremlin()}")
         assertThat(q85.toGremlin()).isEqualTo(
-            """g.V(#30:1,#30:2).aggregate("aggr_0").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.where(P.within(["aggr_0"]))"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasId(P.within([#30:1, #30:2])).hasLabel("Issue")"""
         )
 
         // Q86: FollowLink(left) \ ByIds(right)
+        // O7: FollowLink is `this`; Not(IdWithin) appended to traversal — no Aggregate.
         val q86 = issuesInProject(PropEqual("key", "ENG"))
             .difference(ByIds(listOf(issueRid1, issueRid2)))
         println("[Q86 followlink-left difference byids-right] query  : $q86")
         println("[Q86 followlink-left difference byids-right] gremlin: ${q86.toGremlin()}")
         assertThat(q86.toGremlin()).isEqualTo(
-            """g.V(#30:1,#30:2).aggregate("aggr_0").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.where(P.without(["aggr_0"]))"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").not(__.hasId(P.within([#30:1, #30:2]))).hasLabel("Issue")"""
         )
     }
 }
