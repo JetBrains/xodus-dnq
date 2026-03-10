@@ -91,24 +91,35 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         }
     }
 
-    data class Or(val left: GremlinBlock, val right: GremlinBlock) : GremlinBlock("or", BlockType.COMBINE) {
-        override fun traverse(g: YT): YT =
-            g.or(
-                left.traverse(`__`.start<Any>().asYT()),
-                right.traverse(`__`.start<Any>().asYT())
-            )
+    data class Or(val operands: List<GremlinBlock>) : GremlinBlock("or", BlockType.COMBINE) {
+        constructor(left: GremlinBlock, right: GremlinBlock) : this(listOf(left, right))
 
-        override fun describe(s: StringBuilder) = right.describe(left.describe(s).append(" OR "))
+        override fun traverse(g: YT): YT =
+            g.or(*operands.map { it.traverse(`__`.start<Any>().asYT()) }.toTypedArray())
+
+        override fun describe(s: StringBuilder): StringBuilder {
+            operands.forEachIndexed { i, op -> if (i > 0) s.append(" OR "); op.describe(s) }
+            return s
+        }
+
         override fun simplify(): GremlinBlock? {
-            val sl = left.simplify()
-            val sr = right.simplify()
-            val l = sl ?: left
-            val r = sr ?: right
+            var changed = false
+            val result = mutableListOf<GremlinBlock>()
+            for (op in operands) {
+                val s = op.simplify()
+                val o = s ?: op
+                if (s != null) changed = true
+                when {
+                    o is All -> return All
+                    o is None -> changed = true       // drop — None is identity for Or
+                    o is Or -> { result.addAll(o.operands); changed = true }  // flatten
+                    else -> result.add(o)
+                }
+            }
             return when {
-                l is All || r is All -> All
-                l is None -> r
-                r is None -> l
-                sl != null || sr != null -> Or(l, r)
+                result.isEmpty() -> None
+                result.size == 1 -> result[0]
+                changed -> Or(result)
                 else -> null
             }
         }
@@ -128,25 +139,35 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         }
     }
 
-    data class And(val left: GremlinBlock, val right: GremlinBlock) : GremlinBlock("and", BlockType.COMBINE) {
-        override fun traverse(g: YT): YT =
-            g.and(
-                left.traverse(`__`.start<Any>().asYT()),
-                right.traverse(`__`.start<Any>().asYT())
-            )
+    data class And(val operands: List<GremlinBlock>) : GremlinBlock("and", BlockType.COMBINE) {
+        constructor(left: GremlinBlock, right: GremlinBlock) : this(listOf(left, right))
 
-        override fun describe(s: StringBuilder): StringBuilder = right.describe(left.describe(s).append(" AND "))
+        override fun traverse(g: YT): YT =
+            g.and(*operands.map { it.traverse(`__`.start<Any>().asYT()) }.toTypedArray())
+
+        override fun describe(s: StringBuilder): StringBuilder {
+            operands.forEachIndexed { i, op -> if (i > 0) s.append(" AND "); op.describe(s) }
+            return s
+        }
+
         override fun simplify(): GremlinBlock? {
-            val sl = left.simplify()
-            val sr = right.simplify()
-            val l = sl ?: left
-            val r = sr ?: right
+            var changed = false
+            val result = mutableListOf<GremlinBlock>()
+            for (op in operands) {
+                val s = op.simplify()
+                val o = s ?: op
+                if (s != null) changed = true
+                when {
+                    o is None -> return None
+                    o is All -> changed = true        // drop — All is identity for And
+                    o is And -> { result.addAll(o.operands); changed = true }  // flatten
+                    else -> result.add(o)
+                }
+            }
             return when {
-                l is All -> r
-                r is All -> l
-                l is None -> None
-                r is None -> None
-                sl != null || sr != null -> And(l, r)
+                result.isEmpty() -> All
+                result.size == 1 -> result[0]
+                changed -> And(result)
                 else -> null
             }
         }

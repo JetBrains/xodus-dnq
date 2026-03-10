@@ -401,16 +401,16 @@ class GremlinQueryCoverageTest {
             .isEqualTo("""g.V(#30:1,#30:2)""")
 
         // Q35: Open OR in-progress OR resolved — three-way union
-        // O1 flattening: (open.union(in-progress)).union(resolved)
-        // First union → Or(open, in-progress) via combineEfficient
-        // Second union → Or(Or(open, in-progress), resolved) via combineEfficient
+        // First union → Or([open, in-progress])
+        // Second union → combineBlocks produces Or([Or([open,in-progress]), resolved]);
+        //   simplify() in Where.of flattens the nested Or → Or([open, in-progress, resolved])
         val q35 = issues(PropEqual("status", "open"))
             .union(issues(PropEqual("status", "in-progress")))
             .union(issues(PropEqual("status", "resolved")))
         println("[Q35 open or in-progress or resolved] query  : $q35")
         println("[Q35 open or in-progress or resolved] gremlin: ${q35.toGremlin()}")
         assertThat(q35.toGremlin())
-            .isEqualTo("""g.V().or(__.or(__.has("status","open"),__.has("status","in-progress")),__.has("status","resolved")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().or(__.has("status","open"),__.has("status","in-progress"),__.has("status","resolved")).hasLabel("Issue")""")
 
         // Q36: Issues in sprint A OR issues with no sprint
         val q36 = issues(HasLinkTo("sprint", sprintRid))
@@ -513,15 +513,16 @@ class GremlinQueryCoverageTest {
             .isEqualTo("""g.V().and(__.hasId(P.within([#30:1, #30:2])),__.has("status","open")).hasLabel("Issue")""")
 
         // Q47: Triple intersect: critical AND open AND in-sprint
-        // Step 1: critical.intersect(open) → And(critical, open)
-        // Step 2: And(critical,open).intersect(in-sprint) → And(And(critical,open), in-sprint)
+        // Step 1: critical.intersect(open) → And([critical, open])
+        // Step 2: And([critical,open]).intersect(in-sprint) → combineBlocks produces
+        //   And([And([critical,open]), sprint]); simplify() flattens → And([critical, open, sprint])
         val q47 = issues(PropEqual("priority", "critical"))
             .intersect(issues(PropEqual("status", "open")))
             .intersect(issues(HasLink("sprint")))
         println("[Q47 critical and open and in-sprint] query  : $q47")
         println("[Q47 critical and open and in-sprint] gremlin: ${q47.toGremlin()}")
         assertThat(q47.toGremlin())
-            .isEqualTo("""g.V().and(__.and(__.has("priority","critical"),__.has("status","open")),__.where(__.out("sprint_link"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.has("priority","critical"),__.has("status","open"),__.where(__.out("sprint_link"))).hasLabel("Issue")""")
 
         // Q48: Open issues intersected with issues in Engineering project
         // "issues in Engineering project" = NestedCondition following project → lead link
@@ -653,11 +654,10 @@ class GremlinQueryCoverageTest {
             .isEqualTo("""g.V().or(__.and(__.has("priority","critical"),__.has("status","open")),__.and(__.has("priority","high"),__.has("status","in-progress"))).hasLabel("Issue")""")
 
         // Q60: (Critical OR high) AND NOT resolved AND in-sprint
-        // Step 1: critOrHigh = Or(critical, high)
-        // Step 2: critOrHigh.intersect(not-resolved) → And(Or(critical,high), not(resolved))
-        //         → where not-resolved = difference from resolved
-        //         → And(Or(critical,high), Not(resolved))
-        // Step 3: .intersect(in-sprint) → And(And(Or(c,h), Not(resolved)), HasLink(sprint))
+        // Step 1: critOrHigh = Or([critical, high])
+        // Step 2: critOrHigh.difference(resolved) → And([Or([c,h]), Not(resolved)])
+        // Step 3: .intersect(sprint) → combineBlocks produces And([And([Or,Not]), sprint]);
+        //   simplify() flattens outer And → And([Or([c,h]), Not(resolved), sprint])
         val q60 = issues(PropEqual("priority", "critical"))
             .union(issues(PropEqual("priority", "high")))
             .difference(issues(PropEqual("status", "resolved")))
@@ -665,7 +665,7 @@ class GremlinQueryCoverageTest {
         println("[Q60 (critical or high) not resolved and in-sprint] query  : $q60")
         println("[Q60 (critical or high) not resolved and in-sprint] gremlin: ${q60.toGremlin()}")
         assertThat(q60.toGremlin())
-            .isEqualTo("""g.V().and(__.and(__.or(__.has("priority","critical"),__.has("priority","high")),__.not(__.has("status","resolved"))),__.where(__.out("sprint_link"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.or(__.has("priority","critical"),__.has("priority","high")),__.not(__.has("status","resolved")),__.where(__.out("sprint_link"))).hasLabel("Issue")""")
 
         // Q61: Open issues in project A UNION open issues in project B, minus assigned issues
         // Step 1: openInA = open.intersect(inProjectA) → And(open, HasLinkTo(project,A))
@@ -723,9 +723,11 @@ class GremlinQueryCoverageTest {
             .isEqualTo("""g.V().or(__.and(__.has("status","open"),__.has("priority","critical")),__.and(__.has("status","in-progress"),__.has("priority","high"))).hasLabel("Issue")""")
 
         // Q65: Open in sprint A minus open in sprint B (two intersects, then difference)
-        // Step 1: openInA = open.intersect(inSprintA) → And(open, HasLinkTo(sprint,A))
-        // Step 2: openInB = open.intersect(inSprintB) → And(open, HasLinkTo(sprint,B))
-        // Step 3: openInA.difference(openInB) → And(And(open,A), Not(And(open,B)))
+        // Step 1: openInA = And([open, HasLinkTo(sprint,A)])
+        // Step 2: openInB = And([open, HasLinkTo(sprint,B)])
+        // Step 3: openInA.difference(openInB) → combineBlocks produces
+        //   And([And([open,sprintA]), Not(And([open,sprintB]))]); simplify() flattens outer And
+        //   → And([open, sprintA, Not(And([open,sprintB]))])
         val q65 = issues(PropEqual("status", "open"))
             .intersect(issues(HasLinkTo("sprint", sprintRid)))
             .difference(
@@ -735,7 +737,7 @@ class GremlinQueryCoverageTest {
         println("[Q65 open in sprint A minus open in sprint B] query  : $q65")
         println("[Q65 open in sprint A minus open in sprint B] gremlin: ${q65.toGremlin()}")
         assertThat(q65.toGremlin())
-            .isEqualTo("""g.V().and(__.and(__.has("status","open"),__.where(__.out("sprint_link").hasId(#50:1))),__.not(__.and(__.has("status","open"),__.where(__.out("sprint_link").hasId(#50:2))))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.has("status","open"),__.where(__.out("sprint_link").hasId(#50:1)),__.not(__.and(__.has("status","open"),__.where(__.out("sprint_link").hasId(#50:2))))).hasLabel("Issue")""")
 
         // Q66: Issues whose project's lead is in Engineering
         // Uses NestedCondition to traverse Issue → project → lead and filter by department.
