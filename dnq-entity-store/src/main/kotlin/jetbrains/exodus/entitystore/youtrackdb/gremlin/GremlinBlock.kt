@@ -116,6 +116,26 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
                     else -> result.add(o)
                 }
             }
+            // O9: coalesce same-property PropEqual / PropWithin operands into a single PropWithin
+            if (result.size >= 2) {
+                val propName = when (val first = result[0]) {
+                    is PropEqual -> first.property
+                    is PropWithin -> first.propName
+                    else -> null
+                }
+                if (propName != null && result.all {
+                    (it is PropEqual && it.property == propName) ||
+                    (it is PropWithin && it.propName == propName)
+                }) {
+                    return PropWithin(propName, result.flatMap {
+                        when (it) {
+                            is PropEqual -> listOf(it.value)
+                            is PropWithin -> it.within.toList()
+                            else -> emptyList()
+                        }
+                    })
+                }
+            }
             return when {
                 result.isEmpty() -> None
                 result.size == 1 -> result[0]

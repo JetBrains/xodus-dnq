@@ -1053,4 +1053,35 @@ class GremlinQueryCoverageTest {
             """g.V().has("key","ENG").hasLabel("Project").in("project_link").not(__.hasId(P.within([#30:1, #30:2]))).hasLabel("Issue")"""
         )
     }
+
+    // =========================================================================
+    // Group 10 — O9 coalescing via Or.simplify() (the combineBinary path)
+    // =========================================================================
+
+    @Test
+    fun `group 10 - O9 PropWithin coalescing via Or simplify`() {
+
+        // Q87: Or(PropEqual, PropEqual) on same property — constructed directly,
+        // mirrors what NodeFactory.or() / combineBinary produces.
+        // Where.of(Or(a,b)) calls Or.simplify() → PropWithin coalescing fires here.
+        val q87 = issues(Or(PropEqual("status", "open"), PropEqual("status", "resolved")))
+        println("[Q87 Or.simplify PropEqual+PropEqual] query  : $q87")
+        println("[Q87 Or.simplify PropEqual+PropEqual] gremlin: ${q87.toGremlin()}")
+        assertThat(q87.toGremlin())
+            .isEqualTo("""g.V().has("status",P.within(["open", "resolved"])).hasLabel("Issue")""")
+
+        // Q88: Or(PropEqual, PropWithin) on same property — coalesces into PropWithin
+        val q88 = issues(Or(PropEqual("priority", "critical"), PropWithin("priority", listOf("high", "medium"))))
+        println("[Q88 Or.simplify PropEqual+PropWithin] query  : $q88")
+        println("[Q88 Or.simplify PropEqual+PropWithin] gremlin: ${q88.toGremlin()}")
+        assertThat(q88.toGremlin())
+            .isEqualTo("""g.V().has("priority",P.within(["critical", "high", "medium"])).hasLabel("Issue")""")
+
+        // Q89: Or(PropEqual, PropEqual) on DIFFERENT properties — must NOT coalesce
+        val q89 = issues(Or(PropEqual("status", "open"), PropEqual("priority", "critical")))
+        println("[Q89 Or.simplify PropEqual+PropEqual different props] query  : $q89")
+        println("[Q89 Or.simplify PropEqual+PropEqual different props] gremlin: ${q89.toGremlin()}")
+        assertThat(q89.toGremlin())
+            .isEqualTo("""g.V().or(__.has("status","open"),__.has("priority","critical")).hasLabel("Issue")""")
+    }
 }
