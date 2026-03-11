@@ -116,6 +116,16 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
                     else -> result.add(o)
                 }
             }
+            // Deduplication
+            val deduped = LinkedHashSet(result)
+            if (deduped.size < result.size) { result.clear(); result.addAll(deduped); changed = true }
+            // Tautology checks
+            if (result.size >= 2) {
+                val linkNames = result.filterIsInstance<HasLink>().mapTo(HashSet()) { it.linkName }
+                if (result.any { it is HasNoLink && it.linkName in linkNames }) return All
+                val nullProps = result.filterIsInstance<PropNull>().mapTo(HashSet()) { it.property }
+                if (result.any { it is PropNotNull && it.property in nullProps }) return All
+            }
             // O9: coalesce same-property PropEqual / PropWithin operands into a single PropWithin
             if (result.size >= 2) {
                 val propName = when (val first = result[0]) {
@@ -184,6 +194,16 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
                     else -> result.add(o)
                 }
             }
+            // Deduplication
+            val deduped = LinkedHashSet(result)
+            if (deduped.size < result.size) { result.clear(); result.addAll(deduped); changed = true }
+            // Contradiction checks
+            if (result.size >= 2) {
+                val linkNames = result.filterIsInstance<HasLink>().mapTo(HashSet()) { it.linkName }
+                if (result.any { it is HasNoLink && it.linkName in linkNames }) return None
+                val nullProps = result.filterIsInstance<PropNull>().mapTo(HashSet()) { it.property }
+                if (result.any { it is PropNotNull && it.property in nullProps }) return None
+            }
             return when {
                 result.isEmpty() -> All
                 result.size == 1 -> result[0]
@@ -204,6 +224,10 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
                 is Not -> q.query
                 is All -> None
                 is None -> All
+                is HasLink -> HasNoLink(q.linkName)
+                is HasNoLink -> HasLink(q.linkName)
+                is PropNull -> PropNotNull(q.property)
+                is PropNotNull -> PropNull(q.property)
                 else -> if (sq != null) Not(q) else null
             }
         }

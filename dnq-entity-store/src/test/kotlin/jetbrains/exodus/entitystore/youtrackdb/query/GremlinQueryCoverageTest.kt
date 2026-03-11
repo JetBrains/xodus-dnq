@@ -566,7 +566,7 @@ class GremlinQueryCoverageTest {
         println("[Q51 critical not in sprint] query  : $q51")
         println("[Q51 critical not in sprint] gremlin: ${q51.toGremlin()}")
         assertThat(q51.toGremlin())
-            .isEqualTo("""g.V().and(__.has("priority","critical"),__.not(__.where(__.out("sprint_link")))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.has("priority","critical"),__.not(__.out("sprint_link"))).hasLabel("Issue")""")
 
         // Q52: Issues in project A NOT marked as subtasks
         val q52 = issues(HasLinkTo("project", projectRid))
@@ -574,7 +574,7 @@ class GremlinQueryCoverageTest {
         println("[Q52 in project not subtasks] query  : $q52")
         println("[Q52 in project not subtasks] gremlin: ${q52.toGremlin()}")
         assertThat(q52.toGremlin())
-            .isEqualTo("""g.V().and(__.where(__.out("project_link").hasId(#20:1)),__.not(__.where(__.out("parent_link")))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.where(__.out("project_link").hasId(#20:1)),__.not(__.out("parent_link"))).hasLabel("Issue")""")
 
         // Q53: High-priority issues NOT resolved
         val q53 = issues(PropEqual("priority", "high"))
@@ -599,7 +599,7 @@ class GremlinQueryCoverageTest {
         println("[Q55 sorted difference preserves sort] query  : $q55")
         println("[Q55 sorted difference preserves sort] gremlin: ${q55.toGremlin()}")
         assertThat(q55.toGremlin())
-            .isEqualTo("""g.V().and(__.has("status","open"),__.not(__.where(__.out("assignee_link")))).hasLabel("Issue")$byPriorityGremlin""")
+            .isEqualTo("""g.V().and(__.has("status","open"),__.not(__.out("assignee_link"))).hasLabel("Issue")$byPriorityGremlin""")
 
         // Q56: ByIds difference condition — specific issues that are not open
         // ByIds.asBlock() returns IdWithin([...]) which is a valid CONDITION block,
@@ -683,7 +683,7 @@ class GremlinQueryCoverageTest {
         println("[Q61 open in A or B minus assigned] query  : $q61")
         println("[Q61 open in A or B minus assigned] gremlin: ${q61.toGremlin()}")
         assertThat(q61.toGremlin())
-            .isEqualTo("""g.V().and(__.or(__.and(__.has("status","open"),__.where(__.out("project_link").hasId(#20:1))),__.and(__.has("status","open"),__.where(__.out("project_link").hasId(#20:2)))),__.not(__.where(__.out("assignee_link")))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.or(__.and(__.has("status","open"),__.where(__.out("project_link").hasId(#20:1))),__.and(__.has("status","open"),__.where(__.out("project_link").hasId(#20:2)))),__.not(__.out("assignee_link"))).hasLabel("Issue")""")
 
         // Q62: Cascaded 3-way union with fallback — all three operands are Labeled conditions,
         // so combineEfficient succeeds at each step, building nested Or conditions.
