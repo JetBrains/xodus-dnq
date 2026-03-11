@@ -233,6 +233,45 @@ The `Not` semantic duals cascade into the `And`/`Or` rules: `And(HasLink(l), Not
 
 ---
 
+## Discovering future optimization candidates
+
+Five approaches for finding the next round of opportunities, roughly by effort:
+
+**1. Instrument the `Aggregate` fallback**
+
+Add a log/counter every time `Aggregate` is constructed. Run integration tests or a real
+YouTrack instance and see how often it fires and for which operand-type pairs. Turns
+"what might be optimizable" into "what actually fires in practice".
+
+**2. Write a type-pair matrix test**
+
+`GremlinQuery` has a finite set of subclasses. Exercise every
+`left-type × right-type × {union, intersect, difference}` combination and record whether
+the result is `Aggregate`, a fused traversal, or something else. Gaps in current coverage
+appear as a table — similar to the analysis that led to O7, but exhaustive.
+
+**3. Audit the `NodeBase` → `GremlinQuery` translation layer**
+
+Every `NodeBase` subclass in `dnq-query` maps to a `GremlinQuery` shape. Some node types
+may produce shapes that were never considered in `combineEfficient` — especially compound
+nodes like `LinksEqualDecorator`, `PropertyValueIn`, or anything involving metadata. The
+translation code is the bridge between the user-visible DSL and the optimizer; blind spots
+there are blind spots everywhere.
+
+**4. Capture Gremlin from a real YouTrack query workload**
+
+Enable Gremlin string logging for a representative set of YouTrack/Hub queries (issue
+lists, dashboards, agile boards). Scan the output for `aggregate(` — every occurrence is a
+missed optimization. Directly prioritizes by user impact.
+
+**5. Systematically audit `simplify()` coverage** ✅
+
+Walk the truth table of `All`/`None` for every block type and check for unhandled
+identities. Also check semantic duals (`Not(HasLink) ↔ HasNoLink`, etc.) and structural
+patterns (deduplication, contradiction, tautology). Done — see O5 second-pass section above.
+
+---
+
 ## Summary
 
 | ID | Description | Queries affected | Complexity |
