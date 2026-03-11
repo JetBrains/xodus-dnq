@@ -170,7 +170,7 @@ differently from `has(p, P.within([v1,v2]))` depends on the query planner.
 
 `simplify()` implementations were extended and made recursive, then wired into two call sites.
 
-**New identity cases added** (previously missing):
+**New identity cases added (first pass):**
 
 | Block | New cases |
 |-------|-----------|
@@ -187,6 +187,35 @@ simplification incur zero allocations beyond O(n) method calls.
 **Call sites:**
 - `GremlinQuery.Where.of(block)` — covers `combineBinary`, `combineUnary`, `combineEfficient`
 - `NestedCondition.buildBlock()` — extracted companion function covers the chained-link path
+
+**Additional cases added (second pass):**
+
+*`Not` — semantic duals:*
+
+| Pattern | Simplification | Effect |
+|---------|---------------|--------|
+| `Not(HasLink(l))` | `→ HasNoLink(l)` | Eliminates `.not(__.where(__.out(...)))` double-negation |
+| `Not(HasNoLink(l))` | `→ HasLink(l)` | Same |
+| `Not(PropNull(p))` | `→ PropNotNull(p)` | Cleaner Gremlin |
+| `Not(PropNotNull(p))` | `→ PropNull(p)` | Same |
+
+*`And` — deduplication and contradiction:*
+
+| Pattern | Simplification |
+|---------|---------------|
+| `And([…, x, …, x, …])` | deduplicate (structural equality) |
+| `And(HasLink(l), HasNoLink(l))` | `→ None` |
+| `And(PropNull(p), PropNotNull(p))` | `→ None` |
+
+*`Or` — deduplication and tautology:*
+
+| Pattern | Simplification |
+|---------|---------------|
+| `Or([…, x, …, x, …])` | deduplicate; also prevents O9 from emitting `PropWithin` with duplicate values |
+| `Or(HasLink(l), HasNoLink(l))` | `→ All` |
+| `Or(PropNull(p), PropNotNull(p))` | `→ All` |
+
+The `Not` semantic duals cascade into the `And`/`Or` rules: `And(HasLink(l), Not(HasLink(l)))` first reduces to `And(HasLink(l), HasNoLink(l))` via `Not.simplify`, then to `None` via `And.simplify`.
 
 ---
 
@@ -211,4 +240,4 @@ simplification incur zero allocations beyond O(n) method calls.
 | O7 | FollowLink × Condition fusion — eliminates Aggregate | Q68, Q69, Q70, Q80, Q83, Q85, Q86 | ✅ Done |
 | O8 | And/Or flattening to n-ary form | Q35, Q47, Q60, Q65 | ✅ Done |
 | O9 | PropWithin coalescing from repeated PropEqual unions | Q30, Q31, Q35, Q39, Q58, Q60 | ✅ Done |
-| O5 | Recursive `simplify()` with full `None`/`All` coverage, wired into `Where.of()` and `NestedCondition` | edge cases | ✅ Done |
+| O5 | Recursive `simplify()`: `None`/`All` identities, semantic duals (`Not(HasLink)↔HasNoLink`, `Not(PropNull)↔PropNotNull`), deduplication, contradiction/tautology detection | edge cases | ✅ Done |
