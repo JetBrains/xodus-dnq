@@ -204,6 +204,39 @@ sealed class GremlinQuery {
             }
         }
 
+        // O11: condition OP FollowLink(srcCond) — inverse-link predicate rewrite.
+        // When the right operand is Labeled(FollowLink(srcQuery, IN, link), T) and the left operand
+        // has an extractable condition, translate the membership test into an inline predicate on each
+        // vertex (e.g. where(out("link_link").srcCond.hasLabel(srcLabel))) instead of collecting the
+        // right side into an aggregate. Works for both Difference and Union.
+        if (condCombiner is ConditionCombiner.Difference || condCombiner is ConditionCombiner.Union) {
+            val flQuery = other as? Labeled
+            val flInner = flQuery?.inner as? FollowLink
+            if (flInner != null && flInner.direction == LinkDirection.IN) {
+                val srcCondBlock = extractCondition(flInner.inner)
+                if (srcCondBlock != null) {
+                    val srcLabel = extractLabel(flInner.inner)
+                    val inversePredicate: GremlinBlock = when {
+                        srcCondBlock is GremlinBlock.All ->
+                            GremlinBlock.HasLink(flInner.linkName)
+                        else -> {
+                            val chain = GremlinBlock.OutLink(flInner.linkName)
+                                .andThen(srcCondBlock)
+                                .let { if (srcLabel != null) it.andThen(GremlinBlock.HasLabel(srcLabel)) else it }
+                            GremlinBlock.Where(chain)
+                        }
+                    }
+                    val thisCondBlock = extractCondition(this)
+                    if (thisCondBlock != null) {
+                        val label = thisLabel ?: otherLabel
+                        val combined = condCombiner.combineBlocks(thisCondBlock, inversePredicate)
+                        val result = Where.of(combined)
+                        return if (label != null) Labeled.of(result, label) else result
+                    }
+                }
+            }
+        }
+
         val thisCondition = extractCondition(this)
         val otherCondition = extractCondition(other)
 

@@ -1024,11 +1024,11 @@ class GremlinQueryCoverageTest {
     // Group 9 — Aggregate fallback queries
     //
     // Aggregate fires when combineEfficient returns null. This happens when neither
-    // O7 nor extractCondition can handle both operands.
+    // O7/O11 nor extractCondition can handle both operands.
     //
     // O7 handles: FollowLink ∩/\ Condition and Condition ∩ FollowLink (Q68–Q70, Q80, Q83, Q85, Q86).
+    // O11 handles: condition OP FollowLink(srcCond) — condition \ FollowLink and condition ∪ FollowLink (Q71, Q84).
     // Remaining Aggregate cases:
-    //   - condition \ FollowLink (Q71, Q84): starting set is the condition side — not rewritable
     //   - FollowLink ∩/\ FollowLink (Q72, Q73): both sides are traversals
     //   - Slice ∩/\ anything (Q74–Q76): order-dependent, can't push condition before skip/limit
     //   - UnionAll ∩/\ condition (Q77–Q78): can't push condition into union branches
@@ -1082,14 +1082,14 @@ class GremlinQueryCoverageTest {
 
         // Q71: condition(left) \ FollowLink(right) — reversed roles
         // High-priority issues, excluding those in any sprint.
+        // O11: srcCond = All → inverse = HasLink("sprint") → Not(HasLink) → HasNoLink.
+        // Rewrites to: and(has("priority","high"), not(out("sprint_link"))).hasLabel("Issue")
         val q71 = issues(PropEqual("priority", "high"))
             .difference(issuesInSprint())
         println("[Q71 condition-left difference followlink-right] query  : $q71")
         println("[Q71 condition-left difference followlink-right] gremlin: ${q71.toGremlin()}")
         assertThat(q71.toGremlin()).isEqualTo(
-            """g.V().hasLabel("Sprint").in("sprint_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("priority","high").hasLabel("Issue")""" +
-            """.where(P.without(["aggr_0"]))"""
+            """g.V().and(__.has("priority","high"),__.not(__.out("sprint_link"))).hasLabel("Issue")"""
         )
 
         // Q72: FollowLink(left) ∩ FollowLink(right)
@@ -1272,16 +1272,15 @@ class GremlinQueryCoverageTest {
         )
 
         // Q84: ByIds(left) \ FollowLink(right)
-        // O7 does NOT apply: `condition \ FollowLink` cannot be rewritten as a FollowLink traversal
-        // (ByIds is `this`, not the link side). Falls to Aggregate.
+        // O11: ByIds.asBlock() = IdWithin is extractable; srcCond = PropEqual("key","ENG") → inverse = Where(out("project_link")...).
+        // Rewrites to: and(hasId(P.within([...])), not(where(out("project_link").has("key","ENG").hasLabel("Project")))).hasLabel("Issue")
         val q84 = ByIds(listOf(issueRid1, issueRid2))
             .difference(issuesInProject(PropEqual("key", "ENG")))
         println("[Q84 byids-left difference followlink-right] query  : $q84")
         println("[Q84 byids-left difference followlink-right] gremlin: ${q84.toGremlin()}")
         assertThat(q84.toGremlin()).isEqualTo(
-            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().hasId(P.within([#30:1, #30:2]))""" +
-            """.where(P.without(["aggr_0"]))"""
+            """g.V().and(__.hasId(P.within([#30:1, #30:2])),""" +
+            """__.not(__.where(__.out("project_link").has("key","ENG").hasLabel("Project")))).hasLabel("Issue")"""
         )
 
         // Q85: FollowLink(left) ∩ ByIds(right)
@@ -1406,72 +1405,56 @@ class GremlinQueryCoverageTest {
     }
 
     // =========================================================================
-    // Group 11 — O11 candidate: condition × FollowLink(srcCond)
+    // Group 11 — O11: condition × FollowLink(srcCond)
     //
     // When the FollowLink source has a concrete extractable condition (not All),
-    // the link-side set membership can be re-expressed as an inverse-link predicate:
+    // the link-side set membership is re-expressed as an inverse-link predicate:
     //   v ∈ FollowLink(src, IN, "project") iff v.out("project_link") reaches a vertex
     //   satisfying src.
     //
-    // O11 (not yet implemented) would rewrite:
-    //   cond \ link(srcCond)  →  And(cond, Not(NestedCondition(link, srcCond+label)))
-    //   cond ∪ link(srcCond)  →  Or(cond,     NestedCondition(link, srcCond+label))
+    // O11 rewrites:
+    //   cond \ link(srcCond)  →  And(cond, Not(Where(out("link").srcCond.hasLabel(srcLabel))))
+    //   cond ∪ link(srcCond)  →  Or(cond,     Where(out("link").srcCond.hasLabel(srcLabel)))
     // eliminating the Aggregate/UnionAll in favour of a single Labeled(Where) traversal.
-    //
-    // These tests assert the current (non-optimised) Gremlin so that the baseline is
-    // locked; the TODO comments show the O11 target output.
     // =========================================================================
 
     @Test
-    fun `group 11 - O11 candidate baseline — condition x FollowLink(srcCond)`() {
+    fun `group 11 - O11 condition x FollowLink(srcCond)`() {
 
         // Q90: condition(left) \ FollowLink(srcCond)(right)
         // Open issues that are NOT in project ENG.
-        // Current: Aggregate fallback — ENG project issues collected, then filtered out.
-        // TODO O11: g.V().and(__.has("status","open"),
-        //             __.not(__.where(__.out("project_link").has("key","ENG").hasLabel("Project"))))
-        //           .hasLabel("Issue")
+        // O11: inverse = Where(out("project_link").has("key","ENG").hasLabel("Project"))
         val q90 = issues(PropEqual("status", "open"))
             .difference(issuesInProject(PropEqual("key", "ENG")))
         println("[Q90 condition difference followlink-with-src] query  : $q90")
         println("[Q90 condition difference followlink-with-src] gremlin: ${q90.toGremlin()}")
         assertThat(q90.toGremlin()).isEqualTo(
-            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("status","open").hasLabel("Issue")""" +
-            """.where(P.without(["aggr_0"]))"""
+            """g.V().and(__.has("status","open"),""" +
+            """__.not(__.where(__.out("project_link").has("key","ENG").hasLabel("Project")))).hasLabel("Issue")"""
         )
 
         // Q91: condition(left) ∪ FollowLink(srcCond)(right)
         // Open issues plus all issues in project ENG (may overlap).
-        // Current: Order(UnionAll) fallback — two separate traversals merged with dedup.
-        // TODO O11: g.V().or(__.has("status","open"),
-        //             __.where(__.out("project_link").has("key","ENG").hasLabel("Project")))
-        //           .hasLabel("Issue")
+        // O11: inverse = Where(out("project_link").has("key","ENG").hasLabel("Project"))
         val q91 = issues(PropEqual("status", "open"))
             .union(issuesInProject(PropEqual("key", "ENG")))
         println("[Q91 condition union followlink-with-src] query  : $q91")
         println("[Q91 condition union followlink-with-src] gremlin: ${q91.toGremlin()}")
         assertThat(q91.toGremlin()).isEqualTo(
-            """g.union(__.V().has("status","open").hasLabel("Issue"),""" +
-            """__.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")).dedup()"""
+            """g.V().or(__.has("status","open"),""" +
+            """__.where(__.out("project_link").has("key","ENG").hasLabel("Project"))).hasLabel("Issue")"""
         )
 
         // Q92: ByIds(left) \ FollowLink(srcCond)(right)
         // A specific set of issues, excluding those in project ENG.
-        // Different from Q90: the left operand is ByIds, whose extractable block is IdWithin
-        // (not a Where condition). The fallback path is the same Aggregate shape.
-        // Current: Aggregate — ENG project issues aggregated, ByIds scan filtered by P.without.
-        // TODO O11: g.V().and(__.hasId(P.within([#30:1, #30:2])),
-        //             __.not(__.where(__.out("project_link").has("key","ENG").hasLabel("Project"))))
-        //           (no hasLabel needed — ByIds traversal starts from g.V().hasId(...) directly)
+        // O11: IdWithin is extractable from ByIds; same inverse-link predicate shape as Q90.
         val q92 = ByIds(listOf(issueRid1, issueRid2))
             .difference(issuesInProject(PropEqual("key", "ENG")))
         println("[Q92 byids difference followlink-with-src] query  : $q92")
         println("[Q92 byids difference followlink-with-src] gremlin: ${q92.toGremlin()}")
         assertThat(q92.toGremlin()).isEqualTo(
-            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().hasId(P.within([#30:1, #30:2]))""" +
-            """.where(P.without(["aggr_0"]))"""
+            """g.V().and(__.hasId(P.within([#30:1, #30:2])),""" +
+            """__.not(__.where(__.out("project_link").has("key","ENG").hasLabel("Project")))).hasLabel("Issue")"""
         )
 
         // ---- Result assertions ----

@@ -8,14 +8,10 @@
 
 ## Status
 
-All 86 query scenarios in `GremlinQueryCoverageTest` are covered.
-All optimizations O5, O7, O8, O9 implemented and committed.
-O9 duplicate in `Union.combineBlocks` removed — now lives exclusively in `Or.simplify()`.
-O10 call-site gap (O7 path not calling `simplify()`) noted but not a priority — cosmetic
-difference only, both forms are semantically equivalent.
+All 92 query scenarios in `GremlinQueryCoverageTest` are covered with both Gremlin string
+and result assertions (using `QueryCoverageDataset` + `InMemoryYouTrackDB`).
+All optimizations O5, O7, O8, O9, O11 implemented and committed.
 
 ## Next
 
-Add `GremlinQueryCoverageIntegrationTest` — uses a real YouTrackDB instance,
-populates the data model from the coverage plan, and asserts expected entity
-counts or specific entities for each of the 86 queries.
+Further optimization or integration work TBD.

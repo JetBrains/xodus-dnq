@@ -428,4 +428,4 @@ patterns (deduplication, contradiction, tautology). Done — see O5 second-pass 
 | O8 | And/Or flattening to n-ary form | Q35, Q47, Q60, Q65 | ✅ Done |
 | O9 | PropWithin coalescing from repeated PropEqual unions — lives in `Or.simplify()`; removed duplicate from `Union.combineBlocks` | Q30, Q31, Q35, Q39, Q58, Q60 | ✅ Done |
 | O5 | Recursive `simplify()`: `None`/`All` identities, semantic duals (`Not(HasLink)↔HasNoLink`, `Not(PropNull)↔PropNotNull`), deduplication, contradiction/tautology detection | edge cases | ✅ Done |
-| O11 | Inverse-link predicate for `cond OP FollowLink(src)` — eliminates Aggregate/UnionAll for `difference` and `union` when left side is extractable condition | Q71, Q84, Q90, Q91 | Not started |
+| O11 | Inverse-link predicate for `cond OP FollowLink(src)` — eliminates Aggregate/UnionAll for `difference` and `union` when left side is extractable condition | Q71, Q84, Q90, Q91, Q92 | ✅ Done |
