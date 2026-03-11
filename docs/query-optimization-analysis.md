@@ -233,6 +233,52 @@ The `Not` semantic duals cascade into the `And`/`Or` rules: `And(HasLink(l), Not
 
 ---
 
+## O10 — Audit GremlinQuery-level optimizations for block-level applicability
+
+**Priority: Medium. Not yet started.**
+
+### Problem
+
+`GremlinBlock.simplify()` is only called from two sites:
+- `GremlinQuery.Where.of(block)`
+- `NestedCondition.buildBlock()`
+
+This means blocks constructed by other paths — notably the O7 `andThen()` fusion path,
+and any direct block construction in the translation layer — are **never simplified**.
+The same pattern (`Not(HasLink(l))`, duplicate operands, etc.) gets simplified or not
+depending on *how* the block was assembled, not on *what* it is.
+
+For example, Q69's O7-fused traversal produces `Not(HasLink("assignee"))` appended via
+`andThen()`. Because `simplify()` is never called on it, the emitted Gremlin is
+`.not(__.where(__.out("assignee_link")))` rather than the cleaner `.not(__.out("assignee_link"))`.
+The same input going through `Where.of()` (Q51, Q55, Q61) does get simplified.
+
+### Analysis of GremlinQuery-level optimizations by level-fit
+
+| Optimization | Touches | Can move to block level? |
+|---|---|---|
+| O1 — flatten cascaded `UnionAll` | `Order`/`UnionAll` (`GremlinQuery`) | No — no block equivalent |
+| O2 — identity shortcuts (`a==a→a`) | `GremlinQuery` identity | Partially — `And(x,x)→x`, `Or(x,x)→x` already added to `simplify()` |
+| O3 — `SortBy` passthrough | `SortBy` (`GremlinQuery`) | No — no block equivalent |
+| O4 — `FollowLink` union shortcut | `FollowLink` (`GremlinQuery`) | No — no block equivalent |
+| O7 — `FollowLink × Condition` fusion | `FollowLink` + condition block | No — but the *condition* it appends should be simplified |
+| O8 — And/Or n-ary flattening | `And`/`Or` (`GremlinBlock`) | Already at block level via `simplify()` |
+| O9 — `PropWithin` coalescing | `PropEqual`/`PropWithin` (`GremlinBlock`) | Already moved to `simplify()` |
+
+### Proposed fix
+
+Ensure `simplify()` is called on every `GremlinBlock` at the point of construction,
+not only inside `Where.of()`. The most targeted fix: call `block.simplify() ?: block`
+on the `appended` block inside O7 before wrapping in `AndThen`. More complete fix:
+add a `GremlinBlock.simplified()` convenience (returns `simplify() ?: this`) and call
+it wherever blocks are finalized — O7, any direct `Not(...)` wrapping in `combineBlocks`,
+and any other site that constructs compound blocks outside `Where.of()`.
+
+Audit the full call graph from `combineBlocks` / `combineEfficient` to find all sites
+that produce `Not`, `And`, or `Or` without subsequently passing through `Where.of()`.
+
+---
+
 ## Discovering future optimization candidates
 
 Five approaches for finding the next round of opportunities, roughly by effort:
