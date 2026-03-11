@@ -137,14 +137,14 @@ class GremlinQueryCombineMatrixTest {
 
     @Test
     fun `Labeled(Where) x Labeled(FL)`() {
-        // union: extractCondition(Labeled(FL)) = null → no efficient combine
-        check(cond, "u", link, "Order(UnionAll)")
+        // union: O11 fires — builds Or(cond, inverseLinkPredicate) → single Labeled(Where)
+        check(cond, "u", link, "Labeled(Where)")
 
         // intersect: O7 fires — other is FL, condBlock extracted from this
         check(cond, "i", link, "Labeled(AndThen)")
 
-        // difference: O7 only fires when *this* is FL; here this=Where → Aggregate
-        check(cond, "d", link, "Aggregate")
+        // difference: O11 fires — builds And(cond, Not(inverseLinkPredicate)) → single Labeled(Where)
+        check(cond, "d", link, "Labeled(Where)")
     }
 
     // =========================================================================
@@ -216,14 +216,14 @@ class GremlinQueryCombineMatrixTest {
 
     @Test
     fun `ByIds x Labeled(FL)`() {
-        // union: extractCondition(Labeled(FL)) = null → fallback
-        check(byids, "u", link, "Order(UnionAll)")
+        // union: O11 fires — IdWithin is extractable; builds Or(IdWithin, inverseLinkPredicate)
+        check(byids, "u", link, "Labeled(Where)")
 
         // intersect: O7 fires — other is FL, condBlock = IdWithin
         check(byids, "i", link, "Labeled(AndThen)")
 
-        // difference: O7 only fires when *this* is FL; byids is not → Aggregate
-        check(byids, "d", link, "Aggregate")
+        // difference: O11 fires — builds And(IdWithin, Not(inverseLinkPredicate))
+        check(byids, "d", link, "Labeled(Where)")
 
         // Symmetric for FL × ByIds
         check(link, "u", byids, "Order(UnionAll)")
@@ -261,15 +261,15 @@ class GremlinQueryCombineMatrixTest {
     }
 
     @Test
-    fun `SortBy x Labeled(FL) — O3 delegates to inner, which then uses O7 or falls back`() {
-        // union: O3 recurses, inner.union(FL) falls back → combined=null → O3 returns null → fallback
-        check(sorted, "u", link, "Order(UnionAll)")
+    fun `SortBy x Labeled(FL) — O3 delegates to inner, which then uses O7 or O11`() {
+        // union: O3 recurses, inner.union(FL) → O11 fires → Labeled(Where); O3 strips sort for union
+        check(sorted, "u", link, "Labeled(Where)")
 
         // intersect: O3 recurses, inner.intersect(FL) → O7 fires → Labeled(AndThen); O3 re-wraps with sort
         check(sorted, "i", link, "SortBy(Labeled(AndThen))")
 
-        // difference: O3 recurses, inner.difference(FL) → Aggregate → combined=null → O3 returns null → fallback
-        check(sorted, "d", link, "Aggregate")
+        // difference: O3 recurses, inner.difference(FL) → O11 fires → Labeled(Where); O3 re-wraps with sort
+        check(sorted, "d", link, "SortBy(Labeled(Where))")
     }
 
     // =========================================================================
