@@ -101,15 +101,6 @@ sealed class GremlinQuery {
                     b is GremlinBlock.None -> a
                     a is GremlinBlock.All || b is GremlinBlock.All -> GremlinBlock.All
                     a == b -> a
-                    // O9: coalesce same-property PropEqual/PropWithin unions into a single PropWithin
-                    a is GremlinBlock.PropEqual && b is GremlinBlock.PropEqual && a.property == b.property ->
-                        GremlinBlock.PropWithin(a.property, listOf(a.value, b.value))
-                    a is GremlinBlock.PropWithin && b is GremlinBlock.PropEqual && a.propName == b.property ->
-                        GremlinBlock.PropWithin(a.propName, buildList { addAll(a.within); add(b.value) })
-                    a is GremlinBlock.PropEqual && b is GremlinBlock.PropWithin && a.property == b.propName ->
-                        GremlinBlock.PropWithin(b.propName, buildList { add(a.value); addAll(b.within) })
-                    a is GremlinBlock.PropWithin && b is GremlinBlock.PropWithin && a.propName == b.propName ->
-                        GremlinBlock.PropWithin(a.propName, buildList { addAll(a.within); addAll(b.within) })
                     else -> GremlinBlock.Or(a, b)
                 }
             },
