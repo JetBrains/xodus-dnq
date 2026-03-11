@@ -223,13 +223,115 @@ The `Not` semantic duals cascade into the `And`/`Or` rules: `And(HasLink(l), Not
 
 | Pattern | Reason |
 |---------|--------|
-| `condition \ FollowLink` (Q71, Q84) | Starting set is the condition; can't express "not reachable via link" as a simple append |
 | `FollowLink ∩ FollowLink` (Q72, Q73) | Both sides are traversals; Aggregate is required |
 | `FollowLink \ FollowLink` (Q73) | Same — Aggregate required |
 | `Slice ∩ / \ anything` (Q74–Q76) | Order-dependent semantics; pushing condition before skip/limit changes results |
 | `UnionAll ∩ / \ condition` (Q77–Q78) | Pushing condition into each union branch would change paging semantics |
 | `ReversedOrder ∩ condition` (Q79) | Can't push condition before fold/reverse/unfold |
 | O4 extension to intersect/difference for FollowLink | `FollowLink(A).intersect(FollowLink(B))` ≠ `FollowLink(A.intersect(B))` — an issue reachable from an A-vertex and separately from a B-vertex is in the intersection but may not be reachable from any vertex in `A ∩ B` |
+
+Note: `condition \ FollowLink` (Q71, Q84, Q90) and `condition ∪ FollowLink` (Q91) were
+previously listed here but are now O11 candidates — see below.
+
+---
+
+## O11 — Inverse-link predicate for `condition OP FollowLink(src)`
+
+**Priority: Medium. Not yet started.**
+
+### Problem
+
+When the left operand is an extractable condition and the right operand is a
+`Labeled(FollowLink(src, IN, link), T)`, the current code falls back to `Aggregate`.
+Examples:
+
+| Query | Current Gremlin (simplified) |
+|-------|------------------------------|
+| Q71 `cond \ FollowLink(All)` | `g.V().hasLabel("Sprint").in("sprint_link")…aggregate.fold().V().has(cond)…where(P.without)` |
+| Q84 `ByIds \ FollowLink(src)` | `g.V().src.in(link)…aggregate.fold().V().hasId(…).where(P.without)` |
+| Q90 `cond \ FollowLink(src)` | `g.V().src.hasLabel("Project").in("project_link")…aggregate.fold().V().has(cond)…where(P.without)` |
+| Q91 `cond ∪ FollowLink(src)` | `g.union(__.V().has(cond)…, __.V().src.in(link)…).dedup()` |
+
+### Key insight
+
+Membership in `FollowLink(src, IN, link)` can be tested from the candidate vertex
+using an outgoing-edge probe:
+
+- `src = Labeled(Where.of(All), "Sprint")` — any vertex with a `sprint_link` edge qualifies
+  → inverse predicate = `HasLink("sprint")`
+- `src = Labeled(Where.of(srcCond), "Project")` — vertex must have a `project_link` edge
+  reaching a Project vertex satisfying `srcCond`
+  → inverse predicate = `NestedCondition(["project"], Where.of(srcCond))` + label guard
+
+This means the entire operation can be expressed as a single `Labeled(Where)` traversal:
+
+| Operation | O11 rewriting |
+|-----------|---------------|
+| `cond \ FollowLink(src)` | `And(cond, Not(inversePredicate))` → `Labeled(Where)` |
+| `cond ∪ FollowLink(src)` | `Or(cond, inversePredicate)` → `Labeled(Where)` |
+| `cond ∩ FollowLink(src)` | already handled by O7 (FollowLink on right, cond extracted) |
+
+### Affected queries and optimized Gremlin
+
+| Query | Optimized Gremlin |
+|-------|-------------------|
+| Q71 `issues(high) \ issuesInSprint()` | `g.V().and(__.has("priority","high"), __.not(__.out("sprint_link"))).hasLabel("Issue")` |
+| Q84 `ByIds \ issuesInProject(ENG)` | `g.V().and(__.hasId(P.within([…])), __.not(__.where(__.out("project_link").has("key","ENG").hasLabel("Project")))).hasLabel("Issue")` |
+| Q90 `issues(open) \ issuesInProject(ENG)` | `g.V().and(__.has("status","open"), __.not(__.where(__.out("project_link").has("key","ENG").hasLabel("Project")))).hasLabel("Issue")` |
+| Q91 `issues(open) ∪ issuesInProject(ENG)` | `g.V().or(__.has("status","open"), __.where(__.out("project_link").has("key","ENG").hasLabel("Project"))).hasLabel("Issue")` |
+
+### Sub-cases for building the inverse predicate
+
+Given `FollowLink(srcQuery, IN, linkName)` where `srcQuery = Labeled(Where.of(srcBlock), srcLabel)`:
+
+1. **`srcBlock == All`**: inverse = `HasLink(linkName)`, simplifies to `not(__.out("linkName_link"))` via O5
+2. **`srcBlock` is extractable**: inverse = a new block representing `where(out("linkName_link").{srcBlock}.hasLabel(srcLabel))`
+
+Case 2 requires either extending `NestedCondition` to carry a target label filter or a
+small new block (e.g., `InverseLink(linkName, srcBlock, srcLabel)`). The `NestedCondition`
+route adds the label as an extra `hasLabel` step at the end of the traversal inside the
+`where(...)`.
+
+### Implementation sketch
+
+In `combineEfficient`, in the branch handling `Labeled` results, before calling `Aggregate`:
+
+```kotlin
+// O11: condition OP FollowLink(src) — rewrite using inverse-link predicate
+val flSide  = if (other is Labeled && other.inner is FollowLink) other else null
+val condSide = if (flSide != null) this else null
+if (flSide != null && condSide != null) {
+    val srcQuery = (flSide.inner as FollowLink).inner
+    val linkName = (flSide.inner as FollowLink).linkName
+    if (srcQuery is Labeled) {
+        val srcBlock = (srcQuery.inner as? GremlinQuery.Where)?.block
+        val inversePredicate: GremlinBlock? = when {
+            srcBlock == null -> null
+            srcBlock == GremlinBlock.All -> GremlinBlock.HasLink(linkName)
+            else -> buildInverseLink(linkName, srcBlock, srcQuery.label)  // new helper
+        }
+        if (inversePredicate != null) {
+            val condBlock = extractCondition(condSide)
+            if (condBlock != null) {
+                val combined = when (condCombiner) {
+                    is ConditionCombiner.Difference -> GremlinBlock.And(condBlock, GremlinBlock.Not(inversePredicate))
+                    is ConditionCombiner.Union      -> GremlinBlock.Or(condBlock, inversePredicate)
+                    else -> null  // intersect already handled by O7
+                }
+                if (combined != null) return Labeled(GremlinQuery.Where.of(combined), flSide.label)
+            }
+        }
+    }
+}
+```
+
+`buildInverseLink(linkName, srcBlock, srcLabel)` emits the traversal step
+`where(out("linkName_link").{srcBlock}.hasLabel(srcLabel))`.
+
+### Baseline tests
+
+Q90, Q91, and Q92 in `GremlinQueryCoverageTest` group 11 assert the current (Aggregate/UnionAll)
+Gremlin and include `TODO O11` comments with the expected optimized output.
 
 ---
 
@@ -326,3 +428,4 @@ patterns (deduplication, contradiction, tautology). Done — see O5 second-pass 
 | O8 | And/Or flattening to n-ary form | Q35, Q47, Q60, Q65 | ✅ Done |
 | O9 | PropWithin coalescing from repeated PropEqual unions — lives in `Or.simplify()`; removed duplicate from `Union.combineBlocks` | Q30, Q31, Q35, Q39, Q58, Q60 | ✅ Done |
 | O5 | Recursive `simplify()`: `None`/`All` identities, semantic duals (`Not(HasLink)↔HasNoLink`, `Not(PropNull)↔PropNotNull`), deduplication, contradiction/tautology detection | edge cases | ✅ Done |
+| O11 | Inverse-link predicate for `cond OP FollowLink(src)` — eliminates Aggregate/UnionAll for `difference` and `union` when left side is extractable condition | Q71, Q84, Q90, Q91 | Not started |
