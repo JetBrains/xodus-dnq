@@ -111,7 +111,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = equal1.union(equal2)
 
             // Then
-            checkGremlin(issues as YTDBEntityIterable, """g.V().or(__.has("name","issue1"),__.has("name","issue2")).hasLabel("Issue")""")
+            checkGremlin(issues as YTDBEntityIterable, """g.V().has("name",P.within(["issue1", "issue2"])).hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1", "issue2")
         }
     }
@@ -389,7 +389,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = byBoard1.union(byBoard2) as YTDBEntityIterable
             checkGremlin(
                 issues,
-                """g.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup()"""
+                """g.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup()"""
             )
             assertNamesExactly(issues, "issue1", "issue2")
         }
@@ -421,7 +421,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = byBoard1.union(byBoard2).union(byBoard3) as YTDBEntityIterable
             checkGremlin(
                 issues,
-                """g.union(__.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup(),__.V().has("name","board3").hasLabel("Board").in("OnBoard_link").hasLabel("Issue")).dedup()"""
+                """g.union(__.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup(),__.V().has("name","board3").hasLabel("Board").in("OnBoard_link").hasLabel("Issue")).dedup()"""
             )
             assertNamesExactly(issues, "issue1", "issue2", "issue3")
         }
@@ -694,7 +694,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             // Then
             checkGremlin(
                 issuesOnBoards as YTDBEntityIterable,
-                """g.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").in("OnBoard_link").dedup()"""
+                """g.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").in("OnBoard_link").dedup()"""
             )
             assertNamesExactly(issuesOnBoards, "issue1", "issue2")
         }
@@ -1009,7 +1009,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             // Union strips the left sort — sorting one operand does not define the union's sort order.
             // Result: Labeled(Where(Or(...)), "Issue") — no sort wrapper
             val result = sortedIssue1.union(found2) as YTDBEntityIterable
-            checkGremlin(result, """g.V().or(__.has("name","issue1"),__.has("name","issue2")).hasLabel("Issue")""")
+            checkGremlin(result, """g.V().has("name",P.within(["issue1", "issue2"])).hasLabel("Issue")""")
             assertNamesExactly(result, "issue1", "issue2")
         }
     }
@@ -1077,7 +1077,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             // O3: strips both sorts — sorting each operand individually does not define the union's sort order.
             // Result: Labeled(Where(Or(...)), "Issue") — no sort wrapper
             val result = sortedIssue1.union(sortedIssue2) as YTDBEntityIterable
-            checkGremlin(result, """g.V().or(__.has("name","issue1"),__.has("name","issue2")).hasLabel("Issue")""")
+            checkGremlin(result, """g.V().has("name",P.within(["issue1", "issue2"])).hasLabel("Issue")""")
             assertNamesExactly(result, "issue1", "issue2")
         }
     }
@@ -1170,7 +1170,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
             checkGremlin(
                 issues,
-                """g.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").out("HasIssue_link").dedup()"""
+                """g.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").out("HasIssue_link").dedup()"""
             )
             assertNamesExactly(issues, "issue1", "issue2")
         }

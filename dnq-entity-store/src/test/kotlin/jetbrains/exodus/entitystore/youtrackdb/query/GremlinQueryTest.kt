@@ -274,7 +274,7 @@ class GremlinQueryTest {
     private val sortByNameGremlin =
         """.order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)"""
     private val unionGremlin =
-        """g.V().or(__.has("name","a"),__.has("name","b")).hasLabel("Issue")"""
+        """g.V().has("name",P.within(["a", "b"])).hasLabel("Issue")"""
 
     @Test
     fun `O3 - sorted union unsorted strips left sort and returns combined condition without sort`() {
@@ -337,7 +337,7 @@ class GremlinQueryTest {
         val a = GremlinQuery.Labeled.of(issueCondition("name", "a"), "Issue")
         val b = issueCondition("name", "b")
         assertThat(a.union(b).toGremlin())
-            .isEqualTo("""g.V().or(__.has("name","a"),__.has("name","b")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("name",P.within(["a", "b"])).hasLabel("Issue")""")
     }
 
     // O3 left branch — both operands are SortBy
@@ -386,7 +386,7 @@ class GremlinQueryTest {
         val issuesA = Labeled(FollowLink(boardA, LinkDirection.IN, "OnBoard"), "Issue")
         val issuesB = Labeled(FollowLink(boardB, LinkDirection.IN, "OnBoard"), "Issue")
         assertThat(issuesA.union(issuesB).toGremlin())
-            .isEqualTo("""g.V().or(__.has("name","board1"),__.has("name","board2")).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup()""")
+            .isEqualTo("""g.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup()""")
     }
 
     // Mismatched labels — falls back to UnionAll
@@ -445,7 +445,7 @@ class GremlinQueryTest {
         val a = GremlinQuery.Where.of(PropEqual("name", "a"))
         val b = GremlinQuery.Where.of(PropEqual("name", "b"))
         assertThat(a.union(b).toGremlin())
-            .isEqualTo("""g.V().or(__.has("name","a"),__.has("name","b"))""")
+            .isEqualTo("""g.V().has("name",P.within(["a", "b"]))""")
     }
 
     @Test
@@ -453,7 +453,7 @@ class GremlinQueryTest {
         val labeled = issueCondition("name", "a")
         val unlabeled = GremlinQuery.Where.of(PropEqual("name", "b"))
         assertThat(labeled.union(unlabeled).toGremlin())
-            .isEqualTo("""g.V().or(__.has("name","a"),__.has("name","b")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("name",P.within(["a", "b"])).hasLabel("Issue")""")
     }
 
     @Test
@@ -462,7 +462,7 @@ class GremlinQueryTest {
         val labeled = issueCondition("name", "b")
         // label = thisLabel ?: otherLabel — label comes from the right side when left is unlabeled
         assertThat(unlabeled.union(labeled).toGremlin())
-            .isEqualTo("""g.V().or(__.has("name","a"),__.has("name","b")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("name",P.within(["a", "b"])).hasLabel("Issue")""")
     }
 
     // O2 — identity shortcuts in combineBlocks
