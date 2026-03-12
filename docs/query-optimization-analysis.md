@@ -429,3 +429,234 @@ patterns (deduplication, contradiction, tautology). Done — see O5 second-pass 
 | O9 | PropWithin coalescing from repeated PropEqual unions — lives in `Or.simplify()`; removed duplicate from `Union.combineBlocks` | Q30, Q31, Q35, Q39, Q58, Q60 | ✅ Done |
 | O5 | Recursive `simplify()`: `None`/`All` identities, semantic duals (`Not(HasLink)↔HasNoLink`, `Not(PropNull)↔PropNotNull`), deduplication, contradiction/tautology detection | edge cases | ✅ Done |
 | O11 | Inverse-link predicate for `cond OP FollowLink(src)` — eliminates Aggregate/UnionAll for `difference` and `union` when left side is extractable condition | Q71, Q84, Q90, Q91, Q92 | ✅ Done |
+
+---
+
+## New Coverage Candidates (Q93–Q104)
+
+These are query scenarios not yet covered by the existing 92-query test suite. Each exercises
+a different combination path, edge case, or traversal pattern. To be added to
+`GremlinQueryCoverageTest` one by one, with both Gremlin string and result assertions.
+
+### Q93 — Multi-hop: Issue → Project → Lead
+**Semantic:** Issues in projects whose lead is an Engineering employee (3-hop: issue→project→lead).
+
+```kotlin
+val projectsWithEngLead = Labeled(
+    FollowLink(employees(PropEqual("department", "Engineering")), LinkDirection.IN, "lead"),
+    "Project"
+)
+val q93 = Labeled(FollowLink(projectsWithEngLead, LinkDirection.IN, "project"), "Issue")
+```
+
+**Path:** Nested `FollowLink(FollowLink(...))` — currently untested. No `combineEfficient` involved
+(this is a single traversal, not a combination). Exercises multi-hop Gremlin emission.
+
+**Expected result:** All 14 ENG issues + all 5 INFRA issues = 19 issues (ENG led by Alice ∈ Engineering;
+INFRA led by Bob ∈ Engineering).
+
+**Status:** Not started
+
+---
+
+### Q94 — Sprint → Project (single-hop, untested entity type)
+**Semantic:** All sprints that belong to the ENG project.
+
+```kotlin
+val q94 = Labeled(FollowLink(projects(PropEqual("key", "ENG")), LinkDirection.IN, "project"), "Sprint")
+```
+
+**Path:** `FollowLink` traversal targeting `Sprint` rather than `Issue` — the dataset has 3 sprints,
+S1/S2 link to ENG project, S3 to OPS.
+
+**Expected result:** S1, S2.
+
+**Status:** Not started
+
+---
+
+### Q95 — Self-referential parent link
+**Semantic:** Issues that have a parent (i.e., are subtasks).
+
+```kotlin
+val issuesWithParent = Labeled(FollowLink(issues(), LinkDirection.IN, "parent"), "Issue")
+// equivalently: issues(HasLink("parent"))
+```
+
+And the deeper case — subtasks of issues that themselves have subtasks:
+
+```kotlin
+val issuesWithSubtasks = Labeled(FollowLink(issues(), LinkDirection.OUT, "parent"), "Issue")
+// issues that ARE parents; then find their children
+```
+
+**Path:** Self-referential `FollowLink` on the `parent` edge. ENG-12, ENG-13, ENG-14 have parent
+ENG-3; ENG-3 has no parent.
+
+**Expected result:** `issuesWithParent` = ENG-12, ENG-13, ENG-14 (3 subtasks).
+Subtasks-of-subtasks = empty (ENG-3 has no parent).
+
+**Status:** Not started
+
+---
+
+### Q96 — FollowLink ∪ FollowLink (different link names, same target type)
+**Semantic:** Issues assigned to Alice OR in sprint S1.
+
+```kotlin
+val q96 = issuesAssignedTo(employees(PropEqual("name", "Alice")))
+    .union(issuesInSprint(sprints(PropEqual("name", "S1"))))
+```
+
+**Path:** O4 does NOT fire (different link names: `assignee` vs `sprint`). Falls through to
+`Order(UnionAll)`. No optimization expected; validates the fallback Gremlin shape.
+
+**Expected result:** Alice's issues (ENG-1,3,5,10,12) ∪ S1 issues (ENG-1,2,3,6,10,12,13) =
+ENG-1,2,3,5,6,10,12,13 (8 issues).
+
+**Status:** Not started
+
+---
+
+### Q97 — FollowLink \ FollowLink (both with source conditions)
+**Semantic:** ENG issues that are NOT assigned to Engineering employees.
+
+```kotlin
+val q97 = issuesInProject(PropEqual("key", "ENG"))
+    .difference(issuesAssignedTo(PropEqual("department", "Engineering")))
+```
+
+**Path:** `FollowLink \ FollowLink` with extractable source conditions on both sides. O7 does NOT
+apply (both sides are `FollowLink`). Falls to `Aggregate`. Q73 tests the same shape but with `All`
+source conditions; this covers the conditioned-source variant.
+
+**Expected result:** ENG issues not assigned to Alice/Bob/Eve = ENG-6,9,11,13,14 (5 issues).
+
+**Status:** Not started
+
+---
+
+### Q98 — Three-way property union chain (O8/O9 stress test)
+**Semantic:** Issues with priority ∈ {critical, high, medium} — built as a left-to-right union chain.
+
+```kotlin
+val q98 = issues(PropEqual("priority", "critical"))
+    .union(issues(PropEqual("priority", "high")))
+    .union(issues(PropEqual("priority", "medium")))
+```
+
+**Path:** `Or(Or(PropEqual("priority","critical"), PropEqual("priority","high")), PropEqual("priority","medium"))`.
+O8 flattens to `Or(a,b,c)`, O9 coalesces to `PropWithin("priority", ["critical","high","medium"])`.
+
+**Expected result:** 4 + 7 + 8 = 19 issues (all non-low-priority issues).
+
+**Status:** Not started
+
+---
+
+### Q99 — ByIds ∪ FollowLink (O11 union path)
+**Semantic:** Two specific issues OR any issue in the ENG project.
+
+```kotlin
+val q99 = ByIds(listOf(infra1Rid, infra2Rid))
+    .union(issuesInProject(PropEqual("key", "ENG")))
+```
+
+**Path:** O11 fires (union, right = `Labeled(FollowLink(...))`, left = `ByIds` with extractable
+`IdWithin`). Produces `Labeled(Where(Or(IdWithin([...]), Where(out("project_link")...))))`.
+This is the union variant of Q92; currently untested.
+
+**Expected result:** INFRA-1, INFRA-2 ∪ ENG-1..14 = 16 issues (neither INFRA issue is in ENG).
+
+**Status:** Not started
+
+---
+
+### Q100 — Class hierarchy: FollowLink to User supertype
+**Semantic:** Issues assigned to any User (including Employee/Manager subtypes).
+
+```kotlin
+val q100 = Labeled(FollowLink(users(), LinkDirection.IN, "assignee"), "Issue")
+```
+
+**Path:** `hasLabel("User")` in YouTrackDB should match `User`, `Employee`, and `Manager` vertices.
+Verifies that the polymorphic label query works correctly end-to-end.
+
+**Expected result:** All 15 issues that have an assignee link (10 ENG + 2 INFRA + 3 OPS assigned).
+
+**Status:** Not started
+
+---
+
+### Q101 — Three-way intersect chain (chained Where extraction)
+**Semantic:** Open critical issues with estimate in range [1, 8].
+
+```kotlin
+val q101 = issues(PropEqual("status", "open"))
+    .intersect(issues(PropEqual("priority", "critical")))
+    .intersect(issues(PropInRange("estimate", 1, 8)))
+```
+
+**Path:** Chained `combineEfficient`: first intersect fuses to `And(open, critical)`, second fuses
+`And(And(open,critical), inRange(1,8))`. Tests `extractCondition` on a `Where(And(...))` result.
+
+**Expected result:** open ∩ critical ∩ estimate∈[1,8] = ENG-1 only (ENG-1: open, critical, estimate=5).
+
+**Status:** Not started
+
+---
+
+### Q102 — All issues minus those with any tag (HasLink difference)
+**Semantic:** Issues without any tag.
+
+```kotlin
+val q102 = issues().difference(issues(HasLink("tags")))
+```
+
+**Path:** `combineEfficient` extracts `All` and `HasLink("tags")`; `Difference.combineBlocks` produces
+`And(All, Not(HasLink("tags")))` → simplifies to `Not(HasLink("tags"))` → `HasNoLink("tags")`.
+Tests the `All \ HasLink` path through `combineBlocks`.
+
+**Expected result:** 24 − (issues with at least one tag). Need to count from dataset.
+
+**Status:** Not started
+
+---
+
+### Q103 — SortBy(FollowLink) ∩ SortBy(Where) (O3 + O7 interaction)
+**Semantic:** ENG issues sorted by priority, intersected with open issues sorted by priority.
+
+```kotlin
+val q103 = SortBy(issuesInProject(PropEqual("key", "ENG")), byPriority)
+    .intersect(SortBy(issues(PropEqual("status", "open")), byPriority))
+```
+
+**Path:** O3 strips both sorts → inner becomes `issuesInProject(ENG).intersect(issues(open))` →
+O7 fires (left is `FollowLink`, right is `Where`) → `Labeled(AndThen)`. O3 re-wraps with left sort
+→ `SortBy(Labeled(AndThen), byPriority)`. Currently Q80 covers `SortBy(FollowLink) ∩ condition`
+but not `SortBy(FollowLink) ∩ SortBy(condition)`.
+
+**Expected result:** 9 ENG open issues, sorted by priority.
+
+**Status:** Not started
+
+---
+
+### Q104 — (FollowLink ∪ FollowLink) \ condition (union then difference)
+**Semantic:** Issues in ENG or OPS project that are NOT open.
+
+```kotlin
+val engOrOps = issuesInProject(PropEqual("key", "ENG"))
+    .union(issuesInProject(PropEqual("key", "OPS")))
+val q104 = engOrOps.difference(issues(PropEqual("status", "open")))
+```
+
+**Path:** `engOrOps` = `Order(Labeled(FL), Dedup)` (O4 fires: same link name `project`, same direction).
+Then `Order(Labeled(FL)).difference(issues(open))`. O3 is not triggered (not `SortBy`). Falls to
+`Aggregate`. Tests Aggregate where the left side is a dedup-wrapped FollowLink union.
+
+**Expected result:** (14 ENG + 5 OPS) = 19 − 13 open (9 ENG open + 3 OPS open + 1 OPS... wait:
+closed ENG issues: ENG-4,7,9,15 (4) + 1 = 5; closed OPS: OPS-1,3,4 (3)) = 5 + 2 = ... need to
+count. Roughly 7–8 non-open issues in ENG+OPS.
+
+**Status:** Not started

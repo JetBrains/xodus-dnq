@@ -1472,4 +1472,343 @@ class GremlinQueryCoverageTest {
             assertThat(q92real.resultKeys(tx)).containsExactlyElementsIn(listOf("INFRA-1","INFRA-2"))
         }
     }
+
+    // =========================================================================
+    // Group 12 — Multi-hop and structural coverage (Q93–Q104)
+    // =========================================================================
+
+    @Test
+    fun `group 12 - Q93 multi-hop Issue via Project via Engineering lead`() {
+
+        // Q93: Issues in projects whose lead is an Engineering employee (3-hop traversal).
+        // employees(Engineering) → IN "lead" → Project → IN "project" → Issue
+        // No combineEfficient involved — this is a single chained FollowLink traversal.
+        // Alice leads ENG (14 issues), Bob leads INFRA (4 issues), Eve leads nobody.
+        val projectsLedByEngineers = Labeled(
+            FollowLink(employees(PropEqual("department", "Engineering")), LinkDirection.IN, "lead"),
+            "Project"
+        )
+        val q93 = Labeled(FollowLink(projectsLedByEngineers, LinkDirection.IN, "project"), "Issue")
+        println("[Q93 3-hop eng-lead projects issues] query  : $q93")
+        println("[Q93 3-hop eng-lead projects issues] gremlin: ${q93.toGremlin()}")
+        assertThat(q93.toGremlin()).isEqualTo(
+            """g.V().has("department","Engineering").hasLabel("Employee")""" +
+            """.in("lead_link").hasLabel("Project").in("project_link").hasLabel("Issue")"""
+        )
+
+        // ---- Result assertions ----
+        dataset
+        db.withStoreTx { tx ->
+            // ENG (Alice, Engineering) + INFRA (Bob, Engineering) = 14 + 4 = 18 issues
+            // OPS (Carol, Operations) and ARC (Dave, plain User — not Employee) are excluded
+            assertThat(q93.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8","ENG-9",
+                       "ENG-10","ENG-11","ENG-12","ENG-13","ENG-14",
+                       "INFRA-1","INFRA-2","INFRA-3","INFRA-4")
+            )
+        }
+    }
+
+    @Test
+    fun `group 12 - Q94 Sprint FollowLink to Project (non-Issue target type)`() {
+
+        // Q94: Sprints that belong to the ENG project.
+        // Sprint --project--> Project, so to find sprints for a project we traverse IN via "project".
+        // Exercises FollowLink targeting Sprint rather than Issue — the only prior FollowLink tests
+        // all produce Issue entities. Gremlin and label handling should be identical; this
+        // confirms no Issue-specific assumptions are baked in.
+        val q94 = Labeled(FollowLink(projects(PropEqual("key", "ENG")), LinkDirection.IN, "project"), "Sprint")
+        println("[Q94 sprints in ENG project] query  : $q94")
+        println("[Q94 sprints in ENG project] gremlin: ${q94.toGremlin()}")
+        assertThat(q94.toGremlin()).isEqualTo(
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Sprint")"""
+        )
+
+        // ---- Result assertions ----
+        // S1→ENG, S2→ENG, S3→OPS  →  only S1 and S2
+        dataset
+        db.withStoreTx { tx ->
+            assertThat(q94.resultKeys(tx)).containsExactlyElementsIn(listOf("S1", "S2"))
+        }
+    }
+
+    @Test
+    fun `group 12 - Q95 self-referential parent link`() {
+
+        // Q95a: Issues that are subtasks (have a parent Issue).
+        // Issue --parent--> Issue; traversing IN via "parent" from all issues gives us the subtasks.
+        // ENG-12→ENG-3, ENG-13→ENG-3, ENG-14→ENG-5
+        val q95a = Labeled(FollowLink(issues(), LinkDirection.IN, "parent"), "Issue")
+        println("[Q95a subtasks] query  : $q95a")
+        println("[Q95a subtasks] gremlin: ${q95a.toGremlin()}")
+        assertThat(q95a.toGremlin()).isEqualTo(
+            """g.V().hasLabel("Issue").in("parent_link").hasLabel("Issue")"""
+        )
+
+        // Q95b: Subtasks of issues that themselves have subtasks (2-hop self-referential).
+        // issues() → IN "parent" → issues with a parent → IN "parent" again → empty in this dataset
+        // (ENG-3 and ENG-5 are parents but neither has its own parent)
+        val q95b = Labeled(FollowLink(q95a, LinkDirection.IN, "parent"), "Issue")
+        println("[Q95b subtasks-of-subtasks] query  : $q95b")
+        println("[Q95b subtasks-of-subtasks] gremlin: ${q95b.toGremlin()}")
+        assertThat(q95b.toGremlin()).isEqualTo(
+            """g.V().hasLabel("Issue").in("parent_link").hasLabel("Issue").in("parent_link").hasLabel("Issue")"""
+        )
+
+        // ---- Result assertions ----
+        dataset
+        db.withStoreTx { tx ->
+            // Q95a: ENG-12, ENG-13, ENG-14 are subtasks
+            assertThat(q95a.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-12","ENG-13","ENG-14"))
+            // Q95b: no issue in the dataset is a subtask of a subtask
+            assertThat(q95b.resultKeys(tx)).isEmpty()
+        }
+    }
+
+    @Test
+    fun `group 12 - Q96 FollowLink union FollowLink (different link names, O4 miss)`() {
+
+        // Q96: Issues assigned to Alice OR in sprint S1.
+        // Two FollowLink operands with different link names (assignee vs sprint).
+        // O4 requires same link name and direction — misses here → Order(UnionAll) fallback.
+        val q96 = issuesAssignedTo(PropEqual("name", "Alice"))
+            .union(issuesInSprint(PropEqual("key", "S1")))
+        println("[Q96 assigned-alice union in-sprint-S1] query  : $q96")
+        println("[Q96 assigned-alice union in-sprint-S1] gremlin: ${q96.toGremlin()}")
+        assertThat(q96.toGremlin()).isEqualTo(
+            """g.union(__.V().has("name","Alice").hasLabel("Employee").in("assignee_link").hasLabel("Issue")""" +
+            """,__.V().has("key","S1").hasLabel("Sprint").in("sprint_link").hasLabel("Issue")).dedup()"""
+        )
+
+        // ---- Result assertions ----
+        // Alice's issues: ENG-1,3,5,10,12
+        // S1 issues:      ENG-1,2,3,6,10,12,13
+        // Union (deduped): ENG-1,2,3,5,6,10,12,13 — 8 issues
+        dataset
+        db.withStoreTx { tx ->
+            assertThat(q96.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-5","ENG-6","ENG-10","ENG-12","ENG-13")
+            )
+        }
+    }
+
+    @Test
+    fun `group 12 - Q97 FollowLink difference FollowLink (both with source conditions, Aggregate fallback)`() {
+
+        // Q97: ENG issues that are NOT assigned to Engineering employees.
+        // Both sides are Labeled(FollowLink(...)) — O7 only applies when one side is an extractable
+        // condition; O11 only applies when the right side is FollowLink and the left is a condition.
+        // Neither fires here → Aggregate fallback (same shape as Q72/Q73 but with conditioned sources).
+        val q97 = issuesInProject(PropEqual("key", "ENG"))
+            .difference(issuesAssignedTo(PropEqual("department", "Engineering")))
+        println("[Q97 eng-issues minus eng-assigned, aggregate] query  : $q97")
+        println("[Q97 eng-issues minus eng-assigned, aggregate] gremlin: ${q97.toGremlin()}")
+        assertThat(q97.toGremlin()).isEqualTo(
+            """g.V().has("department","Engineering").hasLabel("Employee").in("assignee_link").hasLabel("Issue")""" +
+            """.aggregate("aggr_0").fold()""" +
+            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.without(["aggr_0"]))"""
+        )
+
+        // ---- Result assertions ----
+        // Engineering employees: Alice(ENG-1,3,5,10,12), Bob(ENG-2,4,8), Eve(ENG-7)
+        // Engineering-assigned ENG issues: ENG-1,2,3,4,5,7,8,10,12
+        // ENG \ Engineering-assigned = ENG-6,9,11,13,14
+        dataset
+        db.withStoreTx { tx ->
+            assertThat(q97.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-6","ENG-9","ENG-11","ENG-13","ENG-14")
+            )
+        }
+    }
+
+    @Test
+    fun `group 12 - Q98 three-way property union chain (O8 flatten + O9 coalesce)`() {
+
+        // Q98: Issues with priority ∈ {critical, high, medium} built as a left-to-right chain.
+        // First union: Or(critical, high) → coalesces to PropWithin("priority", ["critical","high"]) via O9.
+        // Second union: Or(PropWithin(...), medium) → O8 flattens to Or(critical,high,medium) → O9 coalesces
+        // to PropWithin("priority", ["critical","high","medium"]).
+        val q98 = issues(PropEqual("priority", "critical"))
+            .union(issues(PropEqual("priority", "high")))
+            .union(issues(PropEqual("priority", "medium")))
+        println("[Q98 three-way union critical+high+medium] query  : $q98")
+        println("[Q98 three-way union critical+high+medium] gremlin: ${q98.toGremlin()}")
+        assertThat(q98.toGremlin()).isEqualTo(
+            """g.V().has("priority",P.within(["critical", "high", "medium"])).hasLabel("Issue")"""
+        )
+
+        // ---- Result assertions ----
+        // critical: ENG-1,6 + OPS-1,4 = 4
+        // high:     ENG-2,4,7,10 + OPS-2 + INFRA-2,3 = 7
+        // medium:   ENG-3,8,12,13,14 + OPS-3,5 + INFRA-1 = 8
+        // total: 19
+        dataset
+        db.withStoreTx { tx ->
+            assertThat(q98.resultKeys(tx)).hasSize(19)
+        }
+    }
+
+    @Test
+    fun `group 12 - Q99 ByIds union FollowLink (O11 union path)`() {
+
+        // Q99: Two specific INFRA issues OR any ENG issue.
+        // O11 fires for union: left=ByIds (extractable IdWithin), right=Labeled(FollowLink).
+        // Produces Or(IdWithin([...]), Where(out("project_link").has("key","ENG").hasLabel("Project"))).
+        // Uses fake RIDs for the Gremlin string assertion; real RIDs for the result assertion.
+        val q99fake = ByIds(listOf(issueRid1, issueRid2))
+            .union(issuesInProject(PropEqual("key", "ENG")))
+        println("[Q99 byids union followlink O11] query  : $q99fake")
+        println("[Q99 byids union followlink O11] gremlin: ${q99fake.toGremlin()}")
+        assertThat(q99fake.toGremlin()).isEqualTo(
+            """g.V().or(__.hasId(P.within([#30:1, #30:2])),""" +
+            """__.where(__.out("project_link").has("key","ENG").hasLabel("Project"))).hasLabel("Issue")"""
+        )
+
+        // ---- Result assertions ----
+        // {INFRA-1, INFRA-2} ∪ ENG-1..14 = 16 issues (INFRA issues are not in ENG)
+        dataset
+        db.withStoreTx { tx ->
+            val infra1Rid = rid(dataset.issues["INFRA-1"]!!)
+            val infra2Rid = rid(dataset.issues["INFRA-2"]!!)
+            val q99real = ByIds(listOf(infra1Rid, infra2Rid))
+                .union(issuesInProject(PropEqual("key", "ENG")))
+            assertThat(q99real.resultKeys(tx)).hasSize(16)
+        }
+    }
+
+    @Test
+    fun `group 12 - Q100 class hierarchy - hasLabel User matches Employee and Manager subtypes`() {
+
+        // Q100: Issues assigned to any User (the supertype), which in the dataset includes
+        // Employee (Alice, Bob, Carol) and Manager (Eve) subtypes.
+        // Dave is a plain User but has no assigned issues.
+        // hasLabel("User") in YouTrackDB should match all three: User, Employee, Manager.
+        val q100 = Labeled(FollowLink(users(), LinkDirection.IN, "assignee"), "Issue")
+        println("[Q100 issues assigned to any User] query  : $q100")
+        println("[Q100 issues assigned to any User] gremlin: ${q100.toGremlin()}")
+        assertThat(q100.toGremlin()).isEqualTo(
+            """g.V().hasLabel("User").in("assignee_link").hasLabel("Issue")"""
+        )
+
+        // ---- Result assertions ----
+        // Alice: ENG-1,3,5,10,12 (5); Bob: ENG-2,4,8 + INFRA-1,2 (5); Carol: OPS-1,2,3,5 (4);
+        // Eve: ENG-7 (1); Dave: none. Total assigned = 15.
+        dataset
+        db.withStoreTx { tx ->
+            assertThat(q100.resultKeys(tx)).hasSize(15)
+        }
+    }
+
+    @Test
+    fun `group 12 - Q101 three-way intersect chain (chained combineEfficient extractions)`() {
+
+        // Q101: Open critical issues with estimate in [1, 8].
+        // First intersect: And(open, critical) — fused into a single Where by combineEfficient.
+        // Second intersect: And(And(open,critical), inRange(1,8)) — extractCondition sees the
+        // compound Where(And(...)) result and fuses again.
+        val q101 = issues(PropEqual("status", "open"))
+            .intersect(issues(PropEqual("priority", "critical")))
+            .intersect(issues(PropInRange("estimate", 1, 8)))
+        println("[Q101 open+critical+estimate(1-8) triple intersect] query  : $q101")
+        println("[Q101 open+critical+estimate(1-8) triple intersect] gremlin: ${q101.toGremlin()}")
+        // O8 flattens And(And(open,critical), range) → And(open,critical,range) — 3-ary
+        assertThat(q101.toGremlin()).isEqualTo(
+            """g.V().and(__.has("status","open"),__.has("priority","critical"),""" +
+            """__.has("estimate",P.gte((int) 1).and(P.lte((int) 8)))).hasLabel("Issue")"""
+        )
+
+        // ---- Result assertions ----
+        // open ∩ critical: ENG-1(est=5), ENG-6(est=1), OPS-4(est=3)  [OPS-1 is in-progress, not open]
+        // ∩ estimate[1,8]: all three qualify (5, 1, 3 are all ≤ 8)
+        dataset
+        db.withStoreTx { tx ->
+            assertThat(q101.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-1","ENG-6","OPS-4"))
+        }
+    }
+
+    @Test
+    fun `group 12 - Q102 All issues minus tagged issues (All difference HasLink → HasNoLink)`() {
+
+        // Q102: Issues without any tag.
+        // combineEfficient: extractCondition(issues()) = All, extractCondition(issues(HasLink("tags"))) = HasLink("tags").
+        // Difference.combineBlocks(All, HasLink("tags")) → Not(HasLink("tags")) → simplify → HasNoLink("tags").
+        val q102 = issues().difference(issues(HasLink("tags")))
+        println("[Q102 issues without any tag] query  : $q102")
+        println("[Q102 issues without any tag] gremlin: ${q102.toGremlin()}")
+        assertThat(q102.toGremlin()).isEqualTo(
+            """g.V().not(__.out("tags_link")).hasLabel("Issue")"""
+        )
+
+        // ---- Result assertions ----
+        // Tagged issues: bug(ENG-1,2,6,10,OPS-1,4,INFRA-3=7) + feature(ENG-3,11=2) + performance(ENG-4,8=2) = 11
+        // Untagged: 24 - 11 = 13
+        dataset
+        db.withStoreTx { tx ->
+            assertThat(q102.resultKeys(tx)).hasSize(13)
+        }
+    }
+
+    @Test
+    fun `group 12 - Q103 SortBy(FollowLink) intersect SortBy(Where) — O3 + O7 interaction`() {
+
+        // Q103: ENG issues sorted by priority, intersected with open issues sorted by priority.
+        // O3 recurses on both SortBy wrappers:
+        //   outer: this=SortBy(issuesInProject(ENG), byPriority), other=SortBy(issues(open), byPriority)
+        //   → strips other's sort, recurses: issuesInProject(ENG).intersect(issues(open))
+        //   → O7 fires (left is FollowLink, right is condition) → Labeled(AndThen)
+        //   → O3 re-wraps with left sort: SortBy(Labeled(AndThen), byPriority)
+        val q103 = SortBy(issuesInProject(PropEqual("key", "ENG")), byPriority)
+            .intersect(SortBy(issues(PropEqual("status", "open")), byPriority))
+        println("[Q103 SortBy(FL) intersect SortBy(Where)] query  : $q103")
+        println("[Q103 SortBy(FL) intersect SortBy(Where)] gremlin: ${q103.toGremlin()}")
+        assertThat(q103.toGremlin()).isEqualTo(
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").has("status","open").hasLabel("Issue")""" +
+            byPriorityGremlin
+        )
+
+        // ---- Result assertions ----
+        // ENG open issues: ENG-1,2,5,6,8,10,11,13,14 = 9
+        dataset
+        db.withStoreTx { tx ->
+            assertThat(q103.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14")
+            )
+        }
+    }
+
+    @Test
+    fun `group 12 - Q104 O4-fused FollowLink union then difference with condition (Aggregate)`() {
+
+        // Q104: Issues in ENG or OPS that are NOT open.
+        // Step 1: issuesInProject(ENG).union(issuesInProject(OPS))
+        //   → O4 fires (same link name "project", same direction IN, same label "Issue")
+        //   → Order(Labeled(FollowLink(UnionedSrc, IN, "project"), "Issue"), Dedup)
+        // Step 2: .difference(issues(open))
+        //   → left is Order(Labeled(FL)) — not SortBy, not extractable condition → Aggregate fallback
+        val engOrOps = issuesInProject(PropEqual("key", "ENG"))
+            .union(issuesInProject(PropEqual("key", "OPS")))
+        val q104 = engOrOps.difference(issues(PropEqual("status", "open")))
+        println("[Q104 O4-fused FL union then difference open] query  : $q104")
+        println("[Q104 O4-fused FL union then difference open] gremlin: ${q104.toGremlin()}")
+        // O4 merges the two source queries into one FollowLink; O9 then coalesces the two
+        // PropEqual("key","ENG"/"OPS") conditions into PropWithin — a single-traversal result.
+        assertThat(q104.toGremlin()).isEqualTo(
+            """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
+            """.V().has("key",P.within(["ENG", "OPS"])).hasLabel("Project").in("project_link")""" +
+            """.hasLabel("Issue").dedup().where(P.without(["aggr_0"]))"""
+        )
+
+        // ---- Result assertions ----
+        // ENG non-open: ENG-3(in-progress), ENG-4(resolved), ENG-7(in-progress),
+        //               ENG-9(resolved), ENG-12(in-progress) = 5
+        // OPS non-open: OPS-1(in-progress), OPS-3(resolved), OPS-5(resolved) = 3
+        // Total: 8
+        dataset
+        db.withStoreTx { tx ->
+            assertThat(q104.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-3","ENG-4","ENG-7","ENG-9","ENG-12","OPS-1","OPS-3","OPS-5")
+            )
+        }
+    }
 }
