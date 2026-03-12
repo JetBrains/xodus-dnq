@@ -381,6 +381,67 @@ that produce `Not`, `And`, or `Or` without subsequently passing through `Where.o
 
 ---
 
+## O12 — Chain pure property filters instead of wrapping in `and(...)`
+
+**Priority: Low. Not yet started.**
+
+### Problem
+
+When `And` contains only pure vertex-property filters, its `traverse()` emits
+`g.and(__.has(...), __.has(...), ...)` — creating anonymous sub-traversals. For conditions
+that only inspect the current vertex (no edge traversal), chaining is semantically identical
+and avoids the branching overhead:
+
+```
+// current
+g.V().and(__.has("status","open"),__.has("priority","critical"),...).hasLabel("Issue")
+
+// optimized
+g.V().has("status","open").has("priority","critical")....hasLabel("Issue")
+```
+
+The issue was first observed in Q101 (three-way intersect chain) where the fused
+`And(PropEqual,PropEqual,PropInRange)` block still emits an `and(...)` wrapper.
+
+### Chainable conditions
+
+These block types inspect only the current vertex and can be safely chained without
+anonymous branch isolation:
+
+| Block | Gremlin form |
+|-------|-------------|
+| `PropEqual(p, v)` | `.has(p, v)` |
+| `PropWithin(p, vs)` | `.has(p, P.within(vs))` |
+| `PropInRange(p, lo, hi)` | `.has(p, P.gte(lo).and(P.lte(hi)))` |
+| `PropNull(p)` | `.hasNot(p)` |
+| `PropNotNull(p)` | `.has(p)` |
+| `HasLabel(t)` | `.hasLabel(t)` |
+| `IdWithin(ids)` | `.hasId(P.within(ids))` |
+
+Conditions involving edge traversal (`HasLink`, `HasNoLink`, `HasLinkTo`, `Where`, `Not`,
+`MatchStringProp`) must remain inside `and(...)` because they use `__.start()` sub-traversals.
+
+### Proposed approach
+
+Two options:
+
+**A (conservative):** Only optimize when ALL `And` operands are chainable. Add a
+`GremlinBlock.isChainable: Boolean` property (or a sealed subtype) and check in `And.traverse()`.
+If all chainable, fold them as `operands.fold(g) { t, op -> op.traverse(t) }`. Mixed case
+keeps the `and(...)` form unchanged.
+
+**B (partial):** Chain the chainable prefix/subset and wrap only the non-chainable remainder
+in `and(...)`. Captures more cases but more complex to implement and test.
+
+Option A is the right starting point.
+
+### Queries affected
+
+Q101 (all three operands are chainable), plus any `And` block assembled via `combineEfficient`
+where all merged conditions are pure property filters — the common case in practice.
+
+---
+
 ## Discovering future optimization candidates
 
 Five approaches for finding the next round of opportunities, roughly by effort:
@@ -422,13 +483,20 @@ patterns (deduplication, contradiction, tautology). Done — see O5 second-pass 
 
 ## Summary
 
-| ID | Description | Queries affected | Complexity |
-|----|-------------|-----------------|------------|
-| O7 | FollowLink × Condition fusion — eliminates Aggregate | Q68, Q69, Q70, Q80, Q83, Q85, Q86 | ✅ Done |
-| O8 | And/Or flattening to n-ary form | Q35, Q47, Q60, Q65 | ✅ Done |
-| O9 | PropWithin coalescing from repeated PropEqual unions — lives in `Or.simplify()`; removed duplicate from `Union.combineBlocks` | Q30, Q31, Q35, Q39, Q58, Q60 | ✅ Done |
+| ID | Description | Queries affected | Status |
+|----|-------------|-----------------|--------|
+| O1 | Flatten cascaded `UnionAll`: `Order(UnionAll([…,Order(UnionAll([…]),Dedup)]),Dedup)` → single `UnionAll` | union chains | ✅ Done |
+| O2 | Identity shortcuts in `combineBlocks`: `a==b` → `a` (intersect/union), `None` (difference) | edge cases | ✅ Done |
+| O3 | `SortBy` passthrough — strip right-side sort; preserve left sort for intersect/difference, strip for union | sorted operands | ✅ Done |
+| O4 | `FollowLink` union shortcut — same link+direction merges source queries into one traversal with Dedup | Q104 (ENG∪OPS) | ✅ Done |
 | O5 | Recursive `simplify()`: `None`/`All` identities, semantic duals (`Not(HasLink)↔HasNoLink`, `Not(PropNull)↔PropNotNull`), deduplication, contradiction/tautology detection | edge cases | ✅ Done |
-| O11 | Inverse-link predicate for `cond OP FollowLink(src)` — eliminates Aggregate/UnionAll for `difference` and `union` when left side is extractable condition | Q71, Q84, Q90, Q91, Q92 | ✅ Done |
+| O6 | Flatten same-label `Labeled` nesting: `Labeled(Labeled(X,"T"),"T")` → `Labeled(X,"T")` | edge cases | ✅ Done |
+| O7 | `FollowLink × Condition` fusion — eliminates Aggregate for `FollowLink ∩/\ Condition` | Q68–Q70, Q80, Q83, Q85, Q86 | ✅ Done |
+| O8 | `And`/`Or` n-ary flattening: `Or(Or(a,b),c)` → `Or(a,b,c)` | Q35, Q47, Q60, Q65, Q101 | ✅ Done |
+| O9 | `PropWithin` coalescing: `Or(PropEqual(p,v1),PropEqual(p,v2))` → `PropWithin(p,[v1,v2])` | Q30, Q31, Q35, Q39, Q58, Q60 | ✅ Done |
+| O11 | Inverse-link predicate for `cond OP FollowLink(src)` — eliminates Aggregate/UnionAll for difference and union when left side is extractable condition | Q71, Q84, Q90–Q92 | ✅ Done |
+| O10 | Consistent `simplify()` at block construction sites — O7 fusion path and `combineBlocks` emit un-simplified blocks (e.g. `Not(HasLink)` stays instead of becoming `HasNoLink`) | Q69 and others | Not started |
+| O12 | Chain pure property filters instead of `and(__.has(),__.has(),…)` — when all `And` operands are chainable vertex filters, fold them as sequential `.has()` steps | Q101 and common cases | Not started |
 
 ---
 
