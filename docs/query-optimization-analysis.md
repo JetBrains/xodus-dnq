@@ -442,6 +442,157 @@ where all merged conditions are pure property filters — the common case in pra
 
 ---
 
+## O13 — Same-property constraint intersection in `And.simplify()`
+
+**Priority: Medium. New.**
+
+### Problem
+
+When an `And` block contains multiple constraints on the **same property**, they can often be
+reduced algebraically without executing the query. Currently they are emitted as-is:
+
+```
+g.V().and(__.has("status","open"), __.has("status","resolved"), ...).hasLabel("Issue")
+```
+
+This is a logical contradiction (no vertex has status = open AND resolved), but the engine
+must still evaluate it.
+
+### Cases
+
+Given two blocks targeting the same property `p`:
+
+| Left | Right | Result |
+|------|-------|--------|
+| `PropEqual(p, v1)` | `PropEqual(p, v2)`, v1 ≠ v2 | `None` (contradiction) |
+| `PropEqual(p, v1)` | `PropEqual(p, v1)` | `PropEqual(p, v1)` (dedup — already handled) |
+| `PropEqual(p, v)` | `PropWithin(p, vs)`, v ∈ vs | `PropEqual(p, v)` (subset) |
+| `PropEqual(p, v)` | `PropWithin(p, vs)`, v ∉ vs | `None` (contradiction) |
+| `PropWithin(p, s1)` | `PropWithin(p, s2)` | `PropWithin(p, s1 ∩ s2)`, degenerating to `PropEqual` (size=1) or `None` (size=0) |
+
+Multiple blocks collapse in one pass: group all constraints on the same property, fold the
+intersection left-to-right, then replace the group with the result.
+
+### What does NOT apply
+
+- `PropInRange` interactions with `PropEqual`/`PropWithin` require type-safe numeric comparison
+  and are deferred to O14.
+- `Not(PropEqual)` / `Not(PropWithin)` — the complement case is not handled here.
+  `Not` blocks are not chainable and their value-set semantics are harder to reason about
+  in a general pass.
+
+### Implementation sketch
+
+In `And.simplify()`, after the existing deduplication and contradiction checks, add a
+same-property grouping pass:
+
+```kotlin
+// Group PropEqual / PropWithin blocks by property name.
+// For each property with ≥2 constraints, compute the intersection.
+val byProp: Map<String, List<GremlinBlock>> = result
+    .groupBy { block ->
+        when (block) {
+            is PropEqual  -> block.property
+            is PropWithin -> block.propName
+            else          -> null
+        }
+    }
+    .filterKeys { it != null } as Map<String, List<GremlinBlock>>
+
+for ((prop, blocks) in byProp) {
+    if (blocks.size < 2) continue
+
+    // Compute the allowed-value set as the intersection of all constraints.
+    val initial: Collection<Any?> = when (val first = blocks[0]) {
+        is PropEqual  -> listOf(first.value)
+        is PropWithin -> first.within.toList()
+        else          -> continue
+    }
+    val intersection = blocks.drop(1).fold(initial) { acc, block ->
+        when (block) {
+            is PropEqual  -> acc.filter { it == block.value }
+            is PropWithin -> acc.filter { it in block.within }
+            else          -> acc
+        }
+    }
+
+    result.removeAll(blocks.toSet())
+    when {
+        intersection.isEmpty()  -> return None
+        intersection.size == 1  -> result.add(PropEqual(prop, intersection[0]))
+        else                    -> result.add(PropWithin(prop, intersection))
+    }
+    changed = true
+}
+```
+
+The result of the intersection is then subject to the normal `O15` simplification
+(`PropWithin([v])` → `PropEqual`, `PropWithin([])` → `None`) if O15 is also applied — or
+the size checks above handle it inline.
+
+### Example
+
+```kotlin
+// issues open in status AND resolved in status — logical contradiction
+issues(PropEqual("status", "open"))
+    .intersect(issues(PropEqual("status", "resolved")))
+// combineEfficient: And([PropEqual("status","open"), PropEqual("status","resolved")])
+// O13 detects same property, different value → None
+// Labeled(Where(None)) → simplifies to empty query
+```
+
+```kotlin
+// issues with priority in [critical, high] AND priority = critical
+issues(PropEqual("priority", "critical"))
+    .union(issues(PropEqual("priority", "high")))   // → PropWithin("priority", ["critical","high"]) via O9
+    .intersect(issues(PropEqual("priority", "critical")))
+// And([PropWithin("priority",["critical","high"]), PropEqual("priority","critical")])
+// O13: v="critical" ∈ vs → PropEqual("priority","critical")
+```
+
+---
+
+## O14 — `PropInRange` intersection in `And.simplify()`
+
+**Priority: Low. New.**
+
+### Problem
+
+When two `PropInRange` blocks on the same property appear in an `And`, their ranges can be
+intersected arithmetically.
+
+### Cases
+
+| Left | Right | Result |
+|------|-------|--------|
+| `PropInRange(p, a, b)` | `PropInRange(p, c, d)` | `PropInRange(p, max(a,c), min(b,d))` if max(a,c) ≤ min(b,d), else `None` |
+| `PropInRange(p, a, b)` | `PropEqual(p, v)` | `PropEqual(p, v)` if a ≤ v ≤ b, else `None` |
+
+### Constraint
+
+Requires that the min/max values of both ranges are the same `Comparable` type (checked via
+`javaClass` equality) to avoid comparing across types (e.g. `Int` vs `Long`).
+
+---
+
+## O15 — `PropWithin` degenerate cases in `simplify()`
+
+**Priority: Low. New.**
+
+Degenerations that can be produced by O13/O14 or arise directly from caller code:
+
+| Input | Output |
+|-------|--------|
+| `PropWithin(p, [])` | `None` |
+| `PropWithin(p, [v])` | `PropEqual(p, v)` |
+
+These are added to `PropWithin.simplify()` (currently returns `null` — no simplification).
+The empty case produces `g.has(p, P.within([]))` which never matches; the singleton case
+produces `g.has(p, P.within([v]))` instead of the cleaner `g.has(p, v)`. Both have no
+current caller, but O13 can produce them so O15 should be implemented alongside O13.
+
+---
+
 ## Discovering future optimization candidates
 
 Five approaches for finding the next round of opportunities, roughly by effort:
@@ -496,7 +647,14 @@ patterns (deduplication, contradiction, tautology). Done — see O5 second-pass 
 | O9 | `PropWithin` coalescing: `Or(PropEqual(p,v1),PropEqual(p,v2))` → `PropWithin(p,[v1,v2])` | Q30, Q31, Q35, Q39, Q58, Q60 | ✅ Done |
 | O11 | Inverse-link predicate for `cond OP FollowLink(src)` — eliminates Aggregate/UnionAll for difference and union when left side is extractable condition | Q71, Q84, Q90–Q92 | ✅ Done |
 | O10 | Consistent `simplify()` at block construction sites — O7 fusion path and `combineBlocks` emit un-simplified blocks (e.g. `Not(HasLink)` stays instead of becoming `HasNoLink`) | Q69 and others | Not started |
-| O12 | Chain pure property filters instead of `and(__.has(),__.has(),…)` — when all `And` operands are chainable vertex filters, fold them as sequential `.has()` steps | Q101 and common cases | Not started |
+| O12 | Chain pure property filters instead of `and(__.has(),__.has(),…)` — when all `And` operands are chainable vertex filters, fold them as sequential `.has()` steps | Q101 and common cases | ✅ Done |
+| O13 | Same-property constraint intersection in `And.simplify()` — `And([PropEqual(p,v1), PropEqual(p,v2)])` → `None` if v1≠v2; `And([PropEqual(p,v), PropWithin(p,vs)])` → `PropEqual` or `None`; `And([PropWithin(p,s1), PropWithin(p,s2)])` → intersection | any intersect of same-prop conditions | Not started |
+| O14 | `PropInRange` intersection in `And.simplify()` — two range constraints on same property intersected arithmetically; `PropInRange` × `PropEqual` checked for containment | range+range and range+equal intersects | Not started |
+| O15 | `PropWithin` degenerate cases: `PropWithin(p,[])` → `None`, `PropWithin(p,[v])` → `PropEqual(p,v)` | produced by O13/O14 | Not started |
+| O16 | Chained O7 fusion — `Labeled(AndThen(FL, cond1)) OP cond2` appends to existing FollowLink chain instead of Aggregate | Q81, Q82 | Not started |
+| O17 | Dedup-wrapper passthrough — strip `Order(inner, Dedup)` like O3 strips `SortBy`, recurse into inner, re-wrap with `Dedup` | Q104 | Not started |
+| O18 | Condition push-down into `Order(UnionAll([FL…]), Dedup)` when all branches are FollowLink-rooted (no Slice/ReversedOrder) | Q96-like patterns | Not started |
+| R1  | Remove `HasNoLink` from the block model — replace with `Not(HasLink)`; update tautology/contradiction checks in `And`/`Or simplify()`; adjust O11 path | low-priority refactor | Not started |
 
 ---
 

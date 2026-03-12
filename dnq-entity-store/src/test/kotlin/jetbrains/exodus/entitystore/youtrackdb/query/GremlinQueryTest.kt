@@ -490,4 +490,49 @@ class GremlinQueryTest {
         assertThat(a.difference(a).toGremlin())
             .isEqualTo("""g.V().discard().hasLabel("Issue")""")
     }
+
+    // O16 — Chained O7 fusion: Labeled(AndThen(FollowLink, cond1)) OP cond2
+
+    private val engSrc     = Labeled(GremlinQuery.Where.of(PropEqual("key", "ENG")), "Project")
+    private val engIssues  = Labeled(FollowLink(engSrc, LinkDirection.IN, "project"), "Issue")
+    // o7Fused = Labeled(AndThen(FollowLink(ENG), PropEqual("status","open")), "Issue") — via O7
+    private val o7Fused    = engIssues.intersect(issueCondition("status", "open"))
+
+    @Test
+    fun `O16 - O7-fused intersect condition extends traversal chain`() {
+        // O7 already fused FollowLink+open into a single chain; O16 appends critical to it.
+        val result = o7Fused.intersect(issueCondition("priority", "critical"))
+        assertThat(result.toGremlin()).isEqualTo(
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link")""" +
+            """.has("status","open").has("priority","critical").hasLabel("Issue")"""
+        )
+    }
+
+    @Test
+    fun `O16 - O7-fused difference condition extends traversal chain with not`() {
+        // Difference: Not(PropEqual("status","resolved")) appended via AndThen.
+        val result = o7Fused.difference(issueCondition("status", "resolved"))
+        assertThat(result.toGremlin()).isEqualTo(
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link")""" +
+            """.has("status","open").not(__.has("status","resolved")).hasLabel("Issue")"""
+        )
+    }
+
+    @Test
+    fun `O16 - O7-fused difference non-chainable condition extends chain`() {
+        // Non-chainable (HasLink) difference: Not(HasLink) appended — same pattern as Q82.
+        val hasAssignee = Labeled(GremlinQuery.Where.of(HasLink("assignee")), "Issue")
+        val result = o7Fused.difference(hasAssignee)
+        assertThat(result.toGremlin()).isEqualTo(
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link")""" +
+            """.has("status","open").not(__.where(__.out("assignee_link"))).hasLabel("Issue")"""
+        )
+    }
+
+    @Test
+    fun `O16 - union of O7-fused with condition falls back to UnionAll`() {
+        // O16 only applies to intersect and difference; union cannot be expressed as a chain extension.
+        val result = o7Fused.union(issueCondition("priority", "critical"))
+        assertThat(result).isInstanceOf(GremlinQuery.Order::class.java)
+    }
 }

@@ -1231,28 +1231,25 @@ class GremlinQueryCoverageTest {
         // Step 1: agg1 = issuesInProject("ENG").intersect(issues(open))
         //   → O7 fires: Labeled(AndThen(FollowLink(ENG), open), "Issue")  [no Aggregate]
         // Step 2: agg1.intersect(issues(critical))
-        //   → extractCondition(Labeled(AndThen,...)) = null → Aggregate(agg1, critical, within)
-        //   → single Aggregate: critical collected into aggr_0, agg1 traversal filtered by it.
+        //   → O16 fires: extends AndThen chain with critical — single traversal, no Aggregate.
         val agg1 = issuesInProject(PropEqual("key", "ENG"))
             .intersect(issues(PropEqual("status", "open")))
         val q81 = agg1.intersect(issues(PropEqual("priority", "critical")))
         println("[Q81 chained double intersect] query  : $q81")
         println("[Q81 chained double intersect] gremlin: ${q81.toGremlin()}")
         assertThat(q81.toGremlin()).isEqualTo(
-            """g.V().has("priority","critical").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").has("status","open").hasLabel("Issue")""" +
-            """.where(P.within(["aggr_0"]))"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link")""" +
+            """.has("status","open").has("priority","critical").hasLabel("Issue")"""
         )
 
         // Q82: (FollowLink ∩ condition) \ condition — intersect then difference
-        // agg1 is O7-optimised (no inner Aggregate); outer difference falls to single Aggregate.
+        // O16 fires: Not(HasLink("assignee")) appended to existing chain — no Aggregate.
         val q82 = agg1.difference(issues(HasLink("assignee")))
         println("[Q82 chained intersect then difference] query  : $q82")
         println("[Q82 chained intersect then difference] gremlin: ${q82.toGremlin()}")
         assertThat(q82.toGremlin()).isEqualTo(
-            """g.V().where(__.out("assignee_link")).hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").has("status","open").hasLabel("Issue")""" +
-            """.where(P.without(["aggr_0"]))"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link")""" +
+            """.has("status","open").not(__.where(__.out("assignee_link"))).hasLabel("Issue")"""
         )
 
         // ------------------------------------------------------------------

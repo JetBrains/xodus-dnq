@@ -204,6 +204,22 @@ sealed class GremlinQuery {
             }
         }
 
+        // O16: Chained O7 fusion — Labeled(AndThen(FollowLink, cond1), T) OP cond2.
+        // When `this` is the result of a prior O7 fusion (an AndThen chain rooted at FollowLink),
+        // extend the existing chain with the new condition instead of falling to Aggregate.
+        if (condCombiner is ConditionCombiner.Intersect || condCombiner is ConditionCombiner.Difference) {
+            if (this is Labeled) {
+                val andThen = this.inner as? AndThen
+                if (andThen != null && andThen.inner is FollowLink) {
+                    val condBlock = extractCondition(other)
+                    if (condBlock != null) {
+                        val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not(condBlock) else condBlock
+                        return Labeled(this.inner.then(appended), this.label)
+                    }
+                }
+            }
+        }
+
         // O11: condition OP FollowLink(srcCond) — inverse-link predicate rewrite.
         // When the right operand is Labeled(FollowLink(srcQuery, IN, link), T) and the left operand
         // has an extractable condition, translate the membership test into an inline predicate on each
