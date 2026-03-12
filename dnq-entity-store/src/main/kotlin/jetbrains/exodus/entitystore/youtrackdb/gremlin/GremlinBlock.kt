@@ -225,6 +225,10 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
     }
 
     data class Not(val query: GremlinBlock) : GremlinBlock("not", BlockType.COMBINE) {
+        companion object {
+            fun of(block: GremlinBlock): GremlinBlock = Not(block).let { it.simplify() ?: it }
+        }
+
         override fun traverse(g: YT): YT = g.not(query.traverse(`__`.start<Any>().asYT()))
 
         override fun describe(s: StringBuilder): StringBuilder = query.describe(s.append("NOT "))
