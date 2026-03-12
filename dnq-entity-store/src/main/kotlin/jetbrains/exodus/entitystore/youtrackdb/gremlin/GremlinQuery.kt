@@ -161,6 +161,8 @@ sealed class GremlinQuery {
             }
         }
 
+        fun negated(block: GremlinBlock): GremlinBlock =
+            GremlinBlock.Not(block).let { it.simplify() ?: it }
         fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label else null
         fun extractCondition(q: GremlinQuery): GremlinBlock? =
             if (q is Labeled && q.inner is Condition) q.inner.asBlock()
@@ -199,7 +201,7 @@ sealed class GremlinQuery {
                 else -> { linkQuery = null; condBlock = null }
             }
             if (linkQuery != null && condBlock != null) {
-                val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not(condBlock) else condBlock
+                val appended = if (condCombiner is ConditionCombiner.Difference) negated(condBlock) else condBlock
                 return Labeled(linkQuery.inner.then(appended), linkQuery.label)
             }
         }
@@ -213,7 +215,7 @@ sealed class GremlinQuery {
                 if (andThen != null && andThen.inner is FollowLink) {
                     val condBlock = extractCondition(other)
                     if (condBlock != null) {
-                        val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not(condBlock) else condBlock
+                        val appended = if (condCombiner is ConditionCombiner.Difference) negated(condBlock) else condBlock
                         return Labeled(this.inner.then(appended), this.label)
                     }
                 }

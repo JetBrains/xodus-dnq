@@ -1066,7 +1066,7 @@ class GremlinQueryCoverageTest {
         println("[Q69 followlink-left difference condition-right] query  : $q69")
         println("[Q69 followlink-left difference condition-right] gremlin: ${q69.toGremlin()}")
         assertThat(q69.toGremlin()).isEqualTo(
-            """g.V().has("key","ENG").hasLabel("Project").in("project_link").not(__.where(__.out("assignee_link"))).hasLabel("Issue")"""
+            """g.V().has("key","ENG").hasLabel("Project").in("project_link").not(__.out("assignee_link")).hasLabel("Issue")"""
         )
 
         // Q70: condition(left) ∩ FollowLink(right) — reversed roles
@@ -1249,7 +1249,7 @@ class GremlinQueryCoverageTest {
         println("[Q82 chained intersect then difference] gremlin: ${q82.toGremlin()}")
         assertThat(q82.toGremlin()).isEqualTo(
             """g.V().has("key","ENG").hasLabel("Project").in("project_link")""" +
-            """.has("status","open").not(__.where(__.out("assignee_link"))).hasLabel("Issue")"""
+            """.has("status","open").not(__.out("assignee_link")).hasLabel("Issue")"""
         )
 
         // ------------------------------------------------------------------

@@ -525,7 +525,7 @@ class GremlinQueryTest {
         val result = o7Fused.difference(hasAssignee)
         assertThat(result.toGremlin()).isEqualTo(
             """g.V().has("key","ENG").hasLabel("Project").in("project_link")""" +
-            """.has("status","open").not(__.where(__.out("assignee_link"))).hasLabel("Issue")"""
+            """.has("status","open").not(__.out("assignee_link")).hasLabel("Issue")"""
         )
     }
 
