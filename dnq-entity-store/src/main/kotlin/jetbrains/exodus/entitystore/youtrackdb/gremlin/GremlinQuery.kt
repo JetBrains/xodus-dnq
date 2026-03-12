@@ -58,7 +58,10 @@ sealed class GremlinQuery {
         }
     }
 
-    fun start(gs: GraphTraversalSource): YT = startTraversal(gs).traversal
+    fun start(gs: GraphTraversalSource): YT {
+        if (GremlinQueryCollector.enabled) GremlinQueryCollector.record(GremlinQueryShape.of(this))
+        return startTraversal(gs).traversal
+    }
 
     abstract fun shortName(): String
 
