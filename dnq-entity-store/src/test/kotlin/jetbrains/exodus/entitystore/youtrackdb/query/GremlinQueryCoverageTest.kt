@@ -613,7 +613,7 @@ class GremlinQueryCoverageTest {
         println("[Q40 critical and open] query  : $q40")
         println("[Q40 critical and open] gremlin: ${q40.toGremlin()}")
         assertThat(q40.toGremlin())
-            .isEqualTo("""g.V().and(__.has("priority","critical"),__.has("status","open")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("priority","critical").has("status","open").hasLabel("Issue")""")
 
         // Q41: Open issues that are also in a sprint (condition AND HasLink)
         val q41 = issues(PropEqual("status", "open"))
@@ -637,7 +637,7 @@ class GremlinQueryCoverageTest {
         println("[Q43 high estimate and high priority] query  : $q43")
         println("[Q43 high estimate and high priority] gremlin: ${q43.toGremlin()}")
         assertThat(q43.toGremlin())
-            .isEqualTo("""g.V().and(__.has("estimate",P.gte((int) 5).and(P.lte((int) 8))),__.has("priority","high")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("estimate",P.gte((int) 5).and(P.lte((int) 8))).has("priority","high").hasLabel("Issue")""")
 
         // Q44: SortBy(all issues, priority).intersect(open issues) — O3 preserves left sort for intersect
         val q44 = SortBy(issues(), byPriority)
@@ -665,7 +665,7 @@ class GremlinQueryCoverageTest {
         println("[Q46 byids intersect condition] query  : $q46")
         println("[Q46 byids intersect condition] gremlin: ${q46.toGremlin()}")
         assertThat(q46.toGremlin())
-            .isEqualTo("""g.V().and(__.hasId(P.within([#30:1, #30:2])),__.has("status","open")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().hasId(P.within([#30:1, #30:2])).has("status","open").hasLabel("Issue")""")
 
         // Q47: Triple intersect: critical AND open AND in-sprint
         // Step 1: critical.intersect(open) → And([critical, open])
@@ -853,7 +853,7 @@ class GremlinQueryCoverageTest {
         println("[Q58 (critical or high) and open] query  : $q58")
         println("[Q58 (critical or high) and open] gremlin: ${q58.toGremlin()}")
         assertThat(q58.toGremlin())
-            .isEqualTo("""g.V().and(__.has("priority",P.within(["critical", "high"])),__.has("status","open")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("priority",P.within(["critical", "high"])).has("status","open").hasLabel("Issue")""")
 
         // Q59: (Critical AND open) OR (high AND in-progress) — two intersects unioned
         // Step 1: a = critical.intersect(open) → And(critical, open)
@@ -868,7 +868,7 @@ class GremlinQueryCoverageTest {
         println("[Q59 (critical and open) or (high and in-progress)] query  : $q59")
         println("[Q59 (critical and open) or (high and in-progress)] gremlin: ${q59.toGremlin()}")
         assertThat(q59.toGremlin())
-            .isEqualTo("""g.V().or(__.and(__.has("priority","critical"),__.has("status","open")),__.and(__.has("priority","high"),__.has("status","in-progress"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().or(__.has("priority","critical").has("status","open"),__.has("priority","high").has("status","in-progress")).hasLabel("Issue")""")
 
         // Q60: (Critical OR high) AND NOT resolved AND in-sprint
         // Step 1: O9 → PropWithin("priority", [critical, high])
@@ -924,7 +924,7 @@ class GremlinQueryCoverageTest {
         println("[Q63 sorted intersect same key preserves left sort] query  : $q63")
         println("[Q63 sorted intersect same key preserves left sort] gremlin: ${q63.toGremlin()}")
         assertThat(q63.toGremlin())
-            .isEqualTo("""g.V().and(__.has("status","open"),__.has("priority","critical")).hasLabel("Issue")$byPriorityGremlin""")
+            .isEqualTo("""g.V().has("status","open").has("priority","critical").hasLabel("Issue")$byPriorityGremlin""")
 
         // Q64: (Open AND critical) UNION (high AND in-progress) — same as Q59, verified separately
         // Both sides are efficient intersects; union of them also uses combineEfficient
@@ -937,7 +937,7 @@ class GremlinQueryCoverageTest {
         println("[Q64 (open and critical) union (in-progress and high)] query  : $q64")
         println("[Q64 (open and critical) union (in-progress and high)] gremlin: ${q64.toGremlin()}")
         assertThat(q64.toGremlin())
-            .isEqualTo("""g.V().or(__.and(__.has("status","open"),__.has("priority","critical")),__.and(__.has("status","in-progress"),__.has("priority","high"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().or(__.has("status","open").has("priority","critical"),__.has("status","in-progress").has("priority","high")).hasLabel("Issue")""")
 
         // Q65: Open in sprint A minus open in sprint B (two intersects, then difference)
         // Step 1: openInA = And([open, HasLinkTo(sprint,A)])
@@ -1712,10 +1712,11 @@ class GremlinQueryCoverageTest {
             .intersect(issues(PropInRange("estimate", 1, 8)))
         println("[Q101 open+critical+estimate(1-8) triple intersect] query  : $q101")
         println("[Q101 open+critical+estimate(1-8) triple intersect] gremlin: ${q101.toGremlin()}")
-        // O8 flattens And(And(open,critical), range) → And(open,critical,range) — 3-ary
+        // O8 flattens And(And(open,critical), range) → And(open,critical,range) — 3-ary.
+        // O12 chains all three (all chainable): .has().has().has() instead of .and(__.has(),...).
         assertThat(q101.toGremlin()).isEqualTo(
-            """g.V().and(__.has("status","open"),__.has("priority","critical"),""" +
-            """__.has("estimate",P.gte((int) 1).and(P.lte((int) 8)))).hasLabel("Issue")"""
+            """g.V().has("status","open").has("priority","critical")""" +
+            """.has("estimate",P.gte((int) 1).and(P.lte((int) 8))).hasLabel("Issue")"""
         )
 
         // ---- Result assertions ----

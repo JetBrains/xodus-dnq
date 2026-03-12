@@ -36,7 +36,13 @@ enum class BlockType {
     COMPOSE
 }
 
-sealed class GremlinBlock(val shortName: String, val type: BlockType) {
+/**
+ * @param isChainable True for pure vertex-property filter steps that can be chained directly
+ *   (e.g. `.has("p","v").has("q","w")`) without a wrapping `.and(__.has(...), ...)`.
+ *   Chainable types: [GremlinBlock.PropEqual], [GremlinBlock.PropWithin], [GremlinBlock.PropInRange],
+ *   [GremlinBlock.PropNull], [GremlinBlock.PropNotNull], [GremlinBlock.HasLabel], [GremlinBlock.IdWithin].
+ */
+sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChainable: Boolean = false) {
 
     abstract fun traverse(g: YT): YT
 
@@ -172,8 +178,13 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
     data class And(val operands: List<GremlinBlock>) : GremlinBlock("and", BlockType.COMBINE) {
         constructor(left: GremlinBlock, right: GremlinBlock) : this(listOf(left, right))
 
+        // O12: if every operand is a pure vertex-property filter, chain them directly
+        // (.has().has()...) instead of wrapping in .and(__.has(), __.has(), ...).
         override fun traverse(g: YT): YT =
-            g.and(*operands.map { it.traverse(`__`.start<Any>().asYT()) }.toTypedArray())
+            if (operands.all { it.isChainable })
+                operands.fold(g) { t, op -> op.traverse(t) }
+            else
+                g.and(*operands.map { it.traverse(`__`.start<Any>().asYT()) }.toTypedArray())
 
         override fun describe(s: StringBuilder): StringBuilder {
             operands.forEachIndexed { i, op -> if (i > 0) s.append(" AND "); op.describe(s) }
@@ -250,7 +261,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         override fun describe(s: StringBuilder): StringBuilder = s.append(".dedup()")
     }
 
-    data class HasLabel(val entityType: String) : GremlinBlock("hl", BlockType.CONDITION) {
+    data class HasLabel(val entityType: String) : GremlinBlock("hl", BlockType.CONDITION, isChainable = true) {
         override fun traverse(g: YT): YT = g.hasLabel(entityType).asYT()
         override fun describe(s: StringBuilder): StringBuilder = s.append(".hasLabel(").append(entityType).append(")")
     }
@@ -282,17 +293,17 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
         override fun describe(s: StringBuilder): StringBuilder = s.append(".tail(").append(tail).append(")")
     }
 
-    data class PropEqual(val property: String, val value: Any?) : GremlinBlock("eq", BlockType.CONDITION) {
+    data class PropEqual(val property: String, val value: Any?) : GremlinBlock("eq", BlockType.CONDITION, isChainable = true) {
         override fun traverse(g: YT): YT = g.has(property, value)
         override fun describe(s: StringBuilder): StringBuilder = s.append(property).append("=").append(value)
     }
 
-    data class PropNull(val property: String) : GremlinBlock("nul", BlockType.CONDITION) {
+    data class PropNull(val property: String) : GremlinBlock("nul", BlockType.CONDITION, isChainable = true) {
         override fun traverse(g: YT): YT = g.hasNot(property)
         override fun describe(s: StringBuilder): StringBuilder = s.append(property).append(" IS NULL")
     }
 
-    data class PropNotNull(val property: String) : GremlinBlock("nn", BlockType.CONDITION) {
+    data class PropNotNull(val property: String) : GremlinBlock("nn", BlockType.CONDITION, isChainable = true) {
         override fun traverse(g: YT): YT = g.has(property)
         override fun describe(s: StringBuilder): StringBuilder = s.append(property).append(" IS NOT NULL")
     }
@@ -389,7 +400,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
     }
 
     data class PropInRange(val propName: String, val min: Comparable<*>, val max: Comparable<*>) :
-        GremlinBlock("pb", BlockType.CONDITION) {
+        GremlinBlock("pb", BlockType.CONDITION, isChainable = true) {
         override fun traverse(g: YT): YT =
             g.has(propName, P.gte(min).and(P.lte(max)))
 
@@ -398,7 +409,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
 
     }
 
-    data class PropWithin(val propName: String, val within: Collection<*>) : GremlinBlock("pw", BlockType.CONDITION) {
+    data class PropWithin(val propName: String, val within: Collection<*>) : GremlinBlock("pw", BlockType.CONDITION, isChainable = true) {
         override fun traverse(g: YT): YT =
             g.has(propName, P.within<Any>(within))
 
@@ -416,7 +427,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType) {
 
     }
 
-    data class IdWithin(val within: Collection<RID>) : GremlinBlock("idw", BlockType.CONDITION) {
+    data class IdWithin(val within: Collection<RID>) : GremlinBlock("idw", BlockType.CONDITION, isChainable = true) {
         override fun traverse(g: YT): YT = g.hasId(P.within(within))
 
         override fun describe(s: StringBuilder): StringBuilder = s.append("id within ").append(within)

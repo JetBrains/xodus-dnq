@@ -86,8 +86,9 @@ class GremlinQueryTest {
 
     @Test
     fun `And produces and with two sub-traversals`() {
+        // Both operands are pure property filters (chainable) — O12 folds them directly.
         assertThat(And(PropEqual("name", "a"), PropEqual("x", "b")).toGremlin())
-            .isEqualTo("""__.and(__.has("name","a"),__.has("x","b"))""")
+            .isEqualTo("""__.has("name","a").has("x","b")""")
     }
 
     @Test
@@ -309,7 +310,7 @@ class GremlinQueryTest {
         // intersect/difference: result is a filtered subset of `this`, so the sort is valid to preserve.
         val result = SortBy(issueCondition("name", "a"), sortByName).intersect(issueCondition("name", "b"))
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().and(__.has("name","a"),__.has("name","b")).hasLabel("Issue")$sortByNameGremlin""")
+            .isEqualTo("""g.V().has("name","a").has("name","b").hasLabel("Issue")$sortByNameGremlin""")
     }
 
     @Test
@@ -347,7 +348,7 @@ class GremlinQueryTest {
         val result = SortBy(issueCondition("name", "a"), sortByName)
             .intersect(SortBy(issueCondition("name", "b"), sortByName))
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().and(__.has("name","a"),__.has("name","b")).hasLabel("Issue")$sortByNameGremlin""")
+            .isEqualTo("""g.V().has("name","a").has("name","b").hasLabel("Issue")$sortByNameGremlin""")
     }
 
     @Test
@@ -366,7 +367,7 @@ class GremlinQueryTest {
             .intersect(SortBy(issueCondition("name", "b"), sortByName))
         // Right sort is stripped; no re-wrap since this is not SortBy
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().and(__.has("name","a"),__.has("name","b")).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("name","a").has("name","b").hasLabel("Issue")""")
     }
 
     @Test

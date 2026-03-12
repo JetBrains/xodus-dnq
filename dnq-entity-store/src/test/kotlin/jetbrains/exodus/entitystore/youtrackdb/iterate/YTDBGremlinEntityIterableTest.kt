@@ -167,7 +167,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val issues = nameEqual.intersect(priorityEqual)
 
             // Then
-            checkGremlin(issues as YTDBEntityIterable, """g.V().and(__.has("name","issue2"),__.has("priority","normal")).hasLabel("Issue")""")
+            checkGremlin(issues as YTDBEntityIterable, """g.V().has("name","issue2").has("priority","normal").hasLabel("Issue")""")
             assertNamesExactly(issues, "issue2")
             assertThat(issues.first().getProperty("priority")).isEqualTo("normal")
         }
@@ -1033,7 +1033,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             // Intersect.combineBlocks(PropEqual("name","issue1"), PropEqual("priority","high")) = And(...)
             // Result: SortBy(Labeled(Where(And(...)), "Issue"), sort)
             val result = sortedIssue1.intersect(highPriority) as YTDBEntityIterable
-            checkGremlin(result, """g.V().and(__.has("name","issue1"),__.has("priority","high")).hasLabel("Issue").order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)""")
+            checkGremlin(result, """g.V().has("name","issue1").has("priority","high").hasLabel("Issue").order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)""")
             assertNamesExactly(result, "issue1")
         }
     }
@@ -1101,7 +1101,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             // Intersect.combineBlocks(PropEqual("name","issue1"), PropEqual("priority","high")) = And(...)
             // Result: SortBy(Labeled(Where(And(...))), sortByName)
             val result = sortedIssue1ByName.intersect(sortedHighByPriority) as YTDBEntityIterable
-            checkGremlin(result, """g.V().and(__.has("name","issue1"),__.has("priority","high")).hasLabel("Issue").order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)""")
+            checkGremlin(result, """g.V().has("name","issue1").has("priority","high").hasLabel("Issue").order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)""")
             assertNamesExactly(result, "issue1")
         }
     }
@@ -1124,7 +1124,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             // Intersect.combineBlocks(PropEqual("name","issue1"), PropEqual("priority","high")) = And(...)
             // Result: Labeled(Where(And(...))) — no sort, since this was not sorted
             val result = foundIssue1.intersect(sortedHighByName) as YTDBEntityIterable
-            checkGremlin(result, """g.V().and(__.has("name","issue1"),__.has("priority","high")).hasLabel("Issue")""")
+            checkGremlin(result, """g.V().has("name","issue1").has("priority","high").hasLabel("Issue")""")
             assertNamesExactly(result, "issue1")
         }
     }
