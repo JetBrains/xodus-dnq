@@ -1,23 +1,44 @@
-# XD-1257 Query Shape Collector
+# Query Shape Collector
 
-## Goal
-
-Instrument DNQ's Gremlin query engine so that running an app's unit test suite
-produces a frequency distribution of all executed query shapes. The output shows
-both which query patterns are most common overall and where `Aggregate` appears
-in that context — driving prioritization of future optimizations by real-world
-frequency rather than speculation.
+Instruments DNQ's Gremlin query engine to produce a frequency distribution of all
+executed query shapes across a test run. The output shows which query patterns are
+most common and where `Aggregate` (unoptimized) queries appear — useful for
+prioritizing further optimizations based on real workloads.
 
 ---
 
-## Design decisions
+## Usage
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| What to log | GremlinQuery **structural shape** | Shape is value-free and groupable; Gremlin string logging is a possible future addition |
-| When to log | At **`GremlinQuery.start(gs)`** | Fires for every executed top-level query; sub-queries inside Aggregate/UnionAll go through `startTraversal()`/`continueTraversal()` internally and are not logged separately |
-| Scope | **All queries**, not just Aggregate | Full frequency distribution shows both common fused patterns and where Aggregate appears within it |
-| Grouping | **Shape string** keyed by recursive node descriptor + property/link names, values dropped | Same structure with different values collapses to one entry |
+No code changes are needed in the app. Add two JVM arguments to the Gradle test task:
+
+```groovy
+test {
+    jvmArgs "-Ddnq.query.collector.enabled=true",
+            "-Ddnq.query.collector.output=/tmp/query-shapes.txt"
+}
+```
+
+| Property | Description |
+|----------|-------------|
+| `dnq.query.collector.enabled` | Set to `true` to activate collection. Default: disabled. |
+| `dnq.query.collector.output` | Path to write the report file. If omitted, output goes to stdout. |
+
+The report is written automatically when the test JVM exits, after all test classes
+have completed. Each line is one unique query shape with its occurrence count,
+sorted by frequency descending:
+
+```
+[8432] Labeled(Where(PropEqual("status", ?)), "Issue")
+[3201] Labeled(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "project"), "Issue")
+ [512] Aggregate(Labeled(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "project"), "Issue"), Where(PropEqual("priority", ?)))
+ [201] Order(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "project"), "Issue"), Dedup)
+```
+
+To find all unoptimized queries in the output:
+
+```bash
+grep Aggregate /tmp/query-shapes.txt
+```
 
 ---
 
@@ -26,7 +47,8 @@ frequency rather than speculation.
 Mirrors Kotlin constructor syntax. Rules:
 
 - **Class names verbatim** — `Labeled`, `FollowLink`, `Aggregate`, `PropEqual`, etc.
-- **Names kept as string literals** — property names, link names, entity type labels, enum values (`IN`, `OUT`, `Dedup`) — these distinguish meaningfully different shapes
+- **Names kept as string literals** — property names, link names, entity type labels,
+  enum values (`IN`, `OUT`, `Dedup`) — these distinguish meaningfully different shapes
 - **Concrete data values → `?`** — actual property values, RIDs, numeric constants
 - **Child queries/blocks** — recursively rendered in argument position
 
@@ -43,28 +65,10 @@ Labeled(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "
 Aggregate(Labeled(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "project"), "Issue"), Where(PropEqual("priority", ?)))
 
 // O4-fused union with dedup
-Order(Labeled(FollowLink(UnionAll(Labeled(Where(PropEqual("key", ?)), "Project"), Labeled(Where(PropEqual("key", ?)), "Project")), IN, "project"), "Issue"), Dedup)
+Order(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "project"), "Issue"), Dedup)
 ```
 
----
-
-## Components
-
-### 1. `GremlinQueryShape` — shape extractor
-
-A standalone object that walks a `GremlinQuery` tree and produces a normalized
-shape string. Located in the `gremlin` package alongside `GremlinQuery.kt`.
-
-```kotlin
-object GremlinQueryShape {
-    fun of(query: GremlinQuery): String = buildString { append(query) }
-
-    private fun StringBuilder.append(query: GremlinQuery) { ... }
-    private fun StringBuilder.append(block: GremlinBlock) { ... }
-}
-```
-
-Key mapping:
+### Full shape mapping
 
 | GremlinQuery type | Shape form |
 |-------------------|-----------|
@@ -102,87 +106,10 @@ Key mapping:
 
 ---
 
-### 2. `GremlinQueryCollector` — thread-safe accumulator
+## Notes
 
-A singleton that counts occurrences per shape and dumps a sorted report.
-
-```kotlin
-object GremlinQueryCollector {
-    @Volatile var enabled: Boolean = false
-
-    private val counts = ConcurrentHashMap<String, AtomicInteger>()
-
-    fun record(shape: String) {
-        if (!enabled) return
-        counts.computeIfAbsent(shape) { AtomicInteger(0) }.incrementAndGet()
-    }
-
-    fun reset() { counts.clear() }
-
-    /** Returns entries sorted by count descending. */
-    fun report(): List<ReportEntry> =
-        counts.entries
-            .sortedByDescending { it.value.get() }
-            .map { ReportEntry(it.key, it.value.get()) }
-
-    data class ReportEntry(val shape: String, val count: Int)
-}
-```
-
----
-
-### 3. Hook in `GremlinQuery.start()`
-
-```kotlin
-fun start(gs: GraphTraversalSource): YT {
-    GremlinQueryCollector.record(GremlinQueryShape.of(this))
-    return startTraversal(gs).traversal
-}
-```
-
-The `record()` call is a no-op when `enabled = false`, so there is no overhead
-in normal use.
-
----
-
-## Usage in app tests
-
-```kotlin
-@BeforeClass fun setUp() {
-    GremlinQueryCollector.enabled = true
-}
-
-@AfterClass fun tearDown() {
-    GremlinQueryCollector.enabled = false
-    GremlinQueryCollector.report().forEach { (shape, count) ->
-        println("[$count] $shape")
-    }
-    GremlinQueryCollector.reset()
-}
-```
-
-The report is printed to stdout and can be redirected to a file for analysis.
-
----
-
-## Open questions
-
-1. **Gremlin string logging** — not in scope for now; shape string is sufficient. Could
-   be added later by storing one example Gremlin string per shape (the `this` object
-   at `start()` time already has everything needed to render it).
-
-2. **Thread safety of shape generation** — `GremlinQueryShape.of()` walks immutable
-   data structures, so it's safe. The `ConcurrentHashMap` in the collector handles
-   concurrent recording.
-
-3. **`AggregateNoOrder`** — defined in `GremlinQuery.kt` but never constructed anywhere.
-   Dead code; no hook needed.
-
----
-
-## Implementation order
-
-1. `GremlinQueryShape.of()` + unit tests against known query trees
-2. `GremlinQueryCollector` singleton
-3. Hook in `GremlinQuery.start()`
-4. Try against a real app test suite; tune shape format based on output
+- Collection is disabled by default; overhead when disabled is a single `@Volatile`
+  boolean read per executed query.
+- The report covers all queries executed across the entire test JVM lifetime, not
+  per test class — this is intentional, giving the full picture in one file.
+- Gremlin string logging (one example string per shape) is a possible future addition.
