@@ -1816,25 +1816,24 @@ class GremlinQueryCoverageTest : DBTest() {
     }
 
     @Test
-    fun `group 12 - Q104 O4-fused FollowLink union then difference with condition (Aggregate)`() {
+    fun `group 12 - Q104 O4-fused FollowLink union then difference with condition (O17+O7 fused)`() {
 
         // Q104: Issues in ENG or OPS that are NOT open.
         // Step 1: issuesInProject(ENG).union(issuesInProject(OPS))
         //   → O4 fires (same link name "project", same direction IN, same label "Issue")
         //   → Order(Labeled(FollowLink(UnionedSrc, IN, "project"), "Issue"), Dedup)
         // Step 2: .difference(issues(open))
-        //   → left is Order(Labeled(FL)) — not SortBy, not extractable condition → Aggregate fallback
+        //   → O17 strips Order(Dedup), O7 fires on Labeled(FollowLink): appends Not(PropEqual) to chain
+        //   → Order(Labeled(AndThen(FollowLink(PropWithin src, IN, "project"), Not(PropEqual("status","open"))), "Issue"), Dedup)
         val engOrOps = issuesInProject(PropEqual("key", "ENG"))
             .union(issuesInProject(PropEqual("key", "OPS")))
         val q104 = engOrOps.difference(issues(PropEqual("status", "open")))
         println("[Q104 O4-fused FL union then difference open] query  : $q104")
         println("[Q104 O4-fused FL union then difference open] gremlin: ${q104.toGremlin()}")
-        // O4 merges the two source queries into one FollowLink; O9 then coalesces the two
-        // PropEqual("key","ENG"/"OPS") conditions into PropWithin — a single-traversal result.
+        // O4 merges sources into PropWithin; O17+O7 then appends the negated condition inline.
         assertThat(q104.toGremlin()).isEqualTo(
-            """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("key",P.within(["ENG", "OPS"])).hasLabel("Project").in("project_link")""" +
-            """.hasLabel("Issue").dedup().where(P.without(["aggr_0"]))"""
+            """g.V().has("key",P.within(["ENG", "OPS"])).hasLabel("Project").in("project_link")""" +
+            """.not(__.has("status","open")).hasLabel("Issue").dedup()"""
         )
 
         // ---- Result assertions ----

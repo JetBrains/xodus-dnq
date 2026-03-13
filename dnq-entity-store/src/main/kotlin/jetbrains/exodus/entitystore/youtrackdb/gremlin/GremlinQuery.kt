@@ -148,6 +148,36 @@ sealed class GremlinQuery {
             return this.combineEfficient(other.inner, condCombiner)
         }
 
+        // O17: Order(Dedup) transparency — strip Dedup wrapper, combine inner queries, re-wrap.
+        // flatMapDistinct wraps its FollowLink result in Order(Dedup) for correct deduplication.
+        // This wrapper prevents O4/O7/O16 from firing on the DSL path. Strip it, attempt the
+        // combination on the inner query, and re-wrap the result with Dedup.
+        // Also strips the right-side Order(Dedup) for symmetric union/intersect where both sides
+        // are flatMapDistinct results.
+        // When the inner combination itself returns Order(Dedup) (e.g. the Labeled O4 path adds
+        // Dedup directly), return that result as-is to avoid double-wrapping.
+        if (this is Order && this.orderBlock === GremlinBlock.Dedup) {
+            val otherInner = if (other is Order && other.orderBlock === GremlinBlock.Dedup) other.inner else other
+            val innerResult = this.inner.combineEfficient(otherInner, condCombiner)
+            if (innerResult != null) {
+                return if (innerResult is Order && innerResult.orderBlock === GremlinBlock.Dedup)
+                    innerResult  // inner path (e.g. O4 Labeled branch) already added Dedup
+                else
+                    Order(innerResult, GremlinBlock.Dedup)
+            }
+        }
+        // O17 symmetric: for commutative intersect, also try when only the right side is Order(Dedup).
+        if (condCombiner is ConditionCombiner.Intersect &&
+            other is Order && other.orderBlock === GremlinBlock.Dedup) {
+            val innerResult = other.inner.combineEfficient(this, condCombiner)
+            if (innerResult != null) {
+                return if (innerResult is Order && innerResult.orderBlock === GremlinBlock.Dedup)
+                    innerResult
+                else
+                    Order(innerResult, GremlinBlock.Dedup)
+            }
+        }
+
         // O4: FollowLink union shortcut — merge source queries, re-wrap with the shared link traversal
         if (this is Labeled && other is Labeled && this.label == other.label &&
             condCombiner is ConditionCombiner.Union) {
@@ -162,6 +192,16 @@ sealed class GremlinQuery {
                     this.label
                 ).then(GremlinBlock.Dedup)
             }
+        }
+
+        // O4 extension: bare FollowLink × bare FollowLink (reached via O17 delegation).
+        // When O17 strips Order(Dedup) from both sides, the inners are bare FollowLinks.
+        // Merge their source queries; O17 adds Dedup when re-wrapping.
+        if (this is FollowLink && other is FollowLink &&
+            condCombiner is ConditionCombiner.Union &&
+            this.direction == other.direction &&
+            this.linkName == other.linkName) {
+            return FollowLink(this.inner.union(other.inner), this.direction, this.linkName)
         }
 
         fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label else null
@@ -182,34 +222,34 @@ sealed class GremlinQuery {
         }
 
         // O7: FollowLink × Condition fusion — avoids Aggregate for FollowLink ∩/\ Condition.
-        // When one side is Labeled(FollowLink, T) and the other has an extractable condition,
-        // append the condition directly to the FollowLink traversal instead of collecting into
-        // a named aggregate set. For difference, wrap the condition in Not first.
+        // When one side is Labeled(FollowLink, T) or bare FollowLink (reached via O17 delegation)
+        // and the other has an extractable condition, append the condition directly to the
+        // FollowLink traversal. For difference, wrap the condition in Not first.
         // Symmetric for intersect (either side can be the link); for difference only `this` can
         // be the link side (condition \ FollowLink is not safe to rewrite this way).
         if (condCombiner is ConditionCombiner.Intersect || condCombiner is ConditionCombiner.Difference) {
-            val linkQuery: Labeled?
-            val condBlock: GremlinBlock?
-            when {
-                this is Labeled && this.inner is FollowLink -> {
-                    condBlock = extractCondition(other)
-                    linkQuery = if (condBlock != null) this else null
+            if (this is FollowLink || (this is Labeled && this.inner is FollowLink)) {
+                val condBlock = extractCondition(other)
+                if (condBlock != null) {
+                    val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not.of(condBlock) else condBlock
+                    return if (this is Labeled) Labeled(this.inner.then(appended), this.label)
+                           else (this as FollowLink).then(appended)
                 }
-                condCombiner is ConditionCombiner.Intersect && other is Labeled && other.inner is FollowLink -> {
-                    condBlock = extractCondition(this)
-                    linkQuery = if (condBlock != null) other else null
-                }
-                else -> { linkQuery = null; condBlock = null }
             }
-            if (linkQuery != null && condBlock != null) {
-                val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not.of(condBlock) else condBlock
-                return Labeled(linkQuery.inner.then(appended), linkQuery.label)
+            if (condCombiner is ConditionCombiner.Intersect &&
+                (other is FollowLink || (other is Labeled && other.inner is FollowLink))) {
+                val condBlock = extractCondition(this)
+                if (condBlock != null) {
+                    return if (other is Labeled) Labeled(other.inner.then(condBlock), other.label)
+                           else (other as FollowLink).then(condBlock)
+                }
             }
         }
 
         // O16: Chained O7 fusion — Labeled(AndThen(FollowLink, cond1), T) OP cond2.
         // When `this` is the result of a prior O7 fusion (an AndThen chain rooted at FollowLink),
         // extend the existing chain with the new condition instead of falling to Aggregate.
+        // Also handles bare AndThen(FollowLink, ...) produced after O17 delegation.
         if (condCombiner is ConditionCombiner.Intersect || condCombiner is ConditionCombiner.Difference) {
             if (this is Labeled) {
                 val andThen = this.inner as? AndThen
@@ -219,6 +259,14 @@ sealed class GremlinQuery {
                         val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not.of(condBlock) else condBlock
                         return Labeled(this.inner.then(appended), this.label)
                     }
+                }
+            }
+            // O16 extension: bare AndThen(FollowLink, ...) reached via O17 delegation
+            if (this is AndThen && this.inner is FollowLink) {
+                val condBlock = extractCondition(other)
+                if (condBlock != null) {
+                    val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not.of(condBlock) else condBlock
+                    return this.then(appended)
                 }
             }
         }

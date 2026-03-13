@@ -74,7 +74,7 @@ every query in that group — no spot-checks, no "hasSize(N)" without also check
 exact contents. This gives the migration a high-confidence regression net before any
 optimizer or translation changes are made.
 
-## Step 4 — Add DSL-level shape + result tests
+## Step 4 — Add DSL-level shape + result tests ✅
 
 In the same `dnq` module, add a new test class that exercises the same dataset via
 the DNQ DSL (`XdQuery`) and asserts **both**:
@@ -91,12 +91,19 @@ the DNQ DSL (`XdQuery`) and asserts **both**:
 
 These tests fail if an optimizer regresses or a translation path silently bypasses it.
 
-## Step 5 — Implement O17
+## Step 5 — Implement O17 ✅
 
 Step 1 confirmed `Order(Dedup)` wrapping is intentional. The fix is O17 —
 `Order(Dedup)` transparency for FollowLink fusion — documented in
 `docs/plans/query-optimization-analysis.md`. Implement it in `combineEfficient` and
 add GremlinQuery-level unit tests for the wrapped form.
+
+Implemented O17 plus extensions to O4, O7, and O16 to handle bare `FollowLink` /
+`AndThen(FollowLink, ...)` produced after O17 strips the `Order(Dedup)` wrapper.
+A symmetric O17 rule handles `condition.intersect(Order(FL, Dedup))` (swaps operands
+since intersect is commutative). DslQueryCoverageTest D38–D44 updated to assert the
+fused shapes; GremlinQueryCoverageTest Q104 and YTDBGremlinEntityIterableTest
+three-way union test updated to reflect the improved Gremlin.
 
 ## Step 6 — Re-run collector, verify
 

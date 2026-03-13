@@ -646,7 +646,10 @@ through the `Order(Dedup)` wrapper without modifying each one.
 
 ### Status
 
-Not started (XD-1258)
+Done (XD-1258). O4, O7, and O16 were each extended to handle bare `FollowLink` /
+`AndThen(FollowLink, ...)` produced after O17 strips the `Order(Dedup)` wrapper.
+A symmetric O17 rule also handles `condition.intersect(Order(FL, Dedup))` by
+swapping operands (safe because intersect is commutative).
 
 ---
 
@@ -709,7 +712,7 @@ patterns (deduplication, contradiction, tautology). Done — see O5 second-pass 
 | O14 | `PropInRange` intersection in `And.simplify()` — two range constraints on same property intersected arithmetically; `PropInRange` × `PropEqual` checked for containment | range+range and range+equal intersects | Not started |
 | O15 | `PropWithin` degenerate cases: `PropWithin(p,[])` → `None`, `PropWithin(p,[v])` → `PropEqual(p,v)` | produced by O13/O14 | Not started |
 | O16 | Chained O7 fusion — `Labeled(AndThen(FL, cond1)) OP cond2` appends to existing FollowLink chain instead of Aggregate | Q81, Q82 | Not started |
-| O17 | Dedup-wrapper passthrough — strip `Order(inner, Dedup)` like O3 strips `SortBy`, recurse into inner, re-wrap with `Dedup` | Q104 | Not started |
+| O17 | Dedup-wrapper passthrough — strip `Order(inner, Dedup)` like O3 strips `SortBy`, recurse into inner, re-wrap with `Dedup` | Q104 | ✅ Done |
 | O18 | Condition push-down into `Order(UnionAll([FL…]), Dedup)` when all branches are FollowLink-rooted (no Slice/ReversedOrder) | Q96-like patterns | Not started |
 | R1  | Remove `HasNoLink` from the block model — replace with `Not(HasLink)`; update tautology/contradiction checks in `And`/`Or simplify()`; adjust O11 path | low-priority refactor | Not started |
 

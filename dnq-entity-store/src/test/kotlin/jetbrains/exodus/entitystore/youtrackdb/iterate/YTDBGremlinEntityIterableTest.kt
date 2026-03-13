@@ -396,7 +396,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
-    fun `union of three condition-based findLinks queries partially optimises — second pair falls back`() {
+    fun `union of three condition-based findLinks queries fully optimises via O17 chained O4`() {
         // Given
         val test = givenTestCase()
 
@@ -412,16 +412,16 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val byBoard2 = tx.findLinks(Issues.CLASS, tx.find(Boards.CLASS, "name", test.board2.name()), Issues.Links.ON_BOARD)
             val byBoard3 = tx.findLinks(Issues.CLASS, tx.find(Boards.CLASS, "name", test.board3.name()), Issues.Links.ON_BOARD)
 
-            // O4 fires for byBoard1.union(byBoard2), producing Order(Labeled(FollowLink(...)), Dedup).
-            // The second union with byBoard3 falls back because Order(Labeled(FollowLink(...))) is not
-            // a Labeled(FollowLink(...)) itself, so O4 does not fire again.
-            // O1 also does not flatten here because the inner of the first result is Labeled(FollowLink(...)),
-            // not UnionAll — O1 only flattens Order(UnionAll([...]), Dedup) shapes.
-            // Result: g.union(optimised_board1_board2_traversal, plain_board3_traversal).dedup()
+            // Step 1: byBoard1.union(byBoard2) → O4 fires → Order(Labeled(FollowLink(PropWithin12)), Dedup)
+            // Step 2: .union(byBoard3) → O17 strips the Order(Dedup), O4 fires again on the inner
+            //   Labeled(FollowLink(PropWithin12)) + Labeled(FollowLink(PropEqual("name","board3")))
+            //   → merges sources into PropWithin(["board1","board2","board3"]).
+            //   O17 returns the O4 result as-is (it already carries Dedup).
+            // Result: single traversal with PropWithin, no g.union().
             val issues = byBoard1.union(byBoard2).union(byBoard3) as YTDBEntityIterable
             checkGremlin(
                 issues,
-                """g.union(__.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup(),__.V().has("name","board3").hasLabel("Board").in("OnBoard_link").hasLabel("Issue")).dedup()"""
+                """g.V().has("name",P.within(["board1", "board2", "board3"])).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup()"""
             )
             assertNamesExactly(issues, "issue1", "issue2", "issue3")
         }
