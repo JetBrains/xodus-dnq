@@ -193,25 +193,25 @@ class DslQueryCoverageTest : DBTest() {
             // D13: sorted by priority ASC
             val d13 = Issue.all().sortedBy(Issue::priority)
             assertThat(d13.shape())
-                .isEqualTo("""SortBy(Labeled(Where(All), "Issue"), ?)""")
+                .isEqualTo("""Sort(Labeled(Where(All), "Issue"), ?)""")
             assertThat(d13.keys()).containsExactlyElementsIn(allIssueKeys)
 
             // D14: sorted by estimate DESC
             val d14 = Issue.all().sortedBy(Issue::estimate, asc = false)
             assertThat(d14.shape())
-                .isEqualTo("""SortBy(Labeled(Where(All), "Issue"), ?)""")
+                .isEqualTo("""Sort(Labeled(Where(All), "Issue"), ?)""")
             assertThat(d14.keys()).containsExactlyElementsIn(allIssueKeys)
 
             // D15: sorted by assignee name ASC (sort by linked property)
             val d15 = Issue.all().sortedBy(Issue::assignee, Employee::name)
             assertThat(d15.shape())
-                .isEqualTo("""SortBy(Labeled(Where(All), "Issue"), ?)""")
+                .isEqualTo("""Sort(Labeled(Where(All), "Issue"), ?)""")
             assertThat(d15.keys()).containsExactlyElementsIn(allIssueKeys)
 
             // D16: open issues sorted by priority
             val d16 = Issue.filter { it.status eq "open" }.sortedBy(Issue::priority)
             assertThat(d16.shape())
-                .isEqualTo("""SortBy(Labeled(Where(PropEqual("status", ?)), "Issue"), ?)""")
+                .isEqualTo("""Sort(Labeled(Where(PropEqual("status", ?)), "Issue"), ?)""")
             assertThat(d16.keys()).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14",
                        "OPS-2","OPS-4","INFRA-3","INFRA-4"))
@@ -236,14 +236,14 @@ class DslQueryCoverageTest : DBTest() {
             // Shape: FollowLink is NOT wrapped in a Labeled — the inner type label is omitted
             val d17 = Project.filter { it.key eq "ENG" }.flatMapDistinct(Project::issues)
             assertThat(d17.shape()).isEqualTo(
-                """Order(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), Dedup)"""
+                """Dedup(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"))"""
             )
             assertThat(d17.keys()).containsExactlyElementsIn((1..14).map { "ENG-$it" })
 
             // D18: issues in OPS project
             val d18 = Project.filter { it.key eq "OPS" }.flatMapDistinct(Project::issues)
             assertThat(d18.shape()).isEqualTo(
-                """Order(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), Dedup)"""
+                """Dedup(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"))"""
             )
             assertThat(d18.keys())
                 .containsExactlyElementsIn(listOf("OPS-1","OPS-2","OPS-3","OPS-4","OPS-5"))
@@ -251,7 +251,7 @@ class DslQueryCoverageTest : DBTest() {
             // D19: all issues across all projects (reverse link, no source filter)
             val d19 = Project.all().flatMapDistinct(Project::issues)
             assertThat(d19.shape()).isEqualTo(
-                """Order(FollowLink(Labeled(Where(All), "Project"), OUT, "issues"), Dedup)"""
+                """Dedup(FollowLink(Labeled(Where(All), "Project"), OUT, "issues"))"""
             )
             assertThat(d19.keys()).containsExactlyElementsIn(
                 (1..14).map { "ENG-$it" } +
@@ -263,7 +263,7 @@ class DslQueryCoverageTest : DBTest() {
             val aliceQuery = Employee.filter { it.name eq "Alice" }
             val d20 = aliceQuery.flatMapDistinct(Employee::assignedIssues)
             assertThat(d20.shape()).isEqualTo(
-                """Order(FollowLink(Labeled(Where(PropEqual("name", ?)), "Employee"), OUT, "assignedIssues"), Dedup)"""
+                """Dedup(FollowLink(Labeled(Where(PropEqual("name", ?)), "Employee"), OUT, "assignedIssues"))"""
             )
             assertThat(d20.keys())
                 .containsExactlyElementsIn(listOf("ENG-1","ENG-3","ENG-5","ENG-10","ENG-12"))
@@ -271,7 +271,7 @@ class DslQueryCoverageTest : DBTest() {
             // D21: issues in sprint S1 (reverse link from Sprint to Issue)
             val d21 = Sprint.filter { it.key eq "S1" }.flatMapDistinct(Sprint::issues)
             assertThat(d21.shape()).isEqualTo(
-                """Order(FollowLink(Labeled(Where(PropEqual("key", ?)), "Sprint"), OUT, "issues"), Dedup)"""
+                """Dedup(FollowLink(Labeled(Where(PropEqual("key", ?)), "Sprint"), OUT, "issues"))"""
             )
             assertThat(d21.keys())
                 .containsExactlyElementsIn(listOf("ENG-1","ENG-2","ENG-3","ENG-6","ENG-10","ENG-12","ENG-13"))
@@ -279,7 +279,7 @@ class DslQueryCoverageTest : DBTest() {
             // D22: tags of all issues (forward link from Issue to Tag)
             val d22 = Issue.all().flatMapDistinct(Issue::tags)
             assertThat(d22.shape()).isEqualTo(
-                """Order(FollowLink(Labeled(Where(All), "Issue"), OUT, "tags"), Dedup)"""
+                """Dedup(FollowLink(Labeled(Where(All), "Issue"), OUT, "tags"))"""
             )
             assertThat(d22.names())
                 .containsExactlyElementsIn(listOf("bug", "feature", "performance"))
@@ -491,7 +491,7 @@ class DslQueryCoverageTest : DBTest() {
             val engIssues = Project.filter { it.key eq "ENG" }.flatMapDistinct(Project::issues)
             val d38 = engIssues intersect Issue.filter { it.status eq "open" }
             assertThat(d38.shape()).isEqualTo(
-                """Order(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), PropEqual("status", ?)), Dedup)"""
+                """Dedup(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), PropEqual("status", ?)))"""
             )
             assertThat(d38.keys()).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14"))
@@ -499,7 +499,7 @@ class DslQueryCoverageTest : DBTest() {
             // D39: issues in ENG exclude assigned — O17+O7 with Not.of(HasLink) → HasNoLink
             val d39 = engIssues exclude Issue.filter { it.assignee ne null }
             assertThat(d39.shape()).isEqualTo(
-                """Order(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), HasNoLink("assignee")), Dedup)"""
+                """Dedup(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), HasNoLink("assignee")))"""
             )
             assertThat(d39.keys()).containsExactlyElementsIn(
                 listOf("ENG-6","ENG-9","ENG-11","ENG-13","ENG-14"))
@@ -508,7 +508,7 @@ class DslQueryCoverageTest : DBTest() {
             val aliceIssues = Employee.filter { it.name eq "Alice" }.flatMapDistinct(Employee::assignedIssues)
             val d40 = aliceIssues intersect Issue.filter { it.status eq "open" }
             assertThat(d40.shape()).isEqualTo(
-                """Order(AndThen(FollowLink(Labeled(Where(PropEqual("name", ?)), "Employee"), OUT, "assignedIssues"), PropEqual("status", ?)), Dedup)"""
+                """Dedup(AndThen(FollowLink(Labeled(Where(PropEqual("name", ?)), "Employee"), OUT, "assignedIssues"), PropEqual("status", ?)))"""
             )
             assertThat(d40.keys()).containsExactlyElementsIn(listOf("ENG-1","ENG-5","ENG-10"))
 
@@ -516,7 +516,7 @@ class DslQueryCoverageTest : DBTest() {
             // O17 detects the right-side Order(Dedup) for intersect and swaps operands into O7
             val d41 = Issue.filter { it.status eq "open" } intersect engIssues
             assertThat(d41.shape()).isEqualTo(
-                """Order(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), PropEqual("status", ?)), Dedup)"""
+                """Dedup(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), PropEqual("status", ?)))"""
             )
             assertThat(d41.keys()).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14"))
@@ -532,7 +532,7 @@ class DslQueryCoverageTest : DBTest() {
             val d42 = Project.filter { it.key eq "ENG" }.flatMapDistinct(Project::issues) union
                       Project.filter { it.key eq "OPS" }.flatMapDistinct(Project::issues)
             assertThat(d42.shape()).isEqualTo(
-                """Order(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), OUT, "issues"), Dedup)"""
+                """Dedup(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), OUT, "issues"))"""
             )
             assertThat(d42.keys()).containsExactlyElementsIn(
                 (1..14).map { "ENG-$it" } +
@@ -542,7 +542,7 @@ class DslQueryCoverageTest : DBTest() {
             val d43 = Employee.filter { it.name eq "Alice" }.flatMapDistinct(Employee::assignedIssues) union
                       Employee.filter { it.name eq "Bob" }.flatMapDistinct(Employee::assignedIssues)
             assertThat(d43.shape()).isEqualTo(
-                """Order(FollowLink(Labeled(Where(PropWithin("name", ?)), "Employee"), OUT, "assignedIssues"), Dedup)"""
+                """Dedup(FollowLink(Labeled(Where(PropWithin("name", ?)), "Employee"), OUT, "assignedIssues"))"""
             )
             // Alice: ENG-1,3,5,10,12 + Bob: ENG-2,4,8 + INFRA-1,2 = 10 unique
             assertThat(d43.keys()).containsExactlyElementsIn(
@@ -552,7 +552,7 @@ class DslQueryCoverageTest : DBTest() {
             val d44 = Project.filter { it.key eq "ENG" }.flatMapDistinct(Project::issues) union
                       Employee.filter { it.name eq "Alice" }.flatMapDistinct(Employee::assignedIssues)
             assertThat(d44.shape()).isEqualTo(
-                """Order(UnionAll(Order(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), Dedup), Order(FollowLink(Labeled(Where(PropEqual("name", ?)), "Employee"), OUT, "assignedIssues"), Dedup)), Dedup)"""
+                """Dedup(UnionAll(Dedup(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues")), Dedup(FollowLink(Labeled(Where(PropEqual("name", ?)), "Employee"), OUT, "assignedIssues"))))"""
             )
             // ENG-1..14 (14) + Alice's: ENG-1,3,5,10,12 (all already in ENG) = 14 deduped
             assertThat(d44.keys()).containsExactlyElementsIn((1..14).map { "ENG-$it" })
@@ -710,7 +710,7 @@ class DslQueryCoverageTest : DBTest() {
             // hasLabel("Employee") traversal finds Employee + Manager subtype
             val d56 = Employee.all().flatMapDistinct(Employee::assignedIssues)
             assertThat(d56.shape()).isEqualTo(
-                """Order(FollowLink(Labeled(Where(All), "Employee"), OUT, "assignedIssues"), Dedup)"""
+                """Dedup(FollowLink(Labeled(Where(All), "Employee"), OUT, "assignedIssues"))"""
             )
             // Alice(5)+Bob(5)+Carol(4)+Eve(1) = 15
             assertThat(d56.keys()).containsExactlyElementsIn(

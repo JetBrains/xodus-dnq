@@ -31,7 +31,7 @@ sorted by frequency descending:
 [8432] Labeled(Where(PropEqual("status", ?)), "Issue")
 [3201] Labeled(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "project"), "Issue")
  [512] Aggregate(Labeled(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "project"), "Issue"), Where(PropEqual("priority", ?)))
- [201] Order(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "project"), "Issue"), Dedup)
+ [201] Dedup(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "project"), "Issue"))
 ```
 
 To find all unoptimized queries in the output:
@@ -48,7 +48,7 @@ Mirrors Kotlin constructor syntax. Rules:
 
 - **Class names verbatim** — `Labeled`, `FollowLink`, `Aggregate`, `PropEqual`, etc.
 - **Names kept as string literals** — property names, link names, entity type labels,
-  enum values (`IN`, `OUT`, `Dedup`) — these distinguish meaningfully different shapes
+  enum values (`IN`, `OUT`) — these distinguish meaningfully different shapes
 - **Concrete data values → `?`** — actual property values, RIDs, numeric constants
 - **Child queries/blocks** — recursively rendered in argument position
 
@@ -65,7 +65,7 @@ Labeled(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "
 Aggregate(Labeled(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "project"), "Issue"), Where(PropEqual("priority", ?)))
 
 // O4-fused union with dedup
-Order(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "project"), "Issue"), Dedup)
+Dedup(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "project"), "Issue"))
 ```
 
 ### Full shape mapping
@@ -78,10 +78,10 @@ Order(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "p
 | `AndThen(inner, block)` | `AndThen(‹inner›, ‹block›)` |
 | `FollowLink(inner, IN, link)` | `FollowLink(‹inner›, IN, "link")` |
 | `FollowLink(inner, OUT, link)` | `FollowLink(‹inner›, OUT, "link")` |
-| `SortBy(inner, _)` | `SortBy(‹inner›, ?)` |
-| `Order(inner, Dedup)` | `Order(‹inner›, Dedup)` |
-| `Order(inner, _)` | `Order(‹inner›, ?)` |
-| `ReversedOrder(inner)` | `ReversedOrder(‹inner›)` |
+| `SortBy(inner, _)` | `Sort(‹inner›, ?)` |
+| `Order(inner, Dedup)` | `Dedup(‹inner›)` |
+| `Order(inner, Reverse)` | `Reverse(‹inner›)` |
+| `ReversedOrder(inner)` | `Reverse(‹inner›)` |
 | `Slice(inner, _)` | `Slice(‹inner›, ?)` |
 | `UnionAll(subs)` | `UnionAll(‹sub1›, ‹sub2›, …)` |
 | `Aggregate(left, right, _)` | `Aggregate(‹left›, ‹right›)` |

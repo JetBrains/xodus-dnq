@@ -17,6 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb.query
 
 import com.google.common.truth.Truth.assertWithMessage
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.PropEqual
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.Skip
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.Sort
@@ -76,14 +77,18 @@ class GremlinQueryCombineMatrixTest {
         is ByIds                -> "ByIds"
         is GremlinQuery.Where   -> "Where"
         is Labeled              -> "Labeled(${innerName(q.inner)})"
-        is SortBy               -> "SortBy(${outcome(q.inner)})"
-        is Order                -> "Order(${innerName(q.inner)})"
+        is SortBy               -> "Sort(${outcome(q.inner)})"
+        is Order                -> when (q.orderBlock) {
+            GremlinBlock.Dedup   -> "Dedup(${innerName(q.inner)})"
+            GremlinBlock.Reverse -> "Reverse(${innerName(q.inner)})"
+            else                 -> "Order(${innerName(q.inner)})"
+        }
         is Slice                -> "Slice"
         is UnionAll             -> "UnionAll"
         is GremlinQuery.AndThen -> "AndThen"
         is FollowLink           -> "FollowLink"
         is AggregateNoOrder     -> "AggregateNoOrder"
-        is ReversedOrder        -> "ReversedOrder"
+        is ReversedOrder        -> "Reverse"
         is NestedCondition      -> "NestedCondition"
     }
 
@@ -126,7 +131,7 @@ class GremlinQueryCombineMatrixTest {
     @Test
     fun `Labeled(Where) x Labeled(Where) — different labels fall back to UnionAll`() {
         // combineEfficient detects label mismatch → returns null → union fallback
-        check(cond, "u", condDiffLabel, "Order(UnionAll)")
+        check(cond, "u", condDiffLabel, "Dedup(UnionAll)")
         check(cond, "i", condDiffLabel, "Aggregate")
         check(cond, "d", condDiffLabel, "Aggregate")
     }
@@ -154,7 +159,7 @@ class GremlinQueryCombineMatrixTest {
     @Test
     fun `Labeled(FL) x Labeled(Where)`() {
         // union: extractCondition(Labeled(FL)) = null → fallback
-        check(link, "u", cond, "Order(UnionAll)")
+        check(link, "u", cond, "Dedup(UnionAll)")
 
         // intersect: O7 fires — this is FL, condBlock extracted from other
         check(link, "i", cond, "Labeled(AndThen)")
@@ -170,10 +175,10 @@ class GremlinQueryCombineMatrixTest {
     @Test
     fun `Labeled(FL) x Labeled(FL)`() {
         // union, same link name + direction: O4 merges sources → Order(Labeled(FL))
-        check(link, "u", link2,    "Order(Labeled(FL))")
+        check(link, "u", link2,    "Dedup(Labeled(FL))")
 
         // union, different link name: O4 misses → fallback
-        check(link, "u", linkDiff, "Order(UnionAll)")
+        check(link, "u", linkDiff, "Dedup(UnionAll)")
 
         // intersect/difference: both sides are FL, neither is an extractable condition
         check(link, "i", link,     "Aggregate")
@@ -226,7 +231,7 @@ class GremlinQueryCombineMatrixTest {
         check(byids, "d", link, "Labeled(Where)")
 
         // Symmetric for FL × ByIds
-        check(link, "u", byids, "Order(UnionAll)")
+        check(link, "u", byids, "Dedup(UnionAll)")
         check(link, "i", byids, "Labeled(AndThen)")
         check(link, "d", byids, "Labeled(AndThen)")  // O7: this=FL, Not(IdWithin) appended
     }
@@ -241,8 +246,8 @@ class GremlinQueryCombineMatrixTest {
         check(sorted, "u", cond, "Labeled(Where)")
 
         // intersect/difference: O3 preserves left sort
-        check(sorted, "i", cond, "SortBy(Labeled(Where))")
-        check(sorted, "d", cond, "SortBy(Labeled(Where))")
+        check(sorted, "i", cond, "Sort(Labeled(Where))")
+        check(sorted, "d", cond, "Sort(Labeled(Where))")
 
         // Symmetric: right sort is always stripped and not re-wrapped
         check(cond, "u", sorted, "Labeled(Where)")
@@ -256,8 +261,8 @@ class GremlinQueryCombineMatrixTest {
         check(sorted, "u", sorted, "Labeled(Where)")
 
         // intersect/difference: left sort preserved, right stripped
-        check(sorted, "i", sorted, "SortBy(Labeled(Where))")
-        check(sorted, "d", sorted, "SortBy(Labeled(Where))")
+        check(sorted, "i", sorted, "Sort(Labeled(Where))")
+        check(sorted, "d", sorted, "Sort(Labeled(Where))")
     }
 
     @Test
@@ -266,10 +271,10 @@ class GremlinQueryCombineMatrixTest {
         check(sorted, "u", link, "Labeled(Where)")
 
         // intersect: O3 recurses, inner.intersect(FL) → O7 fires → Labeled(AndThen); O3 re-wraps with sort
-        check(sorted, "i", link, "SortBy(Labeled(AndThen))")
+        check(sorted, "i", link, "Sort(Labeled(AndThen))")
 
         // difference: O3 recurses, inner.difference(FL) → O11 fires → Labeled(Where); O3 re-wraps with sort
-        check(sorted, "d", link, "SortBy(Labeled(Where))")
+        check(sorted, "d", link, "Sort(Labeled(Where))")
     }
 
     // =========================================================================
@@ -279,8 +284,8 @@ class GremlinQueryCombineMatrixTest {
     @Test
     fun `Slice never combines efficiently`() {
         // union fallback for all
-        check(sliced, "u", cond,  "Order(UnionAll)")
-        check(cond,   "u", sliced,"Order(UnionAll)")
+        check(sliced, "u", cond,  "Dedup(UnionAll)")
+        check(cond,   "u", sliced,"Dedup(UnionAll)")
 
         // intersect/difference: Aggregate
         check(sliced, "i", cond,  "Aggregate")

@@ -205,7 +205,7 @@ class GremlinQueryShapeTest {
             .union(issuesInProject(GremlinBlock.PropEqual("key", "OPS")))
         assertThat(GremlinQueryShape.of(q))
             .isEqualTo(
-                """Order(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "project"), "Issue"), Dedup)"""
+                """Dedup(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "project"), "Issue"))"""
             )
     }
 
@@ -230,9 +230,9 @@ class GremlinQueryShapeTest {
         val byEstimate = GremlinBlock.Sort(GremlinBlock.Sort.ByProp("estimate"), GremlinBlock.SortDirection.DESC)
         val q1 = GremlinQuery.SortBy(issues(), byPriority)
         val q2 = GremlinQuery.SortBy(issues(), byEstimate)
-        // SortBy always renders as SortBy(‹inner›, ?) regardless of sort key
+        // Sort always renders as Sort(‹inner›, ?) regardless of sort key
         assertThat(GremlinQueryShape.of(q1)).isEqualTo(GremlinQueryShape.of(q2))
         assertThat(GremlinQueryShape.of(q1))
-            .isEqualTo("""SortBy(Labeled(Where(All), "Issue"), ?)""")
+            .isEqualTo("""Sort(Labeled(Where(All), "Issue"), ?)""")
     }
 }

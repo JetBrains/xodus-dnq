@@ -105,10 +105,14 @@ since intersect is commutative). DslQueryCoverageTest D38–D44 updated to asser
 fused shapes; GremlinQueryCoverageTest Q104 and YTDBGremlinEntityIterableTest
 three-way union test updated to reflect the improved Gremlin.
 
-## Step 6 — Re-run collector, verify
+## Step 6 — Re-run collector, verify ✅
 
 Re-run `./gradlew :dnq:test -PcollectQueryShapes` and confirm that optimized shapes
 appear in the output instead of Aggregate fallbacks.
+
+Confirmed: `Dedup(AndThen(FL, cond))` and `Dedup(FollowLink(PropWithin))` shapes
+appear in the output. Only one `Aggregate` remains — D45 (`condition.exclude(flatMapDistinct)`,
+documented as an expected gap in group 9). No regressions.
 
 ---
 

@@ -29,8 +29,9 @@ package jetbrains.exodus.entitystore.youtrackdb.gremlin
  * Examples:
  * ```
  * Labeled(Where(PropEqual("status", ?)), "Issue")
- * Labeled(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "project"), PropEqual("status", ?)), "Issue")
- * Aggregate(Labeled(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), IN, "project"), "Issue"), Where(PropEqual("priority", ?)))
+ * Dedup(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"))
+ * Dedup(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), PropEqual("status", ?)))
+ * Sort(Labeled(Where(All), "Issue"), ?)
  * ```
  */
 object GremlinQueryShape {
@@ -59,13 +60,16 @@ object GremlinQueryShape {
                 append(", ${query.direction}, \"${query.linkName}\")")
             }
             is GremlinQuery.SortBy -> {
-                append("SortBy("); appendQuery(query.inner); append(", ?)")
+                append("Sort("); appendQuery(query.inner); append(", ?)")
             }
-            is GremlinQuery.Order -> {
-                append("Order("); appendQuery(query.inner); append(", "); appendBlock(query.orderBlock); append(")")
+            is GremlinQuery.Order -> when (query.orderBlock) {
+                GremlinBlock.Dedup   -> { append("Dedup("); appendQuery(query.inner); append(")") }
+                GremlinBlock.Reverse -> { append("Reverse("); appendQuery(query.inner); append(")") }
+                is GremlinBlock.Sort -> { append("Sort("); appendQuery(query.inner); append(", ?)") }
+                else                 -> { append("Order("); appendQuery(query.inner); append(", "); appendBlock(query.orderBlock); append(")") }
             }
             is GremlinQuery.ReversedOrder -> {
-                append("ReversedOrder("); appendQuery(query.inner); append(")")
+                append("Reverse("); appendQuery(query.inner); append(")")
             }
             is GremlinQuery.Slice -> {
                 append("Slice("); appendQuery(query.inner); append(", ?)")

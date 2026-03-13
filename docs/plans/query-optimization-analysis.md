@@ -620,29 +620,84 @@ fire in practice, and every `flatMapDistinct.intersect(condition)` falls to `Agg
 other operand (via O7, O9, or O16), the result is simply `Order(combined, Dedup)`.
 The dedup wrapper is preserved around whatever the inner combination produces.
 
+However, after O17 strips `Order(Dedup)`, the inner query is a bare `FollowLink` (not
+`Labeled(FollowLink)` as O7/O4/O16 expected). Each of those optimizations required a
+small extension to also match the bare form.
+
 ### Fix
 
-Add a rule at the top of `combineEfficient`: when `this` is `Order(inner, Dedup)`,
-delegate to `inner.combineEfficient(combiner, other)` and re-wrap the result:
+Four changes are needed in `combineEfficient`:
+
+**1. O17 core rule** — when `this` is `Order(inner, Dedup)`, strip the wrapper,
+delegate to `inner.combineEfficient`, and re-wrap the result. If the inner combination
+itself already returns `Order(Dedup)` (e.g. the Labeled O4 branch adds Dedup directly),
+return it as-is to avoid double-wrapping. Also strip `other`'s `Order(Dedup)` when both
+sides are wrapped (union of two `flatMapDistinct` results).
 
 ```kotlin
-// O17: Order(Dedup) transparency — delegate combination to inner, preserve Dedup wrapper
+// O17: Order(Dedup) transparency
 if (this is Order && this.orderBlock === GremlinBlock.Dedup) {
-    val innerResult = this.inner.combineEfficient(condCombiner, other)
-    if (innerResult !== null) return Order(innerResult, GremlinBlock.Dedup)
+    val otherInner = if (other is Order && other.orderBlock === GremlinBlock.Dedup) other.inner else other
+    val innerResult = this.inner.combineEfficient(otherInner, condCombiner)
+    if (innerResult != null) {
+        return if (innerResult is Order && innerResult.orderBlock === GremlinBlock.Dedup)
+            innerResult  // inner path already added Dedup — don't double-wrap
+        else
+            Order(innerResult, GremlinBlock.Dedup)
+    }
+}
+// O17 symmetric: for commutative intersect, also try when only the right side is Order(Dedup)
+if (condCombiner is ConditionCombiner.Intersect &&
+    other is Order && other.orderBlock === GremlinBlock.Dedup) {
+    val innerResult = other.inner.combineEfficient(this, condCombiner)
+    if (innerResult != null) {
+        return if (innerResult is Order && innerResult.orderBlock === GremlinBlock.Dedup)
+            innerResult else Order(innerResult, GremlinBlock.Dedup)
+    }
 }
 ```
 
-This makes O7, O9, O16 (and any future FollowLink-level optimizer) automatically apply
-through the `Order(Dedup)` wrapper without modifying each one.
+**2. O4 extension for bare `FollowLink`** — O17 strips `Order(Dedup)` from both sides
+before delegating, leaving bare `FollowLink` objects. The Labeled+Labeled O4 path does not
+match. A new branch handles `FollowLink × FollowLink` for union, returning the merged bare
+`FollowLink` (O17 adds Dedup when re-wrapping):
+
+```kotlin
+if (this is FollowLink && other is FollowLink &&
+    condCombiner is ConditionCombiner.Union &&
+    this.direction == other.direction && this.linkName == other.linkName) {
+    return FollowLink(this.inner.union(other.inner), this.direction, this.linkName)
+}
+```
+
+**3. O7 extension for bare `FollowLink`** — After O17 strips `Order(Dedup)`, `this` is a
+bare `FollowLink`, not `Labeled(FollowLink)`. O7 is extended to check both:
+
+```kotlin
+if (this is FollowLink || (this is Labeled && this.inner is FollowLink)) {
+    val condBlock = extractCondition(other)
+    if (condBlock != null) {
+        val appended = if (condCombiner is Difference) Not.of(condBlock) else condBlock
+        return if (this is Labeled) Labeled(this.inner.then(appended), this.label)
+               else (this as FollowLink).then(appended)
+    }
+}
+// Symmetric for intersect: other is FollowLink or Labeled(FollowLink)
+```
+
+**4. O16 extension for bare `AndThen(FollowLink, ...)`** — For chained
+`flatMapDistinct.intersect(cond1).intersect(cond2)`, after the first intersect produces
+`Order(AndThen(FL, cond1), Dedup)`, the second intersect goes through O17 again, leaving
+a bare `AndThen`. O16 is extended to check `this is AndThen && this.inner is FollowLink`
+in addition to `this is Labeled && this.inner is AndThen && andThen.inner is FollowLink`.
 
 ### Expected shapes after fix
 
 | DSL expression | Current shape | Shape after O17+O7 |
 |----------------|---------------|-------------------|
-| `flatMapDistinct(link).intersect(condition)` | `Aggregate(Order(FL, Dedup), Labeled(Where(cond), T))` | `Order(AndThen(FL, cond), Dedup)` |
-| `flatMapDistinct(link).union(flatMapDistinct(link))` | `Order(UnionAll(Order(FL,Dedup), Order(FL,Dedup)), Dedup)` | `Order(FL(src_with_PropWithin), Dedup)` |
-| `flatMapDistinct(link).intersect(condition1).intersect(condition2)` | `Aggregate(Aggregate(...), cond2)` | `Order(AndThen(FL, cond1.andThen(cond2)), Dedup)` |
+| `flatMapDistinct(link).intersect(condition)` | `Aggregate(Dedup(FL), Labeled(Where(cond), T))` | `Dedup(AndThen(FL, cond))` |
+| `flatMapDistinct(link).union(flatMapDistinct(link))` | `Dedup(UnionAll(Dedup(FL), Dedup(FL)))` | `Dedup(FL(src_with_PropWithin))` |
+| `flatMapDistinct(link).intersect(condition1).intersect(condition2)` | `Aggregate(Aggregate(...), cond2)` | `Dedup(AndThen(FL, cond1.andThen(cond2)))` |
 
 ### Status
 
@@ -711,7 +766,7 @@ patterns (deduplication, contradiction, tautology). Done — see O5 second-pass 
 | O13 | Same-property constraint intersection in `And.simplify()` — `And([PropEqual(p,v1), PropEqual(p,v2)])` → `None` if v1≠v2; `And([PropEqual(p,v), PropWithin(p,vs)])` → `PropEqual` or `None`; `And([PropWithin(p,s1), PropWithin(p,s2)])` → intersection | any intersect of same-prop conditions | Not started |
 | O14 | `PropInRange` intersection in `And.simplify()` — two range constraints on same property intersected arithmetically; `PropInRange` × `PropEqual` checked for containment | range+range and range+equal intersects | Not started |
 | O15 | `PropWithin` degenerate cases: `PropWithin(p,[])` → `None`, `PropWithin(p,[v])` → `PropEqual(p,v)` | produced by O13/O14 | Not started |
-| O16 | Chained O7 fusion — `Labeled(AndThen(FL, cond1)) OP cond2` appends to existing FollowLink chain instead of Aggregate | Q81, Q82 | Not started |
+| O16 | Chained O7 fusion — `Labeled(AndThen(FL, cond1)) OP cond2` appends to existing FollowLink chain instead of Aggregate | Q81, Q82 | ✅ Done |
 | O17 | Dedup-wrapper passthrough — strip `Order(inner, Dedup)` like O3 strips `SortBy`, recurse into inner, re-wrap with `Dedup` | Q104 | ✅ Done |
 | O18 | Condition push-down into `Order(UnionAll([FL…]), Dedup)` when all branches are FollowLink-rooted (no Slice/ReversedOrder) | Q96-like patterns | Not started |
 | R1  | Remove `HasNoLink` from the block model — replace with `Not(HasLink)`; update tautology/contradiction checks in `And`/`Or simplify()`; adjust O11 path | low-priority refactor | Not started |
@@ -721,8 +776,8 @@ patterns (deduplication, contradiction, tautology). Done — see O5 second-pass 
 ## New Coverage Candidates (Q93–Q104)
 
 These are query scenarios not yet covered by the existing 92-query test suite. Each exercises
-a different combination path, edge case, or traversal pattern. To be added to
-`GremlinQueryCoverageTest` one by one, with both Gremlin string and result assertions.
+a different combination path, edge case, or traversal pattern. All have been added to
+`GremlinQueryCoverageTest` (group 12) with both Gremlin string and result assertions.
 
 ### Q93 — Multi-hop: Issue → Project → Lead
 **Semantic:** Issues in projects whose lead is an Engineering employee (3-hop: issue→project→lead).
@@ -741,7 +796,7 @@ val q93 = Labeled(FollowLink(projectsWithEngLead, LinkDirection.IN, "project"), 
 **Expected result:** All 14 ENG issues + all 5 INFRA issues = 19 issues (ENG led by Alice ∈ Engineering;
 INFRA led by Bob ∈ Engineering).
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -757,7 +812,7 @@ S1/S2 link to ENG project, S3 to OPS.
 
 **Expected result:** S1, S2.
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -782,7 +837,7 @@ ENG-3; ENG-3 has no parent.
 **Expected result:** `issuesWithParent` = ENG-12, ENG-13, ENG-14 (3 subtasks).
 Subtasks-of-subtasks = empty (ENG-3 has no parent).
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -795,12 +850,12 @@ val q96 = issuesAssignedTo(employees(PropEqual("name", "Alice")))
 ```
 
 **Path:** O4 does NOT fire (different link names: `assignee` vs `sprint`). Falls through to
-`Order(UnionAll)`. No optimization expected; validates the fallback Gremlin shape.
+`Dedup(UnionAll)`. No optimization expected; validates the fallback Gremlin shape.
 
 **Expected result:** Alice's issues (ENG-1,3,5,10,12) ∪ S1 issues (ENG-1,2,3,6,10,12,13) =
 ENG-1,2,3,5,6,10,12,13 (8 issues).
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -818,7 +873,7 @@ source conditions; this covers the conditioned-source variant.
 
 **Expected result:** ENG issues not assigned to Alice/Bob/Eve = ENG-6,9,11,13,14 (5 issues).
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -836,7 +891,7 @@ O8 flattens to `Or(a,b,c)`, O9 coalesces to `PropWithin("priority", ["critical",
 
 **Expected result:** 4 + 7 + 8 = 19 issues (all non-low-priority issues).
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -854,7 +909,7 @@ This is the union variant of Q92; currently untested.
 
 **Expected result:** INFRA-1, INFRA-2 ∪ ENG-1..14 = 16 issues (neither INFRA issue is in ENG).
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -870,7 +925,7 @@ Verifies that the polymorphic label query works correctly end-to-end.
 
 **Expected result:** All 15 issues that have an assignee link (10 ENG + 2 INFRA + 3 OPS assigned).
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -888,7 +943,7 @@ val q101 = issues(PropEqual("status", "open"))
 
 **Expected result:** open ∩ critical ∩ estimate∈[1,8] = ENG-1 only (ENG-1: open, critical, estimate=5).
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -905,7 +960,7 @@ Tests the `All \ HasLink` path through `combineBlocks`.
 
 **Expected result:** 24 − (issues with at least one tag). Need to count from dataset.
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -924,7 +979,7 @@ but not `SortBy(FollowLink) ∩ SortBy(condition)`.
 
 **Expected result:** 9 ENG open issues, sorted by priority.
 
-**Status:** Not started
+**Status:** ✅ Done
 
 ---
 
@@ -937,12 +992,15 @@ val engOrOps = issuesInProject(PropEqual("key", "ENG"))
 val q104 = engOrOps.difference(issues(PropEqual("status", "open")))
 ```
 
-**Path:** `engOrOps` = `Order(Labeled(FL), Dedup)` (O4 fires: same link name `project`, same direction).
-Then `Order(Labeled(FL)).difference(issues(open))`. O3 is not triggered (not `SortBy`). Falls to
-`Aggregate`. Tests Aggregate where the left side is a dedup-wrapped FollowLink union.
+**Path:** `engOrOps` = `Order(Labeled(FL(PropWithin(["ENG","OPS"]))), Dedup)` (O4 fires: same link
+name `project`, same direction). Then `Order(Labeled(FL)).difference(issues(open))`. O17 strips the
+`Order(Dedup)` wrapper, delegates `Labeled(FL).combineEfficient(issues(open), Difference)` which
+matches O7 (FollowLink × Condition fusion), appending `.not(has("status","open"))`. O17 re-wraps the
+result as `Dedup(AndThen(FL, Not(PropEqual)))`, producing:
+`g.V().has("key",P.within(["ENG","OPS"])).hasLabel("Project").in("project_link").not(__.has("status","open")).hasLabel("Issue").dedup()`
 
 **Expected result:** (14 ENG + 5 OPS) = 19 − 13 open (9 ENG open + 3 OPS open + 1 OPS... wait:
 closed ENG issues: ENG-4,7,9,15 (4) + 1 = 5; closed OPS: OPS-1,3,4 (3)) = 5 + 2 = ... need to
 count. Roughly 7–8 non-open issues in ENG+OPS.
 
-**Status:** Not started
+**Status:** ✅ Done
