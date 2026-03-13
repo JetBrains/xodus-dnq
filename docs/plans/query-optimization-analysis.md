@@ -593,6 +593,63 @@ current caller, but O13 can produce them so O15 should be implemented alongside 
 
 ---
 
+## O17 — `Order(Dedup)` transparency for FollowLink fusion
+
+**Priority: High. New. Discovered via XD-1257 query shape collector.**
+
+### Problem
+
+O7, O9, and O16 all pattern-match on `this is Labeled` in `combineEfficient`. This
+never fires from the real DNQ DSL path because `flatMapDistinct` always wraps its
+result in `Order(Dedup)`:
+
+```
+selectManyDistinct(link)
+  = selectMany(link).distinct()
+  = FollowLink(src, OUT, link).then(GremlinBlock.Dedup)
+  = Order(FollowLink(src, OUT, link), Dedup)
+```
+
+The `Dedup` is semantically correct — without it, the same entity could appear multiple
+times when multiple source entities link to the same target. But it means O7/O9/O16 never
+fire in practice, and every `flatMapDistinct.intersect(condition)` falls to `Aggregate`.
+
+### Key insight
+
+`Order(inner, Dedup)` is transparent to fusion: if `inner` can be combined with the
+other operand (via O7, O9, or O16), the result is simply `Order(combined, Dedup)`.
+The dedup wrapper is preserved around whatever the inner combination produces.
+
+### Fix
+
+Add a rule at the top of `combineEfficient`: when `this` is `Order(inner, Dedup)`,
+delegate to `inner.combineEfficient(combiner, other)` and re-wrap the result:
+
+```kotlin
+// O17: Order(Dedup) transparency — delegate combination to inner, preserve Dedup wrapper
+if (this is Order && this.orderBlock === GremlinBlock.Dedup) {
+    val innerResult = this.inner.combineEfficient(condCombiner, other)
+    if (innerResult !== null) return Order(innerResult, GremlinBlock.Dedup)
+}
+```
+
+This makes O7, O9, O16 (and any future FollowLink-level optimizer) automatically apply
+through the `Order(Dedup)` wrapper without modifying each one.
+
+### Expected shapes after fix
+
+| DSL expression | Current shape | Shape after O17+O7 |
+|----------------|---------------|-------------------|
+| `flatMapDistinct(link).intersect(condition)` | `Aggregate(Order(FL, Dedup), Labeled(Where(cond), T))` | `Order(AndThen(FL, cond), Dedup)` |
+| `flatMapDistinct(link).union(flatMapDistinct(link))` | `Order(UnionAll(Order(FL,Dedup), Order(FL,Dedup)), Dedup)` | `Order(FL(src_with_PropWithin), Dedup)` |
+| `flatMapDistinct(link).intersect(condition1).intersect(condition2)` | `Aggregate(Aggregate(...), cond2)` | `Order(AndThen(FL, cond1.andThen(cond2)), Dedup)` |
+
+### Status
+
+Not started (XD-1258)
+
+---
+
 ## Discovering future optimization candidates
 
 Five approaches for finding the next round of opportunities, roughly by effort:

@@ -22,6 +22,13 @@ dependencies {
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }
 
+test {
+    if (project.hasProperty('collectQueryShapes')) {
+        jvmArgs "-Ddnq.query.collector.enabled=true",
+                "-Ddnq.query.collector.output=/tmp/dnq-query-shapes.txt"
+    }
+}
+
 tasks.register('testJar', Jar) {
     dependsOn testClasses
     archiveBaseName = "${project.archivesBaseName}-tests"

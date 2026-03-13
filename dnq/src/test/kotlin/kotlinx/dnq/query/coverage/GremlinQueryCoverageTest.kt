@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package jetbrains.exodus.entitystore.youtrackdb.query
+package kotlinx.dnq.query.coverage
 
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
@@ -31,11 +31,12 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.Where
 import jetbrains.exodus.entitystore.youtrackdb.RIDEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
-import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
-import jetbrains.exodus.entitystore.youtrackdb.testutil.QueryCoverageDataset
 import org.apache.tinkerpop.gremlin.process.traversal.translator.GroovyTranslator
 import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyGraph
-import org.junit.Rule
+import kotlinx.dnq.DBTest
+import kotlinx.dnq.XdModel
+import kotlinx.dnq.XdEntity
+import org.junit.Before
 import org.junit.Test
 
 /**
@@ -55,7 +56,6 @@ import org.junit.Test
  * Links:
  *   Issue  --project-->  Project
  *   Issue  --assignee--> User
- *   Issue  --reporter--> Employee
  *   Issue  --tags-->     Tag      (multi-value)
  *   Issue  --sprint-->   Sprint
  *   Issue  --parent-->   Issue    (self-referential; subtasks)
@@ -65,7 +65,7 @@ import org.junit.Test
  * No real database is used. Tests assert the Gremlin string produced by each query
  * using GroovyTranslator on top of EmptyGraph.
  */
-class GremlinQueryCoverageTest {
+class GremlinQueryCoverageTest : DBTest() {
 
     private val queryTranslator = GroovyTranslator.of("g")
     private val gs = EmptyGraph.instance().traversal()
@@ -119,14 +119,22 @@ class GremlinQueryCoverageTest {
         """.order().by(__.out("assignee_link").values("name").count(),Order.desc).by(__.out("assignee_link").values("name").fold(),Order.asc)"""
 
     // =========================================================================
-    // Result assertion infrastructure — real embedded DB with QueryCoverageDataset
+    // Result assertion infrastructure — DNQ-level IssueTrackerDataset
     // =========================================================================
 
-    @Rule
-    @JvmField
-    val db = InMemoryYouTrackDB(initializeIssueSchema = false)
+    override fun registerEntityTypes() {
+        XdModel.registerNodes(XdUser, Employee, Manager, Project, Issue, Sprint, Tag)
+    }
 
-    private val dataset by lazy { QueryCoverageDataset(db) }
+    private lateinit var dataset: IssueTrackerDataset
+
+    @Before
+    fun setupDataset() {
+        dataset = IssueTrackerDataset(store)
+    }
+
+    private fun <R> withLowLevelTx(block: (YTDBStoreTransactionImpl) -> R): R =
+        store.persistentStore.computeInTransaction { tx -> block(tx as YTDBStoreTransactionImpl) }
 
     private fun GremlinQuery.resultKeys(tx: YTDBStoreTransactionImpl): List<String> =
         YTDBEntityIterable.query(tx, this).map { it.getProperty("key") as String }
@@ -135,8 +143,8 @@ class GremlinQueryCoverageTest {
         YTDBEntityIterable.query(tx, this).map { it.getProperty("name") as String }
 
     /** Extracts the actual OrientDB RID from a dataset entity for use in ByIds/HasLinkTo queries. */
-    private fun rid(entity: jetbrains.exodus.entitystore.Entity) =
-        (entity.id as RIDEntityId).asOId()
+    private fun rid(xdEntity: XdEntity) =
+        (xdEntity.entity.id as RIDEntityId).asOId()
 
     // =========================================================================
     // Group 1 — Simple property queries
@@ -217,8 +225,7 @@ class GremlinQueryCoverageTest {
             .isEqualTo("""g.V().has("active",true).hasLabel("User")""")
 
         // ---- Result assertions ----
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q01: critical = ENG-1, ENG-6, OPS-1, OPS-4
             assertThat(q01.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-1", "ENG-6", "OPS-1", "OPS-4"))
             // Q02: open = 13 issues
@@ -313,8 +320,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // Q17 and Q18 use fake RIDs for Gremlin-string tests; build real queries with dataset RIDs.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q11: issues with assignee — 15 issues
             assertThat(q11.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-7","ENG-8","ENG-10","ENG-12",
@@ -381,8 +387,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // All four queries use fake RIDs; build equivalent queries with real dataset RIDs.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             val eng1Rid = rid(dataset.issues["ENG-1"]!!)
             val eng2Rid = rid(dataset.issues["ENG-2"]!!)
             val eng3Rid = rid(dataset.issues["ENG-3"]!!)
@@ -462,8 +467,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // Sorted queries return all issues; sliced queries return deterministic counts.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q23.resultKeys(tx)).hasSize(24)  // all issues, sorted by priority
             assertThat(q24.resultKeys(tx)).hasSize(24)  // all issues, sorted by estimate desc
             assertThat(q25.resultKeys(tx)).hasSize(24)  // all issues, sorted by assignee name
@@ -567,8 +571,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // Q33, Q34, Q36 use fake RIDs; build real queries with dataset entity RIDs.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q30: critical ∪ high = 11 issues
             assertThat(q30.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-4","ENG-6","ENG-7","ENG-10","OPS-1","OPS-2","OPS-4","INFRA-2","INFRA-3"))
@@ -699,8 +702,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // Q46 and Q48 use fake RIDs; build real queries with dataset entity RIDs.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q40: critical ∩ open = ENG-1(crit+open), ENG-6(crit+open), OPS-4(crit+open) = 3
             assertThat(q40.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-1","ENG-6","OPS-4"))
             // Q41: open ∩ has-sprint = 7 issues (open issues that are in any sprint)
@@ -809,8 +811,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // Q50, Q52, Q54, Q56, Q57 use fake RIDs; build real queries with dataset entity RIDs.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q50 real: open \ assigned-to-Alice = 10 issues (13 open, 3 of which are Alice's: ENG-1,5,10)
             val q50real = issues(PropEqual("status","open")).difference(issues(HasLinkTo("assignee", rid(dataset.users["Alice"]!!))))
             assertThat(q50real.resultKeys(tx)).containsExactlyElementsIn(
@@ -986,8 +987,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // Q61 and Q65 use fake RIDs; build real queries with dataset entity RIDs.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q58: (critical ∪ high) ∩ open = 7 issues
             assertThat(q58.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-6","ENG-10","OPS-2","OPS-4","INFRA-3"))
@@ -1303,8 +1303,7 @@ class GremlinQueryCoverageTest {
         // ---- Result assertions ----
         // Q68-Q73, Q79-Q82 use no fake RIDs. Q74-Q78 are slice-based (non-deterministic content).
         // Q83-Q86 use fake RIDs; build real queries with dataset entity RIDs.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q68: issuesInProject(ENG) ∩ open = 9 open ENG issues
             assertThat(q68.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14"))
@@ -1390,8 +1389,7 @@ class GremlinQueryCoverageTest {
             .isEqualTo("""g.V().or(__.has("status","open"),__.has("priority","critical")).hasLabel("Issue")""")
 
         // ---- Result assertions ----
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q87: Or(open, resolved) = 13 + 5 = 18 issues
             assertThat(q87.resultKeys(tx)).hasSize(18)
             // Q88: priority in [critical, high, medium] = 4 + 7 + 8 = 19 issues
@@ -1457,8 +1455,7 @@ class GremlinQueryCoverageTest {
         // ---- Result assertions ----
         // Q90 and Q91 use no fake RIDs (FollowLink with string condition).
         // Q92 uses fake RIDs; build a real query with dataset entity RIDs.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q90: open \ issuesInProject(ENG) = 4 open non-ENG issues
             assertThat(q90.resultKeys(tx)).containsExactlyElementsIn(listOf("OPS-2","OPS-4","INFRA-3","INFRA-4"))
             // Q91: open ∪ issuesInProject(ENG) = 13 + 14 - 9 overlap = 18 issues
@@ -1494,8 +1491,7 @@ class GremlinQueryCoverageTest {
         )
 
         // ---- Result assertions ----
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // ENG (Alice, Engineering) + INFRA (Bob, Engineering) = 14 + 4 = 18 issues
             // OPS (Carol, Operations) and ARC (Dave, plain User — not Employee) are excluded
             assertThat(q93.resultKeys(tx)).containsExactlyElementsIn(
@@ -1523,8 +1519,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // S1→ENG, S2→ENG, S3→OPS  →  only S1 and S2
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q94.resultKeys(tx)).containsExactlyElementsIn(listOf("S1", "S2"))
         }
     }
@@ -1553,8 +1548,7 @@ class GremlinQueryCoverageTest {
         )
 
         // ---- Result assertions ----
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             // Q95a: ENG-12, ENG-13, ENG-14 are subtasks
             assertThat(q95a.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-12","ENG-13","ENG-14"))
             // Q95b: no issue in the dataset is a subtask of a subtask
@@ -1581,8 +1575,7 @@ class GremlinQueryCoverageTest {
         // Alice's issues: ENG-1,3,5,10,12
         // S1 issues:      ENG-1,2,3,6,10,12,13
         // Union (deduped): ENG-1,2,3,5,6,10,12,13 — 8 issues
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q96.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-3","ENG-5","ENG-6","ENG-10","ENG-12","ENG-13")
             )
@@ -1611,8 +1604,7 @@ class GremlinQueryCoverageTest {
         // Engineering employees: Alice(ENG-1,3,5,10,12), Bob(ENG-2,4,8), Eve(ENG-7)
         // Engineering-assigned ENG issues: ENG-1,2,3,4,5,7,8,10,12
         // ENG \ Engineering-assigned = ENG-6,9,11,13,14
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q97.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-6","ENG-9","ENG-11","ENG-13","ENG-14")
             )
@@ -1640,8 +1632,7 @@ class GremlinQueryCoverageTest {
         // high:     ENG-2,4,7,10 + OPS-2 + INFRA-2,3 = 7
         // medium:   ENG-3,8,12,13,14 + OPS-3,5 + INFRA-1 = 8
         // total: 19
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q98.resultKeys(tx)).hasSize(19)
         }
     }
@@ -1664,8 +1655,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // {INFRA-1, INFRA-2} ∪ ENG-1..14 = 16 issues (INFRA issues are not in ENG)
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             val infra1Rid = rid(dataset.issues["INFRA-1"]!!)
             val infra2Rid = rid(dataset.issues["INFRA-2"]!!)
             val q99real = ByIds(listOf(infra1Rid, infra2Rid))
@@ -1691,8 +1681,7 @@ class GremlinQueryCoverageTest {
         // ---- Result assertions ----
         // Alice: ENG-1,3,5,10,12 (5); Bob: ENG-2,4,8 + INFRA-1,2 (5); Carol: OPS-1,2,3,5 (4);
         // Eve: ENG-7 (1); Dave: none. Total assigned = 15.
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q100.resultKeys(tx)).hasSize(15)
         }
     }
@@ -1719,8 +1708,7 @@ class GremlinQueryCoverageTest {
         // ---- Result assertions ----
         // open ∩ critical: ENG-1(est=5), ENG-6(est=1), OPS-4(est=3)  [OPS-1 is in-progress, not open]
         // ∩ estimate[1,8]: all three qualify (5, 1, 3 are all ≤ 8)
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q101.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-1","ENG-6","OPS-4"))
         }
     }
@@ -1741,8 +1729,7 @@ class GremlinQueryCoverageTest {
         // ---- Result assertions ----
         // Tagged issues: bug(ENG-1,2,6,10,OPS-1,4,INFRA-3=7) + feature(ENG-3,11=2) + performance(ENG-4,8=2) = 11
         // Untagged: 24 - 11 = 13
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q102.resultKeys(tx)).hasSize(13)
         }
     }
@@ -1767,8 +1754,7 @@ class GremlinQueryCoverageTest {
 
         // ---- Result assertions ----
         // ENG open issues: ENG-1,2,5,6,8,10,11,13,14 = 9
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q103.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14")
             )
@@ -1802,8 +1788,7 @@ class GremlinQueryCoverageTest {
         //               ENG-9(resolved), ENG-12(in-progress) = 5
         // OPS non-open: OPS-1(in-progress), OPS-3(resolved), OPS-5(resolved) = 3
         // Total: 8
-        dataset
-        db.withStoreTx { tx ->
+        withLowLevelTx { tx ->
             assertThat(q104.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-3","ENG-4","ENG-7","ENG-9","ENG-12","OPS-1","OPS-3","OPS-5")
             )

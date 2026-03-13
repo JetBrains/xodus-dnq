@@ -182,7 +182,7 @@ organized as a matrix: **left-side type × right-side type × operation (interse
 
 ## Part 2 — Optimization Analysis ✅
 
-Analysis complete. See [`docs/query-optimization-analysis.md`](query-optimization-analysis.md) for the full write-up.
+Analysis complete. See [`docs/plans/query-optimization-analysis.md`](plans/query-optimization-analysis.md) for the full write-up.
 
 Summary of candidates identified:
 
