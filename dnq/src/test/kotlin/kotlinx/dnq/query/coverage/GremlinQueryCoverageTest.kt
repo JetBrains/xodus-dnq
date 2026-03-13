@@ -333,8 +333,10 @@ class GremlinQueryCoverageTest : DBTest() {
                 listOf("ENG-5","ENG-8","ENG-9","ENG-11","ENG-14","OPS-1","OPS-3","OPS-5","INFRA-1","INFRA-2","INFRA-3","INFRA-4","ARC-1"))
             // Q14: has parent (subtasks) = ENG-12, ENG-13, ENG-14
             assertThat(q14.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-12","ENG-13","ENG-14"))
-            // Q15: no parent (top-level) = 21 issues
-            assertThat(q15.resultKeys(tx)).hasSize(21)
+            // Q15: no parent (top-level) = 21 issues (all except ENG-12, ENG-13, ENG-14)
+            assertThat(q15.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8","ENG-9","ENG-10","ENG-11",
+                       "OPS-1","OPS-2","OPS-3","OPS-4","OPS-5","INFRA-1","INFRA-2","INFRA-3","INFRA-4","ARC-1"))
             // Q16: has tags = 11 issues
             assertThat(q16.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-6","ENG-8","ENG-10","ENG-11","OPS-1","OPS-4","INFRA-3"))
@@ -468,13 +470,19 @@ class GremlinQueryCoverageTest : DBTest() {
         // ---- Result assertions ----
         // Sorted queries return all issues; sliced queries return deterministic counts.
         withLowLevelTx { tx ->
-            assertThat(q23.resultKeys(tx)).hasSize(24)  // all issues, sorted by priority
-            assertThat(q24.resultKeys(tx)).hasSize(24)  // all issues, sorted by estimate desc
-            assertThat(q25.resultKeys(tx)).hasSize(24)  // all issues, sorted by assignee name
-            assertThat(q26.resultKeys(tx)).hasSize(14)  // skip(10) of 24 = 14
-            assertThat(q27.resultKeys(tx)).hasSize(20)  // limit(20) of 24 = 20
-            assertThat(q28.resultKeys(tx)).hasSize(5)   // skip(10).limit(5) = 5
-            assertThat(q29.resultKeys(tx)).hasSize(5)   // tail(5) = 5
+            // Q23-Q25: sorted queries return all 24 issues (order varies; set is the same)
+            val allIssueKeys = listOf(
+                "ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8","ENG-9","ENG-10",
+                "ENG-11","ENG-12","ENG-13","ENG-14","OPS-1","OPS-2","OPS-3","OPS-4","OPS-5",
+                "INFRA-1","INFRA-2","INFRA-3","INFRA-4","ARC-1")
+            assertThat(q23.resultKeys(tx)).containsExactlyElementsIn(allIssueKeys)
+            assertThat(q24.resultKeys(tx)).containsExactlyElementsIn(allIssueKeys)
+            assertThat(q25.resultKeys(tx)).containsExactlyElementsIn(allIssueKeys)
+            // Q26–Q29: count is deterministic (slice size); content depends on scan order (not insertion order)
+            assertThat(q26.resultKeys(tx)).hasSize(14)  // skip(10) of 24
+            assertThat(q27.resultKeys(tx)).hasSize(20)  // limit(20) of 24
+            assertThat(q28.resultKeys(tx)).hasSize(5)   // skip(10).limit(5)
+            assertThat(q29.resultKeys(tx)).hasSize(5)   // tail(5)
         }
     }
 
@@ -575,31 +583,42 @@ class GremlinQueryCoverageTest : DBTest() {
             // Q30: critical ∪ high = 11 issues
             assertThat(q30.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-4","ENG-6","ENG-7","ENG-10","OPS-1","OPS-2","OPS-4","INFRA-2","INFRA-3"))
-            // Q31: open ∪ in-progress = 13 + 4 = 17
-            assertThat(q31.resultKeys(tx)).hasSize(17)
+            // Q31: open ∪ in-progress = 17 issues
+            assertThat(q31.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-5","ENG-6","ENG-7","ENG-8","ENG-10","ENG-11","ENG-12",
+                       "ENG-13","ENG-14","OPS-1","OPS-2","OPS-4","INFRA-3","INFRA-4"))
             // Q32: no-assignee ∪ critical = 9 + 4 - 2 overlap (ENG-6, OPS-4) = 11
             assertThat(q32.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-6","ENG-9","ENG-11","ENG-13","ENG-14","OPS-1","OPS-4","INFRA-3","INFRA-4","ARC-1"))
             // Q33 real: issues in ENG ∪ issues in OPS = 14 + 5 = 19
             val q33real = issues(HasLinkTo("project", rid(dataset.projects["ENG"]!!))).union(
                           issues(HasLinkTo("project", rid(dataset.projects["OPS"]!!))))
-            assertThat(q33real.resultKeys(tx)).hasSize(19)
+            assertThat(q33real.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8","ENG-9","ENG-10",
+                       "ENG-11","ENG-12","ENG-13","ENG-14","OPS-1","OPS-2","OPS-3","OPS-4","OPS-5"))
             // Q34 real: ByIds({ENG-1}) ∪ ByIds({ENG-2})
             assertThat(ByIds(listOf(rid(dataset.issues["ENG-1"]!!))).union(ByIds(listOf(rid(dataset.issues["ENG-2"]!!)))).resultKeys(tx))
                 .containsExactlyElementsIn(listOf("ENG-1","ENG-2"))
-            // Q35: open ∪ in-progress ∪ resolved = 13 + 4 + 5 = 22
-            assertThat(q35.resultKeys(tx)).hasSize(22)
-            // Q36 real: in-S1 ∪ no-sprint = 7 + 13 = 20 (no overlap)
+            // Q35: open ∪ in-progress ∪ resolved = 22 issues (all except INFRA-1 and ARC-1 which are closed)
+            assertThat(q35.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8","ENG-9","ENG-10",
+                       "ENG-11","ENG-12","ENG-13","ENG-14","OPS-1","OPS-2","OPS-3","OPS-4","OPS-5",
+                       "INFRA-2","INFRA-3","INFRA-4"))
+            // Q36 real: in-S1 ∪ no-sprint = 20 issues (no overlap)
             val q36real = issues(HasLinkTo("sprint", rid(dataset.sprints["S1"]!!))).union(issues(HasNoLink("sprint")))
-            assertThat(q36real.resultKeys(tx)).hasSize(20)
+            assertThat(q36real.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-5","ENG-6","ENG-8","ENG-9","ENG-10","ENG-11","ENG-12",
+                       "ENG-13","ENG-14","OPS-1","OPS-3","OPS-5","INFRA-1","INFRA-2","INFRA-3","INFRA-4","ARC-1"))
             // Q37: has-parent ∪ starts-with-"bug:" = subtasks(3) ∪ bug-prefixed(4) — ENG-1,2,10,OPS-4 + ENG-12,13,14 = 7
             assertThat(q37.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-10","ENG-12","ENG-13","ENG-14","OPS-4"))
             // Q38: open ∪ critical (both SortBy, sorts stripped) = 13 open + OPS-1 = 14
             assertThat(q38.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14","OPS-1","OPS-2","OPS-4","INFRA-3","INFRA-4"))
-            // Q39: open ∪ resolved = 13 + 5 = 18
-            assertThat(q39.resultKeys(tx)).hasSize(18)
+            // Q39: open ∪ resolved = 18 issues
+            assertThat(q39.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-4","ENG-5","ENG-6","ENG-8","ENG-9","ENG-10","ENG-11",
+                       "ENG-13","ENG-14","OPS-2","OPS-3","OPS-4","OPS-5","INFRA-2","INFRA-3","INFRA-4"))
         }
     }
 
@@ -714,7 +733,9 @@ class GremlinQueryCoverageTest : DBTest() {
             // Q43: estimate in [5,8] ∩ high = ENG-7(est=5,high), ENG-10(est=8,high), OPS-2(est=5,high), INFRA-2(est=8,high)
             assertThat(q43.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-7","ENG-10","OPS-2","INFRA-2"))
             // Q44: SortBy(all,priority) ∩ open = all open issues (13)
-            assertThat(q44.resultKeys(tx)).hasSize(13)
+            assertThat(q44.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14",
+                       "OPS-2","OPS-4","INFRA-3","INFRA-4"))
             // Q45: SortBy(all,priority) ∩ SortBy(high,estimate) = high priority issues (7)
             assertThat(q45.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-2","ENG-4","ENG-7","ENG-10","OPS-2","INFRA-2","INFRA-3"))
@@ -825,7 +846,9 @@ class GremlinQueryCoverageTest : DBTest() {
             assertThat(q53.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-2","ENG-7","ENG-10","OPS-2","INFRA-3"))
             // Q54 real: all \ tagged-with-"bug" = 24 - 7 = 17 (bug: ENG-1,2,6,10,OPS-1,4,INFRA-3)
             val q54real = issues().difference(issues(HasLinkTo("tags", rid(dataset.tags["bug"]!!))))
-            assertThat(q54real.resultKeys(tx)).hasSize(17)
+            assertThat(q54real.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-3","ENG-4","ENG-5","ENG-7","ENG-8","ENG-9","ENG-11","ENG-12","ENG-13","ENG-14",
+                       "OPS-2","OPS-3","OPS-5","INFRA-1","INFRA-2","INFRA-4","ARC-1"))
             // Q55: SortBy(open,priority) \ has-assignee = open unassigned = 7 issues
             assertThat(q55.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-6","ENG-11","ENG-13","ENG-14","OPS-4","INFRA-3","INFRA-4"))
@@ -1002,7 +1025,7 @@ class GremlinQueryCoverageTest : DBTest() {
                 .difference(issues(HasLink("assignee")))
             assertThat(q61real.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-6","ENG-11","ENG-13","ENG-14","OPS-4"))
-            // Q62: union(skip1, skip2, skip3) with dedup = 23 issues (position-0 issue missing from all branches)
+            // Q62: skip(1)∪skip(2)∪skip(3) — issue at position 0 (scan-order dependent) excluded from all three
             assertThat(q62.resultKeys(tx)).hasSize(23)
             // Q63: SortBy(open,priority) ∩ SortBy(critical,priority) = open ∩ critical = 3 issues
             assertThat(q63.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG-1","ENG-6","OPS-4"))
@@ -1013,10 +1036,15 @@ class GremlinQueryCoverageTest : DBTest() {
                 .difference(issues(PropEqual("status","open")).intersect(issues(HasLinkTo("sprint", rid(dataset.sprints["S2"]!!)))))
             assertThat(q65real.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-6","ENG-10","ENG-13"))
-            // Q66: issues whose project's lead is in Engineering = ENG(14) + INFRA(4) = 18
-            assertThat(q66.resultKeys(tx)).hasSize(18)
-            // Q67: SortBy(all,priority) ∪ SortBy(all,estimate) = all issues (O2 identity + sorts stripped) = 24
-            assertThat(q67.resultKeys(tx)).hasSize(24)
+            // Q66: ENG (Alice leads, Engineering) + INFRA (Bob leads, Engineering) = 18 issues
+            assertThat(q66.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8","ENG-9","ENG-10",
+                       "ENG-11","ENG-12","ENG-13","ENG-14","INFRA-1","INFRA-2","INFRA-3","INFRA-4"))
+            // Q67: All ∪ All = All — all 24 issues
+            assertThat(q67.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8","ENG-9","ENG-10",
+                       "ENG-11","ENG-12","ENG-13","ENG-14","OPS-1","OPS-2","OPS-3","OPS-4","OPS-5",
+                       "INFRA-1","INFRA-2","INFRA-3","INFRA-4","ARC-1"))
         }
     }
 
@@ -1321,16 +1349,22 @@ class GremlinQueryCoverageTest : DBTest() {
             // Q73: issuesInProject(ENG) \ issuesAssignedTo() = ENG unassigned issues = 5
             assertThat(q73.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-6","ENG-9","ENG-11","ENG-13","ENG-14"))
-            // Q74-Q78: Slice-based Aggregate queries — content depends on scan-order position of slice
-            assertThat(q74.resultKeys(tx).size).isAtMost(4)   // critical issues at positions ≥10
-            assertThat(q75.resultKeys(tx).size).isAtMost(5)   // first 5, minus sprint-assigned
-            assertThat(q76.resultKeys(tx).size).isAtMost(14)  // ENG issues at positions ≥10
+            // Q74–Q78: results intersect/subtract a positional slice — content is scan-order dependent
+            // Q74: skip(10) ∩ critical: 4 critical issues, ≤4 can appear in positions ≥10
+            assertThat(q74.resultKeys(tx).size).isAtMost(4)
+            // Q75: limit(5) \ has-sprint: first 5 issues minus sprinted ones
+            assertThat(q75.resultKeys(tx).size).isAtMost(5)
+            // Q76: skip(10) ∩ issuesInProject(ENG): ENG issues in positions ≥10 (min 4, max 14)
+            assertThat(q76.resultKeys(tx).size).isAtLeast(4)
+            // Q77: union(skip1,skip2) ∩ open: 23 issues minus pos0, ∩ 13 open = 12 or 13
             assertThat(q77.resultKeys(tx).size).isAtLeast(12)
-            assertThat(q77.resultKeys(tx).size).isAtMost(13)  // union(skip1,skip2) ∩ open
+            assertThat(q77.resultKeys(tx).size).isAtMost(13)
+            // Q78: union(skip1,skip2) \ critical: 23 - (3 or 4 critical) = 19 or 20
             assertThat(q78.resultKeys(tx).size).isAtLeast(19)
-            assertThat(q78.resultKeys(tx).size).isAtMost(20)  // union(skip1,skip2) \ critical
-            // Q79: reversed(all) ∩ open = all 13 open issues (in reversed order, but all present)
-            assertThat(q79.resultKeys(tx)).hasSize(13)
+            // Q79: reversed(all) ∩ open = all 13 open issues
+            assertThat(q79.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14",
+                       "OPS-2","OPS-4","INFRA-3","INFRA-4"))
             // Q80: SortBy(issuesInProject(ENG),priority) ∩ open = 9 ENG open issues with sort
             assertThat(q80.resultKeys(tx)).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14"))
@@ -1390,12 +1424,18 @@ class GremlinQueryCoverageTest : DBTest() {
 
         // ---- Result assertions ----
         withLowLevelTx { tx ->
-            // Q87: Or(open, resolved) = 13 + 5 = 18 issues
-            assertThat(q87.resultKeys(tx)).hasSize(18)
-            // Q88: priority in [critical, high, medium] = 4 + 7 + 8 = 19 issues
-            assertThat(q88.resultKeys(tx)).hasSize(19)
-            // Q89: Or(open, critical) = 13 open + OPS-1 (critical but in-progress) = 14
-            assertThat(q89.resultKeys(tx)).hasSize(14)
+            // Q87: Or(open, resolved) = 18 issues
+            assertThat(q87.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-4","ENG-5","ENG-6","ENG-8","ENG-9","ENG-10","ENG-11",
+                       "ENG-13","ENG-14","OPS-2","OPS-3","OPS-4","OPS-5","INFRA-2","INFRA-3","INFRA-4"))
+            // Q88: priority in [critical, high, medium] = 19 issues (all except low: ENG-5,9,11,INFRA-4,ARC-1)
+            assertThat(q88.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-6","ENG-7","ENG-8","ENG-10","ENG-12",
+                       "ENG-13","ENG-14","OPS-1","OPS-2","OPS-3","OPS-4","OPS-5","INFRA-1","INFRA-2","INFRA-3"))
+            // Q89: Or(open, critical) = 14 issues (13 open + OPS-1 which is critical/in-progress)
+            assertThat(q89.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14",
+                       "OPS-1","OPS-2","OPS-4","INFRA-3","INFRA-4"))
         }
     }
 
@@ -1458,8 +1498,10 @@ class GremlinQueryCoverageTest : DBTest() {
         withLowLevelTx { tx ->
             // Q90: open \ issuesInProject(ENG) = 4 open non-ENG issues
             assertThat(q90.resultKeys(tx)).containsExactlyElementsIn(listOf("OPS-2","OPS-4","INFRA-3","INFRA-4"))
-            // Q91: open ∪ issuesInProject(ENG) = 13 + 14 - 9 overlap = 18 issues
-            assertThat(q91.resultKeys(tx)).hasSize(18)
+            // Q91: open ∪ issuesInProject(ENG) = 18 issues (13 open + 5 non-open ENG: ENG-3,4,7,9,12)
+            assertThat(q91.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8","ENG-9","ENG-10",
+                       "ENG-11","ENG-12","ENG-13","ENG-14","OPS-2","OPS-4","INFRA-3","INFRA-4"))
             // Q92 real: {INFRA-1, INFRA-2} \ issuesInProject(ENG) — neither is in ENG, so both survive
             val q92real = ByIds(listOf(rid(dataset.issues["INFRA-1"]!!), rid(dataset.issues["INFRA-2"]!!)))
                 .difference(issuesInProject(PropEqual("key","ENG")))
@@ -1633,7 +1675,10 @@ class GremlinQueryCoverageTest : DBTest() {
         // medium:   ENG-3,8,12,13,14 + OPS-3,5 + INFRA-1 = 8
         // total: 19
         withLowLevelTx { tx ->
-            assertThat(q98.resultKeys(tx)).hasSize(19)
+            // Q98: critical(4) + high(7) + medium(8) = 19 issues
+            assertThat(q98.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-6","ENG-7","ENG-8","ENG-10","ENG-12",
+                       "ENG-13","ENG-14","OPS-1","OPS-2","OPS-3","OPS-4","OPS-5","INFRA-1","INFRA-2","INFRA-3"))
         }
     }
 
@@ -1660,7 +1705,10 @@ class GremlinQueryCoverageTest : DBTest() {
             val infra2Rid = rid(dataset.issues["INFRA-2"]!!)
             val q99real = ByIds(listOf(infra1Rid, infra2Rid))
                 .union(issuesInProject(PropEqual("key", "ENG")))
-            assertThat(q99real.resultKeys(tx)).hasSize(16)
+            // Q99real: {INFRA-1, INFRA-2} ∪ ENG-1..14 = 16 issues
+            assertThat(q99real.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8","ENG-9","ENG-10",
+                       "ENG-11","ENG-12","ENG-13","ENG-14","INFRA-1","INFRA-2"))
         }
     }
 
@@ -1682,7 +1730,10 @@ class GremlinQueryCoverageTest : DBTest() {
         // Alice: ENG-1,3,5,10,12 (5); Bob: ENG-2,4,8 + INFRA-1,2 (5); Carol: OPS-1,2,3,5 (4);
         // Eve: ENG-7 (1); Dave: none. Total assigned = 15.
         withLowLevelTx { tx ->
-            assertThat(q100.resultKeys(tx)).hasSize(15)
+            // Q100: Alice(5)+Bob(5)+Carol(4)+Eve(1) = 15 assigned issues; Dave has none
+            assertThat(q100.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-7","ENG-8","ENG-10","ENG-12",
+                       "OPS-1","OPS-2","OPS-3","OPS-5","INFRA-1","INFRA-2"))
         }
     }
 
@@ -1730,7 +1781,10 @@ class GremlinQueryCoverageTest : DBTest() {
         // Tagged issues: bug(ENG-1,2,6,10,OPS-1,4,INFRA-3=7) + feature(ENG-3,11=2) + performance(ENG-4,8=2) = 11
         // Untagged: 24 - 11 = 13
         withLowLevelTx { tx ->
-            assertThat(q102.resultKeys(tx)).hasSize(13)
+            // Q102: 24 issues \ 11 tagged = 13 untagged issues
+            assertThat(q102.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-5","ENG-7","ENG-9","ENG-12","ENG-13","ENG-14",
+                       "OPS-2","OPS-3","OPS-5","INFRA-1","INFRA-2","INFRA-4","ARC-1"))
         }
     }
 
