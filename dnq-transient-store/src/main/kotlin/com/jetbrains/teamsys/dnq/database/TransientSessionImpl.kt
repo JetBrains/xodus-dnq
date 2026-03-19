@@ -767,6 +767,15 @@ class TransientSessionImpl(
                 }
                 result
             } else {
+                // Under snapshot isolation, the outer transaction may not see a concurrently
+                // committed entity during findOrNew, so it creates a new entity. When the
+                // transaction is replayed after a ConcurrentCreateException, the snapshot is
+                // refreshed and creator.find() now returns the already-committed entity.
+                // At this point persistentEntity was freshly re-created by resetToNew() but
+                // was never initialised (creator.created() was not called in this branch).
+                // Deleting it here causes YTDB to treat the create+delete as a no-op, so the
+                // empty vertex is never validated or written to the persistent store.
+                persistentEntity.delete()
                 transientEntity.entity = (found as TransientEntityImpl).entity
                 false
             }
