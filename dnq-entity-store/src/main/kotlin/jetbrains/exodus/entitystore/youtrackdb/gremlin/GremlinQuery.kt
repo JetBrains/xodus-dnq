@@ -177,6 +177,13 @@ sealed class GremlinQuery {
                     Order(innerResult, GremlinBlock.Dedup)
             }
         }
+        // O17 right-difference: strip Dedup from the right side of a difference.
+        // condition \ Dedup(FL)  ≡  condition \ FL — dedup changes cardinality but not the
+        // distinct vertex set, and difference is a set operation. Safe to delegate without Dedup.
+        if (condCombiner is ConditionCombiner.Difference &&
+            other is Order && other.orderBlock === GremlinBlock.Dedup) {
+            return this.combineEfficient(other.inner, condCombiner)
+        }
 
         // O4: FollowLink union shortcut — merge source queries, re-wrap with the shared link traversal
         if (this is Labeled && other is Labeled && this.label == other.label &&
@@ -272,22 +279,35 @@ sealed class GremlinQuery {
         }
 
         // O11: condition OP FollowLink(srcCond) — inverse-link predicate rewrite.
-        // When the right operand is Labeled(FollowLink(srcQuery, IN, link), T) and the left operand
+        // When the right operand is Labeled(FollowLink(srcQuery, dir, link), T) and the left operand
         // has an extractable condition, translate the membership test into an inline predicate on each
-        // vertex (e.g. where(out("link_link").srcCond.hasLabel(srcLabel))) instead of collecting the
-        // right side into an aggregate. Works for both Difference and Union.
+        // vertex instead of collecting the right side into an aggregate.
+        //
+        // For IN  direction: v ∈ FollowLink(src, IN,  link) iff v.out("link_link") reaches src
+        //   → inverse traversal step = OutLink(link)
+        // For OUT direction: v ∈ FollowLink(src, OUT, link) iff v.in("link_link")  reaches src
+        //   → inverse traversal step = InLink(link)
+        //
+        // The HasLink("link") shortcut (v has any out-edge named link) applies only for IN direction
+        // with src=All; there is no HasLinkIn shortcut for the OUT case.
+        //
+        // Works for both Difference and Union.
         if (condCombiner is ConditionCombiner.Difference || condCombiner is ConditionCombiner.Union) {
             val flQuery = other as? Labeled
             val flInner = flQuery?.inner as? FollowLink
-            if (flInner != null && flInner.direction == LinkDirection.IN) {
+            if (flInner != null) {
                 val srcCondBlock = extractCondition(flInner.inner)
                 if (srcCondBlock != null) {
                     val srcLabel = extractLabel(flInner.inner)
+                    val linkStep = if (flInner.direction == LinkDirection.IN)
+                        GremlinBlock.OutLink(flInner.linkName)
+                    else
+                        GremlinBlock.InLink(flInner.linkName)
                     val inversePredicate: GremlinBlock = when {
-                        srcCondBlock is GremlinBlock.All ->
+                        srcCondBlock is GremlinBlock.All && flInner.direction == LinkDirection.IN ->
                             GremlinBlock.HasLink(flInner.linkName)
                         else -> {
-                            val chain = GremlinBlock.OutLink(flInner.linkName)
+                            val chain = linkStep
                                 .andThen(srcCondBlock)
                                 .let { if (srcLabel != null) it.andThen(GremlinBlock.HasLabel(srcLabel)) else it }
                             GremlinBlock.Where(chain)

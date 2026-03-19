@@ -1847,4 +1847,101 @@ class GremlinQueryCoverageTest : DBTest() {
             )
         }
     }
+
+    // =========================================================================
+    // Group 13 — F1: condition \ Dedup(FollowLink(src, OUT, link))
+    //
+    // The F1 pattern arises in Hub as:
+    //   condition \ flatMapDistinct { it.followLink(link, OUT) }
+    //
+    // Currently falls to Aggregate because combineEfficient sees Order(FL, Dedup) as other
+    // and has no rule to handle it. Two gaps block the optimization:
+    //
+    //   Gap A: O17 only strips Dedup(=Order(inner, Dedup)) on the left in symmetric intersect;
+    //          it does not strip Dedup when it appears on the right of a difference.
+    //
+    //   Gap B: O11 only rewrites FollowLink(src, IN, link) as an inverse predicate;
+    //          it does not handle OUT direction.
+    //
+    // F1a (src = simple condition, e.g. Labeled(Where)): fixable with Gap-A + Gap-B.
+    //   After fix, O17 strips the Order(Dedup) wrapper, then O11 (extended to OUT direction)
+    //   rewrites as an inverse IN traversal predicate.
+    //
+    // F1b (src = FollowLink traversal): stays as Aggregate even after the fix,
+    //   because O11 cannot build an inverse predicate from a FollowLink source.
+    // =========================================================================
+
+    @Test
+    fun `group 13 - Q105 F1a projects difference Dedup(FollowLink(sprints-All, OUT))`() {
+
+        // Q105: projects(All) \ Dedup(FollowLink(sprints(All), OUT, "project"))
+        // Projects that no sprint points to.
+        // After Gap-A strips Order(Dedup) and Gap-B extends O11 to OUT direction:
+        //   src=All → inverse = Where(in("project_link").hasLabel("Sprint"))
+        //   And(All, Not(inverse)) = Not(inverse) → not(__.where(__.in("project_link").hasLabel("Sprint")))
+        val dedupSprintsToProject =
+            Labeled(FollowLink(sprints(), LinkDirection.OUT, "project"), "Project").then(Dedup)
+        val q105 = projects().difference(dedupSprintsToProject)
+        println("[Q105 F1a projects diff Dedup(sprints->project) src=All] query  : $q105")
+        println("[Q105 F1a projects diff Dedup(sprints->project) src=All] gremlin: ${q105.toGremlin()}")
+        assertThat(q105.toGremlin()).isEqualTo(
+            """g.V().not(__.where(__.in("project_link").hasLabel("Sprint"))).hasLabel("Project")"""
+        )
+
+        // ---- Result assertions ----
+        // Sprints in dataset: S1→ENG, S2→ENG, S3→OPS. Projects with no sprint: INFRA, ARC.
+        withLowLevelTx { tx ->
+            assertThat(q105.resultKeys(tx)).containsExactlyElementsIn(listOf("INFRA", "ARC"))
+        }
+    }
+
+    @Test
+    fun `group 13 - Q106 F1a projects difference Dedup(FollowLink(sprints-condition, OUT))`() {
+
+        // Q106: projects(All) \ Dedup(FollowLink(sprints(active), OUT, "project"))
+        // Projects that no active sprint points to.
+        // After fix: inverse = Where(in("project_link").has("state","active").hasLabel("Sprint"))
+        val dedupActiveSprintsToProject =
+            Labeled(FollowLink(sprints(PropEqual("state", "active")), LinkDirection.OUT, "project"), "Project")
+                .then(Dedup)
+        val q106 = projects().difference(dedupActiveSprintsToProject)
+        println("[Q106 F1a projects diff Dedup(active-sprints->project)] query  : $q106")
+        println("[Q106 F1a projects diff Dedup(active-sprints->project)] gremlin: ${q106.toGremlin()}")
+        assertThat(q106.toGremlin()).isEqualTo(
+            """g.V().not(__.where(__.in("project_link").has("state","active").hasLabel("Sprint"))).hasLabel("Project")"""
+        )
+
+        // ---- Result assertions ----
+        // Active sprints: S1→ENG, S3→OPS. Projects with no active sprint: INFRA, ARC.
+        withLowLevelTx { tx ->
+            assertThat(q106.resultKeys(tx)).containsExactlyElementsIn(listOf("INFRA", "ARC"))
+        }
+    }
+
+    @Test
+    fun `group 13 - Q107 F1b projects difference Dedup(FollowLink(FollowLink-src, OUT))`() {
+
+        // Q107: projects(All) \ Dedup(FollowLink(Labeled(FollowLink(issues, IN, "sprint"), "Sprint"), OUT, "project"))
+        // Projects reachable via sprints that have at least one issue.
+        // F1b: src is itself a FollowLink traversal — O11 cannot build an inverse predicate from it.
+        // This stays as Aggregate even after the Gap-A/Gap-B fix.
+        val sprintsWithIssues = Labeled(FollowLink(issues(), LinkDirection.IN, "sprint"), "Sprint")
+        val dedupSprintsWithIssuesToProject =
+            Labeled(FollowLink(sprintsWithIssues, LinkDirection.OUT, "project"), "Project").then(Dedup)
+        val q107 = projects().difference(dedupSprintsWithIssuesToProject)
+        println("[Q107 F1b projects diff Dedup(sprints-via-issues->project)] query  : $q107")
+        println("[Q107 F1b projects diff Dedup(sprints-via-issues->project)] gremlin: ${q107.toGremlin()}")
+        assertThat(q107.toGremlin()).isEqualTo(
+            """g.V().hasLabel("Issue").in("sprint_link").hasLabel("Sprint")""" +
+            """.out("project_link").hasLabel("Project").dedup()""" +
+            """.aggregate("aggr_0").fold()""" +
+            """.V().hasLabel("Project").where(P.without(["aggr_0"]))"""
+        )
+
+        // TODO(F1b): update this assertion once the multi-hop inverse predicate optimization is
+        // implemented. The expected Gremlin will change from Aggregate to a nested not(where(...))
+        // form: not(__.where(__.in("project_link").where(__.in("sprint_link").hasLabel("Issue")).hasLabel("Sprint")))
+        // No result assertion: Aggregate side-effect/fold interaction is unreliable in the
+        // YouTrackDB Gremlin engine — consistent with how Group 9 Aggregate tests are written.
+    }
 }
