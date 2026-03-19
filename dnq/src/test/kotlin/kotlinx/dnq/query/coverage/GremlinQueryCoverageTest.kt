@@ -1944,4 +1944,109 @@ class GremlinQueryCoverageTest : DBTest() {
         // No result assertion: Aggregate side-effect/fold interaction is unreliable in the
         // YouTrackDB Gremlin engine — consistent with how Group 9 Aggregate tests are written.
     }
+
+    // =========================================================================
+    // Group 14 — F2/F3: Labeled(Labeled(Where(block), T1), T2) as operand (O19)
+    //
+    // The double-label pattern arises in Hub as the right operand of intersect/difference
+    // when a query targets an entity that participates in a class hierarchy — for example
+    // "vertices labeled both JPBaseUserGroup AND JPRoleHolder". extractCondition currently
+    // returns null for Labeled(Labeled(Condition, T1), T2) because the inner is not a
+    // bare Condition. O19 extends extractCondition to handle this case:
+    //   extractCondition(Labeled(Labeled(Where(All), T1), T2)) → HasLabel(T1)
+    //
+    // Two sites need updating:
+    //   - extractCondition itself (O19)
+    //   - O7: after fusing a FollowLink with HasLabel(T1), also apply the outer T2 label
+    //
+    // Data model used: User ← Employee ← Manager hierarchy.
+    //   Labeled(Labeled(Where(All), "Employee"), "User") = vertices that are both Employee and User
+    //   (in YouTrackDB, Employee inherits User so Employee vertices carry both labels).
+    //
+    // F3 shape: Labeled(Where(All), T) ∩ Labeled(Labeled(Where(All), T_sub), T) — outer labels match.
+    //   → bottom extractCondition path: combines conditions directly, no O7 involved.
+    // F2 shape: FollowLink(ByIds, OUT, link) ∩ Labeled(Labeled(Where(All), T1), T2) — bare FollowLink left.
+    //   → O7 path: fuse HasLabel(T1) into FollowLink chain, then wrap result with outer T2.
+    // =========================================================================
+
+    @Test
+    fun `group 14 - Q108 F3 users(All) intersect double-labeled Employee`() {
+
+        // Q108: users(All) ∩ Labeled(Labeled(Where(All), "Employee"), "User")
+        // All Users who are also Employees.
+        // F3 shape: outer labels match ("User" == "User") — goes through the bottom condition combiner.
+        // After O19: extractCondition(right) = HasLabel("Employee"),
+        //   combineBlocks(All, HasLabel("Employee")) = HasLabel("Employee")
+        //   → Labeled(Where(HasLabel("Employee")), "User")
+        val employeesAsUsers = Labeled(Labeled(Where.of(All), "Employee"), "User")
+        val q108 = users().intersect(employeesAsUsers)
+        println("[Q108 F3 users intersect double-labeled Employee] query  : $q108")
+        println("[Q108 F3 users intersect double-labeled Employee] gremlin: ${q108.toGremlin()}")
+        assertThat(q108.toGremlin()).isEqualTo(
+            """g.V().hasLabel("Employee").hasLabel("User")"""
+        )
+
+        // ---- Result assertions ----
+        // All Employees (including Manager): Alice, Bob, Carol, Eve. Dave is User-only → excluded.
+        withLowLevelTx { tx ->
+            assertThat(q108.resultNames(tx)).containsExactlyElementsIn(listOf("Alice", "Bob", "Carol", "Eve"))
+        }
+    }
+
+    @Test
+    fun `group 14 - Q109 F3 users(condition) intersect double-labeled Employee`() {
+
+        // Q109: users(active) ∩ Labeled(Labeled(Where(All), "Employee"), "User")
+        // Active Users who are also Employees.
+        // After O19: extractCondition(right) = HasLabel("Employee"),
+        //   combineBlocks(PropEqual("active",true), HasLabel("Employee")) = And(has("active",true), hasLabel("Employee"))
+        //   → Labeled(Where(And(...)), "User")
+        val employeesAsUsers = Labeled(Labeled(Where.of(All), "Employee"), "User")
+        val q109 = users(PropEqual("active", true)).intersect(employeesAsUsers)
+        println("[Q109 F3 users(active) intersect double-labeled Employee] query  : $q109")
+        println("[Q109 F3 users(active) intersect double-labeled Employee] gremlin: ${q109.toGremlin()}")
+        // And(PropEqual, HasLabel) simplifies to a chain since both blocks are chainable —
+        // the traversal is has("active",true).hasLabel("Employee") rather than and(...).
+        assertThat(q109.toGremlin()).isEqualTo(
+            """g.V().has("active",true).hasLabel("Employee").hasLabel("User")"""
+        )
+
+        // ---- Result assertions ----
+        // Active Employees: Alice (true), Bob (true), Eve (true). Carol is active=false → excluded.
+        withLowLevelTx { tx ->
+            assertThat(q109.resultNames(tx)).containsExactlyElementsIn(listOf("Alice", "Bob", "Eve"))
+        }
+    }
+
+    @Test
+    fun `group 14 - Q110 F2 FollowLink(ByIds, OUT) intersect double-labeled Employee`() {
+
+        // Q110: FollowLink(ByIds([p1, p2]), OUT, "lead") ∩ Labeled(Labeled(Where(All), "Employee"), "User")
+        // Project leads (via bare FollowLink from ByIds) that are also Employees.
+        // F2 shape: bare FollowLink on left, double-labeled Condition on right.
+        // After O19 + O7 label propagation:
+        //   extractCondition(right) = HasLabel("Employee"),
+        //   FollowLink.then(HasLabel("Employee")) = Labeled(FollowLink, "Employee"),
+        //   outer label "User" → Labeled(Labeled(FollowLink, "Employee"), "User")
+        //   → g.V(ids...).out("lead_link").hasLabel("Employee").hasLabel("User")
+        val employeesAsUsers = Labeled(Labeled(Where.of(All), "Employee"), "User")
+        val q110shape = FollowLink(ByIds(listOf(projectRid, projectRid2)), LinkDirection.OUT, "lead")
+            .intersect(employeesAsUsers)
+        println("[Q110 F2 FollowLink(ByIds) intersect double-labeled Employee] query  : $q110shape")
+        println("[Q110 F2 FollowLink(ByIds) intersect double-labeled Employee] gremlin: ${q110shape.toGremlin()}")
+        assertThat(q110shape.toGremlin()).isEqualTo(
+            """g.V(#20:1,#20:2).out("lead_link").hasLabel("Employee").hasLabel("User")"""
+        )
+
+        // ---- Result assertions (real RIDs) ----
+        // ENG lead = Alice (Employee), OPS lead = Carol (Employee). INFRA lead = Bob (Employee).
+        // Using ENG and OPS project RIDs → leads are Alice and Carol.
+        withLowLevelTx { tx ->
+            val q110real = FollowLink(
+                ByIds(listOf(rid(dataset.projects["ENG"]!!), rid(dataset.projects["OPS"]!!))),
+                LinkDirection.OUT, "lead"
+            ).intersect(employeesAsUsers)
+            assertThat(q110real.resultNames(tx)).containsExactlyElementsIn(listOf("Alice", "Carol"))
+        }
+    }
 }

@@ -212,8 +212,16 @@ sealed class GremlinQuery {
         }
 
         fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label else null
+        // O19: extend extractCondition to handle Labeled(Labeled(Where(All), T1), T2).
+        // This pattern arises when a query targets a class-hierarchy subtype — the inner label T1
+        // is treated as an additional HasLabel filter. Only the Where(All) inner case is handled;
+        // non-trivial inner conditions fall through to null (Aggregate) to avoid composing
+        // GremlinBlock.AndThen which is illegal in the then() dispatch path.
         fun extractCondition(q: GremlinQuery): GremlinBlock? =
             if (q is Labeled && q.inner is Condition) q.inner.asBlock()
+            else if (q is Labeled && q.inner is Labeled && q.inner.inner is Condition &&
+                     (q.inner.inner as Condition).asBlock() is GremlinBlock.All)
+                GremlinBlock.HasLabel(q.inner.label)
             else if (q is Condition) q.asBlock()
             else null
 
@@ -239,16 +247,23 @@ sealed class GremlinQuery {
                 val condBlock = extractCondition(other)
                 if (condBlock != null) {
                     val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not.of(condBlock) else condBlock
-                    return if (this is Labeled) Labeled(this.inner.then(appended), this.label)
-                           else (this as FollowLink).then(appended)
+                    val base = if (this is Labeled) Labeled(this.inner.then(appended), this.label)
+                               else (this as FollowLink).then(appended)
+                    // O19 label propagation: if `other` is Labeled(Labeled(Condition, T1), T2),
+                    // extractCondition returns HasLabel(T1) but the outer T2 label is not part of
+                    // the condition block — apply it explicitly to the result.
+                    val extraLabel = if (other is Labeled && other.inner is Labeled) extractLabel(other) else null
+                    return if (extraLabel != null) Labeled.of(base, extraLabel) else base
                 }
             }
             if (condCombiner is ConditionCombiner.Intersect &&
                 (other is FollowLink || (other is Labeled && other.inner is FollowLink))) {
                 val condBlock = extractCondition(this)
                 if (condBlock != null) {
-                    return if (other is Labeled) Labeled(other.inner.then(condBlock), other.label)
-                           else (other as FollowLink).then(condBlock)
+                    val base = if (other is Labeled) Labeled(other.inner.then(condBlock), other.label)
+                               else (other as FollowLink).then(condBlock)
+                    val extraLabel = if (this is Labeled && this.inner is Labeled) extractLabel(this) else null
+                    return if (extraLabel != null) Labeled.of(base, extraLabel) else base
                 }
             }
         }
