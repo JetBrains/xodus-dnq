@@ -15,7 +15,6 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import java.nio.file.FileSystems
 import java.nio.file.Paths
 
@@ -25,11 +24,6 @@ class YTDBStatisticsImpl(private val store: YTDBPersistentEntityStore, private v
         get() = -1
     override val transactionsPerSecond: Double
         get() = -0.1
-
-    override val databaseSize: Long
-        get() = dbProvider.withSession { session ->
-            (session as DatabaseSessionEmbedded).getSize()
-        }
 
     override val usableDiskSpace: Long
         get() {

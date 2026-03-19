@@ -18,6 +18,5 @@ package jetbrains.exodus.entitystore.youtrackdb
 interface YTDBStatistics {
     val totalTransactions: Long
     val transactionsPerSecond: Double
-    val databaseSize: Long
     val usableDiskSpace : Long
 }
