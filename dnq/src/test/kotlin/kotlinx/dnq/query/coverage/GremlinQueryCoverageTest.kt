@@ -1921,28 +1921,41 @@ class GremlinQueryCoverageTest : DBTest() {
     @Test
     fun `group 13 - Q107 F1b projects difference Dedup(FollowLink(FollowLink-src, OUT))`() {
 
-        // Q107: projects(All) \ Dedup(FollowLink(Labeled(FollowLink(issues, IN, "sprint"), "Sprint"), OUT, "project"))
-        // Projects reachable via sprints that have at least one issue.
-        // F1b: src is itself a FollowLink traversal — O11 cannot build an inverse predicate from it.
-        // This stays as Aggregate even after the Gap-A/Gap-B fix.
-        val sprintsWithIssues = Labeled(FollowLink(issues(), LinkDirection.IN, "sprint"), "Sprint")
+        // Q107: projects(All) \ Dedup(FollowLink(Labeled(FollowLink(issues, OUT, "sprint"), "Sprint"), OUT, "project"))
+        // Projects not reachable via any sprint that has at least one issue.
+        //
+        // Edge directions:
+        //   Issue --sprint_link--> Sprint  (Issue.sprint uses out("sprint_link"))
+        //   Sprint --project_link--> Project  (Sprint.project uses out("project_link"))
+        //
+        // F1b: src is itself a FollowLink traversal — O11 cannot build an inverse predicate from it
+        // (extractCondition of Labeled(FollowLink(...), T) returns null).
+        // O11b fires instead and builds a nested where predicate.
+        val sprintsWithIssues = Labeled(FollowLink(issues(), LinkDirection.OUT, "sprint"), "Sprint")
         val dedupSprintsWithIssuesToProject =
             Labeled(FollowLink(sprintsWithIssues, LinkDirection.OUT, "project"), "Project").then(Dedup)
         val q107 = projects().difference(dedupSprintsWithIssuesToProject)
         println("[Q107 F1b projects diff Dedup(sprints-via-issues->project)] query  : $q107")
         println("[Q107 F1b projects diff Dedup(sprints-via-issues->project)] gremlin: ${q107.toGremlin()}")
+        // O11b: src = Labeled(FollowLink(issues, OUT, "sprint"), "Sprint")
+        // Outer: direction=OUT, link="project" → inverse = in("project_link")
+        //   (Sprint.project: Sprint --project_link--> Project; from Project, in("project_link") → Sprint)
+        // Inner: direction=OUT, link="sprint"  → inverse = in("sprint_link")
+        //   (Issue.sprint: Issue --sprint_link--> Sprint; from Sprint, in("sprint_link") → Issue)
+        // innerSrc = issues() = Labeled(Where(All), "Issue") → condBlock=All, label="Issue"
+        //   All.andThen(x) = x, so innerChain = in("sprint_link").hasLabel("Issue")
+        // Full: not(where(in("project_link").where(in("sprint_link").hasLabel("Issue")).hasLabel("Sprint")))
         assertThat(q107.toGremlin()).isEqualTo(
-            """g.V().hasLabel("Issue").in("sprint_link").hasLabel("Sprint")""" +
-            """.out("project_link").hasLabel("Project").dedup()""" +
-            """.aggregate("aggr_0").fold()""" +
-            """.V().hasLabel("Project").where(P.without(["aggr_0"]))"""
+            """g.V().not(__.where(__.in("project_link")""" +
+            """.where(__.in("sprint_link").hasLabel("Issue")).hasLabel("Sprint"))).hasLabel("Project")"""
         )
 
-        // TODO(F1b): update this assertion once the multi-hop inverse predicate optimization is
-        // implemented. The expected Gremlin will change from Aggregate to a nested not(where(...))
-        // form: not(__.where(__.in("project_link").where(__.in("sprint_link").hasLabel("Issue")).hasLabel("Sprint")))
-        // No result assertion: Aggregate side-effect/fold interaction is unreliable in the
-        // YouTrackDB Gremlin engine — consistent with how Group 9 Aggregate tests are written.
+        // ---- Result assertions ----
+        // Sprints with issues: S1→ENG (has issues), S2→ENG (has issues), S3→OPS (has issues).
+        // Projects reachable via sprints-with-issues: ENG, OPS. Projects not reachable: INFRA, ARC.
+        withLowLevelTx { tx ->
+            assertThat(q107.resultKeys(tx)).containsExactlyElementsIn(listOf("INFRA", "ARC"))
+        }
     }
 
     // =========================================================================

@@ -336,6 +336,45 @@ sealed class GremlinQuery {
                         return if (label != null) Labeled.of(result, label) else result
                     }
                 }
+
+                // O11b: src is Labeled(FollowLink(innerSrc, innerDir, innerLink), srcLabel) —
+                // a two-hop pattern. Build a nested where predicate:
+                //   where(outerInvLink.where(innerInvLink.innerSrcCond.hasLabel(innerSrcLabel)).hasLabel(srcLabel))
+                //
+                // Inverse direction rule (same as O11):
+                //   FollowLink direction IN  → inverse step = OutLink (forward was in(), reverse is out())
+                //   FollowLink direction OUT → inverse step = InLink  (forward was out(), reverse is in())
+                val innerFL = (flInner.inner as? Labeled)?.inner as? FollowLink
+                if (innerFL != null) {
+                    val innerSrcCondBlock = extractCondition(innerFL.inner)
+                    if (innerSrcCondBlock != null) {
+                        val srcLabel = (flInner.inner as Labeled).label
+                        val innerSrcLabel = extractLabel(innerFL.inner)
+                        val outerLinkStep = if (flInner.direction == LinkDirection.IN)
+                            GremlinBlock.OutLink(flInner.linkName)
+                        else
+                            GremlinBlock.InLink(flInner.linkName)
+                        val innerLinkStep = if (innerFL.direction == LinkDirection.IN)
+                            GremlinBlock.OutLink(innerFL.linkName)
+                        else
+                            GremlinBlock.InLink(innerFL.linkName)
+                        val innerChain = innerLinkStep
+                            .andThen(innerSrcCondBlock)
+                            .let { if (innerSrcLabel != null) it.andThen(GremlinBlock.HasLabel(innerSrcLabel)) else it }
+                        val innerPredicate = GremlinBlock.Where(innerChain)
+                        val outerChain = outerLinkStep
+                            .andThen(innerPredicate)
+                            .andThen(GremlinBlock.HasLabel(srcLabel))
+                        val inversePredicate = GremlinBlock.Where(outerChain)
+                        val thisCondBlock = extractCondition(this)
+                        if (thisCondBlock != null) {
+                            val label = thisLabel ?: otherLabel
+                            val combined = condCombiner.combineBlocks(thisCondBlock, inversePredicate)
+                            val result = Where.of(combined)
+                            return if (label != null) Labeled.of(result, label) else result
+                        }
+                    }
+                }
             }
         }
 
