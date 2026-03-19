@@ -27,6 +27,7 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.LinkDirectio
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.NestedCondition
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.ReversedOrder
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.SortBy
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.UnionAll
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.Where
 import jetbrains.exodus.entitystore.youtrackdb.RIDEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
@@ -2060,6 +2061,58 @@ class GremlinQueryCoverageTest : DBTest() {
                 LinkDirection.OUT, "lead"
             ).intersect(employeesAsUsers)
             assertThat(q110real.resultNames(tx)).containsExactlyElementsIn(listOf("Alice", "Carol"))
+        }
+    }
+
+    // =========================================================================
+    // Group 15 — F5: ByIds ∩ UnionAll(FollowLink, FollowLink) — O20
+    // =========================================================================
+
+    @Test
+    fun `group 15 - Q111 F5 ByIds intersect UnionAll(FollowLink, FollowLink)`() {
+
+        // Q111: ByIds(projects) ∩ UnionAll(FollowLink(ByIds(s1), OUT, "project"), FollowLink(ByIds(s2), OUT, "project"))
+        // "Which of these projects is reachable from sprint S1 or sprint S2 via their project link?"
+        //
+        // F5 shape: left = ByIds, right = bare UnionAll(FL, FL) — no Dedup/Slice wrapper.
+        // extractCondition(UnionAll) returns null → Aggregate without O20.
+        // O20: A ∩ (B ∪ C) = Dedup((A ∩ B) ∪ (A ∩ C)) — distribute IdWithin into each FL branch.
+        val q111 = ByIds(listOf(projectRid, projectRid2)).intersect(
+            UnionAll(listOf(
+                FollowLink(ByIds(listOf(sprintRid)),  LinkDirection.OUT, "project"),
+                FollowLink(ByIds(listOf(sprintRid2)), LinkDirection.OUT, "project")
+            ))
+        )
+        println("[Q111 F5 ByIds intersect UnionAll(FL,FL)] query  : $q111")
+        println("[Q111 F5 ByIds intersect UnionAll(FL,FL)] gremlin: ${q111.toGremlin()}")
+        // O20 distributes IdWithin([#20:1,#20:2]) into each FL branch and wraps result in dedup():
+        //   union(
+        //     __.V().hasId(P.within([#50:1])).out("project_link").hasId(P.within([#20:1,#20:2])),
+        //     __.V().hasId(P.within([#50:2])).out("project_link").hasId(P.within([#20:1,#20:2]))
+        //   ).dedup()
+        assertThat(q111.toGremlin()).isEqualTo(
+            """g.union(""" +
+            """__.V().hasId(P.within([#50:1])).out("project_link").hasId(P.within([#20:1, #20:2])),""" +
+            """__.V().hasId(P.within([#50:2])).out("project_link").hasId(P.within([#20:1, #20:2]))""" +
+            """).dedup()"""
+        )
+
+        // ---- Result assertions ----
+        // Sprint S1 → ENG, S2 → ENG. Both sprints point to the same project.
+        // ByIds = {ENG_rid, OPS_rid}. UnionAll gives {ENG} (from both branches).
+        // Intersection: {ENG, OPS} ∩ {ENG} = {ENG}.
+        withLowLevelTx { tx ->
+            val engRid  = rid(dataset.projects["ENG"]!!)
+            val opsRid  = rid(dataset.projects["OPS"]!!)
+            val s1Rid   = rid(dataset.sprints["S1"]!!)
+            val s2Rid   = rid(dataset.sprints["S2"]!!)
+            val q111real = ByIds(listOf(engRid, opsRid)).intersect(
+                UnionAll(listOf(
+                    FollowLink(ByIds(listOf(s1Rid)), LinkDirection.OUT, "project"),
+                    FollowLink(ByIds(listOf(s2Rid)), LinkDirection.OUT, "project")
+                ))
+            )
+            assertThat(q111real.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG"))
         }
     }
 }

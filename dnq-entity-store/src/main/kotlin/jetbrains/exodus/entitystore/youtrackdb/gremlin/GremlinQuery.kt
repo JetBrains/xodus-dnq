@@ -293,6 +293,30 @@ sealed class GremlinQuery {
             }
         }
 
+        // O20: condition ∩ UnionAll(q1, q2, ...) — distribute condition into each branch.
+        // A ∩ (B ∪ C ∪ ...) = (A ∩ B) ∪ (A ∩ C) ∪ ...  (set distributivity)
+        // Safe only when no branch involves paging (Slice/Order/SortBy): pushing a condition
+        // into a branch with a skip/limit would change which elements survive the paging step.
+        // The typical safe case is branches that are bare FollowLink traversals (F5 pattern).
+        // Dedup is added because the same vertex may be reachable via multiple branches.
+        if (condCombiner is ConditionCombiner.Intersect) {
+            fun hasPaging(q: GremlinQuery): Boolean = q is Slice || q is SortBy || q is Order || q is ReversedOrder
+            if (other is UnionAll && other.subqueries.none { hasPaging(it) }) {
+                val condBlock = extractCondition(this)
+                if (condBlock != null) {
+                    val branches = other.subqueries.map { it.then(condBlock) }
+                    return UnionAll(branches).then(GremlinBlock.Dedup)
+                }
+            }
+            if (this is UnionAll && this.subqueries.none { hasPaging(it) }) {
+                val condBlock = extractCondition(other)
+                if (condBlock != null) {
+                    val branches = this.subqueries.map { it.then(condBlock) }
+                    return UnionAll(branches).then(GremlinBlock.Dedup)
+                }
+            }
+        }
+
         // O11: condition OP FollowLink(srcCond) — inverse-link predicate rewrite.
         // When the right operand is Labeled(FollowLink(srcQuery, dir, link), T) and the left operand
         // has an extractable condition, translate the membership test into an inline predicate on each
