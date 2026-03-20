@@ -58,9 +58,9 @@ open class XdManyToManyLink<R : XdEntity, T : XdEntity>(
             override val entityIterable: Iterable<Entity>
                 get() =
                     try {
-                        val queryEngine = oppositeEntityType.entityStore.queryEngine as XdQueryEngine
+                        val queryEngine = oppositeEntityType.entityStore.queryEngine
                         val oppositeType = oppositeEntityType.entityType
-                        if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
+                        if (thisRef.isReadOnly || queryEngine !is XdQueryEngine || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
                             val session = thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction

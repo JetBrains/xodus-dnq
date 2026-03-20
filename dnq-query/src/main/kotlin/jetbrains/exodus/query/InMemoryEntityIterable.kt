@@ -116,12 +116,12 @@ abstract class AbstractInMemoryEntityIterable(
         return InMemoryEntityIterable(values.asIterable(), txn, queryEngine)
     }
 
-    override fun getFirst(): Entity {
-        return iterable.first()
+    override fun getFirst(): Entity? {
+        return iterable.firstOrNull()
     }
 
-    override fun getLast(): Entity {
-        return iterable.last()
+    override fun getLast(): Entity? {
+        return iterable.lastOrNull()
     }
 
     override fun reverse(): EntityIterable {

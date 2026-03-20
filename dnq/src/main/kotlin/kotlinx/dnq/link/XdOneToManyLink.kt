@@ -59,10 +59,10 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                     try {
                         val queryEngine = oppositeEntityType.entityStore.queryEngine
                         val oppositeType = oppositeEntityType.entityType
-                        if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
+                        if (thisRef.isReadOnly || queryEngine !is XdQueryEngine || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
-                            (queryEngine as XdQueryEngine).wrap(
+                            queryEngine.wrap(
                                 YTDBEntityIterable.query(
                                     thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction,
                                     GremlinQuery.all
