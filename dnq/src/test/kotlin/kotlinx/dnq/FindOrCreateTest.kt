@@ -112,7 +112,54 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
-    
+    fun `concurrent creation — orphaned empty vertex must be deleted on replay`() {
+        // Two transactions start concurrently and both find nothing for the same (user, groups)
+        // query. Both call createEntity. One commits first; the other gets a NeedRetryException
+        // (ConcurrentCreateException). During replay, resetIfNew() creates a fresh empty vertex,
+        // and creator.find() returns the entity committed by the first transaction.
+        //
+        // Without the persistentEntity.delete() call (XD-1264 fix), the empty vertex stays in
+        // the YTDB transaction as a CREATED record with no properties; YTDB's validation then
+        // fails flushAfterReplay with a mandatory-link constraint error.
+        //
+        // The CyclicBarrier ensures both transactions take their initial snapshots before either
+        // has called creator.created(), so both creator.find() calls return null and both go
+        // through the createEntity path.
+        val user = transactional { User.new { login = "concurrent-create-user"; skill = 1 } }
+        val groupA = transactional { RootGroup.new { name = "concurrent-group-A" } }
+        val groupB = transactional { RootGroup.new { name = "concurrent-group-B" } }
+        val groups = sequenceOf(groupA, groupB)
+
+        val barrier = CyclicBarrier(2)
+        var result1: ApprovedScope? = null
+        var result2: ApprovedScope? = null
+        var error1: Throwable? = null
+        var error2: Throwable? = null
+
+        val t1 = thread {
+            try {
+                result1 = transactional { barrier.await(); ApprovedScope.findOrNew(user, groups) }
+            } catch (e: Throwable) { error1 = e }
+        }
+        val t2 = thread {
+            try {
+                result2 = transactional { barrier.await(); ApprovedScope.findOrNew(user, groups) }
+            } catch (e: Throwable) { error2 = e }
+        }
+        t1.join(); t2.join()
+
+        assertThat(error1).isNull()
+        assertThat(error2).isNull()
+        transactional {
+            // Exactly one scope must exist — no orphaned empty vertex, no duplicates.
+            assertThat(ApprovedScope.all().toList()).hasSize(1)
+            // Both threads must have received the same entity.
+            assertThat(result1).isEqualTo(result2)
+        }
+    }
+
+    @Test
+
     fun `different parameters should result into different entities`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }
