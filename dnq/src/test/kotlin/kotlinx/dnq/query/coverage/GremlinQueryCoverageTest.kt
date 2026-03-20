@@ -1855,21 +1855,19 @@ class GremlinQueryCoverageTest : DBTest() {
     // The F1 pattern arises in Hub as:
     //   condition \ flatMapDistinct { it.followLink(link, OUT) }
     //
-    // Currently falls to Aggregate because combineEfficient sees Order(FL, Dedup) as other
-    // and has no rule to handle it. Two gaps block the optimization:
+    // Two gaps previously blocked this optimisation:
     //
-    //   Gap A: O17 only strips Dedup(=Order(inner, Dedup)) on the left in symmetric intersect;
-    //          it does not strip Dedup when it appears on the right of a difference.
+    //   Gap A (fixed): O17 now also strips Dedup when it appears on the right of a difference.
     //
-    //   Gap B: O11 only rewrites FollowLink(src, IN, link) as an inverse predicate;
-    //          it does not handle OUT direction.
+    //   Gap B (fixed): O11 now handles both IN and OUT FollowLink directions.
     //
-    // F1a (src = simple condition, e.g. Labeled(Where)): fixable with Gap-A + Gap-B.
-    //   After fix, O17 strips the Order(Dedup) wrapper, then O11 (extended to OUT direction)
-    //   rewrites as an inverse IN traversal predicate.
+    // F1a (src = simple condition, e.g. Labeled(Where)):
+    //   O17 strips the Order(Dedup) wrapper, then O11 (extended to OUT direction)
+    //   rewrites as an inverse predicate.
     //
-    // F1b (src = FollowLink traversal): stays as Aggregate even after the fix,
-    //   because O11 cannot build an inverse predicate from a FollowLink source.
+    // F1b (src = FollowLink traversal):
+    //   O11 cannot build an inverse predicate from a FollowLink source (extractCondition returns
+    //   null). O11b handles this via a nested where predicate for the two-hop pattern.
     // =========================================================================
 
     @Test
