@@ -2085,16 +2085,14 @@ class GremlinQueryCoverageTest : DBTest() {
         )
         println("[Q111 F5 ByIds intersect UnionAll(FL,FL)] query  : $q111")
         println("[Q111 F5 ByIds intersect UnionAll(FL,FL)] gremlin: ${q111.toGremlin()}")
-        // O20 distributes IdWithin([#20:1,#20:2]) into each FL branch and wraps result in dedup():
-        //   union(
-        //     __.V().hasId(P.within([#50:1])).out("project_link").hasId(P.within([#20:1,#20:2])),
-        //     __.V().hasId(P.within([#50:2])).out("project_link").hasId(P.within([#20:1,#20:2]))
-        //   ).dedup()
+        // O20a: both branches are FollowLink(ByIds, OUT, "project") — same direction+link.
+        // Merge inner sources: ByIds([#50:1]).union(ByIds([#50:2])) = ByIds([#50:1, #50:2]).
+        // Delegate to combineEfficient(FollowLink(ByIds([#50:1,#50:2]), OUT, "project"), Intersect)
+        // → O7 symmetric: AndThen(FollowLink(ByIds([#50:1,#50:2]), OUT, "project"), IdWithin([#20:1,#20:2]))
+        // Dedup added because multiple source vertices can reach the same target.
+        // Single traversal — no union():
         assertThat(q111.toGremlin()).isEqualTo(
-            """g.union(""" +
-            """__.V().hasId(P.within([#50:1])).out("project_link").hasId(P.within([#20:1, #20:2])),""" +
-            """__.V().hasId(P.within([#50:2])).out("project_link").hasId(P.within([#20:1, #20:2]))""" +
-            """).dedup()"""
+            """g.V(#50:1,#50:2).out("project_link").hasId(P.within([#20:1, #20:2])).dedup()"""
         )
 
         // ---- Result assertions ----

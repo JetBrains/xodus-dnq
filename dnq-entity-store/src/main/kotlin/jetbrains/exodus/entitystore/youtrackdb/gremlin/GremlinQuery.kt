@@ -293,15 +293,37 @@ sealed class GremlinQuery {
             }
         }
 
-        // O20: condition ∩ UnionAll(q1, q2, ...) — distribute condition into each branch.
-        // A ∩ (B ∪ C ∪ ...) = (A ∩ B) ∪ (A ∩ C) ∪ ...  (set distributivity)
+        // O20: condition ∩ UnionAll(q1, q2, ...) — optimise via branch merging or distribution.
         // Safe only when no branch involves paging (Slice/Order/SortBy): pushing a condition
         // into a branch with a skip/limit would change which elements survive the paging step.
-        // The typical safe case is branches that are bare FollowLink traversals (F5 pattern).
-        // Dedup is added because the same vertex may be reachable via multiple branches.
+        //
+        // Fast path (O20a): if all branches are FollowLink with the same direction+link, merge
+        // their inner sources into one FollowLink and delegate to combineEfficient — which then
+        // hits O7, producing a single linear traversal with no union() or dedup().
+        //   ByIds ∩ UnionAll(FL(src1,d,l), FL(src2,d,l)) →  ByIds ∩ FL(src1∪src2, d, l)
+        //                                                  →  AndThen(FL(src1∪src2,d,l), IdWithin)
+        //
+        // Fallback (O20b): heterogeneous branches — distribute condition into each branch.
+        //   A ∩ (B ∪ C) = Dedup((A ∩ B) ∪ (A ∩ C))
         if (condCombiner is ConditionCombiner.Intersect) {
             fun hasPaging(q: GremlinQuery): Boolean = q is Slice || q is SortBy || q is Order || q is ReversedOrder
+            // Merge all FollowLink branches with the same direction+link into one FollowLink.
+            fun mergeHomogeneousFL(union: UnionAll): FollowLink? {
+                val first = union.subqueries.firstOrNull() as? FollowLink ?: return null
+                if (union.subqueries.any { it !is FollowLink ||
+                        (it as FollowLink).direction != first.direction ||
+                        it.linkName != first.linkName }) return null
+                val mergedInner = union.subqueries.drop(1).fold(first.inner) { acc, q ->
+                    acc.union((q as FollowLink).inner)
+                }
+                return FollowLink(mergedInner, first.direction, first.linkName)
+            }
             if (other is UnionAll && other.subqueries.none { hasPaging(it) }) {
+                val merged = mergeHomogeneousFL(other)
+                if (merged != null) {
+                    val result = combineEfficient(merged, condCombiner)
+                    if (result != null) return result.then(GremlinBlock.Dedup)
+                }
                 val condBlock = extractCondition(this)
                 if (condBlock != null) {
                     val branches = other.subqueries.map { it.then(condBlock) }
@@ -309,6 +331,11 @@ sealed class GremlinQuery {
                 }
             }
             if (this is UnionAll && this.subqueries.none { hasPaging(it) }) {
+                val merged = mergeHomogeneousFL(this)
+                if (merged != null) {
+                    val result = (merged as GremlinQuery).combineEfficient(other, condCombiner)
+                    if (result != null) return result.then(GremlinBlock.Dedup)
+                }
                 val condBlock = extractCondition(other)
                 if (condBlock != null) {
                     val branches = this.subqueries.map { it.then(condBlock) }
