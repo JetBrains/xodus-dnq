@@ -299,9 +299,10 @@ sealed class GremlinQuery {
         //
         // Fast path (O20a): if all branches are FollowLink with the same direction+link, merge
         // their inner sources into one FollowLink and delegate to combineEfficient — which then
-        // hits O7, producing a single linear traversal with no union() or dedup().
+        // hits O7, producing a single linear traversal. Dedup is added because multiple source
+        // vertices can reach the same target vertex via separate edges.
         //   ByIds ∩ UnionAll(FL(src1,d,l), FL(src2,d,l)) →  ByIds ∩ FL(src1∪src2, d, l)
-        //                                                  →  AndThen(FL(src1∪src2,d,l), IdWithin)
+        //                                                  →  AndThen(FL(src1∪src2,d,l), IdWithin).dedup()
         //
         // Fallback (O20b): heterogeneous branches — distribute condition into each branch.
         //   A ∩ (B ∪ C) = Dedup((A ∩ B) ∪ (A ∩ C))
