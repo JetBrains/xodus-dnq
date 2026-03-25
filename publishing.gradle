@@ -85,17 +85,24 @@ if (project.hasProperty('ossrhUser') && project.hasProperty('ossrhPassword')) {
     }
 }
 
-// publish snapshot versions to any repo you'd like to see them in
-if (project.hasProperty("publishTo")) {
-    subprojects {
-        apply plugin: 'maven-publish'
+// always configure maven-publish so publishToMavenLocal works without extra properties
+subprojects {
+    apply plugin: 'maven-publish'
 
-        java {
-            withSourcesJar()
-            withJavadocJar()
+    java {
+        withSourcesJar()
+        withJavadocJar()
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+            }
         }
 
-        publishing {
+        // publish snapshot versions to any repo you'd like to see them in
+        if (project.hasProperty("publishTo")) {
             repositories {
                 maven {
                     url project.publishTo
@@ -105,11 +112,6 @@ if (project.hasProperty("publishTo")) {
                             password = project.publishPassword
                         }
                     }
-                }
-            }
-            publications {
-                mavenJava(MavenPublication) {
-                    from components.java
                 }
             }
         }
