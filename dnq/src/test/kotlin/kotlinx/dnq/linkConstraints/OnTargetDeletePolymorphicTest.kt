@@ -16,13 +16,18 @@
 package kotlinx.dnq.linkConstraints
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQueryCollector
 import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy.CASCADE
 import kotlinx.dnq.link.OnDeletePolicy.CLEAR
+import kotlinx.dnq.link.OnDeletePolicy.FAIL
 import kotlinx.dnq.query.toList
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import kotlin.concurrent.thread
+import kotlin.test.assertFailsWith
 
 /**
  * Correctness tests for onTargetDelete constraints when the entity being deleted is
@@ -159,6 +164,21 @@ class OnTargetDeletePolymorphicTest : DBTest() {
         var mid: TransMid3 by xdLink1(TransMid3, onTargetDelete = CASCADE)
     }
 
+    // Three independent source types linking to PolyTarget with onTargetDelete = FAIL.
+    // Deleting the target while any of these sources exist must throw ConstraintsValidationException.
+    class FailSub1(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<FailSub1>()
+        var target: PolyTarget by xdLink1(PolyTarget, onTargetDelete = FAIL)
+    }
+    class FailSub2(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<FailSub2>()
+        var target: PolyTarget by xdLink1(PolyTarget, onTargetDelete = FAIL)
+    }
+    class FailSub3(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<FailSub3>()
+        var target: PolyTarget by xdLink1(PolyTarget, onTargetDelete = FAIL)
+    }
+
     override fun registerEntityTypes() {
         XdModel.registerNodes(
             PolyTarget,
@@ -169,6 +189,7 @@ class OnTargetDeletePolymorphicTest : DBTest() {
             TransLeaf1a, TransLeaf1b, TransLeaf1c,
             TransLeaf2a, TransLeaf2b, TransLeaf2c,
             TransLeaf3a, TransLeaf3b, TransLeaf3c,
+            FailSub1, FailSub2, FailSub3,
         )
     }
 
@@ -393,13 +414,14 @@ class OnTargetDeletePolymorphicTest : DBTest() {
      * Two separate code paths fire these queries:
      *
      * 1. processOnDeleteConstraints (EntityOperations.remove, 2 phases):
-     *    BEFORE fix: 10 source types × 2 = 20 typed Labeled(FollowLink) queries
-     *    AFTER  fix:  1 link name  × 2 =  2 untyped FollowLink queries
+     *    Source types for "target" link: 5 CASCADE + 5 CLEAR + 3 FAIL = 13
+     *    BEFORE fix: 13 source types × 2 = 26 typed Labeled(FollowLink) queries
+     *    AFTER  fix:  1 link name   × 2 =  2 untyped FollowLink queries
      *
      * 2. checkIncomingLinks (constraint validation — not in scope for XD-1263):
-     *    10 source types × 1 call = 10 typed Labeled(FollowLink) queries (unchanged)
+     *    13 source types × 1 call = 13 typed Labeled(FollowLink) queries (unchanged)
      *
-     * Total BEFORE: 30  |  Total AFTER: 12
+     * Total BEFORE: 39  |  Total AFTER: 15
      *
      * Note: the Gremlin optimizer rewrites ByIds+InLink+HasLabel into
      * Labeled(FollowLink(ByIds(?), IN, linkName), type), and ByIds+InLink into
@@ -425,15 +447,17 @@ class OnTargetDeletePolymorphicTest : DBTest() {
 
         // Breakdown of FollowLink queries during target.delete():
         //
+        // Source types registered for "target" link: 5 CASCADE + 5 CLEAR + 3 FAIL = 13
+        //
         // processOnDeleteConstraints (EntityOperations.remove, 2 phases):
-        //   BEFORE fix: 10 source types × 2 phases = 20 typed Labeled(FollowLink) queries
-        //   AFTER  fix:  1 link name  × 2 phases =  2 untyped FollowLink queries
+        //   BEFORE fix: 13 source types × 2 phases = 26 typed Labeled(FollowLink) queries
+        //   AFTER  fix:  1 link name   × 2 phases =  2 untyped FollowLink queries
         //
         // checkIncomingLinks (constraint validation, unchanged):
-        //   10 source types × 1 call = 10 typed Labeled(FollowLink) queries
+        //   13 source types × 1 call = 13 typed Labeled(FollowLink) queries
         //
-        // Total BEFORE: 30  |  Total AFTER: 12
-        assertThat(findLinksCount).isEqualTo(30)
+        // Total BEFORE: 39  |  Total AFTER: 15
+        assertThat(findLinksCount).isEqualTo(39)
     }
 
     /**
@@ -488,5 +512,170 @@ class OnTargetDeletePolymorphicTest : DBTest() {
         val findLinksCount = GremlinQueryCollector.countSince(before) { "FollowLink" in it }
 
         assertThat(findLinksCount).isEqualTo(495)
+    }
+
+    // ---- onTargetDelete FAIL tests -------------------------------------------
+
+    /**
+     * When a target entity is deleted while sources with onTargetDelete=FAIL still exist,
+     * the deletion must throw [ConstraintsValidationException] and leave all entities intact.
+     *
+     * Three FailSub types link to the same PolyTarget. All must individually prevent deletion.
+     */
+    @Test
+    fun `onTargetDelete FAIL throws ConstraintsValidationException when sources are present`() {
+        val target = transactional {
+            val t = PolyTarget.new()
+            FailSub1.new { this.target = t }
+            FailSub2.new { this.target = t }
+            FailSub3.new { this.target = t }
+            t
+        }
+
+        assertFailsWith<ConstraintsValidationException> {
+            transactional { target.delete() }
+        }
+
+        transactional {
+            // All entities still exist after the blocked deletion
+            assertThat(PolyTarget.all().toList()).hasSize(1)
+            assertThat(FailSub1.all().toList()).hasSize(1)
+            assertThat(FailSub2.all().toList()).hasSize(1)
+            assertThat(FailSub3.all().toList()).hasSize(1)
+        }
+    }
+
+    /**
+     * When both FAIL and CASCADE sources exist, FAIL takes precedence and blocks deletion.
+     * Once all FAIL sources are removed, deleting the target succeeds and CASCADE sources are gone.
+     */
+    @Test
+    fun `onTargetDelete FAIL and CASCADE coexist - FAIL blocks deletion while any FAIL source exists`() {
+        val target = transactional {
+            val t = PolyTarget.new()
+            CascadeSub1.new { this.target = t }
+            CascadeSub2.new { this.target = t }
+            FailSub1.new { this.target = t }
+            t
+        }
+
+        // FAIL source prevents deletion even though CASCADE sources are present
+        assertFailsWith<ConstraintsValidationException> {
+            transactional { target.delete() }
+        }
+
+        // Remove all FAIL sources
+        transactional {
+            FailSub1.all().toList().forEach { it.delete() }
+        }
+
+        // Now deletion succeeds and CASCADE sources are also gone
+        transactional { target.delete() }
+
+        transactional {
+            assertThat(PolyTarget.all().toList()).isEmpty()
+            assertThat(CascadeSub1.all().toList()).isEmpty()
+            assertThat(CascadeSub2.all().toList()).isEmpty()
+            assertThat(FailSub1.all().toList()).isEmpty()
+        }
+    }
+
+    // ---- concurrent / replay tests (scenarios 7 and 8) ----------------------
+
+    /**
+     * Scenario 7: Multi-subtype cascade delete under transaction replay.
+     *
+     * Two threads each delete a separate PolyTarget entity that has sources of multiple subtypes.
+     * Thread B waits inside its transaction until Thread A commits, which forces Thread B's
+     * transaction into a NeedRetryException. On replay, the cascade must still process all
+     * source types correctly.
+     *
+     * If processOnDeleteConstraints uses a stale transactionInternal after the replay replaces
+     * it with a fresh transaction, some sources may be silently missed.
+     */
+    @Test
+    fun `multi-subtype cascade delete completes correctly under transaction replay`() {
+        val target1 = transactional {
+            val t = PolyTarget.new()
+            CascadeSub1.new { this.target = t }
+            CascadeSub2.new { this.target = t }
+            CascadeSub3.new { this.target = t }
+            t
+        }
+        val target2 = transactional {
+            val t = PolyTarget.new()
+            CascadeSub1.new { this.target = t }
+            CascadeSub2.new { this.target = t }
+            CascadeSub3.new { this.target = t }
+            t
+        }
+
+        val bothStarted = CountDownLatch(2)
+        val firstCommitted = CountDownLatch(1)
+
+        val t1 = thread {
+            store.transactional {
+                bothStarted.countDown()
+                bothStarted.await()
+                target1.delete()
+            }
+            firstCommitted.countDown()
+        }
+
+        val t2 = thread {
+            store.transactional {
+                bothStarted.countDown()
+                bothStarted.await()
+                target2.delete()
+                firstCommitted.await() // keep tx open until T1 commits, forcing a replay
+            }
+        }
+
+        t1.join()
+        t2.join()
+
+        transactional {
+            assertThat(PolyTarget.all().toList()).isEmpty()
+            assertThat(CascadeSub1.all().toList()).isEmpty()
+            assertThat(CascadeSub2.all().toList()).isEmpty()
+            assertThat(CascadeSub3.all().toList()).isEmpty()
+        }
+    }
+
+    /**
+     * Scenario 8: New source committed between the original delete attempt and its replay.
+     *
+     * Thread A opens a transaction to delete the target (which already has existing sources).
+     * While Thread A's transaction is open, Thread B commits a brand-new source pointing to the
+     * same target. Thread A then hits NeedRetryException and replays. On replay, the untyped
+     * query must return the fresh snapshot that includes Thread B's source — and that source
+     * must also be cascade-deleted.
+     */
+    @Test
+    fun `new source committed during replay window is also cascade-deleted`() {
+        val target = transactional {
+            val t = PolyTarget.new()
+            CascadeSub1.new { this.target = t }
+            CascadeSub2.new { this.target = t }
+            t
+        }
+
+        // Thread A deletes the target; inner Thread B commits a new source concurrently,
+        // causing Thread A to retry. On retry Thread A must also cascade-delete the new source.
+        transactional {
+            target.delete()
+            thread {
+                transactional {
+                    CascadeSub3.new { this.target = target }
+                }
+            }.join()
+        }
+
+        transactional {
+            assertThat(PolyTarget.all().toList()).isEmpty()
+            assertThat(CascadeSub1.all().toList()).isEmpty()
+            assertThat(CascadeSub2.all().toList()).isEmpty()
+            assertThat(CascadeSub3.all().toList()).isEmpty()
+        }
     }
 }
