@@ -336,6 +336,10 @@ object ConstraintsUtil: KLogging() {
         val oppositeEntityMetaData = modelMetaData.getEntityMetaData(oppositeType)
                 ?: throw RuntimeException("Cannot find metadata for entity type $oppositeType as opposite to ${target.type}")
         val associationEndMetaData = oppositeEntityMetaData.getAssociationEndMetaData(linkName)
+        if (associationEndMetaData == null) {
+            logger.debug("Cannot check onTargetDelete constraints for link [$oppositeType.$linkName]. Association end metadata for it is undefined")
+            return
+        }
         val changesTracker = session.transientChangesTracker
 
         allSources

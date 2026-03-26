@@ -514,6 +514,43 @@ class OnTargetDeletePolymorphicTest : DBTest() {
         assertThat(findLinksCount).isEqualTo(275)
     }
 
+    /**
+     * Measures how many findLinks DB queries are issued during a delete attempt that is
+     * ultimately blocked by onTargetDelete=FAIL sources.
+     *
+     * Even though the deletion fails at constraint-check time, the processOnDeleteConstraints
+     * and checkIncomingLinks code paths still execute and issue queries:
+     *
+     * processOnDeleteConstraints (2 phases, 1 linkName "target"):
+     *   2 untyped FollowLink queries — FAIL sources are fetched but not acted on
+     *
+     * checkIncomingLinks (fires before the ConstraintsValidationException is thrown):
+     *   13 source types × 1 call = 13 typed Labeled(FollowLink) queries
+     *
+     * Total: 15 — same as the successful CASCADE delete, confirming that FAIL policy
+     * does not cause additional query fan-out compared to CASCADE or CLEAR.
+     */
+    @Test
+    fun `findLinks query count for FAIL policy blocked delete attempt`() {
+        val target = transactional {
+            val t = PolyTarget.new()
+            FailSub1.new { this.target = t }
+            FailSub2.new { this.target = t }
+            FailSub3.new { this.target = t }
+            t
+        }
+
+        GremlinQueryCollector.enableForTests()
+        val before = GremlinQueryCollector.snapshot()
+
+        assertFailsWith<ConstraintsValidationException> {
+            transactional { target.delete() }
+        }
+
+        val findLinksCount = GremlinQueryCollector.countSince(before) { "FollowLink" in it }
+        assertThat(findLinksCount).isEqualTo(15)
+    }
+
     // ---- onTargetDelete FAIL tests -------------------------------------------
 
     /**
