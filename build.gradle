@@ -31,7 +31,7 @@ idea {
 
 allprojects {
     group = 'org.jetbrains.xodus'
-    version = '3.0' + (project.hasProperty("versionSuffix") ? "-${project.versionSuffix}" : '') + '.' + ((project.hasProperty("teamcity")) ? project.teamcity["build.number"] : 'dev')
+    version = '3.0.' + (project.hasProperty("teamcity") ? project.teamcity["build.number"] : (project.hasProperty("versionSuffix") ? project.versionSuffix : 'dev'))
 
     repositories {
         mavenCentral()
