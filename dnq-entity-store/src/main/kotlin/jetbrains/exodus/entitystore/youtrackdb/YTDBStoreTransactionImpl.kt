@@ -376,6 +376,16 @@ class YTDBStoreTransactionImpl(
         return findLinks(entityType, entity.id as YTDBEntityId, linkName)
     }
 
+    override fun findLinksUntyped(entity: Entity, linkName: String): YTDBEntityIterable {
+        requireActiveTransaction()
+        return YTDBEntityIterable.query(
+            this,
+            GremlinQuery
+                .ByIds(listOf((entity.id as YTDBEntityId).asOId()))
+                .then(GremlinBlock.InLink(linkName))
+        )
+    }
+
     override fun findLinks(
         entityType: String,
         entities: EntityIterable,

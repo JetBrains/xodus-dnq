@@ -28,6 +28,7 @@ import jetbrains.exodus.database.exceptions.CardinalityViolationException
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.database.exceptions.NullPropertyException
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.query.metadata.*
 import mu.KLogging
 
@@ -173,14 +174,21 @@ object ConstraintsUtil: KLogging() {
                     processOnSourceDeleteConstrains(entity, associationEndMetaData, callDestructorsPhase, processed, checkEntityRemoved)
                 }
 
-        // incoming associations
+        // incoming associations — one untyped DB query per distinct linkName, then dispatch in-memory
+        val ytdbTransaction = session.transactionInternal as YTDBStoreTransaction
         entityMetaData.getIncomingAssociations(modelMetaData)
                 .asSequence()
                 .flatMap { (oppositeType, linkNames) ->
-                    linkNames.asSequence().map { linkName -> oppositeType to linkName }
+                    linkNames.asSequence().map { linkName -> linkName to oppositeType }
                 }
-                .forEach { (oppositeType, linkName) ->
-                    processOnTargetDeleteConstraints(entity, modelMetaData, oppositeType, linkName, session, callDestructorsPhase, processed)
+                .groupBy({ it.first }, { it.second })
+                .forEach { (linkName, oppositeTypes) ->
+                    val allSources = session.createPersistentEntityIterableWrapper(
+                        ytdbTransaction.findLinksUntyped(entity, linkName)
+                    ).toList()
+                    for (oppositeType in oppositeTypes) {
+                        processOnTargetDeleteConstraints(entity, modelMetaData, oppositeType, linkName, allSources, session, callDestructorsPhase, processed)
+                    }
                 }
     }
 
@@ -320,6 +328,7 @@ object ConstraintsUtil: KLogging() {
             modelMetaData: ModelMetaData,
             oppositeType: String,
             linkName: String,
+            allSources: List<Entity>,
             session: TransientStoreSession,
             callDestructorsPhase: Boolean,
             processed: MutableSet<Entity>) {
@@ -329,9 +338,10 @@ object ConstraintsUtil: KLogging() {
         val associationEndMetaData = oppositeEntityMetaData.getAssociationEndMetaData(linkName)
         val changesTracker = session.transientChangesTracker
 
-        session.findLinks(oppositeType, target, linkName)
+        allSources
                 .asSequence()
                 .filterIsInstance<TransientEntity>()
+                .filter { it.type == oppositeType }
                 .filter { !it.isRemoved }
                 .forEach { source ->
                     val linkRemoved = changesTracker.getChangedLinksDetailed(source)

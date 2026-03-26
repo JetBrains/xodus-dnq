@@ -457,7 +457,7 @@ class OnTargetDeletePolymorphicTest : DBTest() {
         //   13 source types × 1 call = 13 typed Labeled(FollowLink) queries
         //
         // Total BEFORE: 39  |  Total AFTER: 15
-        assertThat(findLinksCount).isEqualTo(39)
+        assertThat(findLinksCount).isEqualTo(15)
     }
 
     /**
@@ -511,7 +511,7 @@ class OnTargetDeletePolymorphicTest : DBTest() {
 
         val findLinksCount = GremlinQueryCollector.countSince(before) { "FollowLink" in it }
 
-        assertThat(findLinksCount).isEqualTo(495)
+        assertThat(findLinksCount).isEqualTo(275)
     }
 
     // ---- onTargetDelete FAIL tests -------------------------------------------

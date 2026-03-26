@@ -160,6 +160,13 @@ interface YTDBStoreTransaction : StoreTransaction {
         linkName: String
     ): YTDBEntityIterable
 
+    /**
+     * Returns all entities that have an incoming link named [linkName] from [entity],
+     * regardless of the source entity type. Unlike [findLinks], no `HasLabel` filter
+     * is applied, so a single DB traversal covers all source types.
+     */
+    fun findLinksUntyped(entity: Entity, linkName: String): YTDBEntityIterable
+
     override fun findWithLinks(
         entityType: String,
         linkName: String
