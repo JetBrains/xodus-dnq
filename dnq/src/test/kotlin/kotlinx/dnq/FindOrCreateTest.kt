@@ -159,7 +159,6 @@ class FindOrCreateTest : DBTest() {
     }
 
     @Test
-
     fun `different parameters should result into different entities`() {
         val user = store.transactional {
             User.new { login = "zeckson"; skill = 1 }

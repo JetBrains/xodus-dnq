@@ -775,11 +775,8 @@ class TransientSessionImpl(
                 // was never initialised (creator.created() was not called in this branch).
                 // Deleting it here causes YTDB to treat the create+delete as a no-op, so the
                 // empty vertex is never validated or written to the persistent store.
-                val foundPersistentEntity = (found as TransientEntityImpl).entity
-                if (foundPersistentEntity != persistentEntity) {
-                    persistentEntity.delete()
-                    transientEntity.entity = foundPersistentEntity
-                }
+                persistentEntity.delete()
+                transientEntity.entity = (found as TransientEntityImpl).entity
                 false
             }
         }
