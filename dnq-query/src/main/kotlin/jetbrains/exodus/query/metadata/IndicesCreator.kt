@@ -127,7 +127,7 @@ internal data class DeferredIndex(
 ) {
     constructor(ownerVertexName: String, properties: Set<String>, unique: Boolean) : this(
         ownerVertexName,
-        indexName = "${ownerVertexName}_${properties.sorted().joinToString("_")}${if (unique) "_unique" else ""}",
+        indexName = "${ownerVertexName}_${properties.sorted().joinToString("_")}${if (unique) "_unique" else ""}".replace(' ', '_'),
         properties,
         unique = unique
     )

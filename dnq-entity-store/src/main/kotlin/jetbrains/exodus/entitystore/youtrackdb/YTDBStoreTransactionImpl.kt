@@ -601,8 +601,10 @@ class YTDBStoreTransactionImpl(
     }
 
     override fun setQueryCancellingPolicy(policy: QueryCancellingPolicy?) {
-        require(policy is YTDBQueryCancellingPolicy) { "Only OQueryCancellingPolicy is supported, but was ${policy?.javaClass?.simpleName}" }
-        this.queryCancellingPolicy = policy
+        // MIGRATION: Xodus supported arbitrary QueryCancellingPolicy implementations (e.g.
+        // PersistentUserJobCancellationPolicy). YouTrackDB only supports YTDBQueryCancellingPolicy.
+        // Non-compatible policies are silently ignored rather than crashing.
+        this.queryCancellingPolicy = policy as? YTDBQueryCancellingPolicy
     }
 
     override fun getQueryCancellingPolicy() = this.queryCancellingPolicy
