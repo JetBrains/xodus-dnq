@@ -1852,7 +1852,7 @@ class GremlinQueryCoverageTest : DBTest() {
     // =========================================================================
     // Group 13 — F1: condition \ Dedup(FollowLink(src, OUT, link))
     //
-    // The F1 pattern arises in Hub as:
+    // The F1 pattern arises as:
     //   condition \ flatMapDistinct { it.followLink(link, OUT) }
     //
     // Two gaps previously blocked this optimisation:
@@ -1957,12 +1957,171 @@ class GremlinQueryCoverageTest : DBTest() {
         }
     }
 
+    @Test
+    fun `group 13 - Q112 O11c F1a bare FollowLink difference Dedup(FollowLink(src-All, OUT))`() {
+        // Q112: projects(All) \ Dedup(FollowLink(sprints(), OUT, "project"))
+        // Source-labeled variant of Q105: FollowLink has no outer Labeled wrapper — the label
+        // is on the SOURCE argument, not the result.  This shape arises when traversing a link
+        // without a result type restriction.
+        //
+        // After O17 strips Dedup, other = FollowLink(Labeled(Where(All), "Sprint"), OUT, "project").
+        // O11c fires (bare FollowLink path):
+        //   srcCondBlock = All, srcLabel = "Sprint", direction = OUT → linkStep = InLink("project")
+        //   All + OUT direction → else branch: chain = in("project_link").hasLabel("Sprint")
+        //   inversePredicate = where(in("project_link").hasLabel("Sprint"))
+        //   combined = not(where(in("project_link").hasLabel("Sprint")))
+        val dedupSprintsToProject = FollowLink(sprints(), LinkDirection.OUT, "project").then(Dedup)
+        val q112 = projects().difference(dedupSprintsToProject)
+        println("[Q112 O11c F1a bare-FL diff Dedup(sprints-All->project)] query  : $q112")
+        println("[Q112 O11c F1a bare-FL diff Dedup(sprints-All->project)] gremlin: ${q112.toGremlin()}")
+        assertThat(q112.toGremlin()).isEqualTo(
+            """g.V().not(__.where(__.in("project_link").hasLabel("Sprint"))).hasLabel("Project")"""
+        )
+        withLowLevelTx { tx ->
+            assertThat(q112.resultKeys(tx)).containsExactlyElementsIn(listOf("INFRA", "ARC"))
+        }
+    }
+
+    @Test
+    fun `group 13 - Q113 O11c F1a bare FollowLink difference Dedup(FollowLink(src-condition, OUT))`() {
+        // Q113: projects(All) \ Dedup(FollowLink(sprints(condition), OUT, "project"))
+        // Source-labeled variant of Q106: same as Q112 but source carries a non-All condition.
+        //
+        // O11c:
+        //   srcCondBlock = PropEqual("state", "active"), srcLabel = "Sprint", direction = OUT
+        //   chain = in("project_link").has("state", "active").hasLabel("Sprint")
+        //   inversePredicate = where(in("project_link").has("state", "active").hasLabel("Sprint"))
+        val dedupActiveSprintsToProject =
+            FollowLink(sprints(PropEqual("state", "active")), LinkDirection.OUT, "project").then(Dedup)
+        val q113 = projects().difference(dedupActiveSprintsToProject)
+        println("[Q113 O11c F1a bare-FL diff Dedup(sprints-condition->project)] query  : $q113")
+        println("[Q113 O11c F1a bare-FL diff Dedup(sprints-condition->project)] gremlin: ${q113.toGremlin()}")
+        assertThat(q113.toGremlin()).isEqualTo(
+            """g.V().not(__.where(__.in("project_link").has("state","active").hasLabel("Sprint"))).hasLabel("Project")"""
+        )
+        withLowLevelTx { tx ->
+            assertThat(q113.resultKeys(tx)).containsExactlyElementsIn(listOf("INFRA", "ARC"))
+        }
+    }
+
+    @Test
+    fun `group 13 - Q114 O11d F1b bare FollowLink difference Dedup(FollowLink(FollowLink-src, OUT))`() {
+        // Q114: projects(All) \ Dedup(FollowLink(Labeled(FollowLink(issues, OUT, "sprint"), "Sprint"), OUT, "project"))
+        // Source-labeled variant of Q107: the bare FollowLink has a two-hop Labeled(FollowLink) source.
+        // O11c main path fails (extractCondition of Labeled(FollowLink) = null).
+        // O11d fires:
+        //   fl        = FollowLink(Labeled(FollowLink(issues, OUT, "sprint"), "Sprint"), OUT, "project")
+        //   srcLabeled = Labeled(FollowLink(issues, OUT, "sprint"), "Sprint"); innerFL = FollowLink(issues, OUT, "sprint")
+        //   innerSrcCondBlock = All, srcLabel = "Sprint", innerSrcLabel = "Issue"
+        //   outerLinkStep = InLink("project"), innerLinkStep = InLink("sprint")
+        //   innerChain = in("sprint_link").hasLabel("Issue")
+        //   outerChain = in("project_link").where(in("sprint_link").hasLabel("Issue")).hasLabel("Sprint")
+        val sprintsWithIssues = Labeled(FollowLink(issues(), LinkDirection.OUT, "sprint"), "Sprint")
+        val dedupSprintsWithIssuesToProject =
+            FollowLink(sprintsWithIssues, LinkDirection.OUT, "project").then(Dedup)
+        val q114 = projects().difference(dedupSprintsWithIssuesToProject)
+        println("[Q114 O11d F1b bare-FL diff Dedup(sprints-via-issues->project)] query  : $q114")
+        println("[Q114 O11d F1b bare-FL diff Dedup(sprints-via-issues->project)] gremlin: ${q114.toGremlin()}")
+        assertThat(q114.toGremlin()).isEqualTo(
+            """g.V().not(__.where(__.in("project_link")""" +
+            """.where(__.in("sprint_link").hasLabel("Issue")).hasLabel("Sprint"))).hasLabel("Project")"""
+        )
+        withLowLevelTx { tx ->
+            assertThat(q114.resultKeys(tx)).containsExactlyElementsIn(listOf("INFRA", "ARC"))
+        }
+    }
+
+    @Test
+    fun `group 13 - Q115 O11c bare FollowLink difference Dedup(FollowLink(src-All, IN)) HasLink shortcut`() {
+        // Q115: issues(All) \ Dedup(FollowLink(sprints(), IN, "sprint"))
+        // Issues that have no sprint — IN direction with All source triggers the HasLink shortcut.
+        //
+        // O11c: srcCondBlock=All, direction=IN → HasLink("sprint")
+        //   inversePredicate = HasLink("sprint")
+        //   combined = Not(HasLink("sprint"))
+        //   result = Labeled(Where(Not(HasLink("sprint"))), "Issue")
+        //
+        // This is the IN-direction counterpart of Q112 (which uses OUT direction and the else branch).
+        val q115 = issues().difference(FollowLink(sprints(), LinkDirection.IN, "sprint").then(Dedup))
+        println("[Q115 O11c bare-FL IN HasLink shortcut] query  : $q115")
+        println("[Q115 O11c bare-FL IN HasLink shortcut] gremlin: ${q115.toGremlin()}")
+        assertThat(q115.toGremlin()).isEqualTo(
+            """g.V().not(__.out("sprint_link")).hasLabel("Issue")"""
+        )
+        withLowLevelTx { tx ->
+            // Same result as issues(HasNoLink("sprint")) / Q13: 13 issues with no sprint
+            assertThat(q115.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-5","ENG-8","ENG-9","ENG-11","ENG-14",
+                       "OPS-1","OPS-3","OPS-5","INFRA-1","INFRA-2","INFRA-3","INFRA-4","ARC-1"))
+        }
+    }
+
+    @Test
+    fun `group 13 - Q116 O11c bare FollowLink difference Dedup(FollowLink(src-condition, IN)) else branch`() {
+        // Q116: issues(All) \ Dedup(FollowLink(sprints(active), IN, "sprint"))
+        // Issues not in any active sprint — IN direction with non-All source uses the else branch.
+        //
+        // O11c: srcCondBlock=PropEqual("state","active"), srcLabel="Sprint", direction=IN
+        //   linkStep = OutLink("sprint")  (direction IN → invert to OUT)
+        //   chain = out("sprint_link").has("state","active").hasLabel("Sprint")
+        //   inversePredicate = Where(chain)
+        //   combined = Not(Where(chain))
+        //
+        // Active sprints: S1 (ENG), S3 (OPS); S2 is not active.
+        // Issues in active sprint: ENG-1,2,3,6,10,12,13 (S1) + OPS-2,4 (S3) = 9 issues.
+        val q116 = issues().difference(
+            FollowLink(sprints(PropEqual("state", "active")), LinkDirection.IN, "sprint").then(Dedup)
+        )
+        println("[Q116 O11c bare-FL IN condition else-branch] query  : $q116")
+        println("[Q116 O11c bare-FL IN condition else-branch] gremlin: ${q116.toGremlin()}")
+        assertThat(q116.toGremlin()).isEqualTo(
+            """g.V().not(__.where(__.out("sprint_link").has("state","active").hasLabel("Sprint"))).hasLabel("Issue")"""
+        )
+        withLowLevelTx { tx ->
+            // 24 total - 9 in active sprint = 15 issues
+            assertThat(q116.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-4","ENG-5","ENG-7","ENG-8","ENG-9","ENG-11","ENG-14",
+                       "OPS-1","OPS-3","OPS-5","INFRA-1","INFRA-2","INFRA-3","INFRA-4","ARC-1"))
+        }
+    }
+
+    @Test
+    fun `group 13 - Q117 O11c bare FollowLink union FollowLink(src-All, IN) Union combiner`() {
+        // Q117: issues(HasNoLink("sprint")).union(FollowLink(sprints(), IN, "sprint"))
+        // Issues without a sprint ∪ issues with any sprint = all issues.
+        // Exercises O11c with the Union combiner (combineBlocks produces Or instead of Not).
+        //
+        // Note: O17 only strips Dedup for Difference, not Union, so passing `.then(Dedup)` here
+        // would leave an Order wrapper that prevents O11c from matching. The bare FollowLink is
+        // the correct input for testing the Union path.
+        //
+        // O11c with Union: srcCondBlock=All, direction=IN → HasLink("sprint")
+        //   thisCondBlock = HasNoLink("sprint")
+        //   combined = Or(HasNoLink("sprint"), HasLink("sprint"))
+        //   result = Labeled(Where(Or(HasNoLink("sprint"), HasLink("sprint"))), "Issue")
+        val q117 = issues(HasNoLink("sprint")).union(
+            FollowLink(sprints(), LinkDirection.IN, "sprint")
+        )
+        println("[Q117 O11c bare-FL IN Union combiner] query  : $q117")
+        println("[Q117 O11c bare-FL IN Union combiner] gremlin: ${q117.toGremlin()}")
+        // Or(HasNoLink("sprint"), HasLink("sprint")) = Or(Not(HasLink), HasLink) simplifies to All
+        assertThat(q117.toGremlin()).isEqualTo("""g.V().hasLabel("Issue")""")
+        withLowLevelTx { tx ->
+            // Union of complement sets = all 24 issues
+            assertThat(q117.resultKeys(tx)).containsExactlyElementsIn(
+                listOf("ENG-1","ENG-2","ENG-3","ENG-4","ENG-5","ENG-6","ENG-7","ENG-8",
+                       "ENG-9","ENG-10","ENG-11","ENG-12","ENG-13","ENG-14",
+                       "OPS-1","OPS-2","OPS-3","OPS-4","OPS-5",
+                       "INFRA-1","INFRA-2","INFRA-3","INFRA-4","ARC-1"))
+        }
+    }
+
     // =========================================================================
     // Group 14 — F2/F3: Labeled(Labeled(Where(block), T1), T2) as operand (O19)
     //
-    // The double-label pattern arises in Hub as the right operand of intersect/difference
+    // The double-label pattern arises as the right operand of intersect/difference
     // when a query targets an entity that participates in a class hierarchy — for example
-    // "vertices labeled both JPBaseUserGroup AND JPRoleHolder". extractCondition currently
+    // "vertices labeled both TypeA AND TypeB". extractCondition currently
     // returns null for Labeled(Labeled(Condition, T1), T2) because the inner is not a
     // bare Condition. O19 extends extractCondition to handle this case:
     //   extractCondition(Labeled(Labeled(Where(All), T1), T2)) → HasLabel(T1)
