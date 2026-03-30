@@ -25,22 +25,25 @@ private fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label e
 // This double-label pattern arises when a query targets an entity that participates in a
 // class hierarchy — e.g. "all TypeB vertices that are also TypeA". The outer label T2 is
 // the declared return type; the inner label T1 is an additional type constraint.
-// extractCondition maps the double-label case to HasLabel(T1) so that O7/O11 can treat
-// it as a plain condition, while the outer T2 label is propagated separately by O7's
-// `extraLabel` path.
+// extractCondition maps the double-label case to HasLabel(T1) so that the condition
+// combiners (including O11) can treat it as a plain condition.
+//
+// NOTE: O7 does NOT propagate the outer T2 label when the condition originates from an
+// O19 double-label (see the double-label guard in O7).  Appending HasLabel(T1) to a
+// FollowLink traversal and then wrapping with T2 produces two consecutive hasLabel steps;
+// TinkerPop's InlineFilterStrategy merges them and YTDBHasLabelStep evaluates with anyMatch
+// (OR), causing sibling types under T2 to pass incorrectly.  Those cases fall to Aggregate.
 //
 // Only the Where(All) inner case is handled; a non-trivial inner condition would require
 // composing GremlinBlock.AndThen which is illegal in the then() dispatch path, so those
 // fall through to null (Aggregate).
 //
-// Example:
-//   Labeled(FollowLink(ByIds(?), OUT, "refs"), "TypeA")
-//   ∩ Labeled(Labeled(Where(All), "TypeA"), "TypeB")
-//   → extractCondition(right) = HasLabel("TypeA")
-//   → O7 appends HasLabel("TypeA") to the FollowLink traversal,
-//     then extraLabel propagation wraps the result in Labeled(..., "TypeB")
-//   → Labeled(FollowLink(ByIds(?), OUT, "refs").andThen(hasLabel("TypeA")), "TypeB")
-//   → g.V().hasId(...).out("refs_link").hasLabel("TypeA").hasLabel("TypeB")
+// Example (condition combiner path — not FollowLink, unaffected by double-label guard):
+//   Labeled(Where(All), "User") ∩ Labeled(Labeled(Where(All), "Employee"), "User")
+//   → extractCondition(right) = HasLabel("Employee")
+//   → combinedCondition = Where(HasLabel("Employee")), label = "User"
+//   → Labeled(Where(HasLabel("Employee")), "User")
+//   → g.V().hasLabel("Employee").hasLabel("User")
 private fun extractCondition(q: GremlinQuery): GremlinBlock? =
     if (q is Labeled && q.inner is Condition) q.inner.asBlock()
     else if (q is Labeled && q.inner is Labeled && q.inner.inner is Condition &&
@@ -186,6 +189,45 @@ internal fun GremlinQuery.combineEfficient(
         return ByIds(condCombiner.combineIds(this.ids, other.ids))
     }
 
+    // O_B: Aggregate ∩ Labeled(Where(All), T) — strip redundant outer intersection.
+    //
+    // When `this` is an Aggregate and the right operand is "all vertices of type T",
+    // and the left branch of the Aggregate is already labeled T, the intersection is a
+    // no-op: Aggregate produces only vertices from its left query, which are already T-labeled.
+    //
+    // Example (two-step query):
+    //   step1 = events(byId) ∩ eventsByType   → Aggregate(events_labeled_T, eventsByType)
+    //                                            (forced because the two labels differ)
+    //   step2 = step1 ∩ allT                   → O_B fires → step1 (redundant Aggregate dropped)
+    //
+    // Without O_B:
+    //   step2 = Aggregate(Aggregate(events_T, eventsByType), allT)
+    //   → g.V().hasLabel("T").aggregate("aggr_0").fold()
+    //          .V().hasLabel("T2").aggregate("aggr_1").fold()
+    //          .V().<cond>.hasLabel("T").where(within("aggr_1")).where(within("aggr_0"))
+    //
+    // With O_B:
+    //   step2 = Aggregate(events_T, eventsByType)
+    //   → g.V().<cond2>.hasLabel("T2").aggregate("aggr_0").fold()
+    //          .V().<cond1>.hasLabel("T").where(within("aggr_0"))
+    //
+    // Applicable for Intersect only; Difference/Union semantics differ.
+    // Symmetric: also handle Labeled(Where(All), T) ∩ Aggregate(left_T, ...).
+    if (condCombiner is ConditionCombiner.Intersect) {
+        if (this is Aggregate &&
+            extractCondition(other) is GremlinBlock.All &&
+            extractLabel(this.left) != null &&
+            extractLabel(this.left) == extractLabel(other)) {
+            return this
+        }
+        if (other is Aggregate &&
+            extractCondition(this) is GremlinBlock.All &&
+            extractLabel(other.left) != null &&
+            extractLabel(other.left) == extractLabel(this)) {
+            return other
+        }
+    }
+
     // O7: FollowLink × Condition fusion — appends a filter predicate directly to the traversal,
     // avoiding a separate Aggregate step for FollowLink ∩ Condition and FollowLink \ Condition.
     //
@@ -210,9 +252,12 @@ internal fun GremlinQuery.combineEfficient(
     //   → Labeled(FollowLink(sprints(S1), IN, "sprint").andThen(open), "Issue")
     //   → g.V().hasLabel("Sprint").has("name","S1").in("sprint_link").has("status","open").hasLabel("Issue")
     //
-    // O19 label propagation: when `other` is Labeled(Labeled(Condition, T1), T2),
-    // extractCondition returns HasLabel(T1) but the outer T2 label is not part of the condition
-    // block — it is applied explicitly to the result via `extraLabel`.
+    // O19 / double-label guard: when `other` is Labeled(Labeled(Condition, T1), T2),
+    // extractCondition returns HasLabel(T1).  Appending it to the FollowLink traversal would
+    // produce two consecutive hasLabel steps (T1 then T2).  TinkerPop's InlineFilterStrategy
+    // merges consecutive HasStep objects; YTDBHasLabelStep evaluates multiple predicates with
+    // anyMatch (OR), so sibling types under T2 incorrectly pass.  We detect this by checking for
+    // a non-null extraLabel and fall through to Aggregate instead.
     if (condCombiner is ConditionCombiner.Intersect || condCombiner is ConditionCombiner.Difference) {
         if (this is FollowLink || (this is Labeled && this.inner is FollowLink)) {
             val condBlock = extractCondition(other)
@@ -220,8 +265,17 @@ internal fun GremlinQuery.combineEfficient(
                 val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not.of(condBlock) else condBlock
                 val base = if (this is Labeled) Labeled(this.inner.then(appended), this.label)
                            else (this as FollowLink).then(appended)
+                // O19 extraLabel: when `other` is Labeled(Labeled(Condition, T1), T2), extractCondition
+                // returns HasLabel(T1) and the outer T2 label is propagated here.  This produces a
+                // Labeled(Labeled(FollowLink, T1), T2) query whose traversal contains two consecutive
+                // hasLabel steps. TinkerPop's InlineFilterStrategy merges consecutive HasStep objects
+                // into a single step; YTDBHasLabelStep then evaluates all predicates with anyMatch
+                // (OR semantics), which allows sibling types under T2 (e.g. JPUsernamePasswordDetails
+                // when T1=OpenIDUserDetails, T2=JPBaseUserDetails) to pass incorrectly.
+                // Fall through to Aggregate whenever the double-label would be produced.
                 val extraLabel = if (other is Labeled && other.inner is Labeled) extractLabel(other) else null
-                return if (extraLabel != null) Labeled.of(base, extraLabel) else base
+                if (extraLabel != null) return null
+                return base
             }
         }
         if (condCombiner is ConditionCombiner.Intersect &&
@@ -230,8 +284,10 @@ internal fun GremlinQuery.combineEfficient(
             if (condBlock != null) {
                 val base = if (other is Labeled) Labeled(other.inner.then(condBlock), other.label)
                            else (other as FollowLink).then(condBlock)
+                // Same double-label guard for the symmetric case (see comment above).
                 val extraLabel = if (this is Labeled && this.inner is Labeled) extractLabel(this) else null
-                return if (extraLabel != null) Labeled.of(base, extraLabel) else base
+                if (extraLabel != null) return null
+                return base
             }
         }
     }

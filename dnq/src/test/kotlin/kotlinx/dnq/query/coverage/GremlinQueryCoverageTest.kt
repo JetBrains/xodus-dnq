@@ -20,6 +20,7 @@ import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.*
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.Aggregate
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.ByIds
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.FollowLink
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.Labeled
@@ -2195,19 +2196,18 @@ class GremlinQueryCoverageTest : DBTest() {
         // Q110: FollowLink(ByIds([p1, p2]), OUT, "lead") ∩ Labeled(Labeled(Where(All), "Employee"), "User")
         // Project leads (via bare FollowLink from ByIds) that are also Employees.
         // F2 shape: bare FollowLink on left, double-labeled Condition on right.
-        // After O19 + O7 label propagation:
-        //   extractCondition(right) = HasLabel("Employee"),
-        //   FollowLink.then(HasLabel("Employee")) = Labeled(FollowLink, "Employee"),
-        //   outer label "User" → Labeled(Labeled(FollowLink, "Employee"), "User")
-        //   → g.V(ids...).out("lead_link").hasLabel("Employee").hasLabel("User")
+        //
+        // O7 is intentionally suppressed for the O19 extraLabel case (double-label guard):
+        // the optimised form would produce Labeled(Labeled(FollowLink, T1), T2) whose traversal
+        // contains two consecutive hasLabel steps. TinkerPop's InlineFilterStrategy merges them
+        // into one HasStep; YTDBHasLabelStep evaluates with anyMatch (OR), allowing sibling types
+        // under T2 to pass incorrectly. Falls to Aggregate instead.
         val employeesAsUsers = Labeled(Labeled(Where.of(All), "Employee"), "User")
         val q110shape = FollowLink(ByIds(listOf(projectRid, projectRid2)), LinkDirection.OUT, "lead")
             .intersect(employeesAsUsers)
         println("[Q110 F2 FollowLink(ByIds) intersect double-labeled Employee] query  : $q110shape")
         println("[Q110 F2 FollowLink(ByIds) intersect double-labeled Employee] gremlin: ${q110shape.toGremlin()}")
-        assertThat(q110shape.toGremlin()).isEqualTo(
-            """g.V(#20:1,#20:2).out("lead_link").hasLabel("Employee").hasLabel("User")"""
-        )
+        assertThat(q110shape).isInstanceOf(Aggregate::class.java)
 
         // ---- Result assertions (real RIDs) ----
         // ENG lead = Alice (Employee), OPS lead = Carol (Employee). INFRA lead = Bob (Employee).
@@ -2269,5 +2269,98 @@ class GremlinQueryCoverageTest : DBTest() {
             )
             assertThat(q111real.resultKeys(tx)).containsExactlyElementsIn(listOf("ENG"))
         }
+    }
+
+    // =========================================================================
+    // Group 16 — O_B: Aggregate(left, right) ∩ Labeled(Where(All), T) — redundant-All strip
+    //
+    // When the left side of an Aggregate is labeled T and the second operand of an
+    // outer intersection is Labeled(Where(All), T), the outer intersection is a no-op:
+    // Aggregate already produces only T-labeled vertices.
+    //
+    // This pattern arises when query DSL intersects a cross-label Aggregate (which cannot
+    // be combined efficiently) with an additional "all T" constraint.  The Aggregate was
+    // forced because the two inner queries have different labels (e.g. "User" vs "Employee").
+    //
+    // Real-world trigger example:
+    //   step1 = events(byId) ∩ eventsByType   → Aggregate (different labels, no efficient rule)
+    //   step2 = step1 ∩ allBaseEvents          → redundant outer Aggregate if step1.left is labeled "BaseEvent"
+    // =========================================================================
+
+    @Test
+    fun `group 16 - Q112 OB single-level redundant-All strip`() {
+
+        // Intersect two queries with different labels — forces Aggregate (O_B pre-condition).
+        //   activeUsers   = Labeled(Where(PropEqual("active",true)), "User")
+        //   engEmployees  = Labeled(Where(PropEqual("department","Engineering")), "Employee")
+        //   q_base        = Aggregate(activeUsers, engEmployees)   ← different labels, no efficient rule
+        val activeUsers  = users(PropEqual("active", true))
+        val engEmployees = employees(PropEqual("department", "Engineering"))
+        val qBase        = activeUsers.intersect(engEmployees)
+
+        // Intersecting qBase with Labeled(Where(All), "User") is a no-op:
+        //   • qBase.left = activeUsers is labeled "User"
+        //   • qBase already produces only User vertices
+        //   • ∩ "all Users" cannot add or remove results
+        //
+        // After O_B: q112 should produce the same query as qBase.
+        // Before O_B: q112 = Aggregate(qBase, users()) — doubly-nested, different gremlin.
+        val q112 = qBase.intersect(users())
+        println("[Q112 OB single-level] qBase  : $qBase")
+        println("[Q112 OB single-level] q112   : $q112")
+        println("[Q112 OB single-level] gremlin: ${q112.toGremlin()}")
+        assertThat(q112.toGremlin()).isEqualTo(qBase.toGremlin())
+
+        // ---- Result assertions ----
+        // Active users who are also Engineering employees: Alice (active, Engineering),
+        // Bob (active, Engineering), Eve (active, Engineering).
+        // Carol: not active. Dave: active but not an employee.
+        withLowLevelTx { tx ->
+            assertThat(q112.resultNames(tx)).containsExactlyElementsIn(listOf("Alice", "Bob", "Eve"))
+        }
+    }
+
+    @Test
+    fun `group 16 - Q113 OB multi-level redundant-All strip`() {
+
+        // Same base Aggregate as Q112; apply the redundant-All strip three times.
+        //
+        // Without O_B each .intersect(users()) adds another Aggregate wrapper:
+        //   q113 = Aggregate(Aggregate(Aggregate(qBase, users()), users()), users())
+        //
+        // With O_B every .intersect(users()) is a no-op → q113 = qBase.
+        val activeUsers  = users(PropEqual("active", true))
+        val engEmployees = employees(PropEqual("department", "Engineering"))
+        val qBase        = activeUsers.intersect(engEmployees)
+
+        val q113 = qBase.intersect(users()).intersect(users()).intersect(users())
+        println("[Q113 OB multi-level] qBase  : $qBase")
+        println("[Q113 OB multi-level] q113   : $q113")
+        println("[Q113 OB multi-level] gremlin: ${q113.toGremlin()}")
+        assertThat(q113.toGremlin()).isEqualTo(qBase.toGremlin())
+
+        // ---- Result assertions ----
+        withLowLevelTx { tx ->
+            assertThat(q113.resultNames(tx)).containsExactlyElementsIn(listOf("Alice", "Bob", "Eve"))
+        }
+    }
+
+    @Test
+    fun `group 16 - Q114 OB non-firing case - label mismatch`() {
+
+        // Sanity check: O_B must NOT fire when the outer label does not match qBase.left's label.
+        //   qBase.left = activeUsers labeled "User"
+        //   outer condition = projects() = Labeled(Where(All), "Project")
+        //   "User" != "Project" → O_B does not fire → q114 is a distinct Aggregate wrapping qBase
+        val activeUsers  = users(PropEqual("active", true))
+        val engEmployees = employees(PropEqual("department", "Engineering"))
+        val qBase        = activeUsers.intersect(engEmployees)
+
+        val q114 = qBase.intersect(projects())
+        println("[Q114 OB non-firing] qBase  : $qBase")
+        println("[Q114 OB non-firing] q114   : $q114")
+        println("[Q114 OB non-firing] gremlin: ${q114.toGremlin()}")
+        // q114 must NOT collapse to qBase — it wraps qBase in another Aggregate.
+        assertThat(q114.toGremlin()).isNotEqualTo(qBase.toGremlin())
     }
 }
