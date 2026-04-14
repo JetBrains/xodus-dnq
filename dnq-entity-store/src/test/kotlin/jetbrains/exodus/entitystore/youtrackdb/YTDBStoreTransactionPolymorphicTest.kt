@@ -314,10 +314,44 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
             val result = tx.findWithPropSortedByValue(
                 BaseUser.CLASS, "name", polymorphic = false
             )
-            assertNamesExactly(result, "base1")
+            assertNamesExactlyInOrder(result, "base1")
 
             val polyResult = tx.findWithPropSortedByValue(BaseUser.CLASS, "name")
-            assertNamesExactly(polyResult, "base1", "guest1", "user1")
+            assertNamesExactlyInOrder(polyResult, "base1", "guest1", "user1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic findLinks by entities returns exact type only`() {
+        givenUserHierarchyWithLinks()
+
+        withStoreTx { tx ->
+            val targets = tx.find(BaseUser.CLASS, "name", "base1")
+
+            val result = tx.findLinks(
+                BaseUser.CLASS, targets, "friend", polymorphic = false
+            )
+            assertNamesExactly(result, "base1")
+
+            val polyResult = tx.findLinks(BaseUser.CLASS, targets, "friend")
+            assertNamesExactly(polyResult, "base1", "user1")
+        }
+    }
+
+    @Test
+    fun `findLinksUntyped polymorphic flag does not affect results (no HasLabel)`() {
+        givenUserHierarchyWithLinks()
+
+        withStoreTx { tx ->
+            val target = tx.find(BaseUser.CLASS, "name", "base1").first()
+
+            // findLinksUntyped has no HasLabel, so both flags produce identical results.
+            // The flag exists for API consistency and downstream combination validation.
+            val nonPoly = tx.findLinksUntyped(target, "friend", polymorphic = false)
+            assertNamesExactly(nonPoly, "base1", "user1")
+
+            val poly = tx.findLinksUntyped(target, "friend")
+            assertNamesExactly(poly, "base1", "user1")
         }
     }
 
