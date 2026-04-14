@@ -198,7 +198,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         }
     }
 
-    // --- Track 2: Combination validation tests ---
+    // --- Combination flag validation tests ---
 
     @Test
     fun `mixed-flag intersect throws in both directions with descriptive message`() {
@@ -209,11 +209,10 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
             val ex1 = assertFailsWith<IllegalArgumentException> { poly.intersect(nonPoly) }
-            assertTrue(ex1.message!!.contains("polymorphic"))
-            assertTrue(ex1.message!!.contains("non-polymorphic"))
+            assertTrue(ex1.message!!.startsWith("Cannot combine a polymorphic iterable with a non-polymorphic"))
 
             val ex2 = assertFailsWith<IllegalArgumentException> { nonPoly.intersect(poly) }
-            assertTrue(ex2.message!!.contains("non-polymorphic"))
+            assertTrue(ex2.message!!.startsWith("Cannot combine a non-polymorphic iterable with a polymorphic"))
         }
     }
 
@@ -225,8 +224,10 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
             val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
-            assertFailsWith<IllegalArgumentException> { poly.union(nonPoly) }
-            assertFailsWith<IllegalArgumentException> { nonPoly.union(poly) }
+            val ex1 = assertFailsWith<IllegalArgumentException> { poly.union(nonPoly) }
+            assertTrue(ex1.message!!.contains("polymorphic flag"))
+            val ex2 = assertFailsWith<IllegalArgumentException> { nonPoly.union(poly) }
+            assertTrue(ex2.message!!.contains("polymorphic flag"))
         }
     }
 
@@ -238,8 +239,10 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
             val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
-            assertFailsWith<IllegalArgumentException> { poly.minus(nonPoly) }
-            assertFailsWith<IllegalArgumentException> { nonPoly.minus(poly) }
+            val ex1 = assertFailsWith<IllegalArgumentException> { poly.minus(nonPoly) }
+            assertTrue(ex1.message!!.contains("polymorphic flag"))
+            val ex2 = assertFailsWith<IllegalArgumentException> { nonPoly.minus(poly) }
+            assertTrue(ex2.message!!.contains("polymorphic flag"))
         }
     }
 
@@ -251,8 +254,10 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
             val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
-            assertFailsWith<IllegalArgumentException> { poly.concat(nonPoly) }
-            assertFailsWith<IllegalArgumentException> { nonPoly.concat(poly) }
+            val ex1 = assertFailsWith<IllegalArgumentException> { poly.concat(nonPoly) }
+            assertTrue(ex1.message!!.contains("polymorphic flag"))
+            val ex2 = assertFailsWith<IllegalArgumentException> { nonPoly.concat(poly) }
+            assertTrue(ex2.message!!.contains("polymorphic flag"))
         }
     }
 
@@ -265,6 +270,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
             assertFailsWith<IllegalArgumentException> { poly.intersectSavingOrder(nonPoly) }
+            assertFailsWith<IllegalArgumentException> { nonPoly.intersectSavingOrder(poly) }
         }
     }
 
@@ -278,10 +284,22 @@ class YTDBPolymorphicQueryTest : OTestMixin {
 
             val unioned = poly1.union(poly2) as YTDBEntityIterable
             assertTrue(unioned.polymorphic)
-            // BaseUser(poly) returns base1, user1, guest1; User(poly) returns user1
-            // union deduplicates
             assertNamesExactly(unioned, "base1", "user1", "guest1")
+
+            val intersected = poly1.intersect(poly2) as YTDBEntityIterable
+            assertTrue(intersected.polymorphic)
+
+            val minused = poly1.minus(poly2) as YTDBEntityIterable
+            assertTrue(minused.polymorphic)
+
+            val concatenated = poly1.concat(poly2) as YTDBEntityIterable
+            assertTrue(concatenated.polymorphic)
         }
+    }
+
+    @Test
+    fun `EMPTY sentinel has polymorphic true by default`() {
+        assertTrue(YTDBEntityIterable.EMPTY.polymorphic)
     }
 
     @Test
