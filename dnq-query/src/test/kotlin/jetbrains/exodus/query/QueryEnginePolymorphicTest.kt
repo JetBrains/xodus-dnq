@@ -22,6 +22,7 @@ import jetbrains.exodus.query.metadata.entity
 import jetbrains.exodus.query.metadata.oModel
 import org.junit.Rule
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -58,7 +59,7 @@ class QueryEnginePolymorphicTest : OTestMixin {
         withStoreTx {
             // BaseUser has no direct instances — only subtypes exist
             val result = engine.queryGetAll(BaseUser.CLASS, polymorphic = false)
-            assertTrue(result.count() == 0L)
+            assertEquals(0L, result.count())
         }
     }
 

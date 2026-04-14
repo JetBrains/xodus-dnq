@@ -77,6 +77,10 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
             val result = tx.find(BaseUser.CLASS, "age", 30, polymorphic = false)
             assertNamesExactly(result, "base1")
 
+            // age=25 belongs to User subtype — non-polymorphic must exclude it
+            val subtypeValue = tx.find(BaseUser.CLASS, "age", 25, polymorphic = false)
+            assertNamesExactly(subtypeValue)
+
             // Polymorphic find matches across subtypes
             val polyResult = tx.find(BaseUser.CLASS, "age", 25)
             assertNamesExactly(polyResult, "user1")
@@ -352,6 +356,52 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
 
             val poly = tx.findLinksUntyped(target, "friend")
             assertNamesExactly(poly, "base1", "user1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic sortLinks returns exact type only`() {
+        givenUserHierarchyWithLinks()
+
+        withStoreTx { tx ->
+            // sortedLinks: targets of the "friend" link (base1)
+            val sortedLinks = tx.find(BaseUser.CLASS, "name", "base1")
+            val rightOrder = tx.getAll(BaseUser.CLASS)
+
+            // InLink("friend") from base1 → [base1, user1], intersect with rightOrder,
+            // HasLabel(BaseUser, polymorphic=false) → base1 only
+            val result = tx.sortLinks(
+                BaseUser.CLASS, sortedLinks, false, "friend", rightOrder,
+                polymorphic = false
+            )
+            assertNamesExactly(result, "base1")
+
+            val polyResult = tx.sortLinks(
+                BaseUser.CLASS, sortedLinks, false, "friend", rightOrder
+            )
+            assertNamesExactly(polyResult, "base1", "user1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic sortLinks 7-arg returns exact type only`() {
+        givenUserHierarchyWithLinks()
+
+        withStoreTx { tx ->
+            val sortedLinks = tx.find(BaseUser.CLASS, "name", "base1")
+            val rightOrder = tx.getAll(BaseUser.CLASS)
+
+            val result = tx.sortLinks(
+                BaseUser.CLASS, sortedLinks, false, "friend", rightOrder,
+                BaseUser.CLASS, "friend", polymorphic = false
+            )
+            assertNamesExactly(result, "base1")
+
+            val polyResult = tx.sortLinks(
+                BaseUser.CLASS, sortedLinks, false, "friend", rightOrder,
+                BaseUser.CLASS, "friend"
+            )
+            assertNamesExactly(polyResult, "base1", "user1")
         }
     }
 
