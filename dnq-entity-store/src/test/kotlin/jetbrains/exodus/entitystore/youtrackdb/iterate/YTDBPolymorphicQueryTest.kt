@@ -269,8 +269,10 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
             val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
-            assertFailsWith<IllegalArgumentException> { poly.intersectSavingOrder(nonPoly) }
-            assertFailsWith<IllegalArgumentException> { nonPoly.intersectSavingOrder(poly) }
+            val ex1 = assertFailsWith<IllegalArgumentException> { poly.intersectSavingOrder(nonPoly) }
+            assertTrue(ex1.message!!.contains("polymorphic flag"))
+            val ex2 = assertFailsWith<IllegalArgumentException> { nonPoly.intersectSavingOrder(poly) }
+            assertTrue(ex2.message!!.contains("polymorphic flag"))
         }
     }
 
@@ -288,12 +290,15 @@ class YTDBPolymorphicQueryTest : OTestMixin {
 
             val intersected = poly1.intersect(poly2) as YTDBEntityIterable
             assertTrue(intersected.polymorphic)
+            assertNamesExactly(intersected, "user1")
 
             val minused = poly1.minus(poly2) as YTDBEntityIterable
             assertTrue(minused.polymorphic)
+            assertNamesExactly(minused, "base1", "guest1")
 
             val concatenated = poly1.concat(poly2) as YTDBEntityIterable
             assertTrue(concatenated.polymorphic)
+            assertEquals(4, concatenated.count())
         }
     }
 
@@ -316,13 +321,18 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             assertNamesExactly(unionResult, "base1")
 
             // EMPTY.concat returns right directly — flag preserved
-            assertFalse((empty.concat(nonPoly) as YTDBEntityIterable).polymorphic)
+            val concatResult = empty.concat(nonPoly)
+            assertFalse((concatResult as YTDBEntityIterable).polymorphic)
+            assertNamesExactly(concatResult, "base1")
 
             // EMPTY.intersect returns EMPTY itself
             assertTrue(empty.intersect(nonPoly) === YTDBEntityIterable.EMPTY)
 
             // EMPTY.minus returns EMPTY itself
             assertTrue(empty.minus(nonPoly) === YTDBEntityIterable.EMPTY)
+
+            // EMPTY.intersectSavingOrder returns EMPTY itself
+            assertTrue(empty.intersectSavingOrder(nonPoly) === YTDBEntityIterable.EMPTY)
         }
     }
 
