@@ -16,6 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb.iterate
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
+import com.jetbrains.youtrackdb.api.gremlin.tokens.YTDBQueryConfigParam
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
@@ -30,7 +31,6 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
-import com.jetbrains.youtrackdb.api.gremlin.tokens.YTDBQueryConfigParam
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 
 interface YTDBEntityIterable : EntityIterable {

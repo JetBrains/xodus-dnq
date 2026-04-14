@@ -1180,10 +1180,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         val script = GroovyTranslator.of("g")
             .translate(iterable.traversal().asAdmin().bytecode)
             .script
-        // Strip traversal source strategies (e.g. polymorphicQuery config) to keep
-        // tests focused on query algebra. Polymorphic flag behavior is tested separately.
+        // Strip the polymorphicQuery traversal source config to keep tests focused on
+        // query algebra. Polymorphic flag behavior is tested separately.
         return script.replaceFirst(
-            Regex("""^g\.withStrategies\(new OptionsStrategy\([^)]*\)\)\."""),
+            Regex("""^g\.withStrategies\(new OptionsStrategy\(polymorphicQuery: (true|false)\)\)\."""),
             "g."
         )
     }
