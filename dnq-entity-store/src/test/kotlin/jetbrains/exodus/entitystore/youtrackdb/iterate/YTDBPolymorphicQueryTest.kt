@@ -76,7 +76,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         withStoreTx { tx ->
             val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
-            val afterSkip = nonPoly.skip(0) as YTDBEntityIterable
+            val afterSkip = nonPoly.skip(1) as YTDBEntityIterable
             assertFalse(afterSkip.polymorphic)
 
             val afterTake = nonPoly.take(10) as YTDBEntityIterable
@@ -87,6 +87,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
 
             val afterReverse = nonPoly.reverse() as YTDBEntityIterable
             assertFalse(afterReverse.polymorphic)
+
+            // End-to-end: chained non-polymorphic query still returns exact type only
+            assertNamesExactly(nonPoly.take(10), "base1")
         }
     }
 
@@ -143,7 +146,50 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val poly = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = true)
             val nonPoly = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
-            assertEquals(poly.toList().map { it.id }, nonPoly.toList().map { it.id })
+            assertNamesExactly(poly, "user1")
+            assertNamesExactly(nonPoly, "user1")
+        }
+    }
+
+    @Test
+    fun `findLinks propagates polymorphic flag from entities parameter`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val polyReceiver = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val nonPolyEntities = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            val result = polyReceiver.findLinks(nonPolyEntities, "someLink") as YTDBEntityIterable
+            assertFalse(result.polymorphic, "findLinks should propagate entities-parameter flag, not receiver flag")
+        }
+    }
+
+    @Test
+    fun `flag preserved when combining with EMPTY`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val empty = YTDBEntityIterable.EMPTY
+
+            assertFalse((nonPoly.union(empty) as YTDBEntityIterable).polymorphic)
+            assertFalse((nonPoly.minus(empty) as YTDBEntityIterable).polymorphic)
+            assertFalse((nonPoly.concat(empty) as YTDBEntityIterable).polymorphic)
+            // intersect with EMPTY returns EMPTY itself (acceptable: empty result)
+            assertTrue(nonPoly.intersect(empty) === YTDBEntityIterable.EMPTY)
+        }
+    }
+
+    @Test
+    fun `non-polymorphic distinct returns exact-type results end-to-end`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            // distinct() goes through modify(), producing a new iterable;
+            // verify the flag propagates AND the traversal respects it
+            assertNamesExactly(nonPoly.distinct(), "base1")
         }
     }
 }
