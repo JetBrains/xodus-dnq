@@ -21,6 +21,7 @@ import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -194,6 +195,145 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             // distinct() goes through modify(), producing a new iterable;
             // verify the flag propagates AND the traversal respects it
             assertNamesExactly(nonPoly.distinct(), "base1")
+        }
+    }
+
+    // --- Track 2: Combination validation tests ---
+
+    @Test
+    fun `mixed-flag intersect throws in both directions with descriptive message`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            val ex1 = assertFailsWith<IllegalArgumentException> { poly.intersect(nonPoly) }
+            assertTrue(ex1.message!!.contains("polymorphic"))
+            assertTrue(ex1.message!!.contains("non-polymorphic"))
+
+            val ex2 = assertFailsWith<IllegalArgumentException> { nonPoly.intersect(poly) }
+            assertTrue(ex2.message!!.contains("non-polymorphic"))
+        }
+    }
+
+    @Test
+    fun `mixed-flag union throws`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            assertFailsWith<IllegalArgumentException> { poly.union(nonPoly) }
+            assertFailsWith<IllegalArgumentException> { nonPoly.union(poly) }
+        }
+    }
+
+    @Test
+    fun `mixed-flag minus throws`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            assertFailsWith<IllegalArgumentException> { poly.minus(nonPoly) }
+            assertFailsWith<IllegalArgumentException> { nonPoly.minus(poly) }
+        }
+    }
+
+    @Test
+    fun `mixed-flag concat throws`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            assertFailsWith<IllegalArgumentException> { poly.concat(nonPoly) }
+            assertFailsWith<IllegalArgumentException> { nonPoly.concat(poly) }
+        }
+    }
+
+    @Test
+    fun `mixed-flag intersectSavingOrder throws`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            assertFailsWith<IllegalArgumentException> { poly.intersectSavingOrder(nonPoly) }
+        }
+    }
+
+    @Test
+    fun `same-flag polymorphic true combination succeeds with correct results`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val poly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val poly2 = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = true)
+
+            val unioned = poly1.union(poly2) as YTDBEntityIterable
+            assertTrue(unioned.polymorphic)
+            // BaseUser(poly) returns base1, user1, guest1; User(poly) returns user1
+            // union deduplicates
+            assertNamesExactly(unioned, "base1", "user1", "guest1")
+        }
+    }
+
+    @Test
+    fun `EMPTY as left operand preserves right operand flag`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val empty = YTDBEntityIterable.EMPTY
+
+            // EMPTY.union returns right directly — flag preserved
+            val unionResult = empty.union(nonPoly)
+            assertFalse((unionResult as YTDBEntityIterable).polymorphic)
+            assertNamesExactly(unionResult, "base1")
+
+            // EMPTY.concat returns right directly — flag preserved
+            assertFalse((empty.concat(nonPoly) as YTDBEntityIterable).polymorphic)
+
+            // EMPTY.intersect returns EMPTY itself
+            assertTrue(empty.intersect(nonPoly) === YTDBEntityIterable.EMPTY)
+
+            // EMPTY.minus returns EMPTY itself
+            assertTrue(empty.minus(nonPoly) === YTDBEntityIterable.EMPTY)
+        }
+    }
+
+    @Test
+    fun `chained combination preserves flag and validates correctly`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPoly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly2 = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly3 = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            val combined = nonPoly1.union(nonPoly2).union(nonPoly3)
+            assertFalse((combined as YTDBEntityIterable).polymorphic)
+            assertNamesExactly(combined, "base1", "user1", "guest1")
+        }
+    }
+
+    @Test
+    fun `chained combination result rejects mismatched flag`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPoly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly2 = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val poly = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = true)
+
+            val combined = nonPoly1.union(nonPoly2) // polymorphic=false
+            assertFailsWith<IllegalArgumentException> { combined.intersect(poly) }
         }
     }
 }
