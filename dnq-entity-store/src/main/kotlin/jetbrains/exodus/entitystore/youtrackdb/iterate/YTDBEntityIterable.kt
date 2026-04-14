@@ -30,22 +30,31 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
+import com.jetbrains.youtrackdb.api.gremlin.tokens.YTDBQueryConfigParam
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 
 interface YTDBEntityIterable : EntityIterable {
     companion object {
         @JvmStatic
-        fun where(entityType: String, tx: YTDBStoreTransaction, condition: GremlinBlock): YTDBEntityIterable =
+        @JvmOverloads
+        fun where(
+            entityType: String,
+            tx: YTDBStoreTransaction,
+            condition: GremlinBlock,
+            polymorphic: Boolean = true
+        ): YTDBEntityIterable =
             query(
                 tx,
                 GremlinQuery.all
                     .then(condition)
-                    .then(GremlinBlock.HasLabel(entityType))
+                    .then(GremlinBlock.HasLabel(entityType)),
+                polymorphic
             )
 
         @JvmStatic
-        fun query(tx: YTDBStoreTransaction, query: GremlinQuery) =
-            YTDBEntityIterableImpl(tx, query)
+        @JvmOverloads
+        fun query(tx: YTDBStoreTransaction, query: GremlinQuery, polymorphic: Boolean = true) =
+            YTDBEntityIterableImpl(tx, query, polymorphic)
 
         @JvmStatic
         fun empty() = EMPTY
@@ -96,6 +105,8 @@ interface YTDBEntityIterable : EntityIterable {
 
     val query: GremlinQuery
 
+    val polymorphic: Boolean get() = true
+
     fun traversal(): GraphTraversal<*, YTDBVertex>
 
     fun idSet(): EntityIdSet = this.fold(EntityIdSetFactory.newSet()) { acc, e -> acc.add(e.id) }
@@ -103,7 +114,8 @@ interface YTDBEntityIterable : EntityIterable {
 
 class YTDBEntityIterableImpl(
     private val tx: YTDBStoreTransaction,
-    override val query: GremlinQuery
+    override val query: GremlinQuery,
+    override val polymorphic: Boolean = true
 ) : YTDBEntityIterable {
 
     private val oStore: YTDBEntityStore = tx.getStore()
@@ -117,8 +129,11 @@ class YTDBEntityIterableImpl(
     private fun iterator(traversal: GraphTraversal<*, YTDBVertex>): YTDBEntityIterator =
         YTDBEntityIterator.of(traversal, oStore)
 
-    override fun traversal(): GraphTraversal<*, YTDBVertex> =
-        query.start(oStore.requireActiveTransaction().g())
+    override fun traversal(): GraphTraversal<*, YTDBVertex> {
+        val gs = oStore.requireActiveTransaction().g()
+            .with(YTDBQueryConfigParam.polymorphicQuery, polymorphic)
+        return query.start(gs)
+    }
 
     override fun iterator(): YTDBEntityIterator = iterator(traversal())
 
