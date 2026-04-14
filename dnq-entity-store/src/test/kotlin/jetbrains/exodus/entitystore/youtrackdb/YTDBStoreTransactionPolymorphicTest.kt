@@ -18,7 +18,6 @@ package jetbrains.exodus.entitystore.youtrackdb
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import org.junit.Rule
 import org.junit.Test
-import kotlin.test.assertEquals
 
 class YTDBStoreTransactionPolymorphicTest : OTestMixin {
 
@@ -91,6 +90,9 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
         withStoreTx { tx ->
             val result = tx.find(BaseUser.CLASS, "age", 0, 100, polymorphic = false)
             assertNamesExactly(result, "base1")
+
+            val polyResult = tx.find(BaseUser.CLASS, "age", 0, 100)
+            assertNamesExactly(polyResult, "base1", "user1", "guest1")
         }
     }
 
@@ -119,10 +121,12 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val result = tx.findContaining(BaseUser.CLASS, "name", "base", false, polymorphic = false)
+            // "1" matches all entity names — non-polymorphic should still return only BaseUser
+            val result = tx.findContaining(
+                BaseUser.CLASS, "name", "1", false, polymorphic = false
+            )
             assertNamesExactly(result, "base1")
 
-            // Default (polymorphic) with a pattern matching all names
             val polyResult = tx.findContaining(BaseUser.CLASS, "name", "1", false)
             assertNamesExactly(polyResult, "base1", "user1", "guest1")
         }
@@ -133,8 +137,12 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val result = tx.findStartingWith(BaseUser.CLASS, "name", "base", polymorphic = false)
+            // Empty prefix matches all names — non-polymorphic should still return only BaseUser
+            val result = tx.findStartingWith(BaseUser.CLASS, "name", "", polymorphic = false)
             assertNamesExactly(result, "base1")
+
+            val polyResult = tx.findStartingWith(BaseUser.CLASS, "name", "")
+            assertNamesExactly(polyResult, "base1", "user1", "guest1")
         }
     }
 
@@ -143,9 +151,11 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            // findWithBlob delegates to findWithProp; test that polymorphic flag propagates
             val result = tx.findWithBlob(BaseUser.CLASS, "name", polymorphic = false)
             assertNamesExactly(result, "base1")
+
+            val polyResult = tx.findWithBlob(BaseUser.CLASS, "name")
+            assertNamesExactly(polyResult, "base1", "user1", "guest1")
         }
     }
 
@@ -181,11 +191,47 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val result = tx.findIds(BaseUser.CLASS, Long.MIN_VALUE, Long.MAX_VALUE, polymorphic = false)
-            assertEquals(1, result.count())
+            val result = tx.findIds(
+                BaseUser.CLASS, Long.MIN_VALUE, Long.MAX_VALUE, polymorphic = false
+            )
+            assertNamesExactly(result, "base1")
 
             val polyResult = tx.findIds(BaseUser.CLASS, Long.MIN_VALUE, Long.MAX_VALUE)
-            assertEquals(3, polyResult.count())
+            assertNamesExactly(polyResult, "base1", "user1", "guest1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic findWithLinks 4-arg returns exact type only`() {
+        youTrackDb.withSession { session ->
+            val baseClass = session.getOrCreateVertexClass(BaseUser.CLASS)
+            listOf(
+                session.getOrCreateVertexClass(User.CLASS),
+                session.getOrCreateVertexClass(Guest.CLASS)
+            ).forEach { it.addSuperClass(baseClass) }
+            session.getOrCreateVertexClass("Target")
+        }
+        withStoreTx { tx ->
+            val base = tx.createUser(BaseUser.CLASS, "base1")
+            val user = tx.createUser(User.CLASS, "user1")
+            val target = tx.newEntity("Target")
+            base.addLink("friend", target)
+            user.addLink("friend", target)
+            target.addLink("friendOf", base)
+            target.addLink("friendOf", user)
+        }
+
+        withStoreTx { tx ->
+            val result = tx.findWithLinks(
+                BaseUser.CLASS, "friend", "Target", "friendOf",
+                polymorphic = false
+            )
+            assertNamesExactly(result, "base1")
+
+            val polyResult = tx.findWithLinks(
+                BaseUser.CLASS, "friend", "Target", "friendOf"
+            )
+            assertNamesExactly(polyResult, "base1", "user1")
         }
     }
 }
