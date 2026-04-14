@@ -103,12 +103,16 @@ class YTDBPolymorphicQueryTest : OTestMixin {
 
             val intersected = nonPoly1.intersect(nonPoly2) as YTDBEntityIterable
             assertFalse(intersected.polymorphic)
+            // End-to-end: disjoint types produce empty intersection
+            assertEquals(0, intersected.count())
 
             val unioned = nonPoly1.union(nonPoly2) as YTDBEntityIterable
             assertFalse(unioned.polymorphic)
 
             val minused = nonPoly1.minus(nonPoly2) as YTDBEntityIterable
             assertFalse(minused.polymorphic)
+            // End-to-end: minus of disjoint non-polymorphic iterables preserves left operand results
+            assertNamesExactly(minused, "base1")
 
             val concatenated = nonPoly1.concat(nonPoly2) as YTDBEntityIterable
             assertFalse(concatenated.polymorphic)
