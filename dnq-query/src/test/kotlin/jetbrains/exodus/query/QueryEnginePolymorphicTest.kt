@@ -52,11 +52,21 @@ class QueryEnginePolymorphicTest : OTestMixin {
     }
 
     @Test
-    fun `non-polymorphic queryGetAll returns exact type only`() {
+    fun `non-polymorphic queryGetAll on base type excludes subtypes`() {
         val engine = givenEngine()
 
         withStoreTx {
-            // User.CLASS has exactly u1, u2
+            // BaseUser has no direct instances — only subtypes exist
+            val result = engine.queryGetAll(BaseUser.CLASS, polymorphic = false)
+            assertTrue(result.count() == 0L)
+        }
+    }
+
+    @Test
+    fun `non-polymorphic queryGetAll on leaf type returns its instances`() {
+        val engine = givenEngine()
+
+        withStoreTx {
             val result = engine.queryGetAll(User.CLASS, polymorphic = false)
             assertNamesExactly(result, "u1", "u2")
         }
@@ -67,7 +77,6 @@ class QueryEnginePolymorphicTest : OTestMixin {
         val engine = givenEngine()
 
         withStoreTx {
-            // BaseUser.CLASS polymorphic returns all 7 entities
             val result = engine.queryGetAll(BaseUser.CLASS)
             assertNamesExactly(result, "u1", "u2", "ag1", "ag2", "ad1", "ad2", "g1")
         }
@@ -133,6 +142,7 @@ class QueryEnginePolymorphicTest : OTestMixin {
             val result = engine.inMemoryIntersect(poly, inMemory)
             assertTrue(result is YTDBEntityIterable)
             assertTrue((result as YTDBEntityIterable).polymorphic)
+            assertNamesExactly(result, "u1", "u2")
         }
     }
 }
