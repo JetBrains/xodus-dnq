@@ -234,4 +234,108 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
             assertNamesExactly(polyResult, "base1", "user1")
         }
     }
+
+    // --- Step 2: query()-based and direct constructor methods ---
+
+    @Test
+    fun `non-polymorphic findLinks by entityId returns exact type only`() {
+        givenUserHierarchyWithLinks()
+
+        withStoreTx { tx ->
+            val target = tx.find(BaseUser.CLASS, "name", "base1").first()
+            val targetId = target.id as YTDBEntityId
+
+            val result = tx.findLinks(
+                BaseUser.CLASS, targetId, "friend", polymorphic = false
+            )
+            assertNamesExactly(result, "base1")
+
+            val polyResult = tx.findLinks(BaseUser.CLASS, targetId, "friend")
+            assertNamesExactly(polyResult, "base1", "user1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic findLinks by entity returns exact type only`() {
+        givenUserHierarchyWithLinks()
+
+        withStoreTx { tx ->
+            val target = tx.find(BaseUser.CLASS, "name", "base1").first()
+
+            val result = tx.findLinks(
+                BaseUser.CLASS, target, "friend", polymorphic = false
+            )
+            assertNamesExactly(result, "base1")
+
+            val polyResult = tx.findLinks(BaseUser.CLASS, target, "friend")
+            assertNamesExactly(polyResult, "base1", "user1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic sort returns exact type only sorted`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val result = tx.sort(
+                BaseUser.CLASS, "age", true, polymorphic = false
+            )
+            assertNamesExactlyInOrder(result, "base1")
+
+            val polyResult = tx.sort(BaseUser.CLASS, "age", true)
+            assertNamesExactlyInOrder(polyResult, "guest1", "user1", "base1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic sort with rightOrder uses method polymorphic parameter`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            // rightOrder contains all BaseUser subtypes (polymorphic=true)
+            val rightOrder = tx.getAll(BaseUser.CLASS)
+
+            // But the sort method's own polymorphic=false should control the output
+            val result = tx.sort(
+                BaseUser.CLASS, "age", rightOrder, true, polymorphic = false
+            )
+            assertNamesExactlyInOrder(result, "base1")
+
+            val polyResult = tx.sort(BaseUser.CLASS, "age", rightOrder, true)
+            assertNamesExactlyInOrder(polyResult, "guest1", "user1", "base1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic findWithPropSortedByValue returns exact type only`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val result = tx.findWithPropSortedByValue(
+                BaseUser.CLASS, "name", polymorphic = false
+            )
+            assertNamesExactly(result, "base1")
+
+            val polyResult = tx.findWithPropSortedByValue(BaseUser.CLASS, "name")
+            assertNamesExactly(polyResult, "base1", "guest1", "user1")
+        }
+    }
+
+    private fun givenUserHierarchyWithLinks() {
+        youTrackDb.withSession { session ->
+            val baseClass = session.getOrCreateVertexClass(BaseUser.CLASS)
+            listOf(
+                session.getOrCreateVertexClass(User.CLASS),
+                session.getOrCreateVertexClass(Guest.CLASS)
+            ).forEach { it.addSuperClass(baseClass) }
+        }
+        withStoreTx { tx ->
+            val base = tx.createUser(BaseUser.CLASS, "base1")
+            val user = tx.createUser(User.CLASS, "user1")
+            tx.createUser(Guest.CLASS, "guest1")
+            // Both base and user link to base1 (self-referencing for base, cross-type for user)
+            base.addLink("friend", base)
+            user.addLink("friend", base)
+        }
+    }
 }

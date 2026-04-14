@@ -181,6 +181,12 @@ interface YTDBStoreTransaction : StoreTransaction {
     override fun findWithPropSortedByValue(
         entityType: String,
         propertyName: String
+    ): YTDBEntityIterable = findWithPropSortedByValue(entityType, propertyName, polymorphic = true)
+
+    fun findWithPropSortedByValue(
+        entityType: String,
+        propertyName: String,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun findWithBlob(
@@ -198,18 +204,33 @@ interface YTDBStoreTransaction : StoreTransaction {
         entityType: String,
         entity: Entity,
         linkName: String
+    ): YTDBEntityIterable = findLinks(entityType, entity, linkName, polymorphic = true)
+
+    fun findLinks(
+        entityType: String,
+        entity: Entity,
+        linkName: String,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     fun findLinks(
         entityType: String,
         entityId: YTDBEntityId,
-        linkName: String
+        linkName: String,
+        polymorphic: Boolean = true
     ): YTDBEntityIterable
 
     override fun findLinks(
         entityType: String,
         entities: EntityIterable,
         linkName: String
+    ): YTDBEntityIterable = findLinks(entityType, entities, linkName, polymorphic = true)
+
+    fun findLinks(
+        entityType: String,
+        entities: EntityIterable,
+        linkName: String,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     /**
@@ -217,7 +238,11 @@ interface YTDBStoreTransaction : StoreTransaction {
      * regardless of the source entity type. Unlike [findLinks], no `HasLabel` filter
      * is applied, so a single DB traversal covers all source types.
      */
-    fun findLinksUntyped(entity: Entity, linkName: String): YTDBEntityIterable
+    fun findLinksUntyped(
+        entity: Entity,
+        linkName: String,
+        polymorphic: Boolean = true
+    ): YTDBEntityIterable
 
     override fun findWithLinks(
         entityType: String,
@@ -249,6 +274,13 @@ interface YTDBStoreTransaction : StoreTransaction {
         entityType: String,
         propertyName: String,
         ascending: Boolean
+    ): YTDBEntityIterable = sort(entityType, propertyName, ascending, polymorphic = true)
+
+    fun sort(
+        entityType: String,
+        propertyName: String,
+        ascending: Boolean,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun sort(
@@ -256,6 +288,14 @@ interface YTDBStoreTransaction : StoreTransaction {
         propertyName: String,
         rightOrder: EntityIterable,
         ascending: Boolean
+    ): YTDBEntityIterable = sort(entityType, propertyName, rightOrder, ascending, polymorphic = true)
+
+    fun sort(
+        entityType: String,
+        propertyName: String,
+        rightOrder: EntityIterable,
+        ascending: Boolean,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun sortLinks(
@@ -264,6 +304,16 @@ interface YTDBStoreTransaction : StoreTransaction {
         isMultiple: Boolean,
         linkName: String,
         rightOrder: EntityIterable
+    ): YTDBEntityIterable =
+        sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder, polymorphic = true)
+
+    fun sortLinks(
+        entityType: String,
+        sortedLinks: EntityIterable,
+        isMultiple: Boolean,
+        linkName: String,
+        rightOrder: EntityIterable,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun sortLinks(
@@ -274,6 +324,18 @@ interface YTDBStoreTransaction : StoreTransaction {
         rightOrder: EntityIterable,
         oppositeEntityType: String,
         oppositeLinkName: String
+    ): YTDBEntityIterable =
+        sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder, oppositeEntityType, oppositeLinkName, polymorphic = true)
+
+    fun sortLinks(
+        entityType: String,
+        sortedLinks: EntityIterable,
+        isMultiple: Boolean,
+        linkName: String,
+        rightOrder: EntityIterable,
+        oppositeEntityType: String,
+        oppositeLinkName: String,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun toEntityId(representation: String): YTDBEntityId
