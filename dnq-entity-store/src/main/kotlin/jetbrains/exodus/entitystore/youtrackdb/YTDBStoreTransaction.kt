@@ -91,7 +91,10 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     override fun getSnapshot(): YTDBStoreTransaction
 
-    override fun getAll(entityType: String): YTDBEntityIterable
+    override fun getAll(entityType: String): YTDBEntityIterable =
+        getAll(entityType, polymorphic = true)
+
+    fun getAll(entityType: String, polymorphic: Boolean): YTDBEntityIterable
 
     override fun getSingletonIterable(entity: Entity): YTDBEntityIterable
 
@@ -99,6 +102,13 @@ interface YTDBStoreTransaction : StoreTransaction {
         entityType: String,
         propertyName: String,
         value: Comparable<*>
+    ): YTDBEntityIterable = find(entityType, propertyName, value, polymorphic = true)
+
+    fun find(
+        entityType: String,
+        propertyName: String,
+        value: Comparable<*>,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun find(
@@ -106,6 +116,14 @@ interface YTDBStoreTransaction : StoreTransaction {
         propertyName: String,
         minValue: Comparable<*>,
         maxValue: Comparable<*>
+    ): YTDBEntityIterable = find(entityType, propertyName, minValue, maxValue, polymorphic = true)
+
+    fun find(
+        entityType: String,
+        propertyName: String,
+        minValue: Comparable<*>,
+        maxValue: Comparable<*>,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun findContaining(
@@ -113,23 +131,51 @@ interface YTDBStoreTransaction : StoreTransaction {
         propertyName: String,
         value: String,
         ignoreCase: Boolean
+    ): YTDBEntityIterable = findContaining(entityType, propertyName, value, ignoreCase, polymorphic = true)
+
+    fun findContaining(
+        entityType: String,
+        propertyName: String,
+        value: String,
+        ignoreCase: Boolean,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun findStartingWith(
         entityType: String,
         propertyName: String,
         value: String
+    ): YTDBEntityIterable = findStartingWith(entityType, propertyName, value, polymorphic = true)
+
+    fun findStartingWith(
+        entityType: String,
+        propertyName: String,
+        value: String,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun findIds(
         entityType: String,
         minValue: Long,
         maxValue: Long
+    ): YTDBEntityIterable = findIds(entityType, minValue, maxValue, polymorphic = true)
+
+    fun findIds(
+        entityType: String,
+        minValue: Long,
+        maxValue: Long,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun findWithProp(
         entityType: String,
         propertyName: String
+    ): YTDBEntityIterable = findWithProp(entityType, propertyName, polymorphic = true)
+
+    fun findWithProp(
+        entityType: String,
+        propertyName: String,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun findWithPropSortedByValue(
@@ -140,6 +186,12 @@ interface YTDBStoreTransaction : StoreTransaction {
     override fun findWithBlob(
         entityType: String,
         blobName: String
+    ): YTDBEntityIterable = findWithBlob(entityType, blobName, polymorphic = true)
+
+    fun findWithBlob(
+        entityType: String,
+        blobName: String,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun findLinks(
@@ -170,6 +222,12 @@ interface YTDBStoreTransaction : StoreTransaction {
     override fun findWithLinks(
         entityType: String,
         linkName: String
+    ): YTDBEntityIterable = findWithLinks(entityType, linkName, polymorphic = true)
+
+    fun findWithLinks(
+        entityType: String,
+        linkName: String,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun findWithLinks(
@@ -177,6 +235,14 @@ interface YTDBStoreTransaction : StoreTransaction {
         linkName: String,
         oppositeEntityType: String,
         oppositeLinkName: String
+    ): YTDBEntityIterable = findWithLinks(entityType, linkName, oppositeEntityType, oppositeLinkName, polymorphic = true)
+
+    fun findWithLinks(
+        entityType: String,
+        linkName: String,
+        oppositeEntityType: String,
+        oppositeLinkName: String,
+        polymorphic: Boolean
     ): YTDBEntityIterable
 
     override fun sort(
