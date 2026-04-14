@@ -43,7 +43,18 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
             _sortEngine = value.notNull.apply { queryEngine = this@QueryEngine }
         }
 
-    open fun queryGetAll(entityType: String): EntityIterable = query(null, entityType, NodeFactory.all())
+    open fun queryGetAll(entityType: String): EntityIterable = queryGetAll(entityType, polymorphic = true)
+
+    // Note: XdQueryEngine overrides only the single-argument queryGetAll and wraps
+    // the result. This two-argument version bypasses that wrapping — acceptable since
+    // Track 4 will wire the DNQ layer through XdEntityType.all(polymorphic).
+    open fun queryGetAll(entityType: String, polymorphic: Boolean): EntityIterable {
+        if (modelMetaData != null && modelMetaData.getEntityMetaData(entityType) == null) {
+            return YTDBEntityIterable.EMPTY
+        }
+        val txn = persistentStore.andCheckCurrentTransaction as YTDBStoreTransaction
+        return txn.getAll(entityType, polymorphic)
+    }
 
     open fun query(entityType: String, tree: NodeBase): EntityIterable = query(null, entityType, tree)
 
@@ -224,7 +235,8 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
                     txn as YTDBStoreTransaction,
                     left.query.intersect(
                         GremlinQuery.ByIds(rightIds)
-                    )
+                    ),
+                    left.polymorphic
                 )
             } else {
                 ids = getAsEntityIdSet(left)
@@ -235,7 +247,8 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
             if (leftValues.size < 20) {
                 return YTDBEntityIterable.query(
                     txn as YTDBStoreTransaction,
-                    GremlinQuery.ByIds(leftValues).intersect(right.query)
+                    GremlinQuery.ByIds(leftValues).intersect(right.query),
+                    right.polymorphic
                 )
             } else {
                 ids = getAsEntityIdSet(left)
