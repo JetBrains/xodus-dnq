@@ -185,21 +185,45 @@ class YTDBEntityIterableImpl(
 
     override fun intersect(right: EntityIterable): EntityIterable =
         if (right === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
-        else YTDBEntityIterableImpl(tx, query.intersect(right.asYTDBIterable().query), polymorphic)
+        else {
+            val rightIterable = right.asYTDBIterable()
+            requirePolymorphicMatch(rightIterable)
+            YTDBEntityIterableImpl(tx, query.intersect(rightIterable.query), polymorphic)
+        }
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable = intersect(right)
 
     override fun union(right: EntityIterable): EntityIterable =
         if (right === YTDBEntityIterable.EMPTY) this
-        else YTDBEntityIterableImpl(tx, query.union(right.asYTDBIterable().query), polymorphic)
+        else {
+            val rightIterable = right.asYTDBIterable()
+            requirePolymorphicMatch(rightIterable)
+            YTDBEntityIterableImpl(tx, query.union(rightIterable.query), polymorphic)
+        }
 
     override fun minus(right: EntityIterable): EntityIterable =
         if (right === YTDBEntityIterable.EMPTY) this
-        else YTDBEntityIterableImpl(tx, query.difference(right.asYTDBIterable().query), polymorphic)
+        else {
+            val rightIterable = right.asYTDBIterable()
+            requirePolymorphicMatch(rightIterable)
+            YTDBEntityIterableImpl(tx, query.difference(rightIterable.query), polymorphic)
+        }
 
     override fun concat(right: EntityIterable): EntityIterable =
         if (right === YTDBEntityIterable.EMPTY) this
-        else YTDBEntityIterableImpl(tx, query.unionAll(right.asYTDBIterable().query), polymorphic)
+        else {
+            val rightIterable = right.asYTDBIterable()
+            requirePolymorphicMatch(rightIterable)
+            YTDBEntityIterableImpl(tx, query.unionAll(rightIterable.query), polymorphic)
+        }
+
+    private fun requirePolymorphicMatch(right: YTDBEntityIterable) {
+        require(polymorphic == right.polymorphic) {
+            "Cannot combine a ${if (polymorphic) "polymorphic" else "non-polymorphic"} iterable " +
+                    "with a ${if (right.polymorphic) "polymorphic" else "non-polymorphic"} one. " +
+                    "Both operands must have the same polymorphic flag."
+        }
+    }
 
     override fun skip(number: Int): EntityIterable =
         if (number == 0) this
