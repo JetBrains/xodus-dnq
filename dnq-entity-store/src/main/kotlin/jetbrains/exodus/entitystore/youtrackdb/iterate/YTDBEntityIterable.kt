@@ -124,7 +124,7 @@ class YTDBEntityIterableImpl(
     private var cachedSize: Long = -1
 
     private fun modify(block: GremlinBlock): YTDBEntityIterableImpl =
-        YTDBEntityIterableImpl(tx, this.query.then(block))
+        YTDBEntityIterableImpl(tx, this.query.then(block), polymorphic)
 
     private fun iterator(traversal: GraphTraversal<*, YTDBVertex>): YTDBEntityIterator =
         YTDBEntityIterator.of(traversal, oStore)
@@ -185,21 +185,21 @@ class YTDBEntityIterableImpl(
 
     override fun intersect(right: EntityIterable): EntityIterable =
         if (right === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
-        else YTDBEntityIterableImpl(tx, query.intersect(right.asYTDBIterable().query))
+        else YTDBEntityIterableImpl(tx, query.intersect(right.asYTDBIterable().query), polymorphic)
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable = intersect(right)
 
     override fun union(right: EntityIterable): EntityIterable =
         if (right === YTDBEntityIterable.EMPTY) this
-        else YTDBEntityIterableImpl(tx, query.union(right.asYTDBIterable().query))
+        else YTDBEntityIterableImpl(tx, query.union(right.asYTDBIterable().query), polymorphic)
 
     override fun minus(right: EntityIterable): EntityIterable =
         if (right === YTDBEntityIterable.EMPTY) this
-        else YTDBEntityIterableImpl(tx, query.difference(right.asYTDBIterable().query))
+        else YTDBEntityIterableImpl(tx, query.difference(right.asYTDBIterable().query), polymorphic)
 
     override fun concat(right: EntityIterable): EntityIterable =
         if (right === YTDBEntityIterable.EMPTY) this
-        else YTDBEntityIterableImpl(tx, query.unionAll(right.asYTDBIterable().query))
+        else YTDBEntityIterableImpl(tx, query.unionAll(right.asYTDBIterable().query), polymorphic)
 
     override fun skip(number: Int): EntityIterable =
         if (number == 0) this
@@ -220,7 +220,8 @@ class YTDBEntityIterableImpl(
                 this.query,
                 GremlinQuery.LinkDirection.OUT,
                 linkName,
-            )
+            ),
+            polymorphic
         )
 
     override fun selectManyDistinct(linkName: String): EntityIterable =
@@ -249,13 +250,14 @@ class YTDBEntityIterableImpl(
         linkName: String
     ): EntityIterable =
         if (entities === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
-        else YTDBEntityIterableImpl(
-            this.tx,
-            entities
-                .asYTDBIterable()
-                .query
-                .then(GremlinBlock.InLink(linkName))
-        ).distinct()
+        else {
+            val entitiesIterable = entities.asYTDBIterable()
+            YTDBEntityIterableImpl(
+                this.tx,
+                entitiesIterable.query.then(GremlinBlock.InLink(linkName)),
+                entitiesIterable.polymorphic
+            ).distinct()
+        }
 
     override fun idSet(): EntityIdSet =
         this.fold(EntityIdSetFactory.newSet()) { acc, e -> acc.add(e.id) }
