@@ -251,6 +251,29 @@ class YTDBPolymorphicQueryTest : OTestMixin {
     }
 
     @Test
+    fun `non-polymorphic union then concat triggers continueTraversal on inner UnionAll`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            // A.union(B) produces Order(UnionAll([A,B]), Dedup).
+            // concat does NOT flatten, so .concat(C) produces:
+            //   UnionAll([Order(UnionAll([A,B]), Dedup), C])
+            // The outer UnionAll.startTraversal propagates strategies to child traversals.
+            // Order.continueTraversal delegates to UnionAll.continueTraversal, which must
+            // extract strategies from the parent traversal's admin interface.
+            // If continueTraversal fails to propagate: BaseUser(poly) returns {base1,user1,guest1},
+            // User(poly) returns {user1,guest1}, union dedup → {base1,user1,guest1},
+            // concat Guest(non-poly) → [base1,user1,guest1,guest1] (4 results, not 3).
+            val result = nonPolyBase.union(nonPolyUser).concat(nonPolyGuest)
+            assertNamesExactlyInOrder(result, "base1", "user1", "guest1")
+        }
+    }
+
+    @Test
     fun `non-polymorphic union then minus excludes subtypes from parent`() {
         givenUserHierarchy()
 
