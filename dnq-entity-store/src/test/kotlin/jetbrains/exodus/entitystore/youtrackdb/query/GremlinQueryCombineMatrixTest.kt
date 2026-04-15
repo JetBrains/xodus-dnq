@@ -24,6 +24,7 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.Sort
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
@@ -307,9 +308,11 @@ class GremlinQueryCombineMatrixTest {
         // O17 strips Dedup, O20b fires on inner UnionAll: distributes the condition
         // into branches and wraps with label (O20b-fix). O17 re-wraps with Dedup.
         check(unionQ, "i", cond, "Dedup(Labeled(UnionAll))")
+        assertEquals("Issue", ((unionQ.intersect(cond) as Order).inner as Labeled).label)
 
         // Symmetric: Labeled(Where) ∩ Order(UnionAll, Dedup).
         check(cond, "i", unionQ, "Dedup(Labeled(UnionAll))")
+        assertEquals("Issue", ((cond.intersect(unionQ) as Order).inner as Labeled).label)
     }
 
     @Test
@@ -322,7 +325,10 @@ class GremlinQueryCombineMatrixTest {
         // applies hasLabel("Project") after the union, correctly producing an empty
         // result (Issue entities don't match Project label).
         check(unionQ, "i", condDiffLabel, "Dedup(Labeled(UnionAll))")
+        assertEquals("Project", ((unionQ.intersect(condDiffLabel) as Order).inner as Labeled).label)
+
         check(condDiffLabel, "i", unionQ, "Dedup(Labeled(UnionAll))")
+        assertEquals("Project", ((condDiffLabel.intersect(unionQ) as Order).inner as Labeled).label)
     }
 
     @Test
@@ -334,7 +340,10 @@ class GremlinQueryCombineMatrixTest {
         val allOfType = Labeled(GremlinQuery.Where.of(GremlinBlock.All), "Issue")
 
         check(unionQ, "i", allOfType, "Dedup(Labeled(UnionAll))")
+        assertEquals("Issue", ((unionQ.intersect(allOfType) as Order).inner as Labeled).label)
+
         check(allOfType, "i", unionQ, "Dedup(Labeled(UnionAll))")
+        assertEquals("Issue", ((allOfType.intersect(unionQ) as Order).inner as Labeled).label)
     }
 
     @Test
@@ -356,6 +365,9 @@ class GremlinQueryCombineMatrixTest {
         val bareUnion = cond.unionAll(cond2)
 
         check(bareUnion, "i", cond, "Labeled(UnionAll)")
+        assertEquals("Issue", (bareUnion.intersect(cond) as Labeled).label)
+
         check(cond, "i", bareUnion, "Labeled(UnionAll)")
+        assertEquals("Issue", (cond.intersect(bareUnion) as Labeled).label)
     }
 }
