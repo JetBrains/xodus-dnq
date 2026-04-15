@@ -43,9 +43,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
             _sortEngine = value.notNull.apply { queryEngine = this@QueryEngine }
         }
 
-    open fun queryGetAll(entityType: String): EntityIterable = queryGetAll(entityType, polymorphic = true)
-
-    open fun queryGetAll(entityType: String, polymorphic: Boolean): EntityIterable {
+    open fun queryGetAll(entityType: String, polymorphic: Boolean = true): EntityIterable {
         if (modelMetaData != null && modelMetaData.getEntityMetaData(entityType) == null) {
             return YTDBEntityIterable.EMPTY
         }
