@@ -198,6 +198,58 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         }
     }
 
+    // --- UnionAll traversal propagation tests ---
+
+    @Test
+    fun `non-polymorphic union of inherited types returns only exact-type instances`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            // BaseUser is parent of User — these types have an inheritance relationship.
+            // Each non-polymorphic query should return only exact instances of its type:
+            //   BaseUser → ["base1"], User → ["user1"]
+            // Their union should return exactly ["base1", "user1"] — NOT "guest1".
+            // If the engine makes this polymorphic, BaseUser would also match user1+guest1.
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            val unioned = nonPolyBase.union(nonPolyUser)
+            assertNamesExactly(unioned, "base1", "user1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic concat of inherited types returns only exact-type instances`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            val concatenated = nonPolyBase.concat(nonPolyUser)
+            assertNamesExactly(concatenated, "base1", "user1")
+        }
+    }
+
+    @Test
+    fun `nested concat propagates non-polymorphic flag through inner UnionAll`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            // A.concat(B).concat(C) creates UnionAll([UnionAll([A,B]), C]).
+            // The inner UnionAll's continueTraversal receives an anonymous traversal
+            // that had strategies/graph set by the outer subtraversals(). Without the
+            // T1 fix (propagating TraversalStrategies+Graph instead of GraphTraversalSource),
+            // the inner children would lose the polymorphicQuery config.
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            val nested = nonPolyBase.concat(nonPolyUser).concat(nonPolyGuest)
+            assertNamesExactly(nested, "base1", "user1", "guest1")
+        }
+    }
+
     // --- Combination flag validation tests ---
 
     @Test
