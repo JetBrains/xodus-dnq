@@ -378,8 +378,17 @@ internal fun GremlinQuery.combineEfficient(
             }
             val condBlock = extractCondition(this)
             if (condBlock != null) {
+                // O20b-fix: re-apply the label from `this` (if present) after distributing
+                // the condition into branches. extractCondition strips the Labeled wrapper,
+                // losing the hasLabel filter. Wrapping the result re-applies hasLabel after
+                // the union — at a different traversal level, so TinkerPop's
+                // InlineFilterStrategy won't merge it with branch-level hasLabel steps.
+                // When a label is present, omit Dedup here — O17 (the caller that stripped
+                // Order(Dedup) before recursing) will re-wrap the result with Dedup.
+                val label = extractLabel(this)
                 val branches = other.subqueries.map { it.then(condBlock) }
-                return UnionAll(branches).then(GremlinBlock.Dedup)
+                return if (label != null) Labeled.of(UnionAll(branches), label)
+                       else UnionAll(branches).then(GremlinBlock.Dedup)
             }
         }
         if (this is UnionAll && this.subqueries.none { hasPaging(it) }) {
@@ -390,8 +399,11 @@ internal fun GremlinQuery.combineEfficient(
             }
             val condBlock = extractCondition(other)
             if (condBlock != null) {
+                // O20b-fix: same label preservation as the symmetric path above.
+                val label = extractLabel(other)
                 val branches = this.subqueries.map { it.then(condBlock) }
-                return UnionAll(branches).then(GremlinBlock.Dedup)
+                return if (label != null) Labeled.of(UnionAll(branches), label)
+                       else UnionAll(branches).then(GremlinBlock.Dedup)
             }
         }
     }

@@ -293,4 +293,47 @@ class GremlinQueryCombineMatrixTest {
         check(cond,   "i", sliced,"Aggregate")
         check(cond,   "d", sliced,"Aggregate")
     }
+
+    // =========================================================================
+    // UnionAll × Labeled(Where) — O20b with label preservation
+    // =========================================================================
+
+    @Test
+    fun `UnionAll x Labeled(Where) — intersect distributes condition and preserves label`() {
+        // Build UnionAll directly — union() of same-label conditions fuses them,
+        // so we use unionAll() to get a real UnionAll node.
+        val unionQ = Order(cond.unionAll(cond2), GremlinBlock.Dedup)
+
+        // O17 strips Dedup, O20b fires on inner UnionAll: distributes the condition
+        // into branches and wraps with label (O20b-fix). O17 re-wraps with Dedup.
+        check(unionQ, "i", cond, "Dedup(Labeled(UnionAll))")
+
+        // Symmetric: Labeled(Where) ∩ Order(UnionAll, Dedup).
+        check(cond, "i", unionQ, "Dedup(Labeled(UnionAll))")
+    }
+
+    @Test
+    fun `UnionAll x Labeled(Where) — intersect with different label distributes and preserves label`() {
+        val unionQ = Order(cond.unionAll(cond2), GremlinBlock.Dedup)
+
+        // O20b distributes the condition into branches and wraps with the label.
+        // The label mismatch (Issue vs Project) is not detected at the UnionAll level
+        // because extractLabel(UnionAll) returns null. The resulting traversal
+        // applies hasLabel("Project") after the union, correctly producing an empty
+        // result (Issue entities don't match Project label).
+        check(unionQ, "i", condDiffLabel, "Dedup(Labeled(UnionAll))")
+        check(condDiffLabel, "i", unionQ, "Dedup(Labeled(UnionAll))")
+    }
+
+    @Test
+    fun `UnionAll x Labeled(Where) — intersect with Where(All) preserves label`() {
+        // This is the case that was broken before the O20b-fix: extractCondition
+        // returns All (identity in then()), so branches are unchanged. Without the
+        // fix, the label was lost and the intersect became a no-op.
+        val unionQ = Order(cond.unionAll(cond2), GremlinBlock.Dedup)
+        val allOfType = Labeled(GremlinQuery.Where.of(GremlinBlock.All), "Issue")
+
+        check(unionQ, "i", allOfType, "Dedup(Labeled(UnionAll))")
+        check(allOfType, "i", unionQ, "Dedup(Labeled(UnionAll))")
+    }
 }
