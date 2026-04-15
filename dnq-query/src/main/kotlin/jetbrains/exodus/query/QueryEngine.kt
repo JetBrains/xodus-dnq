@@ -45,9 +45,6 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
 
     open fun queryGetAll(entityType: String): EntityIterable = queryGetAll(entityType, polymorphic = true)
 
-    // Note: XdQueryEngine overrides only the single-argument queryGetAll and wraps
-    // the result. This two-argument version bypasses that wrapping — acceptable since
-    // Track 4 will wire the DNQ layer through XdEntityType.all(polymorphic).
     open fun queryGetAll(entityType: String, polymorphic: Boolean): EntityIterable {
         if (modelMetaData != null && modelMetaData.getEntityMetaData(entityType) == null) {
             return YTDBEntityIterable.EMPTY

@@ -26,8 +26,8 @@ abstract class XdEntityType<out T : XdEntity>(val storeContainer: StoreContainer
     val entityStore: TransientEntityStore
         get() = storeContainer.store
 
-    fun all(): XdQuery<T> {
-        return XdQueryImpl(entityStore.queryEngine.queryGetAll(entityType), this)
+    fun all(polymorphic: Boolean = true): XdQuery<T> {
+        return XdQueryImpl(entityStore.queryEngine.queryGetAll(entityType, polymorphic), this)
     }
 
     open fun new(init: (T.() -> Unit) = {}): T {

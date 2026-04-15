@@ -38,8 +38,8 @@ class XdQueryEngine(val store: TransientEntityStore) :
 
     private val session get() = store.threadSessionOrThrow
 
-    override fun queryGetAll(entityType: String): EntityIterable {
-        return wrap(super.queryGetAll(entityType))
+    override fun queryGetAll(entityType: String, polymorphic: Boolean): EntityIterable {
+        return wrap(super.queryGetAll(entityType, polymorphic))
     }
 
     override fun query(entityType: String, tree: NodeBase): EntityIterable {
