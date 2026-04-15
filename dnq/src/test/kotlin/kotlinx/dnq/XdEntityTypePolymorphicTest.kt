@@ -16,7 +16,12 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
+import com.jetbrains.teamsys.dnq.database.PersistentEntityIterableWrapper
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
+import kotlinx.dnq.query.filter
+import kotlinx.dnq.query.sortedBy
 import kotlinx.dnq.query.toList
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class XdEntityTypePolymorphicTest : DBTest() {
@@ -86,6 +91,61 @@ class XdEntityTypePolymorphicTest : DBTest() {
 
             val nonPolyBase = Group.all(polymorphic = false).toList()
             assertThat(nonPolyBase).isEmpty()
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all wraps result in PersistentEntityIterableWrapper with correct flag`() {
+        transactional {
+            User.new { login = "user1"; skill = 1 }
+        }
+
+        transactional(readonly = true) {
+            val nonPolyQuery = User.all(polymorphic = false)
+            val nonPolyIterable = nonPolyQuery.entityIterable
+            assertThat(nonPolyIterable).isInstanceOf(PersistentEntityIterableWrapper::class.java)
+            assertThat((nonPolyIterable as YTDBEntityIterable).polymorphic).isFalse()
+
+            val polyQuery = User.all()
+            val polyIterable = polyQuery.entityIterable
+            assertThat(polyIterable).isInstanceOf(PersistentEntityIterableWrapper::class.java)
+            assertThat((polyIterable as YTDBEntityIterable).polymorphic).isTrue()
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all chained with filter throws due to polymorphic mismatch`() {
+        // filter() internally intersects the non-polymorphic instance with a
+        // default-polymorphic tree result from QueryEngine.query(), triggering
+        // Track 2's combination validation. This is a known limitation:
+        // filtering non-polymorphic queries requires lower-level APIs
+        // (YTDBStoreTransaction.find* with polymorphic=false).
+        transactional {
+            User.new { login = "user1"; skill = 5 }
+        }
+
+        transactional(readonly = true) {
+            assertThrows(IllegalArgumentException::class.java) {
+                User.all(polymorphic = false).filter {
+                    it.skill gt 3
+                }.toList()
+            }
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all chained with sortedBy returns only exact type`() {
+        transactional {
+            User.new { login = "b_user"; skill = 2 }
+            User.new { login = "a_user"; skill = 1 }
+        }
+
+        transactional(readonly = true) {
+            val sorted = User.all(polymorphic = false).sortedBy(User::login).toList()
+            assertThat(sorted.map { it.login }).containsExactly("a_user", "b_user").inOrder()
+
+            val baseSorted = BaseUser.all(polymorphic = false).sortedBy(BaseUser::login).toList()
+            assertThat(baseSorted).isEmpty()
         }
     }
 }
