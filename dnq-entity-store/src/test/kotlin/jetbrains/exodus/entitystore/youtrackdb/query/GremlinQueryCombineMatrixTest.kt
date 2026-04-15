@@ -336,4 +336,26 @@ class GremlinQueryCombineMatrixTest {
         check(unionQ, "i", allOfType, "Dedup(Labeled(UnionAll))")
         check(allOfType, "i", unionQ, "Dedup(Labeled(UnionAll))")
     }
+
+    @Test
+    fun `UnionAll x ByIds — intersect distributes condition without label wrapping`() {
+        // ByIds is a bare Condition (no Labeled wrapper), so extractLabel returns null.
+        // O20b distributes IdWithin into each branch and wraps with Dedup (else branch).
+        val unionQ = Order(cond.unionAll(cond2), GremlinBlock.Dedup)
+
+        // O17 strips Dedup, O20b fires: extractLabel(byids) = null → else branch.
+        check(unionQ, "i", byids, "Dedup(UnionAll)")
+        check(byids, "i", unionQ, "Dedup(UnionAll)")
+    }
+
+    @Test
+    fun `bare UnionAll x Labeled(Where) — intersect preserves label without Dedup`() {
+        // Bare UnionAll (from concat, no Order(Dedup) wrapper) — no O17 involvement.
+        // O20b fires directly: extracts label, wraps with Labeled but no Dedup.
+        // This is correct for concat semantics (UNION ALL preserves duplicates).
+        val bareUnion = cond.unionAll(cond2)
+
+        check(bareUnion, "i", cond, "Labeled(UnionAll)")
+        check(cond, "i", bareUnion, "Labeled(UnionAll)")
+    }
 }

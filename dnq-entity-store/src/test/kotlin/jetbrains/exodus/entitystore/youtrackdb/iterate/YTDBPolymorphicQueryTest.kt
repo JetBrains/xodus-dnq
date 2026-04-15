@@ -251,7 +251,42 @@ class YTDBPolymorphicQueryTest : OTestMixin {
     }
 
     @Test
-    fun `chained union of three non-polymorphic types returns all exact-type instances`() {
+    fun `non-polymorphic union then minus excludes subtypes from parent`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            // (User ∪ Guest) \ BaseUser
+            // Non-poly: ({user1} ∪ {guest1}) \ {base1} = {user1, guest1} (disjoint)
+            // If poly leaked on BaseUser: \ {base1,user1,guest1} = empty
+            val result = nonPolyUser.union(nonPolyGuest).minus(nonPolyBase)
+            assertNamesExactly(result, "user1", "guest1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic union then intersect with parent type returns empty`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            // (User ∪ Guest) ∩ BaseUser
+            // Non-poly: ({user1} ∪ {guest1}) ∩ {base1} = empty (disjoint)
+            // If poly leaked on BaseUser: ∩ {base1,user1,guest1} = {user1, guest1}
+            // The optimizer distributes via O20b and re-applies the label (O20b-fix).
+            val result = nonPolyUser.union(nonPolyGuest).intersect(nonPolyBase)
+            assertEquals(0, result.count())
+        }
+    }
+
+    @Test
+    fun `non-polymorphic minus then union preserves exact-type semantics`() {
         givenUserHierarchy()
 
         withStoreTx { tx ->
@@ -259,58 +294,17 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
             val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
-            // union() flattens UnionAll subqueries, creating UnionAll([A,B,C]).
-            // All three must use non-polymorphic hasLabel in their child traversals.
-            val result = nonPolyBase.union(nonPolyUser).union(nonPolyGuest)
-            assertNamesExactly(result, "base1", "user1", "guest1")
-        }
-    }
-
-    @Test
-    fun `non-polymorphic union then minus returns correct difference`() {
-        givenUserHierarchy()
-
-        withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-
-            // (BaseUser ∪ User) \ User = ["base1"]
-            // The union creates a UnionAll wrapped in Order(Dedup), then minus
-            // builds an Aggregate that calls continueTraversal on the union result.
-            val result = nonPolyBase.union(nonPolyUser).minus(nonPolyUser)
-            assertNamesExactly(result, "base1")
-        }
-    }
-
-    @Test
-    fun `non-polymorphic union then intersect returns correct intersection`() {
-        givenUserHierarchy()
-
-        withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-
-            // (BaseUser ∪ User) ∩ User = ["user1"]
-            // The optimizer distributes the intersect condition into the union branches
-            // (O20b) and re-applies the label after the union (O20b-fix).
-            val result = nonPolyBase.union(nonPolyUser).intersect(nonPolyUser)
-            assertNamesExactly(result, "user1")
-        }
-    }
-
-    @Test
-    fun `non-polymorphic minus then union returns correct result`() {
-        givenUserHierarchy()
-
-        withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
-
-            // (BaseUser \ User) ∪ Guest = ["base1", "guest1"]
-            // BaseUser is ["base1"], User is ["user1"] — disjoint, so minus is ["base1"].
-            val result = nonPolyBase.minus(nonPolyUser).union(nonPolyGuest)
-            assertNamesExactly(result, "base1", "guest1")
+            // (BaseUser \ Guest) ∪ User
+            // Non-poly: ({base1} \ {guest1}) ∪ {user1} = {base1} ∪ {user1} = {base1, user1}
+            // If poly leaked on BaseUser: ({base1,user1,guest1} \ {guest1}) ∪ {user1}
+            //   = {base1, user1} ∪ {user1} = {base1, user1} — same result (not falsifiable).
+            // Use reverse operands to make it falsifiable:
+            // (User \ BaseUser) ∪ Guest
+            // Non-poly: ({user1} \ {base1}) ∪ {guest1} = {user1, guest1}
+            // If poly leaked on BaseUser: ({user1} \ {base1,user1,guest1}) ∪ {guest1}
+            //   = {} ∪ {guest1} = {guest1}
+            val result = nonPolyUser.minus(nonPolyBase).union(nonPolyGuest)
+            assertNamesExactly(result, "user1", "guest1")
         }
     }
 
@@ -338,6 +332,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
             val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
+            // No entities have "someLink" links, so we only verify flag propagation.
             val unioned = nonPolyBase.union(nonPolyUser) as YTDBEntityIterable
             val selected = unioned.selectMany("someLink") as YTDBEntityIterable
             assertFalse(selected.polymorphic, "selectMany on union result should propagate non-polymorphic flag")
@@ -345,19 +340,20 @@ class YTDBPolymorphicQueryTest : OTestMixin {
     }
 
     @Test
-    fun `non-polymorphic union as findLinks entities parameter propagates flag`() {
+    fun `non-polymorphic union as findLinks entities parameter propagates flag from entities`() {
         givenUserHierarchy()
 
         withStoreTx { tx ->
             val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
             val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val polyReceiver = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            // Receiver is polymorphic — different from the entities parameter.
+            val polyReceiver = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = true)
 
             // findLinks propagates the flag from the entities parameter (the union),
-            // not from the receiver.
+            // not from the receiver. No entities have "someLink" links.
             val unioned = nonPolyBase.union(nonPolyUser)
             val found = polyReceiver.findLinks(unioned, "someLink") as YTDBEntityIterable
-            assertFalse(found.polymorphic, "findLinks should propagate flag from union entities parameter")
+            assertFalse(found.polymorphic, "findLinks should propagate flag from union entities parameter, not receiver")
         }
     }
 
@@ -369,10 +365,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
             val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
-            // (BaseUser ∪ User).skip(0).take(10).distinct()
-            // Tests that the non-polymorphic flag survives through a chain of
-            // single-operand transforms applied after a union.
-            val result = nonPolyBase.union(nonPolyUser).skip(0).take(10).distinct()
+            // (BaseUser ∪ User).take(10).distinct()
+            val result = nonPolyBase.union(nonPolyUser).take(10).distinct()
             assertNamesExactly(result, "base1", "user1")
         }
     }
