@@ -21,8 +21,8 @@ import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import kotlinx.dnq.query.filter
 import kotlinx.dnq.query.sortedBy
 import kotlinx.dnq.query.toList
-import org.junit.Assert.assertThrows
 import org.junit.Test
+import kotlin.test.assertFailsWith
 
 class XdEntityTypePolymorphicTest : DBTest() {
 
@@ -125,11 +125,12 @@ class XdEntityTypePolymorphicTest : DBTest() {
         }
 
         transactional(readonly = true) {
-            assertThrows(IllegalArgumentException::class.java) {
+            val exception = assertFailsWith<IllegalArgumentException> {
                 User.all(polymorphic = false).filter {
                     it.skill gt 3
                 }.toList()
             }
+            assertThat(exception.message).contains("non-polymorphic")
         }
     }
 
@@ -141,8 +142,15 @@ class XdEntityTypePolymorphicTest : DBTest() {
         }
 
         transactional(readonly = true) {
-            val sorted = User.all(polymorphic = false).sortedBy(User::login).toList()
+            val sortedQuery = User.all(polymorphic = false).sortedBy(User::login)
+            val sorted = sortedQuery.toList()
             assertThat(sorted.map { it.login }).containsExactly("a_user", "b_user").inOrder()
+
+            // Known limitation: SortEngine.sort() creates a new iterable via
+            // txn.sort() which defaults to polymorphic=true. The non-polymorphic
+            // flag from the source is not propagated through the sort path.
+            val sortedIterable = sortedQuery.entityIterable
+            assertThat((sortedIterable as YTDBEntityIterable).polymorphic).isTrue()
 
             val baseSorted = BaseUser.all(polymorphic = false).sortedBy(BaseUser::login).toList()
             assertThat(baseSorted).isEmpty()
