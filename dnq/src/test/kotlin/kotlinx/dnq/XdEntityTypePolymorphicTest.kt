@@ -22,16 +22,17 @@ import org.junit.Test
 class XdEntityTypePolymorphicTest : DBTest() {
 
     @Test
-    fun `non-polymorphic all on leaf type returns only exact instances`() {
+    fun `non-polymorphic all on leaf type with no subtypes behaves like polymorphic`() {
         transactional {
             User.new { login = "user1"; skill = 1 }
             User.new { login = "user2"; skill = 2 }
         }
 
         transactional(readonly = true) {
-            val result = User.all(polymorphic = false).toList()
-            assertThat(result).hasSize(2)
-            assertThat(result.map { it.login }).containsExactly("user1", "user2")
+            val nonPoly = User.all(polymorphic = false).toList()
+            val poly = User.all(polymorphic = true).toList()
+            assertThat(nonPoly.map { it.login }).containsExactly("user1", "user2")
+            assertThat(nonPoly).containsExactlyElementsIn(poly)
         }
     }
 
@@ -59,6 +60,32 @@ class XdEntityTypePolymorphicTest : DBTest() {
             val result = BaseUser.all().toList()
             assertThat(result).hasSize(2)
             assertThat(result.map { it.login }).containsExactly("user1", "user2")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all on concrete sibling returns only its instances`() {
+        transactional {
+            val user = User.new { login = "owner"; skill = 1 }
+            val root = RootGroup.new { name = "rootGroup" }
+            NestedGroup.new { name = "nestedGroup"; parentGroup = root; owner = user }
+        }
+
+        transactional(readonly = true) {
+            val nestedOnly = NestedGroup.all(polymorphic = false).toList()
+            assertThat(nestedOnly).hasSize(1)
+            assertThat(nestedOnly.map { it.name }).containsExactly("nestedGroup")
+
+            val rootOnly = RootGroup.all(polymorphic = false).toList()
+            assertThat(rootOnly).hasSize(1)
+            assertThat(rootOnly.map { it.name }).containsExactly("rootGroup")
+
+            val allGroups = Group.all().toList()
+            assertThat(allGroups).hasSize(2)
+            assertThat(allGroups.map { it.name }).containsExactly("rootGroup", "nestedGroup")
+
+            val nonPolyBase = Group.all(polymorphic = false).toList()
+            assertThat(nonPolyBase).isEmpty()
         }
     }
 }
