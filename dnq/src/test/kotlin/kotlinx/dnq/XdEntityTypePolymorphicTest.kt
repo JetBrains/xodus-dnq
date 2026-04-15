@@ -137,23 +137,28 @@ class XdEntityTypePolymorphicTest : DBTest() {
     @Test
     fun `non-polymorphic all chained with sortedBy returns only exact type`() {
         transactional {
-            User.new { login = "b_user"; skill = 2 }
-            User.new { login = "a_user"; skill = 1 }
+            val user = User.new { login = "owner"; skill = 1 }
+            val root = RootGroup.new { name = "b_root" }
+            RootGroup.new { name = "a_root" }
+            NestedGroup.new { name = "c_nested"; parentGroup = root; owner = user }
         }
 
         transactional(readonly = true) {
-            val sortedQuery = User.all(polymorphic = false).sortedBy(User::login)
-            val sorted = sortedQuery.toList()
-            assertThat(sorted.map { it.login }).containsExactly("a_user", "b_user").inOrder()
+            // Non-polymorphic sortedBy on abstract base returns empty —
+            // would return 3 groups sorted if the flag were ignored
+            val nonPolySorted = Group.all(polymorphic = false).sortedBy(Group::name).toList()
+            assertThat(nonPolySorted).isEmpty()
+
+            // Contrast: polymorphic sortedBy returns all subtypes in order
+            val allGroupsSorted = Group.all().sortedBy(Group::name).toList()
+            assertThat(allGroupsSorted.map { it.name })
+                .containsExactly("a_root", "b_root", "c_nested").inOrder()
 
             // Known limitation: SortEngine.sort() creates a new iterable via
             // txn.sort() which defaults to polymorphic=true. The non-polymorphic
             // flag from the source is not propagated through the sort path.
-            val sortedIterable = sortedQuery.entityIterable
+            val sortedIterable = Group.all(polymorphic = false).sortedBy(Group::name).entityIterable
             assertThat((sortedIterable as YTDBEntityIterable).polymorphic).isTrue()
-
-            val baseSorted = BaseUser.all(polymorphic = false).sortedBy(BaseUser::login).toList()
-            assertThat(baseSorted).isEmpty()
         }
     }
 }
