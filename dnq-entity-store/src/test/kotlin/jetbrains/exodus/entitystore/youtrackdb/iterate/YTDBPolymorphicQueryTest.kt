@@ -227,7 +227,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
             val concatenated = nonPolyBase.concat(nonPolyUser)
-            assertNamesExactly(concatenated, "base1", "user1")
+            assertNamesExactlyInOrder(concatenated, "base1", "user1")
         }
     }
 
@@ -246,7 +246,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
 
             val nested = nonPolyBase.concat(nonPolyUser).concat(nonPolyGuest)
-            assertNamesExactly(nested, "base1", "user1", "guest1")
+            assertNamesExactlyInOrder(nested, "base1", "user1", "guest1")
         }
     }
 
