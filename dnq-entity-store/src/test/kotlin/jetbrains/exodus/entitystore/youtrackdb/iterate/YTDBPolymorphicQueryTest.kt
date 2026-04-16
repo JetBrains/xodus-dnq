@@ -15,14 +15,18 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.iterate
 
+import com.jetbrains.youtrackdb.api.gremlin.tokens.YTDBQueryConfigParam
+import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.`__`
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class YTDBPolymorphicQueryTest : OTestMixin {
@@ -181,7 +185,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             assertFalse((nonPoly.minus(empty) as YTDBEntityIterable).polymorphic)
             assertFalse((nonPoly.concat(empty) as YTDBEntityIterable).polymorphic)
             // intersect with EMPTY returns EMPTY itself (acceptable: empty result)
-            assertTrue(nonPoly.intersect(empty) === YTDBEntityIterable.EMPTY)
+            assertSame(nonPoly.intersect(empty), YTDBEntityIterable.EMPTY)
         }
     }
 
@@ -394,6 +398,44 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         }
     }
 
+    // --- Raw Gremlin engine-level test ---
+
+    @Test
+    fun `raw Gremlin union does not propagate polymorphicQuery to anonymous traversals — engine limitation`() {
+        givenUserHierarchy()
+
+        val tx = beginTransaction()
+        try {
+            val gn = tx.g().with(YTDBQueryConfigParam.polymorphicQuery, false)
+
+            // Engine limitation: polymorphicQuery=false does NOT propagate from the
+            // traversal source to anonymous traversals inside union(). The __.V()
+            // branches start new graph scans without the OptionsStrategy, so
+            // YTDBGraphStepStrategy cannot read the config and hasLabel reverts to
+            // polymorphic behavior.
+            //
+            // This is the root cause that Track 5 fixes at the GremlinQuery.UnionAll
+            // level: subtraversals() manually copies TraversalStrategies + Graph onto
+            // each anonymous child traversal to compensate.
+            //
+            // Correct non-polymorphic result would be: [base1, user1]
+            //   BaseUser(non-poly)=[base1], User(non-poly)=[user1]
+            // Actual: branch __.V().hasLabel("BaseUser") leaks to polymorphic →
+            //   [base1, user1, guest1]; branch __.V().hasLabel("User") → [user1]
+            val names = gn.V().hasLabel(BaseUser.CLASS)
+                .union(
+                    `__`.V<Any>().hasLabel(BaseUser.CLASS),
+                    `__`.V<Any>().hasLabel(User.CLASS)
+                )
+                .values<String>("name")
+                .toList()
+
+            assertThat(names).containsExactly("base1", "user1", "guest1", "user1")
+        } finally {
+            tx.abort()
+        }
+    }
+
     // --- Combination flag validation tests ---
 
     @Test
@@ -522,13 +564,13 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             assertNamesExactly(concatResult, "base1")
 
             // EMPTY.intersect returns EMPTY itself
-            assertTrue(empty.intersect(nonPoly) === YTDBEntityIterable.EMPTY)
+            assertSame(empty.intersect(nonPoly), YTDBEntityIterable.EMPTY)
 
             // EMPTY.minus returns EMPTY itself
-            assertTrue(empty.minus(nonPoly) === YTDBEntityIterable.EMPTY)
+            assertSame(empty.minus(nonPoly), YTDBEntityIterable.EMPTY)
 
             // EMPTY.intersectSavingOrder returns EMPTY itself
-            assertTrue(empty.intersectSavingOrder(nonPoly) === YTDBEntityIterable.EMPTY)
+            assertSame(empty.intersectSavingOrder(nonPoly), YTDBEntityIterable.EMPTY)
         }
     }
 
