@@ -236,10 +236,25 @@ for exact-type queries, with further filtering done at the transaction level.
 
 ## Gremlin query optimizer interaction
 
-The Gremlin query optimizer merges `HasLabel` conditions in `union`/`concat`
-operations. When combining non-polymorphic queries on types with an
-inheritance relationship (e.g., `HasLabel("BaseUser") OR HasLabel("User")`),
-the merged condition does not correctly interact with
-`polymorphicQuery = false`. This is a YouTrackDB engine limitation, not a
-flag propagation issue. The plan's non-goals explicitly exclude optimizer
-changes.
+Two engine-level issues affect non-polymorphic queries in combination
+operations. Both are fully mitigated at the xodus-dnq layer.
+
+**Strategy propagation in UnionAll (fixed in Track 5).**
+The YouTrackDB engine does not propagate `polymorphicQuery` config from the
+traversal source to anonymous child traversals inside `union()` steps. This
+caused `union()`/`concat()` on non-polymorphic queries with inherited types
+to return polymorphic results. Track 5 fixes this in
+`GremlinQuery.UnionAll.subtraversals()` by explicitly copying
+`TraversalStrategies` + `Graph` from the parent traversal onto each anonymous
+child. A raw Gremlin engine-level test documents the underlying limitation.
+
+**HasLabel step merging (guarded by optimizer).**
+TinkerPop's `InlineFilterStrategy` merges consecutive `HasStep` objects;
+`YTDBHasLabelStep` evaluates multiple predicates with `anyMatch` (OR
+semantics), allowing sibling types to pass incorrectly. This is prevented at
+three points: the O7 double-label guard falls to `Aggregate` when consecutive
+`hasLabel` steps would be produced; the O20b label placement (Track 5) puts
+`hasLabel` after the union at a different traversal level so
+`InlineFilterStrategy` cannot merge it with branch-level steps; and the O19
+`extractCondition` guard avoids producing double-labeled `FollowLink`
+queries.

@@ -9,6 +9,10 @@ flag (default `true`) that lets callers opt into non-polymorphic queries where
 on `YTDBEntityIterableImpl`, always set explicitly on the
 `YTDBGraphTraversalSource`, validated at combination time, and exposed at
 three API layers: entity iterable, store transaction, and DNQ entity type.
+Two engine-level issues affecting non-polymorphic `union()`/`concat()`
+operations were fixed: anonymous child traversal strategy propagation in
+`GremlinQuery.UnionAll`, and `hasLabel` filter preservation in the O20b
+optimizer path.
 
 ## Goals
 
@@ -52,6 +56,13 @@ three API layers: entity iterable, store transaction, and DNQ entity type.
   To avoid breakage if the global default changes, the flag is always set
   explicitly via `.with()` regardless of value.
 
+- **New constraint discovered: anonymous traversal strategy propagation.**
+  TinkerPop's anonymous child traversals (used by `union()` steps) do not
+  inherit the parent traversal's `TraversalStrategies` or `Graph` reference.
+  `YTDBGraphStepStrategy` requires both to apply `polymorphicQuery`, so
+  strategies must be explicitly copied to each child traversal in
+  `UnionAll.subtraversals()`.
+
 ## Architecture Notes
 
 ### Component Map
@@ -76,6 +87,10 @@ flowchart LR
         YEII["YTDBEntityIterableImpl\ncarries polymorphic flag"]
         PEW --> YEII
     end
+    subgraph GQL ["Gremlin Query Model"]
+        UA["GremlinQuery.UnionAll\npropagates strategies to\nchild traversals"]
+        OPT["GremlinQueryOptimizer\nO20b label preservation"]
+    end
     subgraph YTDB ["YouTrackDB"]
         GTS["YTDBGraphTraversalSource\n.with(polymorphicQuery, bool)"]
     end
@@ -88,6 +103,9 @@ flowchart LR
     YEI --> YEII
     QEng2 --> YEI
     YEII -->|"traversal()"| GTS
+    YEII -->|"query tree"| UA
+    UA -->|"child traversals"| GTS
+    OPT -.->|"optimizes"| UA
 ```
 
 - **YTDBEntityIterableImpl** — carries the `polymorphic` flag as a constructor
@@ -108,6 +126,13 @@ flowchart LR
 - **XdQueryEngine** — overrides `queryGetAll(entityType, polymorphic)` and
   wraps the result. Virtual dispatch ensures all paths go through `wrap()`.
 - **XdEntityType.all(polymorphic)** — public DNQ entry point.
+- **GremlinQuery.UnionAll** — `subtraversals()` accepts
+  `TraversalStrategies? + Graph?` and copies them onto each anonymous child
+  traversal, compensating for the engine's lack of strategy propagation to
+  anonymous traversals inside `union()`.
+- **GremlinQueryOptimizer** — O20b path re-applies `Labeled.of()` after
+  distributing an intersect condition into `UnionAll` branches, preventing
+  `hasLabel` filter loss.
 
 ### Decision Records
 
@@ -154,6 +179,36 @@ flowchart LR
   or if test configurations set it differently. The cost is one additional
   `.with()` call per traversal, which is negligible.
 
+#### D5: Propagate strategies to anonymous child traversals (emerged during Track 5)
+- **Context:** `GremlinQuery.UnionAll.subtraversals()` originally created
+  anonymous child traversals via `__.start()` without copying the parent's
+  strategies or graph reference. YouTrackDB's `YTDBGraphStepStrategy` requires
+  both a graph reference and an `OptionsStrategy` on the traversal to apply
+  `polymorphicQuery`.
+- **Decision:** `subtraversals()` accepts `TraversalStrategies? + Graph?`
+  (not `GraphTraversalSource`) and copies them onto each anonymous child.
+  Nested `UnionAll` (from chained `concat()`) extracts strategies from the
+  parent traversal's admin API, which reflects explicitly set values.
+- **Rationale:** Anonymous traversals don't carry a traversal source
+  reference (`Traversal.Admin.getTraversalSource` returns empty even after
+  `setStrategies`/`setGraph`), so strategies and graph must be propagated
+  directly rather than through the source.
+
+#### D6: O20b label preservation after condition distribution (emerged during Track 5)
+- **Context:** The Gremlin query optimizer's O20b path distributes an
+  intersect condition into `UnionAll` branches. `extractCondition()` strips
+  the `Labeled` wrapper, losing the `hasLabel` filter. TinkerPop's
+  `InlineFilterStrategy` merges consecutive `HasStep` objects, and
+  `YTDBHasLabelStep` evaluates multiple predicates with `anyMatch` (OR
+  semantics).
+- **Decision:** After distributing the condition into branches, re-apply
+  the label via `Labeled.of()`. The `hasLabel` step is placed after the
+  union at a different traversal level so `InlineFilterStrategy` cannot
+  merge it with branch-level `hasLabel` steps.
+- **Rationale:** Placing the label at a different traversal level (on the
+  union result, not on each branch) avoids the OR-merge behavior while
+  correctly filtering the combined result.
+
 ### Invariants
 
 - A `YTDBEntityIterableImpl` with `polymorphic = false` produces a traversal
@@ -174,7 +229,8 @@ flowchart LR
 - Per-step polymorphism within a single Gremlin traversal (YouTrackDB doesn't
   support this).
 - Automatic splitting of mixed-polymorphic queries into separate traversals.
-- Changes to the `GremlinQuery` sealed hierarchy or `GremlinQueryOptimizer`.
+- Fixing YouTrackDB engine-level `hasLabel` merging behavior (guarded at the
+  optimizer level instead).
 
 ## Key Discoveries
 
@@ -223,3 +279,30 @@ flowchart LR
    `Comparable<Nothing>` because they are no longer direct Java interface
    overrides. This is a cosmetic alignment with Java raw types, not a
    behavioral change. (Track 3, Step 1)
+
+8. **Anonymous traversals lose parent strategy config.** TinkerPop's
+   anonymous child traversals (created via `__.start()`) do not inherit
+   the parent's `TraversalStrategies` or `Graph` reference.
+   `YTDBGraphStepStrategy` requires both to apply `polymorphicQuery`.
+   This caused `union()`/`concat()` on non-polymorphic queries with
+   inherited types to return polymorphic results. Fixed by explicitly
+   copying strategies and graph onto each child traversal in
+   `UnionAll.subtraversals()`. (Track 5, Step 1)
+
+9. **O20b optimizer loses Labeled wrapper during condition distribution.**
+   When the optimizer distributes an intersect condition into `UnionAll`
+   branches, `extractCondition()` strips the `Labeled` wrapper, losing the
+   `hasLabel` filter. This caused `union().intersect(type)` to silently
+   skip the type filter when the extracted condition was `All`. Fixed by
+   re-applying `Labeled.of()` after distribution — the `hasLabel` step is
+   placed after the union at a different traversal level. Pre-existing bug,
+   not caused by the polymorphic flag feature. (Track 5, Step 2)
+
+10. **TinkerPop HasLabel step merging with OR semantics.** `InlineFilterStrategy`
+    merges consecutive `HasStep` objects; `YTDBHasLabelStep` evaluates
+    multiple predicates with `anyMatch` (OR semantics), so
+    `hasLabel("Child").hasLabel("Parent")` matches anything that is either
+    `Child` or `Parent`. The optimizer guards against this at three points:
+    the O7 double-label guard (falls to Aggregate), the O20b label placement
+    (different traversal level), and the O19 `extractCondition` guard.
+    (Track 5, Step 2)
