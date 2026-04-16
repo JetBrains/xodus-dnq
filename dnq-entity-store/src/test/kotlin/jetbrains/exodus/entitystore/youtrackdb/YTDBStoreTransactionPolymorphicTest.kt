@@ -18,6 +18,7 @@ package jetbrains.exodus.entitystore.youtrackdb
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import org.junit.Rule
 import org.junit.Test
+import kotlin.test.assertFailsWith
 
 class YTDBStoreTransactionPolymorphicTest : OTestMixin {
 
@@ -402,6 +403,97 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
                 BaseUser.CLASS, "friend"
             )
             assertNamesExactly(polyResult, "base1", "user1")
+        }
+    }
+
+    // --- Combination of tx-level results ---
+
+    @Test
+    fun `non-polymorphic getAll union across types returns exact-type instances`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPolyBase = tx.getAll(BaseUser.CLASS, polymorphic = false)
+            val nonPolyUser = tx.getAll(User.CLASS, polymorphic = false)
+
+            // All ∪ All with different labels → UnionAll (Track 5 path)
+            // Non-poly: [base1] ∪ [user1] = [base1, user1]
+            // Poly leak on BaseUser would add user1+guest1
+            val result = nonPolyBase.union(nonPolyUser)
+            assertNamesExactly(result, "base1", "user1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic getAll intersect find returns exact-type instances`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val allBase = tx.getAll(BaseUser.CLASS, polymorphic = false)
+            val findBase = tx.find(BaseUser.CLASS, "age", 30, polymorphic = false)
+
+            // All ∩ PropEqual, same label → fused Where
+            // Non-poly: [base1] ∩ [base1(age=30)] = [base1]
+            val result = allBase.intersect(findBase)
+            assertNamesExactly(result, "base1")
+
+            // Poly leak: getAll(BaseUser) would return [base1,user1,guest1],
+            // find(BaseUser,age=30) would also match base1(30) only → [base1]
+            // Not falsifiable on intersect alone, so also verify the union:
+            val polyBase = tx.getAll(BaseUser.CLASS)
+            val polyFind = tx.find(BaseUser.CLASS, "age", 25)
+            // Poly: [base1,user1,guest1] ∩ [user1(age=25)] = [user1]
+            assertNamesExactly(polyBase.intersect(polyFind), "user1")
+            // Non-poly: [base1] ∩ [](age=25 belongs to User) = []
+            val nonPolyFind25 = tx.find(BaseUser.CLASS, "age", 25, polymorphic = false)
+            assertNamesExactly(allBase.intersect(nonPolyFind25))
+        }
+    }
+
+    @Test
+    fun `non-polymorphic find minus getAll cross-type returns correct result`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            // find(BaseUser, age in [0,100], non-poly) → [base1]
+            val findRange = tx.find(BaseUser.CLASS, "age", 0, 100, polymorphic = false)
+            // getAll(User, non-poly) → [user1]
+            val allUser = tx.getAll(User.CLASS, polymorphic = false)
+
+            // [base1] \ [user1] = [base1] (disjoint)
+            // Poly leak on findRange: [base1,user1,guest1] \ [user1] = [base1,guest1]
+            val result = findRange.minus(allUser)
+            assertNamesExactly(result, "base1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic getAll concat returns exact-type instances in order`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPolyBase = tx.getAll(BaseUser.CLASS, polymorphic = false)
+            val nonPolyGuest = tx.getAll(Guest.CLASS, polymorphic = false)
+
+            // [base1] ++ [guest1] = [base1, guest1]
+            // Poly leak on BaseUser: [base1,user1,guest1] ++ [guest1] = 4 results
+            val result = nonPolyBase.concat(nonPolyGuest)
+            assertNamesExactlyInOrder(result, "base1", "guest1")
+        }
+    }
+
+    @Test
+    fun `mixing polymorphic and non-polymorphic tx results throws on combination`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val poly = tx.getAll(BaseUser.CLASS)
+            val nonPoly = tx.getAll(BaseUser.CLASS, polymorphic = false)
+
+            assertFailsWith<IllegalArgumentException> { poly.union(nonPoly) }
+            assertFailsWith<IllegalArgumentException> { nonPoly.intersect(poly) }
+            assertFailsWith<IllegalArgumentException> { poly.minus(nonPoly) }
+            assertFailsWith<IllegalArgumentException> { nonPoly.concat(poly) }
         }
     }
 
