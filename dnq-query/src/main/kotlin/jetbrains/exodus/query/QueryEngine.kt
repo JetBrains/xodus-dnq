@@ -173,7 +173,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         return if (it is EntityIterable) {
             it.selectManyDistinct(linkName)
         } else {
-            return it?.let { inMemorySelectManyDistinct(it, linkName) } ?: YTDBEntityIterable.EMPTY
+            it?.let { inMemorySelectManyDistinct(it, linkName) } ?: YTDBEntityIterable.EMPTY
         }
     }
 

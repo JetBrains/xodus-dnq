@@ -518,7 +518,7 @@ class YTDBStoreTransactionImpl(
         polymorphic: Boolean = true
     ): EntityIterable {
         requireActiveTransaction()
-        return if (rightOrder === YTDBEntityIterable.EMPTY) return YTDBEntityIterable.EMPTY
+        return if (rightOrder === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
         else YTDBEntityIterableImpl(
             this,
             rightOrder.asYTDBIterable().query
@@ -616,7 +616,7 @@ class YTDBStoreTransactionImpl(
         val session = activeYtdbSession()
         // make sure the OSequence created
         schemaBuddy.getOrCreateSequence(session, sequenceName, initialValue)
-        return YTDBSequence(session as DatabaseSessionEmbedded, sequenceName, store)
+        return YTDBSequence(session, sequenceName, store)
     }
 
     override fun getOSequence(sequenceName: String): DBSequence {

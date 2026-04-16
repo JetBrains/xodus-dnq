@@ -88,10 +88,10 @@ class XdQueryEngine(val store: TransientEntityStore) :
     }
 
     fun wrap(it: Iterable<Entity>): EntityIterable {
-        if (it is EntityIterable){
-            return session.createPersistentEntityIterableWrapper(it)
+        return if (it is EntityIterable){
+            session.createPersistentEntityIterableWrapper(it)
         } else {
-            return session.createPersistentEntityIterableWrapper(InMemoryEntityIterable(it, session, this))
+            session.createPersistentEntityIterableWrapper(InMemoryEntityIterable(it, session, this))
         }
     }
 

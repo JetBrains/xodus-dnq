@@ -293,7 +293,7 @@ sealed class GremlinQuery {
                 val child = `__`.start<Any>()
                 if (strategies != null) {
                     val admin = child.asAdmin()
-                    admin.setStrategies(strategies)
+                    admin.strategies = strategies
                     if (graph != null) {
                         admin.setGraph(graph)
                     }

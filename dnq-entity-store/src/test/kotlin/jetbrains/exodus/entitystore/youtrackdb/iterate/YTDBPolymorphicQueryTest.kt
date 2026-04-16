@@ -83,18 +83,20 @@ class YTDBPolymorphicQueryTest : OTestMixin {
 
             val afterSkip = nonPoly.skip(1) as YTDBEntityIterable
             assertFalse(afterSkip.polymorphic)
+            // Non-poly BaseUser=[base1], skip(1)=[] ; poly leak would give [user1, guest1]
+            assertNamesExactly(afterSkip)
 
             val afterTake = nonPoly.take(10) as YTDBEntityIterable
             assertFalse(afterTake.polymorphic)
+            assertNamesExactly(afterTake, "base1")
 
             val afterDistinct = nonPoly.distinct() as YTDBEntityIterable
             assertFalse(afterDistinct.polymorphic)
 
             val afterReverse = nonPoly.reverse() as YTDBEntityIterable
             assertFalse(afterReverse.polymorphic)
-
-            // End-to-end: chained non-polymorphic query still returns exact type only
-            assertNamesExactly(nonPoly.take(10), "base1")
+            // Non-poly BaseUser=[base1], reverse=[base1] ; poly leak would give 3 results
+            assertNamesExactly(afterReverse, "base1")
         }
     }
 
@@ -113,6 +115,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
 
             val unioned = nonPoly1.union(nonPoly2) as YTDBEntityIterable
             assertFalse(unioned.polymorphic)
+            // Non-poly: [base1] ∪ [user1] = [base1, user1] ; poly leak on BaseUser would add guest1
+            assertNamesExactly(unioned, "base1", "user1")
 
             val minused = nonPoly1.minus(nonPoly2) as YTDBEntityIterable
             assertFalse(minused.polymorphic)
@@ -121,6 +125,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
 
             val concatenated = nonPoly1.concat(nonPoly2) as YTDBEntityIterable
             assertFalse(concatenated.polymorphic)
+            // Non-poly: [base1] ++ [user1] = [base1, user1] ; poly leak would give 4 results
+            assertNamesExactlyInOrder(concatenated, "base1", "user1")
         }
     }
 
