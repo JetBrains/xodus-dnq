@@ -22,6 +22,7 @@ import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
 //import com.jetbrains.youtrackdb.internal.server.network.protocol.binary.NetworkProtocolBinary
 //import com.jetbrains.youtrackdb.internal.server.network.protocol.http.NetworkProtocolHttpDb
 //import com.jetbrains.youtrackdb.internal.tools.config.*
+import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseCompacter
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseParams
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProviderImpl
@@ -110,10 +111,21 @@ object YTDBDatabaseProviderFactory {
 //                server.activate()
 //                Pair(server.context, server)
             }
-        return YTDBDatabaseProviderImpl(params, youTrackDb as YouTrackDBImpl)
+        return createProvider(params, youTrackDb)
     }
 
     fun createProvider(params: YTDBDatabaseParams, youTrackDB: YouTrackDB): YTDBDatabaseProvider {
-        return YTDBDatabaseProviderImpl(params, youTrackDB as YouTrackDBImpl)
+        val db = youTrackDB as YouTrackDBImpl
+        db.createIfNotExists(
+            params.databaseName,
+            params.databaseType,
+            params.appUser.name,
+            params.appUser.password,
+            "admin"
+        )
+        if (System.getProperty("exodus.env.compactOnOpen", "false").toBoolean()) {
+            YTDBDatabaseCompacter(db, params).compactDatabase()
+        }
+        return YTDBDatabaseProviderImpl(params, db)
     }
 }

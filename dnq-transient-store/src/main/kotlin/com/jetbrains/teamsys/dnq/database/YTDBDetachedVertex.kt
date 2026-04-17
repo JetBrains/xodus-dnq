@@ -220,4 +220,8 @@ object YTDBEmptyGraph : YTDBGraph {
     override fun uuid(): UUID {
         throw UnsupportedOperationException("Not supported.")
     }
+
+    override fun <T, X : Exception> withSuspendedTransaction(supplier: org.apache.commons.lang3.function.FailableSupplier<T, X>): T {
+        throw UnsupportedOperationException("Not supported.")
+    }
 }

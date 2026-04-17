@@ -16,6 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.SessionPool
 import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraph
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
@@ -37,10 +38,7 @@ class YTDBDatabaseProviderImpl(
 
     companion object : KLogging()
 
-    private var _graph: YTDBGraph? = null
-
-    // _graph is always initialized in the constructor and never nullified
-    override val graph: YTDBGraph get() = _graph!!
+    override val graph: YTDBGraph
 
     init {
         val userNames = listOf(params.appUser.name) + params.additionalUsers.map { it.name }
@@ -55,12 +53,14 @@ class YTDBDatabaseProviderImpl(
             "admin"
         )
 
-        // ToDo: migrate to some config entity instead of System props
-        if (System.getProperty("exodus.env.compactOnOpen", "false").toBoolean()) {
-            compact()
-        }
+        val sessionPool = database.cachedPool(
+            params.databaseName,
+            params.appUser.name,
+            params.appUser.password,
+            params.youTrackDBConfig
+        )
+        graph = sessionPool.asGraph()
 
-        initGraph()
         if (params.additionalUsers.any()) {
             withSession { session ->
                 session.transaction { tx ->
@@ -88,28 +88,12 @@ class YTDBDatabaseProviderImpl(
         isOpen = true
     }
 
-    fun initGraph() {
-        _graph?.close()
-        _graph = database.cachedPool(
-            params.databaseName,
-            params.appUser.name,
-            params.appUser.password,
-            params.youTrackDBConfig
-        ).asGraph()
-    }
-
-    fun compact() {
-        YTDBDatabaseCompacter(database, this, params).compactDatabase()
-    }
 
     override val databaseLocation: String
         get() = File(params.databasePath, params.databaseName).absolutePath
 
-
     override fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R =
-        acquireSession().use(block)
-
-    private fun acquireSession(): DatabaseSessionEmbedded = (graph as YTDBGraphEmbedded).acquireSession()
+        (graph as YTDBGraphEmbedded).acquireSession().use(block)
 
     // it is always false at the beginning (it is impossible to close the database in the frozen state)
     private var _readOnly: Boolean = false

@@ -87,10 +87,11 @@ open class TransientEntityStoreImpl : TransientEntityStore {
 
     override fun <T> transactional(
         readonly: Boolean,
+        isNew: Boolean,
         queryCancellingPolicy: QueryCancellingPolicy?,
         block: (TransientStoreSession) -> T
     ): T = TransientEntityStoreExt.transactional(
-        this, queryCancellingPolicy, block
+        this, isNew, queryCancellingPolicy, block
     )
 
     override fun beginTransaction(): StoreTransaction {

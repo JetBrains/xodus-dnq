@@ -73,6 +73,38 @@ class YTDBPersistentEntityStore(
         return currentTx
     }
 
+    /**
+     * Suspends the current transaction, sets up an independent database context, and runs [block].
+     * On completion the previous transaction is restored, regardless of whether [block] succeeds
+     * or throws. Any transaction started inside [block] is fully isolated from the suspended one.
+     *
+     * This is the entity-store half of the `transactional(isNew = true)` mechanism — the caller
+     * is responsible for suspending/resuming the DNQ session.
+     */
+    fun <T> withSuspendedTransaction(block: () -> T): T {
+        val savedTx = suspendTransaction()
+        return try {
+            databaseProvider.graph.withSuspendedTransaction<T, RuntimeException> { block() }
+        } finally {
+            resumeTransaction(savedTx)
+        }
+    }
+
+    private fun suspendTransaction(): YTDBStoreTransaction? {
+        val tx = currentTransaction.get()
+        if (tx != null) currentTransaction.remove()
+        return tx
+    }
+
+    private fun resumeTransaction(tx: YTDBStoreTransaction?) {
+        if (tx != null) {
+            check(currentTransaction.get() == null) { "Cannot resume: a transaction is already active" }
+            currentTransaction.set(tx)
+        } else {
+            currentTransaction.remove()
+        }
+    }
+
     private fun onTransactionFinished(tx: YTDBStoreTransaction) {
         val get = currentTransaction.get()
         check(get == tx) {
@@ -131,7 +163,7 @@ class YTDBPersistentEntityStore(
 
     override fun registerCustomPropertyType(
         txn: StoreTransaction,
-        clazz: Class<out Comparable<Any?>>,
+        clazz: Class<out Comparable<*>>,
         binding: ComparableBinding
     ) {
         throw NotImplementedError()

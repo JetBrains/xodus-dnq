@@ -18,7 +18,6 @@ package jetbrains.exodus.entitystore.youtrackdb.testutil
 import YTDBDatabaseProviderFactory
 import YouTrackDBFactory
 import com.jetbrains.youtrackdb.api.DatabaseType
-import com.jetbrains.youtrackdb.api.YouTrackDB
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
@@ -41,13 +40,15 @@ class InMemoryYouTrackDB(
 
     lateinit var provider: YTDBDatabaseProvider
     lateinit var schemaBuddy: YTDBSchemaBuddyImpl
+    lateinit var params: YTDBDatabaseParams
+        private set
 
     val username = "admin"
     val password = "password"
     val dbName = "testDB"
 
     override fun before() {
-        val params = YTDBDatabaseParams.builder()
+        params = YTDBDatabaseParams.builder()
             .withDatabaseType(DatabaseType.MEMORY)
             .withDatabasePath(Files.createTempDirectory("youTrackDB_test").absolutePathString())
             .withAppUser(username, password)

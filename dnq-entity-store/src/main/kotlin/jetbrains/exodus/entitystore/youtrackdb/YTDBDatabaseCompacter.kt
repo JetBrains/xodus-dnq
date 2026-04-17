@@ -15,30 +15,37 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
-import com.jetbrains.youtrackdb.api.YouTrackDB
 import com.jetbrains.youtrackdb.internal.core.command.CommandOutputListener
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.db.YouTrackDBImpl
 import com.jetbrains.youtrackdb.internal.core.db.tool.DatabaseExport
 import com.jetbrains.youtrackdb.internal.core.db.tool.DatabaseImport
 import mu.KLogging
 import java.io.File
 
 class YTDBDatabaseCompacter(
-    private val db: YouTrackDB,
-    private val dbProvider: YTDBDatabaseProviderImpl,
+    private val database: YouTrackDBImpl,
     private val params: YTDBDatabaseParams
 ) {
     companion object : KLogging()
 
+    private fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R =
+        database.cachedPool(
+            params.databaseName,
+            params.appUser.name,
+            params.appUser.password,
+            params.youTrackDBConfig
+        ).acquire().use(block)
+
     fun compactDatabase() {
-        val databaseLocation = File(dbProvider.databaseLocation)
+        val databaseLocation = File(params.databasePath, params.databaseName)
         val backupFile = File(databaseLocation, "temp${System.currentTimeMillis()}")
         backupFile.parentFile.mkdirs()
         val listener = CommandOutputListener { iText -> logger.info("Compacting database: $iText") }
 
-        dbProvider.withSession { session ->
+        withSession { session ->
             val exporter = DatabaseExport(
-                session as DatabaseSessionEmbedded,
+                session,
                 backupFile.outputStream(),
                 listener
             )
@@ -47,22 +54,20 @@ class YTDBDatabaseCompacter(
         }
 
         logger.info("Dropping existing database...")
-        db.drop(params.databaseName)
+        database.drop(params.databaseName)
 
-        db.create(
+        database.create(
             params.databaseName,
             params.databaseType,
             params.appUser.name,
             params.appUser.password,
             "admin"
         )
-        // close the current graph and create a new one after the database drop and create
-        dbProvider.initGraph()
 
-        dbProvider.withSession { session ->
+        withSession { session ->
             logger.info("Importing database from dump")
             val importer = DatabaseImport(
-                session as DatabaseSessionEmbedded,
+                session,
                 backupFile.inputStream(),
                 listener
             )

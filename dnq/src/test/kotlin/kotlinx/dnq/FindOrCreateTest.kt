@@ -233,7 +233,6 @@ class FindOrCreateTest : DBTest() {
                 start.await()
                 counter.value += 1
                 User.findOrNew(User.filter { it.login eq userName }) {
-                    println(user)
                     login = userName
                     skill = 456
                     supervisor = boss
