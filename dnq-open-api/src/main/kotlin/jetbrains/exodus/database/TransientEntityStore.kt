@@ -17,8 +17,8 @@ package jetbrains.exodus.database
 
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityStore
-import jetbrains.exodus.entitystore.PersistentEntityStore
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
+import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
 import jetbrains.exodus.query.QueryEngine
 import jetbrains.exodus.query.metadata.ModelMetaData
 
@@ -27,7 +27,7 @@ import jetbrains.exodus.query.metadata.ModelMetaData
  */
 interface TransientEntityStore : EntityStore, EntityStoreRefactorings {
 
-    val persistentStore: PersistentEntityStore
+    val persistentStore: YTDBPersistentEntityStore
 
     val threadSession: TransientStoreSession?
 
@@ -49,6 +49,18 @@ interface TransientEntityStore : EntityStore, EntityStoreRefactorings {
      * Resumes previously suspended session
      */
     fun resumeSession(session: TransientStoreSession?)
+
+    /**
+     * Suspends the current DNQ session for the duration of [block] and restores it afterwards.
+     */
+    fun <T> withSuspendedSession(block: () -> T): T {
+        val savedSession = suspendThreadSession()
+        try {
+            return block()
+        } finally {
+            resumeSession(savedSession)
+        }
+    }
 
     fun addListener(listener: TransientStoreSessionListener)
 
@@ -78,6 +90,7 @@ interface TransientEntityStore : EntityStore, EntityStoreRefactorings {
      */
     fun <T> transactional(
             readonly: Boolean = false,
+            isNew: Boolean = false,
             queryCancellingPolicy: QueryCancellingPolicy? = null,
             block: (TransientStoreSession) -> T
     ): T

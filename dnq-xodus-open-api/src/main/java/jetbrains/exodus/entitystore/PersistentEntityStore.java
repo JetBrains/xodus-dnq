@@ -112,7 +112,7 @@ public interface PersistentEntityStore extends EntityStore, Backupable {
      * @see jetbrains.exodus.ByteIterable
      */
     void registerCustomPropertyType(@NotNull final StoreTransaction txn,
-                                    @NotNull final Class<? extends Comparable> clazz,
+                                    @NotNull final Class<? extends Comparable<?>> clazz,
                                     @NotNull final ComparableBinding binding);
 
     /**

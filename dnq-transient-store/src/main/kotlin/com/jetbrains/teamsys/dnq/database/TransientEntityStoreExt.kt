@@ -18,20 +18,53 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.database.TransientEntityStore
 import jetbrains.exodus.database.TransientStoreSession
 import jetbrains.exodus.entitystore.QueryCancellingPolicy
-import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import mu.KLogging
 
 internal object TransientEntityStoreExt : KLogging() {
     fun <T> transactional(
         store: TransientEntityStore,
+        isNew: Boolean = false,
         queryCancellingPolicy: QueryCancellingPolicy? = null,
         block: (TransientStoreSession) -> T
     ): T {
         val currentSession = store.threadSession
-        if (currentSession != null) {
-            return block(currentSession)
+        return when {
+            currentSession == null -> startNewAndRun(store, queryCancellingPolicy, block)
+            isNew -> suspendAndRun(store, queryCancellingPolicy, block)
+            else -> block(currentSession)
         }
+    }
 
+    /**
+     * Runs [block] in a new independent transaction while an outer transaction is active on the current thread.
+     *
+     * The outer DNQ session is suspended via [TransientEntityStore.withSuspendedSession]; the
+     * persistent-store transaction and active graph are suspended/restored by
+     * [YTDBPersistentEntityStore.withSuspendedTransaction]. The inner transaction gets its own
+     * [YTDBGraph][com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraph] instance so that
+     * commit/abort/revert inside [block] cannot affect the outer transaction.
+     */
+    private fun <T> suspendAndRun(
+        store: TransientEntityStore,
+        queryCancellingPolicy: QueryCancellingPolicy?,
+        block: (TransientStoreSession) -> T
+    ): T {
+        return store.withSuspendedSession {
+            store.persistentStore.withSuspendedTransaction {
+                startNewAndRun(store, queryCancellingPolicy, block)
+            }
+        }
+    }
+
+    /**
+     * Opens a new DNQ session (which starts a new persistent transaction),
+     * runs [block], and commits on success or aborts on exception.
+     */
+    private fun <T> startNewAndRun(
+        store: TransientEntityStore,
+        queryCancellingPolicy: QueryCancellingPolicy?,
+        block: (TransientStoreSession) -> T
+    ): T {
         try {
             val newSession = store.beginSession(queryCancellingPolicy)
             var wasEx = true
