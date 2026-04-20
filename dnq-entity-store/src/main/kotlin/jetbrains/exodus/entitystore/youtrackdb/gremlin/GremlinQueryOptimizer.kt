@@ -15,7 +15,6 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.gremlin
 
-import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.*
 
 private fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label else null
@@ -47,7 +46,7 @@ private fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label e
 private fun extractCondition(q: GremlinQuery): GremlinBlock? =
     if (q is Labeled && q.inner is Condition) q.inner.asBlock()
     else if (q is Labeled && q.inner is Labeled && q.inner.inner is Condition &&
-             (q.inner.inner as Condition).asBlock() is GremlinBlock.All)
+             q.inner.inner.asBlock() is GremlinBlock.All)
         GremlinBlock.HasLabel(q.inner.label)
     else if (q is Condition) q.asBlock()
     else null
@@ -363,7 +362,7 @@ internal fun GremlinQuery.combineEfficient(
         fun mergeHomogeneousFL(union: UnionAll): FollowLink? {
             val first = union.subqueries.firstOrNull() as? FollowLink ?: return null
             if (union.subqueries.any { it !is FollowLink ||
-                    (it as FollowLink).direction != first.direction ||
+                    it.direction != first.direction ||
                     it.linkName != first.linkName }) return null
             val mergedInner = union.subqueries.drop(1).fold(first.inner) { acc, q ->
                 acc.union((q as FollowLink).inner)
@@ -378,8 +377,17 @@ internal fun GremlinQuery.combineEfficient(
             }
             val condBlock = extractCondition(this)
             if (condBlock != null) {
+                // O20b-fix: re-apply the label from `this` (if present) after distributing
+                // the condition into branches. extractCondition strips the Labeled wrapper,
+                // losing the hasLabel filter. Wrapping the result re-applies hasLabel after
+                // the union — at a different traversal level, so TinkerPop's
+                // InlineFilterStrategy won't merge it with branch-level hasLabel steps.
+                // When a label is present, omit Dedup here — O17 (the caller that stripped
+                // Order(Dedup) before recursing) will re-wrap the result with Dedup.
+                val label = extractLabel(this)
                 val branches = other.subqueries.map { it.then(condBlock) }
-                return UnionAll(branches).then(GremlinBlock.Dedup)
+                return if (label != null) Labeled.of(UnionAll(branches), label)
+                       else UnionAll(branches).then(GremlinBlock.Dedup)
             }
         }
         if (this is UnionAll && this.subqueries.none { hasPaging(it) }) {
@@ -390,8 +398,11 @@ internal fun GremlinQuery.combineEfficient(
             }
             val condBlock = extractCondition(other)
             if (condBlock != null) {
+                // O20b-fix: same label preservation as the symmetric path above.
+                val label = extractLabel(other)
                 val branches = this.subqueries.map { it.then(condBlock) }
-                return UnionAll(branches).then(GremlinBlock.Dedup)
+                return if (label != null) Labeled.of(UnionAll(branches), label)
+                       else UnionAll(branches).then(GremlinBlock.Dedup)
             }
         }
     }
@@ -476,7 +487,7 @@ internal fun GremlinQuery.combineEfficient(
             if (innerFL != null) {
                 val innerSrcCondBlock = extractCondition(innerFL.inner)
                 if (innerSrcCondBlock != null) {
-                    val srcLabel = (flInner.inner as Labeled).label
+                    val srcLabel = flInner.inner.label
                     val innerSrcLabel = extractLabel(innerFL.inner)
                     val outerLinkStep = if (flInner.direction == LinkDirection.IN)
                         GremlinBlock.OutLink(flInner.linkName)

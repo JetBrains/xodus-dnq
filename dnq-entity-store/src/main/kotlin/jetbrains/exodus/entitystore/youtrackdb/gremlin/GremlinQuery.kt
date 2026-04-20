@@ -19,9 +19,11 @@ import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import org.apache.tinkerpop.gremlin.process.traversal.P
+import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.OptionsStrategy
 
 sealed class GremlinQuery {
 
@@ -263,11 +265,36 @@ sealed class GremlinQuery {
 
     data class UnionAll(val subqueries: List<GremlinQuery>) : GremlinQuery() {
 
-        private fun subtraversals(counter: Int, sortApplied: Boolean): Pair<Array<YT>, Int> {
+        /**
+         * Creates anonymous child traversals for each subquery.
+         *
+         * When [optionsStrategy] is provided, it is added to each anonymous child traversal.
+         * This propagates query-level config (e.g. `polymorphicQuery`) so that provider
+         * optimization strategies (such as `YTDBGraphStepStrategy`) can read it when they
+         * are applied to the child traversal.
+         *
+         * Only [OptionsStrategy] is propagated — not the full strategy list — to avoid
+         * interfering with TinkerPop's own strategy application on child traversals.
+         * The graph reference is not needed: TinkerPop propagates it automatically when
+         * the child traversal is integrated into the parent via `union()`.
+         *
+         * `GraphTraversal.with()` cannot be used here: it is a step modulator (configures
+         * the preceding step), not traversal-wide config. Anonymous traversals need the
+         * [OptionsStrategy] set directly via the admin API.
+         */
+        private fun subtraversals(
+            optionsStrategy: OptionsStrategy?,
+            counter: Int,
+            sortApplied: Boolean
+        ): Pair<Array<YT>, Int> {
             val result = mutableListOf<YT>()
             var c = counter
             subqueries.forEach { sq ->
-                val subRes = sq.continueTraversal(`__`.start(), c, sortApplied)
+                val child = `__`.start<Any>()
+                if (optionsStrategy != null) {
+                    child.asAdmin().strategies.addStrategies(optionsStrategy)
+                }
+                val subRes = sq.continueTraversal(child.asYT(), c, sortApplied)
                 c = subRes.counter
                 result.add(subRes.traversal)
             }
@@ -275,13 +302,20 @@ sealed class GremlinQuery {
             return Pair(result.toTypedArray(), c)
         }
 
+        private fun extractOptionsStrategy(strategies: TraversalStrategies): OptionsStrategy? =
+            strategies.getStrategy(OptionsStrategy::class.java).orElse(null)
+
         override fun startTraversal(gs: GraphTraversalSource): YTBuilder {
-            val subi = subtraversals(0, sortApplied = false)
+            val subi = subtraversals(extractOptionsStrategy(gs.strategies), 0, sortApplied = false)
             return YTBuilder.of(gs.union(*subi.first), counter = subi.second)
         }
 
         override fun continueTraversal(t: YT, paramCounter: Int, ignoreSort: Boolean): YTBuilder {
-            val subi = subtraversals(paramCounter, ignoreSort)
+            val subi = subtraversals(
+                extractOptionsStrategy(t.asAdmin().strategies),
+                paramCounter,
+                ignoreSort
+            )
             return YTBuilder.of(t.union(*subi.first), counter = subi.second)
         }
 

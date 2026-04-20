@@ -131,6 +131,9 @@ open class PersistentEntityIterableWrapper(
         get() = (unwrap() as? YTDBEntityIterable)?.query
             ?: throw IllegalStateException("EntityIterable is not a YTDBEntityIterable")
 
+    override val polymorphic: Boolean
+        get() = (unwrap() as? YTDBEntityIterable)?.polymorphic ?: true
+
     override fun traversal(): GraphTraversal<*, YTDBVertex> =
         (unwrap() as? YTDBEntityIterable)?.traversal()
             ?: throw IllegalStateException("EntityIterable is not a YTDBEntityIterable")
