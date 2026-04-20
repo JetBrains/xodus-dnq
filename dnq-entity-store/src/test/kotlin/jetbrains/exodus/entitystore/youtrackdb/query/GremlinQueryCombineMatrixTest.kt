@@ -24,6 +24,7 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.Sort
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
@@ -292,5 +293,81 @@ class GremlinQueryCombineMatrixTest {
         check(sliced, "d", cond,  "Aggregate")
         check(cond,   "i", sliced,"Aggregate")
         check(cond,   "d", sliced,"Aggregate")
+    }
+
+    // =========================================================================
+    // UnionAll × Labeled(Where) — O20b with label preservation
+    // =========================================================================
+
+    @Test
+    fun `UnionAll x Labeled(Where) — intersect distributes condition and preserves label`() {
+        // Build UnionAll directly — union() of same-label conditions fuses them,
+        // so we use unionAll() to get a real UnionAll node.
+        val unionQ = Order(cond.unionAll(cond2), GremlinBlock.Dedup)
+
+        // O17 strips Dedup, O20b fires on inner UnionAll: distributes the condition
+        // into branches and wraps with label (O20b-fix). O17 re-wraps with Dedup.
+        check(unionQ, "i", cond, "Dedup(Labeled(UnionAll))")
+        assertEquals("Issue", ((unionQ.intersect(cond) as Order).inner as Labeled).label)
+
+        // Symmetric: Labeled(Where) ∩ Order(UnionAll, Dedup).
+        check(cond, "i", unionQ, "Dedup(Labeled(UnionAll))")
+        assertEquals("Issue", ((cond.intersect(unionQ) as Order).inner as Labeled).label)
+    }
+
+    @Test
+    fun `UnionAll x Labeled(Where) — intersect with different label distributes and preserves label`() {
+        val unionQ = Order(cond.unionAll(cond2), GremlinBlock.Dedup)
+
+        // O20b distributes the condition into branches and wraps with the label.
+        // The label mismatch (Issue vs Project) is not detected at the UnionAll level
+        // because extractLabel(UnionAll) returns null. The resulting traversal
+        // applies hasLabel("Project") after the union, correctly producing an empty
+        // result (Issue entities don't match Project label).
+        check(unionQ, "i", condDiffLabel, "Dedup(Labeled(UnionAll))")
+        assertEquals("Project", ((unionQ.intersect(condDiffLabel) as Order).inner as Labeled).label)
+
+        check(condDiffLabel, "i", unionQ, "Dedup(Labeled(UnionAll))")
+        assertEquals("Project", ((condDiffLabel.intersect(unionQ) as Order).inner as Labeled).label)
+    }
+
+    @Test
+    fun `UnionAll x Labeled(Where) — intersect with Where(All) preserves label`() {
+        // This is the case that was broken before the O20b-fix: extractCondition
+        // returns All (identity in then()), so branches are unchanged. Without the
+        // fix, the label was lost and the intersect became a no-op.
+        val unionQ = Order(cond.unionAll(cond2), GremlinBlock.Dedup)
+        val allOfType = Labeled(GremlinQuery.Where.of(GremlinBlock.All), "Issue")
+
+        check(unionQ, "i", allOfType, "Dedup(Labeled(UnionAll))")
+        assertEquals("Issue", ((unionQ.intersect(allOfType) as Order).inner as Labeled).label)
+
+        check(allOfType, "i", unionQ, "Dedup(Labeled(UnionAll))")
+        assertEquals("Issue", ((allOfType.intersect(unionQ) as Order).inner as Labeled).label)
+    }
+
+    @Test
+    fun `UnionAll x ByIds — intersect distributes condition without label wrapping`() {
+        // ByIds is a bare Condition (no Labeled wrapper), so extractLabel returns null.
+        // O20b distributes IdWithin into each branch and wraps with Dedup (else branch).
+        val unionQ = Order(cond.unionAll(cond2), GremlinBlock.Dedup)
+
+        // O17 strips Dedup, O20b fires: extractLabel(byids) = null → else branch.
+        check(unionQ, "i", byids, "Dedup(UnionAll)")
+        check(byids, "i", unionQ, "Dedup(UnionAll)")
+    }
+
+    @Test
+    fun `bare UnionAll x Labeled(Where) — intersect preserves label without Dedup`() {
+        // Bare UnionAll (from concat, no Order(Dedup) wrapper) — no O17 involvement.
+        // O20b fires directly: extracts label, wraps with Labeled but no Dedup.
+        // This is correct for concat semantics (UNION ALL preserves duplicates).
+        val bareUnion = cond.unionAll(cond2)
+
+        check(bareUnion, "i", cond, "Labeled(UnionAll)")
+        assertEquals("Issue", (bareUnion.intersect(cond) as Labeled).label)
+
+        check(cond, "i", bareUnion, "Labeled(UnionAll)")
+        assertEquals("Issue", (cond.intersect(bareUnion) as Labeled).label)
     }
 }

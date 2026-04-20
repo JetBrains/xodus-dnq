@@ -1176,10 +1176,17 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         }
     }
 
-    private fun gremlinOf(iterable: YTDBEntityIterable): String =
-        GroovyTranslator.of("g")
+    private fun gremlinOf(iterable: YTDBEntityIterable): String {
+        val script = GroovyTranslator.of("g")
             .translate(iterable.traversal().asAdmin().bytecode)
             .script
+        // Strip the polymorphicQuery traversal source config to keep tests focused on
+        // query algebra. Polymorphic flag behavior is tested separately.
+        return script.replaceFirst(
+            Regex("""^g\.withStrategies\(new OptionsStrategy\(polymorphicQuery: (true|false)\)\)\."""),
+            "g."
+        )
+    }
 
     private fun checkGremlin(iterable: YTDBEntityIterable, expectedGremlin: String) {
         assertEquals(expectedGremlin, gremlinOf(iterable))
