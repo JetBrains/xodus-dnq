@@ -182,7 +182,9 @@ public class CompressBackupUtil {
                 zipArchive.setLevel(Deflater.BEST_COMPRESSION);
                 archive = zipArchive;
             } else {
-                archive = new TarArchiveOutputStream(new GZIPOutputStream(output));
+                final TarArchiveOutputStream tar = new TarArchiveOutputStream(new GZIPOutputStream(output));
+                tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
+                archive = tar;
             }
             try (ArchiveOutputStream aos = archive) {
                 for (final VirtualFileDescriptor fd : strategy.getContents()) {
