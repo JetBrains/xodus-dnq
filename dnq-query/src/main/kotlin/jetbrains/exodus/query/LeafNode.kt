@@ -37,10 +37,12 @@ class LeafNode(private val query: GremlinQuery) : NodeBase() {
     override fun instantiate(
         entityType: String,
         queryEngine: QueryEngine,
-        metaData: ModelMetaData?
+        metaData: ModelMetaData?,
+        polymorphic: Boolean
     ): Iterable<Entity> = YTDBEntityIterable.query(
         queryEngine.oStore.requireActiveTransaction(),
-        query.then(GremlinBlock.HasLabel(entityType))
+        query.then(GremlinBlock.HasLabel(entityType)),
+        polymorphic
     )
 
     override fun getClone(): NodeBase = LeafNode(query)

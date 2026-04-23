@@ -43,9 +43,16 @@ public abstract class NodeBase {
     @Nonnull
     public abstract GremlinQuery getQuery();
 
+    public Iterable<Entity> instantiate(String entityType,
+                                       QueryEngine queryEngine,
+                                       ModelMetaData metaData) {
+        return instantiate(entityType, queryEngine, metaData, true);
+    }
+
     public abstract Iterable<Entity> instantiate(String entityType,
                                                  QueryEngine queryEngine,
-                                                 ModelMetaData metaData);
+                                                 ModelMetaData metaData,
+                                                 boolean polymorphic);
 
     public abstract NodeBase getClone();
 

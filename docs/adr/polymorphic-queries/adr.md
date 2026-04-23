@@ -26,8 +26,12 @@ optimizer path.
 
 - **Fail-fast on mixed-flag combinations:** Reject at combination time any
   attempt to merge a polymorphic iterable with a non-polymorphic one.
-  *Achieved as planned.* The validation also catches unintended mixing
-  through DNQ query extensions (e.g., `filter()` on a non-polymorphic query).
+  *Achieved as planned.* `EMPTY` short-circuits before the check.
+  `ByIds` queries (default `polymorphic = true`) are subject to the same
+  validation — no bypass. Internal flag propagation through
+  `QueryEngine.query()` (D7) ensures
+  `filter()`/`filterIsInstance()`/`filterIsNotInstance()` produce
+  flag-consistent operands.
 
 ## Constraints
 
@@ -152,10 +156,10 @@ flowchart LR
   (C) Split into two traversals.
 - **Decision:** Option B — explicit, safe, caller-visible.
 - **Outcome:** Implemented as planned via `requirePolymorphicMatch()`.
-  The validation also caught an unintended interaction: `filter()` on a
-  non-polymorphic query triggers the check because `QueryEngine.query()`
-  internally intersects with a default-polymorphic filter predicate.
-  This fail-fast behavior is correct — it prevents silently wrong results.
+  The validation rejects all combinations of iterables with different
+  polymorphic flags, including `ByIds` queries (see D8 revision).
+  Internal combinations are handled by D7 (flag propagation through
+  `NodeBase.instantiate()` in `QueryEngine.query()`).
 
 #### D3: Default parameter values preserve backward compatibility
 - **Alternatives considered:** (A) New method overloads.
@@ -181,6 +185,12 @@ flowchart LR
   `.with()` call per traversal, which is negligible.
 
 #### D5: Propagate OptionsStrategy to anonymous child traversals (emerged during Track 5)
+
+> **Superseded by D9** — the `addStrategies(optionsStrategy)` mechanism
+> described below is concurrent-unsafe. D9 (Track 7) revises the mechanism
+> to assign a fresh private `DefaultTraversalStrategies` to the child
+> before propagating. Body kept as historical record.
+
 - **Context:** `GremlinQuery.UnionAll.subtraversals()` originally created
   anonymous child traversals via `__.start()` without the parent's
   `OptionsStrategy`. `YTDBGraphStepStrategy` requires it to read
@@ -210,6 +220,153 @@ flowchart LR
   union result, not on each branch) avoids the OR-merge behavior while
   correctly filtering the combined result.
 
+#### D7: Propagate polymorphic flag through NodeBase.instantiate() (Track 6)
+- **Context:** `QueryEngine.query(instance, entityType, tree)` intersects
+  `instance` with `tree.instantiate(...)`. When `instance` is non-polymorphic,
+  the tree result was always polymorphic (default `true`), causing
+  `requirePolymorphicMatch()` to reject the combination. This broke
+  `filter()`, `filterIsInstance()`, and `filterIsNotInstance()` on
+  non-polymorphic queries.
+- **Alternatives considered:** (A) Add `polymorphic` parameter to
+  `NodeBase.instantiate()`. (B) Relax `requirePolymorphicMatch()` for
+  internal combinations. (C) Extract the query from the tree result and
+  recreate it with the instance's flag.
+- **Decision:** Option A — add a 4-parameter abstract
+  `instantiate(entityType, queryEngine, metaData, polymorphic)` to
+  `NodeBase` (Java). The 3-parameter method becomes concrete, delegating
+  with `polymorphic = true`. `QueryEngine.query()` extracts the flag from
+  `instance` via `(instance.unwrap() as? YTDBEntityIterable)?.polymorphic ?: true`
+  and passes it to the 4-parameter `tree.instantiate()`.
+- **Rationale:** Propagating through the creation path is consistent with
+  how `polymorphic` flows through `YTDBStoreTransaction` methods (D3).
+  Option B would remove the safety check for explicit user-level
+  combinations. Option C creates a "create wrong then fix" pattern.
+
+#### D8: ByIds queries are subject to requirePolymorphicMatch (Track 6, revised)
+- **Context:** DNQ single-entity operations (`exclude(entity)`,
+  `union(entity)`, `plus(entity)`) delegate to `queryOf()` which creates
+  a `ByIds` iterable with default `polymorphic = true`. When the left
+  operand is non-polymorphic (e.g., from `all(polymorphic = false)`),
+  `requirePolymorphicMatch()` rejects the combination.
+- **Initial decision (now reverted):** Bypass `requirePolymorphicMatch`
+  for `ByIds` queries, treating them as flag-neutral sentinels (like
+  `EMPTY`). The rationale was that `ByIds` looks up entities by ID, not
+  by label, so the `polymorphicQuery` config should be irrelevant.
+- **Why reverted:** While `ByIds` itself is ID-based, the `polymorphic`
+  flag on the combined result iterable propagates to the traversal
+  source's `OptionsStrategy`. For `union()`/`concat()` (which use
+  `UnionAll`), this `OptionsStrategy` propagates to anonymous child
+  subtraversals (Track 5 fix), causing the YouTrackDB engine to silently
+  drop results from the `ByIds` branch under `polymorphicQuery=false`.
+  Even for `intersect()`/`minus()` (which use `Aggregate` and are
+  technically unaffected), allowing a silent flag mismatch is
+  inconsistent and error-prone.
+- **Current decision:** No bypass — `ByIds` queries with
+  `polymorphic = true` (the default) cannot be combined with
+  non-polymorphic iterables. `requirePolymorphicMatch()` throws
+  `IllegalArgumentException` uniformly for all flag mismatches.
+  Callers that need to combine `ByIds` with non-polymorphic iterables
+  must ensure both operands have matching flags.
+- **Rationale:** Fail-fast is safer than silent data loss. The bypass
+  was originally added to support `exclude(entity)`, `union(entity)`,
+  and `plus(entity)` on non-polymorphic queries, but these patterns
+  silently lost results in the `union`/`concat` path. Rejecting the
+  combination forces callers to handle the flag explicitly.
+
+#### D9: Use a private strategies container for UnionAll anonymous children (Track 7 — revises D5)
+
+- **Context:** D5's original mechanism called
+  `child.asAdmin().strategies.addStrategies(optionsStrategy)` on
+  anonymous child traversals created via `__.start<Any>()`. In TinkerPop,
+  `__.start()` instantiates a `DefaultGraphTraversal()` whose
+  `strategies` field is **aliased** to the process-wide singleton
+  returned by `TraversalStrategies.GlobalCache.getStrategies(EmptyGraph.class)`
+  (`DefaultTraversal.java:103`). Concurrent `addStrategies` calls from
+  multiple threads raced on the underlying `LinkedHashSet` and threw
+  `ConcurrentModificationException` from
+  `DefaultTraversalStrategies.sortStrategies`. The mechanism also
+  permanently leaked every `OptionsStrategy` instance ever propagated
+  into the global cache. The bug surfaced as a
+  `ConcurrentModificationException` in the YouTrack/youtrackdb-migration
+  project under normal concurrent request load.
+- **Alternatives considered:**
+  1. `clone()` the aliased strategies, then add `OptionsStrategy`. Works,
+     but clones an empty global container — conceptually awkward; same
+     end-state as allocating a fresh empty container, with less clear
+     intent.
+  2. Use `DefaultGraphTraversal(gs)` (non-anonymous, inherits strategies
+     from the source) for the child. Only works in `startTraversal(gs)`;
+     `continueTraversal(parent, …)` has no source — would create
+     asymmetric code paths and still alias a shared container.
+  3. Fix on the consumer side — change YouTrackDB's
+     `YTDBStrategyUtil.isPolymorphic(traversal)` to read `OptionsStrategy`
+     from the root via `TraversalHelper.getRootTraversal(traversal)`.
+     Eliminates child-level strategy mutation entirely; architecturally
+     cleanest. Requires a coordinated cross-repo change; deferred as
+     future work.
+  4. Synchronize on the shared strategies object before
+     `addStrategies`. Fixes the CME but not the permanent global-cache
+     pollution; rejected.
+- **Decision:** Replace the child's `strategies` field with a freshly
+  allocated `DefaultTraversalStrategies` holding only the
+  `OptionsStrategy`. The child's `strategies` field is reassigned (via
+  the `Traversal.Admin` SPI) **before** any `addStrategies` call, so the
+  alias to the shared global is broken immediately and no shared state
+  is ever written to.
+- **Rationale:** Works because child traversals' strategies are only
+  read — never iterated — during strategy application
+  (`DefaultTraversal.applyStrategies` iterates only when `isRoot()`, see
+  `DefaultTraversal.java:144`). Provider strategies like
+  `YTDBGraphStepStrategy` call `child.getStrategies().getStrategy(OptionsStrategy.class)`
+  once to read `polymorphicQuery`. Immediately after strategy
+  application, `lock()` overwrites the child's `strategies` with the
+  parent's (`DefaultTraversal.java:338`), so the private container's
+  lifetime is bounded to a single pass. `EmptyGraph`'s default strategies
+  are empty (`TraversalStrategies.java:292`), so a fresh container
+  provides the same starting state as the original alias.
+- **Risks/Caveats:** The correctness argument depends on three
+  TinkerPop implementation facts. **A TinkerPop (and youtrackdb-core)
+  upgrade must re-verify each of them:**
+  1. `DefaultTraversal()`'s no-arg constructor aliases
+     `TraversalStrategies.GlobalCache.getStrategies(EmptyGraph.class)`
+     (i.e., the field is assigned by reference, not copied).
+  2. `DefaultTraversal.applyStrategies` iterates its `strategies`
+     field only when `isRoot()` holds — non-root (child) traversals
+     never iterate their own strategies during strategy application.
+  3. `DefaultTraversal.lock()` overwrites non-root child strategies
+     with `parentTraversal.getStrategies()` before strategy
+     application returns, bounding the lifetime of the private
+     container to a single strategy-application pass.
+
+  If any of these facts changes, the correctness of the mechanism
+  must be re-evaluated; the consumer-side read-from-root approach
+  (Alternative 3 above) becomes the natural next step.
+
+  **Future work (recommended forward direction):** Alternative 3 —
+  changing YouTrackDB's `YTDBStrategyUtil.isPolymorphic` to read
+  `OptionsStrategy` from the root via
+  `TraversalHelper.getRootTraversal(traversal)` — remains the
+  architecturally cleanest long-term fix. Any follow-up regression in
+  this area should pursue it rather than further complicating the
+  child-side propagation.
+- **Regression test:**
+  `YTDBPolymorphicQueryTest."UnionAll subtraversals does not mutate shared
+  EmptyGraph strategies"` — single-threaded structural check. Snapshots
+  `TraversalStrategies.GlobalCache.getStrategies(EmptyGraph.class)` at
+  test entry, runs one `union(a, b).count()` on two non-polymorphic label
+  queries, and asserts the strategy list is unchanged index-by-index by
+  reference identity (`===`). This tests the D9 invariant directly — the
+  `ConcurrentModificationException` observed under the pre-fix code was a
+  symptom of the same shared-container mutation this assertion catches,
+  so reproducing the race is unnecessary. The pre-fix
+  `child.asAdmin().strategies.addStrategies(optionsStrategy)` call would
+  either insert a new `OptionsStrategy` (when the cache starts clean) or
+  replace a pre-existing one (since `addStrategies` removes any same-class
+  incumbent first); the index-by-identity comparison detects both. Class
+  equality alone — `AbstractTraversalStrategy.equals` compares by class —
+  would hide the replacement case if the shared cache is already polluted
+  from a prior test in the same JVM fork.
+
 ### Invariants
 
 - A `YTDBEntityIterableImpl` with `polymorphic = false` produces a traversal
@@ -218,11 +375,19 @@ flowchart LR
   with `YTDBQueryConfigParam.polymorphicQuery = true` (explicitly set, not
   relying on default).
 - Combining two `YTDBEntityIterableImpl` with different `polymorphic` values
-  via `intersect`/`union`/`minus`/`concat` throws `IllegalArgumentException`.
+  via `intersect`/`union`/`minus`/`concat` throws `IllegalArgumentException`
+  — no exceptions, including `ByIds` queries (see D8 revision).
 - `YTDBEntityIterable.EMPTY` is compatible with either flag value (combination
   methods short-circuit before the flag check).
 - Single-operand transforms propagate `this.polymorphic`; `findLinks()`
   propagates `entities.polymorphic`.
+- `QueryEngine.query()` matches the tree result's polymorphic flag to the
+  instance's flag before intersecting — `filter()`, `filterIsInstance()`,
+  and `filterIsNotInstance()` work correctly on non-polymorphic queries.
+- `UnionAll.subtraversals()` does not mutate any strategies container
+  that it did not privately allocate (D9). Concurrent UnionAll queries
+  must not throw `ConcurrentModificationException` — enforced by the
+  regression test cited in D9.
 - All existing tests pass without modification.
 
 ### Non-Goals
@@ -256,12 +421,15 @@ flowchart LR
    method with the explicit `polymorphic` parameter. Non-override methods
    use Kotlin default parameters directly. (Track 3, Step 1)
 
-4. **`filter()` on non-polymorphic queries throws.** `QueryEngine.query()`
-   internally intersects the non-polymorphic iterable with a
-   default-polymorphic filter predicate iterable. The combination validation
-   catches this mismatch and throws `IllegalArgumentException`. Users
-   requiring filtered non-polymorphic results should use
-   `YTDBStoreTransaction.find*()` methods directly. (Track 4, Step 2)
+4. **`filter()` on non-polymorphic queries — initially threw, fixed in Track 6.**
+   `QueryEngine.query()` internally intersects the non-polymorphic iterable
+   with a tree-instantiated iterable. Before Track 6, `NodeBase.instantiate()`
+   always produced polymorphic iterables (default `true`), causing
+   `requirePolymorphicMatch()` to reject the combination. Track 6 adds a
+   `polymorphic` parameter to `NodeBase.instantiate()` and wires it through
+   `QueryEngine.query()`, resolving the mismatch. `filter()`,
+   `filterIsInstance()`, and `filterIsNotInstance()` now work correctly on
+   non-polymorphic queries. (Track 4, Step 2; fixed in Track 6)
 
 5. **`sortedBy()` flag reverts to `true`.** `SortEngine.sort()` creates a
    new iterable via `txn.sort()` which defaults to `polymorphic = true`.
@@ -309,3 +477,41 @@ flowchart LR
     the O7 double-label guard (falls to Aggregate), the O20b label placement
     (different traversal level), and the O19 `extractCondition` guard.
     (Track 5, Step 2)
+
+11. **`ByIds` queries cannot be safely combined with non-polymorphic
+    iterables.** DNQ single-entity operations (`exclude(entity)`,
+    `union(entity)`, `plus(entity)`) wrap the entity via `queryOf()` which
+    creates a `ByIds` iterable with default `polymorphic = true`. While
+    `ByIds` itself looks up entities by ID (not by label), the `polymorphic`
+    flag on the combined result propagates to the traversal source's
+    `OptionsStrategy`. For `union`/`concat` (which use `UnionAll`), this
+    `OptionsStrategy` propagates to anonymous child subtraversals (Track 5),
+    causing the engine to silently drop `ByIds` results under
+    `polymorphicQuery=false`. An initial bypass (treating `ByIds` as
+    flag-neutral) was reverted because it masked this silent data loss.
+    `requirePolymorphicMatch()` now rejects all flag mismatches uniformly,
+    including `ByIds`. The private `filterNotNull(entityType)` in
+    `XdQuery.kt` had a related issue: it called `YTDBEntityIterable.where()`
+    without passing `this.polymorphic`, creating a default-polymorphic
+    iterable that would fail the flag check when intersected with a
+    non-polymorphic receiver — fixed by propagating `this.polymorphic`.
+    (Track 6, revised)
+
+12. **TinkerPop's `__.start()` aliases the `EmptyGraph` global strategies
+    cache.** `DefaultTraversal()`'s no-arg constructor sets
+    `this.strategies = TraversalStrategies.GlobalCache.getStrategies(EmptyGraph.class)`
+    by reference (`DefaultTraversal.java:103`). Every anonymous traversal
+    in the JVM points at the same `DefaultTraversalStrategies` instance.
+    Track 5's original D5 mechanism
+    (`child.asAdmin().strategies.addStrategies(optionsStrategy)`) mutated
+    this shared singleton, racing across threads on the backing
+    `LinkedHashSet` and throwing `ConcurrentModificationException` from
+    `DefaultTraversalStrategies.sortStrategies`. The same mutation also
+    permanently accumulated every `OptionsStrategy` instance into the
+    global cache. Track 7 (D9) breaks the alias by assigning a fresh
+    private `DefaultTraversalStrategies` to the child before any
+    `addStrategies` call. The correctness argument relies on three
+    TinkerPop facts: the `EmptyGraph` alias, that `applyStrategies`
+    iterates strategies only on root traversals, and that `lock()`
+    overwrites child strategies with the parent's after strategy
+    application. (Track 7)

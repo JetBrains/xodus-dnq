@@ -15,10 +15,13 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.iterate
 
-import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
+import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
+import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyGraph
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -566,6 +569,112 @@ class YTDBPolymorphicQueryTest : OTestMixin {
 
             val combined = nonPoly1.union(nonPoly2) // polymorphic=false
             assertFailsWith<IllegalArgumentException> { combined.intersect(poly) }
+        }
+    }
+
+    // --- ByIds mixed-polymorphic validation tests ---
+    // ByIds iterables are always polymorphic=true (default). Combining them with
+    // non-polymorphic iterables is rejected because the polymorphic flag propagates
+    // to child subtraversals and can cause the engine to silently drop results.
+
+    @Test
+    fun `ByIds with non-polymorphic minus throws`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val base1 = tx.find(BaseUser.CLASS, "name", "base1").first()!!
+            val byIds = YTDBEntityIterable.query(tx, GremlinQuery.ByIds(listOf((base1.id as YTDBEntityId).asOId())))
+
+            assertFailsWith<IllegalArgumentException> { nonPoly.minus(byIds) }
+        }
+    }
+
+    @Test
+    fun `ByIds with non-polymorphic intersect throws`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val base1 = tx.find(BaseUser.CLASS, "name", "base1").first()!!
+            val byIds = YTDBEntityIterable.query(tx, GremlinQuery.ByIds(listOf((base1.id as YTDBEntityId).asOId())))
+
+            assertFailsWith<IllegalArgumentException> { nonPoly.intersect(byIds) }
+        }
+    }
+
+    @Test
+    fun `ByIds with non-polymorphic union throws`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val user1 = tx.find(User.CLASS, "name", "user1").first()!!
+            val byIds = YTDBEntityIterable.query(tx, GremlinQuery.ByIds(listOf((user1.id as YTDBEntityId).asOId())))
+
+            assertFailsWith<IllegalArgumentException> { nonPoly.union(byIds) }
+        }
+    }
+
+    @Test
+    fun `ByIds with polymorphic union works correctly`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val user1 = tx.find(User.CLASS, "name", "user1").first()!!
+            val byIds = YTDBEntityIterable.query(tx, GremlinQuery.ByIds(listOf((user1.id as YTDBEntityId).asOId())))
+
+            val intersected = poly.intersect(byIds)
+            assertNamesExactly(intersected, "user1")
+        }
+    }
+
+    @Test
+    fun `mixed-flag non-ByIds throws`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+
+            assertFailsWith<IllegalArgumentException> { poly.intersect(nonPoly) }
+            assertFailsWith<IllegalArgumentException> { nonPoly.union(poly) }
+        }
+    }
+
+    @Test
+    fun `UnionAll subtraversals does not mutate shared EmptyGraph strategies`() {
+        givenUserHierarchy()
+        // D9 invariant: GremlinQuery.UnionAll.subtraversals() must not mutate
+        // the TraversalStrategies.GlobalCache[EmptyGraph] container that
+        // anonymous traversals alias to. The CME observed under the pre-fix
+        // code was a symptom of this invariant being violated by concurrent
+        // addStrategies calls on the shared LinkedHashSet; testing the
+        // invariant directly catches the root cause deterministically,
+        // without needing to reproduce the race.
+        //
+        // The baseline snapshot is captured as a `List` and compared element-wise
+        // by identity (not by `equals`): AbstractTraversalStrategy.equals compares
+        // by class, so a same-class replacement of a pre-existing OptionsStrategy
+        // would pass a set-equality check while still violating the invariant.
+        val shared = TraversalStrategies.GlobalCache.getStrategies(EmptyGraph::class.java)
+        val baseline = shared.toList()
+        withStoreTx { tx ->
+            val a = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val b = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            a.union(b).count()
+        }
+        val post = shared.toList()
+        assertEquals(
+            baseline.size, post.size,
+            "UnionAll.subtraversals() changed the size of TraversalStrategies.GlobalCache[EmptyGraph]"
+        )
+        baseline.indices.forEach { i ->
+            assertSame(
+                baseline[i], post[i],
+                "UnionAll.subtraversals() replaced the strategy at index $i in TraversalStrategies.GlobalCache[EmptyGraph]"
+            )
         }
     }
 }

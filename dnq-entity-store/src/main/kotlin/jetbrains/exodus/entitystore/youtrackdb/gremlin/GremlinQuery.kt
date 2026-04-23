@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.OptionsStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.util.DefaultTraversalStrategies
 
 sealed class GremlinQuery {
 
@@ -278,6 +279,14 @@ sealed class GremlinQuery {
          * The graph reference is not needed: TinkerPop propagates it automatically when
          * the child traversal is integrated into the parent via `union()`.
          *
+         * The child's strategies container is replaced with a fresh [DefaultTraversalStrategies]
+         * before adding [optionsStrategy]. `__.start()` aliases its strategies field to the
+         * shared `TraversalStrategies.GlobalCache[EmptyGraph]` singleton; mutating it races
+         * across threads (`ConcurrentModificationException` in `sortStrategies`) and leaks
+         * options globally. A private container eliminates both issues — the child's
+         * strategies are only probed via `getStrategy(OptionsStrategy.class)` before
+         * TinkerPop's `lock()` overwrites them with the parent's.
+         *
          * `GraphTraversal.with()` cannot be used here: it is a step modulator (configures
          * the preceding step), not traversal-wide config. Anonymous traversals need the
          * [OptionsStrategy] set directly via the admin API.
@@ -292,7 +301,8 @@ sealed class GremlinQuery {
             subqueries.forEach { sq ->
                 val child = `__`.start<Any>()
                 if (optionsStrategy != null) {
-                    child.asAdmin().strategies.addStrategies(optionsStrategy)
+                    val admin = child.asAdmin()
+                    admin.strategies = DefaultTraversalStrategies().apply { addStrategies(optionsStrategy) }
                 }
                 val subRes = sq.continueTraversal(child.asYT(), c, sortApplied)
                 c = subRes.counter
