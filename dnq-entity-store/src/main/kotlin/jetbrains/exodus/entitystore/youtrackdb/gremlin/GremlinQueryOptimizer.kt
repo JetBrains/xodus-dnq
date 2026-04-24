@@ -260,7 +260,9 @@ internal fun GremlinQuery.combineEfficient(
     if (condCombiner is ConditionCombiner.Intersect || condCombiner is ConditionCombiner.Difference) {
         if (this is FollowLink || (this is Labeled && this.inner is FollowLink)) {
             val condBlock = extractCondition(other)
-            if (condBlock != null) {
+            // Skip when condBlock is All: appending All is a no-op that silently drops
+            // the label from Labeled(Where(All), T), losing the hasLabel filter.
+            if (condBlock != null && condBlock !is GremlinBlock.All) {
                 val appended = if (condCombiner is ConditionCombiner.Difference) GremlinBlock.Not.of(condBlock) else condBlock
                 val base = if (this is Labeled) Labeled(this.inner.then(appended), this.label)
                            else (this as FollowLink).then(appended)
@@ -280,7 +282,8 @@ internal fun GremlinQuery.combineEfficient(
         if (condCombiner is ConditionCombiner.Intersect &&
             (other is FollowLink || (other is Labeled && other.inner is FollowLink))) {
             val condBlock = extractCondition(this)
-            if (condBlock != null) {
+            // Same All guard as above (symmetric case).
+            if (condBlock != null && condBlock !is GremlinBlock.All) {
                 val base = if (other is Labeled) Labeled(other.inner.then(condBlock), other.label)
                            else (other as FollowLink).then(condBlock)
                 // Same double-label guard for the symmetric case (see comment above).
