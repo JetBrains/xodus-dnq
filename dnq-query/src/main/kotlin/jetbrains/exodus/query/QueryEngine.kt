@@ -62,11 +62,13 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
                     val sorted = applySort(tree, entityType, instance)
                     sorted as? EntityIterable ?: InMemoryEntityIterable(sorted, txn = persistentStore.andCheckCurrentTransaction, this)
                 } else {
+                    val polymorphic = (instance.unwrap() as? YTDBEntityIterable)?.polymorphic ?: true
                     instance.intersect(
                         tree.instantiate(
                             entityType,
                             this,
-                            modelMetaData
+                            modelMetaData,
+                            polymorphic
                         ) as EntityIterable
                     )
                 }

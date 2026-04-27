@@ -18,9 +18,14 @@ package kotlinx.dnq
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.database.PersistentEntityIterableWrapper
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
+import kotlinx.dnq.query.exclude
 import kotlinx.dnq.query.filter
+import kotlinx.dnq.query.filterIsInstance
+import kotlinx.dnq.query.filterIsNotInstance
+import kotlinx.dnq.query.plus
 import kotlinx.dnq.query.sortedBy
 import kotlinx.dnq.query.toList
+import kotlinx.dnq.query.union
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
@@ -114,23 +119,171 @@ class XdEntityTypePolymorphicTest : DBTest() {
     }
 
     @Test
-    fun `non-polymorphic all chained with filter throws due to polymorphic mismatch`() {
-        // filter() internally intersects the non-polymorphic instance with a
-        // default-polymorphic tree result from QueryEngine.query(), triggering
-        // Track 2's combination validation. This is a known limitation:
-        // filtering non-polymorphic queries requires lower-level APIs
-        // (YTDBStoreTransaction.find* with polymorphic=false).
+    fun `non-polymorphic all chained with filter returns only exact type instances`() {
         transactional {
+            User.new { login = "user1"; skill = 5 }
+            User.new { login = "user2"; skill = 1 }
+            User.new { login = "user3"; skill = 10 }
+        }
+
+        transactional(readonly = true) {
+            // QueryEngine.query() must match the tree result's polymorphic flag
+            // to the instance's flag before intersecting, otherwise
+            // requirePolymorphicMatch rejects the combination.
+            val result = User.all(polymorphic = false).filter {
+                it.skill gt 3
+            }.toList()
+            assertThat(result.map { it.login }).containsExactly("user1", "user3")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all with filter on hierarchy base type returns empty`() {
+        transactional {
+            val user = User.new { login = "owner"; skill = 1 }
+            val root = RootGroup.new { name = "rootGroup" }
+            NestedGroup.new { name = "nestedGroup"; parentGroup = root; owner = user }
+        }
+
+        transactional(readonly = true) {
+            // Filtering non-polymorphic all() on an abstract base should still
+            // return empty — no concrete instances of Group exist.
+            val result = Group.all(polymorphic = false).filter {
+                it.name eq "rootGroup"
+            }.toList()
+            assertThat(result).isEmpty()
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all with filterIsInstance returns only matching subtype`() {
+        transactional {
+            val user = User.new { login = "owner"; skill = 1 }
+            val root = RootGroup.new { name = "rootGroup" }
+            NestedGroup.new { name = "nestedGroup"; parentGroup = root; owner = user }
+        }
+
+        transactional(readonly = true) {
+            // Non-polymorphic all on Group (abstract) returns empty,
+            // so filterIsInstance on it should also return empty
+            val result = Group.all(polymorphic = false).filterIsInstance(RootGroup).toList()
+            assertThat(result).isEmpty()
+
+            // Polymorphic all on Group returns all subtypes,
+            // filterIsInstance narrows to RootGroup only
+            val polyResult = Group.all().filterIsInstance(RootGroup).toList()
+            assertThat(polyResult).hasSize(1)
+            assertThat(polyResult.map { it.name }).containsExactly("rootGroup")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all with filterIsNotInstance excludes matching subtype`() {
+        transactional {
+            val user = User.new { login = "owner"; skill = 1 }
+            val root = RootGroup.new { name = "rootGroup" }
+            NestedGroup.new { name = "nestedGroup"; parentGroup = root; owner = user }
+        }
+
+        transactional(readonly = true) {
+            // Non-polymorphic all on Group (abstract) returns empty,
+            // so filterIsNotInstance should also return empty
+            val result = Group.all(polymorphic = false).filterIsNotInstance(RootGroup).toList()
+            assertThat(result).isEmpty()
+
+            // Polymorphic all on Group returns all subtypes,
+            // filterIsNotInstance excludes RootGroup, leaving only NestedGroup
+            val polyResult = Group.all().filterIsNotInstance(RootGroup).toList()
+            assertThat(polyResult).hasSize(1)
+            assertThat(polyResult.map { it.name }).containsExactly("nestedGroup")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all on concrete type with filterIsInstance exercises real intersect`() {
+        transactional {
+            val user = User.new { login = "owner"; skill = 1 }
+            val root = RootGroup.new { name = "rootGroup" }
+            NestedGroup.new { name = "nestedGroup"; parentGroup = root; owner = user }
+        }
+
+        transactional(readonly = true) {
+            // Non-polymorphic all on RootGroup (concrete) returns real instances,
+            // so filterIsInstance actually exercises the intersect path
+            val result = RootGroup.all(polymorphic = false).filterIsInstance(RootGroup).toList()
+            assertThat(result.map { it.name }).containsExactly("rootGroup")
+
+            // filterIsNotInstance(NestedGroup) on non-polymorphic RootGroup keeps all RootGroups
+            val notNestedResult = RootGroup.all(polymorphic = false).filterIsNotInstance(NestedGroup).toList()
+            assertThat(notNestedResult.map { it.name }).containsExactly("rootGroup")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all with chained filters preserves polymorphic flag`() {
+        transactional {
+            User.new { login = "user1"; skill = 5 }
+            User.new { login = "user2"; skill = 1 }
+            User.new { login = "user3"; skill = 10 }
+        }
+
+        transactional(readonly = true) {
+            val result = User.all(polymorphic = false)
+                .filter { it.skill gt 0 }
+                .filter { it.skill gt 3 }
+                .toList()
+            assertThat(result.map { it.login }).containsExactly("user1", "user3")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all exclude single entity throws`() {
+        val user1 = transactional {
+            User.new { login = "user1"; skill = 5 }
+        }
+        transactional {
+            User.new { login = "user2"; skill = 1 }
+        }
+
+        transactional(readonly = true) {
+            // exclude(entity) wraps the entity in queryOf() which creates a ByIds
+            // iterable (default polymorphic=true). Mixing polymorphic flags is rejected.
+            assertFailsWith<IllegalArgumentException> {
+                User.all(polymorphic = false).exclude(user1).toList()
+            }
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all union single entity throws`() {
+        val user1 = transactional {
             User.new { login = "user1"; skill = 5 }
         }
 
         transactional(readonly = true) {
-            val exception = assertFailsWith<IllegalArgumentException> {
-                User.all(polymorphic = false).filter {
-                    it.skill gt 3
-                }.toList()
+            // union(entity) wraps in queryOf() → ByIds (polymorphic=true).
+            // Mixing polymorphic flags is rejected.
+            assertFailsWith<IllegalArgumentException> {
+                (User.all(polymorphic = false) union user1).toList()
             }
-            assertThat(exception.message).contains("non-polymorphic")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic all plus single entity throws`() {
+        val user1 = transactional {
+            User.new { login = "user1"; skill = 5 }
+        }
+        transactional {
+            User.new { login = "user2"; skill = 1 }
+        }
+
+        transactional(readonly = true) {
+            // plus(entity) wraps in queryOf() → ByIds (polymorphic=true).
+            // Mixing polymorphic flags is rejected.
+            assertFailsWith<IllegalArgumentException> {
+                (User.all(polymorphic = false) + user1).toList()
+            }
         }
     }
 

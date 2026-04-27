@@ -675,7 +675,8 @@ private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterab
             YTDBEntityIterable.where(
                 entityTypeName,
                 this.transaction.asYTDBTransaction(),
-                GremlinBlock.All
+                GremlinBlock.All,
+                this.polymorphic
             )
         )
     } else {
