@@ -57,7 +57,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         return when {
             modelMetaData != null && modelMetaData.getEntityMetaData(entityType) == null -> YTDBEntityIterable.EMPTY
             instance == null -> tree.instantiate(entityType, this, modelMetaData) as EntityIterable
-            instance is EntityIterable -> {
+            instance is EntityIterable && instance.isPersistent -> {
                 if (tree is LeafNode && tree.query is GremlinQuery.SortBy) {
                     val sorted = applySort(tree, entityType, instance)
                     sorted as? EntityIterable ?: InMemoryEntityIterable(sorted, txn = persistentStore.andCheckCurrentTransaction, this)
@@ -159,20 +159,18 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     }
 
     private fun canAggregate(left: Iterable<Entity>, right: Iterable<Entity>): Boolean =
-        if (left.isPersistent) right.isPersistent
-        else left is EntityIterable && right is EntityIterable
+        left.isPersistent && right.isPersistent
 
     open fun selectDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> {
-        return if (it is EntityIterable) {
+        return if (it is EntityIterable && it.isPersistent) {
             it.selectDistinct(linkName)
         } else {
             it?.let { inMemorySelectDistinct(it, linkName) } ?: YTDBEntityIterable.EMPTY
         }
-
     }
 
     open fun selectManyDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> {
-        return if (it is EntityIterable) {
+        return if (it is EntityIterable && it.isPersistent) {
             it.selectManyDistinct(linkName)
         } else {
             it?.let { inMemorySelectManyDistinct(it, linkName) } ?: YTDBEntityIterable.EMPTY

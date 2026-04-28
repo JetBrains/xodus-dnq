@@ -16,19 +16,20 @@
 package kotlinx.dnq.events
 
 import com.google.common.truth.Truth
-import jetbrains.exodus.database.RemovedEntityData
 import jetbrains.exodus.entitystore.EntityId
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.listener.XdEntityListener
 import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.query.asSequence
+import kotlinx.dnq.query.filter
 import kotlinx.dnq.query.size
 import kotlinx.dnq.query.toList
+import kotlinx.dnq.util.getAddedLinks
 import org.junit.Assert
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.test.Ignore
+import java.util.concurrent.atomic.AtomicReference
 
 class ListenersTest : DBTest() {
 
@@ -252,6 +253,46 @@ class ListenersTest : DBTest() {
         }
         Assert.assertEquals(0, refNew.get())
         Assert.assertEquals(2, refOld.get())
+    }
+
+    /**
+     * Reproducer: filtering added links inside an updatedSync listener crashes with
+     * UnsupportedOperationException because TransientEntityIterable.intersect() is not supported.
+     *
+     * getAddedLinks() returns a TransientEntityIterable wrapped in XdQuery.
+     * Calling .filter {} invokes QueryEngine.query(instance=TransientEntityIterable, ...),
+     * which enters the `instance is EntityIterable` branch and calls instance.intersect() — crash.
+     */
+    @Test
+    fun `filter added links in updatedSync listener should not crash`() {
+        val g = store.transactional {
+            Goo.new()
+        }
+        val result = AtomicReference<List<Int>>()
+        val error = AtomicReference<Throwable>()
+        Goo.addListener(store, object : XdEntityListener<Goo> {
+            override fun updatedSync(old: Goo, current: Goo) {
+                try {
+                    val filtered = old.getAddedLinks(Goo::content)
+                        .filter { it.intField eq 2 }
+                        .toList()
+                    result.set(filtered.map { it.intField })
+                } catch (e: Throwable) {
+                    error.set(e)
+                }
+            }
+        })
+        store.transactional {
+            g.content.add(Foo.new { intField = 1 })
+            g.content.add(Foo.new { intField = 2 })
+            g.content.add(Foo.new { intField = 3 })
+        }
+        if (error.get() != null) {
+            throw AssertionError(
+                "Filtering TransientEntityIterable should not crash", error.get()
+            )
+        }
+        Truth.assertThat(result.get()).containsExactly(2)
     }
 
     @Test
