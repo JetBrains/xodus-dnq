@@ -471,7 +471,7 @@ fun <T : XdEntity, S : T> XdQuery<T>.filterIsNotInstance(entityType: XdEntityTyp
         this.entityIterable,
         this.entityType.entityType,
         LeafNode(GremlinBlock.Not(GremlinBlock.HasLabel(entityType.entityType)))
-    ).asQuery(entityType)
+    ).asQuery(this.entityType)
 }
 
 /**
