@@ -94,7 +94,7 @@ open class RemovedTransientEntity(
     }
 
     override fun getPropertyOldValue(propertyName: String): Comparable<*>? {
-        throw IllegalStateException("Entity is removed")
+        return getProperty(propertyName)
     }
 
     override fun setToOne(linkName: String, target: Entity?) {

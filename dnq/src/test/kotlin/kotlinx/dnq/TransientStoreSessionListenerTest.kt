@@ -408,6 +408,67 @@ class TransientStoreSessionListenerTest : DBTest() {
         listOf(t1, t2).forEach { it.join() }
         listener.check(count = 2)
     }
+
+    @Test
+    fun `snapshot entity in flushed listener should return old link value for changed to-one link`() {
+        val parent1 = store.transactional { LevelOneEntity.new { name = "parent1" } }
+        val parent2 = store.transactional { LevelOneEntity.new { name = "parent2" } }
+        val child = store.transactional { LevelTwoEntity.new { name = "child"; parent = parent1 } }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val childChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.UPDATE && it.transientEntity.id == child.entityId
+            } ?: error("expected UPDATE change for child")
+            // Snapshot must reflect state before the transaction: parent should still be parent1
+            assertEquals(parent1.entityId, childChange.snapshotEntity.getLink("parent")?.id)
+        }
+
+        store.transactional { child.parent = parent2 }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot entity in flushed listener should return old link value for cleared to-one link`() {
+        val parent1 = store.transactional { LevelOneEntity.new { name = "parent1" } }
+        val child = store.transactional { LevelTwoEntity.new { name = "child"; parent = parent1 } }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val childChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.UPDATE && it.transientEntity.id == child.entityId
+            } ?: error("expected UPDATE change for child")
+            // Link was cleared to null; snapshot must still see the original parent1
+            assertEquals(parent1.entityId, childChange.snapshotEntity.getLink("parent")?.id)
+        }
+
+        store.transactional { child.parent = null }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot entity in flushed listener should return null for to-one link set from null`() {
+        val parent1 = store.transactional { LevelOneEntity.new { name = "parent1" } }
+        val child = store.transactional { LevelTwoEntity.new { name = "child" } }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val childChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.UPDATE && it.transientEntity.id == child.entityId
+            } ?: error("expected UPDATE change for child")
+            // Link was set from null; snapshot must report the original null value
+            assertEquals(null, childChange.snapshotEntity.getLink("parent"))
+        }
+
+        store.transactional { child.parent = parent1 }
+        listener.check()
+    }
 }
 
 class CallbackListener : TransientStoreSessionListener {
