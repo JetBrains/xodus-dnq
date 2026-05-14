@@ -71,7 +71,7 @@ internal class SnapshotEntityIterable(
 
     override fun asSortResult(): EntityIterable = wrap(original.asSortResult())
 
-    override fun unwrap(): EntityIterable = wrap(original.unwrap())
+    override fun unwrap(): EntityIterable = original.unwrap()
 
     override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable =
         wrap(original.findLinks(entities, linkName))
