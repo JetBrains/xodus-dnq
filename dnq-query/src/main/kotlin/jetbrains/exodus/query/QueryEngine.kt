@@ -63,14 +63,17 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
                     sorted as? EntityIterable ?: InMemoryEntityIterable(sorted, txn = persistentStore.andCheckCurrentTransaction, this)
                 } else {
                     val polymorphic = (instance.unwrap() as? YTDBEntityIterable)?.polymorphic ?: true
-                    instance.intersect(
-                        tree.instantiate(
-                            entityType,
-                            this,
-                            modelMetaData,
-                            polymorphic
-                        ) as EntityIterable
-                    )
+                    val rightIterable = tree.instantiate(
+                        entityType,
+                        this,
+                        modelMetaData,
+                        polymorphic
+                    ) as EntityIterable
+                    // JT-95690: delegate to the binary intersect, which already routes
+                    // persistent-on-persistent to DB-side intersect and falls back to
+                    // inMemoryIntersect (with its small-left GremlinQuery.ByIds DB-pushdown)
+                    // when the left side is not DB-backed (e.g. TransientEntityIterable).
+                    intersect(instance, rightIterable) as EntityIterable
                 }
             }
             else -> {
@@ -158,9 +161,14 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         }
     }
 
+    // JT-95690: was previously `if (left.isPersistent) right.isPersistent else left is EntityIterable && right is EntityIterable`.
+    // The else-branch fell through to `(left as EntityIterable).intersect(right)` for any non-persistent
+    // EntityIterable left side, including TransientEntityIterable whose intersect throws.
+    // Mirrors xodus-master `intersectNonTrees`: only delegate to source.intersect when both sides
+    // are DB-backed; otherwise route through inMemoryIntersect (which itself takes a DB-pushdown
+    // fast path for small left sets via GremlinQuery.ByIds).
     private fun canAggregate(left: Iterable<Entity>, right: Iterable<Entity>): Boolean =
-        if (left.isPersistent) right.isPersistent
-        else left is EntityIterable && right is EntityIterable
+        left.isPersistent && right.isPersistent
 
     open fun selectDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> {
         return if (it is EntityIterable) {
