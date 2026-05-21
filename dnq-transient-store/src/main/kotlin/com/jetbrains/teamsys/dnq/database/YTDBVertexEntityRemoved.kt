@@ -15,6 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
@@ -31,7 +32,8 @@ class YTDBVertexEntityRemoved(
     originalVertex: YTDBVertexEntity,
     store: YTDBEntityStore,
     private val queryEngine: QueryEngine,
-    private val changesTracker: TransientChangesTrackerImpl
+    private val changesTracker: TransientChangesTrackerImpl,
+    sourceEntity: TransientEntity,
 ) : YTDBVertexEntity(
     oEntityId = oEntityId,
     ytdbVertex =
@@ -43,12 +45,24 @@ class YTDBVertexEntityRemoved(
     private val links = mutableMapOf<String, Set<EntityId>>()
 
     init {
-        for (link in originalVertex.linkNames) {
-            links[link] = originalVertex
-                .getLinks(link)
-                .asSequence()
-                .map { it.id }
-                .toSet()
+        // The live vertex reflects post-mutation state at delete() time. To get the
+        // pre-transaction state, overlay the tracker's LinkChange records:
+        //   + add back removedEntities / deletedEntities (stripped earlier in txn)
+        //   - subtract addedEntities (added earlier in txn — not in pre-txn state)
+        val linkChanges = changesTracker.getChangedLinksDetailed(sourceEntity).orEmpty()
+        val linkNames = LinkedHashSet<String>(originalVertex.linkNames).apply {
+            addAll(linkChanges.keys)
+        }
+        for (linkName in linkNames) {
+            val ids = originalVertex.getLinks(linkName).asSequence().mapTo(LinkedHashSet()) { it.id }
+            linkChanges[linkName]?.let { change ->
+                change.removedEntities?.forEach { ids.add(it.id) }
+                change.deletedEntities?.forEach { ids.add(it.id) }
+                change.addedEntities?.forEach { ids.remove(it.id) }
+            }
+            if (ids.isNotEmpty()) {
+                links[linkName] = ids
+            }
         }
     }
 

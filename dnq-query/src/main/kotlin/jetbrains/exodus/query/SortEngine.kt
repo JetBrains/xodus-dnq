@@ -68,6 +68,14 @@ open class SortEngine {
         source: Iterable<Entity>,
         asc: Boolean
     ): Iterable<Entity> {
+        // Short-circuit empty sources before touching source.query — YTDBEntityIterable.EMPTY's
+        // query stub throws "Should never be called" (mirrors the empty guard in the property sort above).
+        if ((source as? EntityIterable)?.unwrap() === YTDBEntityIterable.EMPTY) {
+            return YTDBEntityIterable.EMPTY
+        }
+        if (source !is EntityIterable && source.none()) {
+            return YTDBEntityIterable.EMPTY
+        }
         // todo: validate this logic
         if (source is YTDBEntityIterable && source.query !is GremlinQuery.ByIds) {
             val txn = queryEngine.persistentStore.andCheckCurrentTransaction

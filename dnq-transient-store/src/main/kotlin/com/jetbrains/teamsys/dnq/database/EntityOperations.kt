@@ -38,11 +38,14 @@ object EntityOperations {
     @JvmStatic
     internal fun remove(e: Entity?, callDestructorPhase: Boolean, processed: MutableSet<Entity>) {
         if (callDestructorPhase) {
-            // calling "before removed" to create links snapshot
-            (e as? TransientEntity)
-                ?.threadSessionOrThrow
-                ?.transientChangesTracker
-                ?.entityBeforeRemoved(e)
+            // calling "before removed" to create links snapshot.
+            // Upgrade the read-only tracker first (post-flush state) so the snapshot
+            // is captured by the writable tracker — otherwise the call lands on the
+            // read-only no-op/throw and the pre-removal link state is lost before
+            // Phase 2 strips edges at the storage layer.
+            val session = (e as? TransientEntity)?.threadSessionOrThrow as? TransientSessionImpl
+            session?.upgradeReadonlyTransactionIfNecessary()
+            session?.transientChangesTracker?.entityBeforeRemoved(e)
         }
 
         if (e == null || (e as TransientEntity).isRemoved) return

@@ -95,13 +95,11 @@ fun XdEntity.getRemovedLinks(linkName: String): EntityIterable {
 
 fun XdEntity.getOldLinkValue(linkName: String): TransientEntity? {
     val entity = this.entity as TransientEntity
-    val transientStore = entity.store
-    val session = transientStore.threadSessionOrThrow
+    val session = entity.store.threadSessionOrThrow
     return if (session.isRemoved(entity)) {
-        (transientStore.persistentStore as PersistentEntityStore)
-            .getEntity(entity.id)
-            .getLink(linkName)
-            ?.let { session.newEntity(it) }
+        val snapshot = if (entity.isWrapper) entity
+        else session.transientChangesTracker.getSnapshotEntity(entity)
+        snapshot.getLink(linkName)?.let { session.newEntity(it) }
     } else if (entity.isNew) {
         null
     } else if (!entity.hasChanges(linkName)) {

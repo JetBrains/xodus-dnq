@@ -22,6 +22,8 @@ import com.jetbrains.teamsys.dnq.database.reattachTransient
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
+import kotlinx.dnq.listener.XdEntityListener
+import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.util.getDBName
 import kotlinx.dnq.util.getOldValue
 import org.junit.Test
@@ -97,5 +99,57 @@ class OldValueTest : DBTest() {
 
             }
         }
+    }
+
+    /**
+     * Counterpart to [oldValueOnDelete]: inside a `removedSync` listener the snapshot
+     * is in hand, so `getOldValue` must succeed even after the entity row is physically
+     * gone from YTDB post-flush.
+     */
+        @Test
+    fun oldLinkValueOnNonSnapshotReferenceAfterDelete() {
+        val (user, role) = store.transactional {
+            val role = RRole.new()
+            val user = RUser.new(name).apply { this.role = role }
+            Pair(user, role)
+        }
+        store.transactional {
+            user.delete()
+            assertThat(user.getOldValue(RUser::role)).isEqualTo(role)
+        }
+    }
+
+    @Test
+    fun oldLinkValueOnNonSnapshotReferenceAfterClearThenDelete() {
+        val (user, role) = store.transactional {
+            val role = RRole.new()
+            val user = RUser.new(name).apply { this.role = role }
+            Pair(user, role)
+        }
+        store.transactional {
+            user.role = null
+            user.delete()
+            assertThat(user.getOldValue(RUser::role)).isEqualTo(role)
+        }
+    }
+
+    @Test
+    fun oldLinkValueInRemovedSyncListener() {
+        val (user, role) = store.transactional {
+            val role = RRole.new()
+            val user = RUser.new(name).apply { this.role = role }
+            Pair(user, role)
+        }
+
+        var capturedOldRole: RRole? = null
+        store.changesMultiplexer!!.addListener(RUser, object : XdEntityListener<RUser> {
+            override fun removedSync(removed: RUser) {
+                capturedOldRole = removed.getOldValue(RUser::role)
+            }
+        })
+
+        store.transactional { user.delete() }
+
+        assertThat(capturedOldRole).isEqualTo(role)
     }
 }
