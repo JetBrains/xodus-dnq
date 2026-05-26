@@ -15,6 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import com.jetbrains.youtrackdb.internal.core.record.impl.RecordBytes
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
@@ -24,6 +25,8 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.query.InMemoryEntityIterable
 import jetbrains.exodus.query.QueryEngine
+import jetbrains.exodus.util.UTFUtil
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
 
@@ -43,6 +46,20 @@ class YTDBVertexEntityRemoved(
 ) {
 
     private val links = mutableMapOf<String, Set<EntityId>>()
+
+    /**
+     * Snapshot of blob bytes captured at construction time, before the YTDB session that owns
+     * the underlying `RecordBytes` is closed. YTDB calls `RecordAbstract.unload()` on its cached
+     * records when the session closes, resetting `status` to `NOT_LOADED` and clearing `source`.
+     * Without this eager copy, a flushed-sync listener that reads a blob field on the snapshot
+     * would trip `RecordAbstract.checkForBinding` with
+     * `Record #X:Y is not bound to the current session` (XD-1272).
+     *
+     * Regular scalar properties (String, Long, …) don't need this — they are stored inline on
+     * the vertex, `YTDBDetachedVertex` copies their values by reference, and the JVM objects
+     * are unaffected by YTDB session lifecycle.
+     */
+    private val blobBytes: Map<String, ByteArray> = captureBlobBytes(originalVertex, store)
 
     init {
         // The live vertex reflects post-mutation state at delete() time. To get the
@@ -65,6 +82,17 @@ class YTDBVertexEntityRemoved(
             }
         }
     }
+
+    override fun getBlob(blobName: String): InputStream? =
+        blobBytes[blobName]?.let { ByteArrayInputStream(it) }
+
+    override fun getBlobString(blobName: String): String? =
+        blobBytes[blobName]?.let { UTFUtil.readUTF(ByteArrayInputStream(it)) }
+
+    override fun getBlobSize(blobName: String): Long =
+        blobBytes[blobName]?.size?.toLong() ?: -1L
+
+    override fun getBlobNames(): List<String> = blobBytes.keys.toList()
 
     override fun getLinkNames(): List<String> = links.keys.toList()
 
@@ -136,4 +164,42 @@ class YTDBVertexEntityRemoved(
     private fun vertexIsRemoved(): Nothing {
         throw IllegalArgumentException("Already deleted")
     }
+}
+
+/**
+ * Reads each blob property's bytes into a JVM-owned `ByteArray` while the YTDB session that
+ * owns the underlying [RecordBytes] is still active. The returned map outlives the session,
+ * so the snapshot can serve blob reads after `session.close()` (which calls
+ * `RecordAbstract.unload()` on every cached record).
+ *
+ * Force-loads each [RecordBytes] via `transaction.getBlob(rid)` before reading, because the
+ * record may still be in `NOT_LOADED` state if nothing on the entity's caller path materialised
+ * its bytes before removal.
+ */
+private fun captureBlobBytes(
+    originalVertex: YTDBVertexEntity,
+    store: YTDBEntityStore
+): Map<String, ByteArray> {
+    val vertex = originalVertex.vertex
+    if (vertex is YTDBDetachedVertex) {
+        // Re-snapshotting an already-detached vertex: the bytes were captured by the upstream
+        // snapshot already, and we no longer have access to a live session to re-read them.
+        return emptyMap()
+    }
+
+    val result = mutableMapOf<String, ByteArray>()
+    val txn = store.requireActiveTransaction()
+    vertex.properties<Any>().forEachRemaining { prop ->
+        val value = prop.value()
+        if (value is RecordBytes) {
+            val rid = value.identity
+            if (rid.isValidPosition) {
+                // getBlob → session.load(rid) → ensures status == LOADED and source != null,
+                // even if the entity caller never touched this blob before removing the entity.
+                val loaded = txn.getBlob(rid) as RecordBytes
+                result[prop.key()] = loaded.toStream()
+            }
+        }
+    }
+    return result
 }
