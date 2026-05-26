@@ -277,7 +277,8 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
             ytdbEntity.id as RIDEntityId, ytdbEntity,
             ytdbEntity.store,
             e.store.queryEngine,
-            this
+            this,
+            e,
         )
         return removed
     }

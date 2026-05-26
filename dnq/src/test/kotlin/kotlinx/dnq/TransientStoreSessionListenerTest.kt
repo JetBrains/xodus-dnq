@@ -15,6 +15,7 @@
  */
 package kotlinx.dnq
 
+import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.Entity
@@ -467,6 +468,131 @@ class TransientStoreSessionListenerTest : DBTest() {
         }
 
         store.transactional { child.parent = parent1 }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot of removed entity should preserve parent link cleared before delete`() {
+        // A parent link cleared via setManyToOne(null, ...) before delete() in the
+        // same transaction must still resolve to the original parent on the snapshot
+        // of the removed entity. The removal snapshot used to capture link state
+        // live at delete() time — after the in-txn mutation had already stripped
+        // the edge — so a removedSyncBeforeConstraints listener observed null.
+        val parent = store.transactional { ParentEntity.new { name = "p" } }
+        val child = store.transactional { ChildEntity.new { name = "c"; this.parent = parent } }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val childChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.REMOVE && it.transientEntity.id == child.entityId
+            } ?: error("expected REMOVE change for child")
+            // Snapshot must still see the original parent even though the parent link
+            // was cleared before delete() in the same transaction.
+            assertEquals(parent.entityId, childChange.snapshotEntity.getLink("parent")?.id)
+        }
+
+        store.transactional {
+            AggregationAssociationSemantics.setManyToOne(
+                /* parent = */ null,
+                /* parentToChildLinkName = */ "child",
+                /* childToParentLinkName = */ "parent",
+                /* child = */ child.entity,
+            )
+            child.delete()
+        }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot of removed entity should preserve to-many link cleared before delete`() {
+        // Same regression as the to-one case, exercised on the plural snapshot reader.
+        // A to-many link cleared in the same transaction as delete() must still report
+        // its original members on snapshot.getLinks().
+        val (parent, originalChildren) = store.transactional {
+            val three = LevelThreeEntity.new { name = "three" }
+            val twoA = LevelTwoEntity.new { name = "twoA" }
+            val twoB = LevelTwoEntity.new { name = "twoB" }
+            three.children.add(twoA)
+            three.children.add(twoB)
+            Pair(three, setOf(twoA.entityId, twoB.entityId))
+        }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val parentChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.REMOVE && it.transientEntity.id == parent.entityId
+            } ?: error("expected REMOVE change for parent")
+            val snapshotIds = parentChange.snapshotEntity.getLinks("children").map { it.id }.toSet()
+            assertEquals(originalChildren, snapshotIds)
+        }
+
+        store.transactional {
+            parent.children.clear()
+            parent.delete()
+        }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot of removed entity should reflect to-many link mixed add and remove before delete`() {
+        // Pre-txn children: {A, B}. In the same txn we add C and remove A, then delete
+        // the parent. The snapshot must roll back BOTH mutations: include A (was
+        // removed in-txn) and exclude C (was added in-txn) — yielding the original {A, B}.
+        val (parent, original, added) = store.transactional {
+            val three = LevelThreeEntity.new { name = "three" }
+            val twoA = LevelTwoEntity.new { name = "twoA" }
+            val twoB = LevelTwoEntity.new { name = "twoB" }
+            val twoC = LevelTwoEntity.new { name = "twoC" }
+            three.children.add(twoA)
+            three.children.add(twoB)
+            Triple(three, setOf(twoA.entityId, twoB.entityId), twoC)
+        }
+        val originalA = store.transactional { parent.children.toList().first { it.name == "twoA" } }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val parentChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.REMOVE && it.transientEntity.id == parent.entityId
+            } ?: error("expected REMOVE change for parent")
+            val snapshotIds = parentChange.snapshotEntity.getLinks("children").map { it.id }.toSet()
+            assertEquals(original, snapshotIds)
+        }
+
+        store.transactional {
+            parent.children.add(added)
+            parent.children.remove(originalA)
+            parent.delete()
+        }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot of removed entity should exclude to-one link added in same transaction`() {
+        // Pre-txn the child has no parent. In the same txn we set parent and then
+        // delete the child. The snapshot must reflect the pre-txn null — the link
+        // edge added in-txn must be subtracted from the snapshot's link state.
+        val child = store.transactional { LevelTwoEntity.new { name = "orphan" } }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val childChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.REMOVE && it.transientEntity.id == child.entityId
+            } ?: error("expected REMOVE change for child")
+            assertEquals(null, childChange.snapshotEntity.getLink("parent"))
+        }
+
+        store.transactional {
+            child.parent = LevelOneEntity.new { name = "newParent" }
+            child.delete()
+        }
         listener.check()
     }
 }

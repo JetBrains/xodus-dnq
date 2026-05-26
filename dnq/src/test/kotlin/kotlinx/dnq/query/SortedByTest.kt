@@ -103,6 +103,27 @@ class SortedByTest : DBTest() {
         )
     }
 
+    /**
+     * Regression test for: linked-sort overload of SortEngine.sort blows up on an empty
+     * YTDBEntityIterable.
+     *
+     * Root cause: SortEngine.sort(enumType, propName, entityType, linkName, source, asc)
+     * peeks at `source.query` to decide whether to delegate to sortLinked. When the source
+     * unwraps to YTDBEntityIterable.EMPTY, `.query` is stubbed to throw
+     * UnsupportedOperationException("Should never be called"). The sibling property-sort
+     * overload already short-circuits to EMPTY for an empty source; the linked-sort overload
+     * is missing that guard.
+     */
+    @Test
+    fun `linked sort on empty result does not throw`() {
+        transactional {
+            val empty = User.emptyQuery()
+                .sortedBy(User::badge, Badge::name, asc = true)
+                .toList()
+            assertThat(empty).isEmpty()
+        }
+    }
+
     private fun checkOrder(
         name: String,
         queryOrder: XdQuery<User>.() -> XdQuery<User>,

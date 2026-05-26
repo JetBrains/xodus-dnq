@@ -86,6 +86,7 @@ class ReadOnlyTransientChangesTrackerImpl : TransientChangesTracker {
             throw UnsupportedOperationException()
 
     override fun entityBeforeRemoved(e: TransientEntity) {
+        throw UnsupportedOperationException()
     }
 
     override fun entityRemoved(e: TransientEntity): Unit =
