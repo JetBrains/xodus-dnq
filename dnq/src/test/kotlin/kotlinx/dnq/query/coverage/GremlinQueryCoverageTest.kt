@@ -407,6 +407,13 @@ class GremlinQueryCoverageTest : DBTest() {
             // Q22: {ENG-1,ENG-2} \ {ENG-2} = ENG-1
             assertThat(ByIds(listOf(eng1Rid, eng2Rid)).difference(ByIds(listOf(eng2Rid))).resultKeys(tx))
                 .containsExactly("ENG-1")
+            // Q22b: {ENG-1} \ {ENG-1} = ∅. Regression for the ByIds(emptyList()) → g.V()
+            // bug where the optimiser-reduced empty by-IDs query executed as "all vertices"
+            // instead of "no vertices", surfacing as XdQuery.exclude returning everything.
+            // Iterate the raw entity iterable so a non-empty result is observable directly
+            // (resultKeys would NPE on non-Issue vertices, masking the actual count).
+            assertThat(YTDBEntityIterable.query(tx, ByIds(listOf(eng1Rid)).difference(ByIds(listOf(eng1Rid)))).toList())
+                .isEmpty()
         }
     }
 

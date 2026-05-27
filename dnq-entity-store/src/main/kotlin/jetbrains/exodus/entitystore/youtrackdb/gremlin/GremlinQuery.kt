@@ -178,8 +178,11 @@ sealed class GremlinQuery {
     // todo: think how to preserve the order of the parameters
     // todo: handle Take & Skip differently too
     data class ByIds(val ids: List<RID>) : Condition(GremlinBlock.IdWithin(ids)) {
+        // gs.V() with no IDs traverses every vertex — wrong for an empty by-IDs query
+        // (which can arise from optimiser reductions like ByIds(x).difference(ByIds(x))).
         override fun startTraversal(gs: GraphTraversalSource): YTBuilder =
-            YTBuilder(gs.V(*ids.toTypedArray()).asYT(), 0)
+            if (ids.isEmpty()) YTBuilder.of(gs.V(), GremlinBlock.None)
+            else YTBuilder(gs.V(*ids.toTypedArray()).asYT(), 0)
     }
 
     data class NestedCondition(val structure: List<String>, val condition: Condition) : Condition(
