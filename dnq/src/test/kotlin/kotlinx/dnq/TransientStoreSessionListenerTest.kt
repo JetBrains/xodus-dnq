@@ -20,6 +20,8 @@ import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.link.OnDeletePolicy
+import kotlinx.dnq.listener.XdEntityListener
+import kotlinx.dnq.listener.addListener
 import kotlinx.dnq.query.isEmpty
 import kotlinx.dnq.query.queryOf
 import kotlinx.dnq.query.toList
@@ -594,6 +596,156 @@ class TransientStoreSessionListenerTest : DBTest() {
             child.delete()
         }
         listener.check()
+    }
+
+    @Test
+    fun `snapshot of removed entity returns writable target for unchanged to-one link`() {
+        // The removed snapshot's to-one link target is itself alive (not deleted in
+        // the same transaction). Listeners must be able to mutate it — the canonical
+        // pattern is `removedSync(removed) { removed.linkedResource.delete() }` for
+        // orphan cleanup.
+        val parent = store.transactional { LevelOneEntity.new { name = "parent" } }
+        val child = store.transactional { LevelTwoEntity.new { name = "child"; this.parent = parent } }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val childChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.REMOVE && it.transientEntity.id == child.entityId
+            } ?: error("expected REMOVE change for child")
+            val navigated = childChange.snapshotEntity.getLink("parent")
+                ?: error("expected navigated parent")
+            assertEquals(parent.entityId, navigated.id)
+            assertFalse(
+                (navigated as TransientEntity).isReadonly,
+                "navigated live target must be writable so removedSync can mutate it"
+            )
+        }
+
+        store.transactional { child.delete() }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot of removed entity returns read-only target for to-one link whose target was also removed`() {
+        // Both the source and the link target are deleted in the same transaction.
+        // The navigated entity must stay read-only because the underlying vertex is
+        // gone — there is no live entity to wrap. Anchors the contract that
+        // wrapLinkTarget still produces a snapshot wrapper for removed targets.
+        val (parent, child) = store.transactional {
+            val p = LevelOneEntity.new { name = "parent" }
+            val c = LevelTwoEntity.new { name = "child"; this.parent = p }
+            p to c
+        }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val childChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.REMOVE && it.transientEntity.id == child.entityId
+            } ?: error("expected REMOVE change for child")
+            val navigated = childChange.snapshotEntity.getLink("parent")
+                ?: error("expected snapshot of removed parent")
+            assertEquals(parent.entityId, navigated.id)
+            assertTrue(
+                (navigated as TransientEntity).isReadonly,
+                "navigated target that was deleted in the same txn must remain a read-only snapshot"
+            )
+        }
+
+        store.transactional {
+            child.delete()
+            parent.delete()
+        }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot of updated entity returns writable target for unchanged to-one link`() {
+        // The UPDATE snapshot path (ReadonlyTransientEntity.getLink, change == null
+        // branch). Listener mutates a property of the navigated-to entity reached
+        // from the snapshot — must succeed because the navigated entity is live.
+        val parent = store.transactional { LevelOneEntity.new { name = "parent" } }
+        val child = store.transactional { LevelTwoEntity.new { name = "child"; this.parent = parent } }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val childChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.UPDATE && it.transientEntity.id == child.entityId
+            } ?: error("expected UPDATE change for child")
+            val navigated = childChange.snapshotEntity.getLink("parent")
+                ?: error("expected navigated parent")
+            assertEquals(parent.entityId, navigated.id)
+            assertFalse(
+                (navigated as TransientEntity).isReadonly,
+                "navigated live target must be writable on the UPDATE snapshot path"
+            )
+        }
+
+        store.transactional { child.name = "renamed" }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot of updated entity returns writable target for to-one link that was reassigned`() {
+        // The UPDATE snapshot path with LinkChange.removedEntities (the link was
+        // reassigned to a different target). The snapshot must point to the OLD
+        // target and that OLD target must be writable — listeners may need to
+        // clean it up if the reassignment leaves it orphaned.
+        val (oldParent, newParent, child) = store.transactional {
+            val p1 = LevelOneEntity.new { name = "oldParent" }
+            val p2 = LevelOneEntity.new { name = "newParent" }
+            val c = LevelTwoEntity.new { name = "child"; parent = p1 }
+            Triple(p1, p2, c)
+        }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val childChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.UPDATE && it.transientEntity.id == child.entityId
+            } ?: error("expected UPDATE change for child")
+            val navigated = childChange.snapshotEntity.getLink("parent")
+                ?: error("expected navigated old parent")
+            assertEquals(oldParent.entityId, navigated.id)
+            assertFalse(
+                (navigated as TransientEntity).isReadonly,
+                "old to-one link target must be writable when the link was reassigned"
+            )
+        }
+
+        store.transactional { child.parent = newParent }
+        listener.check()
+    }
+
+    @Test
+    fun `removedSync listener can delete the navigated link target of the removed snapshot`() {
+        // End-to-end: combines the snapshot-navigation wrap with the EntityOperations.remove
+        // path that XdEntity.delete() goes through. Production listeners (e.g.
+        // CustomFieldDefaultsListener -> XdBundle.removeIfUnused) rely on this pattern to
+        // clean up orphaned linked entities after the owner is removed.
+        val parent = store.transactional { LevelOneEntity.new { name = "parent" } }
+        val child = store.transactional { LevelTwoEntity.new { name = "child"; this.parent = parent } }
+
+        LevelTwoEntity.addListener(store, object : XdEntityListener<LevelTwoEntity> {
+            override fun removedSync(removed: LevelTwoEntity) {
+                removed.parent?.delete()
+            }
+        })
+
+        store.transactional { child.delete() }
+
+        store.transactional {
+            assertTrue(
+                LevelOneEntity.all().isEmpty,
+                "parent must have been deleted by the removedSync listener"
+            )
+        }
     }
 }
 

@@ -248,7 +248,7 @@ open class RemovedTransientEntity(
     }
 
     override fun getLink(linkName: String): Entity? = entity.getLink(linkName)
-        ?.let { SnapshotEntityIterator.wrapEntity(it, store) }
+        ?.let { SnapshotEntityIterator.wrapLinkTarget(it, store) }
 
     override fun getLinks(linkName: String): EntityIterable =
         SnapshotEntityIterable(entity.getLinks(linkName), store)

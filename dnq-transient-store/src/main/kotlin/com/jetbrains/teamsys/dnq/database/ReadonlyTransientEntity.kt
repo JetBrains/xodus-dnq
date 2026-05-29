@@ -98,12 +98,12 @@ class ReadonlyTransientEntity(change: TransientEntityChange?, snapshot: YTDBEnti
         val change = changedLinks[linkName]
         if (change != null) {
             change.removedEntities?.firstOrNull()
-                ?.let { return SnapshotEntityIterator.wrapEntity(it, store) }
+                ?.let { return SnapshotEntityIterator.wrapLinkTarget(it, store) }
             change.deletedEntitiesSnapshots?.firstOrNull()
                 ?.let { return it }
             return null
         }
-        return entity.getLink(linkName)?.let { SnapshotEntityIterator.wrapEntity(it, store) }
+        return entity.getLink(linkName)?.let { SnapshotEntityIterator.wrapLinkTarget(it, store) }
     }
 
     override fun getLink(linkName: String, session: TransientStoreSession?): Entity? {

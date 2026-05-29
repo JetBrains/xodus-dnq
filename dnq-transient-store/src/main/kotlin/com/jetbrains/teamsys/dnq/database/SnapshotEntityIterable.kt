@@ -99,6 +99,24 @@ internal class SnapshotEntityIterator(
             is YTDBEntity -> ReadonlyTransientEntity(entity, store)
             else -> entity
         }
+
+        /**
+         * Wraps a target reached by single-link navigation from a snapshot entity
+         * ([ReadonlyTransientEntity.getLink], [RemovedTransientEntity.getLink]).
+         *
+         * Live targets are returned as writable [TransientEntity]s so post-flush
+         * listeners can mutate them (e.g. cascade-cleanup an orphaned linked entity
+         * from `removedSync`). Targets that have themselves been removed in the
+         * current transaction stay read-only because the underlying entity is gone.
+         *
+         * [wrapEntity] is kept for iteration paths ([SnapshotEntityIterator],
+         * [SnapshotEntityIterable]) where the snapshot collection view is preserved.
+         */
+        fun wrapLinkTarget(entity: Entity, store: TransientEntityStore): Entity = when (entity) {
+            is YTDBVertexEntityRemoved -> RemovedTransientEntity(entity, store)
+            is YTDBEntity -> store.threadSession?.newEntity(entity) ?: ReadonlyTransientEntity(entity, store)
+            else -> entity
+        }
     }
 
     override fun next(): Entity = wrapEntity(original.next(), store)
