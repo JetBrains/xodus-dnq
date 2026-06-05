@@ -102,7 +102,7 @@ class QueryEnginePolymorphicTest : OTestMixin {
 
         withStoreTx { tx ->
             val nonPoly = YTDBEntityIterable.where(
-                User.CLASS, tx, GremlinBlock.All, polymorphic = false
+                User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false
             )
             // Create a small in-memory list (under 20 elements) to trigger
             // the YTDBEntityIterable.query() path in inMemoryIntersect
@@ -121,7 +121,7 @@ class QueryEnginePolymorphicTest : OTestMixin {
 
         withStoreTx { tx ->
             val nonPoly = YTDBEntityIterable.where(
-                User.CLASS, tx, GremlinBlock.All, polymorphic = false
+                User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false
             )
             val inMemory = nonPoly.toList()
 
@@ -137,7 +137,7 @@ class QueryEnginePolymorphicTest : OTestMixin {
         val engine = givenEngine()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All)
+            val poly = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All)
             val inMemory = poly.toList()
 
             val result = engine.inMemoryIntersect(poly, inMemory)

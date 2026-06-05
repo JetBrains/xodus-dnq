@@ -47,8 +47,11 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         if (modelMetaData != null && modelMetaData.getEntityMetaData(entityType) == null) {
             return YTDBEntityIterable.EMPTY
         }
-        val txn = persistentStore.andCheckCurrentTransaction as YTDBStoreTransaction
-        return txn.getAll(entityType, polymorphic)
+        // Build a lazy iterable WITHOUT requiring an active transaction at construction.
+        // The iterable re-resolves the current active transaction at iteration time
+        // (YTDBEntityIterableImpl.traversal -> oStore.requireActiveTransaction()), restoring
+        // Xodus-like semantics: a query may be constructed outside a txn but iterated inside one.
+        return YTDBEntityIterable.where(entityType, oStore, GremlinBlock.All, polymorphic)
     }
 
     open fun query(entityType: String, tree: NodeBase): EntityIterable = query(null, entityType, tree)
@@ -207,7 +210,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
 
     open fun wrap(entity: Entity): Iterable<Entity> {
         return YTDBEntityIterable.query(
-            persistentStore.currentTransaction as YTDBStoreTransaction,
+            oStore,
             GremlinQuery.ByIds(listOf((entity.id as YTDBEntityId).asOId()))
         )
         // xodus original code
@@ -237,7 +240,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
             val rightIds = right.asSequence().map { e -> (e.id as YTDBEntityId).asOId() }.take(20).toList()
             if (rightIds.size < 20) {
                 return YTDBEntityIterable.query(
-                    txn as YTDBStoreTransaction,
+                    oStore,
                     left.query.intersect(
                         GremlinQuery.ByIds(rightIds)
                     ),
@@ -251,7 +254,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
             val leftValues = left.asSequence().map { e -> (e.id as YTDBEntityId).asOId() }.take(20).toList()
             if (leftValues.size < 20) {
                 return YTDBEntityIterable.query(
-                    txn as YTDBStoreTransaction,
+                    oStore,
                     GremlinQuery.ByIds(leftValues).intersect(right.query),
                     right.polymorphic
                 )

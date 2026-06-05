@@ -139,10 +139,10 @@ class GremlinQueryCoverageTest : DBTest() {
         store.persistentStore.computeInTransaction { tx -> block(tx as YTDBStoreTransactionImpl) }
 
     private fun GremlinQuery.resultKeys(tx: YTDBStoreTransactionImpl): List<String> =
-        YTDBEntityIterable.query(tx, this).map { it.getProperty("key") as String }
+        YTDBEntityIterable.query(tx.getStore(), this).map { it.getProperty("key") as String }
 
     private fun GremlinQuery.resultNames(tx: YTDBStoreTransactionImpl): List<String> =
-        YTDBEntityIterable.query(tx, this).map { it.getProperty("name") as String }
+        YTDBEntityIterable.query(tx.getStore(), this).map { it.getProperty("name") as String }
 
     /** Extracts the actual OrientDB RID from a dataset entity for use in ByIds/HasLinkTo queries. */
     private fun rid(xdEntity: XdEntity) =
@@ -412,7 +412,7 @@ class GremlinQueryCoverageTest : DBTest() {
             // instead of "no vertices", surfacing as XdQuery.exclude returning everything.
             // Iterate the raw entity iterable so a non-empty result is observable directly
             // (resultKeys would NPE on non-Issue vertices, masking the actual count).
-            assertThat(YTDBEntityIterable.query(tx, ByIds(listOf(eng1Rid)).difference(ByIds(listOf(eng1Rid)))).toList())
+            assertThat(YTDBEntityIterable.query(tx.getStore(), ByIds(listOf(eng1Rid)).difference(ByIds(listOf(eng1Rid)))).toList())
                 .isEmpty()
         }
     }

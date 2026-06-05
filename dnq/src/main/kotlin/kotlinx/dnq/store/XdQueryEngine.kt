@@ -112,7 +112,7 @@ class XdQueryEngine(val store: TransientEntityStore) :
             ?.takeIf { it.isSaved }
             ?.let {
                 YTDBEntityIterable.query(
-                    session.transactionInternal.asYTDBTransaction(),
+                    session.transactionInternal.asYTDBTransaction().getStore(),
                     GremlinQuery.ByIds(listOf(it.entity.id.asOId()))
                 )
             } ?: throw IllegalArgumentException()

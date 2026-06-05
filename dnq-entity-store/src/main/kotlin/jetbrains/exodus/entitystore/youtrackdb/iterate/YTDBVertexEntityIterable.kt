@@ -122,7 +122,7 @@ class YTDBVertexEntityIterable(
     }
 
     private fun asQueryIterable() = YTDBEntityIterable.query(
-        tx,
+        tx.getStore(),
         GremlinQuery.ByIds(listOf(targetEntityID.asOId()))
             .then(GremlinBlock.OutLink(linkName))
     )

@@ -704,7 +704,7 @@ class YTDBStoreTransactionTest : OTestMixin {
         withStoreTx { tx ->
             val boards =
                 YTDBEntityIterable
-                    .where(Issues.CLASS, tx, GremlinBlock.All)
+                    .where(Issues.CLASS, tx.getStore(), GremlinBlock.All)
                     .selectManyDistinct(Issues.Links.ON_BOARD)
                     .toList()
             //selectManyDistinct
@@ -726,12 +726,12 @@ class YTDBStoreTransactionTest : OTestMixin {
         }
 
         withStoreTx { tx ->
-            val issues = YTDBEntityIterable.where(Issues.CLASS, tx, GremlinBlock.All)
+            val issues = YTDBEntityIterable.where(Issues.CLASS, tx.getStore(), GremlinBlock.All)
             Assert.assertTrue(issues.contains(test.issue1))
             val issuesOnBoard =
                 YTDBEntityIterable
                     .where(
-                        Issues.CLASS, tx,
+                        Issues.CLASS, tx.getStore(),
                         GremlinBlock.HasLinkTo(Issues.Links.ON_BOARD, test.board1.id.asOId())
                     )
             Assert.assertEquals(1, issuesOnBoard.toList().size)

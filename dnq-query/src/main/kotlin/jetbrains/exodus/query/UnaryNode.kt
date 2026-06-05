@@ -53,7 +53,7 @@ class UnaryNode(
         metaData: ModelMetaData?,
         polymorphic: Boolean
     ): Iterable<Entity> = YTDBEntityIterable.query(
-        queryEngine.oStore.requireActiveTransaction(),
+        queryEngine.oStore,
         query.then(GremlinBlock.HasLabel(entityType)),
         polymorphic
     )

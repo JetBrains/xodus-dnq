@@ -44,8 +44,8 @@ class OBinaryOperationsWithSortTest : OTestMixin {
         val engine = QueryEngine(model, youTrackDb.store)
         engine.sortEngine = SortEngine()
         youTrackDb.withStoreTx { txn ->
-            val users = YTDBEntityIterableImpl(txn, GremlinQuery.all.then(GremlinBlock.HasLabel(User.CLASS)))
-            val agents = YTDBEntityIterableImpl(txn, GremlinQuery.all.then(GremlinBlock.HasLabel(Agent.CLASS)))
+            val users = YTDBEntityIterableImpl(txn.getStore(), GremlinQuery.all.then(GremlinBlock.HasLabel(User.CLASS)))
+            val agents = YTDBEntityIterableImpl(txn.getStore(), GremlinQuery.all.then(GremlinBlock.HasLabel(Agent.CLASS)))
             val union = engine.union(users, agents)
             val sorted = engine.query(union, BaseUser.CLASS, NodeFactory.sortBy("name", GremlinBlock.SortDirection.ASC))
             assertContentEquals(

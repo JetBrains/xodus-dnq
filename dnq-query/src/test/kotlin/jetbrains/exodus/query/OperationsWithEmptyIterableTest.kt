@@ -44,7 +44,7 @@ class OperationsWithEmptyIterableTest : OTestMixin {
         val engine = QueryEngine(model, youTrackDb.store)
         engine.sortEngine = SortEngine()
         youTrackDb.withStoreTx { txn ->
-            val users = YTDBEntityIterable.where(User.CLASS, txn, GremlinBlock.All)
+            val users = YTDBEntityIterable.where(User.CLASS, txn.getStore(), GremlinBlock.All)
             assertEquals(YTDBEntityIterable.EMPTY, users.intersect(YTDBEntityIterable.EMPTY))
             assertEquals(YTDBEntityIterable.EMPTY, users.intersectSavingOrder(YTDBEntityIterable.EMPTY))
             assertEquals(users, users.concat(YTDBEntityIterable.EMPTY))

@@ -275,7 +275,7 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
         PersistentEntityIterableWrapper(
             txn.store,
             YTDBEntityIterable.query(
-                txn.transactionInternal as YTDBStoreTransaction,
+                (txn.transactionInternal as YTDBStoreTransaction).getStore(),
                 GremlinQuery.ByIds(
                     notNullElements.map { txn.newEntity(it.entity).entity.id.asOId() }
                 )
@@ -674,7 +674,7 @@ private fun Iterable<Entity?>.filterNotNull(entityType: XdEntityType<*>): Iterab
         return this.intersect(
             YTDBEntityIterable.where(
                 entityTypeName,
-                this.transaction.asYTDBTransaction(),
+                this.transaction.asYTDBTransaction().getStore(),
                 GremlinBlock.All,
                 this.polymorphic
             )

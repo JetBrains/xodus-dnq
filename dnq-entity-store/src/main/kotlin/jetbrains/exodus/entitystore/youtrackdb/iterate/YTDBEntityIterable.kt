@@ -35,16 +35,19 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 
 interface YTDBEntityIterable : EntityIterable {
     companion object {
+        // All factories build a lazy iterable from the STORE — no active transaction is required at
+        // construction. The active txn is resolved at iteration time (see YTDBEntityIterableImpl.traversal),
+        // so a query may be constructed outside a txn but must be iterated inside one.
         @JvmStatic
         @JvmOverloads
         fun where(
             entityType: String,
-            tx: YTDBStoreTransaction,
+            store: YTDBEntityStore,
             condition: GremlinBlock,
             polymorphic: Boolean = true
         ): YTDBEntityIterable =
             query(
-                tx,
+                store,
                 GremlinQuery.all
                     .then(condition)
                     .then(GremlinBlock.HasLabel(entityType)),
@@ -53,15 +56,15 @@ interface YTDBEntityIterable : EntityIterable {
 
         @JvmStatic
         @JvmOverloads
-        fun query(tx: YTDBStoreTransaction, query: GremlinQuery, polymorphic: Boolean = true) =
-            YTDBEntityIterableImpl(tx, query, polymorphic)
+        fun query(store: YTDBEntityStore, query: GremlinQuery, polymorphic: Boolean = true) =
+            YTDBEntityIterableImpl(store, query, polymorphic)
 
         @JvmStatic
         fun empty() = EMPTY
 
         @JvmStatic
-        fun single(tx: YTDBStoreTransaction, entityId: EntityId) = query(
-            tx,
+        fun single(store: YTDBEntityStore, entityId: EntityId) = query(
+            store,
             GremlinQuery.all
                 .then(GremlinBlock.IdEqual((entityId as YTDBEntityId).asOId()))
         )
@@ -113,18 +116,16 @@ interface YTDBEntityIterable : EntityIterable {
 }
 
 class YTDBEntityIterableImpl(
-    private val tx: YTDBStoreTransaction,
+    private val oStore: YTDBEntityStore,
     override val query: GremlinQuery,
     override val polymorphic: Boolean = true
 ) : YTDBEntityIterable {
-
-    private val oStore: YTDBEntityStore = tx.getStore()
 
     @Volatile
     private var cachedSize: Long = -1
 
     private fun modify(block: GremlinBlock): YTDBEntityIterableImpl =
-        YTDBEntityIterableImpl(tx, this.query.then(block), polymorphic)
+        YTDBEntityIterableImpl(oStore,this.query.then(block), polymorphic)
 
     private fun iterator(traversal: GraphTraversal<*, YTDBVertex>): YTDBEntityIterator =
         YTDBEntityIterator.of(traversal, oStore)
@@ -188,7 +189,7 @@ class YTDBEntityIterableImpl(
         else {
             val rightIterable = right.asYTDBIterable()
             requirePolymorphicMatch(rightIterable)
-            YTDBEntityIterableImpl(tx, query.intersect(rightIterable.query), polymorphic)
+            YTDBEntityIterableImpl(oStore,query.intersect(rightIterable.query), polymorphic)
         }
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable = intersect(right)
@@ -198,7 +199,7 @@ class YTDBEntityIterableImpl(
         else {
             val rightIterable = right.asYTDBIterable()
             requirePolymorphicMatch(rightIterable)
-            YTDBEntityIterableImpl(tx, query.union(rightIterable.query), polymorphic)
+            YTDBEntityIterableImpl(oStore,query.union(rightIterable.query), polymorphic)
         }
 
     override fun minus(right: EntityIterable): EntityIterable =
@@ -206,7 +207,7 @@ class YTDBEntityIterableImpl(
         else {
             val rightIterable = right.asYTDBIterable()
             requirePolymorphicMatch(rightIterable)
-            YTDBEntityIterableImpl(tx, query.difference(rightIterable.query), polymorphic)
+            YTDBEntityIterableImpl(oStore,query.difference(rightIterable.query), polymorphic)
         }
 
     override fun concat(right: EntityIterable): EntityIterable =
@@ -214,7 +215,7 @@ class YTDBEntityIterableImpl(
         else {
             val rightIterable = right.asYTDBIterable()
             requirePolymorphicMatch(rightIterable)
-            YTDBEntityIterableImpl(tx, query.unionAll(rightIterable.query), polymorphic)
+            YTDBEntityIterableImpl(oStore,query.unionAll(rightIterable.query), polymorphic)
         }
 
     private fun requirePolymorphicMatch(right: YTDBEntityIterable) {
@@ -239,7 +240,7 @@ class YTDBEntityIterableImpl(
 
     override fun selectMany(linkName: String): EntityIterable =
         YTDBEntityIterable.query(
-            tx,
+            oStore,
             GremlinQuery.FollowLink(
                 this.query,
                 GremlinQuery.LinkDirection.OUT,
@@ -277,7 +278,7 @@ class YTDBEntityIterableImpl(
         else {
             val entitiesIterable = entities.asYTDBIterable()
             YTDBEntityIterableImpl(
-                this.tx,
+                oStore,
                 entitiesIterable.query.then(GremlinBlock.InLink(linkName)),
                 entitiesIterable.polymorphic
             ).distinct()

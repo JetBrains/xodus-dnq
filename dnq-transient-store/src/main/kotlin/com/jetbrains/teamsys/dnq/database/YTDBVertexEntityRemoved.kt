@@ -129,7 +129,7 @@ class YTDBVertexEntityRemoved(
         }
 
         val existing = YTDBEntityIterable.query(
-            txn,
+            txn.getStore(),
             GremlinQuery.ByIds(existingIds.map { store.requireOEntityId(it).asOId() })
         )
 

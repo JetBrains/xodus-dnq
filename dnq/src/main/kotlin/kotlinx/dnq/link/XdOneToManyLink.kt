@@ -64,7 +64,7 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                         } else {
                             queryEngine.wrap(
                                 YTDBEntityIterable.query(
-                                    thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction,
+                                    (thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction).getStore(),
                                     GremlinQuery.all
                                         .then(GremlinBlock.IdEqual((thisRef.entityId as YTDBEntityId).asOId()))
                                         .then(GremlinBlock.InLink(oppositeField.oppositeDbName))

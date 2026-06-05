@@ -495,7 +495,7 @@ open class YTDBVertexEntity(
         } else {
             // todo: Gremlin supports querying multiple links at once, rewrite this query
             YTDBEntityIterable.query(
-                tx,
+                tx.getStore(),
                 linkNames.asSequence()
                     .map { ln ->
                         GremlinQuery.ByIds(listOf(this.oEntityId.asOId()))

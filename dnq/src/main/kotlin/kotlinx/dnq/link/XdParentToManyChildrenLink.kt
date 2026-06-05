@@ -62,7 +62,7 @@ open class XdParentToManyChildrenLink<R : XdEntity, T : XdEntity>(
                             thisRef.reattach(session)
                             session.createPersistentEntityIterableWrapper(
                                 YTDBEntityIterable.query(
-                                    session.transactionInternal as YTDBStoreTransaction,
+                                    (session.transactionInternal as YTDBStoreTransaction).getStore(),
                                     GremlinQuery.all
                                         .then(GremlinBlock.IdEqual((thisRef.entityId as YTDBEntityId).asOId()))
                                         .then(GremlinBlock.InLink(oppositeField.oppositeDbName))

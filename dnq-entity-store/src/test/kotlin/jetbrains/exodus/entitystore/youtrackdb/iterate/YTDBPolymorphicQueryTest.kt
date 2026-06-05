@@ -58,7 +58,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val result = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val result = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             assertNamesExactly(result, "base1")
         }
@@ -69,7 +69,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val result = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All)
+            val result = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All)
 
             assertNamesExactly(result, "base1", "user1", "guest1")
         }
@@ -80,7 +80,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val afterSkip = nonPoly.skip(1) as YTDBEntityIterable
             assertFalse(afterSkip.polymorphic)
@@ -106,8 +106,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPoly2 = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPoly2 = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val intersected = nonPoly1.intersect(nonPoly2) as YTDBEntityIterable
             assertFalse(intersected.polymorphic)
@@ -136,7 +136,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val selected = nonPoly.selectMany("someLink") as YTDBEntityIterable
             assertFalse(selected.polymorphic)
@@ -148,7 +148,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All)
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All)
 
             assertTrue(poly.polymorphic)
         }
@@ -159,8 +159,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = true)
-            val nonPoly = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val poly = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             assertNamesExactly(poly, "user1")
             assertNamesExactly(nonPoly, "user1")
@@ -172,8 +172,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val polyReceiver = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
-            val nonPolyEntities = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val polyReceiver = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val nonPolyEntities = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val result = polyReceiver.findLinks(nonPolyEntities, "someLink") as YTDBEntityIterable
             assertFalse(result.polymorphic, "findLinks should propagate entities-parameter flag, not receiver flag")
@@ -185,7 +185,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
             val empty = YTDBEntityIterable.EMPTY
 
             assertFalse((nonPoly.union(empty) as YTDBEntityIterable).polymorphic)
@@ -201,7 +201,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             // distinct() goes through modify(), producing a new iterable;
             // verify the flag propagates AND the traversal respects it
@@ -221,8 +221,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             //   BaseUser → ["base1"], User → ["user1"]
             // Their union should return exactly ["base1", "user1"] — NOT "guest1".
             // If the engine makes this polymorphic, BaseUser would also match user1+guest1.
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val unioned = nonPolyBase.union(nonPolyUser)
             assertNamesExactly(unioned, "base1", "user1")
@@ -234,8 +234,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val concatenated = nonPolyBase.concat(nonPolyUser)
             assertNamesExactlyInOrder(concatenated, "base1", "user1")
@@ -252,9 +252,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             // that had OptionsStrategy added by the outer subtraversals(). Without the
             // Track 5 fix (propagating OptionsStrategy to child traversals),
             // the inner children would lose the polymorphicQuery config.
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val nested = nonPolyBase.concat(nonPolyUser).concat(nonPolyGuest)
             assertNamesExactlyInOrder(nested, "base1", "user1", "guest1")
@@ -266,9 +266,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             // A.union(B) produces Order(UnionAll([A,B]), Dedup).
             // concat does NOT flatten, so .concat(C) produces:
@@ -289,9 +289,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             // (User ∪ Guest) \ BaseUser
             // Non-poly: ({user1} ∪ {guest1}) \ {base1} = {user1, guest1} (disjoint)
@@ -306,9 +306,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             // (User ∪ Guest) ∩ BaseUser
             // Non-poly: ({user1} ∪ {guest1}) ∩ {base1} = empty (disjoint)
@@ -324,9 +324,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             // (BaseUser \ Guest) ∪ User
             // Non-poly: ({base1} \ {guest1}) ∪ {user1} = {base1} ∪ {user1} = {base1, user1}
@@ -347,9 +347,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             // (BaseUser ∩ User) ∪ Guest = ["guest1"]
             // BaseUser is ["base1"], User is ["user1"] — disjoint, so intersect is empty.
@@ -363,8 +363,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             // No entities have "someLink" links, so we only verify flag propagation.
             val unioned = nonPolyBase.union(nonPolyUser) as YTDBEntityIterable
@@ -378,10 +378,10 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
             // Receiver is polymorphic — different from the entities parameter.
-            val polyReceiver = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val polyReceiver = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
 
             // findLinks propagates the flag from the entities parameter (the union),
             // not from the receiver. No entities have "someLink" links.
@@ -396,8 +396,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             // (BaseUser ∪ User).take(10).distinct()
             val result = nonPolyBase.union(nonPolyUser).take(10).distinct()
@@ -412,8 +412,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val ex1 = assertFailsWith<IllegalArgumentException> { poly.intersect(nonPoly) }
             assertTrue(ex1.message!!.startsWith("Cannot combine a polymorphic iterable with a non-polymorphic"))
@@ -428,8 +428,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val ex1 = assertFailsWith<IllegalArgumentException> { poly.union(nonPoly) }
             assertTrue(ex1.message!!.contains("polymorphic flag"))
@@ -443,8 +443,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val ex1 = assertFailsWith<IllegalArgumentException> { poly.minus(nonPoly) }
             assertTrue(ex1.message!!.contains("polymorphic flag"))
@@ -458,8 +458,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val ex1 = assertFailsWith<IllegalArgumentException> { poly.concat(nonPoly) }
             assertTrue(ex1.message!!.contains("polymorphic flag"))
@@ -473,8 +473,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val ex1 = assertFailsWith<IllegalArgumentException> { poly.intersectSavingOrder(nonPoly) }
             assertTrue(ex1.message!!.contains("polymorphic flag"))
@@ -488,8 +488,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
-            val poly2 = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val poly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val poly2 = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
 
             val unioned = poly1.union(poly2) as YTDBEntityIterable
             assertTrue(unioned.polymorphic)
@@ -519,7 +519,7 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
             val empty = YTDBEntityIterable.EMPTY
 
             // EMPTY.union returns right directly — flag preserved
@@ -548,9 +548,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPoly2 = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPoly3 = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPoly2 = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPoly3 = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             val combined = nonPoly1.union(nonPoly2).union(nonPoly3)
             assertFalse((combined as YTDBEntityIterable).polymorphic)
@@ -563,9 +563,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val nonPoly2 = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val poly = YTDBEntityIterable.where(Guest.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val nonPoly1 = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPoly2 = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val poly = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
 
             val combined = nonPoly1.union(nonPoly2) // polymorphic=false
             assertFailsWith<IllegalArgumentException> { combined.intersect(poly) }
@@ -582,9 +582,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
             val base1 = tx.find(BaseUser.CLASS, "name", "base1").first()!!
-            val byIds = YTDBEntityIterable.query(tx, GremlinQuery.ByIds(listOf((base1.id as YTDBEntityId).asOId())))
+            val byIds = YTDBEntityIterable.query(tx.getStore(), GremlinQuery.ByIds(listOf((base1.id as YTDBEntityId).asOId())))
 
             assertFailsWith<IllegalArgumentException> { nonPoly.minus(byIds) }
         }
@@ -595,9 +595,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
             val base1 = tx.find(BaseUser.CLASS, "name", "base1").first()!!
-            val byIds = YTDBEntityIterable.query(tx, GremlinQuery.ByIds(listOf((base1.id as YTDBEntityId).asOId())))
+            val byIds = YTDBEntityIterable.query(tx.getStore(), GremlinQuery.ByIds(listOf((base1.id as YTDBEntityId).asOId())))
 
             assertFailsWith<IllegalArgumentException> { nonPoly.intersect(byIds) }
         }
@@ -608,9 +608,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val nonPoly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
             val user1 = tx.find(User.CLASS, "name", "user1").first()!!
-            val byIds = YTDBEntityIterable.query(tx, GremlinQuery.ByIds(listOf((user1.id as YTDBEntityId).asOId())))
+            val byIds = YTDBEntityIterable.query(tx.getStore(), GremlinQuery.ByIds(listOf((user1.id as YTDBEntityId).asOId())))
 
             assertFailsWith<IllegalArgumentException> { nonPoly.union(byIds) }
         }
@@ -621,9 +621,9 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
             val user1 = tx.find(User.CLASS, "name", "user1").first()!!
-            val byIds = YTDBEntityIterable.query(tx, GremlinQuery.ByIds(listOf((user1.id as YTDBEntityId).asOId())))
+            val byIds = YTDBEntityIterable.query(tx.getStore(), GremlinQuery.ByIds(listOf((user1.id as YTDBEntityId).asOId())))
 
             val intersected = poly.intersect(byIds)
             assertNamesExactly(intersected, "user1")
@@ -635,8 +635,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = true)
-            val nonPoly = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val poly = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val nonPoly = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
             assertFailsWith<IllegalArgumentException> { poly.intersect(nonPoly) }
             assertFailsWith<IllegalArgumentException> { nonPoly.union(poly) }
@@ -661,8 +661,8 @@ class YTDBPolymorphicQueryTest : OTestMixin {
         val shared = TraversalStrategies.GlobalCache.getStrategies(EmptyGraph::class.java)
         val baseline = shared.toList()
         withStoreTx { tx ->
-            val a = YTDBEntityIterable.where(BaseUser.CLASS, tx, GremlinBlock.All, polymorphic = false)
-            val b = YTDBEntityIterable.where(User.CLASS, tx, GremlinBlock.All, polymorphic = false)
+            val a = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val b = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
             a.union(b).count()
         }
         val post = shared.toList()

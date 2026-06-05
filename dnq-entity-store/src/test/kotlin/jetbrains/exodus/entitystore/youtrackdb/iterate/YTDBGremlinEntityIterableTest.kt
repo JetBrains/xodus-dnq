@@ -44,7 +44,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         // When
         withStoreTx { tx ->
             val issues = YTDBEntityIterable.where(
-                Issues.CLASS, tx, GremlinBlock.PropNull("none")
+                Issues.CLASS, tx.getStore(), GremlinBlock.PropNull("none")
             )
 
             // Then
@@ -64,7 +64,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         // When
         withStoreTx { tx ->
             val issues = YTDBEntityIterable.where(
-                Issues.CLASS, tx,
+                Issues.CLASS, tx.getStore(),
                 GremlinBlock.HasNoLink(Issues.Links.IN_PROJECT)
             )
 
@@ -88,7 +88,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         withStoreTx { tx ->
             val issues = YTDBEntityIterable.where(
                 Issues.CLASS,
-                tx,
+                tx.getStore(),
                 GremlinBlock.PropEqual("opca", 300)
             )
 
@@ -818,10 +818,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
         withStoreTx { txn ->
             val childIssues =
-                YTDBEntityIterable.where("Issue", txn, GremlinBlock.HasLabel("ChildIssue"))
+                YTDBEntityIterable.where("Issue", txn.getStore(), GremlinBlock.HasLabel("ChildIssue"))
 
             val notChildIssues =
-                YTDBEntityIterable.where("Issue", txn, GremlinBlock.Not(GremlinBlock.HasLabel("ChildIssue")))
+                YTDBEntityIterable.where("Issue", txn.getStore(), GremlinBlock.Not(GremlinBlock.HasLabel("ChildIssue")))
             assertEquals(10, notChildIssues.toList().size)
             assertEquals(1, childIssues.toList().size)
         }
