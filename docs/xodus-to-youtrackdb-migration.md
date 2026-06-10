@@ -55,7 +55,7 @@ Xodus used integer `(typeId, localEntityId)` pairs as entity IDs. The YTDB backe
 - Each vertex stores a `classId` property (integer type ID) and `localEntityId` property (sequential ID)
 - `YTDBSchemaBuddy` manages sequences for both; `CLASS_ID_SEQUENCE_NAME = "sequence_classId"` and per-class `localEntityIdSequenceName`
 - `RIDEntityId` is the native YTDB entity ID (wraps `RID`)
-- `PersistentEntityId` ↔ `RIDEntityId` lookup goes through `YTDBSchemaBuddy.getOEntityId()`
+- `PersistentEntityId` ↔ `RIDEntityId` lookup goes through `YTDBSchemaBuddy.resolveEntityIdOrNull()`
 
 ## Link Storage Convention
 

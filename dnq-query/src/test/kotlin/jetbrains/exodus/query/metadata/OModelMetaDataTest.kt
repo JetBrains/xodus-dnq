@@ -179,14 +179,14 @@ class OModelMetaDataTest : OTestMixin {
 
         // model does not find the id because internal data structures are not initialized yet
         youTrackDb.withTxSession {
-            assertNull(model.getOEntityId(it, oldSchoolEntityId.typeId, oldSchoolEntityId.localId))
+            assertNull(model.resolveEntityIdOrNull(it, oldSchoolEntityId.typeId, oldSchoolEntityId.localId))
         }
 
         // prepare() must initialize internal data structures in the end
         model.prepare()
 
         youTrackDb.withTxSession { session ->
-            assertEquals(entityId, model.getOEntityId(session, oldSchoolEntityId.typeId, oldSchoolEntityId.localId))
+            assertEquals(entityId, model.resolveEntityIdOrNull(session, oldSchoolEntityId.typeId, oldSchoolEntityId.localId))
         }
     }
 

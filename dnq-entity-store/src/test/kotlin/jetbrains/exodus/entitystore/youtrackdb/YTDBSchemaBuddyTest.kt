@@ -47,7 +47,7 @@ class YTDBSchemaBuddyTest : OTestMixin {
         val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)
 
         withSession {
-            assertNull(buddy.getOEntityId(it, issueId.typeId, issueId.localId))
+            assertNull(buddy.resolveEntityIdOrNull(it, issueId.typeId, issueId.localId))
         }
 
         withSession {
@@ -55,7 +55,7 @@ class YTDBSchemaBuddyTest : OTestMixin {
         }
 
         withTxSession {
-            assertEquals(issueId, buddy.getOEntityId(it, issueId.typeId, issueId.localId))
+            assertEquals(issueId, buddy.resolveEntityIdOrNull(it, issueId.typeId, issueId.localId))
         }
     }
 
@@ -70,7 +70,7 @@ class YTDBSchemaBuddyTest : OTestMixin {
     }
 
     @Test
-    fun `getOEntityId() works with both existing and not existing EntityId`() {
+    fun `resolveEntityIdOrNull() works with both existing and not existing EntityId`() {
         withSession { session ->
             session.getOrCreateVertexClass(Issues.CLASS)
         }
@@ -80,10 +80,10 @@ class YTDBSchemaBuddyTest : OTestMixin {
         val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = true)
 
         withTxSession {
-            assertNull(buddy.getOEntityId(it, 300, 301))
-            assertNull(buddy.getOEntityId(it, issueId.typeId, 301))
-            assertNull(buddy.getOEntityId(it, 300, issueId.localId))
-            assertEquals(issueId, buddy.getOEntityId(it, issueId.typeId, issueId.localId))
+            assertNull(buddy.resolveEntityIdOrNull(it, 300, 301))
+            assertNull(buddy.resolveEntityIdOrNull(it, issueId.typeId, 301))
+            assertNull(buddy.resolveEntityIdOrNull(it, 300, issueId.localId))
+            assertEquals(issueId, buddy.resolveEntityIdOrNull(it, issueId.typeId, issueId.localId))
         }
     }
 

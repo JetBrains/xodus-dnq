@@ -37,7 +37,7 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     fun g(): YTDBGraphTraversalSource
 
-    fun getOEntityId(typeId: Int, localId: Long): RIDEntityId?
+    fun resolveEntityIdOrNull(typeId: Int, localId: Long): RIDEntityId?
 
     /**
      * If the class has not been found, returns -1. It is how it was in the Classic Xodus.

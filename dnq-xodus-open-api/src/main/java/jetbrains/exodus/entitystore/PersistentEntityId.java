@@ -27,7 +27,7 @@ import java.io.Serializable;
  * <p>This is the lightweight counterpart of a resolved {@code RIDEntityId}. Use it wherever an
  * entity must be referenced by its logical id alone — e.g. {@code EntityIdSet} iteration, or
  * passing an id into the store to be resolved. Resolution happens explicitly via the store
- * (e.g. {@code requireOEntityId}); a {@code PersistentEntityId} deliberately exposes no
+ * (e.g. {@code resolveEntityId}); a {@code PersistentEntityId} deliberately exposes no
  * {@code asOId()}, so it can never masquerade as a resolved id with a bogus record pointer.
  *
  * <p><b>Serialization compatibility:</b> this class is a drop-in replacement for the classic Xodus

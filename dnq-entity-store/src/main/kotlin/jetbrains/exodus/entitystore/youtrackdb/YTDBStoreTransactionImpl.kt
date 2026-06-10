@@ -203,7 +203,7 @@ class YTDBStoreTransactionImpl(
 
     override fun getEntity(id: EntityId): YTDBVertexEntity =
         YTDBVertexEntity(
-            getVertex(store.requireOEntityId(id)),
+            getVertex(store.resolveEntityId(id)),
             store
         )
 
@@ -594,7 +594,7 @@ class YTDBStoreTransactionImpl(
         // Parse-only, matching the classic Xodus contract: parse "<typeId>-<localId>" into a logical
         // PersistentEntityId without touching the database. No active transaction is required (a pure
         // parse needs none). Resolution to a RIDEntityId, when needed, happens explicitly via the
-        // store (getOEntityId / requireOEntityId). Malformed input throws IllegalArgumentException
+        // store (resolveEntityIdOrNull / resolveEntityId). Malformed input throws IllegalArgumentException
         // (or its subclass NumberFormatException), same family as before and classic-Xodus parity.
         return PersistentEntityId.toEntityId(representation)
     }
@@ -648,8 +648,8 @@ class YTDBStoreTransactionImpl(
 
     override fun getQueryCancellingPolicy() = this.queryCancellingPolicy
 
-    override fun getOEntityId(typeId: Int, localId: Long): RIDEntityId? {
-        return schemaBuddy.getOEntityId(activeYtdbSession(), typeId, localId)
+    override fun resolveEntityIdOrNull(typeId: Int, localId: Long): RIDEntityId? {
+        return schemaBuddy.resolveEntityIdOrNull(activeYtdbSession(), typeId, localId)
     }
 
     override fun getTypeId(entityType: String): Int {

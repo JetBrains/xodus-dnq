@@ -181,13 +181,13 @@ class OPersistentStoreTest : OTestMixin {
     }
 
     @Test
-    fun `getting OEntityId for not existing EntityId returns null`() {
+    fun `resolveEntityIdOrNull returns null for a not existing EntityId`() {
         val issueId = youTrackDb.createIssue("trista").id
         youTrackDb.store.executeInTransaction {
-            assertNull(youTrackDb.store.getOEntityId(300, 301))
-            assertNull(youTrackDb.store.getOEntityId(issueId.typeId, 301))
-            assertNull(youTrackDb.store.getOEntityId(300, issueId.localId))
-            assertEquals(issueId, youTrackDb.store.getOEntityId(issueId.typeId, issueId.localId))
+            assertNull(youTrackDb.store.resolveEntityIdOrNull(300, 301))
+            assertNull(youTrackDb.store.resolveEntityIdOrNull(issueId.typeId, 301))
+            assertNull(youTrackDb.store.resolveEntityIdOrNull(300, issueId.localId))
+            assertEquals(issueId, youTrackDb.store.resolveEntityIdOrNull(issueId.typeId, issueId.localId))
         }
     }
 
@@ -250,18 +250,18 @@ class OPersistentStoreTest : OTestMixin {
     }
 
     @Test
-    fun `requireOEntityId works correctly with different types of EntityId`() {
+    fun `resolveEntityId works correctly with different types of EntityId`() {
         val issueId = youTrackDb.createIssue("trista").id
 
         youTrackDb.store.executeInTransaction {
-            assertEquals(issueId, youTrackDb.store.requireOEntityId(issueId))
+            assertEquals(issueId, youTrackDb.store.resolveEntityId(issueId))
             assertEquals(
                 issueId,
-                youTrackDb.store.requireOEntityId(PersistentEntityId(issueId.typeId, issueId.localId))
+                youTrackDb.store.resolveEntityId(PersistentEntityId(issueId.typeId, issueId.localId))
             )
             // a non-existent id cannot be resolved and must throw
             assertFailsWith<EntityRemovedInDatabaseException> {
-                youTrackDb.store.requireOEntityId(PersistentEntityId(300, 301))
+                youTrackDb.store.resolveEntityId(PersistentEntityId(300, 301))
             }
         }
     }

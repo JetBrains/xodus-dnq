@@ -310,7 +310,7 @@ open class YTDBVertexEntity(
 
     override fun addLink(linkName: String, targetId: EntityId): Boolean {
         val currentTx = requireActiveWritableTransaction()
-        val targetOId = store.getOEntityId(targetId) ?: return false
+        val targetOId = store.resolveEntityIdOrNull(targetId) ?: return false
         try {
             val target = currentTx.getVertex(targetOId)
             return currentTx.addLinkImpl(linkName, target)
@@ -379,7 +379,7 @@ open class YTDBVertexEntity(
 
     override fun deleteLink(linkName: String, targetId: EntityId): Boolean {
         val currentTx = requireActiveWritableTransaction()
-        val targetOId = store.getOEntityId(targetId)?.asOId() ?: return false
+        val targetOId = store.resolveEntityIdOrNull(targetId)?.asOId() ?: return false
         return currentTx.deleteLinkImpl(linkName, targetOId)
     }
 
@@ -434,7 +434,7 @@ open class YTDBVertexEntity(
 
     override fun setLink(linkName: String, targetId: EntityId): Boolean {
         val currentTx = requireActiveWritableTransaction()
-        val targetOId = store.getOEntityId(targetId) ?: return false
+        val targetOId = store.resolveEntityIdOrNull(targetId) ?: return false
         try {
             val target = currentTx.getVertex(targetOId)
             return currentTx.setLinkImpl(linkName, target)

@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap
 interface YTDBSchemaBuddy {
     fun initialize(session: DatabaseSessionEmbedded)
 
-    fun getOEntityId(session: DatabaseSessionEmbedded, typeId: Int, localId: Long): RIDEntityId?
+    fun resolveEntityIdOrNull(session: DatabaseSessionEmbedded, typeId: Int, localId: Long): RIDEntityId?
 
     /**
      * If the class has not been found, returns -1. It is how it was in the Classic Xodus.
@@ -173,7 +173,7 @@ class YTDBSchemaBuddyImpl(
         }
     }
 
-    override fun getOEntityId(
+    override fun resolveEntityIdOrNull(
         session: DatabaseSessionEmbedded,
         typeId: Int,
         localId: Long
