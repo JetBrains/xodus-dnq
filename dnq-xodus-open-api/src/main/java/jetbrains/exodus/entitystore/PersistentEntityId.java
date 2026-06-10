@@ -18,6 +18,8 @@ package jetbrains.exodus.entitystore;
 import jetbrains.exodus.ExodusException;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Serializable;
+
 /**
  * A purely logical {@link EntityId}: a {@code (typeId, localId)} pair that has <b>not</b> been
  * resolved against the database, so it carries no physical record id (no {@code RID}).
@@ -40,6 +42,11 @@ import org.jetbrains.annotations.NotNull;
  * the data migration because {@code XodusToOrientDataMigrator} preserves both {@code typeId} and
  * {@code localId}.
  *
+ * <p>This is the <b>only</b> serializable {@link EntityId}: the interface itself deliberately does
+ * not extend {@link Serializable} (see its javadoc), so a resolved {@code RIDEntityId} with its
+ * YouTrackDB-specific state can never end up in a Java-serialized graph. Convert with
+ * {@link #PersistentEntityId(EntityId)} first.
+ *
  * <p>Identity ({@code equals}/{@code hashCode}/{@code compareTo}/{@code toString}) follows the
  * universal {@code (typeId, localId)} {@link EntityId} contract — the same one independently
  * reproduced by {@code RIDEntityId}. In particular {@code equals} accepts any {@link EntityId}
@@ -47,7 +54,7 @@ import org.jetbrains.annotations.NotNull;
  * symmetric with {@code RIDEntityId}. The invariant — and that the two impls' hash/ordering formulas
  * stay in lockstep — is pinned by {@code EntityIdContractTest}.
  */
-public final class PersistentEntityId implements EntityId {
+public final class PersistentEntityId implements EntityId, Serializable {
 
     private static final long serialVersionUID = -3875948066835180514L;
 
