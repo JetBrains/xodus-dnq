@@ -591,16 +591,12 @@ class YTDBStoreTransactionImpl(
     }
 
     override fun toEntityId(representation: String): EntityId {
-        requireActiveTransaction()
-        // The representation is "<typeId>-<localId>", matching EntityId.toString(). Both parts are
-        // non-negative (see AbstractEntityId), so the first '-' is always the separator: a typeId
-        // never contains '-', and require(dashIdx > 0) rejects a leading '-' / empty typeId.
-        val dashIdx = representation.indexOf('-')
-        require(dashIdx > 0) { "Invalid entity id: $representation" }
-        val typeId = representation.substring(0, dashIdx).toInt()
-        val localId = representation.substring(dashIdx + 1).toLong()
-        return schemaBuddy.getOEntityId(activeYtdbSession(), typeId, localId)
-            ?: AbsentEntityId(typeId, localId)
+        // Parse-only, matching the classic Xodus contract: parse "<typeId>-<localId>" into a logical
+        // PersistentEntityId without touching the database. No active transaction is required (a pure
+        // parse needs none). Resolution to a RIDEntityId, when needed, happens explicitly via the
+        // store (getOEntityId / requireOEntityId). Malformed input throws IllegalArgumentException
+        // (or its subclass NumberFormatException), same family as before and classic-Xodus parity.
+        return PersistentEntityId.toEntityId(representation)
     }
 
     override fun getSequence(sequenceName: String): Sequence {

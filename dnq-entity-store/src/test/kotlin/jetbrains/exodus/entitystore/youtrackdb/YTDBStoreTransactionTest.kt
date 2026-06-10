@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 package jetbrains.exodus.entitystore.youtrackdb
-import jetbrains.exodus.entitystore.AbsentEntityId
-import jetbrains.exodus.entitystore.PersistentEntityId
 
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
+import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
@@ -32,6 +31,7 @@ import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class YTDBStoreTransactionTest : OTestMixin {
 
@@ -607,9 +607,6 @@ class YTDBStoreTransactionTest : OTestMixin {
             assertFailsWith<EntityRemovedInDatabaseException> {
                 tx.getEntity(PersistentEntityId(300, 300))
             }
-            assertFailsWith<EntityRemovedInDatabaseException> {
-                tx.getEntity(AbsentEntityId(300, 300))
-            }
         }
     }
 
@@ -625,11 +622,43 @@ class YTDBStoreTransactionTest : OTestMixin {
         val unresolvedBRepresentation = unresolvedB.toString()
 
         youTrackDb.store.executeInTransaction { tx ->
+            // Cross-type equals: the parsed logical id equals the resolved RIDEntityId for the same entity.
             assertEquals(aId, tx.toEntityId(aIdRepresentation))
             assertEquals(bId, tx.toEntityId(bIdRepresentation))
 
             assertEquals(aId, tx.toEntityId(unresolvedARepresentation))
             assertEquals(bId, tx.toEntityId(unresolvedBRepresentation))
+
+            // Parse-only contract: the returned type is always a logical PersistentEntityId,
+            // never a resolved RIDEntityId — even for an existing entity.
+            val parsed = tx.toEntityId(aIdRepresentation)
+            assertTrue(parsed is PersistentEntityId, "expected PersistentEntityId, got ${parsed.javaClass.name}")
+        }
+    }
+
+    @Test
+    fun `toEntityId parses without an active transaction`() {
+        // Parse-only needs no active transaction (classic Xodus parity). Finish the transaction
+        // first, then parse on it: the previous resolve-against-DB implementation called
+        // requireActiveTransaction() and would throw "The transaction is finished" here.
+        val tx = youTrackDb.store.beginTransaction()
+        tx.commit()
+        assertTrue(tx.isFinished)
+
+        val id = tx.toEntityId("12-58")
+        assertTrue(id is PersistentEntityId, "expected PersistentEntityId, got ${id.javaClass.name}")
+        assertEquals(12, id.typeId)
+        assertEquals(58L, id.localId)
+    }
+
+    @Test
+    fun `toEntityId throws IllegalArgumentException on malformed input`() {
+        youTrackDb.store.executeInTransaction { tx ->
+            // No separator, extra parts, and non-numeric parts are all malformed.
+            assertFailsWith<IllegalArgumentException> { tx.toEntityId("not-an-id-at-all") }
+            assertFailsWith<IllegalArgumentException> { tx.toEntityId("12") }
+            // NumberFormatException is a subclass of IllegalArgumentException.
+            assertFailsWith<IllegalArgumentException> { tx.toEntityId("x-58") }
         }
     }
 

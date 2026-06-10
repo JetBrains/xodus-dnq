@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 package jetbrains.exodus.entitystore.youtrackdb
-import jetbrains.exodus.entitystore.AbsentEntityId
-import jetbrains.exodus.entitystore.PersistentEntityId
 
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
+import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.linkTargetEntityIdPropertyName
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues.Links.IN_PROJECT
@@ -497,13 +496,11 @@ class YTDBEntityTest : OTestMixin {
 
         youTrackDb.withStoreTx {
             assertFalse(issueB.addLink(linkName, issueB.id))
-            assertFalse(issueB.addLink(linkName, AbsentEntityId(300, 300)))
             assertFalse(issueB.addLink(linkName, PersistentEntityId(300, 300)))
         }
 
         youTrackDb.withStoreTx {
             assertFalse(issueB.setLink(linkName, issueB.id))
-            assertFalse(issueB.setLink(linkName, AbsentEntityId(300, 300)))
             assertFalse(issueB.setLink(linkName, PersistentEntityId(300, 300)))
         }
     }

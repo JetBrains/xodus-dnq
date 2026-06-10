@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 package jetbrains.exodus.entitystore.youtrackdb
-import jetbrains.exodus.entitystore.AbsentEntityId
-import jetbrains.exodus.entitystore.PersistentEntityId
 
 import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
 import com.jetbrains.youtrackdb.internal.core.db.record.record.DBRecord
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
+import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues
@@ -178,9 +177,6 @@ class OPersistentStoreTest : OTestMixin {
             assertFailsWith<EntityRemovedInDatabaseException> {
                 youTrackDb.store.getEntity(PersistentEntityId(300, 300))
             }
-            assertFailsWith<EntityRemovedInDatabaseException> {
-                youTrackDb.store.getEntity(AbsentEntityId(300, 300))
-            }
         }
     }
 
@@ -196,24 +192,25 @@ class OPersistentStoreTest : OTestMixin {
     }
 
     @Test
-    fun `toEntityId(presentation) from not existent idString returns an AbsentEntityId preserving the xodus part`() {
+    fun `toEntityId(representation) parses into a logical PersistentEntityId without resolving`() {
         val issueId = youTrackDb.createIssue("trista").id
         val notExistingEntityId = PersistentEntityId(300, 301)
         val partiallyExistingEntityId1 = PersistentEntityId(issueId.typeId, 301)
         val partiallyExistingEntityId2 = PersistentEntityId(300, issueId.localId)
         val totallyExistingEntityId = PersistentEntityId(issueId.typeId, issueId.localId)
         youTrackDb.store.executeInTransaction { txn ->
-            for (absent in listOf(notExistingEntityId, partiallyExistingEntityId1, partiallyExistingEntityId2)) {
-                val resolved = txn.toEntityId(absent.toString())
-                assertTrue(resolved is AbsentEntityId, "expected AbsentEntityId, got ${resolved.javaClass.name}")
-                assertEquals(absent.localId, resolved.localId)
-                assertEquals(absent.typeId, resolved.typeId)
-            }
-            // an existing id resolves to a real RIDEntityId with a physical record id
-            with(txn.toEntityId(totallyExistingEntityId.toString()) as YTDBEntityId) {
-                assertEquals(totallyExistingEntityId.localId, localId)
-                assertEquals(totallyExistingEntityId.typeId, typeId)
-                assertEquals(issueId.asOId(), asOId())
+            // Parse-only: every representation — whether the entity exists or not — yields a logical
+            // PersistentEntityId carrying the parsed (typeId, localId), never a resolved YTDBEntityId.
+            for (source in listOf(
+                notExistingEntityId,
+                partiallyExistingEntityId1,
+                partiallyExistingEntityId2,
+                totallyExistingEntityId,
+            )) {
+                val parsed = txn.toEntityId(source.toString())
+                assertTrue(parsed is PersistentEntityId, "expected PersistentEntityId, got ${parsed.javaClass.name}")
+                assertEquals(source.localId, parsed.localId)
+                assertEquals(source.typeId, parsed.typeId)
             }
         }
     }

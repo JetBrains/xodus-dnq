@@ -357,7 +357,7 @@ class TransientSessionImpl(
     }
 
     override fun toEntityId(representation: String): EntityId {
-        assertOpen("convert to entity id")
+        // Parse-only (classic Xodus parity): no session/transaction needed to parse a logical id.
         return transactionInternal.toEntityId(representation)
     }
 

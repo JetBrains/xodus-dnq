@@ -34,18 +34,18 @@ import org.jetbrains.annotations.NotNull;
  * migration must deserialize into this class, which pins three things: the fully-qualified class
  * name, the {@code serialVersionUID} ({@code -3875948066835180514L}), and the exact field layout —
  * {@code entityTypeId}/{@code entityLocalId} declared <i>in this class</i> with {@code Object} as
- * the superclass. That is why this class does NOT extend {@link AbstractEntityId}: inheriting the
- * fields would silently deserialize old blobs to id {@code 0-0} (stream fields find no match and
- * are discarded; the absent-from-stream superclass defaults to zeros). The deserialized ids stay
- * meaningful after the data migration because {@code XodusToOrientDataMigrator} preserves both
- * {@code typeId} and {@code localId}.
+ * the superclass. Do NOT refactor these fields up into a shared base class: inheriting them would
+ * silently deserialize old blobs to id {@code 0-0} (stream fields find no match and are discarded;
+ * the absent-from-stream superclass defaults to zeros). The deserialized ids stay meaningful after
+ * the data migration because {@code XodusToOrientDataMigrator} preserves both {@code typeId} and
+ * {@code localId}.
  *
  * <p>Identity ({@code equals}/{@code hashCode}/{@code compareTo}/{@code toString}) follows the
- * same {@code (typeId, localId)} contract as {@link AbstractEntityId} — in particular
- * {@code equals} accepts any {@link EntityId} (unlike classic Xodus, which required
- * {@code instanceof PersistentEntityId}), keeping equality symmetric with {@code RIDEntityId}.
- * The invariant is pinned by {@code EntityIdContractTest}. It is distinct from
- * {@link AbsentEntityId}, which means "looked up and not there" rather than "not looked up yet".
+ * universal {@code (typeId, localId)} {@link EntityId} contract — the same one independently
+ * reproduced by {@code RIDEntityId}. In particular {@code equals} accepts any {@link EntityId}
+ * (unlike classic Xodus, which required {@code instanceof PersistentEntityId}), keeping equality
+ * symmetric with {@code RIDEntityId}. The invariant — and that the two impls' hash/ordering formulas
+ * stay in lockstep — is pinned by {@code EntityIdContractTest}.
  */
 public final class PersistentEntityId implements EntityId {
 

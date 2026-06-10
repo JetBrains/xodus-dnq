@@ -17,7 +17,6 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.internal.core.id.ChangeableRecordId
 import jetbrains.exodus.ExodusException
-import jetbrains.exodus.entitystore.AbsentEntityId
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
@@ -28,35 +27,31 @@ import org.junit.Test
 import kotlin.test.assertFailsWith
 
 /**
- * Guard test for the `EntityId` equality/hash contract across its three implementations:
+ * Guard test for the `EntityId` equality/hash contract across its two implementations:
  *  - [RIDEntityId] (dnq-entity-store): a *resolved* id carrying a physical RID;
  *  - [PersistentEntityId] (dnq-xodus-open-api): a logical `(typeId, localId)` id, not yet looked up —
- *    also the type materialized by `EntityIdSet` iteration;
- *  - [AbsentEntityId] (dnq-xodus-open-api): a logical `(typeId, localId)` id that was looked up and
- *    found absent.
+ *    also the type materialized by `EntityIdSet` iteration and returned by `toEntityId`.
  *
- * [RIDEntityId] and [AbsentEntityId] share the [jetbrains.exodus.entitystore.AbstractEntityId] base
- * (in dnq-xodus-open-api), which defines `equals`/`hashCode`/`compareTo`/`toString` once.
- * [PersistentEntityId] deliberately stands *outside* that hierarchy — it must keep the exact field
- * layout of the classic Xodus class for Java-serialization compatibility (see its javadoc) — so it
- * duplicates the contract instead of inheriting it. This test pins the invariant that an `EntityId`
- * is identified by `(typeId, localId)` alone, so the impls stay interchangeable in `equals`,
- * `hashCode`, `compareTo`, and hash-based collections. If any formula drifts — in the base or in
- * the duplicated [PersistentEntityId] copy — this fails loudly.
+ * There is no shared base class: each impl reproduces the `(typeId, localId)` identity
+ * (`equals`/`hashCode`/`compareTo`/`toString`) on its own — `RIDEntityId` because the contract is
+ * tiny, and `PersistentEntityId` because it must keep the exact field layout of the classic Xodus
+ * class for Java-serialization compatibility (see its javadoc) and so cannot inherit fields from a
+ * base. This test pins the invariant that an `EntityId` is identified by `(typeId, localId)` alone,
+ * so the impls stay interchangeable in `equals`, `hashCode`, `compareTo`, and hash-based
+ * collections. If either copy's formula drifts from the other, this fails loudly.
  *
- * It also includes a deliberately *foreign* [EntityId] ([ForeignEntityId]) that does **not** extend
- * the base: since `equals`/`hashCode`/`compareTo` are `final` on the base, the only way they can
- * drift is via an impl outside the hierarchy, so this is the case that proves the base really
- * compares through the `EntityId` interface rather than by concrete type — which is exactly the
- * scenario that breaks when ids built two different ways are compared for the same entity.
+ * It also includes a deliberately *foreign* [EntityId] ([ForeignEntityId]) standing in for an id
+ * from yet another implementation: it proves each impl really compares through the `EntityId`
+ * interface rather than by concrete type — exactly the scenario that breaks when ids built two
+ * different ways are compared for the same entity.
  */
 class EntityIdContractTest {
 
     /**
-     * A deliberately foreign [EntityId] that does **not** extend `AbstractEntityId` — it stands in
-     * for an id coming from a different implementation. It honors the documented `(typeId, localId)`
-     * identity and the `(typeId << 20) xor localId` hash formula, so it must be fully interchangeable
-     * with the in-hierarchy ids.
+     * A deliberately foreign [EntityId] — a third, throwaway implementation standing in for an id
+     * coming from somewhere else. It honors the documented `(typeId, localId)` identity and the
+     * `(typeId << 20) xor localId` hash formula, so it must be fully interchangeable with the two
+     * production ids.
      */
     private class ForeignEntityId(private val t: Int, private val l: Long) : EntityId {
         override fun getTypeId(): Int = t
@@ -82,7 +77,6 @@ class EntityIdContractTest {
     private fun allImpls(typeId: Int, localId: Long): List<EntityId> = listOf(
         ridEntityId(typeId, localId),
         PersistentEntityId(typeId, localId),
-        AbsentEntityId(typeId, localId),
         iteratedId(typeId, localId),
         ForeignEntityId(typeId, localId),
     )
@@ -130,7 +124,7 @@ class EntityIdContractTest {
     fun `different ids are not equal across impls`() {
         val rid = ridEntityId(7, 42L)
         assertNotEquals(rid, PersistentEntityId(7, 43L)) // different localId
-        assertNotEquals(rid, AbsentEntityId(8, 42L))     // different typeId
+        assertNotEquals(rid, PersistentEntityId(8, 42L)) // different typeId
     }
 
     @Test
@@ -149,18 +143,16 @@ class EntityIdContractTest {
         val base = ridEntityId(7, 42L)
         assertTrue(base.compareTo(PersistentEntityId(7, 43L)) < 0) // same type, larger localId
         assertTrue(base.compareTo(PersistentEntityId(7, 41L)) > 0) // same type, smaller localId
-        assertTrue(base.compareTo(AbsentEntityId(8, 42L)) < 0)     // larger type dominates localId
-        assertTrue(base.compareTo(AbsentEntityId(6, 42L)) > 0)     // smaller type dominates localId
+        assertTrue(base.compareTo(PersistentEntityId(8, 42L)) < 0) // larger type dominates localId
+        assertTrue(base.compareTo(PersistentEntityId(6, 42L)) > 0) // smaller type dominates localId
         assertTrue(PersistentEntityId(7, 43L).compareTo(base) > 0) // reverse direction flips sign
-        assertTrue(AbsentEntityId(8, 42L).compareTo(base) > 0)     // 8 > 7 regardless of which side
+        assertTrue(PersistentEntityId(8, 42L).compareTo(base) > 0) // 8 > 7 regardless of which side
     }
 
     @Test
     fun `negative typeId or localId is rejected at construction across all impls`() {
         assertFailsWith<ExodusException> { PersistentEntityId(-1, 0L) }
         assertFailsWith<ExodusException> { PersistentEntityId(0, -1L) }
-        assertFailsWith<ExodusException> { AbsentEntityId(-1, 0L) }
-        assertFailsWith<ExodusException> { AbsentEntityId(0, -1L) }
         assertFailsWith<ExodusException> { RIDEntityId(-1, 0L, ChangeableRecordId(), null) }
         assertFailsWith<ExodusException> { RIDEntityId(0, -1L, ChangeableRecordId(), null) }
     }

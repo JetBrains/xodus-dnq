@@ -228,8 +228,6 @@ class YTDBPersistentEntityStore(
  */
 fun YTDBEntityStore.getOEntityId(id: EntityId): RIDEntityId? {
     if (id is RIDEntityId) return id
-    // An AbsentEntityId was already looked up and found missing, so don't pay for a second DB query.
-    if (id is AbsentEntityId) return null
     val oEntityStore = this as? YTDBPersistentEntityStore
         ?: throw IllegalArgumentException("YTDBPersistentEntityStore is required to resolve EntityId, got ${this.javaClass.simpleName}")
     return oEntityStore.getOEntityId(id.typeId, id.localId)
