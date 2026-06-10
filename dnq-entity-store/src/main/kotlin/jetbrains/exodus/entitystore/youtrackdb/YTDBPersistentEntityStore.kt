@@ -212,8 +212,8 @@ class YTDBPersistentEntityStore(
         return tx
     }
 
-    override fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId {
-        return requireActiveTransaction().getOEntityId(entityId)
+    fun getOEntityId(typeId: Int, localId: Long): RIDEntityId? {
+        return requireActiveTransaction().getOEntityId(typeId, localId)
     }
 
     override fun isReadOnly(): Boolean {
@@ -221,14 +221,31 @@ class YTDBPersistentEntityStore(
     }
 }
 
-fun YTDBEntityStore.requireOEntityId(id: EntityId): YTDBEntityId {
-    return when (id) {
-        is RIDEntityId -> id
-        PersistentEntityId.EMPTY_ID -> RIDEntityId.EMPTY_ID
-        is PersistentEntityId -> {
-            val oEntityStore = this as? YTDBPersistentEntityStore ?: throw IllegalArgumentException("OPersistentEntityStore is required to get OEntityId, the provided type is ${this.javaClass.simpleName}")
-            oEntityStore.getOEntityId(id)
-        }
-        else -> throw IllegalArgumentException("${id.javaClass.simpleName} is not supported")
-    }
+/**
+ * Resolves [id] to a [RIDEntityId] with a physical record id, or returns `null` if the entity is
+ * not in the database. An already-resolved [RIDEntityId] is returned as-is. Use this when absence is
+ * an expected, handleable outcome (e.g. linking to a possibly-missing target).
+ */
+fun YTDBEntityStore.getOEntityId(id: EntityId): RIDEntityId? {
+    if (id is RIDEntityId) return id
+    // An AbsentEntityId was already looked up and found missing, so don't pay for a second DB query.
+    if (id is AbsentEntityId) return null
+    val oEntityStore = this as? YTDBPersistentEntityStore
+        ?: throw IllegalArgumentException("YTDBPersistentEntityStore is required to resolve EntityId, got ${this.javaClass.simpleName}")
+    return oEntityStore.getOEntityId(id.typeId, id.localId)
+}
+
+/**
+ * Resolves [id] to a [RIDEntityId] with a physical record id, or throws
+ * [EntityRemovedInDatabaseException] if the entity is not in the database. Use this when the entity
+ * is required to exist.
+ */
+fun YTDBEntityStore.requireOEntityId(id: EntityId): RIDEntityId {
+    getOEntityId(id)?.let { return it }
+    // The entity is not in the database. Surface a typed "removed" error, naming the entity type
+    // when the store can resolve it — getEntityType itself throws EntityRemovedInDatabaseException
+    // for an unknown type id, which is exactly the right outcome here.
+    val oEntityStore = this as? YTDBPersistentEntityStore
+        ?: throw EntityRemovedInDatabaseException(id.toString())
+    throw EntityRemovedInDatabaseException(oEntityStore.getEntityType(id.typeId), id)
 }

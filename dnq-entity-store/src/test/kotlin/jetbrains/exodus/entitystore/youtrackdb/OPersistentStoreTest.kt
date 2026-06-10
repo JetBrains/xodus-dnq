@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 package jetbrains.exodus.entitystore.youtrackdb
+import jetbrains.exodus.entitystore.AbsentEntityId
+import jetbrains.exodus.entitystore.PersistentEntityId
 
 import com.jetbrains.youtrackdb.api.exception.RecordDuplicatedException
 import com.jetbrains.youtrackdb.internal.core.db.record.record.DBRecord
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
-import com.jetbrains.youtrackdb.internal.core.id.ChangeableRecordId
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
-import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues
@@ -33,6 +33,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class OPersistentStoreTest : OTestMixin {
 
@@ -132,7 +134,7 @@ class OPersistentStoreTest : OTestMixin {
     }
 
     @Test
-    fun `getEntity() works with both ORIDEntityId and PersistentEntityId`() {
+    fun `getEntity() resolves unresolved RIDEntityId via DB lookup`() {
         val aId = youTrackDb.createIssue("A").id
         val bId = youTrackDb.createIssue("B").id
         val store = youTrackDb.store
@@ -148,10 +150,10 @@ class OPersistentStoreTest : OTestMixin {
 
         // use legacy ids
         youTrackDb.store.executeInTransaction {
-            val legacyIdA = PersistentEntityId(aId.typeId, aId.localId)
-            val legacyIdB = PersistentEntityId(bId.typeId, bId.localId)
-            val a = store.getEntity(legacyIdA)
-            val b = store.getEntity(legacyIdB)
+            val unresolvedA = PersistentEntityId(aId.typeId, aId.localId)
+            val unresolvedB = PersistentEntityId(bId.typeId, bId.localId)
+            val a = store.getEntity(unresolvedA)
+            val b = store.getEntity(unresolvedB)
 
             assertEquals(aId, a.id)
             assertEquals(bId, b.id)
@@ -177,62 +179,37 @@ class OPersistentStoreTest : OTestMixin {
                 youTrackDb.store.getEntity(PersistentEntityId(300, 300))
             }
             assertFailsWith<EntityRemovedInDatabaseException> {
-                youTrackDb.store.getEntity(PersistentEntityId.EMPTY_ID)
-            }
-            assertFailsWith<EntityRemovedInDatabaseException> {
-                youTrackDb.store.getEntity(RIDEntityId.EMPTY_ID)
+                youTrackDb.store.getEntity(AbsentEntityId(300, 300))
             }
         }
     }
 
     @Test
-    fun `getting OEntityId for not existing EntityId gives EMPTY_ID`() {
+    fun `getting OEntityId for not existing EntityId returns null`() {
         val issueId = youTrackDb.createIssue("trista").id
-        val notExistingEntityId = PersistentEntityId(300, 301)
-        val partiallyExistingEntityId1 = PersistentEntityId(issueId.typeId, 301)
-        val partiallyExistingEntityId2 = PersistentEntityId(300, issueId.localId)
-        val totallyExistingEntityId = PersistentEntityId(issueId.typeId, issueId.localId)
         youTrackDb.store.executeInTransaction {
-            assertEquals(RIDEntityId.EMPTY_ID, youTrackDb.store.getOEntityId(notExistingEntityId))
-            assertEquals(
-                RIDEntityId.EMPTY_ID,
-                youTrackDb.store.getOEntityId(partiallyExistingEntityId1)
-            )
-            assertEquals(
-                RIDEntityId.EMPTY_ID,
-                youTrackDb.store.getOEntityId(partiallyExistingEntityId2)
-            )
-            assertEquals(issueId, youTrackDb.store.getOEntityId(totallyExistingEntityId))
+            assertNull(youTrackDb.store.getOEntityId(300, 301))
+            assertNull(youTrackDb.store.getOEntityId(issueId.typeId, 301))
+            assertNull(youTrackDb.store.getOEntityId(300, issueId.localId))
+            assertEquals(issueId, youTrackDb.store.getOEntityId(issueId.typeId, issueId.localId))
         }
     }
 
     @Test
-    fun `toEntityId(presentation) from not existent idString will return OEntityId with correct xodus part and empty orient`() {
+    fun `toEntityId(presentation) from not existent idString returns an AbsentEntityId preserving the xodus part`() {
         val issueId = youTrackDb.createIssue("trista").id
         val notExistingEntityId = PersistentEntityId(300, 301)
         val partiallyExistingEntityId1 = PersistentEntityId(issueId.typeId, 301)
         val partiallyExistingEntityId2 = PersistentEntityId(300, issueId.localId)
         val totallyExistingEntityId = PersistentEntityId(issueId.typeId, issueId.localId)
-        val empty = ChangeableRecordId()
         youTrackDb.store.executeInTransaction { txn ->
-            with(txn.toEntityId(notExistingEntityId.toString()) as YTDBEntityId) {
-                assertEquals(notExistingEntityId.localId, localId)
-                assertEquals(notExistingEntityId.typeId, typeId)
-                assertEquals(empty.collectionId, asOId().collectionId)
-                assertEquals(empty.collectionPosition, asOId().collectionPosition)
+            for (absent in listOf(notExistingEntityId, partiallyExistingEntityId1, partiallyExistingEntityId2)) {
+                val resolved = txn.toEntityId(absent.toString())
+                assertTrue(resolved is AbsentEntityId, "expected AbsentEntityId, got ${resolved.javaClass.name}")
+                assertEquals(absent.localId, resolved.localId)
+                assertEquals(absent.typeId, resolved.typeId)
             }
-            with(txn.toEntityId(partiallyExistingEntityId1.toString()) as YTDBEntityId) {
-                assertEquals(partiallyExistingEntityId1.localId, localId)
-                assertEquals(partiallyExistingEntityId1.typeId, typeId)
-                assertEquals(empty.collectionId, asOId().collectionId)
-                assertEquals(empty.collectionPosition, asOId().collectionPosition)
-            }
-            with(txn.toEntityId(partiallyExistingEntityId2.toString()) as YTDBEntityId) {
-                assertEquals(partiallyExistingEntityId2.localId, localId)
-                assertEquals(partiallyExistingEntityId2.typeId, typeId)
-                assertEquals(empty.collectionId, asOId().collectionId)
-                assertEquals(empty.collectionPosition, asOId().collectionPosition)
-            }
+            // an existing id resolves to a real RIDEntityId with a physical record id
             with(txn.toEntityId(totallyExistingEntityId.toString()) as YTDBEntityId) {
                 assertEquals(totallyExistingEntityId.localId, localId)
                 assertEquals(totallyExistingEntityId.typeId, typeId)
@@ -283,17 +260,12 @@ class OPersistentStoreTest : OTestMixin {
             assertEquals(issueId, youTrackDb.store.requireOEntityId(issueId))
             assertEquals(
                 issueId,
-                youTrackDb.store.requireOEntityId(
-                    PersistentEntityId(
-                        issueId.typeId,
-                        issueId.localId
-                    )
-                )
+                youTrackDb.store.requireOEntityId(PersistentEntityId(issueId.typeId, issueId.localId))
             )
-            assertEquals(
-                RIDEntityId.EMPTY_ID,
-                youTrackDb.store.requireOEntityId(PersistentEntityId.EMPTY_ID)
-            )
+            // a non-existent id cannot be resolved and must throw
+            assertFailsWith<EntityRemovedInDatabaseException> {
+                youTrackDb.store.requireOEntityId(PersistentEntityId(300, 301))
+            }
         }
     }
 

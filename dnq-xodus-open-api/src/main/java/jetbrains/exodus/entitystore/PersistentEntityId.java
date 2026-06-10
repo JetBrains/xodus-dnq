@@ -18,52 +18,77 @@ package jetbrains.exodus.entitystore;
 import jetbrains.exodus.ExodusException;
 import org.jetbrains.annotations.NotNull;
 
-public class PersistentEntityId implements EntityId {
-    @NotNull
-    public static final EntityId EMPTY_ID = new EmptyId();
+/**
+ * A purely logical {@link EntityId}: a {@code (typeId, localId)} pair that has <b>not</b> been
+ * resolved against the database, so it carries no physical record id (no {@code RID}).
+ *
+ * <p>This is the lightweight counterpart of a resolved {@code RIDEntityId}. Use it wherever an
+ * entity must be referenced by its logical id alone — e.g. {@code EntityIdSet} iteration, or
+ * passing an id into the store to be resolved. Resolution happens explicitly via the store
+ * (e.g. {@code requireOEntityId}); a {@code PersistentEntityId} deliberately exposes no
+ * {@code asOId()}, so it can never masquerade as a resolved id with a bogus record pointer.
+ *
+ * <p><b>Serialization compatibility:</b> this class is a drop-in replacement for the classic Xodus
+ * {@code jetbrains.exodus.entitystore.PersistentEntityId}, which consumers (e.g. Hub event-change
+ * {@code Data}) durably persist via Java serialization. Blobs written before the YouTrackDB
+ * migration must deserialize into this class, which pins three things: the fully-qualified class
+ * name, the {@code serialVersionUID} ({@code -3875948066835180514L}), and the exact field layout —
+ * {@code entityTypeId}/{@code entityLocalId} declared <i>in this class</i> with {@code Object} as
+ * the superclass. That is why this class does NOT extend {@link AbstractEntityId}: inheriting the
+ * fields would silently deserialize old blobs to id {@code 0-0} (stream fields find no match and
+ * are discarded; the absent-from-stream superclass defaults to zeros). The deserialized ids stay
+ * meaningful after the data migration because {@code XodusToOrientDataMigrator} preserves both
+ * {@code typeId} and {@code localId}.
+ *
+ * <p>Identity ({@code equals}/{@code hashCode}/{@code compareTo}/{@code toString}) follows the
+ * same {@code (typeId, localId)} contract as {@link AbstractEntityId} — in particular
+ * {@code equals} accepts any {@link EntityId} (unlike classic Xodus, which required
+ * {@code instanceof PersistentEntityId}), keeping equality symmetric with {@code RIDEntityId}.
+ * The invariant is pinned by {@code EntityIdContractTest}. It is distinct from
+ * {@link AbsentEntityId}, which means "looked up and not there" rather than "not looked up yet".
+ */
+public final class PersistentEntityId implements EntityId {
 
     private static final long serialVersionUID = -3875948066835180514L;
 
     private final int entityTypeId;
     private final long entityLocalId;
 
-    /**
-     * Generic constructor for id of the last (up-to-date) version of entity.
-     *
-     * @param entityTypeId  entity type id.
-     * @param entityLocalId local entity id within entity type.
-     */
     public PersistentEntityId(final int entityTypeId, final long entityLocalId) {
+        if (entityTypeId < 0) {
+            throw new ExodusException("TypeId can't be negative: " + entityTypeId);
+        }
         if (entityLocalId < 0) {
-            throw new ExodusException("LocalId can't be negative");
+            throw new ExodusException("LocalId can't be negative: " + entityLocalId);
         }
         this.entityTypeId = entityTypeId;
         this.entityLocalId = entityLocalId;
     }
 
     /**
-     * Constructs id for last (up-to-date) version of specified id.
-     *
-     * @param id source entity id.
+     * Copies the logical {@code (typeId, localId)} pair of the specified id, dropping any
+     * resolution state.
      */
     public PersistentEntityId(@NotNull final EntityId id) {
         this(id.getTypeId(), id.getLocalId());
     }
 
-    public boolean equals(final Object obj) {
-        if (this == obj) {
-            return true;
+    /**
+     * Parses the {@code "typeId-localId"} representation produced by {@link #toString()}.
+     * Parse-only: the result is not resolved against any database.
+     *
+     * <p>Throws {@link IllegalArgumentException} (or its subclass {@link NumberFormatException})
+     * on malformed input, exactly like the classic Xodus implementation ({@code EntityIdCache}) —
+     * consumers (e.g. Hub's {@code resolveEntityID}) catch {@code IllegalArgumentException} to map
+     * a malformed id to "not found".
+     */
+    @NotNull
+    public static PersistentEntityId toEntityId(@NotNull final CharSequence representation) {
+        final String[] idParts = representation.toString().split("-");
+        if (idParts.length != 2) {
+            throw new IllegalArgumentException("Invalid structure of entity id: " + representation);
         }
-        if (!(obj instanceof PersistentEntityId)) {
-            return false;
-        }
-        final PersistentEntityId that = (PersistentEntityId) obj;
-        return entityLocalId == that.entityLocalId &&
-                entityTypeId == that.entityTypeId;
-    }
-
-    public int hashCode() {
-        return (int) (entityTypeId << 20 ^ entityLocalId);
+        return new PersistentEntityId(Integer.parseInt(idParts[0]), Long.parseLong(idParts[1]));
     }
 
     @Override
@@ -76,33 +101,29 @@ public class PersistentEntityId implements EntityId {
         return entityLocalId;
     }
 
+    @Override
+    public int hashCode() {
+        return (int) (entityTypeId << 20 ^ entityLocalId);
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof EntityId)) return false;
+        final EntityId that = (EntityId) obj;
+        return entityLocalId == that.getLocalId() && entityTypeId == that.getTypeId();
+    }
+
     @NotNull
+    @Override
     public String toString() {
-        final StringBuilder builder = new StringBuilder(10);
-        toString(builder);
-        return builder.toString();
-    }
-
-    public void toString(@NotNull final StringBuilder builder) {
-        builder.append(entityTypeId);
-        builder.append('-');
-        builder.append(entityLocalId);
-    }
-
-    public static EntityId toEntityId(@NotNull final CharSequence representation) {
-        return EntityIdCache.getEntityId(representation);
+        return entityTypeId + "-" + entityLocalId;
     }
 
     @Override
     public int compareTo(@NotNull final EntityId o) {
-        final long rightLocalId = o.getLocalId();
-        final int rightType = o.getTypeId();
-        if (entityTypeId < rightType) {
-            return -2;
-        }
-        if (entityTypeId > rightType) {
-            return 2;
-        }
-        return Long.compare(entityLocalId, rightLocalId);
+        final int otherType = o.getTypeId();
+        if (entityTypeId != otherType) return Integer.compare(entityTypeId, otherType);
+        return Long.compare(entityLocalId, o.getLocalId());
     }
 }

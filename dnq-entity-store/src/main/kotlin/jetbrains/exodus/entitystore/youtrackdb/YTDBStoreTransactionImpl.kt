@@ -228,11 +228,7 @@ class YTDBStoreTransactionImpl(
 
     override fun getVertex(id: YTDBEntityId): YTDBVertex {
         requireActiveTransaction()
-        val ytdbId = id.asOId()
-        if (ytdbId == RIDEntityId.EMPTY_YTDB_ID) {
-            throw EntityRemovedInDatabaseException(id.getTypeName(), id)
-        }
-        return loadVertexOrNull(ytdbId) ?: throw EntityRemovedInDatabaseException(id.getTypeName(), id)
+        return loadVertexOrNull(id.asOId()) ?: throw EntityRemovedInDatabaseException(id.getTypeName(), id)
     }
 
     override fun getBlob(rid: RID): Blob {
@@ -594,18 +590,17 @@ class YTDBStoreTransactionImpl(
         throw UnsupportedOperationException("Not implemented")
     }
 
-    override fun toEntityId(representation: String): YTDBEntityId {
+    override fun toEntityId(representation: String): EntityId {
         requireActiveTransaction()
-        val legacyId = PersistentEntityId.toEntityId(representation)
-        val oEntityId = store.requireOEntityId(legacyId)
-        return if (oEntityId == RIDEntityId.EMPTY_ID) {
-            RIDEntityId(
-                legacyId.typeId, legacyId.localId,
-                RIDEntityId.EMPTY_YTDB_ID, null
-            )
-        } else {
-            oEntityId
-        }
+        // The representation is "<typeId>-<localId>", matching EntityId.toString(). Both parts are
+        // non-negative (see AbstractEntityId), so the first '-' is always the separator: a typeId
+        // never contains '-', and require(dashIdx > 0) rejects a leading '-' / empty typeId.
+        val dashIdx = representation.indexOf('-')
+        require(dashIdx > 0) { "Invalid entity id: $representation" }
+        val typeId = representation.substring(0, dashIdx).toInt()
+        val localId = representation.substring(dashIdx + 1).toLong()
+        return schemaBuddy.getOEntityId(activeYtdbSession(), typeId, localId)
+            ?: AbsentEntityId(typeId, localId)
     }
 
     override fun getSequence(sequenceName: String): Sequence {
@@ -657,8 +652,8 @@ class YTDBStoreTransactionImpl(
 
     override fun getQueryCancellingPolicy() = this.queryCancellingPolicy
 
-    override fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId {
-        return schemaBuddy.getOEntityId(activeYtdbSession(), entityId)
+    override fun getOEntityId(typeId: Int, localId: Long): RIDEntityId? {
+        return schemaBuddy.getOEntityId(activeYtdbSession(), typeId, localId)
     }
 
     override fun getTypeId(entityType: String): Int {

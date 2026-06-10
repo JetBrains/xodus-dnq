@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 package jetbrains.exodus.entitystore.youtrackdb
+import jetbrains.exodus.entitystore.AbsentEntityId
+import jetbrains.exodus.entitystore.PersistentEntityId
 
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import jetbrains.exodus.Questionable
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
-import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
@@ -564,7 +565,7 @@ class YTDBStoreTransactionTest : OTestMixin {
     }
 
     @Test
-    fun `tx lets search for an entity using PersistentEntityId`() {
+    fun `tx lets search for an entity using unresolved RIDEntityId`() {
         val aId = youTrackDb.createIssue("A").id
         val bId = youTrackDb.createIssue("B").id
 
@@ -577,12 +578,12 @@ class YTDBStoreTransactionTest : OTestMixin {
             Assert.assertEquals(bId, b.id)
         }
 
-        // use legacy ids
-        val legacyIdA = PersistentEntityId(aId.typeId, aId.localId)
-        val legacyIdB = PersistentEntityId(bId.typeId, bId.localId)
+        // use unresolved ids
+        val unresolvedA = PersistentEntityId(aId.typeId, aId.localId)
+        val unresolvedB = PersistentEntityId(bId.typeId, bId.localId)
         youTrackDb.store.executeInTransaction { tx ->
-            val a = tx.getEntity(legacyIdA)
-            val b = tx.getEntity(legacyIdB)
+            val a = tx.getEntity(unresolvedA)
+            val b = tx.getEntity(unresolvedB)
 
             Assert.assertEquals(aId, a.id)
             Assert.assertEquals(bId, b.id)
@@ -607,31 +608,28 @@ class YTDBStoreTransactionTest : OTestMixin {
                 tx.getEntity(PersistentEntityId(300, 300))
             }
             assertFailsWith<EntityRemovedInDatabaseException> {
-                tx.getEntity(PersistentEntityId.EMPTY_ID)
-            }
-            assertFailsWith<EntityRemovedInDatabaseException> {
-                tx.getEntity(RIDEntityId.EMPTY_ID)
+                tx.getEntity(AbsentEntityId(300, 300))
             }
         }
     }
 
     @Test
-    fun `tx works with both ORIDEntityId and PersistentEntityId representations`() {
+    fun `tx works with both resolved and unresolved RIDEntityId representations`() {
         val aId = youTrackDb.createIssue("A").id
         val bId = youTrackDb.createIssue("B").id
         val aIdRepresentation = aId.toString()
         val bIdRepresentation = bId.toString()
-        val aLegacyId = PersistentEntityId(aId.typeId, aId.localId)
-        val bLegacyId = PersistentEntityId(bId.typeId, bId.localId)
-        val aLegacyIdRepresentation = aLegacyId.toString()
-        val bLegacyIdRepresentation = bLegacyId.toString()
+        val unresolvedA = PersistentEntityId(aId.typeId, aId.localId)
+        val unresolvedB = PersistentEntityId(bId.typeId, bId.localId)
+        val unresolvedARepresentation = unresolvedA.toString()
+        val unresolvedBRepresentation = unresolvedB.toString()
 
         youTrackDb.store.executeInTransaction { tx ->
             assertEquals(aId, tx.toEntityId(aIdRepresentation))
             assertEquals(bId, tx.toEntityId(bIdRepresentation))
 
-            assertEquals(aId, tx.toEntityId(aLegacyIdRepresentation))
-            assertEquals(bId, tx.toEntityId(bLegacyIdRepresentation))
+            assertEquals(aId, tx.toEntityId(unresolvedARepresentation))
+            assertEquals(bId, tx.toEntityId(unresolvedBRepresentation))
         }
     }
 

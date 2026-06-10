@@ -16,7 +16,6 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import jetbrains.exodus.entitystore.EntityStore
-import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.StoreTransactionalComputable
 
 interface YTDBEntityStore : EntityStore {
@@ -26,8 +25,6 @@ interface YTDBEntityStore : EntityStore {
     fun requireActiveTransaction(): YTDBStoreTransaction
 
     fun requireActiveWritableTransaction(): YTDBStoreTransaction
-
-    fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId
 
     override fun getCurrentTransaction(): YTDBStoreTransaction?
 

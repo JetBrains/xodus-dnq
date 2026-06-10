@@ -37,7 +37,7 @@ interface YTDBStoreTransaction : StoreTransaction {
 
     fun g(): YTDBGraphTraversalSource
 
-    fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId
+    fun getOEntityId(typeId: Int, localId: Long): RIDEntityId?
 
     /**
      * If the class has not been found, returns -1. It is how it was in the Classic Xodus.
@@ -338,7 +338,7 @@ interface YTDBStoreTransaction : StoreTransaction {
         polymorphic: Boolean
     ): YTDBEntityIterable
 
-    override fun toEntityId(representation: String): YTDBEntityId
+    override fun toEntityId(representation: String): EntityId
 
     /**
      * Returns a user object identified by the specified key and bound to the transaction, or `null` if no

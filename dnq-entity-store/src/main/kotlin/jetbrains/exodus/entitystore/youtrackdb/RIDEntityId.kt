@@ -17,22 +17,22 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
-import jetbrains.exodus.entitystore.EntityId
+import jetbrains.exodus.entitystore.AbstractEntityId
 
+/**
+ * A *resolved* [YTDBEntityId]: a logical `(typeId, localId)` pair (validated and compared by
+ * [AbstractEntityId]) plus the physical record id ([oId]) it was resolved to. Equality and hashing
+ * intentionally ignore [oId] and [schemaClassName] — an id is identified by `(typeId, localId)`
+ * alone, so a resolved id is interchangeable with the logical id types for the same entity.
+ */
 class RIDEntityId(
-    private val classId: Int,
-    private val localEntityId: Long,
+    classId: Int,
+    localEntityId: Long,
     private val oId: RID,
     private val schemaClassName: String?
-) : YTDBEntityId {
+) : AbstractEntityId(classId, localEntityId), YTDBEntityId {
 
     companion object {
-        val EMPTY_YTDB_ID = RID.of(RID.COLLECTION_ID_INVALID, RID.COLLECTION_POS_INVALID)
-        @JvmStatic
-        val EMPTY_ID: RIDEntityId = RIDEntityId(-1, -1,
-            EMPTY_YTDB_ID, null
-        )
-
         fun fromVertex(vertex: YTDBVertex): RIDEntityId {
             val oClass = vertex.requireSchemaClass()
             val classId = oClass.requireClassId()
@@ -45,44 +45,7 @@ class RIDEntityId(
         return oId
     }
 
-    override fun getTypeId(): Int {
-        return classId
-    }
-
     override fun getTypeName(): String {
         return schemaClassName ?: "typeNotFound"
-    }
-
-    override fun getLocalId(): Long {
-        return localEntityId
-    }
-
-    override fun compareTo(other: EntityId?): Int {
-        if (other !is RIDEntityId) {
-            throw IllegalArgumentException("Cannot compare ORIDEntityId with ${other?.javaClass?.name}")
-        }
-        val classCompare = classId.compareTo(other.classId)
-        if (classCompare == 0) {
-            return localEntityId.compareTo(other.localEntityId);
-        } else {
-            return classCompare;
-        }
-    }
-
-    override fun toString(): String {
-        return "${classId}-${localEntityId}"
-    }
-
-    override fun hashCode(): Int {
-        return ((classId shl 20).toLong() xor localEntityId).toInt()
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as RIDEntityId
-
-        return this.classId == other.classId && this.localEntityId == other.localEntityId
     }
 }
