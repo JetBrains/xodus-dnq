@@ -74,8 +74,8 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
                     ) as EntityIterable
                     // JT-95690: delegate to the binary intersect, which already routes
                     // persistent-on-persistent to DB-side intersect and falls back to
-                    // inMemoryIntersect (with its small-left GremlinQuery.ByIds DB-pushdown)
-                    // when the left side is not DB-backed (e.g. TransientEntityIterable).
+                    // inMemoryIntersect when the left side is not DB-backed
+                    // (e.g. TransientEntityIterable).
                     intersect(instance, rightIterable) as EntityIterable
                 }
             }
@@ -168,8 +168,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     // The else-branch fell through to `(left as EntityIterable).intersect(right)` for any non-persistent
     // EntityIterable left side, including TransientEntityIterable whose intersect throws.
     // Mirrors xodus-master `intersectNonTrees`: only delegate to source.intersect when both sides
-    // are DB-backed; otherwise route through inMemoryIntersect (which itself takes a DB-pushdown
-    // fast path for small left sets via GremlinQuery.ByIds).
+    // are DB-backed; otherwise route through inMemoryIntersect.
     private fun canAggregate(left: Iterable<Entity>, right: Iterable<Entity>): Boolean =
         left.isPersistent && right.isPersistent
 
@@ -231,43 +230,13 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     Warning all data is in memory
      */
     internal open fun inMemoryIntersect(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
-        val ids: EntityIdSet
-        val sequence: Sequence<Entity>
-
+        // XD-1275: always intersect in memory — build an id set from the left side and
+        // filter the right side by membership. The previous implementation issued a
+        // GremlinQuery.ByIds DB query whenever one side had fewer than 20 elements, which
+        // produced surprising behavior (results re-resolved against the DB) and extra round-trips.
         val txn = persistentStore.andCheckCurrentTransaction
-        if (left is YTDBEntityIterable) {
-            //May be rewrite it. Constant from nowhere
-            val rightIds = right.asSequence().map { e -> (e.id as YTDBEntityId).asOId() }.take(20).toList()
-            if (rightIds.size < 20) {
-                return YTDBEntityIterable.query(
-                    oStore,
-                    left.query.intersect(
-                        GremlinQuery.ByIds(rightIds)
-                    ),
-                    left.polymorphic
-                )
-            } else {
-                ids = getAsEntityIdSet(left)
-                sequence = right.asSequence()
-            }
-        } else if (right is YTDBEntityIterable) {
-            val leftValues = left.asSequence().map { e -> (e.id as YTDBEntityId).asOId() }.take(20).toList()
-            if (leftValues.size < 20) {
-                return YTDBEntityIterable.query(
-                    oStore,
-                    GremlinQuery.ByIds(leftValues).intersect(right.query),
-                    right.polymorphic
-                )
-            } else {
-                ids = getAsEntityIdSet(left)
-                sequence = right.asSequence()
-            }
-        } else {
-            // may be there will be some better optimization here
-            ids = getAsEntityIdSet(left)
-            sequence = right.asSequence()
-        }
-        val result = if (ids.isEmpty) sequenceOf() else sequence.filter { it.id in ids }
+        val ids = getAsEntityIdSet(left)
+        val result = if (ids.isEmpty) sequenceOf() else right.asSequence().filter { it.id in ids }
 
         return InMemoryEntityIterable(result.asIterable(), txn = txn, this)
     }

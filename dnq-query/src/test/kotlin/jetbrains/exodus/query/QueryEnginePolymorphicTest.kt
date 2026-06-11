@@ -97,52 +97,19 @@ class QueryEnginePolymorphicTest : OTestMixin {
     }
 
     @Test
-    fun `inMemoryIntersect preserves polymorphic flag from left YTDBEntityIterable`() {
+    fun `inMemoryIntersect runs purely in memory and returns matching entities`() {
         val engine = givenEngine()
 
         withStoreTx { tx ->
+            // XD-1275: inMemoryIntersect no longer issues a GremlinQuery.ByIds DB query for
+            // small operands — it always intersects in memory and yields an InMemoryEntityIterable.
             val nonPoly = YTDBEntityIterable.where(
                 User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false
             )
-            // Create a small in-memory list (under 20 elements) to trigger
-            // the YTDBEntityIterable.query() path in inMemoryIntersect
             val inMemory = nonPoly.toList()
 
             val result = engine.inMemoryIntersect(nonPoly, inMemory)
-            assertTrue(result is YTDBEntityIterable)
-            assertFalse((result as YTDBEntityIterable).polymorphic)
-            assertNamesExactly(result, "u1", "u2")
-        }
-    }
-
-    @Test
-    fun `inMemoryIntersect preserves polymorphic flag from right YTDBEntityIterable`() {
-        val engine = givenEngine()
-
-        withStoreTx { tx ->
-            val nonPoly = YTDBEntityIterable.where(
-                User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false
-            )
-            val inMemory = nonPoly.toList()
-
-            val result = engine.inMemoryIntersect(inMemory, nonPoly)
-            assertTrue(result is YTDBEntityIterable)
-            assertFalse((result as YTDBEntityIterable).polymorphic)
-            assertNamesExactly(result, "u1", "u2")
-        }
-    }
-
-    @Test
-    fun `inMemoryIntersect default polymorphic flag is true`() {
-        val engine = givenEngine()
-
-        withStoreTx { tx ->
-            val poly = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All)
-            val inMemory = poly.toList()
-
-            val result = engine.inMemoryIntersect(poly, inMemory)
-            assertTrue(result is YTDBEntityIterable)
-            assertTrue((result as YTDBEntityIterable).polymorphic)
+            assertFalse(result is YTDBEntityIterable)
             assertNamesExactly(result, "u1", "u2")
         }
     }
