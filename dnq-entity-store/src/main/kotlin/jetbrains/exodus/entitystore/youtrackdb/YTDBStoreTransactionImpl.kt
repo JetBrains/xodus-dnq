@@ -203,7 +203,7 @@ class YTDBStoreTransactionImpl(
 
     override fun getEntity(id: EntityId): YTDBVertexEntity =
         YTDBVertexEntity(
-            getVertex(store.requireOEntityId(id)),
+            getVertex(store.resolveEntityId(id)),
             store
         )
 
@@ -228,11 +228,7 @@ class YTDBStoreTransactionImpl(
 
     override fun getVertex(id: YTDBEntityId): YTDBVertex {
         requireActiveTransaction()
-        val ytdbId = id.asOId()
-        if (ytdbId == RIDEntityId.EMPTY_YTDB_ID) {
-            throw EntityRemovedInDatabaseException(id.getTypeName(), id)
-        }
-        return loadVertexOrNull(ytdbId) ?: throw EntityRemovedInDatabaseException(id.getTypeName(), id)
+        return loadVertexOrNull(id.asOId()) ?: throw EntityRemovedInDatabaseException(id.getTypeName(), id)
     }
 
     override fun getBlob(rid: RID): Blob {
@@ -594,18 +590,13 @@ class YTDBStoreTransactionImpl(
         throw UnsupportedOperationException("Not implemented")
     }
 
-    override fun toEntityId(representation: String): YTDBEntityId {
-        requireActiveTransaction()
-        val legacyId = PersistentEntityId.toEntityId(representation)
-        val oEntityId = store.requireOEntityId(legacyId)
-        return if (oEntityId == RIDEntityId.EMPTY_ID) {
-            RIDEntityId(
-                legacyId.typeId, legacyId.localId,
-                RIDEntityId.EMPTY_YTDB_ID, null
-            )
-        } else {
-            oEntityId
-        }
+    override fun toEntityId(representation: String): EntityId {
+        // Parse-only, matching the classic Xodus contract: parse "<typeId>-<localId>" into a logical
+        // PersistentEntityId without touching the database. No active transaction is required (a pure
+        // parse needs none). Resolution to a RIDEntityId, when needed, happens explicitly via the
+        // store (resolveEntityIdOrNull / resolveEntityId). Malformed input throws IllegalArgumentException
+        // (or its subclass NumberFormatException), same family as before and classic-Xodus parity.
+        return PersistentEntityId.toEntityId(representation)
     }
 
     override fun getSequence(sequenceName: String): Sequence {
@@ -657,8 +648,8 @@ class YTDBStoreTransactionImpl(
 
     override fun getQueryCancellingPolicy() = this.queryCancellingPolicy
 
-    override fun getOEntityId(entityId: PersistentEntityId): YTDBEntityId {
-        return schemaBuddy.getOEntityId(activeYtdbSession(), entityId)
+    override fun resolveEntityIdOrNull(typeId: Int, localId: Long): RIDEntityId? {
+        return schemaBuddy.resolveEntityIdOrNull(activeYtdbSession(), typeId, localId)
     }
 
     override fun getTypeId(entityType: String): Int {

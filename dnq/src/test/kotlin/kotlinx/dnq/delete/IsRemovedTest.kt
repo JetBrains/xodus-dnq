@@ -71,7 +71,6 @@ class IsRemovedTest : DBTest() {
 
             assertThat(foo3.isRemoved).isTrue()
 
-            //assertThat(EntityOperations.isRemoved(store.persistentStore.getEntity(PersistentEntityId(0, 100)))).isTrue()
         }
 
     }

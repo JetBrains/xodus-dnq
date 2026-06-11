@@ -455,7 +455,7 @@ class YTDBEntityTest : OTestMixin {
     }
 
     @Test
-    fun `setLink() and addLink() should work correctly with PersistentEntityId`() {
+    fun `setLink() and addLink() should work correctly with unresolved RIDEntityId`() {
         val linkName = "link"
         youTrackDb.withSession { session ->
             session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
@@ -466,15 +466,15 @@ class YTDBEntityTest : OTestMixin {
         val issueC = youTrackDb.createIssue("C")
 
         youTrackDb.withStoreTx {
-            val legacyId = PersistentEntityId(issueB.id.typeId, issueB.id.localId)
-            issueA.setLink(linkName, legacyId)
+            val unresolvedB = PersistentEntityId(issueB.id.typeId, issueB.id.localId)
+            issueA.setLink(linkName, unresolvedB)
         }
         youTrackDb.withStoreTx {
             assertEquals(issueB, issueA.getLink(linkName))
         }
         youTrackDb.withStoreTx {
-            val legacyId = PersistentEntityId(issueC.id.typeId, issueC.id.localId)
-            issueB.addLink(linkName, legacyId)
+            val unresolvedC = PersistentEntityId(issueC.id.typeId, issueC.id.localId)
+            issueB.addLink(linkName, unresolvedC)
         }
         youTrackDb.withStoreTx {
             assertEquals(issueB, issueA.getLink(linkName))
@@ -496,15 +496,11 @@ class YTDBEntityTest : OTestMixin {
 
         youTrackDb.withStoreTx {
             assertFalse(issueB.addLink(linkName, issueB.id))
-            assertFalse(issueB.addLink(linkName, RIDEntityId.EMPTY_ID))
-            assertFalse(issueB.addLink(linkName, PersistentEntityId.EMPTY_ID))
             assertFalse(issueB.addLink(linkName, PersistentEntityId(300, 300)))
         }
 
         youTrackDb.withStoreTx {
             assertFalse(issueB.setLink(linkName, issueB.id))
-            assertFalse(issueB.setLink(linkName, RIDEntityId.EMPTY_ID))
-            assertFalse(issueB.setLink(linkName, PersistentEntityId.EMPTY_ID))
             assertFalse(issueB.setLink(linkName, PersistentEntityId(300, 300)))
         }
     }

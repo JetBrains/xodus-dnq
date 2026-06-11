@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 package jetbrains.exodus.query.metadata
-
 import jetbrains.exodus.entitystore.PersistentEntityId
+
 import jetbrains.exodus.entitystore.youtrackdb.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.linkTargetEntityIdPropertyName
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
@@ -25,6 +25,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class OModelMetaDataTest : OTestMixin {
@@ -178,14 +179,14 @@ class OModelMetaDataTest : OTestMixin {
 
         // model does not find the id because internal data structures are not initialized yet
         youTrackDb.withTxSession {
-            assertEquals(RIDEntityId.EMPTY_ID, model.getOEntityId(it, oldSchoolEntityId))
+            assertNull(model.resolveEntityIdOrNull(it, oldSchoolEntityId.typeId, oldSchoolEntityId.localId))
         }
 
         // prepare() must initialize internal data structures in the end
         model.prepare()
 
         youTrackDb.withTxSession { session ->
-            assertEquals(entityId, model.getOEntityId(session, oldSchoolEntityId))
+            assertEquals(entityId, model.resolveEntityIdOrNull(session, oldSchoolEntityId.typeId, oldSchoolEntityId.localId))
         }
     }
 

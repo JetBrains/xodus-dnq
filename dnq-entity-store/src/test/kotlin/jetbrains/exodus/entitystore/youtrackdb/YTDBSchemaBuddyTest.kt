@@ -17,7 +17,6 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
-import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues
 import jetbrains.exodus.entitystore.youtrackdb.testutil.OTestMixin
@@ -47,9 +46,8 @@ class YTDBSchemaBuddyTest : OTestMixin {
         }
         val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)
 
-        val totallyExistingEntityId = PersistentEntityId(issueId.typeId, issueId.localId)
         withSession {
-            assertEquals(RIDEntityId.EMPTY_ID, buddy.getOEntityId(it, totallyExistingEntityId))
+            assertNull(buddy.resolveEntityIdOrNull(it, issueId.typeId, issueId.localId))
         }
 
         withSession {
@@ -57,7 +55,7 @@ class YTDBSchemaBuddyTest : OTestMixin {
         }
 
         withTxSession {
-            assertEquals(issueId, buddy.getOEntityId(it, totallyExistingEntityId))
+            assertEquals(issueId, buddy.resolveEntityIdOrNull(it, issueId.typeId, issueId.localId))
         }
     }
 
@@ -72,7 +70,7 @@ class YTDBSchemaBuddyTest : OTestMixin {
     }
 
     @Test
-    fun `getOEntityId() works with both existing and not existing EntityId`() {
+    fun `resolveEntityIdOrNull() works with both existing and not existing EntityId`() {
         withSession { session ->
             session.getOrCreateVertexClass(Issues.CLASS)
         }
@@ -81,15 +79,11 @@ class YTDBSchemaBuddyTest : OTestMixin {
         }
         val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = true)
 
-        val notExistingEntityId = PersistentEntityId(300, 301)
-        val partiallyExistingEntityId1 = PersistentEntityId(issueId.typeId, 301)
-        val partiallyExistingEntityId2 = PersistentEntityId(300, issueId.localId)
-        val totallyExistingEntityId = PersistentEntityId(issueId.typeId, issueId.localId)
         withTxSession {
-            assertEquals(RIDEntityId.EMPTY_ID, buddy.getOEntityId(it, notExistingEntityId))
-            assertEquals(RIDEntityId.EMPTY_ID, buddy.getOEntityId(it, partiallyExistingEntityId1))
-            assertEquals(RIDEntityId.EMPTY_ID, buddy.getOEntityId(it, partiallyExistingEntityId2))
-            assertEquals(issueId, buddy.getOEntityId(it, totallyExistingEntityId))
+            assertNull(buddy.resolveEntityIdOrNull(it, 300, 301))
+            assertNull(buddy.resolveEntityIdOrNull(it, issueId.typeId, 301))
+            assertNull(buddy.resolveEntityIdOrNull(it, 300, issueId.localId))
+            assertEquals(issueId, buddy.resolveEntityIdOrNull(it, issueId.typeId, issueId.localId))
         }
     }
 

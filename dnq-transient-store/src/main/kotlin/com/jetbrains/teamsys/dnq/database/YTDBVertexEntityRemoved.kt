@@ -99,9 +99,9 @@ class YTDBVertexEntityRemoved(
     override fun getLink(linkName: String): Entity? =
         links[linkName]?.firstOrNull()?.let { id ->
             changesTracker.getRemoved(id)
-                ?: store.requireActiveTransaction()
-                    .loadVertexOrNull(store.requireOEntityId(id).asOId())
-                    ?.let { YTDBVertexEntity(it, store) }
+                ?: store.resolveEntityIdOrNull(id)?.asOId()?.let { oId ->
+                    store.requireActiveTransaction().loadVertexOrNull(oId)
+                }?.let { YTDBVertexEntity(it, store) }
         }
 
     override fun getLinks(linkName: String): EntityIterable =
@@ -130,7 +130,7 @@ class YTDBVertexEntityRemoved(
 
         val existing = YTDBEntityIterable.query(
             txn.getStore(),
-            GremlinQuery.ByIds(existingIds.map { store.requireOEntityId(it).asOId() })
+            GremlinQuery.ByIds(existingIds.mapNotNull { store.resolveEntityIdOrNull(it)?.asOId() })
         )
 
         if (removedIds.none()) {

@@ -20,7 +20,7 @@ import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
-import jetbrains.exodus.entitystore.PersistentEntityId
+
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_CUSTOM_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_SEQUENCE_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap
 interface YTDBSchemaBuddy {
     fun initialize(session: DatabaseSessionEmbedded)
 
-    fun getOEntityId(session: DatabaseSessionEmbedded, entityId: PersistentEntityId): RIDEntityId
+    fun resolveEntityIdOrNull(session: DatabaseSessionEmbedded, typeId: Int, localId: Long): RIDEntityId?
 
     /**
      * If the class has not been found, returns -1. It is how it was in the Classic Xodus.
@@ -173,26 +173,27 @@ class YTDBSchemaBuddyImpl(
         }
     }
 
-    override fun getOEntityId(
+    override fun resolveEntityIdOrNull(
         session: DatabaseSessionEmbedded,
-        entityId: PersistentEntityId
-    ): RIDEntityId {
+        typeId: Int,
+        localId: Long
+    ): RIDEntityId? {
         // Keep in mind that it is possible that we are given an entityId that is not in the database.
-        // It is a valid case.
+        // It is a valid case: we return null to signal "not found".
 
-        val classId = entityId.typeId
-        val localEntityId = entityId.localId
-        val oClassId = classIdToOClassId[classId]?.first ?: return RIDEntityId.EMPTY_ID
+        val classId = typeId
+        val localEntityId = localId
+        val oClassId = classIdToOClassId[classId]?.first ?: return null
         val schema = session.schema
-        val oClass = schema.getClassByCollectionId(oClassId) ?: return RIDEntityId.EMPTY_ID
+        val oClass = schema.getClassByCollectionId(oClassId) ?: return null
 
         val oid = session.activeTransaction
             .query("SELECT FROM ${oClass.name} WHERE $LOCAL_ENTITY_ID_PROPERTY_NAME = ?", localEntityId)
             .use { resultSet ->
                 if (resultSet.hasNext()) {
-                    resultSet.next().asVertexOrNull()?.identity ?: return RIDEntityId.EMPTY_ID
+                    resultSet.next().asVertexOrNull()?.identity ?: return null
                 } else {
-                    return RIDEntityId.EMPTY_ID
+                    return null
                 }
             }
 

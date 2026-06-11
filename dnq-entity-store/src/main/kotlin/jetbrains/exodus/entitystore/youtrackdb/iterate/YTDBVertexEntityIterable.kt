@@ -20,8 +20,8 @@ import com.jetbrains.youtrackdb.internal.common.util.Sizeable
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
-import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.util.unsupported
+import jetbrains.exodus.entitystore.youtrackdb.RIDEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
@@ -47,7 +47,7 @@ class YTDBVertexEntityIterable(
         override fun skip(number: Int) =
             (0 until number).count { iterator.hasNext() }.also { iterator.next() } == number
 
-        override fun nextId() = iterator.next().run { PersistentEntityId(id().collectionId, id().collectionPosition) }
+        override fun nextId() = RIDEntityId.fromVertex(iterator.next())
 
         override fun dispose() = true
 

@@ -16,10 +16,10 @@
 @file:OptIn(ExperimentalStdlibApi::class)
 
 package jetbrains.exodus.migrate
+import jetbrains.exodus.entitystore.PersistentEntityId
 
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
-import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_SEQUENCE_NAME

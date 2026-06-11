@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 package jetbrains.exodus.entitystore.youtrackdb
+import jetbrains.exodus.entitystore.PersistentEntityId
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
-import jetbrains.exodus.entitystore.PersistentEntityId
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.createIssue
 import org.junit.Assert.assertEquals
@@ -52,12 +52,10 @@ class RIDEntityIdTest {
     }
 
     @Test
-    fun `id representation is the same as for PersistentEntityId`() {
+    fun `resolved and unresolved RIDEntityId have the same string representation`() {
         val id = youTrackDb.createIssue("trista").id
-        val legacyId = PersistentEntityId(id.typeId, id.localId)
-        val idRepresentation = id.toString()
-        val legacyIdRepresentation = legacyId.toString()
+        val unresolved = PersistentEntityId(id.typeId, id.localId)
 
-        assertEquals(legacyIdRepresentation, idRepresentation)
+        assertEquals(unresolved.toString(), id.toString())
     }
 }
