@@ -230,13 +230,14 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     Warning all data is in memory
      */
     internal open fun inMemoryIntersect(left: Iterable<Entity>, right: Iterable<Entity>): Iterable<Entity> {
-        // XD-1275: always intersect in memory — build an id set from the left side and
-        // filter the right side by membership. The previous implementation issued a
-        // GremlinQuery.ByIds DB query whenever one side had fewer than 20 elements, which
-        // produced surprising behavior (results re-resolved against the DB) and extra round-trips.
+        // XD-1275: always intersect in memory — build an id set from the right side and
+        // filter the left side by membership, which preserves the left-hand side order. The
+        // previous implementation issued a GremlinQuery.ByIds DB query whenever one side had
+        // fewer than 20 elements, which produced surprising behavior (results re-resolved
+        // against the DB) and extra round-trips.
         val txn = persistentStore.andCheckCurrentTransaction
-        val ids = getAsEntityIdSet(left)
-        val result = if (ids.isEmpty) sequenceOf() else right.asSequence().filter { it.id in ids }
+        val ids = getAsEntityIdSet(right)
+        val result = if (ids.isEmpty) sequenceOf() else left.asSequence().filter { it.id in ids }
 
         return InMemoryEntityIterable(result.asIterable(), txn = txn, this)
     }
