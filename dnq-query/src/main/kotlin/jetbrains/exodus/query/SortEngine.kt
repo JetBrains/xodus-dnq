@@ -77,7 +77,13 @@ open class SortEngine {
             return YTDBEntityIterable.EMPTY
         }
         // todo: validate this logic
-        if (source is YTDBEntityIterable && source.query !is GremlinQuery.ByIds) {
+        // A source may be a PersistentEntityIterableWrapper, which *is* a YTDBEntityIterable but whose
+        // `query` getter throws "EntityIterable is not a YTDBEntityIterable" when the wrapped iterable
+        // is not YTDB-backed (e.g. an in-memory text-search result). Inspect the unwrapped iterable so
+        // such sources fall through to the in-memory sort below instead of throwing. unwrap() returns
+        // `this` for a raw YTDBEntityIterable, so this stays equivalent for the DB-backed cases.
+        val underlying = (source as? EntityIterable)?.unwrap()
+        if (underlying is YTDBEntityIterable && underlying.query !is GremlinQuery.ByIds) {
             val txn = queryEngine.persistentStore.andCheckCurrentTransaction
             return (txn as YTDBStoreTransactionImpl).sortLinked(
                 entityType, linkName, propName, source, asc
