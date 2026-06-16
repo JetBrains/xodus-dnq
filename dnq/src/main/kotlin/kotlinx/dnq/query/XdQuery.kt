@@ -27,7 +27,6 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
-import jetbrains.exodus.query.LeafNode
 import jetbrains.exodus.query.NodeBase
 import jetbrains.exodus.query.NodeFactory
 import jetbrains.exodus.query.QueryEngine
@@ -455,10 +454,15 @@ inline fun <reified T : XdEntity> XdEntityType<T>.query(it: Iterable<T?>): XdQue
  */
 fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S>): XdQuery<S> {
     val queryEngine = this.queryEngine
-    return queryEngine.query(
-        this.entityIterable,
-        this.entityType.entityType,
-        LeafNode(GremlinBlock.HasLabel(entityType.entityType))
+    // Root the type test on the *target* type, not on `this.entityType`: the receiver's declared
+    // type may be a sibling of the target (e.g. an iterable that actually holds target-type
+    // entities but is wrapped as a query of an unrelated type). Intersecting with getAll(target)
+    // keeps the matching entities regardless of how the source query was labeled.
+    // This matches the classic Xodus-based branch, which likewise computes getAll(target) and
+    // intersects it with the source; the polymorphic flag is the only YouTrackDB-specific addition.
+    return queryEngine.intersect(
+        queryEngine.queryGetAll(entityType.entityType, this.entityIterable.queryPolymorphic),
+        this.entityIterable
     ).asQuery(entityType)
 }
 
@@ -467,12 +471,22 @@ fun <T : XdEntity, S : T> XdQuery<T>.filterIsInstance(entityType: XdEntityType<S
  */
 fun <T : XdEntity, S : T> XdQuery<T>.filterIsNotInstance(entityType: XdEntityType<S>): XdQuery<T> {
     val queryEngine = this.queryEngine
-    return queryEngine.query(
+    // Symmetric to filterIsInstance: subtract all entities of the target type from the source.
+    // Consistent with the classic Xodus-based branch (exclude(source, getAll(target))); the
+    // polymorphic flag is the only YouTrackDB-specific addition.
+    return queryEngine.exclude(
         this.entityIterable,
-        this.entityType.entityType,
-        LeafNode(GremlinBlock.Not(GremlinBlock.HasLabel(entityType.entityType)))
+        queryEngine.queryGetAll(entityType.entityType, this.entityIterable.queryPolymorphic)
     ).asQuery(this.entityType)
 }
+
+/**
+ * The polymorphic flag of the underlying iterable. `intersect`/`exclude` require both operands to
+ * share the same flag, so `getAll(targetType)` must be built with the source iterable's flag.
+ * Defaults to `true` for non-YouTrackDB-backed iterables (matching the query engine's default).
+ */
+private val Iterable<Entity>.queryPolymorphic: Boolean
+    get() = ((this as? EntityIterable)?.unwrap() as? YTDBEntityIterable)?.polymorphic ?: true
 
 /**
  * Returns a new query of all results of `this` query sorted by value of the given [property].

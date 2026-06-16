@@ -32,8 +32,12 @@ class FilterIsInstanceTest : DBTest() {
         companion object : XdNaturalEntityType<Child>()
     }
 
+    class Sibling(entity: Entity): Parent(entity) {
+        companion object : XdNaturalEntityType<Sibling>()
+    }
+
     override fun registerEntityTypes() {
-        XdModel.registerNodes(Parent, Child)
+        XdModel.registerNodes(Parent, Child, Sibling)
     }
 
     @Test
@@ -85,6 +89,38 @@ class FilterIsInstanceTest : DBTest() {
 
         transactional {
             assertQuery(Parent.all().filterIsNotInstance(Parent)).isEmpty()
+        }
+    }
+
+    // The receiver query's runtime entityType is a *sibling* of the filter target (not an
+    // ancestor), while the iterable actually holds target-type entities. This happens when an
+    // iterable of one type is wrapped as a query of an unrelated type and then narrowed with
+    // filterIsInstance back to the type it actually contains.
+    @Test
+    fun `filter instance from sibling-labeled query`() {
+        transactional {
+            Child.new()
+            Child.new()
+        }
+
+        transactional {
+            // Two Child entities, but the query is labeled as the sibling type Sibling.
+            val siblingLabeled: XdQuery<Parent> = Child.all().entityIterable.asQuery(Sibling)
+            assertQuery(siblingLabeled.filterIsInstance(Child)).hasSize(2)
+        }
+    }
+
+    @Test
+    fun `filter not-instance from sibling-labeled query`() {
+        transactional {
+            Child.new()
+            Child.new()
+        }
+
+        transactional {
+            // Two Child entities labeled as the sibling type Sibling; none are actually Sibling.
+            val siblingLabeled: XdQuery<Parent> = Child.all().entityIterable.asQuery(Sibling)
+            assertQuery(siblingLabeled.filterIsNotInstance(Sibling)).hasSize(2)
         }
     }
 }
