@@ -421,6 +421,56 @@ class YTDBStoreTransactionTest : OTestMixin {
     }
 
     @Test
+    fun `union of single-source FollowLinks must deduplicate a shared target`() {
+        // `findLinksUntyped(board, OnBoard)` compiles to a bare FollowLink(ByIds([board]), <dir>, link)
+        // with no Dedup wrapper. When several such single-source FollowLinks over the same link are
+        // unioned and one target is reachable from more than one source, the union must still return
+        // that target exactly once (set semantics).
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            // issue2 sits on BOTH boards — i.e. one target reachable from two FollowLink sources.
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board2)
+        }
+
+        // When
+        withStoreTx { tx ->
+            val issuesOnBoard1 = tx.findLinksUntyped(test.board1, Issues.Links.ON_BOARD)
+            val issuesOnBoard2 = tx.findLinksUntyped(test.board2, Issues.Links.ON_BOARD)
+            val issues = issuesOnBoard1.union(issuesOnBoard2)
+
+            // Then — issue2 must NOT appear twice.
+            assertNamesExactly(issues, "issue1", "issue2")
+        }
+    }
+
+    @Test
+    fun `union fold of three single-source FollowLinks must deduplicate shared targets`() {
+        // Fold of three single-source FollowLinks where one target is shared by two sources:
+        // board1->{issue1}, board2->{issue2}, board3->{issue1, issue3}.
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board2)
+            tx.addIssueToBoard(test.issue1, test.board3)
+            tx.addIssueToBoard(test.issue3, test.board3)
+        }
+
+        // When — fold the per-source FollowLinks with union.
+        withStoreTx { tx ->
+            val issues = tx.findLinksUntyped(test.board1, Issues.Links.ON_BOARD)
+                .union(tx.findLinksUntyped(test.board2, Issues.Links.ON_BOARD))
+                .union(tx.findLinksUntyped(test.board3, Issues.Links.ON_BOARD))
+
+            // Then — issue1 (in board1 and board3) must appear exactly once.
+            assertNamesExactly(issues, "issue1", "issue2", "issue3")
+        }
+    }
+
+    @Test
     fun `should sort links by property`() {
         // Given
         val test = givenTestCase()

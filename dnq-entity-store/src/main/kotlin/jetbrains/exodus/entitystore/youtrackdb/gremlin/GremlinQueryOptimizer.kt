@@ -167,14 +167,19 @@ internal fun GremlinQuery.combineEfficient(
         }
     }
 
-    // O4 extension: bare FollowLink × bare FollowLink (reached via O17 delegation).
-    // When O17 strips Order(Dedup) from both sides, the inners are bare FollowLinks.
-    // Merge their source queries; O17 adds Dedup when re-wrapping.
+    // O4 extension: bare FollowLink × bare FollowLink.
+    // Reached both directly (the union of two single-source FollowLinks over the same link) and via
+    // O17 delegation (which strips Order(Dedup) from both sides). Merge the source queries and re-wrap
+    // with Dedup: several source vertices can reach the same target via the link, and union has set
+    // semantics, so the merged traversal must deduplicate. Without this, a target reachable from two
+    // sources is returned twice. When reached via O17, its `innerResult is Order(Dedup)` guard avoids
+    // double-wrapping.
     if (this is FollowLink && other is FollowLink &&
         condCombiner is ConditionCombiner.Union &&
         this.direction == other.direction &&
         this.linkName == other.linkName) {
         return FollowLink(this.inner.union(other.inner), this.direction, this.linkName)
+            .then(GremlinBlock.Dedup)
     }
 
     val thisLabel = extractLabel(this)
