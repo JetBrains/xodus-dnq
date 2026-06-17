@@ -114,9 +114,16 @@ class ReadonlyTransientEntity(change: TransientEntityChange?, snapshot: YTDBEnti
     override fun getLinks(linkName: String): EntityIterable {
         //this will definitely fail in case of concurrent modification
         // we get the current state and revert changes that have happened during the transaction
+        // Wrap each linked entity as a *live* (mutable) transient entity rather than a read-only
+        // one: the read-only contract protects the snapshot entity itself, not the current
+        // entities reached by navigating its links. Upstream Xodus DNQ returns live, deletable
+        // entities here (a read-only iterable of live elements), and callers rely on this to
+        // modify or delete entities reached by navigating a snapshot's links. Wrapping them
+        // read-only broke that with "Entity is readonly".
+        val session = threadSessionOrThrow
         val oldLinksState = entity
             .getLinks(linkName)
-            .map { ReadonlyTransientEntity(null, it as YTDBEntity, store) }
+            .map { session.newEntity(it) }
             .toSet()
             .plus(changedLinks[linkName]?.deletedEntitiesSnapshots ?: setOf())
             .plus(getRemovedLinks(linkName))
