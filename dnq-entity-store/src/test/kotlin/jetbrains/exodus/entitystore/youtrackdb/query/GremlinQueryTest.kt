@@ -16,6 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb.query
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.*
@@ -534,5 +535,145 @@ class GremlinQueryTest {
         // O16 only applies to intersect and difference; union cannot be expressed as a chain extension.
         val result = o7Fused.union(issueCondition("priority", "critical"))
         assertThat(result).isInstanceOf(GremlinQuery.Order::class.java)
+    }
+
+    // O21 — allOf(T) ∩ Q rewrites to Q.then(HasLabel(T)) instead of a full-scan Aggregate
+
+    private fun allOf(label: String): Labeled = Labeled(GremlinQuery.Where.of(All), label)
+
+    private val boardCond = Labeled(GremlinQuery.Where.of(PropEqual("name", "b")), "Board")
+    private val issuesOnBoard = Labeled(FollowLink(boardCond, LinkDirection.IN, "OnBoard"), "Issue")
+    private val issuesOnBoardGremlin =
+        """g.V().has("name","b").hasLabel("Board").in("OnBoard_link").hasLabel("Issue")"""
+
+    @Test
+    fun `O21 - allOf(T) intersect FollowLink appends hasLabel instead of Aggregate`() {
+        val result = allOf("Issue").intersect(issuesOnBoard)
+        assertThat(result).isNotInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(result.toGremlin()).isEqualTo(issuesOnBoardGremlin)
+    }
+
+    @Test
+    fun `O21 - FollowLink intersect allOf(T) appends hasLabel instead of Aggregate`() {
+        // Symmetric: the FollowLink is `this`, allOf is `other`.
+        val result = issuesOnBoard.intersect(allOf("Issue"))
+        assertThat(result).isNotInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(result.toGremlin()).isEqualTo(issuesOnBoardGremlin)
+    }
+
+    @Test
+    fun `O21 - allOf(T) intersect unlabeled FollowLink adds the label`() {
+        // Bare (unlabeled) FollowLink: the type filter materialises as a trailing hasLabel.
+        val bareLink = FollowLink(boardCond, LinkDirection.IN, "OnBoard")
+        val result = allOf("Issue").intersect(bareLink)
+        assertThat(result).isNotInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(result.toGremlin()).isEqualTo(issuesOnBoardGremlin)
+    }
+
+    @Test
+    fun `O21 - bare Where(All) intersect query is pure identity`() {
+        // Untyped All ⇒ no hasLabel appended; the result is the other operand verbatim.
+        val q = issuesOnBoard
+        assertThat(GremlinQuery.all.intersect(q).toGremlin()).isEqualTo(q.toGremlin())
+        assertThat(q.intersect(GremlinQuery.all).toGremlin()).isEqualTo(q.toGremlin())
+    }
+
+    @Test
+    fun `O21 - allOf(T) intersect allOf(T) collapses to allOf(T)`() {
+        val result = allOf("Issue").intersect(allOf("Issue"))
+        assertThat(result.toGremlin()).isEqualTo("""g.V().hasLabel("Issue")""")
+    }
+
+    @Test
+    fun `O21 - allOf(T) intersect condition is left to the generic combiner`() {
+        // Condition has an extractable block, so O21 does NOT fire — combineBlocks(All, cond) = cond.
+        val result = allOf("Issue").intersect(issueCondition("status", "open"))
+        assertThat(result.toGremlin()).isEqualTo("""g.V().has("status","open").hasLabel("Issue")""")
+    }
+
+    @Test
+    fun `O21 - allOf(T) intersect OUT-FollowLink over ByIds rewrites in both operand orders`() {
+        // Mirrors the YouTrack permissions shape:
+        //   Aggregate(Labeled(Where(All), "JPUser"), FollowLink(ByIds, OUT, "viewers"))
+        // O21 must rewrite it to drive from the bounded id set rather than scanning every JPUser,
+        // and must do so regardless of which side the allOf operand is on.
+        val ids = ByIds(listOf(RID.of(40, 1), RID.of(40, 2)))
+        val viewers = FollowLink(ids, LinkDirection.OUT, "viewers")
+
+        listOf(
+            allOf("JPUser").intersect(viewers),  // allOf on the left  → O21 branch 1
+            viewers.intersect(allOf("JPUser")),   // operands switched   → O21 branch 2 (symmetric)
+        ).forEach { result ->
+            assertThat(result).isNotInstanceOf(GremlinQuery.Aggregate::class.java)
+            assertThat(result).isInstanceOf(Labeled::class.java)
+            val labeled = result as Labeled
+            assertThat(labeled.label).isEqualTo("JPUser")
+            // The exact FollowLink is preserved as the driving traversal; only a hasLabel is added.
+            assertThat(labeled.inner).isEqualTo(viewers)
+        }
+    }
+
+    @Test
+    fun `O21 - allOf(T) intersect Slice applies the type filter after the page`() {
+        // Paging case: the type filter must be appended AFTER the skip, matching the old Aggregate
+        // (which also filters by type after the page is computed). The surviving page is identical.
+        val bareLink = FollowLink(boardCond, LinkDirection.IN, "OnBoard")
+        val sliced = bareLink.then(Skip(1))   // Slice(bareLink, Skip(1))
+        val result = allOf("Issue").intersect(sliced)
+        assertThat(result).isNotInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(result.toGremlin()).isEqualTo(
+            """g.V().has("name","b").hasLabel("Board").in("OnBoard_link").skip(1L).hasLabel("Issue")"""
+        )
+    }
+
+    @Test
+    fun `O21 - allOf(T) does not pre-empt O_B for Aggregate intersect allOf`() {
+        // O21 is placed after O_B precisely so O_B wins here: O_B recognises that the Aggregate's
+        // left branch is already labeled T and drops the redundant hasLabel entirely, rather than
+        // O21 appending an AndThen(Aggregate, hasLabel). Guards the placement-after-O_B invariant.
+        val aggr = issueCondition("status", "open")
+            .intersect(Labeled(GremlinQuery.Where.of(PropEqual("key", "ENG")), "Project"))
+        assertThat(aggr).isInstanceOf(GremlinQuery.Aggregate::class.java)
+
+        // Both orders resolve to the bare Aggregate, not an O21 rewrite.
+        assertThat(aggr.intersect(allOf("Issue"))).isEqualTo(aggr)
+        assertThat(allOf("Issue").intersect(aggr)).isEqualTo(aggr)
+    }
+
+    // --- O21 correctness investigation: OR-collapse (concern #1) and per-step safety (concern #2) ---
+
+    @Test
+    fun `O21 - allOf(T) intersect FollowLink of a DIFFERENT label stays Aggregate`() {
+        // Concern #1, the OR-collapse hazard: hasLabel(U).hasLabel(T) on consecutive steps is merged
+        // by InlineFilterStrategy into one multi-predicate HasStep that YTDBHasLabelStep evaluates as
+        // OR (the O19 defect). O21 must never create that shape. The label-mismatch guard above O21
+        // ensures it: when the other operand has a non-null label U != T, combineEfficient returns
+        // null *before* O21 → Aggregate, so no hasLabel(T) is appended onto an operand ending in
+        // hasLabel(U). Verified both orders.
+        val projectsLink = Labeled(FollowLink(boardCond, LinkDirection.IN, "OnBoard"), "Project")
+        assertThat(allOf("Issue").intersect(projectsLink)).isInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(projectsLink.intersect(allOf("Issue"))).isInstanceOf(GremlinQuery.Aggregate::class.java)
+    }
+
+    @Test
+    fun `O21 - no rewrite ever emits two consecutive hasLabel steps`() {
+        // Concern #1, structural proof: across every O21-eligible shape, the appended hasLabel(T) is
+        // either flattened (operand already labeled T) or separated from any pre-existing distinct
+        // hasLabel by a link / skip / where step. So the merge-able `hasLabel(A).hasLabel(B)` adjacency
+        // is never produced. GroovyTranslator renders bytecode pre-strategy, so adjacency (if any)
+        // would appear literally in the script.
+        val adjacentHasLabel = Regex("""hasLabel\([^)]*\)\.hasLabel\(""")
+        val ids = ByIds(listOf(RID.of(40, 1)))
+        val rewrites = listOf(
+            allOf("Issue").intersect(FollowLink(boardCond, LinkDirection.IN, "OnBoard")),  // bare FL
+            FollowLink(boardCond, LinkDirection.OUT, "viewers").intersect(allOf("Issue")),  // symmetric
+            allOf("Issue").intersect(issuesOnBoard),                                         // operand already labeled Issue (flattens)
+            allOf("Issue").intersect(FollowLink(ids, LinkDirection.OUT, "viewers")),         // production shape
+            allOf("Issue").intersect(FollowLink(boardCond, LinkDirection.IN, "OnBoard").then(Skip(1))), // Slice
+        )
+        rewrites.forEach { q ->
+            assertWithMessage("rewrite produced consecutive hasLabel: %s", q.toGremlin())
+                .that(adjacentHasLabel.containsMatchIn(q.toGremlin())).isFalse()
+        }
     }
 }

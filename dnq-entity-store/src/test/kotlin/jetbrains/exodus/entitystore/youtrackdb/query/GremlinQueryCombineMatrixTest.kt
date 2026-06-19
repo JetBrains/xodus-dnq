@@ -65,6 +65,9 @@ class GremlinQueryCombineMatrixTest {
     private val byids  = ByIds(listOf(rid1, rid2))
     private val byids2 = ByIds(listOf(rid2))
 
+    // allOf(T) — Labeled(Where(All), T): "all vertices of type T"
+    private val allOfIssue = Labeled(GremlinQuery.Where.of(GremlinBlock.All), "Issue")
+
     // SortBy
     private val sorted = SortBy(cond, Sort(Sort.ByProp("name"), SortDirection.ASC))
 
@@ -355,6 +358,28 @@ class GremlinQueryCombineMatrixTest {
         // O17 strips Dedup, O20b fires: extractLabel(byids) = null → else branch.
         check(unionQ, "i", byids, "Dedup(UnionAll)")
         check(byids, "i", unionQ, "Dedup(UnionAll)")
+    }
+
+    // =========================================================================
+    // allOf(T) × others — O21 type-filter rewrite (intersect only)
+    // =========================================================================
+
+    @Test
+    fun `allOf(T) x others — O21 rewrites intersect to a hasLabel filter`() {
+        // ∩ Labeled(Where): extractable condition → generic combiner (not O21); All collapses away.
+        check(allOfIssue, "i", cond, "Labeled(Where)")
+        check(cond, "i", allOfIssue, "Labeled(Where)")
+
+        // ∩ Labeled(FollowLink): no extractable condition → O21 appends hasLabel (was Aggregate).
+        check(allOfIssue, "i", link, "Labeled(FL)")
+        check(link, "i", allOfIssue, "Labeled(FL)")
+
+        // ∩ allOf(T): collapses back to allOf(T).
+        check(allOfIssue, "i", allOfIssue, "Labeled(Where)")
+
+        // ∩ ByIds: extractable (IdWithin) → generic combiner keeps Where(IdWithin), not O21.
+        check(allOfIssue, "i", byids, "Labeled(Where)")
+        check(byids, "i", allOfIssue, "Labeled(Where)")
     }
 
     @Test

@@ -232,6 +232,57 @@ internal fun GremlinQuery.combineEfficient(
         }
     }
 
+    // O21: allOf(T) ∩ Q — type-filter rewrite (avoids the full-scan Aggregate fallback).
+    //
+    // Intersecting "all vertices of type T" with another query is, by definition, a type filter
+    // on that query.  The identity is general (not link-specific):
+    //
+    //   allOf(T) ∩ Q  ≡  { x ∈ Q : isInstanceOf(x, T) }  =  Q.then(HasLabel(T))
+    //   Where(All) ∩ Q ≡ Q                                  // untyped All ⇒ pure identity
+    //
+    // where allOf(T) = Labeled(Where(All), T) — extractCondition == All and a non-null label —
+    // and bare Where(All) is the label-less identity (extractCondition == All, null label).
+    //
+    // Without this rule, allOf(T) ∩ Q falls to the generic Aggregate { P.within } whenever Q has
+    // no extractable condition (FollowLink, Aggregate, UnionAll, Slice, Order, …).  That Aggregate
+    // drives the traversal from allOf(T) — a full scan of every T vertex — and filters it by
+    // membership in the folded Q set, so a type filter on a (usually small) Q is executed as a scan
+    // of the entire extent of T.  Appending HasLabel(T) to Q instead keeps Q as the driving
+    // traversal and reduces the type check to an inline hasLabel filter.
+    //
+    // Guard `extractCondition(other) == null`: when the other operand HAS an extractable condition
+    // (ByIds → IdWithin, Labeled(Where) → its block, allOf itself → All), the generic condition
+    // combiner at the bottom already handles allOf(T) ∩ Q correctly via `combineBlocks` (a is All
+    // -> b) and does NOT fall to Aggregate.  Scoping O21 to the null-condition operand leaves those
+    // paths untouched — in particular it preserves ByIds ∩ allOf(T) as Labeled(Where(IdWithin), T)
+    // rather than restructuring it.
+    //
+    // Placement:
+    //   - After O_B, which yields a strictly better result for Aggregate ∩ allOf(T): it drops the
+    //     redundant hasLabel entirely rather than appending it.
+    //   - Before O7/O16/O20, which deliberately skip or mishandle an All condBlock (O7's explicit
+    //     `condBlock !is All` guard; O16/O20 would silently drop the T label by appending All).
+    //     Handling allOf(T) here, uniformly, supersedes those edge cases.
+    //
+    // The label-mismatch guard above guarantees that when O21 fires, Q's label is either null or
+    // equal to T, so Q.then(HasLabel(T)) never produces a double-label Labeled(Labeled(_, U), T) —
+    // the OR-merge hazard documented in O19.  Mismatched typed operands stay at Aggregate.
+    //
+    // Example (FollowLink, previously Aggregate):
+    //   Labeled(FollowLink(boards(name=b), IN, "OnBoard"), "Issue") ∩ allOf("Issue")
+    //   → FollowLink(...).then(HasLabel("Issue"))   (label idempotent — Labeled.of flattens)
+    //   → g.V().has("name","b").hasLabel("Board").in("OnBoard_link").hasLabel("Issue")
+    if (condCombiner is ConditionCombiner.Intersect) {
+        if (extractCondition(this) is GremlinBlock.All && extractCondition(other) == null) {
+            val label = extractLabel(this)
+            return if (label != null) other.then(GremlinBlock.HasLabel(label)) else other
+        }
+        if (extractCondition(other) is GremlinBlock.All && extractCondition(this) == null) {
+            val label = extractLabel(other)
+            return if (label != null) this.then(GremlinBlock.HasLabel(label)) else this
+        }
+    }
+
     // O7: FollowLink × Condition fusion — appends a filter predicate directly to the traversal,
     // avoiding a separate Aggregate step for FollowLink ∩ Condition and FollowLink \ Condition.
     //
