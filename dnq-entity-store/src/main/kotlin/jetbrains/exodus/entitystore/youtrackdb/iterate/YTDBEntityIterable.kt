@@ -134,8 +134,12 @@ class YTDBEntityIterableImpl(
         YTDBEntityIterator.of(traversal, oStore)
 
     override fun traversal(): GraphTraversal<*, YTDBVertex> {
-        val gs = oStore.requireActiveTransaction().g()
-            .with(YTDBQueryConfigParam.polymorphicQuery, polymorphic)
+        // `with(...)` clones the whole traversal source (bytecode + strategies), so skip it for the
+        // common polymorphic=true case: when no `polymorphicQuery` option is set, YTDB falls back to
+        // GlobalConfiguration.QUERY_GREMLIN_POLYMORPHIC_BY_DEFAULT, which is true (and YTDBDatabaseParams
+        // sets it true explicitly). Only the non-polymorphic case needs the explicit override.
+        val base = oStore.requireActiveTransaction().g()
+        val gs = if (polymorphic) base else base.with(YTDBQueryConfigParam.polymorphicQuery, false)
         return query.start(gs)
     }
 

@@ -28,6 +28,7 @@ import com.jetbrains.youtrackdb.internal.core.db.record.ridbag.LinkBag
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBVertexInternal
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.record.impl.EntityImpl
 import com.jetbrains.youtrackdb.internal.core.record.impl.RecordBytes
 import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.entitystore.Entity
@@ -553,7 +554,12 @@ fun Vertex.setTargetLocalEntityIds(linkName: String, ids: LinkBag) {
 }
 
 fun Vertex.requireSchemaClass(): SchemaClass =
-    schemaClass ?: throw IllegalStateException("schemaClass not found for $this")
+    // Prefer the immutable, record-cached schema snapshot over getSchemaClass(), which resolves the
+    // class against the live mutable schema (a metadata lookup) on every call. All callers here are
+    // read-only (existsProperty / getCustom / name), and DNQ defines its schema up front, so the
+    // snapshot is always current by the time entities are read.
+    (this as EntityImpl).getImmutableSchemaClass(boundedToSession as DatabaseSessionEmbedded)
+        ?: throw IllegalStateException("schemaClass not found for $this")
 
 fun YTDBVertex.requireSchemaClass(): SchemaClass = raw().requireSchemaClass()
 
