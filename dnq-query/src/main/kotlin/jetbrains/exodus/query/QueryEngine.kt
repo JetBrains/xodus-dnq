@@ -22,6 +22,7 @@ import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIdSet
 import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
+import jetbrains.exodus.entitystore.youtrackdb.resolveTypeName
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
@@ -281,7 +282,10 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     open fun wrap(entity: Entity): Iterable<Entity> {
         return YTDBEntityIterable.query(
             oStore,
-            GremlinQuery.ByIds(listOf((entity.id as YTDBEntityId).asOId()))
+            GremlinQuery.ByIds(
+                listOf((entity.id as YTDBEntityId).asOId()),
+                (entity.id as YTDBEntityId).resolveTypeName(oStore)
+            )
         )
         // xodus original code
         // return SingleEntityIterable(persistentStore.andCheckCurrentTransaction, entity.id)

@@ -26,6 +26,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.resolveTypeName
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import org.apache.commons.collections4.IterableUtils
@@ -123,7 +124,7 @@ class YTDBVertexEntityIterable(
 
     private fun asQueryIterable() = YTDBEntityIterable.query(
         tx.getStore(),
-        GremlinQuery.ByIds(listOf(targetEntityID.asOId()))
+        GremlinQuery.ByIds(listOf(targetEntityID.asOId()), targetEntityID.resolveTypeName(tx))
             .then(GremlinBlock.OutLink(linkName))
     )
 }

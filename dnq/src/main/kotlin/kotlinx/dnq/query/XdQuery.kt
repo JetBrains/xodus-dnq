@@ -275,6 +275,11 @@ fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
             txn.store,
             YTDBEntityIterable.query(
                 (txn.transactionInternal as YTDBStoreTransaction).getStore(),
+                // No entityType scoping: the elements may be *subtypes* of this XdEntityType (e.g.
+                // UserBase.queryOf(user) where user is a User), and the residual hasLabel is an exact,
+                // non-polymorphic match — scoping to the declared supertype would drop every subtype
+                // row. The ids go on the GraphStep (g.V(ids) → direct getElementsByIds), so there is no
+                // FROM-V scan to avoid here regardless of label.
                 GremlinQuery.ByIds(
                     notNullElements.map { txn.newEntity(it.entity).entity.id.asOId() }
                 )

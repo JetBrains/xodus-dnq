@@ -243,3 +243,12 @@ val <T : XdEntity> KClass<T>.entityType: XdEntityType<T>
         companionObjectInstance as? XdEntityType<T>
                 ?: throw IllegalArgumentException("XdEntity contract is broken for $java, its companion object is not an instance of XdEntityType")
     } as XdEntityType<T>
+
+/**
+ * The Xd model type name of this entity's concrete class. Resolved from the Kotlin class via the
+ * model (cached), so it is always available and never the "typeNotFound" sentinel that
+ * [jetbrains.exodus.entitystore.Entity.getType] can return when an id's schema class is unresolved.
+ * Safe to use to scope a query to `FROM <class>`.
+ */
+val XdEntity.xdEntityTypeName: String
+    get() = javaClass.entityType.entityType

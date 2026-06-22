@@ -276,7 +276,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             ) as YTDBEntityIterable
 
             // Then
-            checkGremlinPattern(issues, """g.V({rid}).in("OnBoard_link").hasLabel("Issue")""")
+            checkGremlinPattern(issues, """g.V({rid}).hasLabel("Board").in("OnBoard_link").hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1", "issue2")
         }
     }
@@ -299,10 +299,10 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val concat = issuesOnBoard1.concat(issuesOnBoard2)
 
             // Then
-            // concat produces UnionAll([board1_query, board2_query]); each ByIds uses P.within in continueTraversal
+            // concat produces UnionAll([board1_query, board2_query]); each ByIds uses direct V(ids) in continueTraversal
             checkGremlinPattern(
                 concat as YTDBEntityIterable,
-                """g.union(__.V().hasId(P.within([{rid}])).in("OnBoard_link").hasLabel("Issue"),__.V().hasId(P.within([{rid}])).in("OnBoard_link").hasLabel("Issue"))"""
+                """g.union(__.V({rid}).hasLabel("Board").in("OnBoard_link").hasLabel("Issue"),__.V({rid}).hasLabel("Board").in("OnBoard_link").hasLabel("Issue"))"""
             )
             // Link traversal order is not guaranteed — use unordered check
             assertNamesExactly(concat, "issue1", "issue2", "issue1")
@@ -548,11 +548,11 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
             // Then
             // Falls back to Aggregate: right (board2) collected first, then left (board1) filtered against it.
-            // right.startTraversal → g.V(rid_board2).in(...).hasLabel("Issue")
-            // left.continueTraversal → .V().hasId(P.within([rid_board1])).in(...).hasLabel("Issue")
+            // right.startTraversal → g.V(rid_board2).hasLabel("Board").in(...).hasLabel("Issue")
+            // left.continueTraversal → .V(rid_board1).hasLabel("Board").in(...).hasLabel("Issue")  (direct by-id)
             checkGremlinPattern(
                 issues as YTDBEntityIterable,
-                """g.V({rid}).in("OnBoard_link").hasLabel("Issue").aggregate("aggr_0").fold().V().hasId(P.within([{rid}])).in("OnBoard_link").hasLabel("Issue").where(P.without(["aggr_0"]))"""
+                """g.V({rid}).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").aggregate("aggr_0").fold().V({rid}).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").where(P.without(["aggr_0"]))"""
             )
             assertNamesExactly(issues, "issue2", "issue3")
         }

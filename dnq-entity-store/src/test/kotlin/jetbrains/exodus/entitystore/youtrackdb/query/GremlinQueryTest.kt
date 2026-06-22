@@ -196,15 +196,49 @@ class GremlinQueryTest {
     }
 
     @Test
-    fun `IdEqual produces hasId`() {
-        assertThat(IdEqual(RID.of(34, 4)).toGremlin())
-            .isEqualTo("__.hasId(#34:4)")
-    }
-
-    @Test
     fun `IdWithin produces hasId with within predicate`() {
         assertThat(IdWithin(listOf(RID.of(34, 4), RID.of(34, 5))).toGremlin())
             .isEqualTo("__.hasId(P.within([#34:4, #34:5]))")
+    }
+
+    @Test
+    fun `ByIds builds direct g_V(ids), never a hasId class scan`() {
+        // By-id lookups must put the ids ON the GraphStep (g.V(ids) → YTDB getElementsByIds, an O(1)
+        // positional load), NOT g.V().hasId(...) which the planner runs as a FETCH FROM CLASS scan.
+        val gremlin = ByIds(listOf(RID.of(34, 4), RID.of(34, 5))).toGremlin()
+        assertThat(gremlin).isEqualTo("g.V(#34:4,#34:5)")
+        assertThat(gremlin).doesNotContain("hasId")
+    }
+
+    @Test
+    fun `ByIds with entityType keeps direct g_V(ids) plus a residual hasLabel`() {
+        // entityType is only a residual class filter on the direct-load path; it must NOT turn the
+        // query back into a hasId scan.
+        val gremlin = ByIds(listOf(RID.of(34, 4)), "Issue").toGremlin()
+        assertThat(gremlin).isEqualTo("""g.V(#34:4).hasLabel("Issue")""")
+        assertThat(gremlin).doesNotContain("hasId")
+    }
+
+    @Test
+    fun `ByIds over a transient (negative-position) RID still builds direct g_V(id)`() {
+        // New/transient entities have a negative cluster position (e.g. #165:-3). The direct
+        // getElementsByIds branch loads these from the in-tx record set, so the by-id form must hold
+        // for negative RIDs exactly as for committed ones — no hasId fallback.
+        val gremlin = ByIds(listOf(RID.of(165, -3))).toGremlin()
+        assertThat(gremlin).isEqualTo("g.V(#165:-3)")
+        assertThat(gremlin).doesNotContain("hasId")
+    }
+
+    @Test
+    fun `ByIds then a property condition keeps direct g_V(ids), not a hasId scan`() {
+        // Chaining a non-special block onto a ByIds must stay on the direct-load path. Collapsing it
+        // to Where(IdWithin.andThen(...)) would emit g.V().hasId(within(...)).has(...) — a full vertex
+        // scan filtered by id — which is exactly what by-id access exists to avoid.
+        val gremlin = ByIds(listOf(RID.of(34, 4), RID.of(34, 5)))
+            .then(PropEqual("name", "a"))
+            .toGremlin()
+        assertThat(gremlin).isEqualTo("""g.V(#34:4,#34:5).has("name","a")""")
+        assertThat(gremlin).doesNotContain("hasId")
     }
 
     @Test

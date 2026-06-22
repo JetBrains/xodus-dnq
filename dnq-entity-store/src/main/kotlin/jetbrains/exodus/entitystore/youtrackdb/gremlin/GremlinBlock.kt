@@ -422,15 +422,6 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
 
     }
 
-    data class IdEqual(val rid: RID) : GremlinBlock("ide", BlockType.CONDITION) {
-        override fun traverse(g: YT): YT =
-            g.hasId(rid)
-
-        override fun describe(s: StringBuilder): StringBuilder =
-            s.append("id=").append(rid)
-
-    }
-
     data class IdWithin(val within: Collection<RID>) : GremlinBlock("idw", BlockType.CONDITION, isChainable = true) {
         override fun traverse(g: YT): YT = g.hasId(P.within(within))
 

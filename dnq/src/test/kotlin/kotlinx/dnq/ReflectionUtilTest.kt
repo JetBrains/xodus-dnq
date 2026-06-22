@@ -22,6 +22,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.single
 import kotlinx.dnq.util.isDefined
+import kotlinx.dnq.util.xdEntityTypeName
 import org.junit.Ignore
 import org.junit.Test
 
@@ -104,6 +105,22 @@ class ReflectionUtilTest : DBTest() {
             assertThat(nestedGroup.isDefined(NestedGroup::owner)).isTrue()
         }
 
+    }
+
+    @Test
+    fun `xdEntityTypeName resolves an entity's concrete model type`() {
+        store.transactional {
+            // Resolved from the Kotlin class via the model — used to scope by-id queries; must equal
+            // the companion's entityType and never the "typeNotFound" sentinel.
+            val user = User.new { login = "u"; skill = 1 }
+            assertThat(user.xdEntityTypeName).isEqualTo(User.entityType)
+
+            // A subclass instance resolves to its own concrete type, not the parent's. RootGroup is
+            // a Group subtype with no required links, so it's valid to create standalone here.
+            val root = RootGroup.new { name = "root" }
+            assertThat(root.xdEntityTypeName).isEqualTo(RootGroup.entityType)
+            assertThat(root.xdEntityTypeName).isNotEqualTo(Group.entityType)
+        }
     }
 
     private fun <T : XdEntity> TransientStoreSession.createPersistentEntity(entityType: XdEntityType<T>, init: YTDBVertexEntity.() -> Unit) {
