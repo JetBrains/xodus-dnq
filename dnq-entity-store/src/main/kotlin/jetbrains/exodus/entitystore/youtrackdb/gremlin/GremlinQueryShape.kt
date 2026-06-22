@@ -126,7 +126,6 @@ object GremlinQueryShape {
             is GremlinBlock.MatchStringProp -> append("MatchStringProp(\"${block.property}\", ${block.op}, ?, ?, ?)")
             is GremlinBlock.OutLink       -> append("OutLink(\"${block.linkName}\")")
             is GremlinBlock.InLink        -> append("InLink(\"${block.linkName}\")")
-            is GremlinBlock.IdEqual       -> append("IdEqual(?)")
             is GremlinBlock.IdWithin      -> append("IdWithin(?)")
             is GremlinBlock.Limit         -> append("Limit(?)")
             is GremlinBlock.Skip          -> append("Skip(?)")

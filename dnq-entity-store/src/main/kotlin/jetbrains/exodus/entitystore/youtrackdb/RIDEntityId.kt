@@ -61,6 +61,8 @@ class RIDEntityId(
 
     override fun getTypeName(): String = schemaClassName ?: "typeNotFound"
 
+    override fun getTypeNameOrNull(): String? = schemaClassName
+
     // (typeId, localId) identity, compared against any EntityId regardless of concrete class. The
     // hash and ordering formulas mirror PersistentEntityId's (the only other EntityId impl) so the
     // two stay interchangeable — kept honest by EntityIdContractTest. The 32-bit shift on the int

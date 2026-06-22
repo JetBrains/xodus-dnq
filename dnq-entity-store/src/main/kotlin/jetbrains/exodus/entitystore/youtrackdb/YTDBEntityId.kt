@@ -22,4 +22,23 @@ interface YTDBEntityId : EntityId {
     fun asOId(): RID
 
     fun getTypeName(): String
+
+    /** The resolved schema class name, or `null` if it isn't known. Unlike [getTypeName] this never
+     *  returns a sentinel — callers that need a real class (e.g. to scope a query to `FROM <class>`)
+     *  must skip scoping when it is `null`. */
+    fun getTypeNameOrNull(): String?
 }
+
+/**
+ * The entity's schema class name, for scoping a by-id query to `FROM <class>` instead of `FROM V`:
+ * the class carried by the id, or — only if that is absent — the authoritative `typeId -> class`
+ * lookup, which is always resolvable for a live type. Returns `null` only if even that fails (e.g.
+ * the type was removed), in which case callers skip scoping. The [getType] lookup runs only on the
+ * (rare) miss, so the common path stays allocation-free.
+ */
+fun YTDBEntityId.resolveTypeName(tx: YTDBStoreTransaction): String? =
+    getTypeNameOrNull() ?: runCatching { tx.getType(typeId) }.getOrNull()
+
+/** [resolveTypeName] resolving the transaction from [store]'s active transaction. */
+fun YTDBEntityId.resolveTypeName(store: YTDBEntityStore): String? =
+    getTypeNameOrNull() ?: runCatching { store.requireActiveTransaction().getType(typeId) }.getOrNull()

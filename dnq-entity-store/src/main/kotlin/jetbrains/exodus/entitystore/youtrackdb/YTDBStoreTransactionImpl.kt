@@ -376,7 +376,7 @@ class YTDBStoreTransactionImpl(
         return YTDBEntityIterable.query(
             getStore(),
             GremlinQuery
-                .ByIds(listOf(entityId.asOId()))
+                .ByIds(listOf(entityId.asOId()), entityId.resolveTypeName(this))
                 .then(GremlinBlock.InLink(linkName))
                 .then(GremlinBlock.HasLabel(entityType)),
             polymorphic
@@ -401,7 +401,7 @@ class YTDBStoreTransactionImpl(
         return YTDBEntityIterable.query(
             getStore(),
             GremlinQuery
-                .ByIds(listOf((entity.id as YTDBEntityId).asOId()))
+                .ByIds(listOf((entity.id as YTDBEntityId).asOId()), (entity.id as YTDBEntityId).resolveTypeName(this))
                 .then(GremlinBlock.InLink(linkName)),
             polymorphic
         )

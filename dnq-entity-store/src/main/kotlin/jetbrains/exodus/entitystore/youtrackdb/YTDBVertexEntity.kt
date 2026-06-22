@@ -492,7 +492,7 @@ open class YTDBVertexEntity(
                 tx.getStore(),
                 linkNames.asSequence()
                     .map { ln ->
-                        GremlinQuery.ByIds(listOf(this.oEntityId.asOId()))
+                        GremlinQuery.ByIds(listOf(this.oEntityId.asOId()), this.oEntityId.resolveTypeName(tx))
                             .then(GremlinBlock.OutLink(ln))
                     }
                     .reduce { acc, it -> acc.union(it) }

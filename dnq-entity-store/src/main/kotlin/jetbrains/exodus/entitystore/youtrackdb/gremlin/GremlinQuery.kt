@@ -54,7 +54,12 @@ sealed class GremlinQuery {
 
         else -> when (this) {
             is Where -> Where(this.block.andThen(block))
-            is ByIds -> Where(this.asBlock().andThen(block))
+            // Wrap (don't collapse): AndThen routes through ByIds.startTraversal/continueTraversal, so
+            // the chained block lands on the direct `V(ids)` load. Collapsing to
+            // `Where(IdWithin.andThen(block))` would instead emit `V().hasId(within).<block>` — a full
+            // vertex scan, defeating the by-id direct access. (asBlock()=IdWithin is still used by the
+            // set combiners; only this chaining path must avoid it.)
+            is ByIds -> AndThen(this, block)
             is Labeled -> Labeled(this.inner.then(block), this.label)
             is AndThen -> AndThen(this.inner, this.block.andThen(block))
             else -> AndThen(this, block)
@@ -177,12 +182,28 @@ sealed class GremlinQuery {
 
     // todo: think how to preserve the order of the parameters
     // todo: handle Take & Skip differently too
-    data class ByIds(val ids: List<RID>) : Condition(GremlinBlock.IdWithin(ids)) {
+    // [entityType], when known, is the schema class the ids belong to. It does not change which
+    // records match (an id already identifies exactly one record); it lets the query target
+    // `FROM <entityType>` instead of `FROM V`. This matters in non-start positions (e.g. inside a
+    // union, built via [continueTraversal]) where we can't use the direct `gs.V(ids)` form and would
+    // otherwise emit `g.V().hasId(within)` → a full scan of every vertex.
+    data class ByIds(val ids: List<RID>, val entityType: String? = null) : Condition(GremlinBlock.IdWithin(ids)) {
+        // Direct by-id access: both positions use `V(ids)` (the ids go on the GraphStep → YTDB's
+        // getElementsByIds, an O(1) positional load per id), NOT `V().hasId(...)` which the SQL
+        // planner runs as `FETCH FROM CLASS` (a scan of the whole class extent + filter). [entityType],
+        // when known, is kept only as a cheap residual label filter — the direct branch still applies
+        // any remaining HasContainers — it no longer affects whether a scan happens.
         // gs.V() with no IDs traverses every vertex — wrong for an empty by-IDs query
         // (which can arise from optimiser reductions like ByIds(x).difference(ByIds(x))).
         override fun startTraversal(gs: GraphTraversalSource): YTBuilder =
             if (ids.isEmpty()) YTBuilder.of(gs.V(), GremlinBlock.None)
             else YTBuilder(gs.V(*ids.toTypedArray()).asYT(), 0)
+                .let { if (entityType != null) it.combine(GremlinBlock.HasLabel(entityType)) else it }
+
+        override fun continueTraversal(t: YT, paramCounter: Int, ignoreSort: Boolean): YTBuilder =
+            if (ids.isEmpty()) YTBuilder.of(t.V(), GremlinBlock.None, paramCounter)
+            else YTBuilder(t.V(*ids.toTypedArray()).asYT(), paramCounter)
+                .let { if (entityType != null) it.combine(GremlinBlock.HasLabel(entityType)) else it }
     }
 
     data class NestedCondition(val structure: List<String>, val condition: Condition) : Condition(

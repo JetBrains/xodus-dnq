@@ -31,6 +31,7 @@ import kotlinx.dnq.store.XdQueryEngine
 import kotlinx.dnq.util.isReadOnly
 import kotlinx.dnq.util.reattach
 import kotlinx.dnq.util.threadSessionOrThrow
+import kotlinx.dnq.util.xdEntityTypeName
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 
@@ -65,8 +66,10 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                             queryEngine.wrap(
                                 YTDBEntityIterable.query(
                                     (thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction).getStore(),
-                                    GremlinQuery.all
-                                        .then(GremlinBlock.IdEqual((thisRef.entityId as YTDBEntityId).asOId()))
+                                    GremlinQuery.ByIds(
+                                        listOf((thisRef.entityId as YTDBEntityId).asOId()),
+                                        thisRef.xdEntityTypeName
+                                    )
                                         .then(GremlinBlock.InLink(oppositeField.oppositeDbName))
                                         .then(GremlinBlock.HasLabel(oppositeType))
                                 )

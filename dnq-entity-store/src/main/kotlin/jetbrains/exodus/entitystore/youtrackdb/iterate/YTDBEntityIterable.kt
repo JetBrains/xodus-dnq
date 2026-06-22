@@ -29,6 +29,7 @@ import jetbrains.exodus.entitystore.util.unsupported
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.resolveTypeName
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
@@ -63,11 +64,13 @@ interface YTDBEntityIterable : EntityIterable {
         fun empty() = EMPTY
 
         @JvmStatic
-        fun single(store: YTDBEntityStore, entityId: EntityId) = query(
-            store,
-            GremlinQuery.all
-                .then(GremlinBlock.IdEqual((entityId as YTDBEntityId).asOId()))
-        )
+        fun single(store: YTDBEntityStore, entityId: EntityId): YTDBEntityIterable {
+            val ytdbId = entityId as YTDBEntityId
+            // Direct by-id access: `g.V(rid)` (id on the GraphStep → getElementsByIds, O(1) positional
+            // load) instead of `g.V().hasId(rid)`, which the planner runs as a class scan. The resolved
+            // type is kept only as a residual label filter.
+            return query(store, GremlinQuery.ByIds(listOf(ytdbId.asOId()), ytdbId.resolveTypeName(store)))
+        }
 
         val EMPTY = object : YTDBEntityIterable {
 
