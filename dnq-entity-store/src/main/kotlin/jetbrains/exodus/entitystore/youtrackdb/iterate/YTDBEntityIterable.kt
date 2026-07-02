@@ -187,9 +187,19 @@ class YTDBEntityIterableImpl(
         return -1
     }
 
-    override fun contains(entity: Entity): Boolean = traversal()
-        .hasId((entity.id as YTDBEntityId).asOId())
-        .use { it.hasNext() }
+    override fun contains(entity: Entity): Boolean {
+        val oid = (entity.id as YTDBEntityId).asOId()
+        // Prefer a direct by-id membership check: g.V(oid) (positional load) + this iterable's own
+        // filter, instead of g.V().hasLabel(T).hasId(oid), which the planner runs as a class-extent
+        // scan (SELECT FROM T WHERE @rid). Only filter-shaped queries can be soundly restricted;
+        // links/aggregates/pagination fall back to scanning the full traversal and filtering by id.
+        query.restrictToId(oid)?.let { membership ->
+            return !YTDBEntityIterableImpl(oStore, membership, polymorphic).isEmpty()
+        }
+        return traversal()
+            .hasId(oid)
+            .use { it.hasNext() }
+    }
 
     override fun intersect(right: EntityIterable): EntityIterable =
         if (right === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY

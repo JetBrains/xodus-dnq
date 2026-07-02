@@ -668,6 +668,33 @@ internal fun GremlinQuery.combineEfficient(
         }
     }
 
+    // O22: ByIds ∩ <condition> — keep the ids on the GraphStep (a direct `g.V(ids)` positional load)
+    // and apply the other operand's condition as a residual filter, instead of letting the generic
+    // combiner below fold the ids into the condition block as an IdWithin conjunct (e.g.
+    // And(prop, IdWithin)). That folded form compiles to `SELECT FROM T WHERE prop AND @rid IN` — a
+    // FETCH FROM CLASS scan of the whole extent + post-filter. Rooting on ByIds yields
+    // `g.V(ids).<prop>.hasLabel(T)`: an O(1) positional load per id plus an inline filter.
+    //
+    // Intersect only — a union/difference of a by-ids set with a condition is not a single by-ids
+    // load. The condition must be a real (non-All) filter: `ByIds ∩ allOf(T)` is left to the generic
+    // path (rerooting it could place the residual hasLabel adjacent to a ByIds entityType hasLabel,
+    // hitting the InlineFilterStrategy anyMatch(OR) merge — see O19). The double-label shape is
+    // likewise skipped, for the same reason.
+    if (condCombiner is ConditionCombiner.Intersect) {
+        val byIds = (this as? ByIds) ?: (other as? ByIds)
+        val conditionQuery = if (this is ByIds) other else this
+        if (byIds != null && conditionQuery !is ByIds) {
+            val condition = extractCondition(conditionQuery)
+            val extraLabel = if (conditionQuery is Labeled && conditionQuery.inner is Labeled)
+                extractLabel(conditionQuery) else null
+            if (condition != null && condition !is GremlinBlock.All && extraLabel == null) {
+                val label = extractLabel(conditionQuery)
+                val rerooted = byIds.then(condition)
+                return if (label != null) rerooted.then(GremlinBlock.HasLabel(label)) else rerooted
+            }
+        }
+    }
+
     val thisCondition = extractCondition(this)
     val otherCondition = extractCondition(other)
 

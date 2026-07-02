@@ -688,15 +688,16 @@ class GremlinQueryCoverageTest : DBTest() {
             .isEqualTo("""g.V().has("priority","high").hasLabel("Issue")$byPriorityGremlin""")
 
         // Q46: ByIds intersect condition — specific issues that are also open
-        // ByIds.asBlock() returns IdWithin([...]) which is a valid CONDITION block,
-        // so extractCondition succeeds for both sides → combineEfficient produces And(IdWithin, PropEqual)
-        // with the label from the right operand.
+        // O22: for ByIds ∩ <condition> the ids stay on the GraphStep (a direct g.V(ids) positional
+        // load) with the other operand's condition as a residual filter → AndThen(ByIds, PropEqual)
+        // with the label from the right operand, instead of folding the ids into an IdWithin conjunct
+        // (`hasId(P.within(...))` → `WHERE @rid IN` class-extent scan).
         val q46 = ByIds(listOf(issueRid1, issueRid2))
             .intersect(issues(PropEqual("status", "open")))
         println("[Q46 byids intersect condition] query  : $q46")
         println("[Q46 byids intersect condition] gremlin: ${q46.toGremlin()}")
         assertThat(q46.toGremlin())
-            .isEqualTo("""g.V().hasId(P.within([#30:1, #30:2])).has("status","open").hasLabel("Issue")""")
+            .isEqualTo("""g.V(#30:1,#30:2).has("status","open").hasLabel("Issue")""")
 
         // Q47: Triple intersect: critical AND open AND in-sprint
         // Step 1: critical.intersect(open) → And([critical, open])

@@ -154,6 +154,30 @@ sealed class GremlinQuery {
 
     fun unionAll(vararg queries: GremlinQuery) = UnionAll(listOf(this, *queries))
 
+    /**
+     * For an existence / `contains()` check: an equivalent query that loads [id] directly via
+     * `g.V(id)` (a positional load through [ByIds]) and then applies this query's own filters — or
+     * `null` when this query's shape cannot be soundly reduced to a single source vertex.
+     *
+     * It is sound only for filter-shaped queries whose result vertices are exactly their source
+     * vertices that pass a filter: [Where] / [Labeled], plus sort/order/reverse wrappers (which do
+     * not change the membership set). [FollowLink] and the aggregate forms map to *different*
+     * vertices than their sources, and [Slice] (take/skip) depends on position, so those return
+     * `null` and the caller must fall back to filtering the full traversal by id.
+     *
+     * This avoids the `g.V().hasLabel(T).hasId(rid)` → `SELECT FROM T WHERE @rid` class-extent scan
+     * that an appended `hasId` produces (the id lands as a `~id.eq` predicate the planner can't
+     * direct-fetch).
+     */
+    internal fun restrictToId(id: RID): GremlinQuery? = when (this) {
+        is Where -> ByIds(listOf(id)).then(block)
+        is Labeled -> inner.restrictToId(id)?.then(GremlinBlock.HasLabel(label))
+        is SortBy -> inner.restrictToId(id)
+        is Order -> inner.restrictToId(id)
+        is ReversedOrder -> inner.restrictToId(id)
+        else -> null
+    }
+
     sealed class Condition(private val _block: GremlinBlock) : GremlinQuery() {
         override fun startTraversal(gs: GraphTraversalSource): YTBuilder = YTBuilder.of(gs.V(), _block)
         override fun continueTraversal(t: YT, paramCounter: Int, ignoreSort: Boolean): YTBuilder =

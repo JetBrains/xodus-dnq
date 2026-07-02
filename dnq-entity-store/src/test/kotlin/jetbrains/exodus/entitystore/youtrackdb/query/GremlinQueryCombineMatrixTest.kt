@@ -208,15 +208,17 @@ class GremlinQueryCombineMatrixTest {
 
     @Test
     fun `ByIds x Labeled(Where)`() {
-        // ByIds.asBlock() = IdWithin → extractable; combined with the condition
+        // union/difference: ByIds.asBlock() = IdWithin is extractable and merges with the condition
+        // into a single Where (e.g. Or/And(Not) with @rid IN).
         check(byids, "u", cond, "Labeled(Where)")
-        check(byids, "i", cond, "Labeled(Where)")
         check(byids, "d", cond, "Labeled(Where)")
-
-        // Symmetric
         check(cond, "u", byids, "Labeled(Where)")
-        check(cond, "i", byids, "Labeled(Where)")
         check(cond, "d", byids, "Labeled(Where)")
+
+        // intersect: O22 keeps the ids on the GraphStep — ByIds.then(cond) → AndThen(ByIds, cond) —
+        // so it's a direct g.V(ids) load + residual filter, not a `WHERE @rid IN` class scan.
+        check(byids, "i", cond, "Labeled(AndThen)")
+        check(cond, "i", byids, "Labeled(AndThen)")
     }
 
     // =========================================================================

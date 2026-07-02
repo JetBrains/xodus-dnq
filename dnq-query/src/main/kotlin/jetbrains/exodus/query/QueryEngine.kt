@@ -188,7 +188,7 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         val liveOfType = YTDBEntityIterable
             .query(
                 oStore,
-                GremlinQuery.ByIds(rids).then(GremlinBlock.HasLabel(info.type)),
+                GremlinQuery.ByIds(rids, info.type),
                 info.polymorphic
             )
             .idSet()
