@@ -49,11 +49,7 @@ open class SortEngine {
                     if (it === YTDBEntityIterable.EMPTY) {
                         YTDBEntityIterable.EMPTY
                     }
-                    return if (it.roughCount == 0L && it.count() == 0L) {
-                        YTDBEntityIterable.EMPTY
-                    } else {
-                        txn.sort(entityType, propertyName, (source as EntityIterable).unwrap(), asc)
-                    }
+                    return txn.sort(entityType, propertyName, (source as EntityIterable).unwrap(), asc)
                 }
             }
         }
