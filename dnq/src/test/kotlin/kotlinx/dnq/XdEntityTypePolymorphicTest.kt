@@ -307,11 +307,11 @@ class XdEntityTypePolymorphicTest : DBTest() {
             assertThat(allGroupsSorted.map { it.name })
                 .containsExactly("a_root", "b_root", "c_nested").inOrder()
 
-            // Known limitation: SortEngine.sort() creates a new iterable via
-            // txn.sort() which defaults to polymorphic=true. The non-polymorphic
-            // flag from the source is not propagated through the sort path.
+            // The source's non-polymorphic flag is propagated through the sort path:
+            // txn.sort() now carries the source iterable's polymorphic flag rather than
+            // defaulting to true, so the sorted iterable stays non-polymorphic.
             val sortedIterable = Group.all(polymorphic = false).sortedBy(Group::name).entityIterable
-            assertThat((sortedIterable as YTDBEntityIterable).polymorphic).isTrue()
+            assertThat((sortedIterable as YTDBEntityIterable).polymorphic).isFalse()
         }
     }
 }

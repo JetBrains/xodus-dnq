@@ -47,9 +47,15 @@ open class SortEngine {
                 if (queryEngine.isPersistentIterable(i)) {
                     val it = (i as EntityIterable).unwrap()
                     if (it === YTDBEntityIterable.EMPTY) {
-                        YTDBEntityIterable.EMPTY
+                        return YTDBEntityIterable.EMPTY
                     }
-                    return txn.sort(entityType, propertyName, (source as EntityIterable).unwrap(), asc)
+                    // Preserve the source's polymorphic flag: txn.sort's 4-arg overload hardcodes
+                    // polymorphic=true, which would silently re-include subtypes for a non-polymorphic
+                    // source. Pass the flag explicitly via the 5-arg overload.
+                    val polymorphic = (it as? YTDBEntityIterable)?.polymorphic ?: true
+                    return (txn as YTDBStoreTransactionImpl).sort(
+                        entityType, propertyName, (source as EntityIterable).unwrap(), asc, polymorphic
+                    )
                 }
             }
         }
