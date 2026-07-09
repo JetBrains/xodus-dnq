@@ -15,9 +15,11 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
+import com.jetbrains.youtrackdb.internal.common.profiler.monitoring.QueryMonitoringMode
 import com.jetbrains.youtrackdb.internal.core.exception.ModificationOperationProhibitedException
 import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraph
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphInternal
 import com.jetbrains.youtrackdb.api.gremlin.YTDBGraphTraversalSource
 import com.jetbrains.youtrackdb.api.gremlin.__
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBEdge
@@ -33,6 +35,8 @@ import jetbrains.exodus.Questionable
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.FullScanDetectingListener
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.FullScanDetection
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.StringCompare
@@ -54,6 +58,22 @@ class YTDBStoreTransactionImpl(
     private var queryCancellingPolicy: YTDBQueryCancellingPolicy? = null
 
     private val userObjects: MutableMap<Any, Any> = HashMapDecorator()
+
+    // XD-1281: reused across begins; YTDB clears monitoring state on commit/rollback, so the
+    // listener must be re-registered after every open().
+    private val fullScanListener by lazy { FullScanDetectingListener() }
+
+    /**
+     * Registers the full-scan detection listener on the current transaction when the feature is
+     * enabled. Must be called after every `graph.tx().open()`: YTDB clears the per-transaction
+     * monitoring state on commit/rollback.
+     */
+    private fun registerQueryMonitoring() {
+        if (!FullScanDetection.enabled) return
+        (graph as YTDBGraphInternal).tx()
+            .withQueryMonitoringMode(QueryMonitoringMode.LIGHTWEIGHT)
+            .withQueryListener(fullScanListener)
+    }
 
     /**
      * Get access to the underlying YTDB database session. This method should not be used in general,
@@ -110,6 +130,7 @@ class YTDBStoreTransactionImpl(
         check(!tx.isOpen) { "The session must not have a transaction" }
         try {
             graph.tx().open()
+            registerQueryMonitoring()
             // initialize transaction id
             // todo: it might be not initialized yet?
             transactionIdImpl
@@ -134,6 +155,7 @@ class YTDBStoreTransactionImpl(
             requireActiveTransaction()
             graph.tx().commit()
             graph.tx().open()
+            registerQueryMonitoring()
         } catch (_: ModificationOperationProhibitedException) {
             throw ReadonlyTransactionException()
         } finally {
@@ -157,6 +179,7 @@ class YTDBStoreTransactionImpl(
             requireActiveTransaction()
             graph.tx().rollback()
             graph.tx().open()
+            registerQueryMonitoring()
         } finally {
             cleanUpTxIfNeeded()
         }

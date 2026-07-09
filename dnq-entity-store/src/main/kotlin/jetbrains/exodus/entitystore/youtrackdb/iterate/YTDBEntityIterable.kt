@@ -30,8 +30,10 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.exodus.entitystore.youtrackdb.resolveTypeName
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.FullScanDetection
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQueryShape
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 
 interface YTDBEntityIterable : EntityIterable {
@@ -127,6 +129,11 @@ class YTDBEntityIterableImpl(
     @Volatile
     private var cachedSize: Long = -1
 
+    // XD-1281: DNQ-level, value-anonymized description ferried into the query via
+    // YTDBQueryConfigParam.querySummary so the full-scan listener can log a human-readable
+    // summary. Computed lazily because traversal() runs on every terminal op.
+    private val querySummary: String by lazy { GremlinQueryShape.of(query) }
+
     private fun modify(block: GremlinBlock): YTDBEntityIterableImpl =
         YTDBEntityIterableImpl(oStore,this.query.then(block), polymorphic)
 
@@ -139,7 +146,10 @@ class YTDBEntityIterableImpl(
         // GlobalConfiguration.QUERY_GREMLIN_POLYMORPHIC_BY_DEFAULT, which is true (and YTDBDatabaseParams
         // sets it true explicitly). Only the non-polymorphic case needs the explicit override.
         val base = oStore.requireActiveTransaction().g()
-        val gs = if (polymorphic) base else base.with(YTDBQueryConfigParam.polymorphicQuery, false)
+        var gs = if (polymorphic) base else base.with(YTDBQueryConfigParam.polymorphicQuery, false)
+        if (FullScanDetection.enabled) {
+            gs = gs.with(YTDBQueryConfigParam.querySummary, querySummary)
+        }
         return query.start(gs)
     }
 
