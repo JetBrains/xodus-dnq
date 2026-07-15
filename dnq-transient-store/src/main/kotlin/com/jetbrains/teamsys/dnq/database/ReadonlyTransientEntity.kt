@@ -133,7 +133,12 @@ class ReadonlyTransientEntity(change: TransientEntityChange?, snapshot: YTDBEnti
 
     override fun getProperty(propertyName: String): Comparable<*>? {
         return if (changedProperties.containsKey(propertyName)) {
-            changedProperties[propertyName]
+            val oldValue = changedProperties[propertyName]
+            // A blob change is recorded with an internal marker (NULL_BLOB / NOT_NULL_BLOB), not a
+            // scalar value. The marker must never escape as a property value: a blob is not a scalar
+            // property, so its scalar old-value is null. This matches Xodus DNQ, where the snapshot
+            // entity reads real persistent values and never yields a blob marker from getProperty.
+            if (oldValue.isBlobMarker()) null else oldValue
         } else {
             entity.getProperty(propertyName)
         }
@@ -141,11 +146,24 @@ class ReadonlyTransientEntity(change: TransientEntityChange?, snapshot: YTDBEnti
 
     override fun getBlobString(blobName: String): String? {
         return if (changedProperties.containsKey(blobName)) {
-            changedProperties[blobName]?.toString()
+            val oldValue = changedProperties[blobName]
+            // For a blob recorded via a marker the real pre-transaction content is not stored inline;
+            // recover it from the on-load value instead of returning the marker's toString() (which
+            // would be the debug text "Empty Binary Data" / "Binary Data"). For the setBlobString
+            // path the recorded value is the actual old string, so return it directly.
+            if (oldValue.isBlobMarker()) {
+                originalValuesProvider.getOriginalBlobStringValue(this, blobName)
+            } else {
+                oldValue?.toString()
+            }
         } else {
             entity.getBlobString(blobName)
         }
     }
+
+    // The blob-change markers are an internal representation and must not leak through the read API.
+    private fun Comparable<*>?.isBlobMarker(): Boolean =
+        this === TransientEntitiesUpdaterImpl.NULL_BLOB || this === TransientEntitiesUpdaterImpl.NOT_NULL_BLOB
 
     override fun getPropertyOldValue(propertyName: String): Comparable<*>? {
         return getProperty(propertyName)
