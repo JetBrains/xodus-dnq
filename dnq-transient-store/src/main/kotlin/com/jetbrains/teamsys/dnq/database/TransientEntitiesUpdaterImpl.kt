@@ -160,7 +160,13 @@ class TransientEntitiesUpdaterImpl(
     override fun deleteBlob(transientEntity: TransientEntity, blobName: String): Boolean {
         return addChangeAndRun {
             val isNullOnTransactionStart = if (transientChangesTracker.hasPropertyChanges(transientEntity, blobName)) {
-                transientChangesTracker.getPropertyOldValue(transientEntity, blobName) == NULL_BLOB
+                // A blob that was absent at transaction start can be recorded either as the NULL_BLOB
+                // marker (setBlob/deleteBlob paths) or as a plain null (setBlobString path, which stores
+                // the real scalar old value). Recognize both, otherwise a null -> "" -> delete sequence
+                // (e.g. clearing an empty summary/description) leaves a spurious property change and bumps
+                // the issue's updated date. Matches Xodus, which nets such a sequence to no-change.
+                val oldValue = transientChangesTracker.getPropertyOldValue(transientEntity, blobName)
+                oldValue == NULL_BLOB || oldValue == null
             } else {
                 transientEntity.getBlob(blobName) == null
             }
