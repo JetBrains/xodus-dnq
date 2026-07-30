@@ -135,10 +135,14 @@ class YTDBSchemaBuddyImpl(
      * re-executed it against the already-renamed schema.
      *
      * Joining the caller's transaction engages YTDB's single-permit metadata write mutex for
-     * the rest of that transaction, so subsequent same-thread side-session DDL fails loudly at
-     * `MetadataWriteMutex.engage`. Sites that hold a session guard against this (see
-     * [getOrCreateEdgeClass]); the combination with the association callbacks, which get no
-     * session, is declared unsupported (AD11).
+     * the rest of that transaction. Subsequent DDL from the same thread on another session then
+     * fails loudly at `MetadataWriteMutex.engage` - but ONLY if that DDL runs in a transaction:
+     * a NON-transactional schema write takes no mutex at all and is silently clobbered when this
+     * transaction promotes its tx-local schema copy at commit (see the warning on
+     * `YTDBModelMetaData.onRemoveAssociation`, the one remaining non-transactional path).
+     * Sites that hold a session guard against the transactional case (see [getOrCreateEdgeClass]);
+     * the combination with the association callbacks, which get no session, is declared
+     * unsupported (AD11).
      */
     override fun renameOClass(session: DatabaseSessionEmbedded, oldName: String, newName: String) {
         session.requireTxForDDL("renameOClass")
@@ -178,7 +182,7 @@ class YTDBSchemaBuddyImpl(
 
         /*
          * AD3 guard (XD-1283): if the caller's transaction already carries tx-local schema
-         * state (site-6 rename/deleteOClass joined it), same-thread side-session DDL would
+         * state (site-6 rename/deleteOClass joined it), DDL in a side-session transaction would
          * fail loudly at MetadataWriteMutex.engage - so the edge class is created in the
          * caller's transaction instead.
          */

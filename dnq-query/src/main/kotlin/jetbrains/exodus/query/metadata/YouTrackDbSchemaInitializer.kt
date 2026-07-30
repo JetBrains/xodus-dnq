@@ -88,6 +88,15 @@ internal fun DatabaseSessionEmbedded.addAssociation(
     return initializer.addAssociation(link, indicesContainingLink)
 }
 
+/**
+ * The one schema path DNQ still runs NON-transactionally (XD-1283): YTDB forbids `dropProperty`
+ * under any active transaction. Callers must not open a transaction around it - and must know the
+ * accepted hazard that comes with it: a non-transactional schema write engages no metadata write
+ * mutex, so a concurrent transaction that has already written schema clobbers this change when it
+ * promotes its schema copy at commit (silently, and in the disjoint-class case with permanent
+ * schema corruption). Full description and the conditions for lifting it are on
+ * `YTDBModelMetaData.onRemoveAssociation`.
+ */
 internal fun DatabaseSessionEmbedded.removeAssociation(
     sourceClassName: String,
     targetClassName: String,
