@@ -28,8 +28,10 @@ import kotlin.test.assertFailsWith
  * tests pin the two properties that the join brings:
  *
  * 1. a transaction whose ONLY change is such a refactoring is committed, not silently aborted -
- *    in-tx DDL is invisible to DNQ's change tracking, so both flush gates (the queued-changes
- *    check and the persistent transaction's idempotency check) had to become DDL-aware;
+ *    in-tx DDL leaves no entity changes, so the flush path had to stop treating "no tracked
+ *    changes" as "nothing to commit": the refactorings API is rescued by the DDL-aware
+ *    idempotency check in `flushChanges()`, DDL that queues no change at all (schema operations
+ *    joining the caller's transaction directly) by the same check in the `flush()` gate;
  * 2. the DDL is rolled back with its transaction instead of leaking out of it.
  */
 class SchemaRefactoringTest : DBTest() {
@@ -119,6 +121,40 @@ class SchemaRefactoringTest : DBTest() {
 
         assertThat(entityTypeExists("RenamedImage")).isTrue()
         assertThat(entityTypeExists(Image.entityType)).isFalse()
+    }
+
+    @Test
+    fun `schema and data changes made in one transaction are rolled back together`() {
+        assertFailsWith<IllegalStateException> {
+            transactional {
+                User.new {
+                    login = "zeckson"
+                    skill = 1
+                }
+                store.renameEntityTypeRefactoring(Image.entityType, "RenamedImage")
+                throw IllegalStateException("boom")
+            }
+        }
+
+        assertThat(entityTypeExists("RenamedImage")).isFalse()
+        assertThat(entityTypeExists(Image.entityType)).isTrue()
+        transactional {
+            assertThat(User.all().size()).isEqualTo(0)
+        }
+    }
+
+    @Test
+    fun `schema changes are rejected in a readonly transaction`() {
+        // A readonly business transaction is never flushed and always reports itself idempotent,
+        // so DDL joining it would be discarded without a trace (XD-1283 site 6).
+        assertFailsWith<IllegalStateException> {
+            transactional(readonly = true) {
+                persistentStore.renameEntityType(Image.entityType, "RenamedImage")
+            }
+        }
+
+        assertThat(entityTypeExists("RenamedImage")).isFalse()
+        assertThat(entityTypeExists(Image.entityType)).isTrue()
     }
 
     @Test
