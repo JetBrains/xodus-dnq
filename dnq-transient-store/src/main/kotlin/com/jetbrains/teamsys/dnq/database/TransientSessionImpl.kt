@@ -248,7 +248,14 @@ class TransientSessionImpl(
 
         assertOpen("flush")
 
-        if (!entitiesUpdater.hasChanges()) {
+        /*
+         * The queued-changes check alone is DDL-blind (XD-1283): schema operations that joined
+         * this transaction (site 6 rename/deleteOClass) are invisible to the entities updater,
+         * so a schema-only transaction used to skip the flush entirely and have its persistent
+         * transaction aborted below by closePersistentSession(), silently discarding the DDL.
+         * The persistent transaction's own idempotency check is DDL-aware and closes that hole.
+         */
+        if (!entitiesUpdater.hasChanges() && transactionInternal.isIdempotent) {
             logger.trace("Nothing to flush")
         } else {
             flushChanges()

@@ -125,20 +125,44 @@ class YTDBSchemaBuddyImpl(
         }
     }
 
+    /**
+     * Renames the class in the CALLER's transaction (XD-1283, site 6) - the sole sanctioned
+     * exception to "business transactions never perform DDL on their own session".
+     *
+     * The DDL now commits and rolls back with the business transaction, which fixes two latent
+     * bugs of the previous separate-session-with-immediate-commit implementation: the rename
+     * leaked out of a rolled-back business transaction, and a `NeedRetryException` replay
+     * re-executed it against the already-renamed schema.
+     *
+     * Joining the caller's transaction engages YTDB's single-permit metadata write mutex for
+     * the rest of that transaction, so subsequent same-thread side-session DDL fails loudly at
+     * `MetadataWriteMutex.engage`. Sites that hold a session guard against this (see
+     * [getOrCreateEdgeClass]); the combination with the association callbacks, which get no
+     * session, is declared unsupported (AD11).
+     */
     override fun renameOClass(session: DatabaseSessionEmbedded, oldName: String, newName: String) {
-        dbProvider.withSession { sessionToWork ->
-            val oldClass = sessionToWork.schema.getClass(oldName)
-                ?: throw IllegalArgumentException("Class $oldName not found")
-            oldClass.setName(newName)
+        session.requireTxForDDL("renameOClass")
+        val oldClass = session.schema.getClass(oldName)
+            ?: throw IllegalArgumentException("Class $oldName not found")
+        oldClass.setName(newName)
+    }
+
+    /**
+     * Drops the class in the CALLER's transaction (XD-1283, site 6) - see [renameOClass] for
+     * the rationale and the consequences of joining the caller's transaction.
+     */
+    override fun deleteOClass(session: DatabaseSessionEmbedded, name: String) {
+        session.requireTxForDDL("deleteOClass")
+        val targetClass = session.schema.getClass(name)
+        if (targetClass != null) {
+            session.schema.dropClass(name)
         }
     }
 
-    override fun deleteOClass(session: DatabaseSessionEmbedded, name: String) {
-        dbProvider.withSession { sessionToWork ->
-            val targetClass = sessionToWork.schema.getClass(name)
-            if (targetClass != null) {
-                sessionToWork.schema.dropClass(name)
-            }
+    private fun DatabaseSessionEmbedded.requireTxForDDL(operation: String) {
+        check(isTxActive) {
+            "$operation requires an active transaction: schema operations must run in " +
+                    "transactional context (XD-1283)"
         }
     }
 
