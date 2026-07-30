@@ -107,6 +107,25 @@ class YTDBModelMetaData(
          * (SchemaClassEmbedded.java:473/493, no tx-local exemption), unlike
          * createProperty/dropClass/setName which are in-tx-supported. To be lifted when YTDB
          * supports in-tx dropProperty.
+         *
+         * !! KNOWN HAZARD, ACCEPTED AS TEMPORARY (XD-1283, user decision 2026-07-30) !!
+         * A non-transactional schema write takes NO metadata write mutex (MetadataWriteMutex is
+         * engaged only by a transaction's first schema write; the gap is acknowledged upstream at
+         * IndexManagerEmbedded.java:1762-1764). If this call overlaps ANY transaction that has
+         * already written schema - a startup schema pass, an association add, an ad-hoc edge
+         * class, a rename/drop riding a business transaction - that transaction's commit promotes
+         * a schema copy frozen before this write and clobbers it. Measured on
+         * 0.5.0-dev-2026-07-29: overlapping classes = this removal is silently and durably
+         * reverted (the dropped property comes back), disjoint classes = silent loss PLUS a
+         * storage error state, and a file-based database that can no longer be opened
+         * ("NullPointerException ... globalRef is null"). Neither side raises anything; commit()
+         * returns normally. A non-tx write that completes BEFORE the transaction's first schema
+         * write is safe - the hazard window opens at that first write, not at transaction start.
+         *
+         * There is no DNQ-side guard here: this callback receives no session, so it cannot even
+         * see whether a schema transaction is open. The exposure ends when YTDB supports in-tx
+         * dropProperty and this path becomes transactional (upstream ticket needed) - or if
+         * upstream makes non-tx DDL engage the mutex.
          */
         dbProvider.withSession { session ->
             session.removeAssociation(sourceTypeName, targetTypeName, associationName)
