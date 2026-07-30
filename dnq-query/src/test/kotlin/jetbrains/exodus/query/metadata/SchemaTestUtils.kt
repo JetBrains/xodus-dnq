@@ -27,6 +27,26 @@ import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaPrope
 import jetbrains.exodus.entitystore.youtrackdb.*
 import org.junit.Assert.*
 
+// transactional-schema contract helpers (XD-1283): all DDL runs inside an explicit transaction
+
+internal fun DatabaseSessionEmbedded.applySchemaInTx(
+    model: ModelMetaData,
+    indexForEverySimpleProperty: Boolean = false,
+    applyLinkCardinality: Boolean = true
+): SchemaApplicationResult =
+    withTx { it.applySchema(model, indexForEverySimpleProperty, applyLinkCardinality) }
+
+internal fun DatabaseSessionEmbedded.applyIndicesInTx(indices: Map<String, Set<DeferredIndex>>) {
+    withTx { it.applyIndices(indices) }
+}
+
+internal fun DatabaseSessionEmbedded.initializeIndicesInTx(schemaApplicationResult: SchemaApplicationResult) {
+    // mirrors the startup contract: the complementary-property backfill keeps its own batched
+    // transactions, index creation gets one explicit transaction
+    initializeComplementaryPropertiesForNewIndexedLinks(schemaApplicationResult.newIndexedLinks)
+    withTx { it.applyIndices(schemaApplicationResult.indices) }
+}
+
 // assertions
 
 internal fun DatabaseSessionEmbedded.assertAssociationNotExist(

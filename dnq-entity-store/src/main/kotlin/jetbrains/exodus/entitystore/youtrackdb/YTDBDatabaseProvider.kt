@@ -33,6 +33,16 @@ interface YTDBDatabaseProvider {
     fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R
 
     /**
+     * Dual-mode index creation (XD-1283), plumbed from
+     * [YTDBDatabaseParams.transactionalIndexCreation]. When false (the default), indices are
+     * created on YTDB's legacy non-transactional path (createIndex + fillIndex over committed
+     * rows). When true, index creation runs inside explicit transactions - rejected at commit
+     * for populated classes until YTDB-1064 is lifted. The default flips to true (and the
+     * flag retires) when YTDB-1064 is lifted.
+     */
+    val transactionalIndexCreation: Boolean get() = false
+
+    /**
      * Database-wise read-only mode.
      * Always false by default.
      */

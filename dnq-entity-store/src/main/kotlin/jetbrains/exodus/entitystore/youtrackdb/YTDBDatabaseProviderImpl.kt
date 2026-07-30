@@ -92,6 +92,9 @@ class YTDBDatabaseProviderImpl(
     override val databaseLocation: String
         get() = File(params.databasePath, params.databaseName).absolutePath
 
+    override val transactionalIndexCreation: Boolean
+        get() = params.transactionalIndexCreation
+
     override fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R =
         (graph as YTDBGraphEmbedded).acquireSession().use(block)
 

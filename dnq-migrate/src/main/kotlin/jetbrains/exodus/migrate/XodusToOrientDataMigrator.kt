@@ -27,6 +27,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
 import jetbrains.exodus.entitystore.youtrackdb.asEdgeClass
 import jetbrains.exodus.entitystore.youtrackdb.createClassIdSequenceIfAbsent
+import jetbrains.exodus.query.metadata.withTx
 import jetbrains.shaded.exodus.bindings.ComparableSet
 import jetbrains.shaded.exodus.entitystore.EntityId
 import jetbrains.shaded.exodus.entitystore.EntityRemovedInDatabaseException
@@ -166,25 +167,29 @@ internal class XodusToOrientDataMigrator(
     }
 
     private fun createVertexClassesIfAbsent() {
-        // make sure all the vertex classes are created in OrientDB
-        // classes can not be created in a transaction, so we have to create them before copying the data
+        // make sure all the vertex classes are created in OrientDB.
+        // Schema DDL is transactional in YTDB (XD-1283): the whole class-creation pass runs
+        // in one explicit transaction - pure DDL only; sequence creation happens after it
+        // commits, before any data is copied.
         log.info { "1. Copy entity types" }
         var maxClassId = 0
         orientProvider.withSession { oSession ->
             xodus.withReadonlyTx { xTx ->
                 val entityTypes = xTx.entityTypes.toSet()
                 log.info { "${entityTypes.size} entity types to copy" }
-                entityTypes.forEachIndexed { i, type ->
-                    log.info { "$i $type is being copied" }
-                    val oClass = oSession.schema.getClass(type) ?: oSession.schema.createVertexClass(type)
-                    val classId = xodus.getEntityTypeId(type)
+                oSession.withTx {
+                    entityTypes.forEachIndexed { i, type ->
+                        log.info { "$i $type is being copied" }
+                        val oClass = oSession.schema.getClass(type) ?: oSession.schema.createVertexClass(type)
+                        val classId = xodus.getEntityTypeId(type)
 
-                    oClass.setCustom(CLASS_ID_CUSTOM_PROPERTY_NAME, classId.toString())
-                    maxClassId = maxOf(maxClassId, classId)
+                        oClass.setCustom(CLASS_ID_CUSTOM_PROPERTY_NAME, classId.toString())
+                        maxClassId = maxOf(maxClassId, classId)
 
-                    // create localEntityId property if absent
-                    if (oClass.getProperty(LOCAL_ENTITY_ID_PROPERTY_NAME) == null) {
-                        oClass.createProperty(LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
+                        // create localEntityId property if absent
+                        if (oClass.getProperty(LOCAL_ENTITY_ID_PROPERTY_NAME) == null) {
+                            oClass.createProperty(LOCAL_ENTITY_ID_PROPERTY_NAME, PropertyType.LONG)
+                        }
                     }
                 }
                 entityClassesCount = entityTypes.size
@@ -197,6 +202,12 @@ internal class XodusToOrientDataMigrator(
                     CLASS_ID_SEQUENCE_NAME
                 ) == null
             ) { "$CLASS_ID_SEQUENCE_NAME is already created. It means that some data migration has happened to the target database before. Such a scenario is not supported." }
+            /*
+             * Sequence creation stays outside the DDL transaction above:
+             * createClassIdSequenceIfAbsent runs on an independent session in its own short,
+             * immediately-committed transaction, because sequence.next() self-hoists to a
+             * pooled session that can only see committed records (XD-1283, AD1).
+             */
             oSession.createClassIdSequenceIfAbsent(maxClassId.toLong())
 
             log.info { "All the types have been copied" }
@@ -277,6 +288,9 @@ internal class XodusToOrientDataMigrator(
                 log.info { "Entities have been copied. Entity types: ${entityTypesCount}, entities copied: $totalEntities, properties copied: $totalProperties, blobs copied: $totalBlobs" }
             }
         }
+        // No explicit transaction here: getOrCreateSequence creates the sequence on a
+        // separate session with an internally managed short transaction (XD-1283, site 7);
+        // wrapping it again would only risk session-pool exhaustion.
         orientProvider.withSession { session ->
             sequencesToCreate.forEach { (name, largestExistingId) ->
                 schemaBuddy.getOrCreateSequence(session, name, largestExistingId)
@@ -288,11 +302,15 @@ internal class XodusToOrientDataMigrator(
     private fun createEdgeClassesIfAbsent(edgeClassesToCreate: Set<String>) {
         log.info { "3. Create edge classes" }
         log.info { "${edgeClassesToCreate.size} edge classes to create" }
+        // Schema DDL is transactional in YTDB (XD-1283): create all edge classes in one
+        // explicit transaction.
         orientProvider.withSession { oSession ->
-            edgeClassesToCreate.forEachIndexed { i, edgeClassName ->
-                log.info { "$i $edgeClassName ${edgeClassName.asEdgeClass} is being copied" }
-                oSession.schema.getClass(edgeClassName.asEdgeClass)
-                    ?: oSession.schema.createEdgeClass(edgeClassName.asEdgeClass)
+            oSession.withTx {
+                edgeClassesToCreate.forEachIndexed { i, edgeClassName ->
+                    log.info { "$i $edgeClassName ${edgeClassName.asEdgeClass} is being copied" }
+                    oSession.schema.getClass(edgeClassName.asEdgeClass)
+                        ?: oSession.schema.createEdgeClass(edgeClassName.asEdgeClass)
+                }
             }
         }
         log.info { "${edgeClassesToCreate.size} edge classes have been created" }

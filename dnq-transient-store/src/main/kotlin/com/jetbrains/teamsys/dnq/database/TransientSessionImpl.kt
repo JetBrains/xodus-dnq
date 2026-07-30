@@ -248,7 +248,18 @@ class TransientSessionImpl(
 
         assertOpen("flush")
 
-        if (!entitiesUpdater.hasChanges()) {
+        /*
+         * The queued-changes check alone is DDL-blind (XD-1283). Schema operations that joined
+         * this transaction leave no ENTITY changes; the refactorings API at least queues a
+         * change closure, but DDL that goes straight to the persistent transaction (schema
+         * operations joining the caller's transaction directly) queues nothing at all - such a
+         * transaction skipped the flush here and had its persistent transaction aborted by the
+         * closePersistentSession() call in commit(), silently discarding the DDL. The persistent
+         * transaction's idempotency check is DDL-aware (it sees the tx-local schema state), so
+         * consulting it here closes that hole; the queued-DDL case is closed one level deeper,
+         * by the same check in flushChanges().
+         */
+        if (!entitiesUpdater.hasChanges() && transactionInternal.isIdempotent) {
             logger.trace("Nothing to flush")
         } else {
             flushChanges()

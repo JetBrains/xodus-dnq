@@ -32,7 +32,16 @@ class YTDBDatabaseParams private constructor(
     val closeDatabaseInDbProvider: Boolean,
     val closeAfterDelayTimeout: Int,
     val serverParams: YTDBServerParams? = null,
-    val configBuilder: YouTrackDBConfigBuilder.() -> Unit = {}
+    val configBuilder: YouTrackDBConfigBuilder.() -> Unit = {},
+    /**
+     * Dual-mode index creation (XD-1283). When false (the default), indices are created on
+     * YTDB's legacy non-transactional path (createIndex + fillIndex over committed rows).
+     * When true, index creation runs inside explicit transactions - which is rejected at
+     * commit for populated classes until YTDB-1064 is lifted.
+     *
+     * The default flips to true (and this flag retires) when YTDB-1064 is lifted.
+     */
+    val transactionalIndexCreation: Boolean = false
 ) {
 
     companion object {
@@ -66,6 +75,7 @@ class YTDBDatabaseParams private constructor(
         private var closeDatabaseInDbProvider = true
         private var serverParams: YTDBServerParams? = null
         private var configBuilder: YouTrackDBConfigBuilder.() -> Unit = {}
+        private var transactionalIndexCreation: Boolean = false
 
         fun withDatabasePath(databaseUrl: String) = apply {
             this.databasePath = databaseUrl
@@ -132,6 +142,11 @@ class YTDBDatabaseParams private constructor(
             this.serverParams = serverParams
         }
 
+        /** See [YTDBDatabaseParams.transactionalIndexCreation]. */
+        fun withTransactionalIndexCreation(transactionalIndexCreation: Boolean) = apply {
+            this.transactionalIndexCreation = transactionalIndexCreation
+        }
+
         fun build(): YTDBDatabaseParams {
             return YTDBDatabaseParams(
                 databasePath,
@@ -143,7 +158,8 @@ class YTDBDatabaseParams private constructor(
                 closeDatabaseInDbProvider,
                 closeAfterDelayTimeout,
                 serverParams,
-                configBuilder
+                configBuilder,
+                transactionalIndexCreation
             )
         }
 

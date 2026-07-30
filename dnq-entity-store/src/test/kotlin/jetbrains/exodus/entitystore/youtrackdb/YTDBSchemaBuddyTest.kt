@@ -17,6 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
+import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues
 import jetbrains.exodus.entitystore.youtrackdb.testutil.OTestMixin
@@ -24,6 +25,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CyclicBarrier
+import kotlin.concurrent.thread
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -141,6 +145,284 @@ class YTDBSchemaBuddyTest : OTestMixin {
         // the changes made in the transaction are still there
         withStoreTx { tx ->
             assertNotNull(tx.getVertex(issId))
+        }
+    }
+
+    @Test
+    fun `concurrent getOrCreateEdgeClass calls for the same link both succeed`() {
+        // XD-1283 site-4 concurrent-creation race: two sessions may both find the edge class
+        // absent and both attempt to create it; the single-permit metadata write mutex
+        // serializes the side transactions, so the loser's createEdgeClass throws
+        // "already exists" - it must be caught, re-checked and both callers must succeed
+        // with the same class. Repeated to give the race window a decent chance to be hit;
+        // the contract holds for every interleaving.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+
+        repeat(10) { i ->
+            val linkName = "racyLink$i"
+            val barrier = CyclicBarrier(2)
+            val errors = ConcurrentLinkedQueue<Throwable>()
+
+            val threads = (1..2).map {
+                thread {
+                    try {
+                        youTrackDb.provider.withSession { session ->
+                            barrier.await()
+                            val edgeClass =
+                                buddy.getOrCreateEdgeClass(session, linkName, "issue", "issue")
+                            assertTrue(edgeClass.isEdgeType)
+                        }
+                    } catch (t: Throwable) {
+                        errors.add(t)
+                    }
+                }
+            }
+            threads.forEach { it.join() }
+
+            assertTrue(errors.isEmpty(), "concurrent getOrCreateEdgeClass failed: $errors")
+            withSession { session ->
+                val edgeClass = session.schema.getClass(YTDBVertexEntity.edgeClassName(linkName))
+                assertNotNull(edgeClass)
+                assertTrue(edgeClass.isEdgeType)
+            }
+        }
+    }
+
+    @Test
+    fun `getOrCreateEdgeClass joins the caller transaction if it already carries schema state`() {
+        // XD-1283 AD3 guard: once the caller's transaction has tx-local schema state (a prior
+        // schema write), a same-thread side-session DDL would fail on the metadata write
+        // mutex - so the edge class must be created in the caller's transaction instead.
+        // Proof that it joined the caller's transaction: the rollback discards it; a
+        // side-session creation would have been committed immediately and would survive.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val edgeClassName = YTDBVertexEntity.edgeClassName("guardedLink")
+
+        withSession { session ->
+            session.begin()
+            // first schema write: the transaction now carries tx-local schema state
+            session.schema.createVertexClass("guardedType")
+            assertNotNull(session.txSchemaState)
+
+            val edgeClass = buddy.getOrCreateEdgeClass(session, "guardedLink", "guardedType", "guardedType")
+            assertTrue(edgeClass.isEdgeType)
+
+            session.rollback()
+
+            // the rollback discarded the edge class along with the rest of the tx-local schema
+            assertNull(session.schema.getClass(edgeClassName))
+        }
+
+        withSession { session ->
+            assertNull(session.schema.getClass(edgeClassName))
+            assertNull(session.schema.getClass("guardedType"))
+        }
+    }
+
+    @Test
+    fun `renameOClass and deleteOClass require an active transaction`() {
+        // XD-1283 site 6: both operations now run on the CALLER's session and must never fall
+        // back to a non-transactional schema write.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        withSession { session ->
+            session.schema.createVertexClass("typeToRefactor")
+        }
+
+        withSession { session ->
+            assertFailsWith<IllegalStateException> {
+                buddy.renameOClass(session, "typeToRefactor", "renamedType")
+            }
+            assertFailsWith<IllegalStateException> {
+                buddy.deleteOClass(session, "typeToRefactor")
+            }
+        }
+
+        withSession { session ->
+            assertNotNull(session.schema.getClass("typeToRefactor"))
+            assertNull(session.schema.getClass("renamedType"))
+        }
+    }
+
+    @Test
+    fun `a rolled back rename does not poison the classId to name cache`() {
+        // XD-1283 site 6: the rename rides the caller's transaction, so schema reads on that
+        // session resolve the uncommitted tx-local name. getType() must not memoize it - a
+        // cached tx-local name would survive the rollback and mis-resolve the type forever.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToRename").requireClassId()
+        }
+
+        withSession { session ->
+            session.begin()
+            buddy.renameOClass(session, "typeToRename", "renamedType")
+            // resolving the type inside the renaming transaction sees the tx-local name
+            assertEquals("renamedType", buddy.getType(session, typeId))
+            session.rollback()
+        }
+
+        withSession { session ->
+            assertEquals("typeToRename", buddy.getType(session, typeId))
+        }
+    }
+
+    @Test
+    fun `resolveEntityIdOrNull still resolves entities of a renamed type`() {
+        // The classId -> (collectionId, name) cache is read by resolveEntityIdOrNull as a
+        // COLLECTION id (getClassByCollectionId). getType() must therefore memoize the
+        // collection id, not the classId - otherwise every entity of a type whose cache entry
+        // was (re)populated by getType resolves to null (XD-1283).
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        withSession { session ->
+            session.getOrCreateVertexClass(Issues.CLASS)
+        }
+        val issueId = withStoreTx { tx -> tx.createIssue("trista").id }
+
+        withSession { session ->
+            val tx = session.begin()
+            buddy.renameOClass(session, Issues.CLASS, "RenamedIssue")
+            tx.commit()
+        }
+        // the cache entry for this type is now (re)populated by getType, not by scanClasses
+        withSession { session ->
+            assertEquals("RenamedIssue", buddy.getType(session, issueId.typeId))
+        }
+
+        withTxSession { session ->
+            val resolved = buddy.resolveEntityIdOrNull(session, issueId.typeId, issueId.localId)
+            assertNotNull(resolved)
+            assertEquals(issueId.localId, resolved.localId)
+        }
+    }
+
+    @Test
+    fun `a cached name taken over by a class without a type id is re-resolved`() {
+        // The validation of a cache hit must tolerate a class with no DNQ type id (an edge class,
+        // say) sitting under the cached name - that is precisely the case it exists to heal, so
+        // it must not demand a type id from it (XD-1283).
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val otherBuddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToRename").requireClassId()
+        }
+        withSession { session ->
+            assertEquals("typeToRename", buddy.getType(session, typeId))
+        }
+
+        // the rename goes through another schema buddy, so nothing evicts the cached old name
+        withSession { session ->
+            val tx = session.begin()
+            otherBuddy.renameOClass(session, "typeToRename", "renamedType")
+            tx.commit()
+        }
+        // and the freed name is taken over by a class that has no classId at all
+        withSession { session ->
+            session.schema.createEdgeClass("typeToRename")
+        }
+
+        withSession { session ->
+            assertEquals("renamedType", buddy.getType(session, typeId))
+        }
+    }
+
+    @Test
+    fun `resolveEntityIdOrNull does not hand out an entity of a class that reused the collection`() {
+        // A dropped class leaves its cache entry behind, and YTDB hands the freed collection ids
+        // to the next class created - so an unvalidated cache hit resolves to a class of a
+        // completely different type, whose entities would be returned under the dropped type's
+        // id. The cached collection id must be validated against the class it resolves to.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val otherBuddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        withTxSession { session -> session.createVertexClassWithClassId("Doomed") }
+        val doomedId = withStoreTx { tx -> tx.newEntity("Doomed").id }
+        withSession { session ->
+            assertEquals("Doomed", buddy.getType(session, doomedId.typeId))
+        }
+
+        // the drop goes through another schema buddy, so nothing evicts the cached entry
+        withSession { session ->
+            val tx = session.begin()
+            otherBuddy.deleteOClass(session, "Doomed")
+            tx.commit()
+        }
+        // the next class takes over the freed collection ids and gets its own entity with the
+        // same local id
+        withTxSession { session -> session.createVertexClassWithClassId("Newcomer") }
+        val newcomerId = withStoreTx { tx -> tx.newEntity("Newcomer").id }
+        assertEquals(doomedId.localId, newcomerId.localId)
+
+        withTxSession { session ->
+            assertNull(buddy.resolveEntityIdOrNull(session, doomedId.typeId, doomedId.localId))
+        }
+    }
+
+    @Test
+    fun `a cached class name is not served after the class was dropped`() {
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToDrop").requireClassId()
+        }
+        withSession { session ->
+            assertEquals("typeToDrop", buddy.getType(session, typeId))
+        }
+
+        withSession { session ->
+            val tx = session.begin()
+            buddy.deleteOClass(session, "typeToDrop")
+            tx.commit()
+        }
+
+        withSession { session ->
+            assertFailsWith<EntityRemovedInDatabaseException> { buddy.getType(session, typeId) }
+        }
+    }
+
+    @Test
+    fun `a cached class name renamed by another session is not served from the cache`() {
+        // The eviction at the DDL site cannot cover an entry re-cached between the DDL and its
+        // commit, so a cache hit must be validated against the schema (XD-1283).
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val otherBuddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToRename").requireClassId()
+        }
+        withSession { session ->
+            assertEquals("typeToRename", buddy.getType(session, typeId))
+        }
+
+        // another schema buddy (i.e. another cache) commits the rename: nothing evicts the
+        // first buddy's entry
+        withSession { session ->
+            val tx = session.begin()
+            otherBuddy.renameOClass(session, "typeToRename", "renamedType")
+            tx.commit()
+        }
+
+        withSession { session ->
+            assertEquals("renamedType", buddy.getType(session, typeId))
+        }
+    }
+
+    @Test
+    fun `a cached class name is not served after the class was renamed`() {
+        // The cache is primed with the old name before the rename, so getType() must not keep
+        // reporting a name that no longer exists (XD-1283 site 6).
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToRename").requireClassId()
+        }
+        withSession { session ->
+            assertEquals("typeToRename", buddy.getType(session, typeId))
+        }
+
+        withSession { session ->
+            val tx = session.begin()
+            buddy.renameOClass(session, "typeToRename", "renamedType")
+            tx.commit()
+        }
+
+        withSession { session ->
+            assertEquals("renamedType", buddy.getType(session, typeId))
         }
     }
 

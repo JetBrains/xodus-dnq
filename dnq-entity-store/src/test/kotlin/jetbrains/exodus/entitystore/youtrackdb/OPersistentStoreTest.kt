@@ -91,6 +91,79 @@ class OPersistentStoreTest : OTestMixin {
     }
 
     @Test
+    fun `a transaction with only schema changes is not idempotent`() {
+        // XD-1283 site 6: in-tx DDL leaves no record operations, so a schema-only transaction
+        // used to look idempotent - and the transient flush path silently aborted it.
+        youTrackDb.createIssue("trista")
+        val store = youTrackDb.store
+        store.executeInTransaction { tx ->
+            Assert.assertTrue(tx.isIdempotent)
+            store.renameEntityType(CLASS, "NewName")
+            Assert.assertFalse(tx.isIdempotent)
+        }
+    }
+
+    @Test
+    fun `renameEntityType is discarded when the transaction is rolled back`() {
+        // XD-1283 site 6: the rename joins the caller's transaction, so it must NOT leak out of
+        // a rolled-back transaction (the previous separate-session implementation committed it
+        // immediately and did leak).
+        youTrackDb.createIssue("trista")
+        val store = youTrackDb.store
+
+        youTrackDb.withStoreTx(failOnRollback = false) { tx ->
+            store.renameEntityType(CLASS, "NewName")
+            tx.abort()
+        }
+
+        youTrackDb.withSession { session ->
+            assertNull(session.schema.getClass("NewName"))
+            Assert.assertNotNull(session.schema.getClass(CLASS))
+        }
+    }
+
+    @Test
+    fun `renameEntityType and deleteEntityType are rejected in a readonly transaction`() {
+        // XD-1283 site 6: the DDL rides the caller's transaction, and a readonly transaction is
+        // never flushed - accepting the schema write there would discard it silently.
+        youTrackDb.createIssue("trista")
+        val store = youTrackDb.store
+
+        val tx = store.beginReadonlyTransaction()
+        try {
+            assertFailsWith<IllegalStateException> { store.renameEntityType(CLASS, "NewName") }
+            assertFailsWith<IllegalStateException> { store.deleteEntityType(CLASS) }
+        } finally {
+            tx.abort()
+        }
+
+        youTrackDb.withSession { session ->
+            Assert.assertNotNull(session.schema.getClass(CLASS))
+            assertNull(session.schema.getClass("NewName"))
+        }
+    }
+
+    @Test
+    fun `deleteEntityType is discarded when the transaction is rolled back`() {
+        // XD-1283 site 6: same contract as the rename - the class drop rides the caller's
+        // transaction and disappears with it.
+        youTrackDb.createIssue("trista")
+        val store = youTrackDb.store
+
+        youTrackDb.withStoreTx(failOnRollback = false) { tx ->
+            store.deleteEntityType(CLASS)
+            tx.abort()
+        }
+
+        youTrackDb.withSession { session ->
+            Assert.assertNotNull(session.schema.getClass(CLASS))
+        }
+        youTrackDb.withStoreTx { tx ->
+            assertEquals(1, tx.getAll(CLASS).size())
+        }
+    }
+
+    @Test
     fun `create and increment sequence`() {
         val store = youTrackDb.store
         val sequence = store.computeInTransaction {
