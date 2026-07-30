@@ -17,6 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.exception.SchemaException
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
@@ -82,7 +83,21 @@ class YTDBSchemaBuddyImpl(
     }
 
     override fun initialize(session: DatabaseSessionEmbedded) {
+        // sequence creation runs in its own short immediately-committed side-tx internally (XD-1283)
         session.createClassIdSequenceIfAbsent()
+        /*
+         * The schema scan keeps its own short transaction (XD-1283): schema access is
+         * transactional under YTDB's transactional schema. If the caller has already opened
+         * a transaction (e.g. the migrator launcher), the scan simply rides it.
+         */
+        if (session.isTxActive) {
+            scanClasses(session)
+        } else {
+            session.withTx(this::scanClasses)
+        }
+    }
+
+    private fun scanClasses(session: DatabaseSessionEmbedded) {
         for (oClass in session.schema.classes) {
             if (oClass.isVertexType && !INTERNAL_CLASS_NAMES.contains(oClass.name)) {
                 classIdToOClassId[oClass.requireClassId()] = oClass.collectionIds[0] to oClass.name
@@ -137,10 +152,51 @@ class YTDBSchemaBuddyImpl(
         val oClass = session.schema.getClass(edgeClassName)
         if (oClass != null) return oClass
 
-        dbProvider.withSession { it.schema.createEdgeClass(edgeClassName) }
+        /*
+         * AD3 guard (XD-1283): if the caller's transaction already carries tx-local schema
+         * state (site-6 rename/deleteOClass joined it), same-thread side-session DDL would
+         * fail loudly at MetadataWriteMutex.engage - so the edge class is created in the
+         * caller's transaction instead.
+         */
+        if (session.txSchemaState != null) {
+            return session.createEdgeClassCatchingRace(edgeClassName)
+        }
+
+        /*
+         * Hot data path: never join the (potentially long-running) caller transaction with
+         * DDL - the edge class is created on a separate session in a short, immediately
+         * committed transaction (XD-1283).
+         */
+        dbProvider.withSession { sessionToWork ->
+            /*
+             * Pre-write re-check on the side session (XD-1283): a pre-first-write read
+             * resolves the live committed schema, so a class committed by a concurrent winner
+             * after the caller's check is seen here and the loser short-circuits without
+             * paying the metadata mutex, the tx-local schema copy and a forced schema commit.
+             */
+            if (sessionToWork.schema.getClass(edgeClassName) == null) {
+                sessionToWork.withTx {
+                    it.createEdgeClassCatchingRace(edgeClassName)
+                }
+            }
+        }
 
         return session.schema.getClass(edgeClassName)
             ?: throw IllegalStateException("Class $edgeClassName could not be created")
+    }
+
+    /**
+     * Creates the edge class, tolerating the concurrent-creation race: another session may
+     * commit the same class between the caller's existence check and `createEdgeClass`, which
+     * throws a [SchemaException] ("... already exists ...") - in that case the freshly created
+     * class is re-read and returned instead of failing (XD-1283).
+     */
+    private fun DatabaseSessionEmbedded.createEdgeClassCatchingRace(edgeClassName: String): SchemaClass {
+        return try {
+            schema.createEdgeClass(edgeClassName)
+        } catch (e: SchemaException) {
+            schema.getClass(edgeClassName) ?: throw e
+        }
     }
 
     override fun getSequence(session: DatabaseSessionEmbedded, sequenceName: String): DBSequence {
@@ -232,18 +288,45 @@ fun DatabaseSessionEmbedded.createLocalEntityIdSequenceIfAbsent(
     oClass: SchemaClass,
     startFrom: Long = -1L
 ) {
+    // Only the class NAME crosses into the side-session sequence call below - never a
+    // (potentially tx-local) SchemaClass proxy obtained inside an open schema transaction.
     createSequenceIfAbsent(localEntityIdSequenceName(oClass.name), startFrom)
 }
 
 private fun DatabaseSessionEmbedded.createSequenceIfAbsent(sequenceName: String, startFrom: Long = 0L) {
-    val sequences = (this as DatabaseSessionEmbedded).metadata.sequenceLibrary
-    if (sequences.getSequence(sequenceName) == null) {
-        val params = DBSequence.CreateParams()
-        params.start = startFrom
-        sequences.createSequence(sequenceName, DBSequence.SEQUENCE_TYPE.ORDERED, params)
+    if (metadata.sequenceLibrary.getSequence(sequenceName) != null) return
+
+    /*
+     * Sequence creation must never join a (potentially long-running) caller transaction
+     * (XD-1283): sequence.next() self-hoists to a pooled session that can only see committed
+     * records, so the sequence record must be committed before its first use. Therefore the
+     * sequence is created on an independent session (for pooled sessions copy() == pool.acquire())
+     * in a short, immediately-committed transaction - createSequence manages its own transaction
+     * via computeInTx on a session with no active transaction.
+     *
+     * Sequence creation is DDL-free post-genesis (the OSequence class exists from database
+     * creation), so it cannot conflict with a schema transaction holding the metadata-write
+     * mutex on the caller's session.
+     *
+     * Note: sequence.next() itself must NOT be wrapped in any additional transaction here -
+     * it already runs on a pooled session internally.
+     */
+    copy().use { sideSession ->
+        val sequences = sideSession.metadata.sequenceLibrary
+        if (sequences.getSequence(sequenceName) == null) {
+            val params = DBSequence.CreateParams()
+            params.start = startFrom
+            sequences.createSequence(sequenceName, DBSequence.SEQUENCE_TYPE.ORDERED, params)
+        }
     }
 }
 
+/**
+ * Bootstrap helper (XD-1283): the `setCustom` DDL write rides the caller's entry-point
+ * transaction. `sequence.next()` is deliberately NOT wrapped in any additional transaction -
+ * it self-hoists to a pooled session internally (which can only see committed sequence
+ * records; the sequence is guaranteed committed by the side-tx creation helpers above).
+ */
 fun DatabaseSessionEmbedded.setClassIdIfAbsent(oClass: SchemaClass) {
     if (oClass.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME) == null) {
         val sequences = (this as DatabaseSessionEmbedded).metadata.sequenceLibrary
@@ -260,6 +343,12 @@ fun setLocalEntityId(tx: YTDBStoreTransaction, className: String, vertex: YTDBVe
     vertex.property(LOCAL_ENTITY_ID_PROPERTY_NAME, id)
 }
 
+/**
+ * Bootstrap helper (XD-1283): all pure DDL here (`createVertexClass`, `setClassIdIfAbsent`)
+ * rides the caller's entry-point transaction; only sequence creation is hoisted into short
+ * immediately-committed side-txs by `createClassIdSequenceIfAbsent` /
+ * `createLocalEntityIdSequenceIfAbsent`.
+ */
 fun DatabaseSessionEmbedded.createVertexClassWithClassId(className: String): SchemaClass {
     createClassIdSequenceIfAbsent()
     val oClass = schema.createVertexClass(className)
@@ -268,6 +357,10 @@ fun DatabaseSessionEmbedded.createVertexClassWithClassId(className: String): Sch
     return oClass
 }
 
+/**
+ * Bootstrap helper (XD-1283): the DDL rides the caller's entry-point transaction - see
+ * [createVertexClassWithClassId].
+ */
 internal fun DatabaseSessionEmbedded.getOrCreateVertexClass(className: String): SchemaClass {
     val existingClass = this.schema.getClass(className)
     if (existingClass != null) return existingClass

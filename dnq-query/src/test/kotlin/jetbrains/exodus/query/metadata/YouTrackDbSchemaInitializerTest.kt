@@ -31,7 +31,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class YouTrackDbSchemaInitializerTest {
     @Rule
@@ -46,7 +48,7 @@ class YouTrackDbSchemaInitializerTest {
                 entity("type2")
             }
 
-            oSession.applySchema(model)
+            oSession.applySchemaInTx(model)
 
             oSession.assertVertexClassExists("type1")
             oSession.assertVertexClassExists("type2")
@@ -60,7 +62,7 @@ class YouTrackDbSchemaInitializerTest {
             entity("type3", "type2")
         }
 
-        oSession.applySchema(model)
+        oSession.applySchemaInTx(model)
 
         oSession.assertHasSuperClass("type2", "type1")
         oSession.assertHasSuperClass("type3", "type2")
@@ -78,7 +80,7 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            oSession.applySchema(model)
+            oSession.applySchemaInTx(model)
 
             val oClass = oSession.schema.getClass("type1")!!
             for (type in supportedSimplePropertyTypes) {
@@ -103,7 +105,7 @@ class YouTrackDbSchemaInitializerTest {
             }
 
             assertFailsWith<IllegalArgumentException>() {
-                oSession.applySchema(model)
+                oSession.applySchemaInTx(model)
             }
         }
 
@@ -116,7 +118,7 @@ class YouTrackDbSchemaInitializerTest {
             }
         }
         orientDb.withSession {
-            it.applySchema(model)
+            it.applySchemaInTx(model)
         }
         orientDb.withSession {
             orientDb.schemaBuddy.initialize(it)
@@ -142,7 +144,7 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            val (indices, _) = oSession.applySchema(model)
+            val (indices, _) = oSession.applySchemaInTx(model)
 
             val oClass = oSession.schema.getClass("type1")!!
             for (type in supportedSimplePropertyTypes) {
@@ -156,7 +158,7 @@ class YouTrackDbSchemaInitializerTest {
         }
 
         orientDb.provider.withSession { oSession ->
-            oSession.applyIndices(indices)
+            oSession.applyIndicesInTx(indices)
 
             for (type in supportedSimplePropertyTypes) {
                 oSession.checkIndex("type1", unique = false, "setProp$type")
@@ -174,7 +176,7 @@ class YouTrackDbSchemaInitializerTest {
             }
 
             assertFailsWith<IllegalArgumentException> {
-                oSession.applySchema(model)
+                oSession.applySchemaInTx(model)
             }
         }
 
@@ -189,8 +191,8 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            val result = oSession.applySchema(model)
-            oSession.initializeIndices(result)
+            val result = oSession.applySchemaInTx(model)
+            oSession.initializeIndicesInTx(result)
 
             for (cardinality in AssociationEndCardinality.entries) {
                 oSession.assertAssociationExists("type2", "type1", "prop1$cardinality", cardinality)
@@ -208,8 +210,8 @@ class YouTrackDbSchemaInitializerTest {
                 association("type3", "link1", "type1", AssociationEndCardinality._0_n)
             }
 
-            val result = oSession.applySchema(model)
-            oSession.initializeIndices(result)
+            val result = oSession.applySchemaInTx(model)
+            oSession.initializeIndicesInTx(result)
 
             oSession.assertAssociationExists(
                 "type2",
@@ -236,8 +238,8 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            val result = oSession.applySchema(model, applyLinkCardinality = false)
-            oSession.initializeIndices(result)
+            val result = oSession.applySchemaInTx(model, applyLinkCardinality = false)
+            oSession.initializeIndicesInTx(result)
 
             for (cardinality in AssociationEndCardinality.entries) {
                 oSession.assertAssociationExists("type2", "type1", "prop1$cardinality", null)
@@ -265,8 +267,8 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            val result = oSession.applySchema(model)
-            oSession.initializeIndices(result)
+            val result = oSession.applySchemaInTx(model)
+            oSession.initializeIndicesInTx(result)
 
             for (cardinality1 in AssociationEndCardinality.entries) {
                 for (cardinality2 in AssociationEndCardinality.entries) {
@@ -302,7 +304,7 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            val (indices, _) = oSession.applySchema(model)
+            val (indices, _) = oSession.applySchemaInTx(model)
 
             indices.checkIndex("type1", unique = true, "prop1", "prop2")
             indices.checkIndex("type1", unique = true, "prop3")
@@ -321,7 +323,7 @@ class YouTrackDbSchemaInitializerTest {
         }
 
         orientDb.provider.withSession { oSession ->
-            oSession.applyIndices(indices)
+            oSession.applyIndicesInTx(indices)
 
             oSession.checkIndex("type1", true, "prop1", "prop2")
             oSession.checkIndex("type1", true, "prop3")
@@ -339,8 +341,8 @@ class YouTrackDbSchemaInitializerTest {
         }
 
         orientDb.withSession { oSession ->
-            val (indices, _) = oSession.applySchema(model, indexForEverySimpleProperty = false)
-            oSession.applyIndices(indices)
+            val (indices, _) = oSession.applySchemaInTx(model, indexForEverySimpleProperty = false)
+            oSession.applyIndicesInTx(indices)
         }
 
         assertFailsWith<RecordDuplicatedException> {
@@ -361,6 +363,217 @@ class YouTrackDbSchemaInitializerTest {
     }
 
     @Test
+    fun `in-tx index creation over a populated class fails at commit until YTDB-1064 is lifted`() {
+        // XD-1283 dual-mode contract, transactionalIndexCreation = true (in-tx) mode
+        val model = model {
+            entity("type1") {
+                property("prop1", "int")
+                index("prop1")
+            }
+        }
+
+        // apply the schema (pure DDL, no indices yet), then populate the class
+        val indices = orientDb.withSession { oSession ->
+            oSession.applySchemaInTx(model).indices
+        }
+        orientDb.withStoreTx { tx ->
+            val v = createVertexAndSetLocalEntityId(tx, "type1")
+            v.property("prop1", 1)
+        }
+
+        // In-transaction index creation over pre-existing committed rows is rejected
+        // at commit time (accepted behavior of the in-tx mode until YTDB-1064 is lifted).
+        // withTx must surface the original commit exception instead of masking it with a
+        // secondary rollback failure.
+        val e = assertFailsWith<RuntimeException> {
+            orientDb.withSession { oSession ->
+                oSession.applyIndicesInTx(indices)
+            }
+        }
+        assertTrue(e.message!!.contains("YTDB-1064"))
+    }
+
+    @Test
+    fun `non-tx index creation over a populated class succeeds (default mode)`() {
+        // XD-1283 dual-mode contract, transactionalIndexCreation = false (the default until
+        // YTDB-1064 is lifted): the legacy non-tx path registers the index and fills it from
+        // the committed rows, so populated classes are supported.
+        val model = model {
+            entity("type1") {
+                property("prop1", "int")
+                index("prop1")
+            }
+        }
+
+        val indices = orientDb.withSession { oSession ->
+            oSession.applySchemaInTx(model).indices
+        }
+        orientDb.withStoreTx { tx ->
+            val v = createVertexAndSetLocalEntityId(tx, "type1")
+            v.property("prop1", 1)
+        }
+
+        orientDb.withSession { oSession ->
+            oSession.applyIndicesNonTx(indices)
+        }
+
+        orientDb.withSession { oSession ->
+            oSession.checkIndex("type1", true, "prop1")
+        }
+    }
+
+    @Test
+    fun `non-tx index creation over duplicate data drops the poisoned index and fails loudly`() {
+        // XD-1283 / AD-E1+AD-E2: on the legacy non-tx path the index is REGISTERED before it
+        // is filled, so a fillIndex failure (a genuine duplicate under a unique index) would
+        // leave a registered-but-empty index behind; the indexExists pre-check would then
+        // silently skip the broken index on the next run. The non-tx path must drop the
+        // poisoned index and rethrow - and a re-run must fail loudly again.
+        val model = model {
+            entity("type1") {
+                property("prop1", "int")
+                index("prop1")
+            }
+        }
+
+        val indices = orientDb.withSession { oSession ->
+            oSession.applySchemaInTx(model).indices
+        }
+        // two vertices with the same value in the unique-indexed property
+        orientDb.withStoreTx { tx ->
+            repeat(2) {
+                val v = createVertexAndSetLocalEntityId(tx, "type1")
+                v.property("prop1", 42)
+            }
+        }
+
+        val uniqueIndexName = "type1_prop1_unique"
+
+        assertFailsWith<RuntimeException> {
+            orientDb.withSession { oSession ->
+                oSession.applyIndicesNonTx(indices)
+            }
+        }
+        // the poisoned (registered-but-empty) index was dropped, not left behind
+        orientDb.withSession { oSession ->
+            assertFalse(oSession.schema.indexExists(uniqueIndexName))
+        }
+
+        // a re-run fails loudly again instead of silently skipping a broken index
+        assertFailsWith<RuntimeException> {
+            orientDb.withSession { oSession ->
+                oSession.applyIndicesNonTx(indices)
+            }
+        }
+        orientDb.withSession { oSession ->
+            assertFalse(oSession.schema.indexExists(uniqueIndexName))
+        }
+    }
+
+    @Test
+    fun `both index-creation entry points pin their transaction preconditions`() {
+        // XD-1283 dual-mode: applyIndices must run inside an active transaction (outside one
+        // it would silently degrade to the unguarded legacy path without drop protection);
+        // applyIndicesNonTx must run with NO active transaction (with one, dropIndex would
+        // only stage a tx-overlay drop and the legacy fill semantics would not apply).
+        val model = model {
+            entity("type1") {
+                property("prop1", "int")
+                index("prop1")
+            }
+        }
+        val indices = orientDb.withSession { oSession ->
+            oSession.applySchemaInTx(model).indices
+        }
+
+        orientDb.withSession { oSession ->
+            // in-tx entry point without an active transaction
+            assertFailsWith<IllegalStateException> {
+                oSession.applyIndices(indices)
+            }
+
+            // non-tx entry point with an active transaction
+            oSession.begin()
+            try {
+                assertFailsWith<IllegalStateException> {
+                    oSession.applyIndicesNonTx(indices)
+                }
+            } finally {
+                oSession.rollback()
+            }
+        }
+    }
+
+    @Test
+    fun `in-tx dropProperty is forbidden by YTDB - canary for the onRemoveAssociation exception`() {
+        /*
+         * XD-1283 canary for the onRemoveAssociation exception: association removal
+         * (onRemoveAssociation/removeAssociation) stays on the legacy non-tx path SOLELY
+         * because YTDB forbids dropProperty under an active transaction
+         * (SchemaClassEmbedded.dropProperty; see the YTDBModelMetaData.onRemoveAssociation
+         * comment). When a YTDB upgrade makes THIS test fail, in-tx dropProperty has
+         * arrived: lift the exception (transactionalize onRemoveAssociation) and remove
+         * this test.
+         */
+        val model = model {
+            entity("type1") {
+                property("prop1", "int")
+            }
+        }
+        orientDb.withSession { oSession ->
+            oSession.applySchemaInTx(model)
+        }
+
+        orientDb.withSession { oSession ->
+            oSession.begin()
+            try {
+                val oClass = oSession.schema.getClass("type1")!!
+                val e = assertFailsWith<IllegalStateException> {
+                    oClass.dropProperty("prop1")
+                }
+                assertTrue(e.message!!.contains("Cannot drop a property inside a transaction"))
+            } finally {
+                oSession.rollback()
+            }
+        }
+
+        // the schema is intact afterwards - the rejected drop left no trace
+        orientDb.withSession { oSession ->
+            assertTrue(oSession.schema.getClass("type1")!!.existsProperty("prop1"))
+        }
+    }
+
+    @Test
+    fun `rolled-back transaction discards its schema changes`() {
+        // XD-1283: schema manipulation is transactional - schema reads become tx-aware after
+        // the first schema write in the transaction, and a rollback discards the tx-local
+        // schema copy without leaving any trace
+        val model = model {
+            entity("type1") {
+                property("prop1", "int")
+            }
+        }
+
+        orientDb.withSession { oSession ->
+            oSession.begin()
+            oSession.applySchema(model)
+
+            // the uncommitted class is visible inside the transaction
+            assertNotNull(oSession.schema.getClass("type1"))
+
+            oSession.rollback()
+
+            // the rollback discarded the tx-local schema copy
+            assertNull(oSession.schema.getClass("type1"))
+        }
+
+        // no other session ever sees the discarded class
+        orientDb.withSession { oSession ->
+            assertNull(oSession.schema.getClass("type1"))
+        }
+    }
+
+    @Test
     fun `index for every simple property if required`() =
         orientDb.provider.withSession { oSession ->
             val model = model {
@@ -372,7 +585,7 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            val (indices, _) = oSession.applySchema(model, indexForEverySimpleProperty = true)
+            val (indices, _) = oSession.applySchemaInTx(model, indexForEverySimpleProperty = true)
 
             indices.checkIndex("type1", unique = false, "prop1")
             indices.checkIndex("type1", unique = false, "prop2")
@@ -396,7 +609,7 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            val (indices, _) = oSession.applySchema(model)
+            val (indices, _) = oSession.applySchemaInTx(model)
             assertTrue(indices.none { (indexName, _) -> indexName.contains("prop") })
         }
 
@@ -408,20 +621,22 @@ class YouTrackDbSchemaInitializerTest {
                 entity("type2")
             }
 
-            val result = session.applySchema(model)
-            session.initializeIndices(result)
+            val result = session.applySchemaInTx(model)
+            session.initializeIndicesInTx(result)
 
             for (cardinality in AssociationEndCardinality.entries) {
-                val assResult = session.addAssociation(
-                    LinkMetadata(
-                        name = "ass1${cardinality.name}",
-                        outClassName = "type1",
-                        inClassName = "type2",
-                        cardinality = cardinality
-                    ),
-                    listOf()
-                )
-                session.initializeIndices(assResult)
+                val assResult = session.withTx {
+                    it.addAssociation(
+                        LinkMetadata(
+                            name = "ass1${cardinality.name}",
+                            outClassName = "type1",
+                            inClassName = "type2",
+                            cardinality = cardinality
+                        ),
+                        listOf()
+                    )
+                }
+                session.initializeIndicesInTx(assResult)
             }
 
             for (cardinality in AssociationEndCardinality.entries) {
@@ -434,6 +649,9 @@ class YouTrackDbSchemaInitializerTest {
             }
 
             for (cardinality in AssociationEndCardinality.entries) {
+                // removeAssociation cannot run inside a transaction: it drops properties,
+                // and YTDB currently forbids dropProperty inside a transaction
+                // ("Cannot drop a property inside a transaction")
                 session.removeAssociation(
                     sourceClassName = "type1",
                     targetClassName = "type2",
@@ -471,7 +689,7 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            oSession.applySchema(model)
+            oSession.applySchemaInTx(model)
 
             val classIds = mutableSetOf<Int>()
             val classIdToClassName = mutableMapOf<Int, String>()
@@ -492,7 +710,7 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            oSession.applySchema(anotherModel)
+            oSession.applySchemaInTx(anotherModel)
 
             classIds.clear()
             for (type in types) {
@@ -548,7 +766,7 @@ class YouTrackDbSchemaInitializerTest {
                 }
             }
 
-            val (indices, _) = oSession.applySchema(model)
+            val (indices, _) = oSession.applySchemaInTx(model)
 
             val sequences = oSession.metadata.sequenceLibrary
             for (type in types) {
@@ -565,7 +783,7 @@ class YouTrackDbSchemaInitializerTest {
             }
 
             // emulate the next run of the application
-            oSession.applySchema(model)
+            oSession.applySchemaInTx(model)
 
             for (type in types) {
                 val sequence = sequences.getSequence(localEntityIdSequenceName(type))

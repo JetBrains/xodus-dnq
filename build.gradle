@@ -34,6 +34,7 @@ allprojects {
     version = '3.0.' + (project.hasProperty("teamcity") ? project.teamcity["build.number"] : (project.hasProperty("versionSuffix") ? project.versionSuffix : 'dev'))
 
     repositories {
+        mavenLocal()
         mavenCentral()
         maven { url 'https://central.sonatype.com/repository/maven-snapshots' } // required for youtrackdb
         maven { url 'https://packages.jetbrains.team/maven/p/xodus/xodus-daily' }

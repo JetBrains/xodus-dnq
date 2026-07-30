@@ -62,7 +62,7 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         val newIndexedLinks = youTrackDb.withSession { oSession ->
-            oSession.applySchema(model).newIndexedLinks
+            oSession.applySchemaInTx(model).newIndexedLinks
         }
 
         assertEquals(
@@ -75,7 +75,7 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         )
 
         val newIndexedLinksAgain = youTrackDb.withSession { oSession ->
-            oSession.applySchema(model).newIndexedLinks
+            oSession.applySchemaInTx(model).newIndexedLinks
         }
         assertTrue(newIndexedLinksAgain.isEmpty())
     }
@@ -90,7 +90,7 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         youTrackDb.withSession { session ->
-            session.applySchema(model)
+            session.applySchemaInTx(model)
         }
 
         val (id11, id12, id21) = youTrackDb.withStoreTx { tx ->
@@ -123,7 +123,7 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         val (_, newIndexedLinks) = youTrackDb.withSession { session ->
-            session.applySchema(modelWithIndexes)
+            session.applySchemaInTx(modelWithIndexes)
         }
 
         youTrackDb.withSession { session ->
@@ -148,6 +148,69 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
     }
 
     @Test
+    fun `backfill batching past commitEvery commits and re-begins inside one withTx block`() {
+        // XD-1283 regression test for the withTx stale-handle fix.
+        //
+        // The backfill below runs inside a single withTx block, but commits and re-begins
+        // transactions internally after every `commitEvery` items. After the first such
+        // cycle, the transaction handle returned by withTx's initial begin() is dead.
+        //
+        // withTx must therefore perform its terminal commit on the session's CURRENT
+        // active transaction, not on the captured begin() handle. With the old behavior
+        // (committing the captured handle) the final partial batch - the items after the
+        // last internal commit - would never be committed and its writes silently lost.
+        // This test drives 5 items with commitEvery = 2, so item 5 rides the terminal
+        // commit, and fails if withTx regresses.
+        val model = model {
+            entity("type2")
+            entity("type1")
+            association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+        }
+
+        youTrackDb.withSession { session ->
+            session.applySchemaInTx(model)
+        }
+
+        val (sourceIds, targetId) = youTrackDb.withStoreTx { tx ->
+            val target = createVertexAndSetLocalEntityId(tx, "type2")
+            (1..5).map {
+                val v = createVertexAndSetLocalEntityId(tx, "type1")
+                v.addSimpleEdge("ass1", target)
+                v.id()
+            } to target.id()
+        }
+
+        val modelWithIndexes = model {
+            entity("type2")
+            entity("type1") {
+                index(IndexedField("ass1", isProperty = false))
+            }
+            association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+        }
+
+        val (_, newIndexedLinks) = youTrackDb.withSession { session ->
+            session.applySchemaInTx(modelWithIndexes)
+        }
+
+        // commitEvery = 2 over 5 backfill items forces two intermediate commit/begin cycles
+        // inside the single withTx block; the fifth item rides withTx's terminal commit
+        youTrackDb.withSession { session ->
+            session.initializeComplementaryPropertiesForNewIndexedLinks(newIndexedLinks, commitEvery = 2)
+        }
+
+        // every batch is committed, including the last partial one
+        youTrackDb.withTxSession { session ->
+            val tx = session.activeTransaction
+            val target = tx.loadVertex(targetId)
+            for (id in sourceIds) {
+                val bag = tx.loadVertex(id).getTargetLocalEntityIds("ass1")
+                kotlin.test.assertEquals(1, bag.size())
+                assertTrue(bag.contains(target.identity))
+            }
+        }
+    }
+
+    @Test
     fun `unique index prevents duplicates`() {
         val model = model {
             entity("type2")
@@ -158,8 +221,8 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         youTrackDb.withSession { oSession ->
-            val (indices, _) = oSession.applySchema(model)
-            oSession.applyIndices(indices)
+            val (indices, _) = oSession.applySchemaInTx(model)
+            oSession.applyIndicesInTx(indices)
         }
 
         // (no links) == (no links)
@@ -229,8 +292,8 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         youTrackDb.withSession { oSession ->
-            val (indices, _) = oSession.applySchema(model)
-            oSession.applyIndices(indices)
+            val (indices, _) = oSession.applySchemaInTx(model)
+            oSession.applyIndicesInTx(indices)
         }
 
         // (1, no links) == (1, no links)
@@ -317,8 +380,8 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         youTrackDb.withSession { oSession ->
-            val (indices, _) = oSession.applySchema(model)
-            oSession.applyIndices(indices)
+            val (indices, _) = oSession.applySchemaInTx(model)
+            oSession.applyIndicesInTx(indices)
         }
 
         // (1, { v3 } ) != (1, no links)
@@ -360,8 +423,8 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         youTrackDb.withSession { oSession ->
-            val (indices, _) = oSession.applySchema(model)
-            oSession.applyIndices(indices)
+            val (indices, _) = oSession.applySchemaInTx(model)
+            oSession.applyIndicesInTx(indices)
         }
 
         // (1, { v3 } ) != (1, no links)
@@ -408,7 +471,7 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         youTrackDb.withSession { oSession ->
-            oSession.applySchema(model, indexForEverySimpleProperty = false)
+            oSession.applySchemaInTx(model, indexForEverySimpleProperty = false)
         }
 
         val edgeClassName = edgeClassName("ass1")
@@ -441,8 +504,8 @@ class YouTrackDbSchemaInitializerLinkIndicesTest {
         }
 
         youTrackDb.withSession { oSession ->
-            val (indices, _) = oSession.applySchema(model, indexForEverySimpleProperty = false)
-            oSession.applyIndices(indices)
+            val (indices, _) = oSession.applySchemaInTx(model, indexForEverySimpleProperty = false)
+            oSession.applyIndicesInTx(indices)
         }
 
         val edgeClassName = edgeClassName("ass1")

@@ -19,6 +19,7 @@ import YTDBDatabaseProviderFactory
 import com.jetbrains.youtrackdb.api.DatabaseType
 import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
 import com.jetbrains.youtrackdb.internal.core.YouTrackDBEnginesManager
+import com.jetbrains.youtrackdb.internal.core.exception.ConfigurationException
 import com.jetbrains.youtrackdb.internal.core.exception.StorageException
 import jetbrains.exodus.util.toByteArray
 import mu.KLogging
@@ -114,9 +115,16 @@ class EncryptedDBTest(val number: Int) {
             logger.info("As expected DB failed to initialize without key")
         } catch (_: AssertionError) {
             logger.info("As expected DB failed to initialize without key")
+        } catch (_: ConfigurationException) {
+            // Since YTDB 0.5.0-dev-2026-07-29 the un-keyed open of an encrypted database may
+            // also fail on the storage-format-version probe: the version metadata cannot be
+            // decrypted, reads as garbage/<missing> and surfaces as ConfigurationException
+            // ("Storage format version <missing> ... predates the current format").
+            logger.info("As expected DB failed to initialize without key")
         } catch (e: Throwable) {
-            logger.error("DB failed with unexpected error", e)
-            Assert.fail("Wrong error")
+            // SLF4J is NOP in tests: fail with the actual exception as the cause so it is
+            // visible in the test report instead of an opaque "Wrong error".
+            throw AssertionError("Wrong error: $e", e)
         }
     }
 

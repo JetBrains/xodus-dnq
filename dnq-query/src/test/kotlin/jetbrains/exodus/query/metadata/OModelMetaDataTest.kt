@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package jetbrains.exodus.query.metadata
+import YTDBDatabaseProviderFactory
+import com.jetbrains.youtrackdb.api.DatabaseType
 import jetbrains.exodus.entitystore.PersistentEntityId
 
 import jetbrains.exodus.entitystore.youtrackdb.*
@@ -24,7 +26,9 @@ import org.junit.Assert
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -52,6 +56,44 @@ class OModelMetaDataTest : OTestMixin {
         youTrackDb.withSession { session ->
             session.assertVertexClassExists("type1")
             session.assertVertexClassExists("type2")
+        }
+    }
+
+    @Test
+    fun `prepare() works end-to-end on a fresh empty database`() {
+        // XD-1283 / AD1: the classId and per-class localEntityId sequences are created on
+        // independent, immediately-committed side sessions and must be usable (sequence.next()
+        // self-hoists to a pooled session) while the big schema transaction is still open
+        val model = oModel(youTrackDb.provider) {
+            entity("type1") {
+                property("prop1", "int")
+                property("prop2", "string")
+                index("prop1")
+            }
+            entity("type2", "type1")
+            association("type2", "ass1", "type1", AssociationEndCardinality._0_n)
+        }
+
+        model.prepare()
+
+        youTrackDb.withSession { session ->
+            session.assertVertexClassExists("type1")
+            session.assertHasSuperClass("type2", "type1")
+            session.assertAssociationExists("type2", "type1", "ass1", AssociationEndCardinality._0_n)
+            session.checkIndex("type1", true, "prop1")
+        }
+
+        // data operations work on top of the prepared schema:
+        // classIds are assigned, localEntityId sequences are committed and usable
+        val store = YTDBPersistentEntityStore(youTrackDb.provider, youTrackDb.dbName, model)
+        val id = store.computeInTransaction { tx ->
+            val e = tx.newEntity("type2")
+            e.setProperty("prop1", 42)
+            e.id
+        }
+        assertTrue(id.typeId >= 0)
+        store.executeInTransaction { tx ->
+            assertEquals(42, tx.getEntity(id).getProperty("prop1"))
         }
     }
 
@@ -171,6 +213,13 @@ class OModelMetaDataTest : OTestMixin {
         youTrackDb.provider.withSession {
             it.createVertexClassWithClassId("type1")
         }
+        // Bootstrap the type1 schema (localEntityId property, sequences, index) with a
+        // throwaway model - not the model under test, which must stay unprepared here.
+        // Under the default transactionalIndexCreation = false mode the index build runs on
+        // the legacy non-tx fillIndex path, so the ordering vs. data creation is not critical.
+        oModel(youTrackDb.provider, YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)) {
+            entity("type1")
+        }.prepare()
         val entityId = youTrackDb.withStoreTx { tx ->
             tx.newEntity("type1").id
         }
@@ -221,6 +270,13 @@ class OModelMetaDataTest : OTestMixin {
             assertFalse(type2.existsProperty(linkTargetEntityIdPropertyName("ass2")))
         }
 
+        /*
+         * XD-1283 dual-mode index creation: under the default mode
+         * (transactionalIndexCreation = false) a runtime association-add requiring backfill
+         * is DDL tx -> batched backfill txs -> legacy non-tx index creation, which supports
+         * populated classes - so the whole flow succeeds. The in-tx mode's YTDB-1064
+         * contract is covered by the dedicated flag test below.
+         */
         oModel(youTrackDb.provider, YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)) {
             entity("type2") {
                 index(IndexedField("ass2", isProperty = false))
@@ -232,7 +288,8 @@ class OModelMetaDataTest : OTestMixin {
             association("type2", "ass2", "type1", AssociationEndCardinality._0_n)
         }
 
-        // prepare() must have called initializeComplementaryPropertiesForNewIndexedLinks
+        // addAssociation() must have run the complementary-property backfill AND created
+        // the indices over the populated classes
         youTrackDb.withTxSession { session ->
             val tx = session.activeTransaction
             val v11 = tx.loadVertex(id11)
@@ -250,6 +307,95 @@ class OModelMetaDataTest : OTestMixin {
 
             session.checkIndex("type1", true, linkTargetEntityIdPropertyName("ass1"))
             session.checkIndex("type2", true, linkTargetEntityIdPropertyName("ass2"))
+        }
+    }
+
+    @Test
+    fun `with transactionalIndexCreation, addAssociation over populated classes fails with YTDB-1064`() {
+        // XD-1283 dual-mode: the in-tx index mode (transactionalIndexCreation = true) keeps
+        // the documented YTDB-1064 contract - an association-add requiring backfill over
+        // populated classes is three-phase, and the final in-tx index phase fails at commit
+        // (DDL and backfill are committed by then - the accepted class-without-index limbo).
+        assertFalse(youTrackDb.provider.transactionalIndexCreation) // default is legacy non-tx
+
+        oModel(youTrackDb.provider, YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)) {
+            entity("type2")
+            entity("type1")
+            association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+        }
+
+        youTrackDb.withStoreTx { tx ->
+            val v1 = createVertexAndSetLocalEntityId(tx, "type1")
+            val v2 = createVertexAndSetLocalEntityId(tx, "type2")
+            v1.addSimpleEdge("ass1", v2)
+        }
+
+        // a second provider over the same database with the in-tx mode enabled
+        val inTxParams = YTDBDatabaseParams.builder()
+            .withDatabaseType(DatabaseType.MEMORY)
+            .withDatabasePath(youTrackDb.params.databasePath)
+            .withAppUser(youTrackDb.username, youTrackDb.password)
+            .withDatabaseName(youTrackDb.dbName)
+            .withCloseDatabaseInDbProvider(false)
+            .withTransactionalIndexCreation(true)
+            .build()
+        val inTxProvider = YTDBDatabaseProviderFactory.createProvider(inTxParams, youTrackDb.database)
+        assertTrue(inTxProvider.transactionalIndexCreation)
+
+        val e = assertFailsWith<RuntimeException> {
+            oModel(inTxProvider, YTDBSchemaBuddyImpl(inTxProvider, autoInitialize = false)) {
+                entity("type2")
+                entity("type1") {
+                    index(IndexedField("ass1", isProperty = false))
+                }
+                association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+            }
+        }
+        assertTrue(e.message!!.contains("YTDB-1064"))
+    }
+
+    @Test
+    fun `getOrCreateEdgeClass joins the caller transaction if it already carries schema state`() {
+        // XD-1283 AD3 guard, YTDBModelMetaData override: once the caller's transaction has
+        // tx-local schema state (a prior schema write), a same-thread side-session DDL would
+        // fail on the metadata write mutex - so the edge class AND its indices must be
+        // created in the caller's transaction instead (one atomic unit, AD10).
+        // Proof that they joined the caller's transaction: the rollback discards them; a
+        // side-session creation would have been committed immediately and would survive.
+        val model = oModel(youTrackDb.provider) {
+            entity("type1")
+            entity("type2")
+        }
+        model.prepare()
+
+        val edgeClassName = YTDBVertexEntity.edgeClassName("ass1")
+        val linkUniqueIndexName = "${edgeClassName}_in_out_unique"
+
+        youTrackDb.withSession { session ->
+            session.begin()
+            // first schema write: the transaction now carries tx-local schema state
+            session.schema.createVertexClass("guardDummy")
+            assertNotNull(session.txSchemaState)
+
+            val edgeClass = model.getOrCreateEdgeClass(session, "ass1", "type1", "type2")
+            assertTrue(edgeClass.isEdgeType)
+            // the DDL and the link unique index both joined the caller's transaction
+            // (schema.indexExists consults only the committed index manager, so the tx-local
+            // index creation is asserted via the transaction's index overlay)
+            assertNotNull(session.schema.getClass(edgeClassName))
+            assertTrue(session.txSchemaState!!.indexOverlay!!.isTxCreated(linkUniqueIndexName))
+            assertFalse(session.schema.indexExists(linkUniqueIndexName))
+
+            session.rollback()
+
+            // the rollback discarded the edge class, its index and the seed class
+            assertNull(session.schema.getClass(edgeClassName))
+            assertFalse(session.schema.indexExists(linkUniqueIndexName))
+        }
+
+        youTrackDb.withSession { session ->
+            assertNull(session.schema.getClass(edgeClassName))
+            assertNull(session.schema.getClass("guardDummy"))
         }
     }
 

@@ -44,7 +44,12 @@ class OUsersWithInheritanceTestCase(youTrackDB: InMemoryYouTrackDB) {
                 session.getOrCreateVertexClass(Admin.CLASS),
                 session.getOrCreateVertexClass(Agent.CLASS),
             )
-            subclasses.forEach { it.addSuperClass(baseClass) }
+            // the class hierarchy may have been created by a prepared model already
+            subclasses.forEach {
+                if (!it.superClassesNames.contains(BaseUser.CLASS)) {
+                    it.addSuperClass(baseClass)
+                }
+            }
         }
 
         val tx = youTrackDB.store.beginTransaction() as YTDBStoreTransactionImpl

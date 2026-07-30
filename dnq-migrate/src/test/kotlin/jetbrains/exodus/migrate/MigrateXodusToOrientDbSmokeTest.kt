@@ -33,6 +33,9 @@ import kotlin.test.assertTrue
 
 class MigrateXodusToOrientDbSmokeTest {
 
+    // XD-1283: the post-migration prepare() creates indices over the just-migrated committed
+    // data on the legacy non-tx path (transactionalIndexCreation defaults to false until
+    // YTDB-1064 is lifted), so this test runs again.
     @Test
     fun `migrate data and schema from Xodus to OrientDB`() {
 
