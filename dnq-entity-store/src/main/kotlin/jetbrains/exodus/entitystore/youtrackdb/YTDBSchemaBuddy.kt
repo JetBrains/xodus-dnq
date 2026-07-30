@@ -321,19 +321,28 @@ class YTDBSchemaBuddyImpl(
          * cache self-healing instead of poisoned until the process restarts.
          */
         val cached = classIdToOClassId[entityTypeId]
-        if (cached != null && session.schema.getClass(cached.second)?.requireClassId() == entityTypeId) {
+        if (cached != null && session.schema.getClass(cached.second)?.classIdOrNull() == entityTypeId) {
             return cached.second
         }
         val oClass = session.resolveTypeClass(entityTypeId)
-        classIdToOClassId[entityTypeId] = oClass.requireClassId() to oClass.name
+        // The cached pair's first element is the COLLECTION id - the same slot semantics
+        // scanClasses writes and resolveEntityIdOrNull reads (getClassByCollectionId).
+        classIdToOClassId[entityTypeId] = oClass.collectionIds[0] to oClass.name
         return oClass.name
     }
 
     private fun DatabaseSessionEmbedded.resolveTypeClass(entityTypeId: Int): SchemaClass {
         return schema.classes.find { oClass ->
-            oClass.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME)?.toInt() == entityTypeId
+            oClass.classIdOrNull() == entityTypeId
         } ?: throw EntityRemovedInDatabaseException("Invalid type ID $entityTypeId")
     }
+
+    /**
+     * The class's DNQ type id, or null when it has none (edge classes and YTDB's own internal
+     * classes do not). Deliberately null-tolerant: it is used to VALIDATE a cached name, and a
+     * name freed by a rename may since have been taken by a class without a type id.
+     */
+    private fun SchemaClass.classIdOrNull(): Int? = getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME)?.toInt()
 
     override fun requireTypeExists(session: DatabaseSessionEmbedded, entityType: String) {
         val oClass = session.schema.getClass(entityType)

@@ -267,6 +267,35 @@ class YTDBSchemaBuddyTest : OTestMixin {
     }
 
     @Test
+    fun `resolveEntityIdOrNull still resolves entities of a renamed type`() {
+        // The classId -> (collectionId, name) cache is read by resolveEntityIdOrNull as a
+        // COLLECTION id (getClassByCollectionId). getType() must therefore memoize the
+        // collection id, not the classId - otherwise every entity of a type whose cache entry
+        // was (re)populated by getType resolves to null (XD-1283).
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        withSession { session ->
+            session.getOrCreateVertexClass(Issues.CLASS)
+        }
+        val issueId = withStoreTx { tx -> tx.createIssue("trista").id }
+
+        withSession { session ->
+            val tx = session.begin()
+            buddy.renameOClass(session, Issues.CLASS, "RenamedIssue")
+            tx.commit()
+        }
+        // the cache entry for this type is now (re)populated by getType, not by scanClasses
+        withSession { session ->
+            assertEquals("RenamedIssue", buddy.getType(session, issueId.typeId))
+        }
+
+        withTxSession { session ->
+            val resolved = buddy.resolveEntityIdOrNull(session, issueId.typeId, issueId.localId)
+            assertNotNull(resolved)
+            assertEquals(issueId.localId, resolved.localId)
+        }
+    }
+
+    @Test
     fun `a committed drop invalidates the cached class name`() {
         val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
         val typeId = withTxSession { session ->
