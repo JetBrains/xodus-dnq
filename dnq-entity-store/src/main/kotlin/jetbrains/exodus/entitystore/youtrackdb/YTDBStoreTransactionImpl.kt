@@ -666,9 +666,11 @@ class YTDBStoreTransactionImpl(
     }
 
     override fun renameOClass(oldName: String, newName: String) {
-        // The DDL joins this transaction (XD-1283 site 6), so a readonly transaction cannot
-        // carry it: without this check the schema write would be silently discarded (a readonly
-        // transaction is never flushed and always reports itself idempotent).
+        // The DDL joins this transaction (XD-1283 site 6), so a readonly transaction must not
+        // carry it - and nothing below this point would object: neither commit() nor
+        // isIdempotent() (which short-circuits on readOnly) inspects the schema state, so a
+        // readonly transaction would either apply the schema change on commit or drop it
+        // without a trace on abort. Both are wrong; reject it here instead.
         requireActiveWritableTransaction()
         schemaBuddy.renameOClass(activeYtdbSession(), oldName, newName)
     }
