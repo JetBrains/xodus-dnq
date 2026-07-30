@@ -219,6 +219,30 @@ class YTDBSchemaBuddyTest : OTestMixin {
     }
 
     @Test
+    fun `renameOClass and deleteOClass require an active transaction`() {
+        // XD-1283 site 6: both operations now run on the CALLER's session and must never fall
+        // back to a non-transactional schema write.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        withSession { session ->
+            session.schema.createVertexClass("typeToRefactor")
+        }
+
+        withSession { session ->
+            assertFailsWith<IllegalStateException> {
+                buddy.renameOClass(session, "typeToRefactor", "renamedType")
+            }
+            assertFailsWith<IllegalStateException> {
+                buddy.deleteOClass(session, "typeToRefactor")
+            }
+        }
+
+        withSession { session ->
+            assertNotNull(session.schema.getClass("typeToRefactor"))
+            assertNull(session.schema.getClass("renamedType"))
+        }
+    }
+
+    @Test
     fun `require both classId and localEntityId to create an instance`() {
         val typeID = youTrackDb.provider.withSession { oSession ->
             val oClass = oSession.createVertexClassWithClassId("type1")
