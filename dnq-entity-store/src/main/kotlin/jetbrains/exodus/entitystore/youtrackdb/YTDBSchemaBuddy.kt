@@ -281,6 +281,13 @@ class YTDBSchemaBuddyImpl(
         val oClassId = classIdToOClassId[classId]?.first ?: return null
         val schema = session.schema
         val oClass = schema.getClassByCollectionId(oClassId) ?: return null
+        /*
+         * The cached collection id is validated against the class it resolves to: a dropped
+         * class leaves its entry behind, and YTDB reuses collection ids, so an unvalidated hit
+         * can name a class of a completely different type (whose entities would then be handed
+         * out under this type id). Same reasoning as the cache-hit validation in [getType].
+         */
+        if (oClass.classIdOrNull() != classId) return null
 
         val oid = session.activeTransaction
             .query("SELECT FROM ${oClass.name} WHERE $LOCAL_ENTITY_ID_PROPERTY_NAME = ?", localEntityId)

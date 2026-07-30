@@ -296,6 +296,67 @@ class YTDBSchemaBuddyTest : OTestMixin {
     }
 
     @Test
+    fun `a cached name taken over by a class without a type id is re-resolved`() {
+        // The validation of a cache hit must tolerate a class with no DNQ type id (an edge class,
+        // say) sitting under the cached name - that is precisely the case it exists to heal, so
+        // it must not demand a type id from it (XD-1283).
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val otherBuddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToRename").requireClassId()
+        }
+        withSession { session ->
+            assertEquals("typeToRename", buddy.getType(session, typeId))
+        }
+
+        // the rename goes through another schema buddy, so nothing evicts the cached old name
+        withSession { session ->
+            val tx = session.begin()
+            otherBuddy.renameOClass(session, "typeToRename", "renamedType")
+            tx.commit()
+        }
+        // and the freed name is taken over by a class that has no classId at all
+        withSession { session ->
+            session.schema.createEdgeClass("typeToRename")
+        }
+
+        withSession { session ->
+            assertEquals("renamedType", buddy.getType(session, typeId))
+        }
+    }
+
+    @Test
+    fun `resolveEntityIdOrNull does not hand out an entity of a class that reused the collection`() {
+        // A dropped class leaves its cache entry behind, and YTDB hands the freed collection ids
+        // to the next class created - so an unvalidated cache hit resolves to a class of a
+        // completely different type, whose entities would be returned under the dropped type's
+        // id. The cached collection id must be validated against the class it resolves to.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val otherBuddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        withTxSession { session -> session.createVertexClassWithClassId("Doomed") }
+        val doomedId = withStoreTx { tx -> tx.newEntity("Doomed").id }
+        withSession { session ->
+            assertEquals("Doomed", buddy.getType(session, doomedId.typeId))
+        }
+
+        // the drop goes through another schema buddy, so nothing evicts the cached entry
+        withSession { session ->
+            val tx = session.begin()
+            otherBuddy.deleteOClass(session, "Doomed")
+            tx.commit()
+        }
+        // the next class takes over the freed collection ids and gets its own entity with the
+        // same local id
+        withTxSession { session -> session.createVertexClassWithClassId("Newcomer") }
+        val newcomerId = withStoreTx { tx -> tx.newEntity("Newcomer").id }
+        assertEquals(doomedId.localId, newcomerId.localId)
+
+        withTxSession { session ->
+            assertNull(buddy.resolveEntityIdOrNull(session, doomedId.typeId, doomedId.localId))
+        }
+    }
+
+    @Test
     fun `a committed drop invalidates the cached class name`() {
         val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
         val typeId = withTxSession { session ->
