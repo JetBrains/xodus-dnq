@@ -17,6 +17,7 @@ package jetbrains.exodus.query.metadata
 
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Direction
+import com.jetbrains.youtrackdb.internal.core.exception.SchemaException
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Edge
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
@@ -336,7 +337,17 @@ internal class YouTrackDbSchemaInitializer(
         val className = YTDBVertexEntity.edgeClassName(name)
         var oClass: SchemaClass? = schema.getClass(className)
         if (oClass == null) {
-            oClass = oSession.schema.createEdgeClass(className)!!
+            /*
+             * Concurrent-creation race tolerance (XD-1283): another session may commit the
+             * same class between the existence check and createEdgeClass. The metadata write
+             * mutex serializes schema transactions, so the loser's tx-local schema copy is
+             * seeded after the winner's commit and the re-check sees the winner's class.
+             */
+            oClass = try {
+                oSession.schema.createEdgeClass(className)!!
+            } catch (e: SchemaException) {
+                schema.getClass(className) ?: throw e
+            }
             append(", edge class created")
         } else {
             append(", edge class already created")
@@ -716,7 +727,12 @@ internal class YouTrackDbSchemaInitializer(
             getProperty(propertyName)
         } else {
             append(", created")
-            createProperty(propertyName, oType)
+            // concurrent-creation race tolerance (XD-1283) - see createEdgeClassIfAbsent
+            try {
+                createProperty(propertyName, oType)
+            } catch (e: SchemaException) {
+                if (existsProperty(propertyName)) getProperty(propertyName) else throw e
+            }
         }
         if (oType == PropertyType.STRING) {
             if (oProperty.collate.name == CaseInsensitiveCollate.NAME) {
@@ -749,7 +765,12 @@ internal class YouTrackDbSchemaInitializer(
             getProperty(propertyName)
         } else {
             append(", created")
-            createProperty(propertyName, PropertyType.LINKBAG)
+            // concurrent-creation race tolerance (XD-1283) - see createEdgeClassIfAbsent
+            try {
+                createProperty(propertyName, PropertyType.LINKBAG)
+            } catch (e: SchemaException) {
+                if (existsProperty(propertyName)) getProperty(propertyName) else throw e
+            }
         }
         require(oProperty.type == PropertyType.LINKBAG) {
             "$propertyName type is ${oProperty.type} but ${PropertyType.LINKBAG} was expected instead. Types migration is not supported."
@@ -767,7 +788,12 @@ internal class YouTrackDbSchemaInitializer(
             getProperty(propertyName)
         } else {
             append(", created")
-            createProperty(propertyName, PropertyType.EMBEDDEDSET, oType)
+            // concurrent-creation race tolerance (XD-1283) - see createEdgeClassIfAbsent
+            try {
+                createProperty(propertyName, PropertyType.EMBEDDEDSET, oType)
+            } catch (e: SchemaException) {
+                if (existsProperty(propertyName)) getProperty(propertyName) else throw e
+            }
         }
         if (oType == PropertyType.STRING) {
             if (oProperty.collate.name == CaseInsensitiveCollate.NAME) {

@@ -16,15 +16,12 @@
 package jetbrains.exodus.query.metadata
 
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import jetbrains.exodus.entitystore.youtrackdb.withTx as sessionWithTx
 
-fun <R> DatabaseSessionEmbedded.withTx(block: (DatabaseSessionEmbedded) -> R): R {
-    val tx = this.begin()
-    try {
-        val result = block(this)
-        tx.commit()
-        return result
-    } catch(e: Throwable) {
-        tx.rollback()
-        throw e
-    }
-}
+/**
+ * The canonical implementation lives in `jetbrains.exodus.entitystore.youtrackdb.withTx`
+ * (dnq-entity-store) so that the schema-buddy layer can use it too (XD-1283); this delegate
+ * is kept for existing callers of the `jetbrains.exodus.query.metadata` package.
+ */
+fun <R> DatabaseSessionEmbedded.withTx(block: (DatabaseSessionEmbedded) -> R): R =
+    sessionWithTx(block)

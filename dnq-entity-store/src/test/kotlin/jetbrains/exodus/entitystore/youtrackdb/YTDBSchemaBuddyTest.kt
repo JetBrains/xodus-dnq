@@ -24,6 +24,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CyclicBarrier
+import kotlin.concurrent.thread
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -141,6 +144,77 @@ class YTDBSchemaBuddyTest : OTestMixin {
         // the changes made in the transaction are still there
         withStoreTx { tx ->
             assertNotNull(tx.getVertex(issId))
+        }
+    }
+
+    @Test
+    fun `concurrent getOrCreateEdgeClass calls for the same link both succeed`() {
+        // XD-1283 site-4 concurrent-creation race: two sessions may both find the edge class
+        // absent and both attempt to create it; the single-permit metadata write mutex
+        // serializes the side transactions, so the loser's createEdgeClass throws
+        // "already exists" - it must be caught, re-checked and both callers must succeed
+        // with the same class. Repeated to give the race window a decent chance to be hit;
+        // the contract holds for every interleaving.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+
+        repeat(10) { i ->
+            val linkName = "racyLink$i"
+            val barrier = CyclicBarrier(2)
+            val errors = ConcurrentLinkedQueue<Throwable>()
+
+            val threads = (1..2).map {
+                thread {
+                    try {
+                        youTrackDb.provider.withSession { session ->
+                            barrier.await()
+                            val edgeClass =
+                                buddy.getOrCreateEdgeClass(session, linkName, "issue", "issue")
+                            assertTrue(edgeClass.isEdgeType)
+                        }
+                    } catch (t: Throwable) {
+                        errors.add(t)
+                    }
+                }
+            }
+            threads.forEach { it.join() }
+
+            assertTrue(errors.isEmpty(), "concurrent getOrCreateEdgeClass failed: $errors")
+            withSession { session ->
+                val edgeClass = session.schema.getClass(YTDBVertexEntity.edgeClassName(linkName))
+                assertNotNull(edgeClass)
+                assertTrue(edgeClass.isEdgeType)
+            }
+        }
+    }
+
+    @Test
+    fun `getOrCreateEdgeClass joins the caller transaction if it already carries schema state`() {
+        // XD-1283 AD3 guard: once the caller's transaction has tx-local schema state (a prior
+        // schema write), a same-thread side-session DDL would fail on the metadata write
+        // mutex - so the edge class must be created in the caller's transaction instead.
+        // Proof that it joined the caller's transaction: the rollback discards it; a
+        // side-session creation would have been committed immediately and would survive.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val edgeClassName = YTDBVertexEntity.edgeClassName("guardedLink")
+
+        withSession { session ->
+            session.begin()
+            // first schema write: the transaction now carries tx-local schema state
+            session.schema.createVertexClass("guardedType")
+            assertNotNull(session.txSchemaState)
+
+            val edgeClass = buddy.getOrCreateEdgeClass(session, "guardedLink", "guardedType", "guardedType")
+            assertTrue(edgeClass.isEdgeType)
+
+            session.rollback()
+
+            // the rollback discarded the edge class along with the rest of the tx-local schema
+            assertNull(session.schema.getClass(edgeClassName))
+        }
+
+        withSession { session ->
+            assertNull(session.schema.getClass(edgeClassName))
+            assertNull(session.schema.getClass("guardedType"))
         }
     }
 
