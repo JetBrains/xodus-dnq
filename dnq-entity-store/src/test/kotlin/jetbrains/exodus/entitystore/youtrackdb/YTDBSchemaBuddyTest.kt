@@ -357,7 +357,7 @@ class YTDBSchemaBuddyTest : OTestMixin {
     }
 
     @Test
-    fun `a committed drop invalidates the cached class name`() {
+    fun `a cached class name is not served after the class was dropped`() {
         val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
         val typeId = withTxSession { session ->
             session.createVertexClassWithClassId("typeToDrop").requireClassId()
@@ -404,9 +404,9 @@ class YTDBSchemaBuddyTest : OTestMixin {
     }
 
     @Test
-    fun `a committed rename invalidates the cached class name`() {
-        // The cache is primed with the old name before the rename, so the rename must evict it -
-        // otherwise getType() keeps reporting a name that no longer exists (XD-1283 site 6).
+    fun `a cached class name is not served after the class was renamed`() {
+        // The cache is primed with the old name before the rename, so getType() must not keep
+        // reporting a name that no longer exists (XD-1283 site 6).
         val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
         val typeId = withTxSession { session ->
             session.createVertexClassWithClassId("typeToRename").requireClassId()

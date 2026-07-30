@@ -145,7 +145,6 @@ class YTDBSchemaBuddyImpl(
         val oldClass = session.schema.getClass(oldName)
             ?: throw IllegalArgumentException("Class $oldName not found")
         oldClass.setName(newName)
-        evictCachedClassName(oldName)
     }
 
     /**
@@ -156,7 +155,6 @@ class YTDBSchemaBuddyImpl(
         session.requireTxForDDL("deleteOClass")
         if (session.schema.getClass(name) != null) {
             session.schema.dropClass(name)
-            evictCachedClassName(name)
         }
     }
 
@@ -167,19 +165,6 @@ class YTDBSchemaBuddyImpl(
         }
     }
 
-    /**
-     * Drops the classId -> (collectionId, name) cache entry of a class whose name is about to
-     * change or disappear.
-     *
-     * The eviction alone cannot be relied upon: the DDL rides the caller's transaction
-     * (XD-1283 site 6), so a concurrent [getType] between this call and the commit legitimately
-     * re-caches the name that is still committed at that moment, and nothing would evict it
-     * again. [getType] therefore validates a cache hit against the schema instead of trusting
-     * it; this eviction only shortens the life of an entry that is already known to be doomed.
-     */
-    private fun evictCachedClassName(className: String) {
-        classIdToOClassId.entries.removeIf { (_, value) -> value.second == className }
-    }
 
     override fun getOrCreateEdgeClass(
         session: DatabaseSessionEmbedded,
@@ -321,11 +306,13 @@ class YTDBSchemaBuddyImpl(
             return session.resolveTypeClass(entityTypeId).name
         }
         /*
-         * A cache hit is validated against the schema rather than trusted (XD-1283): a rename
-         * or a drop that commits in some other transaction can leave a cached name behind - the
-         * eviction at the DDL site cannot cover an entry re-cached between that DDL and its
-         * commit. The validation is a name lookup in the schema's own map, and it keeps the
-         * cache self-healing instead of poisoned until the process restarts.
+         * A cache hit is validated against the schema rather than trusted (XD-1283): a rename or
+         * a drop leaves a cached name behind, and no eviction can cover that reliably - the DDL
+         * rides a transaction, so a concurrent lookup between the DDL and its commit would just
+         * re-cache the name that is still committed at that moment. Validating on read keeps the
+         * cache self-healing instead of poisoned until the process restarts, and it never turns a
+         * live entry into a miss (which is what evicting did: a miss makes
+         * resolveEntityIdOrNull give up on entities that do exist).
          */
         val cached = classIdToOClassId[entityTypeId]
         if (cached != null && session.schema.getClass(cached.second)?.classIdOrNull() == entityTypeId) {
