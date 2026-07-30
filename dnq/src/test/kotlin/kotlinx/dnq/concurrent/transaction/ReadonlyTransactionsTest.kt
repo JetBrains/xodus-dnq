@@ -74,11 +74,17 @@ class ReadonlyTransactionsTest : DBTest() {
     }
 
     @Test
-    fun `WD-2051 Nested transactional block is still read only`() {
-        transactional(readonly = true) {
-            transactional {
+    fun `WD-2051 Nested plain transactional block suspends into an independent committing transaction`() {
+        transactional(readonly = true) { outer ->
+            transactional { inner ->
+                assertThat(inner).isNotSameInstanceAs(outer)
                 Something.all().first().i1 = 1729
             }
+            // the outer session remains readonly after the inner block commits
+            assertThat(outer.isReadonly).isTrue()
+        }
+        transactional {
+            assertThat(Something.all().toList().count { it.i1 == 1729 }).isEqualTo(1)
         }
     }
 

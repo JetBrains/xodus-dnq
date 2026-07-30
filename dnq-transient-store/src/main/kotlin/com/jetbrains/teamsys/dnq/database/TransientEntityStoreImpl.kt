@@ -91,7 +91,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         queryCancellingPolicy: QueryCancellingPolicy?,
         block: (TransientStoreSession) -> T
     ): T = TransientEntityStoreExt.transactional(
-        this, isNew, queryCancellingPolicy, block
+        this, readonly, isNew, queryCancellingPolicy, block
     )
 
     override fun beginTransaction(): StoreTransaction {
@@ -103,6 +103,22 @@ open class TransientEntityStoreImpl : TransientEntityStore {
     }
 
     override fun beginReadonlyTransaction(): TransientStoreSession {
+        assertOpen()
+
+        logger.debug { "Begin new readonly session" }
+
+        val currentSession = this.currentSession.get()
+        if (currentSession != null) {
+            if ((currentSession as? TransientSessionImpl)?.requestedReadonly == true) {
+                logger.debug { "Return readonly session already associated with the current thread $currentSession" }
+                return currentSession
+            }
+            // never hand out a writable session to a readonly request
+            throw IllegalStateException(
+                "A non-readonly session is already associated with the current thread: $currentSession"
+            )
+        }
+
         return registerStoreSession(TransientSessionImpl(this, readonly = true))
     }
 

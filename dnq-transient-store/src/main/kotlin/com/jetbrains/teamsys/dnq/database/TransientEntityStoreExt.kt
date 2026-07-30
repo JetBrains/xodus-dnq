@@ -23,17 +23,26 @@ import mu.KLogging
 internal object TransientEntityStoreExt : KLogging() {
     fun <T> transactional(
         store: TransientEntityStore,
+        readonly: Boolean = false,
         isNew: Boolean = false,
         queryCancellingPolicy: QueryCancellingPolicy? = null,
         block: (TransientStoreSession) -> T
     ): T {
         val currentSession = store.threadSession
         return when {
-            currentSession == null -> startNewAndRun(store, queryCancellingPolicy, block)
-            isNew -> suspendAndRun(store, queryCancellingPolicy, block)
+            currentSession == null -> startNewAndRun(store, readonly, queryCancellingPolicy, block)
+            isNew || currentSession.requestedReadonly != readonly ->
+                suspendAndRun(store, readonly, queryCancellingPolicy, block)
             else -> block(currentSession)
         }
     }
+
+    /**
+     * The readonly-ness the session was requested with, as opposed to [TransientStoreSession.isReadonly],
+     * which also flips to `true` when a session becomes quiescent after `flush()`/`revert()`.
+     */
+    private val TransientStoreSession.requestedReadonly: Boolean
+        get() = (this as? TransientSessionImpl)?.requestedReadonly ?: this.isReadonly
 
     /**
      * Runs [block] in a new independent transaction while an outer transaction is active on the current thread.
@@ -46,12 +55,13 @@ internal object TransientEntityStoreExt : KLogging() {
      */
     private fun <T> suspendAndRun(
         store: TransientEntityStore,
+        readonly: Boolean,
         queryCancellingPolicy: QueryCancellingPolicy?,
         block: (TransientStoreSession) -> T
     ): T {
         return store.withSuspendedSession {
             store.persistentStore.withSuspendedTransaction {
-                startNewAndRun(store, queryCancellingPolicy, block)
+                startNewAndRun(store, readonly, queryCancellingPolicy, block)
             }
         }
     }
@@ -62,11 +72,12 @@ internal object TransientEntityStoreExt : KLogging() {
      */
     private fun <T> startNewAndRun(
         store: TransientEntityStore,
+        readonly: Boolean,
         queryCancellingPolicy: QueryCancellingPolicy?,
         block: (TransientStoreSession) -> T
     ): T {
         try {
-            val newSession = store.beginSession(queryCancellingPolicy)
+            val newSession = store.beginSession(readonly, queryCancellingPolicy)
             var wasEx = true
             try {
                 val result = block(newSession)
@@ -88,9 +99,14 @@ internal object TransientEntityStoreExt : KLogging() {
     }
 
     private fun TransientEntityStore.beginSession(
+        readonly: Boolean,
         queryCancellingPolicy: QueryCancellingPolicy?
     ): TransientStoreSession {
-        val transaction = this.beginSession()
+        val transaction = if (readonly) {
+            this.beginReadonlyTransaction()
+        } else {
+            this.beginSession()
+        }
         return try {
             // Exception could be thrown due to race condition in inited ServiceLocator
             if (queryCancellingPolicy != null) {
