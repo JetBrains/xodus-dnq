@@ -666,10 +666,15 @@ class YTDBStoreTransactionImpl(
     }
 
     override fun renameOClass(oldName: String, newName: String) {
+        // The DDL joins this transaction (XD-1283 site 6), so a readonly transaction cannot
+        // carry it: without this check the schema write would be silently discarded (a readonly
+        // transaction is never flushed and always reports itself idempotent).
+        requireActiveWritableTransaction()
         schemaBuddy.renameOClass(activeYtdbSession(), oldName, newName)
     }
 
     override fun deleteOClass(entityTypeName: String) {
+        requireActiveWritableTransaction()
         schemaBuddy.deleteOClass(activeYtdbSession(), entityTypeName)
     }
 

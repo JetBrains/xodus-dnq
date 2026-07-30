@@ -123,6 +123,27 @@ class OPersistentStoreTest : OTestMixin {
     }
 
     @Test
+    fun `renameEntityType and deleteEntityType are rejected in a readonly transaction`() {
+        // XD-1283 site 6: the DDL rides the caller's transaction, and a readonly transaction is
+        // never flushed - accepting the schema write there would discard it silently.
+        youTrackDb.createIssue("trista")
+        val store = youTrackDb.store
+
+        val tx = store.beginReadonlyTransaction()
+        try {
+            assertFailsWith<IllegalStateException> { store.renameEntityType(CLASS, "NewName") }
+            assertFailsWith<IllegalStateException> { store.deleteEntityType(CLASS) }
+        } finally {
+            tx.abort()
+        }
+
+        youTrackDb.withSession { session ->
+            Assert.assertNotNull(session.schema.getClass(CLASS))
+            assertNull(session.schema.getClass("NewName"))
+        }
+    }
+
+    @Test
     fun `deleteEntityType is discarded when the transaction is rolled back`() {
         // XD-1283 site 6: same contract as the rename - the class drop rides the caller's
         // transaction and disappears with it.

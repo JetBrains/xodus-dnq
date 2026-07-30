@@ -145,6 +145,7 @@ class YTDBSchemaBuddyImpl(
         val oldClass = session.schema.getClass(oldName)
             ?: throw IllegalArgumentException("Class $oldName not found")
         oldClass.setName(newName)
+        evictCachedClassName(oldName)
     }
 
     /**
@@ -153,9 +154,9 @@ class YTDBSchemaBuddyImpl(
      */
     override fun deleteOClass(session: DatabaseSessionEmbedded, name: String) {
         session.requireTxForDDL("deleteOClass")
-        val targetClass = session.schema.getClass(name)
-        if (targetClass != null) {
+        if (session.schema.getClass(name) != null) {
             session.schema.dropClass(name)
+            evictCachedClassName(name)
         }
     }
 
@@ -164,6 +165,21 @@ class YTDBSchemaBuddyImpl(
             "$operation requires an active transaction: schema operations must run in " +
                     "transactional context (XD-1283)"
         }
+    }
+
+    /**
+     * Drops the classId -> (collectionId, name) cache entry of a class whose name is about to
+     * change or disappear.
+     *
+     * Since the DDL rides the caller's transaction (XD-1283 site 6), the cached name is stale
+     * only once that transaction commits - but evicting eagerly is correct for both outcomes:
+     * the entry is re-resolved from the schema on the next miss, which is the committed schema
+     * after a rollback and the new one after a commit. It does not fully close the window: a
+     * concurrent [getType] miss between this eviction and the commit re-caches the still
+     * committed old name (bounded by the next miss after the commit).
+     */
+    private fun evictCachedClassName(className: String) {
+        classIdToOClassId.entries.removeIf { (_, value) -> value.second == className }
     }
 
     override fun getOrCreateEdgeClass(
@@ -288,6 +304,16 @@ class YTDBSchemaBuddyImpl(
         session: DatabaseSessionEmbedded,
         entityTypeId: Int
     ): String {
+        /*
+         * Never memoize a name resolved from a tx-local schema (XD-1283): once the caller's
+         * transaction has written schema (site 6 rename/deleteOClass joined it), schema reads
+         * on that session resolve its uncommitted tx-local copy. Caching that name would
+         * outlive a rollback and poison every later lookup - so this resolution stays local to
+         * the transaction that can see it.
+         */
+        if (session.txSchemaState != null) {
+            return session.resolveTypeName(entityTypeId)
+        }
         val (_, typeName) = classIdToOClassId.computeIfAbsent(entityTypeId) {
             val oClass = session.schema.classes.find { oClass ->
                 oClass.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME)?.toInt() == entityTypeId
@@ -295,6 +321,13 @@ class YTDBSchemaBuddyImpl(
             oClass.requireClassId() to oClass.name
         }
         return typeName
+    }
+
+    private fun DatabaseSessionEmbedded.resolveTypeName(entityTypeId: Int): String {
+        val oClass = schema.classes.find { oClass ->
+            oClass.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME)?.toInt() == entityTypeId
+        } ?: throw EntityRemovedInDatabaseException("Invalid type ID $entityTypeId")
+        return oClass.name
     }
 
     override fun requireTypeExists(session: DatabaseSessionEmbedded, entityType: String) {

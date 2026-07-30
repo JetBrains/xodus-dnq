@@ -243,6 +243,52 @@ class YTDBSchemaBuddyTest : OTestMixin {
     }
 
     @Test
+    fun `a rolled back rename does not poison the classId to name cache`() {
+        // XD-1283 site 6: the rename rides the caller's transaction, so schema reads on that
+        // session resolve the uncommitted tx-local name. getType() must not memoize it - a
+        // cached tx-local name would survive the rollback and mis-resolve the type forever.
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToRename").requireClassId()
+        }
+
+        withSession { session ->
+            session.begin()
+            buddy.renameOClass(session, "typeToRename", "renamedType")
+            // resolving the type inside the renaming transaction sees the tx-local name
+            assertEquals("renamedType", buddy.getType(session, typeId))
+            session.rollback()
+        }
+
+        withSession { session ->
+            assertEquals("typeToRename", buddy.getType(session, typeId))
+        }
+    }
+
+    @Test
+    fun `a committed rename invalidates the cached class name`() {
+        // The cache is primed with the old name before the rename, so the rename must evict it -
+        // otherwise getType() keeps reporting a name that no longer exists (XD-1283 site 6).
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToRename").requireClassId()
+        }
+        withSession { session ->
+            assertEquals("typeToRename", buddy.getType(session, typeId))
+        }
+
+        withSession { session ->
+            val tx = session.begin()
+            buddy.renameOClass(session, "typeToRename", "renamedType")
+            tx.commit()
+        }
+
+        withSession { session ->
+            assertEquals("renamedType", buddy.getType(session, typeId))
+        }
+    }
+
+    @Test
     fun `require both classId and localEntityId to create an instance`() {
         val typeID = youTrackDb.provider.withSession { oSession ->
             val oClass = oSession.createVertexClassWithClassId("type1")
