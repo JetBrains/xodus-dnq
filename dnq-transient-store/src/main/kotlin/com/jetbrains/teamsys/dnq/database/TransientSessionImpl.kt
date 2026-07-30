@@ -41,9 +41,31 @@ internal const val PARENT_TO_CHILD_LINK_NAME = "__PARENT_TO_CHILD_LINK_NAME__"
 
 class TransientSessionImpl(
     private val store: TransientEntityStoreImpl,
-    private var readonly: Boolean,
+    readonly: Boolean,
 ) : TransientStoreSession, SessionQueryMixin {
     companion object : KLogging()
+
+    /**
+     * Whether this session was explicitly requested as readonly — the caller's contract.
+     *
+     * Immutable, unlike the lifecycle-state [readonly] flag. Requested-readonly sessions
+     * reject write attempts with [ReadonlyTransactionException] and keep their persistent
+     * transaction readonly.
+     */
+    val requestedReadonly: Boolean = readonly
+
+    /**
+     * Lifecycle state: whether the cheap read-only changes tracker is currently installed,
+     * i.e. the session is "quiescent" (writable tracker allocation is deferred until the
+     * first write). Starts as the constructor's requested value; flips to `false` on the
+     * first tracked write via [upgradeReadonlyTransactionIfNecessary] (tracker upgraded to
+     * writable); flips back to `true` after [flush]/[revert] (changes gone, read-only
+     * tracker reinstalled). NOT the caller's contract — see [requestedReadonly]: a plain
+     * writable session looks `readonly=true` right after a flush. Also NOT "no pending
+     * changes": a requested-readonly session can have queued changes (findOrNew
+     * found-branch) while this stays `true`. Backs the public [isReadonly].
+     */
+    private var readonly: Boolean = readonly
 
     init {
         if (store.modelMetaData?.entitiesMetaData?.firstOrNull() == null) {
@@ -77,7 +99,7 @@ class TransientSessionImpl(
         get() = state == State.Aborted
 
     override var transactionInternal: StoreTransaction =
-        this.store.persistentStore.beginTransaction()
+        beginPersistentTransaction()
         get() {
             assertOpen("get persistent transaction")
             return field
@@ -99,6 +121,18 @@ class TransientSessionImpl(
 
     private val persistentStore: PersistentEntityStore
         get() = store.persistentStore
+
+    /**
+     * Opens a new persistent transaction; readonly if this session was requested as readonly
+     * (defense-in-depth: YTDB's writable-transaction check backstops raw entity-layer writes
+     * that bypass DNQ change tracking).
+     */
+    private fun beginPersistentTransaction(): StoreTransaction =
+        if (requestedReadonly) {
+            store.persistentStore.beginReadonlyTransaction()
+        } else {
+            store.persistentStore.beginTransaction()
+        }
 
     private fun initChangesTracker(readonly: Boolean) {
         transientChangesTracker.dispose()
@@ -129,16 +163,14 @@ class TransientSessionImpl(
 
     internal fun upgradeReadonlyTransactionIfNecessary() {
         if (readonly) {
-            readonly = false
-            val persistentStore = persistentStore
-            //TODO this check was targeted to envConfig
-            if (persistentStore.currentTransaction?.isReadonly != true) {
-                upgradeHook?.run()
-//                persistentStore.registerTransaction(newTxn)
-                changesTracker = this.transientChangesTracker.upgrade()
-            } else {
+            // Throw before any state mutation so that catch-and-continue leaves the session
+            // consistent (no readonly=false flip, no changes-tracker swap on the throw path).
+            if (requestedReadonly || persistentStore.currentTransaction?.isReadonly == true) {
                 throw ReadonlyTransactionException()
             }
+            readonly = false
+            upgradeHook?.run()
+            changesTracker = this.transientChangesTracker.upgrade()
         }
     }
 
@@ -171,12 +203,10 @@ class TransientSessionImpl(
         logger.debug("Revert transient session {}", this)
         assertOpen("revert")
 
-        if (!transactionInternal.isReadonly) {
-            loadedIds = EntityIdSetFactory.newSet()
-            entitiesUpdater.clear()
-        }
+        loadedIds = EntityIdSetFactory.newSet()
+        entitiesUpdater.clear()
         closePersistentSession()
-        transactionInternal = this.store.persistentStore.beginTransaction()
+        transactionInternal = beginPersistentTransaction()
         this.readonly = true
         initChangesTracker(readonly = true)
     }
@@ -199,7 +229,7 @@ class TransientSessionImpl(
 
             val oldChangesTracker = transientChangesTracker
             closePersistentSession()
-            this.transactionInternal = this.store.persistentStore.beginTransaction()
+            this.transactionInternal = beginPersistentTransaction()
             this.changesTracker = ReadOnlyTransientChangesTrackerImpl()
             //all changes were already flushed
             this.readonly = true
@@ -240,8 +270,13 @@ class TransientSessionImpl(
                         replaying = true
                         logger.debug(nre) { "Replaying changes: ${nre.message}" }
 
+                        // Replay is a write path. A requested-readonly session must never reach it
+                        // (its flush is idempotent and returns before flushing); keep the invariant
+                        // explicit instead of silently opening a writable transaction.
+                        if (requestedReadonly) throw ReadonlyTransactionException()
+
                         // replay changes
-                        transactionInternal = this.store.persistentStore.beginTransaction()
+                        transactionInternal = beginPersistentTransaction()
                         transientChangesTracker.changedEntities.forEach {
                             it.resetIfNew()
                             it.generateIdIfNew()
