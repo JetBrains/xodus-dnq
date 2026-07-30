@@ -115,6 +115,11 @@ class SchemaRefactoringTest : DBTest() {
         // transient changes at all. The queued-changes check alone would skip the flush and
         // have closePersistentSession() abort the DDL. This is the shape of the AD3 guard
         // branch, where schema operations join the caller's transaction directly.
+        //
+        // Calling the persistent store directly is a mechanism stand-in for that shape, not a
+        // supported application API: unlike the refactorings, such DDL is not in the replay
+        // queue, so a NeedRetryException replay would silently drop it (the AD3 guard branch
+        // itself is replay-safe - it is re-entered from the replayed change closures).
         transactional {
             persistentStore.renameEntityType(Image.entityType, "RenamedImage")
         }

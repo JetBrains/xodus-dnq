@@ -17,6 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
+import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues
 import jetbrains.exodus.entitystore.youtrackdb.testutil.OTestMixin
@@ -262,6 +263,53 @@ class YTDBSchemaBuddyTest : OTestMixin {
 
         withSession { session ->
             assertEquals("typeToRename", buddy.getType(session, typeId))
+        }
+    }
+
+    @Test
+    fun `a committed drop invalidates the cached class name`() {
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToDrop").requireClassId()
+        }
+        withSession { session ->
+            assertEquals("typeToDrop", buddy.getType(session, typeId))
+        }
+
+        withSession { session ->
+            val tx = session.begin()
+            buddy.deleteOClass(session, "typeToDrop")
+            tx.commit()
+        }
+
+        withSession { session ->
+            assertFailsWith<EntityRemovedInDatabaseException> { buddy.getType(session, typeId) }
+        }
+    }
+
+    @Test
+    fun `a cached class name renamed by another session is not served from the cache`() {
+        // The eviction at the DDL site cannot cover an entry re-cached between the DDL and its
+        // commit, so a cache hit must be validated against the schema (XD-1283).
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val otherBuddy = YTDBSchemaBuddyImpl(youTrackDb.provider)
+        val typeId = withTxSession { session ->
+            session.createVertexClassWithClassId("typeToRename").requireClassId()
+        }
+        withSession { session ->
+            assertEquals("typeToRename", buddy.getType(session, typeId))
+        }
+
+        // another schema buddy (i.e. another cache) commits the rename: nothing evicts the
+        // first buddy's entry
+        withSession { session ->
+            val tx = session.begin()
+            otherBuddy.renameOClass(session, "typeToRename", "renamedType")
+            tx.commit()
+        }
+
+        withSession { session ->
+            assertEquals("renamedType", buddy.getType(session, typeId))
         }
     }
 

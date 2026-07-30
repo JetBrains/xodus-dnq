@@ -171,12 +171,11 @@ class YTDBSchemaBuddyImpl(
      * Drops the classId -> (collectionId, name) cache entry of a class whose name is about to
      * change or disappear.
      *
-     * Since the DDL rides the caller's transaction (XD-1283 site 6), the cached name is stale
-     * only once that transaction commits - but evicting eagerly is correct for both outcomes:
-     * the entry is re-resolved from the schema on the next miss, which is the committed schema
-     * after a rollback and the new one after a commit. It does not fully close the window: a
-     * concurrent [getType] miss between this eviction and the commit re-caches the still
-     * committed old name (bounded by the next miss after the commit).
+     * The eviction alone cannot be relied upon: the DDL rides the caller's transaction
+     * (XD-1283 site 6), so a concurrent [getType] between this call and the commit legitimately
+     * re-caches the name that is still committed at that moment, and nothing would evict it
+     * again. [getType] therefore validates a cache hit against the schema instead of trusting
+     * it; this eviction only shortens the life of an entry that is already known to be doomed.
      */
     private fun evictCachedClassName(className: String) {
         classIdToOClassId.entries.removeIf { (_, value) -> value.second == className }
@@ -312,22 +311,28 @@ class YTDBSchemaBuddyImpl(
          * the transaction that can see it.
          */
         if (session.txSchemaState != null) {
-            return session.resolveTypeName(entityTypeId)
+            return session.resolveTypeClass(entityTypeId).name
         }
-        val (_, typeName) = classIdToOClassId.computeIfAbsent(entityTypeId) {
-            val oClass = session.schema.classes.find { oClass ->
-                oClass.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME)?.toInt() == entityTypeId
-            } ?: throw EntityRemovedInDatabaseException("Invalid type ID $entityTypeId")
-            oClass.requireClassId() to oClass.name
+        /*
+         * A cache hit is validated against the schema rather than trusted (XD-1283): a rename
+         * or a drop that commits in some other transaction can leave a cached name behind - the
+         * eviction at the DDL site cannot cover an entry re-cached between that DDL and its
+         * commit. The validation is a name lookup in the schema's own map, and it keeps the
+         * cache self-healing instead of poisoned until the process restarts.
+         */
+        val cached = classIdToOClassId[entityTypeId]
+        if (cached != null && session.schema.getClass(cached.second)?.requireClassId() == entityTypeId) {
+            return cached.second
         }
-        return typeName
+        val oClass = session.resolveTypeClass(entityTypeId)
+        classIdToOClassId[entityTypeId] = oClass.requireClassId() to oClass.name
+        return oClass.name
     }
 
-    private fun DatabaseSessionEmbedded.resolveTypeName(entityTypeId: Int): String {
-        val oClass = schema.classes.find { oClass ->
+    private fun DatabaseSessionEmbedded.resolveTypeClass(entityTypeId: Int): SchemaClass {
+        return schema.classes.find { oClass ->
             oClass.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME)?.toInt() == entityTypeId
         } ?: throw EntityRemovedInDatabaseException("Invalid type ID $entityTypeId")
-        return oClass.name
     }
 
     override fun requireTypeExists(session: DatabaseSessionEmbedded, entityType: String) {
