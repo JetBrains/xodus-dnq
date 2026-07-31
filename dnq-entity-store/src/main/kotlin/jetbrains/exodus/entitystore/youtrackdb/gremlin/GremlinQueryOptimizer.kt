@@ -19,6 +19,18 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.*
 
 private fun extractLabel(q: GremlinQuery): String? = if (q is Labeled) q.label else null
 
+/**
+ * Would appending a `HasLabel` onto [base] place two `hasLabel` steps next to each other?
+ *
+ * TinkerPop's `InlineFilterStrategy` merges consecutive `HasStep`s into one multi-predicate step,
+ * which `YTDBHasLabelStep` evaluates with `anyMatch` — i.e. as OR — so an adjacent pair of labels
+ * silently widens the query (the O19 defect). [base] ends in a label exactly when the block that
+ * was just appended to it is a `HasLabel` (`then(HasLabel)` dispatches to `Labeled.of`); both forms
+ * are checked so the guard stays correct if either side of that equivalence changes.
+ */
+private fun labelWouldBeAdjacent(base: GremlinQuery, appendedBlock: GremlinBlock): Boolean =
+    base is Labeled || appendedBlock is GremlinBlock.HasLabel
+
 // O19: extend extractCondition to handle Labeled(Labeled(Where(All), T1), T2).
 //
 // This double-label pattern arises when a query targets an entity that participates in a
@@ -313,6 +325,18 @@ internal fun GremlinQuery.combineEfficient(
     // merges consecutive HasStep objects; YTDBHasLabelStep evaluates multiple predicates with
     // anyMatch (OR), so sibling types under T2 incorrectly pass.  We detect this by checking for
     // a non-null extraLabel and fall through to Aggregate instead.
+    //
+    // Unlabeled-link-side repair: `extractCondition` strips the condition operand's Labeled
+    // wrapper, so when the LINK operand carries no label of its own the fused `base` ends up with
+    // no hasLabel at all and the condition operand's type filter is silently lost.  Edge classes
+    // are named `<linkName>_link` only (YTDBVertexEntity.edgeClassName) — they are type-agnostic —
+    // so `in("l_link")` yields every source type that has an `l` link, and the missing hasLabel is
+    // a real over-approximation, not a cosmetic loss.  The bare-FollowLink operand shape is
+    // produced by `selectMany`/`selectManyDistinct` (after O17 strips its Dedup) and by
+    // `EntityIterable.findLinks`, which intersects the receiver with `entities.then(InLink)`.
+    // Re-apply the condition operand's label (the label-mismatch bail-out above guarantees the two
+    // labels agree when both are non-null), guarded so that the repair can never itself create the
+    // adjacent-hasLabel hazard described above.
     if (condCombiner is ConditionCombiner.Intersect || condCombiner is ConditionCombiner.Difference) {
         if (this is FollowLink || (this is Labeled && this.inner is FollowLink)) {
             val condBlock = extractCondition(other)
@@ -332,6 +356,17 @@ internal fun GremlinQuery.combineEfficient(
                 // Fall through to Aggregate whenever the double-label would be produced.
                 val extraLabel = if (other is Labeled && other.inner is Labeled) extractLabel(other) else null
                 if (extraLabel != null) return null
+                // Unlabeled-link-side repair (must stay AFTER the extraLabel bail-out, otherwise the
+                // double-label shape would append a second hasLabel onto a base already ending in one).
+                if (this !is Labeled && otherLabel != null) {
+                    // Difference is not a conjunction of filters: for FL \ Labeled(Where(cond), U) the
+                    // result is { v ∈ FL : ¬(cond(v) ∧ label(v) = U) }.  Appending hasLabel(U) to the
+                    // RESULT would wrongly restrict the output to U, and the `Not(cond)` alone wrongly
+                    // excludes non-U vertices satisfying cond.  Fall through to the label-safe Aggregate.
+                    if (condCombiner is ConditionCombiner.Difference) return null
+                    if (labelWouldBeAdjacent(base, condBlock)) return null
+                    return base.then(GremlinBlock.HasLabel(otherLabel))
+                }
                 return base
             }
         }
@@ -345,6 +380,11 @@ internal fun GremlinQuery.combineEfficient(
                 // Same double-label guard for the symmetric case (see comment above).
                 val extraLabel = if (this is Labeled && this.inner is Labeled) extractLabel(this) else null
                 if (extraLabel != null) return null
+                // Same unlabeled-link-side repair, symmetric case (Intersect only by the guard above).
+                if (other !is Labeled && thisLabel != null) {
+                    if (labelWouldBeAdjacent(base, condBlock)) return null
+                    return base.then(GremlinBlock.HasLabel(thisLabel))
+                }
                 return base
             }
         }

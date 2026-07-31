@@ -487,19 +487,27 @@ class DslQueryCoverageTest : DBTest() {
     @Test
     fun `group 8 - flatMapDistinct intersect condition (O17+O7 fusion)`() {
         store.transactional {
-            // D38: issues in ENG intersect open — O17 strips Order(Dedup), O7 appends condition
+            // D38: issues in ENG intersect open — O17 strips Order(Dedup), O7 appends condition.
+            // The link operand is a bare (unlabeled) FollowLink, so O7 re-applies the condition
+            // operand's own label as a trailing hasLabel — without it the intersection would return
+            // every type reachable over "issues_link" that happens to satisfy the condition.
             val engIssues = Project.filter { it.key eq "ENG" }.flatMapDistinct(Project::issues)
             val d38 = engIssues intersect Issue.filter { it.status eq "open" }
             assertThat(d38.shape()).isEqualTo(
-                """Dedup(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), PropEqual("status", ?)))"""
+                """Dedup(Labeled(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), PropEqual("status", ?)), "Issue"))"""
             )
             assertThat(d38.keys()).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14"))
 
-            // D39: issues in ENG exclude assigned — O17+O7 with Not.of(HasLink) → HasNoLink
+            // D39: issues in ENG exclude assigned — falls back to Aggregate.
+            // Difference is not a conjunction of filters: for FL \ Labeled(Where(cond), "Issue") the
+            // result is { v ∈ FL : ¬(cond(v) ∧ label(v) = "Issue") }, which cannot be expressed by
+            // appending Not(cond) to the link chain (that also excludes non-Issue vertices satisfying
+            // cond) nor by appending hasLabel("Issue") to the result (that restricts the output to
+            // Issues). O7 therefore declines the fusion and the label-safe Aggregate is used.
             val d39 = engIssues exclude Issue.filter { it.assignee ne null }
             assertThat(d39.shape()).isEqualTo(
-                """Dedup(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), HasNoLink("assignee")))"""
+                """Aggregate(Dedup(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues")), Labeled(Where(HasLink("assignee")), "Issue"))"""
             )
             assertThat(d39.keys()).containsExactlyElementsIn(
                 listOf("ENG-6","ENG-9","ENG-11","ENG-13","ENG-14"))
@@ -508,7 +516,7 @@ class DslQueryCoverageTest : DBTest() {
             val aliceIssues = Employee.filter { it.name eq "Alice" }.flatMapDistinct(Employee::assignedIssues)
             val d40 = aliceIssues intersect Issue.filter { it.status eq "open" }
             assertThat(d40.shape()).isEqualTo(
-                """Dedup(AndThen(FollowLink(Labeled(Where(PropEqual("name", ?)), "Employee"), OUT, "assignedIssues"), PropEqual("status", ?)))"""
+                """Dedup(Labeled(AndThen(FollowLink(Labeled(Where(PropEqual("name", ?)), "Employee"), OUT, "assignedIssues"), PropEqual("status", ?)), "Issue"))"""
             )
             assertThat(d40.keys()).containsExactlyElementsIn(listOf("ENG-1","ENG-5","ENG-10"))
 
@@ -516,7 +524,7 @@ class DslQueryCoverageTest : DBTest() {
             // O17 detects the right-side Order(Dedup) for intersect and swaps operands into O7
             val d41 = Issue.filter { it.status eq "open" } intersect engIssues
             assertThat(d41.shape()).isEqualTo(
-                """Dedup(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), PropEqual("status", ?)))"""
+                """Dedup(Labeled(AndThen(FollowLink(Labeled(Where(PropEqual("key", ?)), "Project"), OUT, "issues"), PropEqual("status", ?)), "Issue"))"""
             )
             assertThat(d41.keys()).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14"))

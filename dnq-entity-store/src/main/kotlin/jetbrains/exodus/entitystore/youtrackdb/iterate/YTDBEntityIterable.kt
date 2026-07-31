@@ -297,18 +297,29 @@ class YTDBEntityIterableImpl(
 
     override fun unwrap(): EntityIterable = this
 
+    // Xodus contract (EntityIterableBase.findLinks -> FilterLinksIterable): the result is the subset
+    // of THIS iterable whose `linkName` link points into `entities` — not every entity that links into
+    // `entities`. Intersecting the receiver with the in-link traversal keeps the receiver's filters;
+    // building the traversal alone (as this used to) silently dropped them and returned a superset.
+    //
+    // The result carries the RECEIVER's `polymorphic` flag — it is a subset of the receiver. The two
+    // queries are combined at the GremlinQuery level rather than through the public
+    // intersect(EntityIterable) overload, because that overload's requirePolymorphicMatch would turn a
+    // flag mismatch between receiver and argument into an exception.
+    //
+    // distinct() is still required: several entities of `entities` may be linked from the same
+    // receiver entity, and the intersection may compile to a form driven by the in-link traversal
+    // (`in()` is many-out-per-in), which would then emit that entity once per edge.
+    //
+    // The `entities === EMPTY` short-circuit must be kept: EMPTY.query is `unsupported`.
     override fun findLinks(
         entities: EntityIterable,
         linkName: String
     ): EntityIterable =
         if (entities === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
         else {
-            val entitiesIterable = entities.asYTDBIterable()
-            YTDBEntityIterableImpl(
-                oStore,
-                entitiesIterable.query.then(GremlinBlock.InLink(linkName)),
-                entitiesIterable.polymorphic
-            ).distinct()
+            val byLink = entities.asYTDBIterable().query.then(GremlinBlock.InLink(linkName))
+            YTDBEntityIterableImpl(oStore, query.intersect(byLink), polymorphic).distinct()
         }
 
     override fun idSet(): EntityIdSet =

@@ -685,16 +685,16 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             val boards = tx.find(Boards.CLASS, "name", test.board1.name())
                 .union(tx.find(Boards.CLASS, "name", test.board2.name()))
             val allIssues = tx.getAll(Issues.CLASS)
-            // Note: EntityIterable.findLinks(entities, linkName) ignores 'this' — the receiver (allIssues)
-            // is not used in query construction. Only 'entities' (boards) determines the traversal source.
-            // No hasLabel("Issue") filter is added; the result type is unconstrained by the receiver.
+            // findLinks filters the receiver: the result is `allIssues ∩ boards.in("OnBoard_link")`.
+            // The receiver is allOf("Issue"), so O21 rewrites the intersection into a hasLabel("Issue")
+            // filter appended to the in-link traversal rather than an Aggregate.
             val issuesOnBoards =
                 allIssues.findLinks(boards, Issues.Links.ON_BOARD)
 
             // Then
             checkGremlin(
                 issuesOnBoards as YTDBEntityIterable,
-                """g.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").in("OnBoard_link").dedup()"""
+                """g.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").dedup()"""
             )
             assertNamesExactly(issuesOnBoards, "issue1", "issue2")
         }

@@ -57,6 +57,7 @@ class GremlinQueryCombineMatrixTest {
     // Labeled(FollowLink) — link traversals
     private val srcA = Labeled(GremlinQuery.Where.of(PropEqual("key", "A")), "Project")
     private val srcB = Labeled(GremlinQuery.Where.of(PropEqual("key", "B")), "Project")
+    private val bareLink  = FollowLink(srcA, LinkDirection.IN, "project")                   // UNLABELED FollowLink
     private val link      = Labeled(FollowLink(srcA, LinkDirection.IN, "project"), "Issue") // same link as link2
     private val link2     = Labeled(FollowLink(srcB, LinkDirection.IN, "project"), "Issue") // same link name, different source
     private val linkDiff  = Labeled(FollowLink(srcA, LinkDirection.IN, "sprint"),  "Issue") // different link name
@@ -170,6 +171,34 @@ class GremlinQueryCombineMatrixTest {
 
         // difference: O7 fires — this is FL, Not(condBlock) appended
         check(link, "d", cond, "Labeled(AndThen)")
+    }
+
+    // =========================================================================
+    // bare (unlabeled) FollowLink × Labeled(Where)
+    //
+    // Produced by selectMany/selectManyDistinct (after O17 strips the Dedup) and by
+    // EntityIterable.findLinks. Because the link operand has no label of its own, O7 must re-apply
+    // the CONDITION operand's label — otherwise the fused traversal carries no hasLabel at all and
+    // matches every source type that has the link (edge classes are link-name-only).
+    // =========================================================================
+
+    @Test
+    fun `bare FL x Labeled(Where)`() {
+        // intersect, both orders: O7 fuses and appends the condition operand's label.
+        check(bareLink, "i", cond, "Labeled(AndThen)")
+        check(cond, "i", bareLink, "Labeled(AndThen)")
+
+        // difference with the link on the left: the label can be applied neither to the negated
+        // condition nor to the result, so O7 declines → label-safe Aggregate.
+        check(bareLink, "d", cond, "Aggregate")
+
+        // difference / union with the link on the right: O11c rewrites membership in the link set
+        // into an inverse-link predicate on the condition operand, which keeps its own label.
+        check(cond, "d", bareLink, "Labeled(Where)")
+        check(cond, "u", bareLink, "Labeled(Where)")
+
+        // union with the link on the left: extractCondition(FollowLink) = null → fallback.
+        check(bareLink, "u", cond, "Dedup(UnionAll)")
     }
 
     // =========================================================================

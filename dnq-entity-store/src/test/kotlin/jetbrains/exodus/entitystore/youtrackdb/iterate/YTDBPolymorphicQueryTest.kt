@@ -168,15 +168,16 @@ class YTDBPolymorphicQueryTest : OTestMixin {
     }
 
     @Test
-    fun `findLinks propagates polymorphic flag from entities parameter`() {
+    fun `findLinks propagates polymorphic flag from the receiver`() {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val polyReceiver = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
-            val nonPolyEntities = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyReceiver = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val polyEntities = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
 
-            val result = polyReceiver.findLinks(nonPolyEntities, "someLink") as YTDBEntityIterable
-            assertFalse(result.polymorphic, "findLinks should propagate entities-parameter flag, not receiver flag")
+            // findLinks returns a subset of the receiver, so the receiver's flag governs the result.
+            val result = nonPolyReceiver.findLinks(polyEntities, "someLink") as YTDBEntityIterable
+            assertFalse(result.polymorphic, "findLinks should propagate the receiver flag, not the entities-parameter flag")
         }
     }
 
@@ -374,20 +375,21 @@ class YTDBPolymorphicQueryTest : OTestMixin {
     }
 
     @Test
-    fun `non-polymorphic union as findLinks entities parameter propagates flag from entities`() {
+    fun `union as findLinks entities parameter does not override the receiver flag`() {
         givenUserHierarchy()
 
         withStoreTx { tx ->
-            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
-            val nonPolyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
-            // Receiver is polymorphic — different from the entities parameter.
-            val polyReceiver = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val polyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            val polyUser = YTDBEntityIterable.where(User.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = true)
+            // Receiver is non-polymorphic — different from the entities parameter.
+            val nonPolyReceiver = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
 
-            // findLinks propagates the flag from the entities parameter (the union),
-            // not from the receiver. No entities have "someLink" links.
-            val unioned = nonPolyBase.union(nonPolyUser)
-            val found = polyReceiver.findLinks(unioned, "someLink") as YTDBEntityIterable
-            assertFalse(found.polymorphic, "findLinks should propagate flag from union entities parameter, not receiver")
+            // findLinks returns a subset of the receiver, so the receiver's flag governs the result
+            // even when the entities parameter (the union) carries the opposite flag.
+            // No entities have "someLink" links.
+            val unioned = polyBase.union(polyUser)
+            val found = nonPolyReceiver.findLinks(unioned, "someLink") as YTDBEntityIterable
+            assertFalse(found.polymorphic, "findLinks should propagate the receiver flag, not the union entities-parameter flag")
         }
     }
 

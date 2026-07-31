@@ -710,4 +710,117 @@ class GremlinQueryTest {
                 .that(adjacentHasLabel.containsMatchIn(q.toGremlin())).isFalse()
         }
     }
+
+    // --- O7 with an UNLABELED link operand: the condition operand's label must be re-applied ---
+    //
+    // extractCondition strips the condition operand's Labeled wrapper. When the link operand carries
+    // no label of its own, the fused traversal would otherwise end up with no hasLabel at all and the
+    // type filter would be silently lost — edge classes are `<linkName>_link` only, so `in("l_link")`
+    // yields every source type having an `l` link.
+    //
+    // A bare FollowLink operand arises from `selectMany`/`selectManyDistinct` (once O17 strips its
+    // Dedup) and from `EntityIterable.findLinks`, which intersects the receiver with
+    // `entities.query.then(InLink(l))`.
+
+    private val bareLink = FollowLink(boardCond, LinkDirection.IN, "OnBoard")
+    private val openIssues = issueCondition("status", "open")
+    private val fusedWithLabelGremlin =
+        """g.V().has("name","b").hasLabel("Board").in("OnBoard_link").has("status","open").hasLabel("Issue")"""
+
+    @Test
+    fun `O7 - condition intersect bare FollowLink keeps the condition's label`() {
+        // Symmetric branch: `other` is the (unlabeled) link, the condition and the label come from `this`.
+        val result = openIssues.intersect(bareLink)
+        assertThat(result).isNotInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(result.toGremlin()).isEqualTo(fusedWithLabelGremlin)
+    }
+
+    @Test
+    fun `O7 - bare FollowLink intersect condition keeps the condition's label`() {
+        // Asymmetric branch: `this` is the (unlabeled) link, the condition and the label come from `other`.
+        val result = bareLink.intersect(openIssues)
+        assertThat(result).isNotInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(result.toGremlin()).isEqualTo(fusedWithLabelGremlin)
+    }
+
+    @Test
+    fun `O7 - labeled link operand is unaffected by the repair`() {
+        // Negative control: when the link operand carries its own label, that label is the result's
+        // label (the mismatch guard above O7 has already proven the two agree) and nothing is appended.
+        assertThat(issuesOnBoard.intersect(openIssues).toGremlin()).isEqualTo(fusedWithLabelGremlin)
+        assertThat(openIssues.intersect(issuesOnBoard).toGremlin()).isEqualTo(fusedWithLabelGremlin)
+    }
+
+    @Test
+    fun `O7 - bare FollowLink difference condition falls back to Aggregate`() {
+        // Difference is not a conjunction of filters: FL \ Labeled(Where(cond), T) is
+        // { v ∈ FL : ¬(cond(v) ∧ label(v) = T) }. Appending hasLabel(T) to the RESULT would restrict
+        // the output to T, and Not(cond) alone wrongly excludes non-T vertices satisfying cond.
+        // O7 must decline the fusion; the Aggregate fallback embeds both trees verbatim.
+        assertThat(bareLink.difference(openIssues)).isInstanceOf(GremlinQuery.Aggregate::class.java)
+    }
+
+    @Test
+    fun `O7 - unlabeled condition operand appends nothing`() {
+        // Nothing to re-apply when the condition operand has no label: the fused chain stays bare.
+        val unlabeledCond = GremlinQuery.Where.of(PropEqual("status", "open"))
+        val expected =
+            """g.V().has("name","b").hasLabel("Board").in("OnBoard_link").has("status","open")"""
+        assertThat(bareLink.intersect(unlabeledCond).toGremlin()).isEqualTo(expected)
+        assertThat(unlabeledCond.intersect(bareLink).toGremlin()).isEqualTo(expected)
+    }
+
+    @Test
+    fun `O7 - double-label condition operand still bails before the repair`() {
+        // O19 shape: extractCondition(Labeled(Labeled(Where(All), T1), T2)) = HasLabel(T1), so the fused
+        // base would end in hasLabel(T1) and the repair would append hasLabel(T2) right after it — two
+        // adjacent hasLabel steps, which InlineFilterStrategy merges into one anyMatch(OR) step.
+        // The pre-existing extraLabel guard must fire first, before the repair runs.
+        val doubleLabel = Labeled(Labeled(GremlinQuery.Where.of(All), "Employee"), "User")
+        assertThat(doubleLabel.intersect(bareLink)).isInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(bareLink.intersect(doubleLabel)).isInstanceOf(GremlinQuery.Aggregate::class.java)
+    }
+
+    @Test
+    fun `O7 - condition that is itself a HasLabel bails instead of appending a second label`() {
+        // The other way to reach an already-labeled base: the condition block itself is a HasLabel, so
+        // `base = FollowLink.then(HasLabel("Employee"))` is a Labeled. The extraLabel guard does NOT
+        // fire here (the inner query is a Where, not a Labeled), so the repair's own adjacency guard
+        // must — otherwise the result would emit .hasLabel("Employee").hasLabel("User").
+        val labelAsCondition = Labeled(GremlinQuery.Where.of(HasLabel("Employee")), "User")
+        assertThat(labelAsCondition.intersect(bareLink)).isInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(bareLink.intersect(labelAsCondition)).isInstanceOf(GremlinQuery.Aggregate::class.java)
+    }
+
+    @Test
+    fun `O7 - the repair never introduces two consecutive hasLabel steps`() {
+        // Structural invariant over every shape the repair can produce or decline: the combined query
+        // may only contain a `hasLabel(A).hasLabel(B)` adjacency if one of the operands already did.
+        // (Both double-label operands below are adjacent-labeled by construction — that is the O19
+        // shape itself — and the Aggregate fallback embeds them verbatim; what must not happen is the
+        // repair *creating* an adjacency out of two clean operands.)
+        val adjacentHasLabel = Regex("""hasLabel\([^)]*\)\.hasLabel\(""")
+        fun adjacent(q: GremlinQuery) = adjacentHasLabel.containsMatchIn(q.toGremlin())
+
+        val ids = ByIds(listOf(RID.of(40, 1)))
+        val doubleLabel = Labeled(Labeled(GremlinQuery.Where.of(All), "Employee"), "User")
+        val labelAsCondition = Labeled(GremlinQuery.Where.of(HasLabel("Employee")), "User")
+        val cases: List<Triple<GremlinQuery, GremlinQuery, GremlinQuery>> = listOf(
+            Triple(openIssues, bareLink, openIssues.intersect(bareLink)),
+            Triple(bareLink, openIssues, bareLink.intersect(openIssues)),
+            Triple(bareLink, openIssues, bareLink.difference(openIssues)),
+            Triple(issueCondition("name", "a"), FollowLink(ids, LinkDirection.OUT, "viewers"),
+                   issueCondition("name", "a").intersect(FollowLink(ids, LinkDirection.OUT, "viewers"))),
+            Triple(doubleLabel, bareLink, doubleLabel.intersect(bareLink)),
+            Triple(bareLink, doubleLabel, bareLink.intersect(doubleLabel)),
+            Triple(labelAsCondition, bareLink, labelAsCondition.intersect(bareLink)),
+            Triple(bareLink, labelAsCondition, bareLink.intersect(labelAsCondition)),
+        )
+        cases.forEach { (left, right, result) ->
+            if (adjacent(result)) {
+                assertWithMessage("combining introduced consecutive hasLabel: %s", result.toGremlin())
+                    .that(adjacent(left) || adjacent(right)).isTrue()
+            }
+        }
+    }
 }
