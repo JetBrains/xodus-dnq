@@ -138,6 +138,12 @@ open class TransientEntityImpl : TransientEntity {
         return id ?: throwWrappedPersistentEntityUndefined()
     }
 
+    /**
+     * The logical id, or `null` when no persistent entity is bound yet — unlike [getId], never throws.
+     */
+    internal val idOrNull: EntityId?
+        get() = id
+
     override fun toIdString() = id.toString()
 
     override fun getPropertyNames(): List<String> = entity.propertyNames

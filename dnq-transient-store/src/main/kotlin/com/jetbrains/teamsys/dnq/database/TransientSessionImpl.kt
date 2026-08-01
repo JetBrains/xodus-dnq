@@ -79,6 +79,34 @@ class TransientSessionImpl(
 
     private var quietFlush = false
     private var loadedIds: EntityIdSet = EntityIdSetFactory.newSet()
+
+    /**
+     * Session-scoped identity map for entities *created in this session*: logical [EntityId] ->
+     * the canonical [TransientEntityImpl] wrapper registered with the changes tracker.
+     *
+     * Why: a flush replay ([NeedRetryException] / [DataIntegrityViolationException]) heals new
+     * entities in place via [TransientEntity.resetIfNew] / [TransientEntity.generateIdIfNew],
+     * walking `transientChangesTracker.changedEntities`. Any *duplicate* wrapper minted for the
+     * same logical id (e.g. by an incoming-link traversal in `ConstraintsUtil`, or by a query that
+     * misses the xd cache) is not in that set, so it keeps the dead temporary RID of the aborted
+     * attempt and blows up with `EntityRemovedInDatabaseException` during replay (XD-1286).
+     *
+     * Keeping exactly one wrapper per session-created logical id makes the in-place heal reach
+     * every holder by construction.
+     *
+     * Scope/lifetime:
+     * - written only from the four `entityAdded` call sites, so non-new entities never enter it;
+     *   the map is an *index* over wrappers already retained by the changes tracker (zero net
+     *   retention);
+     * - RETAINED across a replay (the wrappers survive and get healed in place);
+     * - CLEARED in [revert] and [flush], where a new tracker and persistent transaction are
+     *   installed.
+     *
+     * The key type [EntityId] (concretely `RIDEntityId`) hashes on `(classId, localEntityId)` only,
+     * ignoring the physical RID, so the key is stable across `resetToNew()` + `generateId()`.
+     */
+    private val newEntityIdentityMap: MutableMap<EntityId, TransientEntityImpl> = HashMap()
+
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     internal var allowRunnables = true
     internal val removedEntitiesData =
@@ -204,6 +232,7 @@ class TransientSessionImpl(
         assertOpen("revert")
 
         loadedIds = EntityIdSetFactory.newSet()
+        newEntityIdentityMap.clear()
         entitiesUpdater.clear()
         closePersistentSession()
         transactionInternal = beginPersistentTransaction()
@@ -226,6 +255,7 @@ class TransientSessionImpl(
             entitiesUpdater.clear()
 
             loadedIds = EntityIdSetFactory.newSet()
+            newEntityIdentityMap.clear()
 
             val oldChangesTracker = transientChangesTracker
             closePersistentSession()
@@ -293,6 +323,15 @@ class TransientSessionImpl(
 
                 if (exception is DataIntegrityViolationException) {
                     transactionInternal.revert()
+                    // The revert rolled the persistent transaction back, so every entity created in
+                    // this session now wraps a vertex that no longer exists. Heal them before the
+                    // replay, exactly as the NeedRetryException path above does — otherwise the
+                    // recovery itself dies with EntityRemovedInDatabaseException and masks the real
+                    // constraint violation that is re-thrown below.
+                    transientChangesTracker.changedEntities.forEach {
+                        it.resetIfNew()
+                        it.generateIdIfNew()
+                    }
                     replayChanges()
                 }
                 if (exception is RecordDuplicatedException) {
@@ -769,8 +808,33 @@ class TransientSessionImpl(
     }
 
     private fun newEntityImpl(persistent: Entity): TransientEntity {
-        return persistent as? TransientEntity ?:
-            TransientEntityImpl(persistent as YTDBEntity, getStore())
+        (persistent as? TransientEntity)?.let { return it }
+        // Entities created in this session are canonicalised: return the single wrapper the replay
+        // reset pass heals, instead of minting a duplicate that keeps a dead temporary RID.
+        // The emptiness check keeps read-only sessions (which never create anything) on the old
+        // allocate-only path, without a map lookup per wrapper mint.
+        if (newEntityIdentityMap.isNotEmpty()) {
+            newEntityIdentityMap[persistent.id]?.let { return it }
+        }
+        return TransientEntityImpl(persistent as YTDBEntity, getStore())
+    }
+
+    /**
+     * Registers [transientEntity] as *the* canonical wrapper for its logical id.
+     * Must be called next to every `transientChangesTracker.entityAdded(...)` call, so that the
+     * wrapper stored here is the very one the replay reset pass heals in place.
+     */
+    private fun canonicalizeNewEntity(transientEntity: TransientEntityImpl) {
+        newEntityIdentityMap[transientEntity.id] = transientEntity
+    }
+
+    /**
+     * Drops [oldId] from the identity map before a wrapper is re-pointed at another entity.
+     * We deliberately do not re-key: two wrappers may legitimately end up sharing one underlying
+     * entity (the `findOrNew` found-branch on replay), and healing the shared entity reaches both.
+     */
+    private fun evictFromIdentityMap(oldId: EntityId?) {
+        if (oldId != null) newEntityIdentityMap.remove(oldId)
     }
 
     internal fun createEntity(transientEntity: TransientEntityImpl, type: String) {
@@ -778,12 +842,14 @@ class TransientSessionImpl(
         transientEntity.entity = persistentEntity
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(transientEntity)
+        canonicalizeNewEntity(transientEntity)
         addChange { saveEntityInternal(persistentEntity, transientEntity) }
     }
 
     private fun saveEntityInternal(persistentEntity: YTDBEntity, e: TransientEntityImpl): Boolean {
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(e)
+        canonicalizeNewEntity(e)
         return true
     }
 
@@ -811,12 +877,15 @@ class TransientSessionImpl(
                 // Deleting it here causes YTDB to treat the create+delete as a no-op, so the
                 // empty vertex is never validated or written to the persistent store.
                 persistentEntity.delete()
+                val oldId = transientEntity.idOrNull
                 transientEntity.entity = (found as TransientEntityImpl).entity
+                evictFromIdentityMap(oldId)
                 false
             }
         }
         addLoadedId(persistentEntity.id)
         transientChangesTracker.entityAdded(transientEntity)
+        canonicalizeNewEntity(transientEntity)
         try {
             allowRunnables = false
             creator.created(transientEntity)
@@ -831,14 +900,19 @@ class TransientSessionImpl(
             if (found != null) {
                 if (found != transientEntity) {
                     // update existing entity
+                    val oldId = transientEntity.idOrNull
                     transientEntity.entity = (found as TransientEntityImpl).entity
+                    evictFromIdentityMap(oldId)
                 }
                 false
             } else {
                 upgradeReadonlyTransactionIfNecessary()
                 // somebody deleted our (initially found) entity! we need to create some again
+                val oldId = transientEntity.idOrNull
                 transientEntity.entity = transactionInternal.newEntity(creator.type) as YTDBEntity
+                evictFromIdentityMap(oldId)
                 transientChangesTracker.entityAdded(transientEntity)
+                canonicalizeNewEntity(transientEntity)
                 try {
                     allowRunnables = false
                     creator.created(transientEntity)
