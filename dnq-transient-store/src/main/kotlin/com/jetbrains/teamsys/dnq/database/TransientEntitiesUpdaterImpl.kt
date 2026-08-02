@@ -55,10 +55,18 @@ class TransientEntitiesUpdaterImpl(
     private val originalValuesProvider get() = session.originalValuesProvider
 
     override fun setBlob(transientEntity: TransientEntity, blobName: String, stream: InputStream) {
+        // A queued change must be re-runnable: `TransientSessionImpl.flush` replays the whole queue
+        // when it loses an MVCC race (NeedRetryException) or hits a DataIntegrityViolationException.
+        // An InputStream is single-use, so capturing it by reference made the replay store an EMPTY
+        // blob (the second `readAllBytes()` on the drained stream yields 0 bytes) — silent data loss.
+        // Materialize once and hand each invocation a fresh stream. No extra peak memory: the
+        // persistent layer (YTDBVertexEntity.setBlob) already does `blob.readAllBytes()` anyway.
+        // The `File` overload below is replay-safe for the same reason: it re-opens the file per run.
+        val content = stream.readBytes()
         addChangeAndRun {
             //this may be implemented another way. by checking if the blob is actually null
             val hasBlob = transientEntity.blobNames.contains(blobName)
-            transientEntity.entity.setBlob(blobName, stream)
+            transientEntity.entity.setBlob(blobName, content.inputStream())
             transientChangesTracker.propertyChanged(transientEntity, blobName, if (hasBlob) NOT_NULL_BLOB else NULL_BLOB)
             true
         }
