@@ -244,21 +244,31 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
     private fun canAggregate(left: Iterable<Entity>, right: Iterable<Entity>): Boolean =
         left.isPersistent && right.isPersistent
 
-    open fun selectDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> {
-        return if (it is EntityIterable) {
-            it.selectDistinct(linkName)
-        } else {
-            it?.let { inMemorySelectDistinct(it, linkName) } ?: YTDBEntityIterable.EMPTY
-        }
-
+    // Both select* functions used to gate on `it is EntityIterable`, which is the same trap the binary
+    // operations above hit before `canAggregate` was introduced: `EntityIterable` is not the same thing as
+    // "DB-backed". TransientEntityIterable is an EntityIterableWrapper - hence an EntityIterable - holding
+    // an in-memory Set<TransientEntity>, and its selectDistinct/selectManyDistinct throw
+    // UnsupportedOperationException. Such an iterable reaches here whenever a caller maps over the links of
+    // a snapshot entity, because ReadonlyTransientEntity.getLinks materialises the pre-change link state
+    // into one (typically from a before/after-flush listener doing
+    // `snapshotEntity.someLinks.mapDistinct { ... }` / `.flatMapDistinct { ... }`).
+    // So gate on `isPersistent` (unwraps to a YTDBEntityIterable) just like `canAggregate`, and let
+    // AbstractInMemoryEntityIterable keep serving the op itself so it retains its own captured transaction.
+    // NB: do NOT use the `isPersistentIterable` hook here - XdQueryEngine overrides it with an unchecked
+    // `it as PersistentEntityIterableWrapper` cast that a TransientEntityIterable (a sibling implementation
+    // of EntityIterableWrapper) does not satisfy.
+    open fun selectDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> = when {
+        it == null -> YTDBEntityIterable.EMPTY
+        it.isPersistent -> (it as EntityIterable).selectDistinct(linkName)
+        it is AbstractInMemoryEntityIterable -> it.selectDistinct(linkName)
+        else -> inMemorySelectDistinct(it, linkName)
     }
 
-    open fun selectManyDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> {
-        return if (it is EntityIterable) {
-            it.selectManyDistinct(linkName)
-        } else {
-            it?.let { inMemorySelectManyDistinct(it, linkName) } ?: YTDBEntityIterable.EMPTY
-        }
+    open fun selectManyDistinct(it: Iterable<Entity>?, linkName: String): Iterable<Entity> = when {
+        it == null -> YTDBEntityIterable.EMPTY
+        it.isPersistent -> (it as EntityIterable).selectManyDistinct(linkName)
+        it is AbstractInMemoryEntityIterable -> it.selectManyDistinct(linkName)
+        else -> inMemorySelectManyDistinct(it, linkName)
     }
 
     open fun toEntityIterable(it: Iterable<Entity>): Iterable<Entity> {
