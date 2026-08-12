@@ -99,6 +99,37 @@ internal class SnapshotEntityIterator(
             is YTDBEntity -> ReadonlyTransientEntity(entity, store)
             else -> entity
         }
+
+        /**
+         * Wraps a target reached by single-link navigation from a snapshot entity
+         * ([ReadonlyTransientEntity.getLink], [RemovedTransientEntity.getLink]).
+         *
+         * Live targets are returned as writable [TransientEntity]s so post-flush
+         * listeners can mutate them (e.g. cascade-cleanup an orphaned linked entity
+         * from `removedSync`). Targets that have themselves been removed in the
+         * current transaction stay read-only because the underlying entity is gone.
+         *
+         * A writable handle is only minted when the current session can actually
+         * back it: the session must be open, and it must not already know the target
+         * as removed. The removed case matters when the link edge still exists at
+         * navigation time (e.g. an [kotlinx.dnq.link.OnDeletePolicy.FAIL] target
+         * deleted in the same transaction, seen from a before-flush listener) —
+         * without the check the caller would get a writable handle onto an entity
+         * the changes tracker considers gone, and writes to it would appear to
+         * succeed. This mirrors the guard [TransientEntityImpl.getLink] already
+         * applies on the live navigation path.
+         *
+         * [wrapEntity] is kept for iteration paths ([SnapshotEntityIterator],
+         * [SnapshotEntityIterable]) where the snapshot collection view is preserved.
+         */
+        fun wrapLinkTarget(entity: Entity, store: TransientEntityStore): Entity = when (entity) {
+            is YTDBVertexEntityRemoved -> RemovedTransientEntity(entity, store)
+            is YTDBEntity -> store.threadSession
+                ?.takeIf { it.isOpened && !it.transientChangesTracker.isRemoved(entity.id) }
+                ?.newEntity(entity)
+                ?: ReadonlyTransientEntity(entity, store)
+            else -> entity
+        }
     }
 
     override fun next(): Entity = wrapEntity(original.next(), store)
