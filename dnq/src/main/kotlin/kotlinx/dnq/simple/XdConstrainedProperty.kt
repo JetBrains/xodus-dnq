@@ -26,6 +26,16 @@ abstract class XdConstrainedProperty<in R, T>(
         open val requirement: XdPropertyRequirement,
         open val propertyType: PropertyType) : ReadOnlyProperty<R, T> {
 
+    /**
+     * Whether a store that indexes every simple property should also index this one. `true` by default.
+     *
+     * Set it to `false` for properties whose values are unbounded: on YouTrackDB a B-tree index key may not
+     * exceed `BTREE_MAX_KEY_SIZE` (~2457 bytes with the default 8 KB page), and a larger value fails the write
+     * with `TooBigIndexKeyException`. An unindexed property stays a normal property - readable, writable and
+     * usable as a query predicate; queries scan instead of probing an index.
+     */
+    open val isAutoIndexed: Boolean get() = true
+
     abstract fun isDefined(thisRef: R, property: KProperty<*>): Boolean
 
     internal val KProperty<*>.dbName get() = dbPropertyName ?: this.name

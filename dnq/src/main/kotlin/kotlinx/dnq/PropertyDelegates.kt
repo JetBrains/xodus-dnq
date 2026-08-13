@@ -495,6 +495,11 @@ fun <R : XdEntity> xdNullableBooleanProp(dbName: String? = null, constraints: Co
  *        Kotlin-property is used as the name of the property in the database.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
  *        constraints that will be checked before transaction flush.
+ * @param indexed if `false` the property is excluded from the automatic per-property index that stores
+ *        indexing every simple property create (YouTrackDB). Use it for unbounded values: an index key
+ *        may not exceed ~2457 bytes there, and a longer value fails the write. An unindexed property is
+ *        still readable, writable and usable as a query predicate - the query scans instead of probing an
+ *        index. By default is `true`.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
  * @see regex()
  * @see email()
@@ -506,9 +511,14 @@ fun <R : XdEntity> xdNullableBooleanProp(dbName: String? = null, constraints: Co
  * @see uri()
  * @see length()
  */
-fun <R : XdEntity> xdStringProp(trimmed: Boolean = false, dbName: String? = null, constraints: Constraints<R, String?>? = null) =
+fun <R : XdEntity> xdStringProp(
+        trimmed: Boolean = false,
+        dbName: String? = null,
+        indexed: Boolean = true,
+        constraints: Constraints<R, String?>? = null
+) =
         XdPropertyCachedProvider {
-            val prop = xdNullableProp(dbName, constraints)
+            val prop = xdNullableProp(dbName, constraints, indexed = indexed)
             if (trimmed) {
                 prop.wrap(wrap = { it }, unwrap = { it?.trim() })
             } else {
@@ -537,6 +547,11 @@ fun <R : XdEntity> xdStringProp(trimmed: Boolean = false, dbName: String? = null
  *        not defined in database. By default throws `RequiredPropertyUndefinedException` on get.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
  *        constraints that will be checked before transaction flush.
+ * @param indexed if `false` the property is excluded from the automatic per-property index that stores
+ *        indexing every simple property create (YouTrackDB). Use it for unbounded values: an index key
+ *        may not exceed ~2457 bytes there, and a longer value fails the write. An unindexed property is
+ *        still readable, writable and usable as a query predicate - the query scans instead of probing an
+ *        index. By default is `true`.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
  * @see regex()
  * @see email()
@@ -553,6 +568,7 @@ fun <R : XdEntity> xdRequiredStringProp(
         trimmed: Boolean = false,
         dbName: String? = null,
         default: ((R, KProperty<*>) -> String)? = null,
+        indexed: Boolean = true,
         constraints: Constraints<R, String?>? = null
 ) = XdPropertyCachedProvider {
     val prop = xdProp(
@@ -560,7 +576,8 @@ fun <R : XdEntity> xdRequiredStringProp(
             constraints,
             require = true,
             unique = unique,
-            default = default ?: DEFAULT_REQUIRED
+            default = default ?: DEFAULT_REQUIRED,
+            indexed = indexed
     )
     if (trimmed) {
         prop.wrap({ it }, String::trim)
@@ -590,6 +607,11 @@ fun <R : XdEntity> xdRequiredStringProp(
  *        not defined in database.
  * @param constraints closure that has `PropertyConstraintsBuilder` as a receiver. Enables set up of property
  *        constraints that will be checked before transaction flush.
+ * @param indexed if `false` the property is excluded from the automatic per-property index that stores
+ *        indexing every simple property create (YouTrackDB). Use it for unbounded values: an index key
+ *        may not exceed ~2457 bytes there, and a longer value fails the write. An unindexed property is
+ *        still readable, writable and usable as a query predicate - the query scans instead of probing an
+ *        index. By default is `true`.
  * @return property delegate to access Xodus database persistent property using Kotlin-property.
  * @see regex()
  * @see email()
@@ -606,8 +628,9 @@ fun <R : XdEntity> xdRequiredStringProp(
         trimmed: Boolean = false,
         dbName: String? = null,
         default: String,
+        indexed: Boolean = true,
         constraints: Constraints<R, String?>? = null
-) = xdRequiredStringProp(unique, trimmed, dbName, { _, _ -> default }, constraints)
+) = xdRequiredStringProp(unique, trimmed, dbName, { _, _ -> default }, indexed, constraints)
 
 /**
  * Gets from cache or creates a new property delegate for primitive persistent property of type `org.joda.time.DateTime?`.

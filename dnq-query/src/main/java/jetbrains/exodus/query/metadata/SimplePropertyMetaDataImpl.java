@@ -28,6 +28,8 @@ public class SimplePropertyMetaDataImpl extends PropertyMetaDataImpl {
 
     private List<String> typeParameterNames;
 
+    private boolean autoIndexed = true;
+
     public SimplePropertyMetaDataImpl() {
     }
 
@@ -55,5 +57,23 @@ public class SimplePropertyMetaDataImpl extends PropertyMetaDataImpl {
 
     public void setPrimitiveTypeName(String primitiveTypeName) {
         this.primitiveTypeName = primitiveTypeName;
+    }
+
+    /**
+     * Whether a database that indexes every simple property (see the {@code indexForEverySimpleProperty} mode of
+     * the YouTrackDB schema initializer) should also index this one. {@code true} by default.
+     * <p>
+     * Opting out matters for properties whose values are unbounded: a B-tree index key may not exceed
+     * {@code BTREE_MAX_KEY_SIZE} (30% of the page size, i.e. ~2457 bytes with the default 8 KB page), and a
+     * larger value makes the write fail with {@code TooBigIndexKeyException}. An unindexed property is still a
+     * regular property - it is readable, writable and usable as a query predicate; the query just scans instead
+     * of probing an index.
+     */
+    public boolean isAutoIndexed() {
+        return autoIndexed;
+    }
+
+    public void setAutoIndexed(boolean autoIndexed) {
+        this.autoIndexed = autoIndexed;
     }
 }

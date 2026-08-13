@@ -610,7 +610,16 @@ internal class YouTrackDbSchemaInitializer(
                     val oProperty =
                         createPropertyIfAbsent(propertyName, getOType(primitiveTypeName))
                     oProperty.setRequirement(required)
-                    if (indexForEverySimpleProperty) {
+                    /*
+                    * A property may opt out of the automatic per-property index
+                    * (SimplePropertyMetaDataImpl.isAutoIndexed, `xdStringProp(indexed = false)` in DNQ).
+                    *
+                    * That is the only way to store an unbounded value in a plain property here: a B-tree index
+                    * key may not exceed BTREE_MAX_KEY_SIZE (30% of the page size, ~2457 bytes with the default
+                    * 8 KB page), and a longer value fails the write with TooBigIndexKeyException. An unindexed
+                    * property stays a normal property - queries over it scan instead of probing an index.
+                    * */
+                    if (indexForEverySimpleProperty && simpleProp.isAutoIndexed) {
                         addIndex(simplePropertyIndex(name, propertyName))
                     }
                     if (primitiveTypeName.lowercase() == "boolean" && oProperty.defaultValue == null) {

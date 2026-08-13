@@ -136,6 +136,7 @@ private fun ModelMetaDataImpl.addEntityMetaData(entityTypeName: String, node: Xd
                 typeParameters
             ).apply {
                 type = it.delegate.propertyType
+                isAutoIndexed = it.delegate.isAutoIndexed
             }
         }.toList()
 

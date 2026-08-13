@@ -28,7 +28,8 @@ class XdNullableProperty<in R : XdEntity, T : Comparable<T>>(
         val clazz: Class<T>,
         dbPropertyName: String?,
         constraints: List<PropertyConstraint<T?>>,
-        override val binding: XdCustomTypeBinding<T>? = null) :
+        override val binding: XdCustomTypeBinding<T>? = null,
+        override val isAutoIndexed: Boolean = true) :
         XdCustomTypeProperty<T>,
         XdMutableConstrainedProperty<R, T?>(
                 dbPropertyName,

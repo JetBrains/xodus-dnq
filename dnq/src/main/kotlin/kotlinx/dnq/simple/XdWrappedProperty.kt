@@ -35,6 +35,9 @@ class XdWrappedProperty<in R : XdEntity, B, T>(
     override val requirement: XdPropertyRequirement
         get() = wrapped.requirement
 
+    override val isAutoIndexed: Boolean
+        get() = wrapped.isAutoIndexed
+
     override fun getValue(thisRef: R, property: KProperty<*>): T {
         return wrap(wrapped.getValue(thisRef, property))
     }

@@ -82,20 +82,22 @@ inline fun <R : XdEntity, reified T : Comparable<T>> xdProp(
         require: Boolean = false,
         unique: Boolean = false,
         noinline default: (R, KProperty<*>) -> T,
-        binding: XdCustomTypeBinding<T>? = null): XdProperty<R, T> {
+        binding: XdCustomTypeBinding<T>? = null,
+        indexed: Boolean = true): XdProperty<R, T> {
 
     return XdProperty(T::class.java, dbName, constraints.collect(), when {
         unique -> XdPropertyRequirement.UNIQUE
         require -> XdPropertyRequirement.REQUIRED
         else -> XdPropertyRequirement.OPTIONAL
-    }, default, binding)
+    }, default, binding, indexed)
 }
 
 inline fun <R : XdEntity, reified T : Comparable<T>> xdNullableProp(
         dbName: String? = null,
         noinline constraints: Constraints<R, T?>? = null,
-        binding: XdCustomTypeBinding<T>? = null): XdNullableProperty<R, T> {
-    return XdNullableProperty(T::class.java, dbName, constraints.collect(), binding)
+        binding: XdCustomTypeBinding<T>? = null,
+        indexed: Boolean = true): XdNullableProperty<R, T> {
+    return XdNullableProperty(T::class.java, dbName, constraints.collect(), binding, indexed)
 }
 
 fun <R : XdEntity, B, T> XdMutableConstrainedProperty<R, B>.wrap(wrap: (B) -> T, unwrap: (T) -> B): XdWrappedProperty<R, B, T> {
