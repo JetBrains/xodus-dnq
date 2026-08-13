@@ -450,6 +450,23 @@ sealed class GremlinQuery {
 
     data class ReversedOrder(val inner: GremlinQuery) : Chained(inner, GremlinBlock.Reverse)
 
+    /**
+     * This query with the *outermost* sort/reverse wrappers removed, for operations whose result is
+     * order-independent (emptiness, cardinality, membership). Sorting is a `CollectingBarrierStep`,
+     * so leaving it in forces the whole result set to be materialized before the first traverser is
+     * emitted — an `isEmpty()` behind an `order()` walks the entire link collection.
+     *
+     * Only [SortBy] and [ReversedOrder] are stripped, and only from the outside: [Order] may carry
+     * [GremlinBlock.Dedup], which changes cardinality, and a sort *beneath* a [Slice] selects which
+     * elements survive the slice, so neither may be dropped. Recursion stops at the first wrapper
+     * that is neither of the two.
+     */
+    fun withoutResultOrder(): GremlinQuery = when (this) {
+        is SortBy -> inner.withoutResultOrder()
+        is ReversedOrder -> inner.withoutResultOrder()
+        else -> this
+    }
+
     data class Order(val inner: GremlinQuery, val orderBlock: GremlinBlock) :
         Chained(inner, orderBlock, isOrder = true) {
 

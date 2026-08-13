@@ -157,8 +157,14 @@ class YTDBEntityIterableImpl(
 
     override fun getTransaction(): StoreTransaction = oStore.requireActiveTransaction()
 
+    /** Same query with the result order dropped — see [GremlinQuery.withoutResultOrder]. */
+    private fun unordered(): YTDBEntityIterableImpl {
+        val unordered = query.withoutResultOrder()
+        return if (unordered === query) this else YTDBEntityIterableImpl(oStore, unordered, polymorphic)
+    }
+
     override fun isEmpty(): Boolean {
-        val iter = iterator()
+        val iter = unordered().iterator()
         try {
             return !iter.hasNext()
         } finally {
@@ -167,7 +173,7 @@ class YTDBEntityIterableImpl(
     }
 
     override fun size(): Long {
-        cachedSize = traversal().count().use { it.next() }
+        cachedSize = unordered().traversal().count().use { it.next() }
         return cachedSize
     }
 
@@ -206,7 +212,7 @@ class YTDBEntityIterableImpl(
         query.restrictToId(oid)?.let { membership ->
             return !YTDBEntityIterableImpl(oStore, membership, polymorphic).isEmpty()
         }
-        return traversal()
+        return unordered().traversal()
             .hasId(oid)
             .use { it.hasNext() }
     }
