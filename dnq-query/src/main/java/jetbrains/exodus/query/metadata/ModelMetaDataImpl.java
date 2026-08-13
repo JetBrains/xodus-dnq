@@ -33,10 +33,64 @@ public class ModelMetaDataImpl implements ModelMetaData {
     private final Set<EntityMetaData> entityMetaDatas = new HashSet<>();
     private final Map<String, AssociationMetaData> associationMetaDatas = new ConcurrentHashMap<>();
     private volatile Map<String, EntityMetaData> typeToEntityMetaDatas = null;
+    /**
+     * Suppresses the {@link #onPrepared} / {@link #onAddAssociation} schema-application callbacks
+     * while a model is being assembled - see {@link #buildModel(Runnable)}. Guarded by the
+     * {@code entityMetaDatas} monitor, which is the same monitor {@link #prepare()} and
+     * {@link #addEntityMetaData} hold, so no other thread can observe a half-built model.
+     * Volatile because {@link #addAssociation} reads it outside the monitor.
+     */
+    private volatile boolean buildingModel = false;
 
     public void init() {
         reset();
         prepare();
+    }
+
+    /**
+     * Assembles the model in one go: runs {@code build} with the schema-application callbacks
+     * ({@link #onPrepared}, {@link #onAddAssociation}) suppressed, then applies the assembled
+     * model in a single {@link #prepare()} pass.
+     *
+     * <p>Bootstrapping a model without this (add all entity types, then add every association)
+     * makes the FIRST {@code addAssociation} trigger {@code prepare()} - hence a full
+     * {@code onPrepared} schema application of an association-less model - and every association
+     * after it a separate {@code onAddAssociation}. For a persistent-store implementation that
+     * maps the callbacks onto database schema operations (see the YouTrackDB implementation) that
+     * is one schema transaction, one schema-copy and one index pass PER LINK, which dominates
+     * startup on a model with hundreds of types. Assembling inside this method collapses all of
+     * it into the single {@code onPrepared} pass, which sees the complete model - association
+     * ends included - and applies it at once.
+     *
+     * <p>Re-entrant-safe (the suppression is a plain flag under the monitor, so a nested call
+     * simply keeps it set - only the outermost one applies) and exception-safe: a failed build
+     * applies nothing, and the memoized model view is dropped either way, so a half-assembled
+     * model can never be handed out as prepared-and-applied.
+     */
+    public void buildModel(@NotNull Runnable build) {
+        synchronized (entityMetaDatas) {
+            boolean outermost = !buildingModel;
+            buildingModel = true;
+            try {
+                build.run();
+            } catch (RuntimeException | Error e) {
+                if (outermost) {
+                    buildingModel = false;
+                    // a prepare() from inside the suppressed build may have memoized a model view
+                    // that was never applied - drop it, so the next prepare() applies whatever the
+                    // caller ends up with instead of silently returning an unapplied model
+                    reset();
+                }
+                throw e;
+            }
+            if (outermost) {
+                buildingModel = false;
+                // the model changed while the callbacks were suppressed: drop the memoized view so
+                // that this prepare() rebuilds it and fires onPrepared over the full model
+                reset();
+                prepare();
+            }
+        }
     }
 
     public void setEntityMetaDatas(@NotNull Set<EntityMetaData> entityMetaDatas) {
@@ -155,7 +209,9 @@ public class ModelMetaDataImpl implements ModelMetaData {
                 } while (t != null);
                 ((EntityMetaDataImpl) emd).setThisAndSuperTypes(thisAndSuperTypes);
             }
-            onPrepared(result.values());
+            if (!buildingModel) {
+                onPrepared(result.values());
+            }
             return result;
         }
     }
@@ -236,14 +292,18 @@ public class ModelMetaDataImpl implements ModelMetaData {
             amd, sourceName, target, sourceCardinality, sourceType,
             sourceCascadeDelete, sourceClearOnDelete, sourceTargetCascadeDelete, sourceTargetClearOnDelete);
         addAssociationEndMetaDataToEntityTypeSubtree(prepare(), source, sourceEnd);
-        onAddAssociation(source, sourceEnd);
+        if (!buildingModel) {
+            onAddAssociation(source, sourceEnd);
+        }
 
         if (type != AssociationType.Directed) {
             AssociationEndMetaDataImpl targetEnd = new AssociationEndMetaDataImpl(
                 amd, targetName, source, targetCardinality, targetType,
                 targetCascadeDelete, targetClearOnDelete, targetTargetCascadeDelete, targetTargetClearOnDelete);
             addAssociationEndMetaDataToEntityTypeSubtree(prepare(), target, targetEnd);
-            onAddAssociation(target, targetEnd);
+            if (!buildingModel) {
+                onAddAssociation(target, targetEnd);
+            }
         }
 
         return amd;

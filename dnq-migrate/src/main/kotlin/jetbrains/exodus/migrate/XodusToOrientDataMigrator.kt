@@ -27,6 +27,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
 import jetbrains.exodus.entitystore.youtrackdb.asEdgeClass
 import jetbrains.exodus.entitystore.youtrackdb.createClassIdSequenceIfAbsent
+import jetbrains.exodus.entitystore.youtrackdb.createSequencesIfAbsent
 import jetbrains.exodus.query.metadata.withTx
 import jetbrains.shaded.exodus.bindings.ComparableSet
 import jetbrains.shaded.exodus.entitystore.EntityId
@@ -288,13 +289,14 @@ internal class XodusToOrientDataMigrator(
                 log.info { "Entities have been copied. Entity types: ${entityTypesCount}, entities copied: $totalEntities, properties copied: $totalProperties, blobs copied: $totalBlobs" }
             }
         }
-        // No explicit transaction here: getOrCreateSequence creates the sequence on a
-        // separate session with an internally managed short transaction (XD-1283, site 7);
-        // wrapping it again would only risk session-pool exhaustion.
+        /*
+         * All localEntityId sequences are created in ONE immediately-committed transaction on an
+         * independent session (XD-1283 performance): creating them one by one - which is what
+         * getOrCreateSequence does, each call managing its own transaction - cost one storage
+         * commit per entity type.
+         */
         orientProvider.withSession { session ->
-            sequencesToCreate.forEach { (name, largestExistingId) ->
-                schemaBuddy.getOrCreateSequence(session, name, largestExistingId)
-            }
+            session.createSequencesIfAbsent(sequencesToCreate.toMap())
         }
         return edgeClassesToCreate
     }

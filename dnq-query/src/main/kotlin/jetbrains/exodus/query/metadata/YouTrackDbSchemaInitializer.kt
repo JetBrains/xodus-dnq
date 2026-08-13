@@ -27,8 +27,11 @@ import com.jetbrains.youtrackdb.internal.core.collate.CaseInsensitiveCollate
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.linkTargetEntityIdPropertyName
-import jetbrains.exodus.entitystore.youtrackdb.createClassIdSequenceIfAbsent
-import jetbrains.exodus.entitystore.youtrackdb.createLocalEntityIdSequenceIfAbsent
+import jetbrains.exodus.entitystore.youtrackdb.ClassIdReservation
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_CUSTOM_PROPERTY_NAME
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_SEQUENCE_NAME
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
+import jetbrains.exodus.entitystore.youtrackdb.createSequencesIfAbsent
 import jetbrains.exodus.entitystore.youtrackdb.setClassIdIfAbsent
 import mu.KotlinLogging
 
@@ -183,10 +186,34 @@ internal class YouTrackDbSchemaInitializer(
     fun apply(): SchemaApplicationResult {
         val start = System.currentTimeMillis()
         try {
-            oSession.createClassIdSequenceIfAbsent()
-
             appendLine("applying the DNQ schema to OrientDB")
             val sortedEntities = entitiesMetaData.sortedTopologically()
+
+            /*
+             * All sequences the pass needs - the classId sequence and one localEntityId sequence
+             * per entity type - are created up front in a SINGLE immediately-committed side
+             * transaction (XD-1283 performance; it used to be one transaction per type, i.e. one
+             * storage commit per type). This must happen before the pass's first DDL write: on a
+             * genesis database it creates the OSequence class, and the reservation below reads the
+             * classId sequence through a pooled side transaction that only sees committed records.
+             */
+            oSession.createSequencesIfAbsent(
+                buildList {
+                    add(CLASS_ID_SEQUENCE_NAME)
+                    sortedEntities.forEach { add(localEntityIdSequenceName(it.type)) }
+                }
+            )
+            /*
+             * One reserved block of class ids for the whole pass instead of one sequence.next()
+             * transaction per type. The count is taken from the COMMITTED schema, which is what
+             * this transaction still sees: nothing has been written yet.
+             */
+            val classIdReservation = ClassIdReservation(
+                sortedEntities.count { dnqEntity ->
+                    oSession.schema.getClass(dnqEntity.type)
+                        ?.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME) == null
+                }
+            )
 
             appendLine("creating classes if absent:")
             withPadding {
@@ -195,7 +222,7 @@ internal class YouTrackDbSchemaInitializer(
                 * So, process entities in the topological order.
                 * */
                 for (dnqEntity in sortedEntities) {
-                    createVertexClassIfAbsent(dnqEntity)
+                    createVertexClassIfAbsent(dnqEntity, classIdReservation)
                 }
             }
 
@@ -285,14 +312,17 @@ internal class YouTrackDbSchemaInitializer(
 
     // Vertices and Edges
 
-    private fun createVertexClassIfAbsent(dnqEntity: EntityMetaData) {
+    private fun createVertexClassIfAbsent(
+        dnqEntity: EntityMetaData,
+        classIdReservation: ClassIdReservation
+    ) {
         append(dnqEntity.type)
         val oClass = oSession.createVertexClassIfAbsent(dnqEntity.type)
         oClass.applySuperClass(dnqEntity.superType)
         appendLine()
 
-        oSession.setClassIdIfAbsent(oClass)
-        oSession.createLocalEntityIdSequenceIfAbsent(oClass)
+        // the localEntityId sequence was created with all the others up front (see apply())
+        oSession.setClassIdIfAbsent(oClass, classIdReservation)
         /*
         * We do not apply a unique index to the localEntityId property because indices in OrientDB are polymorphic.
         * So, you can not have the same value in a property in an instance of a superclass and in an instance of its subclass.
@@ -461,11 +491,20 @@ internal class YouTrackDbSchemaInitializer(
             val linkComplementaryProperties = index.fields.filter { !it.isProperty }
                 .map { linkTargetEntityIdPropertyName(it.name) }.toSet()
             val allIndexedProperties = simpleProperties + linkComplementaryProperties
+            /*
+             * The index belongs to the type that DECLARES it, not to the type being processed -
+             * EntityMetaData.indexes includes the indexes inherited from super types, so a super
+             * type's index shows up again for each of its sub types. Keying the deferred index on
+             * the declaring type keeps one index per declaration (YTDB indexes are polymorphic, so
+             * a sub-type copy would add coverage the super type's index already has) and matches
+             * how simple-property indexes are collected (from ownIndexes, i.e. per declaring type).
+             */
+            val ownerClass = index.ownerEntityType?.let { oSession.schema.getClass(it) } ?: outClass
             // create the index only if all the containing properties are already initialized
-            if (allIndexedProperties.all { outClass.existsProperty(it) }) {
+            if (allIndexedProperties.all { ownerClass.existsProperty(it) }) {
                 addIndex(
                     DeferredIndex(
-                        outClass.name,
+                        ownerClass.name,
                         allIndexedProperties,
                         unique = true
                     )
