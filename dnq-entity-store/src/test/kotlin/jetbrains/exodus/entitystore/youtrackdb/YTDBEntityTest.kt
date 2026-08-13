@@ -142,6 +142,37 @@ class YTDBEntityTest : OTestMixin {
     }
 
     /**
+     * Xodus iterates a link in ascending target `(typeId, localId)` order — see
+     * [YTDBVertexEntity.getLinks]. This pins that sort directly: iterating the returned
+     * [jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBVertexEntityIterable] walks the
+     * materialized vertex list, so it bypasses `unwrap()` and the Gremlin query.
+     *
+     * The targets are created in id order but attached in the scrambled order `E, C, A, D, B`, and
+     * they are new records in the linking transaction, so their temporary RID positions *decrease*.
+     * Neither insertion order nor its reverse coincides with the expected result.
+     */
+    @Test
+    fun `getLinks returns targets in ascending entity id order`() {
+        val source = youTrackDb.createIssue("source")
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+        }
+
+        val names = listOf("A", "B", "C", "D", "E")
+        youTrackDb.withStoreTx { tx ->
+            val created = names.associateWith { tx.createIssue(it) }
+            listOf("E", "C", "A", "D", "B").forEach { source.addLink(linkName, created.getValue(it)) }
+
+            assertNamesExactlyInOrder(source.getLinks(linkName), *names.toTypedArray())
+        }
+
+        youTrackDb.withStoreTx {
+            assertNamesExactlyInOrder(source.getLinks(linkName), *names.toTypedArray())
+        }
+    }
+
+    /**
      * Orient may once in a while go crazy and add random bytes to
      * a blob. It does not like blobs of size 1023, 2047, 4095, 8191 and so on.
      *

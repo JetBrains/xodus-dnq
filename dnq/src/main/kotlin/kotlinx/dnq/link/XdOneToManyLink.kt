@@ -72,6 +72,9 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                                     )
                                         .then(GremlinBlock.InLink(oppositeField.oppositeDbName))
                                         .then(GremlinBlock.HasLabel(oppositeType))
+                                        // Xodus link order (see GremlinBlock.LocalIdAsc): keeps this
+                                        // path consistent with the getLinks fallback above.
+                                        .then(GremlinBlock.LocalIdAsc)
                                 )
                             )
                         }

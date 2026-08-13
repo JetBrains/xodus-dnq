@@ -472,6 +472,30 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
 
     }
 
+    companion object {
+        /**
+         * Ascending order by the local entity id — the order Xodus gives a link read for free.
+         *
+         * Xodus stores link targets as duplicates of the links table keyed by the order-preserving
+         * serialized `LinkValue` (`linkId, typeId, localId`), so iterating a link yields targets in
+         * ascending `(typeId, localId)`; for same-type targets that is creation order. YouTrackDB's
+         * adjacency is a `LinkBag` keyed by *edge* RID with decreasing temporary positions for new
+         * records, so a raw traversal returns an order that is neither creation order nor stable
+         * across the flush boundary. Reads of a single entity's link declare this order so the
+         * Gremlin path matches both the Xodus contract and `YTDBVertexEntity.getLinks`.
+         *
+         * Known limitation: this is a single sort key, `localEntityId`, which is a *per-type*
+         * sequence, while `getLinks` orders by the full `(typeId, localId)`. Where the targets of one
+         * link span several concrete types the two paths can therefore disagree on the relative order
+         * of targets from different types (their local ids tie). Callers that append [HasLabel] — the
+         * `Xd*Link` delegates do — are unaffected, since all their targets share a type. YouTrackDB
+         * exposes no per-vertex type discriminator to sort on, so the second key cannot currently be
+         * expressed here.
+         */
+        val LocalIdAsc =
+            Sort(Sort.ByProp(YTDBVertexEntity.LOCAL_ENTITY_ID_PROPERTY_NAME), SortDirection.ASC)
+    }
+
     data object Reverse : GremlinBlock("rev", BlockType.ORDER) {
         override fun traverse(g: YT): YT =
             g.fold().reverse<Any>().unfold<Any>().asYT()

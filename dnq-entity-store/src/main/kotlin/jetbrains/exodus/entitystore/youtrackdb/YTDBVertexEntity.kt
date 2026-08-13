@@ -471,12 +471,27 @@ open class YTDBVertexEntity(
         return safeVertex { vertices(Direction.OUT, edgeClassName) }.asSequence().firstOrNull() as? YTDBVertex
     }
 
+    /**
+     * Xodus iterates a link in ascending target `(typeId, localId)` order: the links table stores
+     * duplicates keyed by the serialized [jetbrains.exodus.entitystore.tables.LinkValue], whose
+     * order-preserving encoding is `linkId, typeId, localId`. YouTrack code (and its tests) is
+     * written against that contract — for same-type targets it coincides with creation order.
+     *
+     * YouTrackDB's adjacency is a `LinkBag` keyed by *edge* RID, and new records get decreasing
+     * temporary RID positions, so raw iteration returns an order that is neither creation order nor
+     * stable across the flush boundary. Sort the materialized targets by entity id to reproduce the
+     * Xodus contract. The id is read for every element on iteration anyway ([RIDEntityId.fromVertex]
+     * is what `nextId()`/`next()` do), so this adds no record loads over the previous behaviour.
+     */
     override fun getLinks(linkName: String): EntityIterable {
         val txn = requireActiveTx()
         val edgeClassName = edgeClassName(linkName)
         val links = safeVertex { vertices(Direction.OUT, edgeClassName) }
             .asSequence()
             .map { it as YTDBVertex }
+            .map { RIDEntityId.fromVertex(it) to it }
+            .sortedWith { left, right -> left.first.compareTo(right.first) }
+            .map { it.second }
             .toList()
         return YTDBVertexEntityIterable(txn, links, store, linkName, this.oEntityId)
     }

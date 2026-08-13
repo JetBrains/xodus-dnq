@@ -339,6 +339,34 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         }
     }
 
+    /**
+     * A link read unwrapped into a query must declare the ascending-`localEntityId` order that
+     * `YTDBVertexEntity.getLinks` materializes, otherwise every derived operation
+     * (intersect/skip/take/...) silently loses it. Shape-only guard: no dependency on physical
+     * insertion order.
+     */
+    @Test
+    fun `unwrapped link read declares the local id order`() {
+        // Given
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+        }
+
+        // When
+        withStoreTx {
+            val unwrapped = test.board1.getLinks(Boards.Links.HAS_ISSUE).unwrap() as YTDBEntityIterable
+
+            // Then
+            checkGremlinPattern(
+                unwrapped,
+                """g.V({rid}).hasLabel("Board").out("HasIssue_link").order().by(__.values("localEntityId").count(),Order.desc).by(__.values("localEntityId").fold(),Order.asc)"""
+            )
+        }
+    }
+
     @Test
     fun `union of findLinks queries merges source vertices into a single traversal`() {
         // Given

@@ -122,9 +122,19 @@ class YTDBVertexEntityIterable(
         return asQueryIterable().findLinks(entities, linkName)
     }
 
+    /**
+     * The query form of this link read, used by [unwrap] and by every derived operation
+     * (intersect/union/skip/take/...).
+     *
+     * [vertices] is already ordered by entity id (`YTDBVertexEntity.getLinks` sorts it to reproduce
+     * the Xodus link contract), so the query must declare the same order — otherwise merely
+     * unwrapping a link read, which callers do routinely, silently loses it. `SortBy` is understood
+     * by the optimizer: intersect/difference keep the left operand's sort, union strips it.
+     */
     private fun asQueryIterable() = YTDBEntityIterable.query(
         tx.getStore(),
         GremlinQuery.ByIds(listOf(targetEntityID.asOId()), targetEntityID.resolveTypeName(tx))
             .then(GremlinBlock.OutLink(linkName))
+            .then(GremlinBlock.LocalIdAsc)
     )
 }
