@@ -350,7 +350,7 @@ class YTDBSchemaBuddyImpl(
 }
 
 fun DatabaseSessionEmbedded.createClassIdSequenceIfAbsent(startFrom: Long = -1L) {
-    createSequenceIfAbsent(CLASS_ID_SEQUENCE_NAME, startFrom)
+    createSequencesIfAbsent(listOf(CLASS_ID_SEQUENCE_NAME), startFrom)
 }
 
 fun DatabaseSessionEmbedded.createLocalEntityIdSequenceIfAbsent(
@@ -359,33 +359,70 @@ fun DatabaseSessionEmbedded.createLocalEntityIdSequenceIfAbsent(
 ) {
     // Only the class NAME crosses into the side-session sequence call below - never a
     // (potentially tx-local) SchemaClass proxy obtained inside an open schema transaction.
-    createSequenceIfAbsent(localEntityIdSequenceName(oClass.name), startFrom)
+    createSequencesIfAbsent(listOf(localEntityIdSequenceName(oClass.name)), startFrom)
 }
 
-private fun DatabaseSessionEmbedded.createSequenceIfAbsent(sequenceName: String, startFrom: Long = 0L) {
-    if (metadata.sequenceLibrary.getSequence(sequenceName) != null) return
+/**
+ * Creates every sequence of [sequenceNames] that does not exist yet, all of them in ONE short,
+ * immediately-committed transaction on an independent session (XD-1283 performance): the schema
+ * pass of a model with hundreds of entity types needs one localEntityId sequence per type, and
+ * creating them one at a time cost one transaction - hence one storage commit - each.
+ *
+ * Why an independent session and not the caller's transaction (XD-1283/AD1, unchanged):
+ * `sequence.next()` self-hoists to a pooled session that can only see committed records, so a
+ * sequence record must be committed before its first use; and `SequenceLibraryImpl.createSequence`
+ * caches the new sequence eagerly, before the surrounding transaction commits, so a rollback would
+ * leave the library cache pointing at a record that never existed. Keeping creation in its own
+ * immediately-committed transaction avoids both.
+ *
+ * `DBSequence`'s constructor runs `session.computeInTx`, which JOINS an already active transaction
+ * (`DatabaseSessionEmbedded.begin()` nests, `finishTx` commits only the outermost frame) - that is
+ * what makes the batch a single commit.
+ *
+ * Post-genesis this is DDL-free (the OSequence class exists from database creation), so it cannot
+ * conflict with a schema transaction holding the metadata-write mutex on the caller's session. On
+ * a genesis database the first call creates the OSequence class, which is why the schema pass runs
+ * this BEFORE its own first DDL write.
+ */
+fun DatabaseSessionEmbedded.createSequencesIfAbsent(
+    sequenceNames: Collection<String>,
+    startFrom: Long = -1L
+) = createSequencesIfAbsent(sequenceNames.associateWith { startFrom })
 
-    /*
-     * Sequence creation must never join a (potentially long-running) caller transaction
-     * (XD-1283): sequence.next() self-hoists to a pooled session that can only see committed
-     * records, so the sequence record must be committed before its first use. Therefore the
-     * sequence is created on an independent session (for pooled sessions copy() == pool.acquire())
-     * in a short, immediately-committed transaction - createSequence manages its own transaction
-     * via computeInTx on a session with no active transaction.
-     *
-     * Sequence creation is DDL-free post-genesis (the OSequence class exists from database
-     * creation), so it cannot conflict with a schema transaction holding the metadata-write
-     * mutex on the caller's session.
-     *
-     * Note: sequence.next() itself must NOT be wrapped in any additional transaction here -
-     * it already runs on a pooled session internally.
-     */
+/**
+ * [createSequencesIfAbsent] with a per-sequence start value.
+ */
+fun DatabaseSessionEmbedded.createSequencesIfAbsent(sequenceStarts: Map<String, Long>) {
+    val sequences = metadata.sequenceLibrary
+    val missing = sequenceStarts.filterKeys { sequences.getSequence(it) == null }
+    if (missing.isEmpty()) return
+
     copy().use { sideSession ->
-        val sequences = sideSession.metadata.sequenceLibrary
-        if (sequences.getSequence(sequenceName) == null) {
-            val params = DBSequence.CreateParams()
-            params.start = startFrom
-            sequences.createSequence(sequenceName, DBSequence.SEQUENCE_TYPE.ORDERED, params)
+        val sideSequences = sideSession.metadata.sequenceLibrary
+        try {
+            sideSession.withTx {
+                for ((sequenceName, startFrom) in missing) {
+                    if (sideSequences.getSequence(sequenceName) != null) continue
+                    val params = DBSequence.CreateParams().setStart(startFrom)
+                    sideSequences.createSequence(sequenceName, DBSequence.SEQUENCE_TYPE.ORDERED, params)
+                }
+            }
+        } catch (e: Throwable) {
+            /*
+             * `SequenceLibraryImpl.createSequence` caches the new sequence as soon as it is
+             * created, before this transaction commits, so a failure part-way through the batch
+             * would leave the (shared) library holding sequences whose records the rollback
+             * removed - and every later `getSequence` would hand out a handle to a record that
+             * does not exist. Reloading the library from the database restores it to the committed
+             * truth. With one transaction per sequence this could poison at most one entry; the
+             * batch makes the recovery worth doing explicitly.
+             */
+            try {
+                sideSequences.load()
+            } catch (reloadException: Throwable) {
+                e.addSuppressed(reloadException)
+            }
+            throw e
         }
     }
 }
@@ -395,14 +432,79 @@ private fun DatabaseSessionEmbedded.createSequenceIfAbsent(sequenceName: String,
  * transaction. `sequence.next()` is deliberately NOT wrapped in any additional transaction -
  * it self-hoists to a pooled session internally (which can only see committed sequence
  * records; the sequence is guaranteed committed by the side-tx creation helpers above).
+ *
+ * Pass a [reservation] to take the id from a pre-reserved block instead: every `next()` call is a
+ * transaction of its own on a pooled session (`DBSequence.callRetry` does `db.copy()` +
+ * `computeInTx`), so a schema pass over hundreds of types paid one storage commit per type just to
+ * hand out class ids - see [ClassIdReservation].
  */
-fun DatabaseSessionEmbedded.setClassIdIfAbsent(oClass: SchemaClass) {
+fun DatabaseSessionEmbedded.setClassIdIfAbsent(
+    oClass: SchemaClass,
+    reservation: ClassIdReservation? = null
+) {
     if (oClass.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME) == null) {
-        val sequences = (this as DatabaseSessionEmbedded).metadata.sequenceLibrary
-        val sequence: DBSequence = sequences.getSequence(CLASS_ID_SEQUENCE_NAME)
-            ?: throw IllegalStateException("$CLASS_ID_SEQUENCE_NAME not found")
+        val classId = reservation?.nextClassId(this) ?: classIdSequence().next(this)
+        oClass.setCustom(CLASS_ID_CUSTOM_PROPERTY_NAME, classId.toString())
+    }
+}
 
-        oClass.setCustom(CLASS_ID_CUSTOM_PROPERTY_NAME, sequence.next(this).toString())
+private fun DatabaseSessionEmbedded.classIdSequence(): DBSequence =
+    metadata.sequenceLibrary.getSequence(CLASS_ID_SEQUENCE_NAME)
+        ?: throw IllegalStateException("$CLASS_ID_SEQUENCE_NAME not found")
+
+/**
+ * Hands out class ids from a block reserved with a single bump of the classId sequence instead of
+ * one `sequence.next()` transaction per class (XD-1283 performance).
+ *
+ * The block is reserved LAZILY, on the first id actually handed out, and deliberately so: the
+ * reservation is only safe once the caller's transaction holds YTDB's single-permit metadata write
+ * mutex, which it does from its first schema write onwards. Every path that consumes a class id
+ * creates or alters a class first, so by the time the first id is requested the mutex is held and
+ * no other thread can be inside `setClassIdIfAbsent` (it would block on its own DDL) - which is
+ * what makes reading the sequence's current value and jumping it by [count] in one step safe here
+ * while it would be racy on its own.
+ *
+ * Both the read and the bump run on independent sessions in their own short transactions - reading
+ * because `DBSequence.current` self-hoists to a pooled session (`callRetry` -> `db.copy()`), and
+ * writing because the caller's transaction cannot see a sequence record committed after it began
+ * (which is exactly the case for the sequences [createSequencesIfAbsent] just created). Committing
+ * the bump immediately also means a later rollback of the schema pass leaves the consumed ids
+ * behind as a gap rather than handing them out twice, which is the harmless direction.
+ *
+ * Not thread-safe: one instance belongs to one schema pass on one session.
+ *
+ * @param count how many ids the pass expects to need. Handing out more than that is not an error -
+ * the extra ids fall back to `sequence.next()` - it only costs a transaction per extra id.
+ */
+class ClassIdReservation(private val count: Int) {
+
+    private var nextId = 0L
+    private var remaining = 0
+    private var reserved = false
+
+    internal fun nextClassId(session: DatabaseSessionEmbedded): Long {
+        if (!reserved) {
+            reserved = true
+            if (count > 0) {
+                val sequence = session.classIdSequence()
+                val current = sequence.current(session)
+                session.copy().use { sideSession ->
+                    sideSession.withTx {
+                        sequence.updateParams(
+                            sideSession,
+                            DBSequence.CreateParams().setCurrentValue(current + count)
+                        )
+                    }
+                }
+                nextId = current + 1
+                remaining = count
+            }
+        }
+        if (remaining > 0) {
+            remaining--
+            return nextId++
+        }
+        return session.classIdSequence().next(session)
     }
 }
 

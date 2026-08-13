@@ -40,28 +40,38 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     }
     val modelMetaData = entityStore.modelMetaData as ModelMetaDataImpl
 
-    naturalNodes.forEach { (entityTypeName, node) ->
-        entityStore.registerCustomTypes(node)
-        modelMetaData.addEntityMetaData(entityTypeName, node)
-    }
-
     val linkValidator = LinkValidator()
-    naturalNodes.forEach { (entityTypeName, node) ->
-        node.linkProperties.values.forEach { sourceEnd ->
-            linkValidator.oneMore(entityTypeName, sourceEnd)
-            modelMetaData.addLinkMetaData(hierarchy, entityTypeName, sourceEnd, node)
+    /*
+     * The whole model - entity types AND links - is assembled inside one buildModel block so that
+     * the schema-application callbacks fire exactly once, over the complete model (XD-1283
+     * performance). Without it the first addLinkMetaData below triggers prepare() (a full
+     * onPrepared pass over an association-less model) and every link after it its own
+     * onAddAssociation - i.e. one schema transaction, one tx-local schema copy and one index pass
+     * per link, which on a model with hundreds of types dominates startup.
+     */
+    modelMetaData.buildModel {
+        naturalNodes.forEach { (entityTypeName, node) ->
+            entityStore.registerCustomTypes(node)
+            modelMetaData.addEntityMetaData(entityTypeName, node)
         }
-    }
-    val deprecatedNodes = hierarchy.filter {
-        it.value.entityType !is XdNaturalEntityType<*>
-    }
-    XdModel.plugins.flatMap { it.typeExtensions }.forEach { extension ->
-        deprecatedNodes.forEach { (entityTypeName, node) ->
+
+        naturalNodes.forEach { (entityTypeName, node) ->
             node.linkProperties.values.forEach { sourceEnd ->
-                if (sourceEnd.property == extension) {
-                    linkValidator.oneMore(entityTypeName, sourceEnd)
-                    // will add all data to sub types automatically
-                    modelMetaData.addLinkMetaData(hierarchy, node.entityType.entityType, sourceEnd, node)
+                linkValidator.oneMore(entityTypeName, sourceEnd)
+                modelMetaData.addLinkMetaData(hierarchy, entityTypeName, sourceEnd, node)
+            }
+        }
+        val deprecatedNodes = hierarchy.filter {
+            it.value.entityType !is XdNaturalEntityType<*>
+        }
+        XdModel.plugins.flatMap { it.typeExtensions }.forEach { extension ->
+            deprecatedNodes.forEach { (entityTypeName, node) ->
+                node.linkProperties.values.forEach { sourceEnd ->
+                    if (sourceEnd.property == extension) {
+                        linkValidator.oneMore(entityTypeName, sourceEnd)
+                        // will add all data to sub types automatically
+                        modelMetaData.addLinkMetaData(hierarchy, node.entityType.entityType, sourceEnd, node)
+                    }
                 }
             }
         }
@@ -73,6 +83,9 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
      * This explicitly prepares all data structures within model metadata. If we don't invoke
      * preparation here, then it would be performed on demand and very likely simultaneously in two
      * threads: EventMultiplexer and the one executing App.init().
+     *
+     * buildModel above already performed the preparing pass; this call is the memoized no-op that
+     * keeps the guarantee explicit.
      */
     modelMetaData.prepare()
 
