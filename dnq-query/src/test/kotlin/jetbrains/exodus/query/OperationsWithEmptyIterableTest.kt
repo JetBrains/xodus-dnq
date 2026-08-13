@@ -37,9 +37,8 @@ class OperationsWithEmptyIterableTest : OTestMixin {
 
     @Test
     fun operationsWithEmpty() {
-        testCase = OUsersWithInheritanceTestCase(youTrackDb)
-
         val model = givenModel()
+        testCase = OUsersWithInheritanceTestCase(youTrackDb)
 
         val engine = QueryEngine(model, youTrackDb.store)
         engine.sortEngine = SortEngine()
@@ -64,6 +63,13 @@ class OperationsWithEmptyIterableTest : OTestMixin {
     }
 
 
+    /**
+     * XD-1283: the schema (this model) is applied BEFORE the fixture is populated, because index
+     * creation is transactional by default and YTDB-1064 rejects an in-tx index over a populated
+     * class. The subject here is operations with an empty iterable, so the fixture order is
+     * incidental: OUsersWithInheritanceTestCase early-returns on the classes prepare() already
+     * created and its rows carry localEntityId in either order.
+     */
     private fun givenModel() = oModel(youTrackDb.provider) {
         entity(BaseUser.CLASS)
         entity(User.CLASS, BaseUser.CLASS)

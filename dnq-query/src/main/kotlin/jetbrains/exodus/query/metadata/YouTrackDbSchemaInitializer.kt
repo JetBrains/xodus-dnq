@@ -18,6 +18,11 @@ package jetbrains.exodus.query.metadata
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Direction
 import com.jetbrains.youtrackdb.internal.core.exception.SchemaException
+import com.jetbrains.youtrackdb.internal.core.id.RecordId
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.PropertyTypeInternal
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaShared
+import com.jetbrains.youtrackdb.internal.core.tx.FrontendTransactionImpl
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Edge
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
@@ -27,8 +32,13 @@ import com.jetbrains.youtrackdb.internal.core.collate.CaseInsensitiveCollate
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.linkTargetEntityIdPropertyName
+import jetbrains.exodus.entitystore.youtrackdb.ClassIdReservation
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_CUSTOM_PROPERTY_NAME
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_SEQUENCE_NAME
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
 import jetbrains.exodus.entitystore.youtrackdb.createClassIdSequenceIfAbsent
 import jetbrains.exodus.entitystore.youtrackdb.createLocalEntityIdSequenceIfAbsent
+import jetbrains.exodus.entitystore.youtrackdb.createSequencesIfAbsent
 import jetbrains.exodus.entitystore.youtrackdb.setClassIdIfAbsent
 import mu.KotlinLogging
 
@@ -39,24 +49,53 @@ internal data class SchemaApplicationResult(
     val newIndexedLinks: Map<String, Set<String>> // ClassName -> set of link names
 )
 
+/**
+ * Folds the results of several schema steps applied to the same session into one, so that the
+ * deferred indices and the complementary-property backfill of a whole batch are driven by a single
+ * pass each (XD-1283 association batching, see `ModelMetaDataImpl.batchAssociations`). Both maps are
+ * keyed by class name, so merging is a per-key union - two steps that touch the same class
+ * contribute to the same entry instead of one overwriting the other.
+ */
+internal fun Iterable<SchemaApplicationResult>.merged(): SchemaApplicationResult {
+    val indices = HashMap<String, MutableSet<DeferredIndex>>()
+    val newIndexedLinks = HashMap<String, MutableSet<String>>()
+    for (result in this) {
+        for ((className, classIndices) in result.indices) {
+            indices.getOrPut(className) { HashSet() }.addAll(classIndices)
+        }
+        for ((className, linkNames) in result.newIndexedLinks) {
+            newIndexedLinks.getOrPut(className) { HashSet() }.addAll(linkNames)
+        }
+    }
+    return SchemaApplicationResult(indices, newIndexedLinks)
+}
+
 internal fun DatabaseSessionEmbedded.applySchema(
     metaData: ModelMetaData,
     indexForEverySimpleProperty: Boolean = false,
-    applyLinkCardinality: Boolean = true
+    applyLinkCardinality: Boolean = true,
+    useBatchedSequenceAcquisition: Boolean = false
 ): SchemaApplicationResult =
-    applySchema(metaData.entitiesMetaData, indexForEverySimpleProperty, applyLinkCardinality)
+    applySchema(
+        metaData.entitiesMetaData,
+        indexForEverySimpleProperty,
+        applyLinkCardinality,
+        useBatchedSequenceAcquisition
+    )
 
 internal fun DatabaseSessionEmbedded.applySchema(
     entitiesMetaData: Iterable<EntityMetaData>,
     indexForEverySimpleProperty: Boolean = false,
-    applyLinkCardinality: Boolean = true
+    applyLinkCardinality: Boolean = true,
+    useBatchedSequenceAcquisition: Boolean = false
 ): SchemaApplicationResult {
     val initializer =
         YouTrackDbSchemaInitializer(
             entitiesMetaData,
             this,
             indexForEverySimpleProperty,
-            applyLinkCardinality
+            applyLinkCardinality,
+            useBatchedSequenceAcquisition
         )
     return initializer.apply()
 }
@@ -83,7 +122,8 @@ internal fun DatabaseSessionEmbedded.addAssociation(
         listOf(),
         this,
         indexForEverySimpleProperty = false,
-        applyLinkCardinality = applyLinkCardinality
+        applyLinkCardinality = applyLinkCardinality,
+        useBatchedSequenceAcquisition = false
     )
     return initializer.addAssociation(link, indicesContainingLink)
 }
@@ -121,7 +161,8 @@ internal fun DatabaseSessionEmbedded.removeAssociation(
             listOf(),
             this,
             indexForEverySimpleProperty = false,
-            applyLinkCardinality = false
+            applyLinkCardinality = false,
+            useBatchedSequenceAcquisition = false
         )
     initializer.removeAssociation(association)
 }
@@ -149,7 +190,8 @@ internal class YouTrackDbSchemaInitializer(
     private val entitiesMetaData: Iterable<EntityMetaData>,
     private val oSession: DatabaseSessionEmbedded,
     private val indexForEverySimpleProperty: Boolean,
-    private val applyLinkCardinality: Boolean
+    private val applyLinkCardinality: Boolean,
+    private val useBatchedSequenceAcquisition: Boolean
 ) {
     private val paddedLogger = PaddedLogger.logger(log)
 
@@ -163,6 +205,13 @@ internal class YouTrackDbSchemaInitializer(
     private val indices = HashMap<String, MutableSet<DeferredIndex>>()
 
     private val newIndexedLinks = HashMap<String, MutableSet<String>>()
+
+    /**
+     * Per-class memo for [holdsNoRecords], keyed by class name. Valid for the lifetime of one schema
+     * step (this object is created per schema application / per association add) because DNQ writes
+     * no data inside a schema step.
+     */
+    private val recordlessClasses = HashMap<String, Boolean>()
 
     private fun addIndex(index: DeferredIndex) {
         indices.getOrPut(index.ownerVertexName) { HashSet() }.add(index)
@@ -183,10 +232,38 @@ internal class YouTrackDbSchemaInitializer(
     fun apply(): SchemaApplicationResult {
         val start = System.currentTimeMillis()
         try {
-            oSession.createClassIdSequenceIfAbsent()
-
             appendLine("applying the DNQ schema to OrientDB")
             val sortedEntities = entitiesMetaData.sortedTopologically()
+
+            val classIdReservation = if (useBatchedSequenceAcquisition) {
+                /*
+                 * Test/benchmark-only optimization (XD-1283): create all sequences in one
+                 * immediately-committed side transaction, then reserve one class-id block for the
+                 * whole pass. The reservation reads the classId sequence through a pooled side
+                 * transaction that only sees committed records, so this must happen before the
+                 * pass's first DDL write.
+                 */
+                oSession.createSequencesIfAbsent(
+                    buildList {
+                        add(CLASS_ID_SEQUENCE_NAME)
+                        sortedEntities.forEach { add(localEntityIdSequenceName(it.type)) }
+                    }
+                )
+                ClassIdReservation(
+                    sortedEntities.count { dnqEntity ->
+                        oSession.schema.getClass(dnqEntity.type)
+                            ?.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME) == null
+                    }
+                )
+            } else {
+                /*
+                 * Preserve the historical sequence behavior unless the test-only batch mechanism
+                 * is explicitly enabled: create the class-id sequence once, acquire one class id
+                 * per class, and create each localEntityId sequence as its class is initialized.
+                 */
+                oSession.createClassIdSequenceIfAbsent()
+                null
+            }
 
             appendLine("creating classes if absent:")
             withPadding {
@@ -195,7 +272,7 @@ internal class YouTrackDbSchemaInitializer(
                 * So, process entities in the topological order.
                 * */
                 for (dnqEntity in sortedEntities) {
-                    createVertexClassIfAbsent(dnqEntity)
+                    createVertexClassIfAbsent(dnqEntity, classIdReservation)
                 }
             }
 
@@ -285,14 +362,19 @@ internal class YouTrackDbSchemaInitializer(
 
     // Vertices and Edges
 
-    private fun createVertexClassIfAbsent(dnqEntity: EntityMetaData) {
+    private fun createVertexClassIfAbsent(
+        dnqEntity: EntityMetaData,
+        classIdReservation: ClassIdReservation?
+    ) {
         append(dnqEntity.type)
         val oClass = oSession.createVertexClassIfAbsent(dnqEntity.type)
         oClass.applySuperClass(dnqEntity.superType)
         appendLine()
 
-        oSession.setClassIdIfAbsent(oClass)
-        oSession.createLocalEntityIdSequenceIfAbsent(oClass)
+        oSession.setClassIdIfAbsent(oClass, classIdReservation)
+        if (classIdReservation == null) {
+            oSession.createLocalEntityIdSequenceIfAbsent(oClass)
+        }
         /*
         * We do not apply a unique index to the localEntityId property because indices in OrientDB are polymorphic.
         * So, you can not have the same value in a property in an instance of a superclass and in an instance of its subclass.
@@ -461,11 +543,20 @@ internal class YouTrackDbSchemaInitializer(
             val linkComplementaryProperties = index.fields.filter { !it.isProperty }
                 .map { linkTargetEntityIdPropertyName(it.name) }.toSet()
             val allIndexedProperties = simpleProperties + linkComplementaryProperties
+            /*
+             * The index belongs to the type that DECLARES it, not to the type being processed -
+             * EntityMetaData.indexes includes the indexes inherited from super types, so a super
+             * type's index shows up again for each of its sub types. Keying the deferred index on
+             * the declaring type keeps one index per declaration (YTDB indexes are polymorphic, so
+             * a sub-type copy would add coverage the super type's index already has) and matches
+             * how simple-property indexes are collected (from ownIndexes, i.e. per declaring type).
+             */
+            val ownerClass = index.ownerEntityType?.let { oSession.schema.getClass(it) } ?: outClass
             // create the index only if all the containing properties are already initialized
-            if (allIndexedProperties.all { outClass.existsProperty(it) }) {
+            if (allIndexedProperties.all { ownerClass.existsProperty(it) }) {
                 addIndex(
                     DeferredIndex(
-                        outClass.name,
+                        ownerClass.name,
                         allIndexedProperties,
                         unique = true
                     )
@@ -726,6 +817,98 @@ internal class YouTrackDbSchemaInitializer(
         }
     }
 
+    /**
+     * Creates a property, skipping YouTrackDB's per-property data validation when this class provably
+     * holds no records (XD-1283 performance).
+     *
+     * `SchemaClassEmbedded.addPropertyInternal` runs two data checks per created property,
+     * `checkPersistentPropertyType` (are there existing values of an incompatible type?) and
+     * `fireDatabaseMigration` (rewrite the ones that need it). Both have an in-memory fast path, but
+     * it is gated on `hasOnlyTransactionLocalCollections()` - the class having been created in the
+     * CURRENT transaction - and NOT on the class being empty. So every property added to a class that
+     * some earlier transaction committed pays a string-interpolated SELECT whose text is unique per
+     * property, which therefore never hits the query-plan cache and re-materialises the immutable
+     * schema each time. Measured on the pinned engine, 900 properties over 300 committed but empty
+     * classes: 6372-7533 ms with the checks versus 164-174 ms with `unsafe = true`, roughly 40x.
+     * (Over classes created in the same transaction the two are equal - 197 vs 235 ms - so the
+     * startup pass on a fresh database already got the engine's own fast path and gains nothing here.)
+     *
+     * A class with no records cannot have a value of the wrong type, so the two checks have nothing
+     * to find and skipping them is not a behaviour change - see [holdsNoRecords] for what "no records"
+     * is proved with, and for the one residual risk. When emptiness cannot be proved, the public
+     * overload runs exactly as before.
+     */
+    private fun SchemaClass.createPropertyChecked(
+        propertyName: String,
+        oType: PropertyType,
+        linkedType: PropertyType? = null
+    ): SchemaProperty {
+        /*
+         * A class whose collections are ALL provisional was created by this very transaction, so the
+         * engine already takes its own in-memory fast path and there is nothing to win. Leave those
+         * to it: on a fresh database - where the startup pass creates every class in the same
+         * transaction as its properties - this method then behaves exactly as before, and the change
+         * is confined to properties added to classes an earlier transaction committed.
+         */
+        val createdInThisTransaction = polymorphicCollectionIds
+            .all { SchemaShared.isProvisionalCollectionId(it) }
+        if (createdInThisTransaction || !holdsNoRecords()) {
+            return if (linkedType == null) createProperty(propertyName, oType)
+            else createProperty(propertyName, oType, linkedType)
+        }
+        return (this as SchemaClassInternal).createProperty(
+            propertyName,
+            PropertyTypeInternal.convertFromPublicType(oType),
+            PropertyTypeInternal.convertFromPublicType(linkedType),
+            /* unsafe = */ true
+        )
+    }
+
+    /**
+     * Whether this class and all its subtypes provably hold NO records - committed or written by the
+     * current transaction - which is what makes YouTrackDB's per-property data validation pointless
+     * (see [createPropertyChecked]).
+     *
+     * Deliberately does NOT use `SchemaClassInternal.count(session, true)`: that route goes through
+     * the immutable schema snapshot, which every schema write in the transaction invalidates, so
+     * asking it once per class inside a DDL transaction would rebuild the whole snapshot per class -
+     * paying exactly the cost this is meant to avoid. Instead both halves are read directly:
+     * - committed records: the storage's per-collection counters, for the non-provisional collection
+     *   ids only (a provisional id, `<= -2`, belongs to a class created in this transaction and has no
+     *   storage collection to count);
+     * - uncommitted records: the transaction's own per-collection walk, the same one the engine's fast
+     *   path uses, with the upper bound of 0 that restricts it to this transaction's records.
+     *
+     * Conservative in every direction: any doubt - a missing transaction, an unexpected failure -
+     * answers false and the caller keeps the validated path. Records deleted but not yet committed
+     * still count as records, which can only cost performance, never correctness. Only ever asked
+     * about a class with at least one committed collection, see [createPropertyChecked].
+     *
+     * Residual risk, accepted: a concurrent session could commit a record into the class between this
+     * check and the property creation. For that to matter the record would have to carry an
+     * undeclared value under the very property name being created with an incompatible type - DNQ
+     * never writes undeclared values - and the SELECT the engine would have run is itself a snapshot
+     * read with the same blind spot.
+     */
+    private fun SchemaClass.holdsNoRecords(): Boolean = recordlessClasses.getOrPut(name) {
+        try {
+            val collectionIds = polymorphicCollectionIds
+            val committedIds = collectionIds.filterNot { SchemaShared.isProvisionalCollectionId(it) }
+            val noCommittedRecords = committedIds.isEmpty() ||
+                oSession.countCollectionElements(committedIds.toIntArray(), false) == 0L
+            noCommittedRecords && collectionIds.none { hasTransactionLocalRecords(it) }
+        } catch (e: Throwable) {
+            log.debug(e) { "Could not establish whether $name holds records, keeping the validated property-creation path" }
+            false
+        }
+    }
+
+    private fun hasTransactionLocalRecords(collectionId: Int): Boolean {
+        val transaction = oSession.transactionInternal as? FrontendTransactionImpl
+            ?: return true // no transaction to walk: assume the worst and validate
+        return transaction.getNextRidInCollection(RecordId(collectionId, Long.MIN_VALUE), 0) != null
+    }
+
     private fun SchemaClass.createPropertyIfAbsent(
         propertyName: String,
         oType: PropertyType
@@ -738,7 +921,7 @@ internal class YouTrackDbSchemaInitializer(
             append(", created")
             // concurrent-creation race tolerance (XD-1283) - see createEdgeClassIfAbsent
             try {
-                createProperty(propertyName, oType)
+                createPropertyChecked(propertyName, oType)
             } catch (e: SchemaException) {
                 if (existsProperty(propertyName)) getProperty(propertyName) else throw e
             }
@@ -776,7 +959,7 @@ internal class YouTrackDbSchemaInitializer(
             append(", created")
             // concurrent-creation race tolerance (XD-1283) - see createEdgeClassIfAbsent
             try {
-                createProperty(propertyName, PropertyType.LINKBAG)
+                createPropertyChecked(propertyName, PropertyType.LINKBAG)
             } catch (e: SchemaException) {
                 if (existsProperty(propertyName)) getProperty(propertyName) else throw e
             }
@@ -799,7 +982,7 @@ internal class YouTrackDbSchemaInitializer(
             append(", created")
             // concurrent-creation race tolerance (XD-1283) - see createEdgeClassIfAbsent
             try {
-                createProperty(propertyName, PropertyType.EMBEDDEDSET, oType)
+                createPropertyChecked(propertyName, PropertyType.EMBEDDEDSET, linkedType = oType)
             } catch (e: SchemaException) {
                 if (existsProperty(propertyName)) getProperty(propertyName) else throw e
             }

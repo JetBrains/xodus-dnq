@@ -34,14 +34,92 @@ class YTDBDatabaseParams private constructor(
     val serverParams: YTDBServerParams? = null,
     val configBuilder: YouTrackDBConfigBuilder.() -> Unit = {},
     /**
-     * Dual-mode index creation (XD-1283). When false (the default), indices are created on
-     * YTDB's legacy non-transactional path (createIndex + fillIndex over committed rows).
-     * When true, index creation runs inside explicit transactions - which is rejected at
-     * commit for populated classes until YTDB-1064 is lifted.
+     * Dual-mode index creation (XD-1283).
      *
-     * The default flips to true (and this flag retires) when YTDB-1064 is lifted.
+     * **The default is `true`**: all index definitions of a schema pass are created inside ONE
+     * transaction, so the index pass is atomic (and much faster). When `false`, indices are
+     * created on YTDB's legacy non-transactional path (createIndex + fillIndex over committed
+     * rows).
+     *
+     * **Transactional index creation requires EMPTY classes** on the current YouTrackDB version
+     * (upstream YTDB-1064): creating an index over a class that already holds rows - or whose
+     * subtypes hold rows - is rejected at commit. The failure recurs on every RESTART
+     * (`applySchema` is idempotent: the index stays absent, the class stays populated) - but an
+     * in-process retry does not surface it either, because `ModelMetaDataImpl` memoizes the
+     * model before invoking `onPrepared`, so a caught exception leaves a running model with the
+     * index silently missing. **A database that already contains data must therefore pin this
+     * flag to `false`** until YTDB-1064 is lifted. See [Builder.withTransactionalIndexCreation].
+     *
+     * The flag retires when YTDB-1064 is lifted.
      */
-    val transactionalIndexCreation: Boolean = false
+    val transactionalIndexCreation: Boolean = true,
+    /**
+     * Whether schema initialization acquires class ids in one reserved batch instead of acquiring
+     * them one at a time from the class-id sequence.
+     *
+     * `false` (the default) preserves the historical per-class sequence acquisition behavior.
+     * `true` reserves one class-id block for the schema pass and is intended for tests and
+     * benchmarks only; it is not a production setting.
+     *
+     * The batch mechanism consumes class ids eagerly and leaves gaps if schema initialization is
+     * rolled back. See [Builder.withBatchedSequenceAcquisition].
+     */
+    val useBatchedSequenceAcquisition: Boolean = false,
+    /**
+     * Whether `prepare()` creates YouTrackDB's automatic index for every auto-indexed SIMPLE
+     * property of the model (JT-95771 / XD-1283, EXPERIMENTAL).
+     *
+     * `true` (the default, the historical behaviour) makes a full YouTrack model materialise
+     * ~3900 indices, which dominates schema application, the on-disk file count (3-5 files per
+     * index) **and every subsequent database open** (the engine loads one index engine per index).
+     *
+     * `false` keeps only the indices the model asks for explicitly (unique and composite indices,
+     * plus the ones the store needs regardless, e.g. `localEntityId`) and leaves simple-property
+     * lookups to a scan. That is a **query-plan** trade, not a correctness one - uniqueness is
+     * still enforced, because unique indices are not covered by this flag - so it is meant for
+     * test/benchmark databases with tiny datasets, never for production.
+     *
+     * Defaults from the `dnq.autoIndexSimpleProperties` system property so a test harness can flip
+     * it without rewiring the params; pass it explicitly to be independent of the JVM environment.
+     */
+    val autoIndexSimpleProperties: Boolean =
+        java.lang.Boolean.parseBoolean(System.getProperty("dnq.autoIndexSimpleProperties", "true")),
+    /**
+     * Skip schema application in `prepare()` altogether (JT-95771 / XD-1283, EXPERIMENTAL).
+     *
+     * When `true`, `onPrepared` builds the in-JVM model and initialises the store's per-database
+     * caches but sends **no** schema DDL and no existence checks to the database. On an
+     * already-correct schema those checks are provably redundant (~4 transactions and hundreds of
+     * round trips that write nothing), which is exactly the situation of a test that opens a
+     * database seeded from a template built by the same model.
+     *
+     * **The caller carries the proof.** If the database's schema does *not* match the model, the
+     * mismatch surfaces later as a failed write ("class is not found" / "has not been found"),
+     * not as a clear error here. Only set it when something else has established that the schema
+     * is already correct - e.g. a first, non-skipped `prepare()` in the same process against the
+     * same model and the same database image.
+     *
+     * Defaults from the `dnq.skipSchemaApplication` system property.
+     */
+    val skipSchemaApplication: Boolean =
+        java.lang.Boolean.parseBoolean(System.getProperty("dnq.skipSchemaApplication", "false")),
+    /**
+     * Storage `fsync` switch, mapped onto YouTrackDB's `youtrackdb.storage.callFsync`
+     * ([GlobalConfiguration.STORAGE_CALL_FSYNC]).
+     *
+     * `null` (the default) leaves the parameter untouched, so YouTrackDB's own default (`true`)
+     * or whatever the process has set on the JVM-global [GlobalConfiguration] applies. A
+     * non-`null` value is written into this database's context configuration, which **shadows**
+     * the JVM-global value - that is why the default is `null` rather than `true`.
+     *
+     * `false` removes the durability barriers on the storage hot path: after a power loss the
+     * database can lose recent data, and a truncated file registry can even leave it unopenable.
+     * **Intended for unit tests and benchmarks only** - see [Builder.withCallFsync].
+     *
+     * Only disk-backed databases are affected ([DatabaseType.MEMORY] never syncs anything).
+     * YouTrackDB logs a one-shot warning when it starts a storage with `fsync` disabled.
+     */
+    val callFsync: Boolean? = null
 ) {
 
     companion object {
@@ -58,6 +136,7 @@ class YTDBDatabaseParams private constructor(
         .addGlobalConfigurationParameter(GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED, true)
         .apply {
             encryptionKey?.let { addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_ENCRYPTION_KEY, it) }
+            callFsync?.let { addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_CALL_FSYNC, it) }
         }
         .apply(configBuilder)
         .build()
@@ -75,7 +154,13 @@ class YTDBDatabaseParams private constructor(
         private var closeDatabaseInDbProvider = true
         private var serverParams: YTDBServerParams? = null
         private var configBuilder: YouTrackDBConfigBuilder.() -> Unit = {}
-        private var transactionalIndexCreation: Boolean = false
+        private var transactionalIndexCreation: Boolean = true
+        private var useBatchedSequenceAcquisition: Boolean = false
+        private var autoIndexSimpleProperties: Boolean =
+            java.lang.Boolean.parseBoolean(System.getProperty("dnq.autoIndexSimpleProperties", "true"))
+        private var skipSchemaApplication: Boolean =
+            java.lang.Boolean.parseBoolean(System.getProperty("dnq.skipSchemaApplication", "false"))
+        private var callFsync: Boolean? = null
 
         fun withDatabasePath(databaseUrl: String) = apply {
             this.databasePath = databaseUrl
@@ -142,9 +227,75 @@ class YTDBDatabaseParams private constructor(
             this.serverParams = serverParams
         }
 
-        /** See [YTDBDatabaseParams.transactionalIndexCreation]. */
+        /**
+         * Dual-mode index creation (XD-1283), see [YTDBDatabaseParams.transactionalIndexCreation].
+         *
+         * **The default is `true`** - one transaction for the whole index pass.
+         *
+         * **Transactional index creation requires EMPTY classes** on the current YouTrackDB
+         * version (upstream YTDB-1064): an index over a class that already holds rows (or whose
+         * subtypes hold rows) is rejected at commit. The failure recurs on every RESTART
+         * (`applySchema` is idempotent: the index stays absent, the class stays populated) - but
+         * an in-process retry does not surface it either, because `ModelMetaDataImpl` memoizes
+         * the model before invoking `onPrepared`, so a caught exception leaves a running model
+         * with the index silently missing.
+         * **Pass `false` for a database that already contains data**, which keeps index creation
+         * on YTDB's legacy non-transactional path (createIndex + fillIndex over committed rows);
+         * that path supports populated classes.
+         *
+         * `false` is required in particular for:
+         * - a schema upgrade that adds an index (e.g. one new indexed simple property) to a class
+         *   that already holds data;
+         * - the application's first `prepare()` after a Xodus -> YouTrackDB migration - the
+         *   migrator creates no indices, so every class is populated by the time indices are
+         *   built (see `XodusToOrientDataMigratorLauncher`).
+         *
+         * The flag retires when YTDB-1064 is lifted.
+         */
         fun withTransactionalIndexCreation(transactionalIndexCreation: Boolean) = apply {
             this.transactionalIndexCreation = transactionalIndexCreation
+        }
+
+        /**
+         * Enables batched class-id sequence acquisition for schema initialization.
+         *
+         * This is a test/benchmark-only optimization. When not called, schema initialization uses
+         * the historical per-class sequence acquisition path.
+         */
+        fun withBatchedSequenceAcquisition(useBatchedSequenceAcquisition: Boolean) = apply {
+            this.useBatchedSequenceAcquisition = useBatchedSequenceAcquisition
+        }
+
+        /** See [YTDBDatabaseParams.autoIndexSimpleProperties] (EXPERIMENTAL, test/benchmark use). */
+        fun withAutoIndexSimpleProperties(autoIndexSimpleProperties: Boolean) = apply {
+            this.autoIndexSimpleProperties = autoIndexSimpleProperties
+        }
+
+        /** See [YTDBDatabaseParams.skipSchemaApplication] (EXPERIMENTAL, caller carries the proof). */
+        fun withSkipSchemaApplication(skipSchemaApplication: Boolean) = apply {
+            this.skipSchemaApplication = skipSchemaApplication
+        }
+
+        /**
+         * Storage `fsync` switch, see [YTDBDatabaseParams.callFsync].
+         *
+         * Pass `false` to turn YouTrackDB's `fsync` calls off
+         * (`youtrackdb.storage.callFsync`), which removes the durability barriers on the storage
+         * hot path and makes disk-backed databases considerably cheaper to create and write.
+         *
+         * **Use `false` in unit tests and benchmarks only.** With `fsync` off, a power loss or a
+         * JVM crash can lose recent data, and a truncated file registry can leave the database
+         * unopenable - never do this for a database whose contents must survive.
+         *
+         * When this method is not called at all, the parameter is left unset and YouTrackDB's
+         * default (`fsync` on) - or the process-wide [GlobalConfiguration] value - applies.
+         * Note that calling it with either value pins the setting for this database and therefore
+         * overrides any process-wide [GlobalConfiguration.STORAGE_CALL_FSYNC] value.
+         *
+         * A [withConfigBuilder] block still wins, as it is applied last.
+         */
+        fun withCallFsync(callFsync: Boolean) = apply {
+            this.callFsync = callFsync
         }
 
         fun build(): YTDBDatabaseParams {
@@ -159,7 +310,11 @@ class YTDBDatabaseParams private constructor(
                 closeAfterDelayTimeout,
                 serverParams,
                 configBuilder,
-                transactionalIndexCreation
+                transactionalIndexCreation,
+                useBatchedSequenceAcquisition,
+                autoIndexSimpleProperties,
+                skipSchemaApplication,
+                callFsync
             )
         }
 

@@ -39,14 +39,36 @@ class YTDBModelMetaData(
              *    records;
              * 2. the complementary-property backfill keeps its own batched data transactions;
              * 3. index creation is dual-mode behind YTDBDatabaseParams.transactionalIndexCreation:
-             *    by default (false) it runs on YTDB's legacy non-transactional path
-             *    (createIndex + fillIndex over committed rows - works for populated classes);
-             *    with the flag on, one explicit transaction over all index creation, which
-             *    fails at commit for populated classes until YTDB-1064 is lifted. The default
-             *    flips (and the flag retires) when YTDB-1064 is lifted.
+             *    by default (true) one explicit transaction covers all index creation, which
+             *    fails at commit for populated classes until YTDB-1064 is lifted; with the flag
+             *    off it runs on YTDB's legacy non-transactional path (createIndex + fillIndex
+             *    over committed rows - works for populated classes), which is what a database
+             *    that already contains data must use. The flag retires when YTDB-1064 is lifted.
              */
+            /*
+             * EXPERIMENTAL (JT-95771): the caller may declare that this database's schema already
+             * matches the model - a test opening a database seeded from a template built by the
+             * same model, for instance. The whole application pass is then skipped: on a correct
+             * schema it is ~4 transactions of existence checks that write nothing. The store's
+             * per-database caches (class-id map) are still initialised below, because those live in
+             * the JVM and must be rebuilt for every database.
+             */
+            if (dbProvider.skipSchemaApplication) {
+                initialize(session)
+                return@withSession
+            }
             val result = session.withTx {
-                it.applySchema(entitiesMetaData, indexForEverySimpleProperty = true, applyLinkCardinality = true)
+                it.applySchema(
+                    entitiesMetaData,
+                    // EXPERIMENTAL (JT-95771): `false` drops the automatic index of every
+                    // auto-indexed simple property (~3900 of them for a full YouTrack model),
+                    // which is the dominant cost of schema application, of the on-disk file count
+                    // and of every subsequent database open. Unique/composite indices are
+                    // unaffected, so it is a query-plan trade, for test databases only.
+                    indexForEverySimpleProperty = dbProvider.autoIndexSimpleProperties,
+                    applyLinkCardinality = true,
+                    useBatchedSequenceAcquisition = dbProvider.useBatchedSequenceAcquisition
+                )
             }
             session.initializeComplementaryPropertiesForNewIndexedLinks(result.newIndexedLinks)
             if (dbProvider.transactionalIndexCreation) {
@@ -61,6 +83,30 @@ class YTDBModelMetaData(
     }
 
     override fun onAddAssociation(entityMetaData: EntityMetaData, association: AssociationEndMetaData) {
+        applyAssociations(listOf(ModelMetaDataImpl.AddedAssociation(entityMetaData, association)))
+    }
+
+    /**
+     * The batched counterpart of [onAddAssociation] (XD-1283 performance): every association added
+     * inside a `ModelMetaDataImpl.batchAssociations` scope is applied by ONE call, hence one session,
+     * one transaction and one commit for the whole delta.
+     *
+     * This is what makes runtime registration affordable at scale. A single association's DDL is
+     * cheap in itself, but the transaction around it is not: YouTrackDB seeds a transaction-local
+     * schema copy by re-parsing the whole committed schema (`SchemaShared.copyForTx`), re-parses it
+     * again when promoting the copy at commit, and rebuilds the immutable schema snapshot on every
+     * schema write - all of it proportional to the total schema size, not to the size of the change.
+     * Paying that per association is what dominates a client that registers hundreds of links after
+     * startup; paying it once per batch does not.
+     */
+    override fun onAddAssociations(associations: List<ModelMetaDataImpl.AddedAssociation>) {
+        applyAssociations(associations)
+    }
+
+    private fun applyAssociations(associations: List<ModelMetaDataImpl.AddedAssociation>) {
+        if (associations.isEmpty()) {
+            return
+        }
         /*
          * Runtime association-add is transactional (XD-1283). No session parameter reaches
          * this callback, so the DDL always runs on a separate session; combining it with
@@ -68,19 +114,33 @@ class YTDBModelMetaData(
          * and fails loudly with MetadataWriteMutex's same-thread IllegalStateException.
          *
          * Index creation is dual-mode (XD-1283, YTDBDatabaseParams.transactionalIndexCreation):
-         * - flag on: single transaction for DDL + index when no backfill is needed (AD10);
+         * - flag on (the default): single transaction for DDL + index when no backfill is needed (AD10);
          *   three-phase (DDL tx -> batched backfill txs -> index tx, mirroring startup) only
          *   when the new indexed links require the complementary-property backfill (AD4).
          *   In-tx index creation over classes with pre-existing committed rows fails at
          *   commit until YTDB-1064 is lifted - accepted for this mode.
-         * - flag off (default until YTDB-1064 is lifted): DDL tx (+ backfill txs if needed),
-         *   then indices on the legacy non-transactional path, which works for populated
-         *   classes.
+         * - flag off (required for a database that already contains data, until YTDB-1064 is
+         *   lifted): DDL tx (+ backfill txs if needed), then indices on the legacy
+         *   non-transactional path, which works for populated classes.
          */
+        /*
+         * EXPERIMENTAL (JT-95771), see YTDBDatabaseParams.skipSchemaApplication: the caller has
+         * declared this database's schema already matches the model, so an association whose ends
+         * and indices are already there needs no DDL pass. The in-JVM model has been updated by
+         * ModelMetaDataImpl before this hook runs, which is the part that must always happen.
+         */
+        if (dbProvider.skipSchemaApplication) return
         dbProvider.withSession { session ->
             val inTxIndices = dbProvider.transactionalIndexCreation
             val result = session.withTx { sessionToWork ->
-                val schemaApplicationResult = sessionToWork.addAssociation(entityMetaData, association)
+                /*
+                 * The whole delta's DDL goes into this one transaction; the deferred indices of all
+                 * of it are merged and created once, after the last link exists, so an index over a
+                 * link added later in the same batch is still covered.
+                 */
+                val schemaApplicationResult = associations.map { added ->
+                    sessionToWork.addAssociation(added.entityMetaData, added.association)
+                }.merged()
                 if (inTxIndices && schemaApplicationResult.newIndexedLinks.isEmpty()) {
                     // no backfill needed: DDL + index commit atomically in this one tx (AD10)
                     sessionToWork.applyIndices(schemaApplicationResult.indices)

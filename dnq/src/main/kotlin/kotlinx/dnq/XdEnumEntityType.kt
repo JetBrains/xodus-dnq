@@ -34,6 +34,12 @@ abstract class XdEnumEntityType<XD : XdEnumEntity>(entityTypeName: String? = nul
 
     fun enumField(dbName: String? = null, init: XD.() -> Unit) = EnumConstPropertyProvider(dbName, init)
 
+    /**
+     * Creates this enum type's constants if absent, updating the existing ones otherwise.
+     *
+     * The caller owns the transaction boundary. In particular, metadata initialization keeps enum
+     * values, entity-type initialization, and singleton initialization in one transaction.
+     */
     fun initEnumValues(txn: TransientStoreSession) {
         if (constants.isNotEmpty()) {
             constants.forEach { enumConst ->
@@ -45,9 +51,7 @@ abstract class XdEnumEntityType<XD : XdEnumEntity>(entityTypeName: String? = nul
                 } else {
                     enumConst.update(xdEnumValue)
                 }
-
             }
-            txn.flush()
         }
     }
 

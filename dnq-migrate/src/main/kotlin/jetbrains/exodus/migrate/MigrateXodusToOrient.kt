@@ -96,6 +96,14 @@ fun main() {
         """.trimIndent()
     )
 
+    /*
+     * XD-1283: the migrator itself creates no indices, so it does not read
+     * transactionalIndexCreation at all - but the APPLICATION's first prepare() after this
+     * migration does, and it would then build every index over fully populated classes. That is
+     * rejected at commit by upstream YTDB-1064 with the shipping default (true), permanently.
+     * The application must therefore start once with withTransactionalIndexCreation(false)
+     * (until YTDB-1064 is lifted). See XodusToOrientDataMigratorLauncher.
+     */
     val params = YTDBDatabaseParams.builder()
         .withDatabasePath(orientDatabaseDirectory)
         .withAppUser(orientUsername, orientPassword)

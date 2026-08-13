@@ -16,6 +16,8 @@
 package jetbrains.exodus.query.metadata
 import YTDBDatabaseProviderFactory
 import com.jetbrains.youtrackdb.api.DatabaseType
+import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraph
 import jetbrains.exodus.entitystore.PersistentEntityId
 
 import jetbrains.exodus.entitystore.youtrackdb.*
@@ -215,8 +217,10 @@ class OModelMetaDataTest : OTestMixin {
         }
         // Bootstrap the type1 schema (localEntityId property, sequences, index) with a
         // throwaway model - not the model under test, which must stay unprepared here.
-        // Under the default transactionalIndexCreation = false mode the index build runs on
-        // the legacy non-tx fillIndex path, so the ordering vs. data creation is not critical.
+        // This prepare() runs on the DEFAULT transactionalIndexCreation = true path: it succeeds
+        // because the schema, including the index, is applied here BEFORE the row below is
+        // created, and the later prepare() of the model under test re-applies the same schema,
+        // adding no new index over the now-populated class.
         oModel(youTrackDb.provider, YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)) {
             entity("type1")
         }.prepare()
@@ -241,7 +245,13 @@ class OModelMetaDataTest : OTestMixin {
 
     @Test
     fun `addAssociation() initializes complementary properties for indexed links`() {
-        oModel(youTrackDb.provider, YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)) {
+        // XD-1283: this test's subject IS incremental association-add over POPULATED classes, so
+        // it is pinned to the legacy non-transactional index path (the shipping default is
+        // transactional, which upstream YTDB-1064 rejects over populated classes - see the
+        // dedicated flag test below). Remove the pin when YTDB-1064 is lifted.
+        val nonTxProvider = providerWith(transactionalIndexCreation = false)
+
+        oModel(nonTxProvider, YTDBSchemaBuddyImpl(nonTxProvider, autoInitialize = false)) {
             entity("type2")
             entity("type1")
             association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
@@ -271,13 +281,13 @@ class OModelMetaDataTest : OTestMixin {
         }
 
         /*
-         * XD-1283 dual-mode index creation: under the default mode
-         * (transactionalIndexCreation = false) a runtime association-add requiring backfill
-         * is DDL tx -> batched backfill txs -> legacy non-tx index creation, which supports
-         * populated classes - so the whole flow succeeds. The in-tx mode's YTDB-1064
-         * contract is covered by the dedicated flag test below.
+         * XD-1283 dual-mode index creation: on this test's PINNED non-transactional provider
+         * (nonTxProvider, transactionalIndexCreation = false) a runtime association-add
+         * requiring backfill is DDL tx -> batched backfill txs -> legacy non-tx index creation,
+         * which supports populated classes - so the whole flow succeeds. The in-tx mode's
+         * YTDB-1064 contract is covered by the dedicated flag test below.
          */
-        oModel(youTrackDb.provider, YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)) {
+        oModel(nonTxProvider, YTDBSchemaBuddyImpl(nonTxProvider, autoInitialize = false)) {
             entity("type2") {
                 index(IndexedField("ass2", isProperty = false))
             }
@@ -316,9 +326,13 @@ class OModelMetaDataTest : OTestMixin {
         // the documented YTDB-1064 contract - an association-add requiring backfill over
         // populated classes is three-phase, and the final in-tx index phase fails at commit
         // (DDL and backfill are committed by then - the accepted class-without-index limbo).
-        assertFalse(youTrackDb.provider.transactionalIndexCreation) // default is legacy non-tx
+        // BOTH providers are explicit: the schema-and-data one is pinned to the legacy non-tx
+        // path, the asserting one to the in-tx path, so the contrast the test is built on holds
+        // regardless of what the default is.
+        val nonTxProvider = providerWith(transactionalIndexCreation = false)
+        assertFalse(nonTxProvider.transactionalIndexCreation)
 
-        oModel(youTrackDb.provider, YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)) {
+        oModel(nonTxProvider, YTDBSchemaBuddyImpl(nonTxProvider, autoInitialize = false)) {
             entity("type2")
             entity("type1")
             association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
@@ -331,15 +345,7 @@ class OModelMetaDataTest : OTestMixin {
         }
 
         // a second provider over the same database with the in-tx mode enabled
-        val inTxParams = YTDBDatabaseParams.builder()
-            .withDatabaseType(DatabaseType.MEMORY)
-            .withDatabasePath(youTrackDb.params.databasePath)
-            .withAppUser(youTrackDb.username, youTrackDb.password)
-            .withDatabaseName(youTrackDb.dbName)
-            .withCloseDatabaseInDbProvider(false)
-            .withTransactionalIndexCreation(true)
-            .build()
-        val inTxProvider = YTDBDatabaseProviderFactory.createProvider(inTxParams, youTrackDb.database)
+        val inTxProvider = providerWith(transactionalIndexCreation = true)
         assertTrue(inTxProvider.transactionalIndexCreation)
 
         val e = assertFailsWith<RuntimeException> {
@@ -483,5 +489,119 @@ class OModelMetaDataTest : OTestMixin {
             e2.addLink("link2", e1)
             e1.setProperty("trista", "drista")
         }
+    }
+
+    @Test
+    fun `by default prepare() over a populated class fails with YTDB-1064`() {
+        /*
+         * XD-1283: this is the branch the transactional-by-default flip creates, and the
+         * accepted risk R7/BG-7 made explicit - a schema upgrade that adds an indexed simple
+         * property to a class that already holds rows fails at startup: applySchema commits the
+         * property, then the index transaction is rejected at commit by upstream YTDB-1064, and
+         * the failure recurs on every RESTART (applySchema is idempotent, the index is still
+         * absent, the class is still populated). An in-process retry alone does not recover
+         * either: ModelMetaDataImpl memoizes the model before calling onPrepared, so a caller
+         * that swallows the exception and retries keeps running with the index silently missing.
+         * Invert this test to assert success when YTDB-1064 is lifted.
+         */
+        // the resolved default must be transactional: this assertion is what pins the flip -
+        // without it, reverting the two defaults would leave the whole suite green
+        assertTrue(youTrackDb.provider.transactionalIndexCreation)
+
+        // initial schema + data, created through a provider pinned to the legacy non-tx path
+        val nonTxProvider = providerWith(transactionalIndexCreation = false)
+        oModel(nonTxProvider) {
+            entity("type1") {
+                property("prop1", "int")
+            }
+        }.prepare()
+        youTrackDb.withStoreTx { tx ->
+            createVertexAndSetLocalEntityId(tx, "type1").property("prop1", 1)
+        }
+
+        // the schema upgrade, on the DEFAULT (unpinned) provider of the rule
+        val upgraded = oModel(youTrackDb.provider) {
+            entity("type1") {
+                property("prop1", "int")
+                property("prop2", "string")
+            }
+        }
+
+        val e = assertFailsWith<RuntimeException> { upgraded.prepare() }
+        assertTrue(e.message!!.contains("YTDB-1064"), "unexpected failure: ${e.message}")
+    }
+
+    @Test
+    fun `a provider that does not override transactionalIndexCreation inherits the transactional default`() {
+        /*
+         * XD-1283: YTDBDatabaseProviderImpl always overrides transactionalIndexCreation (from
+         * YTDBDatabaseParams), so the interface default on YTDBDatabaseProvider has no other
+         * in-repo consumer - external non-overriding implementations are the ones it affects.
+         * The delegate here is deliberately pinned to false, so everything observed below comes
+         * from the interface default and nothing else.
+         */
+        val pinnedOffProvider = providerWith(transactionalIndexCreation = false)
+        val nonOverriding = NonOverridingProvider(pinnedOffProvider)
+        assertFalse(pinnedOffProvider.transactionalIndexCreation)
+        assertTrue(nonOverriding.transactionalIndexCreation)
+
+        // initial schema + data on the pinned-off delegate (legacy non-tx index path)
+        oModel(pinnedOffProvider) {
+            entity("type1") {
+                property("prop1", "int")
+            }
+        }.prepare()
+        youTrackDb.withStoreTx { tx ->
+            createVertexAndSetLocalEntityId(tx, "type1").property("prop1", 1)
+        }
+
+        // the same schema upgrade through the non-overriding provider: it takes the in-tx path
+        // purely because of the interface default, so YTDB-1064 rejects it over the populated
+        // class - which is the observable proof that the interface default is transactional
+        val upgraded = oModel(nonOverriding) {
+            entity("type1") {
+                property("prop1", "int")
+                property("prop2", "string")
+            }
+        }
+
+        val e = assertFailsWith<RuntimeException> { upgraded.prepare() }
+        assertTrue(e.message!!.contains("YTDB-1064"), "unexpected failure: ${e.message}")
+    }
+
+    /**
+     * A second provider over the rule's database with [transactionalIndexCreation] pinned
+     * explicitly (XD-1283), so a test states the mode it needs instead of inheriting the default.
+     */
+    private fun providerWith(transactionalIndexCreation: Boolean): YTDBDatabaseProvider {
+        val params = YTDBDatabaseParams.builder()
+            .withDatabaseType(DatabaseType.MEMORY)
+            .withDatabasePath(youTrackDb.params.databasePath)
+            .withAppUser(youTrackDb.username, youTrackDb.password)
+            .withDatabaseName(youTrackDb.dbName)
+            .withCloseDatabaseInDbProvider(false)
+            .withTransactionalIndexCreation(transactionalIndexCreation)
+            .build()
+        return YTDBDatabaseProviderFactory.createProvider(params, youTrackDb.database)
+    }
+
+    /**
+     * A [YTDBDatabaseProvider] implementation that deliberately does NOT override
+     * [YTDBDatabaseProvider.transactionalIndexCreation], i.e. it inherits the interface default
+     * (XD-1283). Everything else is delegated.
+     */
+    private class NonOverridingProvider(
+        private val delegate: YTDBDatabaseProvider
+    ) : YTDBDatabaseProvider {
+        override val databaseLocation: String get() = delegate.databaseLocation
+        override val graph: YTDBGraph get() = delegate.graph
+        override fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R = delegate.withSession(block)
+        override var readOnly: Boolean
+            get() = delegate.readOnly
+            set(value) {
+                delegate.readOnly = value
+            }
+        override val isOpen: Boolean get() = delegate.isOpen
+        override fun close() = delegate.close()
     }
 }
