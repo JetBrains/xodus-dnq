@@ -29,7 +29,7 @@ private val log = KotlinLogging.logger {}
 
 /**
  * Creates the indices inside the caller-provided active transaction (XD-1283 dual-mode,
- * transactionalIndexCreation = true). In-tx index creation over classes with pre-existing
+ * transactionalIndexCreation = true, the default). In-tx index creation over classes with pre-existing
  * committed rows fails at commit until YTDB-1064 is lifted - accepted for this mode.
  * Must be called with an active transaction on the session.
  */
@@ -43,9 +43,10 @@ internal fun DatabaseSessionEmbedded.applyIndices(indices: Map<String, Set<Defer
 
 /**
  * Creates the indices on YTDB's legacy non-transactional path (XD-1283 dual-mode,
- * transactionalIndexCreation = false, the default until YTDB-1064 is lifted): createIndex
- * registers the index and fills it from the committed rows (fillIndex), so populated classes
- * are supported. Must be called with no active transaction on the session.
+ * transactionalIndexCreation = false - required for a database that already contains data,
+ * until YTDB-1064 is lifted): createIndex registers the index and fills it from the committed
+ * rows (fillIndex), so populated classes are supported. Must be called with no active
+ * transaction on the session.
  *
  * Failure semantics: a fillIndex failure (e.g. a genuine duplicate under a unique index)
  * leaves the index registered but empty - it is dropped and the failure is rethrown loudly,
@@ -106,9 +107,9 @@ internal class IndicesCreator(
                                     // Legacy non-tx path: createIndex registers the index and
                                     // fills it from the committed rows (fillIndex).
                                     // TO BE REMOVED once YTDB-1064 is lifted (in-tx index build
-                                    // over populated classes supported upstream): the
-                                    // transactionalIndexCreation default flips to true, the flag
-                                    // retires, and this branch goes away with it.
+                                    // over populated classes supported upstream): the flag
+                                    // retires, and this branch goes away with it (the default is
+                                    // already the transactional path).
                                     try {
                                         dbClass.createIndex(indexName, indexType, *properties.toTypedArray())
                                         appendLine(", created")

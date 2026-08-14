@@ -48,9 +48,14 @@ import kotlin.io.path.absolutePathString
  * - `DNQ_BENCH_CLASSES` / `dnq.bench.classes` (default 300) - number of DNQ entity types
  * - `DNQ_BENCH_PROPERTIES` / `dnq.bench.properties` (default 10) - simple properties per type
  * - `DNQ_BENCH_DBTYPE` / `dnq.bench.dbtype` (default MEMORY) - MEMORY or DISK
- * - `DNQ_BENCH_TX_INDICES` / `dnq.bench.txIndices` (default false) - value of
- *   [YTDBDatabaseParams.transactionalIndexCreation]: `true` creates ALL indices in ONE
- *   transaction (6x slower at 300 types today, see the track-03 notes in research-log.md)
+ * - `DNQ_BENCH_TX_INDICES` / `dnq.bench.txIndices` (default false, i.e. NOT the production
+ *   default) - value of [YTDBDatabaseParams.transactionalIndexCreation]: `true` creates ALL
+ *   indices in ONE transaction, which is ~8x faster than the legacy per-index path on the
+ *   current YTDB pin (MEMORY, 300 types) - see the track-04 notes in research-log.md
+ * - `DNQ_BENCH_HEAP` / `dnq.bench.heap` (default false) - measure the heap around the index
+ *   pass of `single-pass schema application on a fresh database` (used heap before, PEAK heap
+ *   during, used heap after, all post-GC where meaningful). Off by default because the forced
+ *   collections it needs would perturb the timings.
  * - `DNQ_BENCH_FSYNC` / `dnq.bench.fsync` - overrides `youtrackdb.storage.callFsync`
  * - `DNQ_BENCH_COLLECTIONS` / `dnq.bench.collections` - overrides
  *   `youtrackdb.class.collectionsCount` (default 8; each collection costs 5 storage files, and
@@ -64,6 +69,7 @@ class SchemaInitBenchmark {
     private val propertyCount = config("PROPERTIES", "properties", "10").toInt()
     private val dbType = DatabaseType.valueOf(config("DBTYPE", "dbtype", "MEMORY"))
     private val txIndices = config("TX_INDICES", "txIndices", "false").toBoolean()
+    private val measureHeap = config("HEAP", "heap", "false").toBoolean()
 
     /**
      * The realistic DNQ bootstrap shape (see `DNQMetaDataUtil.initMetaData`): all entity
@@ -144,6 +150,9 @@ class SchemaInitBenchmark {
             var indicesMs = 0L
             var indexCount = 0
             var initializeMs = 0L
+            var heapBeforeIndices = -1L
+            var peakHeapDuringIndices = -1L
+            var heapAfterIndices = -1L
 
             provider.withSession { session ->
                 // ---- phase 1: schema (DDL) -------------------------------------------------
@@ -165,6 +174,8 @@ class SchemaInitBenchmark {
 
                 // ---- phase 2: indices ------------------------------------------------------
                 session.initializeComplementaryPropertiesForNewIndexedLinks(result.newIndexedLinks)
+                heapBeforeIndices = if (measureHeap) usedHeapAfterGc() else -1
+                if (measureHeap) resetPeakHeap()
                 val startIndices = System.nanoTime()
                 phaseApplyIndices {
                     if (txIndices) {
@@ -174,6 +185,10 @@ class SchemaInitBenchmark {
                     }
                 }
                 indicesMs = (System.nanoTime() - startIndices) / 1_000_000
+                if (measureHeap) {
+                    peakHeapDuringIndices = peakHeapUsed()
+                    heapAfterIndices = usedHeapAfterGc()
+                }
 
                 // ---- phase 3: schema-buddy initialize --------------------------------------
                 val startInitialize = System.nanoTime()
@@ -190,6 +205,15 @@ class SchemaInitBenchmark {
                 line("buddy.initialize   = $initializeMs ms")
                 line("TOTAL              = ${schemaMs + schemaCommitMs + indicesMs + initializeMs} ms")
                 line("storage files      = ${storageFileCount()}")
+                if (measureHeap) {
+                    // XD-1283 track 04 (risk R2): what it costs to hold all index definitions of
+                    // the pass in ONE transaction. Compare a txIndices=true run with a
+                    // txIndices=false one; the delta is the transaction's own footprint.
+                    line("heap max           = ${mb(Runtime.getRuntime().maxMemory())} MB")
+                    line("heap before pass   = ${mb(heapBeforeIndices)} MB (post-GC)")
+                    line("heap PEAK in pass  = ${mb(peakHeapDuringIndices)} MB")
+                    line("heap after pass    = ${mb(heapAfterIndices)} MB (post-GC)")
+                }
             }
             verifySchema(provider)
         }
@@ -511,6 +535,27 @@ class SchemaInitBenchmark {
     }
 
     private var databasePath: String? = null
+
+    // ---- heap measurement (XD-1283 track 04, risk R2) ---------------------------------------
+
+    private fun heapPools() = java.lang.management.ManagementFactory.getMemoryPoolMXBeans()
+        .filter { it.type == java.lang.management.MemoryType.HEAP }
+
+    private fun resetPeakHeap() = heapPools().forEach { it.resetPeakUsage() }
+
+    /** Peak used heap over all heap pools since the last [resetPeakHeap]. */
+    private fun peakHeapUsed(): Long = heapPools().sumOf { it.peakUsage?.used ?: 0L }
+
+    /** Used heap after two collections - i.e. approximately the live set. */
+    private fun usedHeapAfterGc(): Long {
+        System.gc()
+        Thread.sleep(100)
+        System.gc()
+        Thread.sleep(100)
+        return java.lang.management.ManagementFactory.getMemoryMXBean().heapMemoryUsage.used
+    }
+
+    private fun mb(bytes: Long): String = if (bytes < 0) "n/a" else "%.1f".format(bytes / 1024.0 / 1024.0)
 
     /** Number of files the storage created - one fsync-bound `WOWCache.addFile` each. */
     private fun storageFileCount(): Int {

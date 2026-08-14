@@ -39,11 +39,11 @@ class YTDBModelMetaData(
              *    records;
              * 2. the complementary-property backfill keeps its own batched data transactions;
              * 3. index creation is dual-mode behind YTDBDatabaseParams.transactionalIndexCreation:
-             *    by default (false) it runs on YTDB's legacy non-transactional path
-             *    (createIndex + fillIndex over committed rows - works for populated classes);
-             *    with the flag on, one explicit transaction over all index creation, which
-             *    fails at commit for populated classes until YTDB-1064 is lifted. The default
-             *    flips (and the flag retires) when YTDB-1064 is lifted.
+             *    by default (true) one explicit transaction covers all index creation, which
+             *    fails at commit for populated classes until YTDB-1064 is lifted; with the flag
+             *    off it runs on YTDB's legacy non-transactional path (createIndex + fillIndex
+             *    over committed rows - works for populated classes), which is what a database
+             *    that already contains data must use. The flag retires when YTDB-1064 is lifted.
              */
             val result = session.withTx {
                 it.applySchema(entitiesMetaData, indexForEverySimpleProperty = true, applyLinkCardinality = true)
@@ -68,14 +68,14 @@ class YTDBModelMetaData(
          * and fails loudly with MetadataWriteMutex's same-thread IllegalStateException.
          *
          * Index creation is dual-mode (XD-1283, YTDBDatabaseParams.transactionalIndexCreation):
-         * - flag on: single transaction for DDL + index when no backfill is needed (AD10);
+         * - flag on (the default): single transaction for DDL + index when no backfill is needed (AD10);
          *   three-phase (DDL tx -> batched backfill txs -> index tx, mirroring startup) only
          *   when the new indexed links require the complementary-property backfill (AD4).
          *   In-tx index creation over classes with pre-existing committed rows fails at
          *   commit until YTDB-1064 is lifted - accepted for this mode.
-         * - flag off (default until YTDB-1064 is lifted): DDL tx (+ backfill txs if needed),
-         *   then indices on the legacy non-transactional path, which works for populated
-         *   classes.
+         * - flag off (required for a database that already contains data, until YTDB-1064 is
+         *   lifted): DDL tx (+ backfill txs if needed), then indices on the legacy
+         *   non-transactional path, which works for populated classes.
          */
         dbProvider.withSession { session ->
             val inTxIndices = dbProvider.transactionalIndexCreation
