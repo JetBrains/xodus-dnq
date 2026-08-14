@@ -364,7 +364,7 @@ class YouTrackDbSchemaInitializerTest {
 
     @Test
     fun `in-tx index creation over a populated class fails at commit until YTDB-1064 is lifted`() {
-        // XD-1283 dual-mode contract, transactionalIndexCreation = true (in-tx) mode
+        // XD-1283 dual-mode contract, transactionalIndexCreation = true (in-tx) - the default mode
         val model = model {
             entity("type1") {
                 property("prop1", "int")
@@ -394,10 +394,11 @@ class YouTrackDbSchemaInitializerTest {
     }
 
     @Test
-    fun `non-tx index creation over a populated class succeeds (default mode)`() {
-        // XD-1283 dual-mode contract, transactionalIndexCreation = false (the default until
-        // YTDB-1064 is lifted): the legacy non-tx path registers the index and fills it from
-        // the committed rows, so populated classes are supported.
+    fun `non-tx index creation over a populated class succeeds`() {
+        // XD-1283 dual-mode contract, transactionalIndexCreation = false (which a database that
+        // already contains data must pin until YTDB-1064 is lifted): the legacy non-tx path
+        // registers the index and fills it from the committed rows, so populated classes are
+        // supported.
         val model = model {
             entity("type1") {
                 property("prop1", "int")

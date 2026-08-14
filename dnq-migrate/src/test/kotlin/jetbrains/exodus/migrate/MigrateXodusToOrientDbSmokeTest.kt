@@ -33,9 +33,6 @@ import kotlin.test.assertTrue
 
 class MigrateXodusToOrientDbSmokeTest {
 
-    // XD-1283: the post-migration prepare() creates indices over the just-migrated committed
-    // data on the legacy non-tx path (transactionalIndexCreation defaults to false until
-    // YTDB-1064 is lifted), so this test runs again.
     @Test
     fun `migrate data and schema from Xodus to OrientDB`() {
 
@@ -47,11 +44,18 @@ class MigrateXodusToOrientDbSmokeTest {
         val password = "password"
         val dbName = "testDB"
 
+        // XD-1283: migration is index-after-data BY CONSTRUCTION - the migrator creates no
+        // indices, so the post-migration prepare() below builds all of them over the
+        // just-migrated, fully populated classes. In-transaction index creation (the shipping
+        // default) is rejected at commit for populated classes by upstream YTDB-1064, so this
+        // provider is pinned to the legacy non-transactional path. Remove the pin when
+        // YTDB-1064 is lifted.
         val params = YTDBDatabaseParams.builder()
             .withAppUser(username, password)
             .withDatabaseType(DatabaseType.MEMORY)
             .withDatabasePath("")
             .withDatabaseName("MEMORY")
+            .withTransactionalIndexCreation(false)
             .build()
 
         val db = YouTrackDBFactory.createEmbedded(params) as YouTrackDBImpl

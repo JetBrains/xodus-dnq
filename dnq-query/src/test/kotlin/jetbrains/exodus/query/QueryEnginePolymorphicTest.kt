@@ -35,10 +35,11 @@ class QueryEnginePolymorphicTest : OTestMixin {
     override val youTrackDb = orientDbRule
 
     private fun givenEngine(): QueryEngine {
-        // OUsersWithInheritanceTestCase sets up: BaseUser -> {User, Guest, Admin, Agent}
-        // with entities: u1, u2, ag1, ag2, ad1, ad2, g1
-        OUsersWithInheritanceTestCase(youTrackDb)
-
+        // XD-1283: the schema is applied BEFORE the data is populated, because index creation
+        // is transactional by default and YTDB-1064 rejects an in-tx index over a populated
+        // class. This test's subject is query semantics, so the fixture order is incidental:
+        // OUsersWithInheritanceTestCase early-returns on the classes prepare() already created
+        // and its rows carry localEntityId in either order.
         val model = oModel(youTrackDb.provider) {
             entity(BaseUser.CLASS)
             entity(User.CLASS, BaseUser.CLASS)
@@ -46,6 +47,10 @@ class QueryEnginePolymorphicTest : OTestMixin {
             entity(Admin.CLASS, BaseUser.CLASS)
             entity(Agent.CLASS, BaseUser.CLASS)
         }.apply { prepare() }
+
+        // OUsersWithInheritanceTestCase sets up: BaseUser -> {User, Guest, Admin, Agent}
+        // with entities: u1, u2, ag1, ag2, ad1, ad2, g1
+        OUsersWithInheritanceTestCase(youTrackDb)
 
         return QueryEngine(model, youTrackDb.store).also {
             it.sortEngine = SortEngine()

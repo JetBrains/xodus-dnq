@@ -37,9 +37,8 @@ class OBinaryOperationsWithSortTest : OTestMixin {
 
     @Test
     fun union() {
-        testCase = OUsersWithInheritanceTestCase(youTrackDb)
-
         val model = givenModel()
+        testCase = OUsersWithInheritanceTestCase(youTrackDb)
 
         val engine = QueryEngine(model, youTrackDb.store)
         engine.sortEngine = SortEngine()
@@ -57,9 +56,8 @@ class OBinaryOperationsWithSortTest : OTestMixin {
 
     @Test
     fun intersect() {
-        testCase = OUsersWithInheritanceTestCase(youTrackDb)
-
         val model = givenModel()
+        testCase = OUsersWithInheritanceTestCase(youTrackDb)
 
         val engine = QueryEngine(model, youTrackDb.store)
         engine.sortEngine = SortEngine()
@@ -81,9 +79,8 @@ class OBinaryOperationsWithSortTest : OTestMixin {
 
     @Test
     fun minus() {
-        testCase = OUsersWithInheritanceTestCase(youTrackDb)
-
         val model = givenModel()
+        testCase = OUsersWithInheritanceTestCase(youTrackDb)
 
         val engine = QueryEngine(model, youTrackDb.store)
         engine.sortEngine = SortEngine()
@@ -99,6 +96,13 @@ class OBinaryOperationsWithSortTest : OTestMixin {
         }
     }
 
+    /**
+     * XD-1283: every test applies the schema (this model) BEFORE populating the fixture, because
+     * index creation is transactional by default and YTDB-1064 rejects an in-tx index over a
+     * populated class. The subject here is binary operations + sorting, so the fixture order is
+     * incidental: OUsersWithInheritanceTestCase early-returns on the classes prepare() already
+     * created and its rows carry localEntityId in either order.
+     */
     private fun givenModel() = oModel(youTrackDb.provider) {
         entity(BaseUser.CLASS)
         entity(User.CLASS, BaseUser.CLASS)
