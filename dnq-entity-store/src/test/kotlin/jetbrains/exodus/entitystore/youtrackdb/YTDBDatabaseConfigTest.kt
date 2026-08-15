@@ -15,10 +15,19 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
+import com.jetbrains.youtrackdb.api.config.GlobalConfiguration
 import org.junit.Assert
 import org.junit.Test
 
 class YTDBDatabaseConfigTest {
+
+    private fun params(tweak: YTDBDatabaseParams.Builder.() -> Unit = {}) = YTDBDatabaseParams.builder()
+        .withDatabasePath("aa")
+        .withDatabaseName("aa")
+        .apply(tweak)
+        .build()
+
+    private val fsyncKey = GlobalConfiguration.STORAGE_CALL_FSYNC.key
 
     @Test
     fun `encryption key calculated from hex`() {
@@ -57,5 +66,49 @@ class YTDBDatabaseConfigTest {
             .build()
 
         Assert.assertEquals(24, params.encryptionKey?.length)
+    }
+
+    @Test
+    fun `fsync is left untouched by default`() {
+        val params = params()
+
+        Assert.assertNull(params.callFsync)
+        // Nothing must be written into the context configuration, otherwise this database would
+        // shadow the process-wide GlobalConfiguration value.
+        Assert.assertFalse(params.youTrackDBConfig.configuration.contextKeys.contains(fsyncKey))
+    }
+
+    @Test
+    fun `fsync can be disabled`() {
+        val params = params { withCallFsync(false) }
+
+        Assert.assertEquals(false, params.callFsync)
+        val configuration = params.youTrackDBConfig.configuration
+        Assert.assertTrue(configuration.contextKeys.contains(fsyncKey))
+        Assert.assertFalse(configuration.getValueAsBoolean(GlobalConfiguration.STORAGE_CALL_FSYNC))
+    }
+
+    @Test
+    fun `fsync can be explicitly enabled`() {
+        val params = params { withCallFsync(true) }
+
+        Assert.assertEquals(true, params.callFsync)
+        val configuration = params.youTrackDBConfig.configuration
+        Assert.assertTrue(configuration.contextKeys.contains(fsyncKey))
+        Assert.assertTrue(configuration.getValueAsBoolean(GlobalConfiguration.STORAGE_CALL_FSYNC))
+    }
+
+    @Test
+    fun `an explicit config builder still overrides the fsync flag`() {
+        val params = params {
+            withCallFsync(false)
+            withConfigBuilder {
+                addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_CALL_FSYNC, true)
+            }
+        }
+
+        Assert.assertTrue(
+            params.youTrackDBConfig.configuration.getValueAsBoolean(GlobalConfiguration.STORAGE_CALL_FSYNC)
+        )
     }
 }
