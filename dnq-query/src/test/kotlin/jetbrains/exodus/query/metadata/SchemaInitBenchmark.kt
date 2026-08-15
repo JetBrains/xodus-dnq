@@ -370,6 +370,68 @@ class SchemaInitBenchmark {
         }
     }
 
+    /**
+     * The probe that matters for the runtime path: the classes are created and COMMITTED first, and
+     * only then are the properties added, in a second transaction. YouTrackDB's in-memory fast path
+     * for `checkPersistentPropertyType` / `fireDatabaseMigration` is gated on
+     * `hasOnlyTransactionLocalCollections()`, i.e. on the class having been created in the CURRENT
+     * transaction - not on it being empty - so this shape takes the per-property SQL path even though
+     * every class holds zero records. The `unsafe = true` side is what a client could reach if it
+     * proved emptiness itself.
+     */
+    @Test
+    fun `probe - cost of checkPersistentPropertyType on committed empty classes`() {
+        assumeBenchmarkEnabled()
+        printConfiguration()
+
+        val safe1 = rawSchemaCreationOnCommittedClasses(unsafe = false)
+        val unsafe1 = rawSchemaCreationOnCommittedClasses(unsafe = true)
+        val unsafe2 = rawSchemaCreationOnCommittedClasses(unsafe = true)
+        val safe2 = rawSchemaCreationOnCommittedClasses(unsafe = false)
+
+        report("probe: properties added to COMMITTED, EMPTY classes") {
+            line("classes            = $classCount")
+            line("properties created = ${classCount / 10 * propertyCount + 2 * classCount}")
+            line("public createProperty  = $safe1 ms, $safe2 ms")
+            line("unsafe createProperty  = $unsafe1 ms, $unsafe2 ms")
+        }
+    }
+
+    private fun rawSchemaCreationOnCommittedClasses(unsafe: Boolean): Long = withDatabase { provider ->
+        provider.withSession { session ->
+            // transaction 1: the classes only - committed, so their collection ids stop being
+            // provisional and YouTrackDB's transaction-local fast path no longer applies
+            session.begin()
+            for (i in 0 until classCount) {
+                val cls = session.schema.createVertexClass(typeName(i))
+                if (i % 10 != 0) {
+                    cls.addSuperClass(session.schema.getClass(typeName(i - i % 10)))
+                }
+                session.schema.createEdgeClass("link$i")
+            }
+            session.activeTransaction.commit()
+
+            // transaction 2: the properties, over committed but empty classes
+            session.begin()
+            val start = System.nanoTime()
+            for (i in 0 until classCount) {
+                if (i % 10 == 0) {
+                    val cls = session.schema.getClass(typeName(i))!!
+                    for (p in 0 until propertyCount) {
+                        cls.createBenchProperty("prop$p", ytdbType(p), unsafe)
+                    }
+                }
+                session.schema.getClass(typeName(i))!!
+                    .createBenchProperty("out_link$i", PropertyType.LINKBAG, unsafe)
+                session.schema.getClass(typeName((i + 1) % classCount))!!
+                    .createBenchProperty("in_link$i", PropertyType.LINKBAG, unsafe)
+            }
+            val ms = (System.nanoTime() - start) / 1_000_000
+            session.activeTransaction.commit()
+            ms
+        }
+    }
+
     private fun rawSchemaCreation(unsafe: Boolean): Long = withDatabase { provider ->
         provider.withSession { session ->
             session.begin()
