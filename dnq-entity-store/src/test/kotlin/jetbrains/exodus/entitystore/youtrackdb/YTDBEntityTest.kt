@@ -16,9 +16,14 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
+import io.mockk.every
+import io.mockk.mockk
+import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.PersistentEntityId
+import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.linkTargetEntityIdPropertyName
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBVertexEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import jetbrains.exodus.entitystore.youtrackdb.testutil.Issues.Links.IN_PROJECT
 import org.junit.Assert
@@ -169,6 +174,230 @@ class YTDBEntityTest : OTestMixin {
 
         youTrackDb.withStoreTx {
             assertNamesExactlyInOrder(source.getLinks(linkName), *names.toTypedArray())
+        }
+    }
+
+    /**
+     * XD-1292 / audit #3 — the anonymous [jetbrains.exodus.entitystore.EntityIterator] returned by
+     * `YTDBVertexEntityIterable.iterator()`.
+     *
+     * Contract ([jetbrains.exodus.entitystore.EntityIterator.skip]): *"Skips specified number of
+     * entities and returns the value of `hasNext()`"* — i.e. `skip(n)` must **consume** up to `n`
+     * elements and then answer "is anything left", not "did I manage to count n".
+     *
+     * **Every assertion builds a FRESH `iterator()`. This is load-bearing, not hygiene:** each row is
+     * a statement about the *initial* iterator state, so a shared iterator would make later rows
+     * depend on how much earlier rows consumed. `iterator()` is cheap — `getLinks` materialises a
+     * sorted `List` and the iterator just walks it.
+     *
+     * Expected elements are derived from `links.toList()` rather than from the order the links were
+     * added: since `getLinks` sorts targets ascending by entity id, insertion order is not the
+     * iteration order.
+     */
+    @Test
+    fun `getLinks iterator skip advances by n and returns hasNext`() {
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+        }
+
+        val (source, unlinked) = youTrackDb.withStoreTx { tx ->
+            val source = tx.createIssue("source")
+            val unlinked = tx.createIssue("unlinked")
+            val names = listOf("A", "B", "C", "D")
+            val created = names.associateWith { tx.createIssue(it) }
+            // scrambled attach order, so insertion order != id order
+            listOf("D", "B", "A", "C").forEach { source.addLink(linkName, created.getValue(it)) }
+            source to unlinked
+        }
+
+        youTrackDb.withStoreTx {
+            val links = source.getLinks(linkName)
+            val expected = links.toList().map { it.id }
+            assertEquals(4, expected.size)
+
+            // skip(0) must consume nothing
+            assertEquals(expected[0], links.iterator().let { it.skip(0); it.next().id })
+
+            // skip(2) must consume exactly two
+            assertEquals(expected[2], links.iterator().let { it.skip(2); it.next().id })
+
+            // skip(size) lands past the end -> hasNext() == false
+            assertFalse(links.iterator().skip(4))
+
+            // skip(size - 1) leaves exactly one element
+            assertTrue(links.iterator().skip(3))
+            assertEquals(expected[3], links.iterator().let { it.skip(3); it.next().id })
+
+            // negative n: a no-op that consumes nothing and reports hasNext()
+            assertTrue(links.iterator().skip(-1))
+            assertEquals(expected[0], links.iterator().let { it.skip(-1); it.next().id })
+
+            // empty link set: skip must return false, not throw
+            val noLinks = unlinked.getLinks(linkName)
+            assertFalse(noLinks.iterator().skip(0))
+            assertFalse(noLinks.iterator().skip(1))
+            assertFalse(noLinks.iterator().skip(-1))
+        }
+    }
+
+    /**
+     * XD-1292 / audit #4 — `YTDBVertexEntityIterable.getLast()`.
+     *
+     * Sizes 0/1/2/3 in one test. Today size 1 throws `NoSuchElementException`, size 2 passes by
+     * accident and size 3 returns the element at index 1; size 0 must stay `null` (a
+     * preserved-behaviour pin, not a regression assertion).
+     *
+     * Expectations are derived from `getLinks(link).toList()`, not from the attach order: `getLinks`
+     * sorts its targets ascending by entity id.
+     */
+    @Test
+    fun `getLinks getLast returns the last link`() {
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+        }
+
+        val sources = youTrackDb.withStoreTx { tx ->
+            (0..3).map { size ->
+                val source = tx.createIssue("source$size")
+                val targets = (0 until size).map { tx.createIssue("t$size-$it") }
+                // reversed attach order, so insertion order != id order for size >= 2
+                targets.reversed().forEach { source.addLink(linkName, it) }
+                source
+            }
+        }
+
+        youTrackDb.withStoreTx {
+            sources.forEachIndexed { size, source ->
+                val links = source.getLinks(linkName)
+                val expected = links.toList().lastOrNull()?.id
+                assertEquals(size, links.toList().size)
+                assertEquals(expected, links.last?.id, "getLast() on a link set of size $size")
+            }
+        }
+    }
+
+    /**
+     * XD-1292 / audit #4, the row that pins the `getLast()` **rewrite** rather than the `skip()` fix.
+     *
+     * The three rows above go through `YTDBVertexEntity.getLinks`, which always hands
+     * [YTDBVertexEntityIterable] an already-materialised `List`. With a `List` source `count()` is
+     * exact, so once `skip()` consumes correctly the old `skip(count() - 1) + next()` form happens to
+     * be right too — those rows cannot tell the two implementations apart.
+     *
+     * The rewrite's actual claim is **independence from `count()`**, which returns `-1` for any source
+     * that is neither a `Collection` nor a `Sizeable` (`YTDBVertexEntityIterable.count()`). The
+     * constructor is public, so that source is constructible: with `count() == -1` the old form
+     * evaluates `skip(-2)`, which consumes nothing and returns `hasNext()`, and then `next()` yields
+     * element **0** instead of the last. This test is therefore the one that fails if the `getLast`
+     * edit alone is reverted.
+     */
+    @Test
+    fun `getLast does not depend on count for a non-Collection source`() {
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+        }
+        val (source, targets) = youTrackDb.withStoreTx { tx ->
+            val source = tx.createIssue("lazySource")
+            source to (0..2).map { tx.createIssue("lazyTarget$it") }
+        }
+
+        withStoreTx { tx ->
+            val vertices = targets.map { it.vertex }
+            // Neither a Collection nor a Sizeable, so count() cannot answer.
+            val lazySource: Iterable<YTDBVertex> = Iterable { vertices.iterator() }
+            val iterable = YTDBVertexEntityIterable(tx, lazySource, tx.getStore(), linkName, source.id)
+
+            // Precondition: this is exactly the shape the count()-based form cannot handle.
+            assertEquals(-1L, iterable.count())
+            assertEquals(3, iterable.toList().size)
+
+            assertEquals(targets.first().id, iterable.first?.id)
+            assertEquals(targets.last().id, iterable.last?.id)
+        }
+    }
+
+    /**
+     * XD-1292 / audit #11 — `YTDBVertexEntityIterable.contains`/`indexOf` must compare `EntityId`s,
+     * not objects.
+     *
+     * The old form went through commons-collections `IteratorUtils` + `EqualPredicate`, which is
+     * **argument-first**: it runs the *argument's* `equals`. So a foreign `Entity` implementation
+     * carrying a member's id missed — either because `YTDBVertexEntity.equals` has a
+     * `javaClass != other.javaClass` check, or (the realistic DNQ case) because
+     * `TransientEntityImpl.equals` rejects any non-`TransientEntity` before comparing ids.
+     *
+     * Three guards, all mandatory:
+     *  1. the positive target sits at a **non-zero** index and the index is asserted exactly —
+     *     otherwise `indexOf(e) = if (contains(e)) 0 else -1` would pass;
+     *  2. a **cross-type collision** control: `localId` sequences are per class, so a Board with the
+     *     same `localId` as the target Issue really exists — an implementation comparing only
+     *     `localId` must fail here;
+     *  3. an **absent** same-type entity control.
+     */
+    @Test
+    fun `getLinks contains and indexOf compare entity ids`() {
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            // board1 -> HasIssue -> all three issues, so the link set has size 3
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+            tx.addIssueToBoard(test.issue3, test.board1)
+        }
+
+        // guard 3's subject: a same-type entity that is simply not in the link set
+        val absentIssue = youTrackDb.createIssue("absent")
+
+        withStoreTx {
+            val links = test.board1.getLinks(Boards.Links.HAS_ISSUE)
+            val members = links.toList()
+            assertEquals(3, members.size)
+
+            // GUARD 1 - positive row on a NON-FIRST element, exact index asserted.
+            val targetIndex = members.size - 1
+            val target = members[targetIndex]
+            assertTrue(targetIndex > 0, "the positive row must not target index 0")
+            val foreignWrapper = mockk<Entity> { every { id } returns target.id }
+            assertEquals(targetIndex, links.indexOf(foreignWrapper))
+            assertTrue(links.contains(foreignWrapper))
+
+            // GUARD 2 - cross-type collision: same localId, different typeId, must NOT be found.
+            val collider = listOf(test.board1, test.board2, test.board3)
+                .first { it.id.localId == target.id.localId }
+            assertNotEquals(collider.id.typeId, target.id.typeId, "collider must be of another type")
+            assertEquals(collider.id.localId, target.id.localId, "collider must share the localId")
+            assertFalse(links.contains(collider))
+            assertEquals(-1, links.indexOf(collider))
+
+            // GUARD 3 - an absent entity of the same type.
+            assertFalse(links.contains(absentIssue))
+            assertEquals(-1, links.indexOf(absentIssue))
+        }
+    }
+
+    /**
+     * XD-1292 / audit #21 — the anonymous iterator's `dispose()` claimed `true` ("the EntityIterator
+     * was actually disposed") while holding nothing and while `shouldBeDisposed()` said `false`.
+     * Both halves are asserted so the pair cannot drift apart again.
+     */
+    @Test
+    fun `getLinks iterator is honestly non-disposable`() {
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+        }
+        val source = youTrackDb.withStoreTx { tx ->
+            val source = tx.createIssue("source")
+            source.addLink(linkName, tx.createIssue("target"))
+            source
+        }
+
+        youTrackDb.withStoreTx {
+            val links = source.getLinks(linkName)
+            assertFalse(links.iterator().shouldBeDisposed())
+            assertFalse(links.iterator().dispose())
         }
     }
 

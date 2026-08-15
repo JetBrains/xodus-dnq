@@ -663,6 +663,45 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         }
     }
 
+    /**
+     * XD-1292 / audit #9 — [jetbrains.exodus.entitystore.EntityIterator.skip] must return the value
+     * of `hasNext()`, not `true`.
+     *
+     * **Every assertion obtains a FRESH `iterator()`, and that is load-bearing, not hygiene:** after
+     * the fix `skip` ends in `hasNext()`, and `YTDBEntityIterator.hasNext()` **disposes** the
+     * traversal on exhaustion. On one shared iterator the `skip(3)` row would leave a disposed,
+     * fully-consumed iterator, so a following `skip(2)` would observe `false` instead of `true` — the
+     * row that actually discriminates the defect would look wrong for an unrelated reason. Do not
+     * "simplify" this back to a single shared iterator.
+     */
+    @Test
+    fun `iterator skip returns hasNext`() {
+        givenTestCase()
+
+        withStoreTx { tx ->
+            val issues = YTDBEntityIterable.where(Issues.CLASS, tx.getStore(), GremlinBlock.All)
+            assertEquals(3L, issues.size())
+
+            // skipping to exact exhaustion: nothing is left
+            assertEquals(false, issues.iterator().skip(3))
+            // one element left
+            assertEquals(true, issues.iterator().skip(2))
+            // skipping past the end: nothing is left
+            assertEquals(false, issues.iterator().skip(4))
+
+            // negative n is a no-op: nothing is consumed, and the answer is hasNext()
+            val nonEmpty = issues.iterator()
+            assertEquals(true, nonEmpty.skip(-1))
+            assertEquals(3, nonEmpty.asSequence().count())
+
+            // ... which on an EMPTY iterable is false, where it used to be an unconditional true
+            val empty = YTDBEntityIterable.where(Issues.CLASS, tx.getStore(), GremlinBlock.PropNull("name"))
+            assertEquals(0L, empty.size())
+            assertEquals(false, empty.iterator().skip(-1))
+            assertEquals(false, empty.iterator().skip(0))
+        }
+    }
+
     @Test
     fun `iterable sort and reverse`() {
         // Given

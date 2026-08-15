@@ -78,6 +78,13 @@ internal open class AddedOrRemovedLinksFromSetTransientEntityIterable(
 
             override fun nextId() = next().id
 
+            /**
+             * Skips up to [number] entities and returns the value of [hasNext], per the
+             * `EntityIterator.skip` contract. The walk itself was already correct (it consumes
+             * through the multi-link [hasNext], which rolls over to the next link name, and a
+             * non-positive [number] is a no-op because the guard is `> 0`) — only the terminal
+             * answer was wrong. Correct sibling in this package: `TransientEntityIterator.skip`.
+             */
             override fun skip(number: Int): Boolean {
                 var itemsToSkipLeft = number
                 while (itemsToSkipLeft > 0) {
@@ -88,7 +95,7 @@ internal open class AddedOrRemovedLinksFromSetTransientEntityIterable(
                         return false
                     }
                 }
-                return true
+                return hasNext()
             }
 
             override fun shouldBeDisposed() = false

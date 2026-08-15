@@ -46,6 +46,12 @@ class YTDBEntityIterator(
 
     }
 
+    /**
+     * Skips up to [number] entities and returns the value of [hasNext], per the
+     * [EntityIterator.skip] contract. Note [hasNext] disposes the traversal on exhaustion, so
+     * `skip(n)` that runs off the end closes it — a divergence from Xodus's `EntityIteratorBase.skip`,
+     * which drives the walk with the non-disposing `hasNextImpl()`.
+     */
     override fun skip(number: Int): Boolean {
         repeat(number) {
             if (!hasNext()) {
@@ -53,7 +59,7 @@ class YTDBEntityIterator(
             }
             next()
         }
-        return true
+        return hasNext()
     }
 
     override fun nextId(): EntityId = next().id
