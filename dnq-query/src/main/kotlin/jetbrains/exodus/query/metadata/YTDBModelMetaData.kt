@@ -61,6 +61,30 @@ class YTDBModelMetaData(
     }
 
     override fun onAddAssociation(entityMetaData: EntityMetaData, association: AssociationEndMetaData) {
+        applyAssociations(listOf(ModelMetaDataImpl.AddedAssociation(entityMetaData, association)))
+    }
+
+    /**
+     * The batched counterpart of [onAddAssociation] (XD-1283 performance): every association added
+     * inside a `ModelMetaDataImpl.batchAssociations` scope is applied by ONE call, hence one session,
+     * one transaction and one commit for the whole delta.
+     *
+     * This is what makes runtime registration affordable at scale. A single association's DDL is
+     * cheap in itself, but the transaction around it is not: YouTrackDB seeds a transaction-local
+     * schema copy by re-parsing the whole committed schema (`SchemaShared.copyForTx`), re-parses it
+     * again when promoting the copy at commit, and rebuilds the immutable schema snapshot on every
+     * schema write - all of it proportional to the total schema size, not to the size of the change.
+     * Paying that per association is what dominates a client that registers hundreds of links after
+     * startup; paying it once per batch does not.
+     */
+    override fun onAddAssociations(associations: List<ModelMetaDataImpl.AddedAssociation>) {
+        applyAssociations(associations)
+    }
+
+    private fun applyAssociations(associations: List<ModelMetaDataImpl.AddedAssociation>) {
+        if (associations.isEmpty()) {
+            return
+        }
         /*
          * Runtime association-add is transactional (XD-1283). No session parameter reaches
          * this callback, so the DDL always runs on a separate session; combining it with
@@ -80,7 +104,14 @@ class YTDBModelMetaData(
         dbProvider.withSession { session ->
             val inTxIndices = dbProvider.transactionalIndexCreation
             val result = session.withTx { sessionToWork ->
-                val schemaApplicationResult = sessionToWork.addAssociation(entityMetaData, association)
+                /*
+                 * The whole delta's DDL goes into this one transaction; the deferred indices of all
+                 * of it are merged and created once, after the last link exists, so an index over a
+                 * link added later in the same batch is still covered.
+                 */
+                val schemaApplicationResult = associations.map { added ->
+                    sessionToWork.addAssociation(added.entityMetaData, added.association)
+                }.merged()
                 if (inTxIndices && schemaApplicationResult.newIndexedLinks.isEmpty()) {
                     // no backfill needed: DDL + index commit atomically in this one tx (AD10)
                     sessionToWork.applyIndices(schemaApplicationResult.indices)

@@ -42,6 +42,26 @@ public class ModelMetaDataImpl implements ModelMetaData {
      */
     private volatile boolean buildingModel = false;
 
+    /**
+     * The association-add deltas collected by an open {@link #batchAssociations(Runnable)} scope on
+     * THIS thread, or {@code null} when no scope is open. Thread-confined on purpose: unlike
+     * {@link #buildModel(Runnable)}'s process-wide {@code buildingModel} flag, a batch must never
+     * swallow the callbacks of another thread's {@code addAssociation} - that thread's caller expects
+     * the schema to exist when its call returns, and this thread decides when the batch is applied.
+     */
+    private final ThreadLocal<List<AddedAssociation>> associationBatch = new ThreadLocal<>();
+
+    /**
+     * One association end whose schema application has been deferred by
+     * {@link #batchAssociations(Runnable)} - the two arguments {@link #onAddAssociation} would have
+     * been called with.
+     */
+    public record AddedAssociation(
+        @NotNull EntityMetaData entityMetaData,
+        @NotNull AssociationEndMetaData association
+    ) {
+    }
+
     public void init() {
         reset();
         prepare();
@@ -90,6 +110,81 @@ public class ModelMetaDataImpl implements ModelMetaData {
                 reset();
                 prepare();
             }
+        }
+    }
+
+    /**
+     * Collects the {@link #onAddAssociation} callbacks of every {@link #addAssociation} this thread
+     * makes inside {@code body} and delivers them as a single {@link #onAddAssociations} call when
+     * {@code body} returns - so a persistent-store implementation that maps them onto database DDL
+     * can apply the whole delta in ONE schema transaction instead of one per association.
+     *
+     * <p>This is the runtime counterpart of {@link #buildModel(Runnable)} and the two are not
+     * interchangeable:
+     * <ul>
+     * <li>{@code buildModel} exists to assemble a model from scratch. It suppresses the callbacks
+     *     and re-applies the WHOLE model in its exit {@code prepare()} pass, which is right when the
+     *     model is new and wrong when it is not: on an already-prepared model that exit pass re-walks
+     *     every entity type, property and index, so it pays for itself only from roughly eight or
+     *     nine associations upwards.</li>
+     * <li>{@code batchAssociations} touches neither the memoized model view nor the rest of the
+     *     model: the associations are registered exactly as they are without a batch, only their
+     *     schema application is postponed to the end of the scope and merged. There is no full-model
+     *     pass, hence no break-even - a batch of two already wins.</li>
+     * </ul>
+     *
+     * <p>Inside {@code buildModel} this method does nothing extra: the callbacks stay suppressed and
+     * the model is applied by {@code buildModel}'s exit pass.
+     *
+     * <p><b>No lock is held</b> for the duration of {@code body} (contrast {@code buildModel}, which
+     * holds the {@code entityMetaDatas} monitor), so a batch cannot block another thread's model
+     * access, and {@code body} may read the database freely.
+     *
+     * <p>Nested calls are safe: the outermost scope owns the flush, so an inner scope's associations
+     * join the outer batch.
+     *
+     * <p><b>Failure semantics.</b> The deltas are applied even when {@code body} throws, because the
+     * associations are already in the model by then and skipping their schema would leave the model
+     * and the database out of step - exactly the divergence an unbatched caller cannot produce. The
+     * body's exception is the one propagated; a failure of the deferred application is attached to it
+     * as a suppressed exception. Note the flip side of merging: the delta is applied as one unit, so
+     * a single failing association fails the whole batch, where unbatched calls would have applied
+     * the ones before it.
+     */
+    public void batchAssociations(@NotNull Runnable body) {
+        if (associationBatch.get() != null) {
+            // nested: the outermost scope collects and flushes
+            body.run();
+            return;
+        }
+
+        final List<AddedAssociation> batch = new ArrayList<>();
+        associationBatch.set(batch);
+        Throwable bodyFailure = null;
+        try {
+            body.run();
+        } catch (RuntimeException | Error e) {
+            bodyFailure = e;
+        } finally {
+            associationBatch.remove();
+        }
+
+        try {
+            if (!batch.isEmpty()) {
+                onAddAssociations(batch);
+            }
+        } catch (RuntimeException | Error e) {
+            if (bodyFailure == null) {
+                throw e;
+            }
+            bodyFailure.addSuppressed(e);
+        }
+
+        if (bodyFailure instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+        if (bodyFailure instanceof Error error) {
+            throw error;
         }
     }
 
@@ -292,25 +387,52 @@ public class ModelMetaDataImpl implements ModelMetaData {
             amd, sourceName, target, sourceCardinality, sourceType,
             sourceCascadeDelete, sourceClearOnDelete, sourceTargetCascadeDelete, sourceTargetClearOnDelete);
         addAssociationEndMetaDataToEntityTypeSubtree(prepare(), source, sourceEnd);
-        if (!buildingModel) {
-            onAddAssociation(source, sourceEnd);
-        }
+        dispatchAddAssociation(source, sourceEnd);
 
         if (type != AssociationType.Directed) {
             AssociationEndMetaDataImpl targetEnd = new AssociationEndMetaDataImpl(
                 amd, targetName, source, targetCardinality, targetType,
                 targetCascadeDelete, targetClearOnDelete, targetTargetCascadeDelete, targetTargetClearOnDelete);
             addAssociationEndMetaDataToEntityTypeSubtree(prepare(), target, targetEnd);
-            if (!buildingModel) {
-                onAddAssociation(target, targetEnd);
-            }
+            dispatchAddAssociation(target, targetEnd);
         }
 
         return amd;
     }
 
+    /**
+     * Routes one added association end to its schema application: suppressed altogether inside
+     * {@link #buildModel(Runnable)} (whose exit pass applies the whole model), deferred to the end of
+     * an open {@link #batchAssociations(Runnable)} scope, or applied immediately.
+     */
+    private void dispatchAddAssociation(@NotNull EntityMetaData entityMetaData,
+                                       @NotNull AssociationEndMetaData association) {
+        if (buildingModel) {
+            return;
+        }
+        final List<AddedAssociation> batch = associationBatch.get();
+        if (batch != null) {
+            batch.add(new AddedAssociation(entityMetaData, association));
+        } else {
+            onAddAssociation(entityMetaData, association);
+        }
+    }
+
     protected void onAddAssociation(@NotNull EntityMetaData entityMetaData, @NotNull AssociationEndMetaData association) {
 
+    }
+
+    /**
+     * Applies a whole {@link #batchAssociations(Runnable)} delta at once. Never called with an empty
+     * list. The default implementation just replays the individual {@link #onAddAssociation}
+     * callbacks, so an implementation that gains nothing from batching needs no change; an
+     * implementation that maps the callback onto database DDL should override this to apply the
+     * delta in a single schema transaction.
+     */
+    protected void onAddAssociations(@NotNull List<AddedAssociation> associations) {
+        for (final AddedAssociation added : associations) {
+            onAddAssociation(added.entityMetaData(), added.association());
+        }
     }
 
     private void addAssociationEndMetaDataToEntityTypeSubtree(Map<String, EntityMetaData> typeToEntityMetaDatas,
