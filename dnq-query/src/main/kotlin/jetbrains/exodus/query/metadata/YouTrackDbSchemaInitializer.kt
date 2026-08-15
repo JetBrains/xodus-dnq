@@ -42,6 +42,27 @@ internal data class SchemaApplicationResult(
     val newIndexedLinks: Map<String, Set<String>> // ClassName -> set of link names
 )
 
+/**
+ * Folds the results of several schema steps applied to the same session into one, so that the
+ * deferred indices and the complementary-property backfill of a whole batch are driven by a single
+ * pass each (XD-1283 association batching, see `ModelMetaDataImpl.batchAssociations`). Both maps are
+ * keyed by class name, so merging is a per-key union - two steps that touch the same class
+ * contribute to the same entry instead of one overwriting the other.
+ */
+internal fun Iterable<SchemaApplicationResult>.merged(): SchemaApplicationResult {
+    val indices = HashMap<String, MutableSet<DeferredIndex>>()
+    val newIndexedLinks = HashMap<String, MutableSet<String>>()
+    for (result in this) {
+        for ((className, classIndices) in result.indices) {
+            indices.getOrPut(className) { HashSet() }.addAll(classIndices)
+        }
+        for ((className, linkNames) in result.newIndexedLinks) {
+            newIndexedLinks.getOrPut(className) { HashSet() }.addAll(linkNames)
+        }
+    }
+    return SchemaApplicationResult(indices, newIndexedLinks)
+}
+
 internal fun DatabaseSessionEmbedded.applySchema(
     metaData: ModelMetaData,
     indexForEverySimpleProperty: Boolean = false,

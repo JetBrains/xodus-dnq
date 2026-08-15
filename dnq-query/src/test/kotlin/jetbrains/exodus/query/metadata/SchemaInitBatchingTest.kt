@@ -17,6 +17,7 @@ package jetbrains.exodus.query.metadata
 
 import jetbrains.exodus.entitystore.youtrackdb.ClassIdReservation
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_SEQUENCE_NAME
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.edgeClassName
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
 import jetbrains.exodus.entitystore.youtrackdb.createSequencesIfAbsent
 import jetbrains.exodus.entitystore.youtrackdb.requireClassId
@@ -275,6 +276,268 @@ class SchemaInitBatchingTest {
             session.assertVertexClassExists("type1")
             session.assertVertexClassExists("type2")
         }
+    }
+
+    // ---- batchAssociations -----------------------------------------------------------------
+
+    @Test
+    fun `batchAssociations applies every association it collected`() {
+        val model = oModel(orientDb.provider) {
+            entity("type1")
+            entity("type2")
+        }
+
+        model.batchAssociations {
+            model.association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+            model.association("type1", "ass2", "type2", AssociationEndCardinality._1)
+            model.association("type2", "ass3", "type1", AssociationEndCardinality._0_n)
+        }
+
+        orientDb.provider.withSession { session ->
+            session.assertAssociationExists("type1", "type2", "ass1", AssociationEndCardinality._0_n)
+            session.assertAssociationExists("type1", "type2", "ass2", AssociationEndCardinality._1)
+            session.assertAssociationExists("type2", "type1", "ass3", AssociationEndCardinality._0_n)
+        }
+    }
+
+    @Test
+    fun `batchAssociations defers the schema until the scope returns`() {
+        val model = oModel(orientDb.provider) {
+            entity("type1")
+            entity("type2")
+        }
+
+        model.batchAssociations {
+            model.association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+
+            // the model already knows the association - only its schema is postponed
+            assertTrue(model.hasAssociation("type1", "type2", "ass1"))
+            orientDb.provider.withSession { session ->
+                assertNull(session.schema.getClass(edgeClassName("ass1")), "the DDL must not have run yet")
+            }
+        }
+
+        orientDb.provider.withSession { session ->
+            session.assertAssociationExists("type1", "type2", "ass1", AssociationEndCardinality._0_n)
+        }
+    }
+
+    @Test
+    fun `both ends of an undirected association are applied by one batch`() {
+        val model = oModel(orientDb.provider) {
+            entity("type1")
+            entity("type2")
+        }
+
+        model.batchAssociations {
+            model.undirectedAssociation("type1", "toType2", "type2", "toType1")
+        }
+
+        orientDb.provider.withSession { session ->
+            // an undirected association registers two ends, hence two edge classes - the batch must
+            // apply both, not just the source end
+            session.assertAssociationExists("type1", "type2", "toType2", AssociationEndCardinality._0_n)
+            session.assertAssociationExists("type2", "type1", "toType1", AssociationEndCardinality._0_n)
+        }
+    }
+
+    @Test
+    fun `batchAssociations delivers the whole delta as a single call`() {
+        val model = CountingModel()
+        model.entity("type1")
+        model.entity("type2")
+
+        model.batchAssociations {
+            model.association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+            model.association("type1", "ass2", "type2", AssociationEndCardinality._0_n)
+            model.association("type2", "ass3", "type1", AssociationEndCardinality._0_n)
+        }
+
+        assertEquals(listOf(listOf("type1.ass1", "type1.ass2", "type2.ass3")), model.batchCalls)
+        assertEquals(emptyList(), model.singleCalls, "nothing may be applied one by one inside a batch")
+
+        // outside the scope the per-association callback is back
+        model.association("type1", "ass4", "type2", AssociationEndCardinality._0_n)
+        assertEquals(listOf("type1.ass4"), model.singleCalls)
+        assertEquals(1, model.batchCalls.size)
+    }
+
+    @Test
+    fun `an undirected association contributes both of its ends to one batch`() {
+        val model = CountingModel()
+        model.entity("type1")
+        model.entity("type2")
+
+        model.batchAssociations {
+            model.undirectedAssociation("type1", "toType2", "type2", "toType1")
+        }
+
+        assertEquals(listOf(listOf("type1.toType2", "type2.toType1")), model.batchCalls)
+    }
+
+    @Test
+    fun `nested batchAssociations flushes once, at the outermost exit`() {
+        val model = CountingModel()
+        model.entity("type1")
+        model.entity("type2")
+
+        model.batchAssociations {
+            model.association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+            model.batchAssociations {
+                model.association("type1", "ass2", "type2", AssociationEndCardinality._0_n)
+            }
+            assertEquals(emptyList(), model.batchCalls, "the nested scope must not flush")
+        }
+
+        assertEquals(listOf(listOf("type1.ass1", "type1.ass2")), model.batchCalls)
+    }
+
+    @Test
+    fun `an empty batch applies nothing`() {
+        val model = CountingModel()
+        model.batchAssociations { }
+
+        assertEquals(emptyList(), model.batchCalls)
+        assertEquals(emptyList(), model.singleCalls)
+    }
+
+    @Test
+    fun `inside buildModel a batch changes nothing - the model pass stays in charge`() {
+        val model = CountingModel()
+        model.buildModel {
+            model.entity("type1")
+            model.entity("type2")
+            model.batchAssociations {
+                model.association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+            }
+        }
+
+        // buildModel's exit pass applies the whole model, so neither association callback fires
+        assertEquals(emptyList(), model.batchCalls)
+        assertEquals(emptyList(), model.singleCalls)
+        assertTrue(model.hasAssociation("type1", "type2", "ass1"))
+    }
+
+    @Test
+    fun `a failing batch still applies the associations it collected`() {
+        val model = CountingModel()
+        model.entity("type1")
+        model.entity("type2")
+
+        val e = assertFailsWith<IllegalStateException> {
+            model.batchAssociations {
+                model.association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+                throw IllegalStateException("boom")
+            }
+        }
+
+        assertEquals("boom", e.message)
+        // the association is in the model, so leaving its schema out would put the two out of step
+        assertEquals(listOf(listOf("type1.ass1")), model.batchCalls)
+    }
+
+    @Test
+    fun `a batch is confined to the thread that opened it`() {
+        val model = CountingModel()
+        model.entity("type1")
+        model.entity("type2")
+
+        model.batchAssociations {
+            model.association("type1", "ass1", "type2", AssociationEndCardinality._0_n)
+
+            // another thread's association must NOT be swallowed by this batch: its caller expects
+            // the schema to exist when the call returns, and only this thread decides when the
+            // batch is flushed
+            val other = Thread {
+                model.association("type2", "ass2", "type1", AssociationEndCardinality._0_n)
+            }
+            other.start()
+            other.join()
+
+            assertEquals(listOf("type2.ass2"), model.singleCalls)
+            assertEquals(emptyList(), model.batchCalls)
+        }
+
+        assertEquals(listOf(listOf("type1.ass1")), model.batchCalls)
+    }
+
+    @Test
+    fun `merging schema application results unions the per-class entries`() {
+        val first = SchemaApplicationResult(
+            indices = mapOf("type1" to setOf(DeferredIndex("type1", setOf("prop1"), unique = false))),
+            newIndexedLinks = mapOf("type1" to setOf("ass1"))
+        )
+        val second = SchemaApplicationResult(
+            indices = mapOf(
+                "type1" to setOf(DeferredIndex("type1", setOf("prop2"), unique = true)),
+                "type2" to setOf(DeferredIndex("type2", setOf("prop3"), unique = false))
+            ),
+            newIndexedLinks = mapOf("type1" to setOf("ass2"), "type2" to setOf("ass3"))
+        )
+
+        val merged = listOf(first, second).merged()
+
+        // the shared key must union, not overwrite - otherwise a batch would silently drop the
+        // indices and the backfill of every association but the last one touching a class
+        assertEquals(setOf("type1", "type2"), merged.indices.keys)
+        assertEquals(
+            setOf("type1_prop1", "type1_prop2_unique"),
+            merged.indices.getValue("type1").map { it.indexName }.toSet()
+        )
+        assertEquals(setOf("type2_prop3"), merged.indices.getValue("type2").map { it.indexName }.toSet())
+        assertEquals(setOf("ass1", "ass2"), merged.newIndexedLinks.getValue("type1"))
+        assertEquals(setOf("ass3"), merged.newIndexedLinks.getValue("type2"))
+    }
+
+    @Test
+    fun `merging nothing yields an empty result`() {
+        val merged = emptyList<SchemaApplicationResult>().merged()
+
+        assertTrue(merged.indices.isEmpty())
+        assertTrue(merged.newIndexedLinks.isEmpty())
+    }
+
+    /**
+     * Records the association callbacks instead of applying them, so a test can assert HOW the
+     * deltas were delivered (one batched call versus one call per association) without a database.
+     */
+    private class CountingModel : ModelMetaDataImpl() {
+        val singleCalls = mutableListOf<String>()
+        val batchCalls = mutableListOf<List<String>>()
+
+        override fun onAddAssociation(entityMetaData: EntityMetaData, association: AssociationEndMetaData) {
+            singleCalls += name(entityMetaData, association)
+        }
+
+        override fun onAddAssociations(associations: List<AddedAssociation>) {
+            batchCalls += associations.map { name(it.entityMetaData, it.association) }
+        }
+
+        private fun name(entityMetaData: EntityMetaData, association: AssociationEndMetaData) =
+            "${entityMetaData.type}.${association.name}"
+    }
+
+    /**
+     * An undirected association, i.e. the two-ends-in-one-call case the test DSL's [association]
+     * (always `Directed`) cannot express.
+     */
+    private fun ModelMetaDataImpl.undirectedAssociation(
+        sourceEntity: String,
+        sourceName: String,
+        targetEntity: String,
+        targetName: String
+    ) {
+        addAssociation(
+            sourceEntity,
+            targetEntity,
+            AssociationType.Undirected,
+            sourceName,
+            AssociationEndCardinality._0_n,
+            false, false, false, false,
+            targetName,
+            AssociationEndCardinality._0_n,
+            false, false, false, false
+        )
     }
 
     /**

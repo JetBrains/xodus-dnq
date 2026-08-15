@@ -26,6 +26,7 @@ import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseParams
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
 import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddyImpl
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.edgeClassName
 import jetbrains.exodus.entitystore.youtrackdb.withTx
 import org.junit.Assume
 import org.junit.Test
@@ -52,6 +53,8 @@ import kotlin.io.path.absolutePathString
  *   default) - value of [YTDBDatabaseParams.transactionalIndexCreation]: `true` creates ALL
  *   indices in ONE transaction, which is ~8x faster than the legacy per-index path on the
  *   current YTDB pin (MEMORY, 300 types) - see the track-04 notes in research-log.md
+ * - `DNQ_BENCH_LATE_LINKS` / `dnq.bench.lateLinks` (default 50) - number of associations the
+ *   runtime (post-startup) association-add benchmarks register after the schema is applied
  * - `DNQ_BENCH_HEAP` / `dnq.bench.heap` (default false) - measure the heap around the index
  *   pass of `single-pass schema application on a fresh database` (used heap before, PEAK heap
  *   during, used heap after, all post-GC where meaningful). Off by default because the forced
@@ -70,6 +73,7 @@ class SchemaInitBenchmark {
     private val dbType = DatabaseType.valueOf(config("DBTYPE", "dbtype", "MEMORY"))
     private val txIndices = config("TX_INDICES", "txIndices", "false").toBoolean()
     private val measureHeap = config("HEAP", "heap", "false").toBoolean()
+    private val lateLinkCount = config("LATE_LINKS", "lateLinks", "50").toInt()
 
     /**
      * The realistic DNQ bootstrap shape (see `DNQMetaDataUtil.initMetaData`): all entity
@@ -129,6 +133,84 @@ class SchemaInitBenchmark {
             verifySchema(provider)
         }
     }
+
+    /**
+     * The runtime (post-startup) association-add shape: the model is already built and applied, and
+     * then [lateLinkCount] further associations are registered one at a time, the way a client that
+     * discovers links from data does (JT-95771: YouTrack's bootstrap registers hundreds of them).
+     * Each one pays its own session, transaction and commit - and, inside YouTrackDB, its own
+     * transaction-local schema copy and commit-time promotion, both proportional to the WHOLE
+     * schema. This is the control for the batched shape below.
+     */
+    @Test
+    fun `runtime association add - one transaction per association`() =
+        measureLateAssociations(batched = false)
+
+    /**
+     * The same associations registered inside one `ModelMetaDataImpl.batchAssociations` scope
+     * (XD-1283): the deltas are collected and applied by a single [YTDBModelMetaData.onAddAssociations]
+     * call, hence one transaction for all of them, with no full-model `prepare()` pass in between.
+     */
+    @Test
+    fun `runtime association add - one transaction for the whole delta`() =
+        measureLateAssociations(batched = true)
+
+    private fun measureLateAssociations(batched: Boolean) {
+        assumeBenchmarkEnabled()
+        printConfiguration()
+
+        withDatabase { provider ->
+            val model = newModel(provider)
+            model.buildModel {
+                addEntityMetaData(model)
+                addAssociations(model)
+            }
+            model.prepare()
+            verifySchema(provider)
+
+            val start = System.nanoTime()
+            if (batched) {
+                model.batchAssociations { addLateAssociations(model) }
+            } else {
+                addLateAssociations(model)
+            }
+            val totalMs = (System.nanoTime() - start) / 1_000_000
+
+            report("runtime association add, ${if (batched) "batched" else "one transaction each"}") {
+                line("classes / startup links = $classCount / $classCount")
+                line("late links              = $lateLinkCount")
+                line("late association add    = $totalMs ms")
+                line("per late link           = ${"%.1f".format(totalMs.toDouble() / lateLinkCount)} ms")
+                line("storage files           = ${storageFileCount()}")
+            }
+            verifyLateAssociations(provider)
+        }
+    }
+
+    private fun addLateAssociations(model: YTDBModelMetaData) {
+        for (i in 0 until lateLinkCount) {
+            model.addAssociation(
+                typeName(i % classCount),
+                typeName((i + 1) % classCount),
+                AssociationType.Directed,
+                lateLinkName(i),
+                AssociationEndCardinality._0_n,
+                false, false, false, false,
+                null, null, false, false, false, false
+            )
+        }
+    }
+
+    private fun verifyLateAssociations(provider: YTDBDatabaseProvider) {
+        provider.withSession { session ->
+            val missing = (0 until lateLinkCount).count { i ->
+                session.schema.getClass(edgeClassName(lateLinkName(i))) == null
+            }
+            check(missing == 0) { "$missing of $lateLinkCount late edge classes missing" }
+        }
+    }
+
+    private fun lateLinkName(index: Int) = "lateLink$index"
 
     /**
      * Phase breakdown of a single-pass schema application: the model is fully built (against a
