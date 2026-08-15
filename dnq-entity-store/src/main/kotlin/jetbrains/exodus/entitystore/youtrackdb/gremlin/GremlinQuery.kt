@@ -17,7 +17,6 @@ package jetbrains.exodus.entitystore.youtrackdb.gremlin
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
-import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import org.apache.tinkerpop.gremlin.process.traversal.P
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
@@ -46,11 +45,6 @@ sealed class GremlinQuery {
         block is GremlinBlock.OutLink -> FollowLink(this, LinkDirection.OUT, block.linkName)
 
         block is GremlinBlock.AndThen -> throw IllegalArgumentException("Nested andThen is not allowed")
-        block is GremlinBlock.Reverse -> when (this) {
-            is SortBy -> this.reverseOrder()
-            is ReversedOrder -> this.inner
-            else -> ReversedOrder(this)
-        }
 
         else -> when (this) {
             is Where -> Where(this.block.andThen(block))
@@ -439,13 +433,6 @@ sealed class GremlinQuery {
         companion object {
             fun of(query: GremlinQuery, sortBlock: GremlinBlock.Sort): GremlinQuery = SortBy(query, sortBlock)
         }
-
-        fun reverseOrder(): SortBy = this.copy(
-            inner = inner, sortBlock = sortBlock.copy(
-                by = sortBlock.by,
-                direction = if (sortBlock.direction == SortDirection.ASC) SortDirection.DESC else SortDirection.ASC
-            )
-        )
     }
 
     data class ReversedOrder(val inner: GremlinQuery) : Chained(inner, GremlinBlock.Reverse)

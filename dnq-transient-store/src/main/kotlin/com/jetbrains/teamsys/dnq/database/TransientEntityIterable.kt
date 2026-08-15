@@ -107,8 +107,13 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
         return TransientEntityIterable(values + right.values)
     }
 
+    /**
+     * `Sequence.drop` opens with `require(n >= 0)`, so a negative [number] would throw where Xodus's
+     * `EntityIterableBase.skip` returns the receiver. Widening the existing `== 0` guard to `<= 0` is a
+     * negative-only change: the guard already returned `this` at `0`.
+     */
     override fun skip(number: Int): EntityIterable {
-        if (number == 0) return this
+        if (number <= 0) return this
 
         return TransientEntityIterable(
                 values.asSequence()
@@ -117,8 +122,13 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
         )
     }
 
+    /**
+     * `Sequence.take` opens with `require(n >= 0)`, so a negative [number] would throw where Xodus's
+     * `EntityIterableBase.take` returns the empty iterable. As in [skip], widening `== 0` to `<= 0`
+     * changes nothing at `0`.
+     */
     override fun take(number: Int): EntityIterable {
-        if (number == 0) return YTDBEntityIterable.EMPTY
+        if (number <= 0) return YTDBEntityIterable.EMPTY
 
         return TransientEntityIterable(
                 values.asSequence()

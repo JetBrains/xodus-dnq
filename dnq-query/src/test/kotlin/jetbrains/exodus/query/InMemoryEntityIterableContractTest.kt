@@ -27,8 +27,9 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
- * XD-1292 / audit #11-A and #21-A — the two contract defects of `dnq-query`'s in-memory iterable that
- * are byte-for-byte copies of #11 and #21 one module away.
+ * XD-1292 / audit #11-A, #21-A and B2 — the contract defects of `dnq-query`'s in-memory iterable;
+ * #11-A and #21-A are byte-for-byte copies of #11 and #21 one module away, B2 is #10's in-memory
+ * mirror.
  */
 class InMemoryEntityIterableContractTest : OTestMixin {
 
@@ -142,6 +143,40 @@ class InMemoryEntityIterableContractTest : OTestMixin {
 
             assertFalse(iterable.contains(fresh))
             assertEquals(-1, iterable.indexOf(fresh))
+        }
+    }
+
+    /**
+     * B2 — #10's in-memory mirror. `AbstractInMemoryEntityIterable.take` delegates to Kotlin's
+     * `Iterable.take`, whose `require(n >= 0)` threw `IllegalArgumentException` for a negative
+     * argument, where Xodus's `EntityIterableBase.take` returns the empty iterable. Only the `take`
+     * half needed the clamp: `skip` routes through `InMemoryEntityIterator.skip`, whose `0..<number`
+     * range is empty for negatives, so it already preserved every element — the third row is that
+     * preservation control and passes before and after the fix.
+     *
+     * **Contents/emptiness only, never identity** (TQ35/TQ38): the clamp returns a *new*
+     * `InMemoryEntityIterable(emptyList(), …)`, not `YTDBEntityIterable.EMPTY`, and the class overrides
+     * no `equals`; `skip` likewise always builds a new iterable, so `=== iterable` never held.
+     */
+    @Test
+    fun `in-memory take clamps negative arguments and skip preserves contents`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            val engine = QueryEngine(null, youTrackDb.store)
+            val members: List<Entity> = listOf(test.issue1, test.issue2, test.issue3)
+            val iterable = InMemoryEntityIterable(members, tx, engine)
+
+            // the defect: this call threw IllegalArgumentException before the clamp
+            assertTrue(iterable.take(-1).isEmpty)
+            assertEquals(emptyList(), iterable.take(-1).toList())
+
+            // `0` boundary control - untouched path, `Iterable.take(0)` is already emptyList()
+            assertTrue(iterable.take(0).isEmpty)
+            assertEquals(emptyList(), iterable.take(0).toList())
+
+            // preservation control - already contract-correct, must stay so
+            assertEquals(members.map { it.id }, iterable.skip(-1).toList().map { it.id })
         }
     }
 

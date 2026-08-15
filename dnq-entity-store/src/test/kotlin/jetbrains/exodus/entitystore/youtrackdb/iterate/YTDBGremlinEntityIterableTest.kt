@@ -665,6 +665,55 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     /**
+     * XD-1292 / audit #10 — a negative argument must clamp, not throw, per Xodus's
+     * `EntityIterableBase` (`skip`: `if (number <= 0 …) return this`; `take`:
+     * `if (number <= 0 …) return EMPTY`). Before the fix both calls threw
+     * `IllegalArgumentException` from the `require(skip >= 0)` / `require(limit >= 0)` guards in
+     * [GremlinBlock], which stay in place as internal invariants.
+     *
+     * **The identity assertions are correct here because this is the raw layer** — `skip` returns the
+     * receiver itself and `take` returns the [YTDBEntityIterable.EMPTY] singleton (`:279-290`), so both
+     * are observable facts rather than incidental allocation. The other levels must assert **contents**
+     * instead, for two different reasons: the in-memory clamp
+     * (`AbstractInMemoryEntityIterable.take`) and the DNQ query layer (`XdQuery.operation`) genuinely
+     * allocate a new iterable / a freshly wrapped query, so identity never holds there; the transient
+     * level (`TransientEntityIterable.skip`/`take`) does return the receiver and this same `EMPTY`
+     * singleton, but its own test still asserts contents on purpose, so that the pin survives any future
+     * decision to allocate. The link-read rows below likewise assert contents: `skip` goes through
+     * `YTDBVertexEntityIterable.skip` → `asQueryIterable().skip(-1)`, whose receiver is the *query*
+     * iterable and not the link iterable, so `=== boardIssues` would be wrong (`take` would in fact
+     * return `EMPTY`, but emptiness is the property under test).
+     *
+     * `iterable take 0` and `iterable skip 0` above are the negative controls: widening `== 0` to
+     * `<= 0` must leave the `0` boundary bit-identical.
+     */
+    @Test
+    fun `negative skip and take match Xodus`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+        }
+
+        withStoreTx { tx ->
+            val issues = tx.sort(Issues.CLASS, "name", true)
+
+            assertThat(issues.skip(-1)).isSameInstanceAs(issues)
+            assertNamesExactlyInOrder(issues.skip(-1), "issue1", "issue2", "issue3")
+
+            assertThat(issues.take(-1)).isSameInstanceAs(YTDBEntityIterable.EMPTY)
+            assertThat(issues.take(-1)).isEmpty()
+
+            // a link read reaches the same clamp through asQueryIterable()
+            val boardIssues = test.board1.getLinks(Boards.Links.HAS_ISSUE)
+            assertNamesExactly(boardIssues, "issue1", "issue2")
+            assertNamesExactly(boardIssues.skip(-1), "issue1", "issue2")
+            assertThat(boardIssues.take(-1)).isEmpty()
+        }
+    }
+
+    /**
      * XD-1292 / audit #9 — [jetbrains.exodus.entitystore.EntityIterator.skip] must return the value
      * of `hasNext()`, not `true`.
      *
@@ -718,10 +767,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
             // Then
             // Note: GremlinBlock.Reverse has BlockType.ORDER, so GremlinQuery.then() routes it through
-            // Order.of() (the `block.type == BlockType.ORDER` branch) before ever reaching the
-            // `block is GremlinBlock.Reverse` check. This means the entire `block is GremlinBlock.Reverse`
-            // branch — including the `is SortBy -> reverseOrder()` case — is dead code. Even a SortBy
-            // query gets fold().reverse().unfold() appended rather than having its sort direction flipped.
+            // Order.of() — even a SortBy query gets fold().reverse().unfold() appended.
             checkGremlin(
                 reversedByName as YTDBEntityIterable,
                 "g.V().hasLabel(\"Issue\").order().by(__.values(\"name\").count(),Order.desc).by(__.values(\"name\").fold(),Order.asc).fold().reverse().unfold()"

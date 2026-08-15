@@ -130,7 +130,19 @@ abstract class AbstractInMemoryEntityIterable(
         return InMemoryEntityIterable(skipIterator, txn, queryEngine)
     }
 
+    /**
+     * Kotlin's `Iterable.take` opens with `require(n >= 0)`, so a negative [number] would throw where
+     * Xodus's `EntityIterableBase.take` returns the empty iterable. Clamp negatives only: `take(0)`
+     * already goes through `iterable.take(0)` == `emptyList()`.
+     *
+     * [skip] needs no such guard — its `InMemoryEntityIterator.skip` loops over `0..<number`, an empty
+     * range for negatives, so every element survives. That is **content**-equivalent to Xodus's
+     * `skip(n <= 0)`, not identical to it: Xodus returns the receiver, whereas [skip] here always
+     * allocates a new iterable around a re-iterating `Iterable {}`. The difference is recorded as an
+     * accepted risk (AR1) rather than fixed — nothing compares a `skip` result against its own receiver.
+     */
     override fun take(number: Int): EntityIterable {
+        if (number < 0) return InMemoryEntityIterable(emptyList(), txn, queryEngine)
         return InMemoryEntityIterable(iterable.take(number), txn, queryEngine)
     }
 

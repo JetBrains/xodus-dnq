@@ -270,12 +270,23 @@ class YTDBEntityIterableImpl(
         }
     }
 
+    /**
+     * Non-positive [number] is clamped, per Xodus's `EntityIterableBase.skip`
+     * (`if (number <= 0 || store == null) return this`): a negative argument is a no-op, not an error.
+     * The `require(skip >= 0)` guard in [GremlinBlock.Skip] stays — it is an internal invariant now
+     * that this entry point clamps.
+     */
     override fun skip(number: Int): EntityIterable =
-        if (number == 0) this
+        if (number <= 0) this
         else modify(GremlinBlock.Skip(number.toLong()))
 
+    /**
+     * Non-positive [number] yields the empty iterable, per Xodus's `EntityIterableBase.take`
+     * (`if (number <= 0 || store == null) return EMPTY`). As with [skip], the `require(limit >= 0)`
+     * guard in [GremlinBlock.Limit] remains an internal invariant.
+     */
     override fun take(number: Int): EntityIterable =
-        if (number == 0) YTDBEntityIterable.EMPTY
+        if (number <= 0) YTDBEntityIterable.EMPTY
         else modify(GremlinBlock.Limit(number.toLong()))
 
     override fun distinct(): EntityIterable = modify(GremlinBlock.Dedup)
