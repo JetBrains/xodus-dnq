@@ -169,6 +169,55 @@ class YTDBFindLinksTest : OTestMixin {
         }
     }
 
+    /**
+     * XD-1292 / audit #7 — `findLinks` must normalise its `entities` operand with `unwrap()` before
+     * casting it, so a link read can be passed as the operand.
+     *
+     * **The operand must be non-empty or the row is vacuous.** The naive choice — a *board's*
+     * `getLinks(ON_BOARD)` — is empty: `ON_BOARD` is Issue→Board and `getLinks` follows outgoing edges
+     * only, so any "doesn't throw" assertion over it would be satisfied by an implementation that
+     * simply dropped the operand. The operand here is `issue1.getLinks(ON_BOARD)` = the boards issue1
+     * is on = `[board1]`, asserted non-empty before use.
+     *
+     * The expectation also discriminates the *operand* rather than merely "no longer throws":
+     * `issue3` is on board2, so a fix that widened the operand into "all boards" would include it.
+     */
+    @Test
+    fun `findLinks accepts a link-read iterable as its entities operand`() {
+        val test = givenIssuesOnBoards()
+
+        withStoreTx { tx ->
+            val boardsOfIssue1 = test.issue1.getLinks(Issues.Links.ON_BOARD)
+            // precondition: a non-empty, non-identity operand (a YTDBVertexEntityIterable)
+            assertEquals(listOf("board1"), boardsOfIssue1.map { it.getProperty("name") })
+
+            val allIssues = YTDBEntityIterable.where(Issues.CLASS, tx.getStore(), GremlinBlock.All)
+            val onBoard1 = allIssues.findLinks(boardsOfIssue1, Issues.Links.ON_BOARD)
+
+            // issue1 and issue2 are on board1; issue3 is on board2 and must be absent
+            assertEquals(setOf("issue1", "issue2"), onBoard1.map { it.getProperty("name") }.toSet())
+        }
+    }
+
+    /**
+     * XD-1292 / B1 — the one `YTDBStoreTransactionImpl.findLinks` overload reachable from the public
+     * session API (`SessionQueryMixin` forwards `entities` unchanged) must normalise its operand too.
+     * Its own `entities.asYTDBIterable()` throws from `YTDBCasts` for a link-read operand today.
+     */
+    @Test
+    fun `transaction findLinks accepts a link-read iterable as its entities operand`() {
+        val test = givenIssuesOnBoards()
+
+        withStoreTx { tx ->
+            val boardsOfIssue1 = test.issue1.getLinks(Issues.Links.ON_BOARD)
+            assertEquals(listOf("board1"), boardsOfIssue1.map { it.getProperty("name") })
+
+            val issues = tx.findLinks(Issues.CLASS, boardsOfIssue1, Issues.Links.ON_BOARD, true)
+
+            assertEquals(setOf("issue1", "issue2"), issues.map { it.getProperty("name") }.toSet())
+        }
+    }
+
     @Test
     fun `findLinks short-circuits on EMPTY`() {
         givenIssuesOnBoards()

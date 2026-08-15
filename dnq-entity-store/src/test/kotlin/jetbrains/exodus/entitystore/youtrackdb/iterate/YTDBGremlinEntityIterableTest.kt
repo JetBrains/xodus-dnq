@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.translator.GroovyTranslato
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class YTDBGremlinEntityIterableTest : OTestMixin {
 
@@ -1240,6 +1241,88 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
                 """g.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").out("HasIssue_link").dedup()"""
             )
             assertNamesExactly(issues, "issue1", "issue2")
+        }
+    }
+
+    /**
+     * XD-1292 / audit #7 — the four binary operators must normalise the right operand with `unwrap()`
+     * before casting it, so a link read (a `YTDBVertexEntityIterable`, which implements only
+     * `EntityIterable`) can be combined with a query iterable. All four throw
+     * `IllegalArgumentException("Only GremlinEntityIterable is supported, but was
+     * YTDBVertexEntityIterable")` from `YTDBCasts` today.
+     *
+     * **The operand must really contain elements.** The naive choice — a *board's*
+     * `getLinks(ON_BOARD)` — is empty, because `ON_BOARD` is Issue→Board and `getLinks` follows
+     * outgoing edges only; every assertion over it would be satisfied by dropping the operand
+     * entirely. Here the operand is `issue1.getLinks(ON_BOARD)` = `[board1]`, asserted non-empty first.
+     *
+     * Content only, never order: optimiser rule O3 strips the right operand's sort for
+     * intersect/difference and both sorts for union, so the link order does not survive a binary op.
+     */
+    @Test
+    fun `binary ops accept a link-read iterable as operand`() {
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+            tx.addIssueToBoard(test.issue3, test.board2)
+        }
+
+        withStoreTx { tx ->
+            val boardsOfIssue1 = test.issue1.getLinks(Issues.Links.ON_BOARD)
+            // precondition: a non-empty, non-identity operand
+            assertEquals(listOf("board1"), boardsOfIssue1.map { it.getProperty("name") })
+
+            val allBoards = tx.getAll(Boards.CLASS)
+            assertNamesExactly(allBoards, "board1", "board2", "board3")
+
+            assertNamesExactly(allBoards.intersect(boardsOfIssue1), "board1")
+            assertNamesExactly(allBoards.union(boardsOfIssue1), "board1", "board2", "board3")
+            assertNamesExactly(allBoards.minus(boardsOfIssue1), "board2", "board3")
+            assertNamesExactly(
+                allBoards.concat(boardsOfIssue1),
+                "board1", "board2", "board3", "board1"
+            )
+            assertNamesExactly(allBoards.intersectSavingOrder(boardsOfIssue1), "board1")
+        }
+    }
+
+    /**
+     * XD-1292 / BG15 — the accepted risk of #7, pinned so it is visible rather than latent.
+     *
+     * Normalising the operand newly routes a `YTDBVertexEntityIterable` into
+     * `requirePolymorphicMatch`, and a link read's unwrapped form carries a **hardcoded**
+     * `polymorphic = true` (`YTDBVertexEntityIterable.asQueryIterable()` calls the
+     * `YTDBEntityIterable.query` factory, whose flag defaults to `true`; there is no source for a
+     * per-link flag). So a **non-polymorphic** receiver combined with a link read now fails the flag
+     * check instead of the cast.
+     *
+     * This is not a regression: the same input already threw `IllegalArgumentException` from
+     * `YTDBCasts` before the change, so no working input starts failing — only the message changes.
+     * Threading a flag through `asQueryIterable()` is out of scope. A `polymorphic = false` receiver
+     * *is* reachable from production — `XdEntityType.all(polymorphic = false)` and
+     * `YTDBStoreTransaction.getAll(type, polymorphic = false)` are public — but combining one with a
+     * link read has never worked: a link read is a `YTDBVertexEntityIterable`, which is not a
+     * [YTDBEntityIterable], so the pre-change cast rejected it too.
+     */
+    @Test
+    fun `a non-polymorphic receiver cannot be combined with a link read`() {
+        val test = givenTestCase()
+        withStoreTx { tx -> tx.addIssueToBoard(test.issue1, test.board1) }
+
+        withStoreTx { tx ->
+            val boardsOfIssue1 = test.issue1.getLinks(Issues.Links.ON_BOARD)
+            val nonPolymorphic = YTDBEntityIterable.where(
+                Boards.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false
+            )
+
+            val e = assertFailsWith<IllegalArgumentException> {
+                nonPolymorphic.intersect(boardsOfIssue1)
+            }
+            assertThat(e).hasMessageThat().contains("Both operands must have the same polymorphic flag")
+
+            // ... while a polymorphic receiver - the only match for a link read's hardcoded true - works
+            assertNamesExactly(tx.getAll(Boards.CLASS).intersect(boardsOfIssue1), "board1")
         }
     }
 

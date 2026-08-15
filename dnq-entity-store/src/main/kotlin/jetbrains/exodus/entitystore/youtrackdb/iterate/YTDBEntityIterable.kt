@@ -217,39 +217,50 @@ class YTDBEntityIterableImpl(
             .use { it.hasNext() }
     }
 
-    override fun intersect(right: EntityIterable): EntityIterable =
-        if (right === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
-        else {
-            val rightIterable = right.asYTDBIterable()
-            requirePolymorphicMatch(rightIterable)
-            YTDBEntityIterableImpl(oStore,query.intersect(rightIterable.query), polymorphic)
-        }
+    override fun intersect(right: EntityIterable): EntityIterable {
+        val rightIterable = right.operand()
+        if (rightIterable === YTDBEntityIterable.EMPTY) return YTDBEntityIterable.EMPTY
+        requirePolymorphicMatch(rightIterable)
+        return YTDBEntityIterableImpl(oStore, query.intersect(rightIterable.query), polymorphic)
+    }
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable = intersect(right)
 
-    override fun union(right: EntityIterable): EntityIterable =
-        if (right === YTDBEntityIterable.EMPTY) this
-        else {
-            val rightIterable = right.asYTDBIterable()
-            requirePolymorphicMatch(rightIterable)
-            YTDBEntityIterableImpl(oStore,query.union(rightIterable.query), polymorphic)
-        }
+    override fun union(right: EntityIterable): EntityIterable {
+        val rightIterable = right.operand()
+        if (rightIterable === YTDBEntityIterable.EMPTY) return this
+        requirePolymorphicMatch(rightIterable)
+        return YTDBEntityIterableImpl(oStore, query.union(rightIterable.query), polymorphic)
+    }
 
-    override fun minus(right: EntityIterable): EntityIterable =
-        if (right === YTDBEntityIterable.EMPTY) this
-        else {
-            val rightIterable = right.asYTDBIterable()
-            requirePolymorphicMatch(rightIterable)
-            YTDBEntityIterableImpl(oStore,query.difference(rightIterable.query), polymorphic)
-        }
+    override fun minus(right: EntityIterable): EntityIterable {
+        val rightIterable = right.operand()
+        if (rightIterable === YTDBEntityIterable.EMPTY) return this
+        requirePolymorphicMatch(rightIterable)
+        return YTDBEntityIterableImpl(oStore, query.difference(rightIterable.query), polymorphic)
+    }
 
-    override fun concat(right: EntityIterable): EntityIterable =
-        if (right === YTDBEntityIterable.EMPTY) this
-        else {
-            val rightIterable = right.asYTDBIterable()
-            requirePolymorphicMatch(rightIterable)
-            YTDBEntityIterableImpl(oStore,query.unionAll(rightIterable.query), polymorphic)
-        }
+    override fun concat(right: EntityIterable): EntityIterable {
+        val rightIterable = right.operand()
+        if (rightIterable === YTDBEntityIterable.EMPTY) return this
+        requirePolymorphicMatch(rightIterable)
+        return YTDBEntityIterableImpl(oStore, query.unionAll(rightIterable.query), polymorphic)
+    }
+
+    /**
+     * Normalises an operand to its query form. Wrappers — `PersistentEntityIterableWrapper`,
+     * `SnapshotEntityIterable`, `YTDBVertexEntityIterable` — expose that form only through [unwrap];
+     * casting before unwrapping fails in `asYTDBIterable` for the ones that are not themselves a
+     * [YTDBEntityIterable].
+     *
+     * **Call this BEFORE the `=== EMPTY` identity guard, never after.** A wrapper around EMPTY is not
+     * identical to EMPTY, so a guard on the raw argument misses it and then reads `EMPTY.query`, which
+     * is `unsupported`. Unwrapping first is safe for EMPTY itself: `EMPTY.unwrap()` returns EMPTY and
+     * EMPTY is a [YTDBEntityIterable], so the cast passes and the guard still fires.
+     *
+     * One helper for all five operand sites, so they cannot drift apart again.
+     */
+    private fun EntityIterable.operand(): YTDBEntityIterable = unwrap().asYTDBIterable()
 
     private fun requirePolymorphicMatch(right: YTDBEntityIterable) {
         require(polymorphic == right.polymorphic) {
@@ -317,16 +328,18 @@ class YTDBEntityIterableImpl(
     // receiver entity, and the intersection may compile to a form driven by the in-link traversal
     // (`in()` is many-out-per-in), which would then emit that entity once per edge.
     //
-    // The `entities === EMPTY` short-circuit must be kept: EMPTY.query is `unsupported`.
+    // The EMPTY short-circuit must be kept (EMPTY.query is `unsupported`) and must test the UNWRAPPED
+    // argument: a wrapper around EMPTY is not identical to EMPTY, and unwrap() is identity for both
+    // EMPTY and YTDBEntityIterableImpl. See operand() for why the order matters.
     override fun findLinks(
         entities: EntityIterable,
         linkName: String
-    ): EntityIterable =
-        if (entities === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
-        else {
-            val byLink = entities.asYTDBIterable().query.then(GremlinBlock.InLink(linkName))
-            YTDBEntityIterableImpl(oStore, query.intersect(byLink), polymorphic).distinct()
-        }
+    ): EntityIterable {
+        val operand = entities.operand()
+        if (operand === YTDBEntityIterable.EMPTY) return YTDBEntityIterable.EMPTY
+        val byLink = operand.query.then(GremlinBlock.InLink(linkName))
+        return YTDBEntityIterableImpl(oStore, query.intersect(byLink), polymorphic).distinct()
+    }
 
     override fun idSet(): EntityIdSet =
         this.fold(EntityIdSetFactory.newSet()) { acc, e -> acc.add(e.id) }

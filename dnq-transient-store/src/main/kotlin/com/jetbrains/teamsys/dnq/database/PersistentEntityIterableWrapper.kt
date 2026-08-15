@@ -86,8 +86,13 @@ open class PersistentEntityIterableWrapper(
         return wrappedIterable.take(number)
     }
 
+    /**
+     * Normalises the operand like the five binary operators above already do. The raw layer now
+     * unwraps its operand as well, so this is for consistency with those siblings and to avoid
+     * handing a doubly-wrapped operand down.
+     */
     override fun findLinks(entities: EntityIterable, linkName: String): EntityIterable {
-        return wrappedIterable.findLinks(entities, linkName)
+        return wrappedIterable.findLinks(entities.unwrap(), linkName)
     }
 
     override fun distinct(): EntityIterable {
