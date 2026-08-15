@@ -52,7 +52,24 @@ class YTDBDatabaseParams private constructor(
      *
      * The flag retires when YTDB-1064 is lifted.
      */
-    val transactionalIndexCreation: Boolean = true
+    val transactionalIndexCreation: Boolean = true,
+    /**
+     * Storage `fsync` switch, mapped onto YouTrackDB's `youtrackdb.storage.callFsync`
+     * ([GlobalConfiguration.STORAGE_CALL_FSYNC]).
+     *
+     * `null` (the default) leaves the parameter untouched, so YouTrackDB's own default (`true`)
+     * or whatever the process has set on the JVM-global [GlobalConfiguration] applies. A
+     * non-`null` value is written into this database's context configuration, which **shadows**
+     * the JVM-global value - that is why the default is `null` rather than `true`.
+     *
+     * `false` removes the durability barriers on the storage hot path: after a power loss the
+     * database can lose recent data, and a truncated file registry can even leave it unopenable.
+     * **Intended for unit tests and benchmarks only** - see [Builder.withCallFsync].
+     *
+     * Only disk-backed databases are affected ([DatabaseType.MEMORY] never syncs anything).
+     * YouTrackDB logs a one-shot warning when it starts a storage with `fsync` disabled.
+     */
+    val callFsync: Boolean? = null
 ) {
 
     companion object {
@@ -69,6 +86,7 @@ class YTDBDatabaseParams private constructor(
         .addGlobalConfigurationParameter(GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED, true)
         .apply {
             encryptionKey?.let { addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_ENCRYPTION_KEY, it) }
+            callFsync?.let { addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_CALL_FSYNC, it) }
         }
         .apply(configBuilder)
         .build()
@@ -87,6 +105,7 @@ class YTDBDatabaseParams private constructor(
         private var serverParams: YTDBServerParams? = null
         private var configBuilder: YouTrackDBConfigBuilder.() -> Unit = {}
         private var transactionalIndexCreation: Boolean = true
+        private var callFsync: Boolean? = null
 
         fun withDatabasePath(databaseUrl: String) = apply {
             this.databasePath = databaseUrl
@@ -182,6 +201,28 @@ class YTDBDatabaseParams private constructor(
             this.transactionalIndexCreation = transactionalIndexCreation
         }
 
+        /**
+         * Storage `fsync` switch, see [YTDBDatabaseParams.callFsync].
+         *
+         * Pass `false` to turn YouTrackDB's `fsync` calls off
+         * (`youtrackdb.storage.callFsync`), which removes the durability barriers on the storage
+         * hot path and makes disk-backed databases considerably cheaper to create and write.
+         *
+         * **Use `false` in unit tests and benchmarks only.** With `fsync` off, a power loss or a
+         * JVM crash can lose recent data, and a truncated file registry can leave the database
+         * unopenable - never do this for a database whose contents must survive.
+         *
+         * When this method is not called at all, the parameter is left unset and YouTrackDB's
+         * default (`fsync` on) - or the process-wide [GlobalConfiguration] value - applies.
+         * Note that calling it with either value pins the setting for this database and therefore
+         * overrides any process-wide [GlobalConfiguration.STORAGE_CALL_FSYNC] value.
+         *
+         * A [withConfigBuilder] block still wins, as it is applied last.
+         */
+        fun withCallFsync(callFsync: Boolean) = apply {
+            this.callFsync = callFsync
+        }
+
         fun build(): YTDBDatabaseParams {
             return YTDBDatabaseParams(
                 databasePath,
@@ -194,7 +235,8 @@ class YTDBDatabaseParams private constructor(
                 closeAfterDelayTimeout,
                 serverParams,
                 configBuilder,
-                transactionalIndexCreation
+                transactionalIndexCreation,
+                callFsync
             )
         }
 
