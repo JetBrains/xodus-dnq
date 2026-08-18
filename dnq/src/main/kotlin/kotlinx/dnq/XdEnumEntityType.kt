@@ -34,7 +34,17 @@ abstract class XdEnumEntityType<XD : XdEnumEntity>(entityTypeName: String? = nul
 
     fun enumField(dbName: String? = null, init: XD.() -> Unit) = EnumConstPropertyProvider(dbName, init)
 
-    fun initEnumValues(txn: TransientStoreSession) {
+    /**
+     * Creates this enum type's constants if absent, updating the existing ones otherwise.
+     *
+     * @param flush whether to flush the session afterwards. Flushing per enum type is what the
+     * metadata initialization used to do, and on a large model it is one persistent commit per enum
+     * type (XD-1283: 50 of the 100 transactions of a YouTrack test's initialization were these).
+     * The initialization pass now passes `false` and flushes once for the whole enum phase instead;
+     * the default stays `true` so any other caller keeps the previous behaviour.
+     */
+    @JvmOverloads
+    fun initEnumValues(txn: TransientStoreSession, flush: Boolean = true) {
         if (constants.isNotEmpty()) {
             constants.forEach { enumConst ->
                 var xdEnumValue = query(XdEnumEntity::name eq enumConst.enumFieldName).firstOrNull()
@@ -47,7 +57,9 @@ abstract class XdEnumEntityType<XD : XdEnumEntity>(entityTypeName: String? = nul
                 }
 
             }
-            txn.flush()
+            if (flush) {
+                txn.flush()
+            }
         }
     }
 
