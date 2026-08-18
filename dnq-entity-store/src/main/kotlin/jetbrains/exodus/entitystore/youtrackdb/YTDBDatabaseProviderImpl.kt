@@ -95,6 +95,16 @@ class YTDBDatabaseProviderImpl(
     override val transactionalIndexCreation: Boolean
         get() = params.transactionalIndexCreation
 
+    override val autoIndexSimpleProperties: Boolean
+        get() = params.autoIndexSimpleProperties
+
+    override val skipSchemaApplication: Boolean
+        // Read the system property on every access, not once at params construction: a test harness
+        // decides per test whether the schema is provably up to date, while the params (and the
+        // Spring context that builds them) live for the whole JVM. EXPERIMENTAL knob - see
+        // YTDBDatabaseParams.skipSchemaApplication.
+        get() = params.skipSchemaApplication || java.lang.Boolean.getBoolean("dnq.skipSchemaApplication")
+
     override fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R =
         (graph as YTDBGraphEmbedded).acquireSession().use(block)
 

@@ -54,6 +54,44 @@ class YTDBDatabaseParams private constructor(
      */
     val transactionalIndexCreation: Boolean = true,
     /**
+     * Whether `prepare()` creates YouTrackDB's automatic index for every auto-indexed SIMPLE
+     * property of the model (JT-95771 / XD-1283, EXPERIMENTAL).
+     *
+     * `true` (the default, the historical behaviour) makes a full YouTrack model materialise
+     * ~3900 indices, which dominates schema application, the on-disk file count (3-5 files per
+     * index) **and every subsequent database open** (the engine loads one index engine per index).
+     *
+     * `false` keeps only the indices the model asks for explicitly (unique and composite indices,
+     * plus the ones the store needs regardless, e.g. `localEntityId`) and leaves simple-property
+     * lookups to a scan. That is a **query-plan** trade, not a correctness one - uniqueness is
+     * still enforced, because unique indices are not covered by this flag - so it is meant for
+     * test/benchmark databases with tiny datasets, never for production.
+     *
+     * Defaults from the `dnq.autoIndexSimpleProperties` system property so a test harness can flip
+     * it without rewiring the params; pass it explicitly to be independent of the JVM environment.
+     */
+    val autoIndexSimpleProperties: Boolean =
+        java.lang.Boolean.parseBoolean(System.getProperty("dnq.autoIndexSimpleProperties", "true")),
+    /**
+     * Skip schema application in `prepare()` altogether (JT-95771 / XD-1283, EXPERIMENTAL).
+     *
+     * When `true`, `onPrepared` builds the in-JVM model and initialises the store's per-database
+     * caches but sends **no** schema DDL and no existence checks to the database. On an
+     * already-correct schema those checks are provably redundant (~4 transactions and hundreds of
+     * round trips that write nothing), which is exactly the situation of a test that opens a
+     * database seeded from a template built by the same model.
+     *
+     * **The caller carries the proof.** If the database's schema does *not* match the model, the
+     * mismatch surfaces later as a failed write ("class is not found" / "has not been found"),
+     * not as a clear error here. Only set it when something else has established that the schema
+     * is already correct - e.g. a first, non-skipped `prepare()` in the same process against the
+     * same model and the same database image.
+     *
+     * Defaults from the `dnq.skipSchemaApplication` system property.
+     */
+    val skipSchemaApplication: Boolean =
+        java.lang.Boolean.parseBoolean(System.getProperty("dnq.skipSchemaApplication", "false")),
+    /**
      * Storage `fsync` switch, mapped onto YouTrackDB's `youtrackdb.storage.callFsync`
      * ([GlobalConfiguration.STORAGE_CALL_FSYNC]).
      *
@@ -105,6 +143,10 @@ class YTDBDatabaseParams private constructor(
         private var serverParams: YTDBServerParams? = null
         private var configBuilder: YouTrackDBConfigBuilder.() -> Unit = {}
         private var transactionalIndexCreation: Boolean = true
+        private var autoIndexSimpleProperties: Boolean =
+            java.lang.Boolean.parseBoolean(System.getProperty("dnq.autoIndexSimpleProperties", "true"))
+        private var skipSchemaApplication: Boolean =
+            java.lang.Boolean.parseBoolean(System.getProperty("dnq.skipSchemaApplication", "false"))
         private var callFsync: Boolean? = null
 
         fun withDatabasePath(databaseUrl: String) = apply {
@@ -201,6 +243,16 @@ class YTDBDatabaseParams private constructor(
             this.transactionalIndexCreation = transactionalIndexCreation
         }
 
+        /** See [YTDBDatabaseParams.autoIndexSimpleProperties] (EXPERIMENTAL, test/benchmark use). */
+        fun withAutoIndexSimpleProperties(autoIndexSimpleProperties: Boolean) = apply {
+            this.autoIndexSimpleProperties = autoIndexSimpleProperties
+        }
+
+        /** See [YTDBDatabaseParams.skipSchemaApplication] (EXPERIMENTAL, caller carries the proof). */
+        fun withSkipSchemaApplication(skipSchemaApplication: Boolean) = apply {
+            this.skipSchemaApplication = skipSchemaApplication
+        }
+
         /**
          * Storage `fsync` switch, see [YTDBDatabaseParams.callFsync].
          *
@@ -236,6 +288,8 @@ class YTDBDatabaseParams private constructor(
                 serverParams,
                 configBuilder,
                 transactionalIndexCreation,
+                autoIndexSimpleProperties,
+                skipSchemaApplication,
                 callFsync
             )
         }

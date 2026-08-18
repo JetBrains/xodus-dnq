@@ -45,8 +45,29 @@ class YTDBModelMetaData(
              *    over committed rows - works for populated classes), which is what a database
              *    that already contains data must use. The flag retires when YTDB-1064 is lifted.
              */
+            /*
+             * EXPERIMENTAL (JT-95771): the caller may declare that this database's schema already
+             * matches the model - a test opening a database seeded from a template built by the
+             * same model, for instance. The whole application pass is then skipped: on a correct
+             * schema it is ~4 transactions of existence checks that write nothing. The store's
+             * per-database caches (class-id map) are still initialised below, because those live in
+             * the JVM and must be rebuilt for every database.
+             */
+            if (dbProvider.skipSchemaApplication) {
+                initialize(session)
+                return@withSession
+            }
             val result = session.withTx {
-                it.applySchema(entitiesMetaData, indexForEverySimpleProperty = true, applyLinkCardinality = true)
+                it.applySchema(
+                    entitiesMetaData,
+                    // EXPERIMENTAL (JT-95771): `false` drops the automatic index of every
+                    // auto-indexed simple property (~3900 of them for a full YouTrack model),
+                    // which is the dominant cost of schema application, of the on-disk file count
+                    // and of every subsequent database open. Unique/composite indices are
+                    // unaffected, so it is a query-plan trade, for test databases only.
+                    indexForEverySimpleProperty = dbProvider.autoIndexSimpleProperties,
+                    applyLinkCardinality = true
+                )
             }
             session.initializeComplementaryPropertiesForNewIndexedLinks(result.newIndexedLinks)
             if (dbProvider.transactionalIndexCreation) {
@@ -101,6 +122,13 @@ class YTDBModelMetaData(
          *   lifted): DDL tx (+ backfill txs if needed), then indices on the legacy
          *   non-transactional path, which works for populated classes.
          */
+        /*
+         * EXPERIMENTAL (JT-95771), see YTDBDatabaseParams.skipSchemaApplication: the caller has
+         * declared this database's schema already matches the model, so an association whose ends
+         * and indices are already there needs no DDL pass. The in-JVM model has been updated by
+         * ModelMetaDataImpl before this hook runs, which is the part that must always happen.
+         */
+        if (dbProvider.skipSchemaApplication) return
         dbProvider.withSession { session ->
             val inTxIndices = dbProvider.transactionalIndexCreation
             val result = session.withTx { sessionToWork ->

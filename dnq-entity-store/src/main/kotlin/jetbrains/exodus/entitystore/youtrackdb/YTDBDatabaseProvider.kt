@@ -58,6 +58,21 @@ interface YTDBDatabaseProvider {
     val transactionalIndexCreation: Boolean get() = true
 
     /**
+     * Whether `prepare()` creates the automatic index of every auto-indexed simple property
+     * (EXPERIMENTAL, JT-95771/XD-1283) - plumbed from
+     * [YTDBDatabaseParams.autoIndexSimpleProperties]. `false` trades simple-property lookups for
+     * a scan and is meant for test/benchmark databases only.
+     */
+    val autoIndexSimpleProperties: Boolean get() = true
+
+    /**
+     * Whether `prepare()` skips schema application entirely (EXPERIMENTAL, JT-95771/XD-1283) -
+     * plumbed from [YTDBDatabaseParams.skipSchemaApplication]. The caller must have established
+     * that the database's schema already matches the model.
+     */
+    val skipSchemaApplication: Boolean get() = false
+
+    /**
      * Database-wise read-only mode.
      * Always false by default.
      */
