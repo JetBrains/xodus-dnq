@@ -77,13 +77,14 @@ import kotlin.io.path.absolutePathString
  *   commit rebuilds the immutable schema twice, and both rebuilds then resolve every class against
  *   the transaction's ~3900-entry index overlay); the point of the knob is to re-ask the question on
  *   an engine where that scan is O(1) per class. The complementary-property backfill stays after the
- *   merged commit, as it needs committed schema. Requires `TX_INDICES=true`.
+ *   merged commit, as it needs committed schema. Requires `TX_INDICES=true`; cannot be combined with
+ *   `INDEX_BATCH` or `INDEX_TAIL_TXS` because those probes require separate transactions.
  * - `DNQ_BENCH_INDEX_TAIL_TXS` / `dnq.bench.indexTailTxs` (default 0) - create all but the last N
  *   definitions in one transaction, then each of those N in its OWN transaction. This measures the
  *   MARGINAL cost of one extra schema-carrying transaction at this schema size (the `A+F` term of
  *   the sweep model: tx-local schema seed + commit-entry rebuild + promotion + carry publish),
  *   without paying the whole grid: the delta against a `0` run, divided by N, is that cost.
- *   Ignored unless `TX_INDICES=true`; mutually exclusive with `INDEX_BATCH`.
+ *   Ignored unless `TX_INDICES=true`; mutually exclusive with `INDEX_BATCH` and `MERGE_INDEX_TX`.
  */
 class SchemaInitBenchmark {
 
@@ -242,6 +243,7 @@ class SchemaInitBenchmark {
     @Test
     fun `single-pass schema application on a fresh database`() {
         assumeBenchmarkEnabled()
+        validateIndexConfiguration()
         printConfiguration()
 
         // Build the model against a throwaway database so that every schema-application
@@ -253,8 +255,9 @@ class SchemaInitBenchmark {
             var schemaCommitMs = 0L
             var indicesMs = 0L
             var indexCount = 0
-            var indexTxCount = 1
+            var indexTxCount: Int? = null
             var initializeMs = 0L
+            val mergedIndices = mergeIndexTx
             var heapBeforeIndices = -1L
             var peakHeapDuringIndices = -1L
             var heapAfterIndices = -1L
@@ -270,46 +273,64 @@ class SchemaInitBenchmark {
                         applyLinkCardinality = true
                     )
                 }
-                // ---- merged shape: the index DDL joins the schema transaction ---------------
-                val mergedIndicesStart = System.nanoTime()
-                if (mergeIndexTx && txIndices) {
-                    phaseApplyIndices {
-                        val chunks = indexTransactionChunks(result.indices)
-                        indexTxCount = chunks.size
-                        // already inside the schema transaction - no withTx here, that is the point
-                        chunks.forEach { chunk -> session.applyIndices(chunk) }
-                    }
-                    indicesMs = (System.nanoTime() - mergedIndicesStart) / 1_000_000
-                }
-                val afterDdl = System.nanoTime()
-                phaseApplySchemaCommit { session.activeTransaction.commit() }
-                val afterCommit = System.nanoTime()
-                schemaMs = (afterDdl - startSchema) / 1_000_000 - indicesMs
-                schemaCommitMs = (afterCommit - afterDdl) / 1_000_000
+                val afterSchemaDdl = System.nanoTime()
                 indexCount = result.indices.values.sumOf { it.size }
+
+                // ---- merged shape: the index DDL joins the schema transaction ---------------
+                // This mode is validated above to have no batch/tail shaping, so the direct call
+                // preserves the actual one-transaction shape and avoids chunk construction.
+                if (mergedIndices) {
+                    if (measureHeap) {
+                        heapBeforeIndices = usedHeapAfterGc()
+                        resetPeakHeap()
+                    }
+                    val startIndices = System.nanoTime()
+                    phaseApplyIndices { session.applyIndices(result.indices) }
+                    indicesMs = (System.nanoTime() - startIndices) / 1_000_000
+                    indexTxCount = 1
+                }
+
+                val beforeSchemaCommit = System.nanoTime()
+                phaseApplySchemaCommit { session.activeTransaction.commit() }
+                val afterSchemaCommit = System.nanoTime()
+                schemaMs = (afterSchemaDdl - startSchema) / 1_000_000
+                schemaCommitMs = (afterSchemaCommit - beforeSchemaCommit) / 1_000_000
+
+                if (mergedIndices && measureHeap) {
+                    // The merged index DDL and its commit are both part of the measured work.
+                    peakHeapDuringIndices = peakHeapUsed()
+                    heapAfterIndices = usedHeapAfterGc()
+                }
 
                 // ---- phase 2: indices ------------------------------------------------------
                 session.initializeComplementaryPropertiesForNewIndexedLinks(result.newIndexedLinks)
-                heapBeforeIndices = if (measureHeap) usedHeapAfterGc() else -1
-                if (measureHeap) resetPeakHeap()
-                val startIndices = System.nanoTime()
-                phaseApplyIndices {
-                    if (mergeIndexTx && txIndices) {
-                        // already created inside the schema transaction above
-                    } else if (txIndices) {
-                        val chunks = indexTransactionChunks(result.indices)
-                        indexTxCount = chunks.size
-                        chunks.forEach { chunk -> session.withTx { it.applyIndices(chunk) } }
-                    } else {
-                        session.applyIndicesNonTx(result.indices)
+                if (!mergedIndices) {
+                    if (measureHeap) {
+                        heapBeforeIndices = usedHeapAfterGc()
+                        resetPeakHeap()
                     }
-                }
-                if (!(mergeIndexTx && txIndices)) {
+                    val startIndices = System.nanoTime()
+                    phaseApplyIndices {
+                        if (txIndices) {
+                            if (indexBatch == 0 && indexTailTxs == 0) {
+                                // Keep the normal benchmark path identical to the pre-probe shape:
+                                // do not flatten/regroup the definitions for a one-transaction run.
+                                indexTxCount = 1
+                                session.withTx { it.applyIndices(result.indices) }
+                            } else {
+                                val chunks = indexTransactionChunks(result.indices)
+                                indexTxCount = chunks.size
+                                chunks.forEach { chunk -> session.withTx { it.applyIndices(chunk) } }
+                            }
+                        } else {
+                            session.applyIndicesNonTx(result.indices)
+                        }
+                    }
                     indicesMs = (System.nanoTime() - startIndices) / 1_000_000
-                }
-                if (measureHeap) {
-                    peakHeapDuringIndices = peakHeapUsed()
-                    heapAfterIndices = usedHeapAfterGc()
+                    if (measureHeap) {
+                        peakHeapDuringIndices = peakHeapUsed()
+                        heapAfterIndices = usedHeapAfterGc()
+                    }
                 }
 
                 // ---- phase 3: schema-buddy initialize --------------------------------------
@@ -321,11 +342,11 @@ class SchemaInitBenchmark {
             report("single-pass schema application (fresh database)") {
                 line("index definitions  = $indexCount")
                 line("applySchema (DDL)  = $schemaMs ms")
-                line("applySchema commit = $schemaCommitMs ms")
-                line("applySchema total  = ${schemaMs + schemaCommitMs} ms")
-                line("applyIndices       = $indicesMs ms")
-                line("applyIndices txs   = $indexTxCount")
-                line("merged index tx    = ${mergeIndexTx && txIndices}")
+                line("applySchema commit = $schemaCommitMs ms (${if (mergedIndices) "DDL + index commit" else "DDL only"})")
+                line("applySchema total  = ${schemaMs + schemaCommitMs} ms (${if (mergedIndices) "DDL + merged commit; index DDL above" else "DDL + commit"})")
+                line("applyIndices       = $indicesMs ms (${if (mergedIndices) "DDL only; commit above" else if (txIndices) "including commit" else "non-transactional"})")
+                line("applyIndices txs   = ${indexTxCount ?: "n/a (non-transactional)"}")
+                line("merged index tx    = $mergedIndices")
                 line("buddy.initialize   = $initializeMs ms")
                 line("TOTAL              = ${schemaMs + schemaCommitMs + indicesMs + initializeMs} ms")
                 line("storage files      = ${storageFileCount()}")
@@ -759,6 +780,15 @@ class SchemaInitBenchmark {
         System.getenv("DNQ_BENCH") != null || System.getProperty("dnq.bench") != null
     )
 
+    private fun validateIndexConfiguration() {
+        require(!mergeIndexTx || txIndices) {
+            "MERGE_INDEX_TX=true requires TX_INDICES=true"
+        }
+        require(!mergeIndexTx || (indexBatch == 0 && indexTailTxs == 0)) {
+            "MERGE_INDEX_TX cannot be combined with INDEX_BATCH or INDEX_TAIL_TXS"
+        }
+    }
+
     private fun printConfiguration() = report("configuration") {
         line("classes            = $classCount")
         line("properties/class   = $propertyCount")
@@ -801,7 +831,11 @@ class SchemaInitBenchmark {
         try {
             return block(YTDBDatabaseProviderFactory.createProvider(params, db))
         } finally {
-            db.close()
+            try {
+                db.close()
+            } finally {
+                check(dbPath.toFile().deleteRecursively()) { "Failed to delete $dbPath" }
+            }
         }
     }
 
