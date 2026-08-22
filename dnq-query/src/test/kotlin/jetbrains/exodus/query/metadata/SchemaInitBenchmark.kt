@@ -799,6 +799,9 @@ class SchemaInitBenchmark {
         require(indexTailTxs >= 0) {
             "INDEX_TAIL_TXS must be >= 0, got $indexTailTxs"
         }
+        require(indexBatch == 0 || indexTailTxs == 0) {
+            "INDEX_BATCH and INDEX_TAIL_TXS are mutually exclusive"
+        }
         require(!mergeIndexTx || txIndices) {
             "MERGE_INDEX_TX=true requires TX_INDICES=true"
         }
@@ -827,36 +830,53 @@ class SchemaInitBenchmark {
     private fun <R> withDatabase(block: (YTDBDatabaseProvider) -> R): R = withDatabase(dbType, block)
 
     private fun <R> withDatabase(type: DatabaseType, block: (YTDBDatabaseProvider) -> R): R {
-        config("FSYNC", "fsync", "").let { fsync ->
-            if (fsync.isNotEmpty()) {
-                com.jetbrains.youtrackdb.api.config.GlobalConfiguration.STORAGE_CALL_FSYNC
-                    .setValue(fsync.toBoolean())
-            }
-        }
-        config("COLLECTIONS", "collections", "").let { collections ->
-            if (collections.isNotEmpty()) {
-                com.jetbrains.youtrackdb.api.config.GlobalConfiguration.CLASS_COLLECTIONS_COUNT
-                    .setValue(collections.toInt())
-            }
-        }
         val dbPath = Files.createTempDirectory("youTrackDB_bench")
         databasePath = dbPath.absolutePathString()
-        val params = YTDBDatabaseParams.builder()
-            .withDatabaseType(type)
-            .withDatabasePath(dbPath.absolutePathString())
-            .withAppUser("admin", "password")
-            .withDatabaseName("benchDB")
-            .withTransactionalIndexCreation(txIndices)
-            .build()
-        val db = YouTrackDBFactory.createEmbedded(params) as YouTrackDBImpl
+        var db: YouTrackDBImpl? = null
+        var failure: Throwable? = null
+
+        fun recordFailure(error: Throwable) {
+            val primary = failure
+            if (primary == null) failure = error else primary.addSuppressed(error)
+        }
+
         try {
-            return block(YTDBDatabaseProviderFactory.createProvider(params, db))
+            config("FSYNC", "fsync", "").let { fsync ->
+                if (fsync.isNotEmpty()) {
+                    com.jetbrains.youtrackdb.api.config.GlobalConfiguration.STORAGE_CALL_FSYNC
+                        .setValue(fsync.toBoolean())
+                }
+            }
+            config("COLLECTIONS", "collections", "").let { collections ->
+                if (collections.isNotEmpty()) {
+                    com.jetbrains.youtrackdb.api.config.GlobalConfiguration.CLASS_COLLECTIONS_COUNT
+                        .setValue(collections.toInt())
+                }
+            }
+            val params = YTDBDatabaseParams.builder()
+                .withDatabaseType(type)
+                .withDatabasePath(dbPath.absolutePathString())
+                .withAppUser("admin", "password")
+                .withDatabaseName("benchDB")
+                .withTransactionalIndexCreation(txIndices)
+                .build()
+            db = YouTrackDBFactory.createEmbedded(params) as YouTrackDBImpl
+            return block(YTDBDatabaseProviderFactory.createProvider(params, db!!))
+        } catch (error: Throwable) {
+            failure = error
+            throw error
         } finally {
             try {
-                db.close()
-            } finally {
-                check(dbPath.toFile().deleteRecursively()) { "Failed to delete $dbPath" }
+                db?.close()
+            } catch (error: Throwable) {
+                recordFailure(error)
             }
+            try {
+                check(dbPath.toFile().deleteRecursively()) { "Failed to delete $dbPath" }
+            } catch (error: Throwable) {
+                recordFailure(error)
+            }
+            failure?.let { throw it }
         }
     }
 
@@ -984,7 +1004,6 @@ class SchemaInitBenchmark {
         val flat = indices.entries.flatMap { (owner, set) -> set.map { owner to it } }
         val chunks = when {
             indexTailTxs > 0 -> {
-                require(indexBatch == 0) { "INDEX_BATCH and INDEX_TAIL_TXS are mutually exclusive" }
                 val tail = indexTailTxs.coerceAtMost(flat.size)
                 listOf(flat.take(flat.size - tail)) + flat.takeLast(tail).map { listOf(it) }
             }
