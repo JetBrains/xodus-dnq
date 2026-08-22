@@ -65,6 +65,25 @@ import kotlin.io.path.absolutePathString
  *   every created file costs 2 fsyncs, so this dominates on-disk initialization)
  * - `DNQ_BENCH_PROFILE` / `dnq.bench.profile` - sample the measured phases and print the hottest
  *   YTDB/DNQ frames
+ * - `DNQ_BENCH_INDEX_BATCH` / `dnq.bench.indexBatch` (default 0 = one transaction for the whole
+ *   pass, i.e. today's production shape) - create the index definitions in chunks of this many
+ *   definitions, one transaction per chunk. For the k-sweep that looks for the total-time optimum:
+ *   the overlay scan's cost is invariant in the chunk count, the per-transaction floor grows with
+ *   it, and `populateTxCreatedIndex`'s per-index walk of the transaction's own record-operation
+ *   list shrinks with it (N^2/k), so an interior optimum can exist.
+ * - `DNQ_BENCH_MERGE_INDEX_TX` / `dnq.bench.mergeIndexTx` (default false) - create the index
+ *   definitions INSIDE the schema (DDL) transaction instead of a separate one, i.e. one transaction
+ *   for classes + properties + links + indexes. On the pre-F1 engine this loses (the class-creating
+ *   commit rebuilds the immutable schema twice, and both rebuilds then resolve every class against
+ *   the transaction's ~3900-entry index overlay); the point of the knob is to re-ask the question on
+ *   an engine where that scan is O(1) per class. The complementary-property backfill stays after the
+ *   merged commit, as it needs committed schema. Requires `TX_INDICES=true`.
+ * - `DNQ_BENCH_INDEX_TAIL_TXS` / `dnq.bench.indexTailTxs` (default 0) - create all but the last N
+ *   definitions in one transaction, then each of those N in its OWN transaction. This measures the
+ *   MARGINAL cost of one extra schema-carrying transaction at this schema size (the `A+F` term of
+ *   the sweep model: tx-local schema seed + commit-entry rebuild + promotion + carry publish),
+ *   without paying the whole grid: the delta against a `0` run, divided by N, is that cost.
+ *   Ignored unless `TX_INDICES=true`; mutually exclusive with `INDEX_BATCH`.
  */
 class SchemaInitBenchmark {
 
@@ -74,6 +93,9 @@ class SchemaInitBenchmark {
     private val txIndices = config("TX_INDICES", "txIndices", "false").toBoolean()
     private val measureHeap = config("HEAP", "heap", "false").toBoolean()
     private val lateLinkCount = config("LATE_LINKS", "lateLinks", "50").toInt()
+    private val mergeIndexTx = config("MERGE_INDEX_TX", "mergeIndexTx", "false").toBoolean()
+    private val indexBatch = config("INDEX_BATCH", "indexBatch", "0").toInt()
+    private val indexTailTxs = config("INDEX_TAIL_TXS", "indexTailTxs", "0").toInt()
 
     /**
      * The realistic DNQ bootstrap shape (see `DNQMetaDataUtil.initMetaData`): all entity
@@ -231,6 +253,7 @@ class SchemaInitBenchmark {
             var schemaCommitMs = 0L
             var indicesMs = 0L
             var indexCount = 0
+            var indexTxCount = 1
             var initializeMs = 0L
             var heapBeforeIndices = -1L
             var peakHeapDuringIndices = -1L
@@ -247,10 +270,21 @@ class SchemaInitBenchmark {
                         applyLinkCardinality = true
                     )
                 }
+                // ---- merged shape: the index DDL joins the schema transaction ---------------
+                val mergedIndicesStart = System.nanoTime()
+                if (mergeIndexTx && txIndices) {
+                    phaseApplyIndices {
+                        val chunks = indexTransactionChunks(result.indices)
+                        indexTxCount = chunks.size
+                        // already inside the schema transaction - no withTx here, that is the point
+                        chunks.forEach { chunk -> session.applyIndices(chunk) }
+                    }
+                    indicesMs = (System.nanoTime() - mergedIndicesStart) / 1_000_000
+                }
                 val afterDdl = System.nanoTime()
                 phaseApplySchemaCommit { session.activeTransaction.commit() }
                 val afterCommit = System.nanoTime()
-                schemaMs = (afterDdl - startSchema) / 1_000_000
+                schemaMs = (afterDdl - startSchema) / 1_000_000 - indicesMs
                 schemaCommitMs = (afterCommit - afterDdl) / 1_000_000
                 indexCount = result.indices.values.sumOf { it.size }
 
@@ -260,13 +294,19 @@ class SchemaInitBenchmark {
                 if (measureHeap) resetPeakHeap()
                 val startIndices = System.nanoTime()
                 phaseApplyIndices {
-                    if (txIndices) {
-                        session.withTx { it.applyIndices(result.indices) }
+                    if (mergeIndexTx && txIndices) {
+                        // already created inside the schema transaction above
+                    } else if (txIndices) {
+                        val chunks = indexTransactionChunks(result.indices)
+                        indexTxCount = chunks.size
+                        chunks.forEach { chunk -> session.withTx { it.applyIndices(chunk) } }
                     } else {
                         session.applyIndicesNonTx(result.indices)
                     }
                 }
-                indicesMs = (System.nanoTime() - startIndices) / 1_000_000
+                if (!(mergeIndexTx && txIndices)) {
+                    indicesMs = (System.nanoTime() - startIndices) / 1_000_000
+                }
                 if (measureHeap) {
                     peakHeapDuringIndices = peakHeapUsed()
                     heapAfterIndices = usedHeapAfterGc()
@@ -284,6 +324,8 @@ class SchemaInitBenchmark {
                 line("applySchema commit = $schemaCommitMs ms")
                 line("applySchema total  = ${schemaMs + schemaCommitMs} ms")
                 line("applyIndices       = $indicesMs ms")
+                line("applyIndices txs   = $indexTxCount")
+                line("merged index tx    = ${mergeIndexTx && txIndices}")
                 line("buddy.initialize   = $initializeMs ms")
                 line("TOTAL              = ${schemaMs + schemaCommitMs + indicesMs + initializeMs} ms")
                 line("storage files      = ${storageFileCount()}")
@@ -431,6 +473,107 @@ class SchemaInitBenchmark {
             ms
         }
     }
+
+    /**
+     * The probe that measures the LAST remaining schema-validation cost of a fresh YouTrack init
+     * (XD-1283 / JT-95771): the emptiness guard of commit 3b43c6a3 correctly declines to fire on a
+     * class that HOLDS COMMITTED RECORDS, so DNQ still pays the validated path for every LINKBAG
+     * property (`out_<edge>` / `in_<edge>`) it declares on a populated vertex class. Profiling a
+     * 19.2 s init attributed ~1.57 s to exactly that, and ~90% of it is not the SELECT itself but the
+     * full `ImmutableSchema` snapshot rebuild that the SELECT's query planner forces inside the DDL
+     * transaction (the plan cache is bypassed for the whole duration of a schema-changing
+     * transaction).
+     *
+     * The shape is the committed-empty probe above plus a middle transaction that writes
+     * [recordsPerClass] records into every vertex class, which is what defeats the emptiness guard.
+     * The `unsafe = true` side is the prize a booked-name guard (`out_*` / `in_*` on vertex classes,
+     * names DNQ owns and no user data can carry) would buy.
+     */
+    @Test
+    fun `probe - cost of checkPersistentPropertyType on committed POPULATED classes`() {
+        assumeBenchmarkEnabled()
+        printConfiguration()
+
+        val safe1 = rawSchemaCreationOnPopulatedClasses(unsafe = false)
+        val unsafe1 = rawSchemaCreationOnPopulatedClasses(unsafe = true)
+        val unsafe2 = rawSchemaCreationOnPopulatedClasses(unsafe = true)
+        val safe2 = rawSchemaCreationOnPopulatedClasses(unsafe = false)
+
+        report("probe: properties added to COMMITTED, POPULATED classes") {
+            line("classes                = $classCount")
+            line("records per class      = $recordsPerClass (total ${classCount * recordsPerClass})")
+            line("properties created     = ${classCount / 10 * propertyCount + 2 * classCount}")
+            line("  of which LINKBAG     = ${2 * classCount}")
+            line("  of which simple      = ${classCount / 10 * propertyCount}")
+            line("public createProperty  = ${safe1.totalMs} ms, ${safe2.totalMs} ms")
+            line("unsafe createProperty  = ${unsafe1.totalMs} ms, ${unsafe2.totalMs} ms")
+            line("  LINKBAG only  safe   = ${safe1.linkBagMs} ms, ${safe2.linkBagMs} ms")
+            line("  LINKBAG only  unsafe = ${unsafe1.linkBagMs} ms, ${unsafe2.linkBagMs} ms")
+            line("  simple  only  safe   = ${safe1.simpleMs} ms, ${safe2.simpleMs} ms")
+            line("  simple  only  unsafe = ${unsafe1.simpleMs} ms, ${unsafe2.simpleMs} ms")
+        }
+    }
+
+    /** Split of the measured transaction of [rawSchemaCreationOnPopulatedClasses]. */
+    private class PropertyCreationTiming(val totalMs: Long, val linkBagMs: Long, val simpleMs: Long)
+
+    /**
+     * Deliberately tiny: the records only have to exist so that the class is not empty. Anything
+     * larger would measure inserts instead of the validation the probe is about.
+     */
+    private val recordsPerClass = 3
+
+    private fun rawSchemaCreationOnPopulatedClasses(unsafe: Boolean): PropertyCreationTiming =
+        withDatabase { provider ->
+            provider.withSession { session ->
+                // transaction 1: the classes only - same shape as the committed-empty probe
+                session.begin()
+                for (i in 0 until classCount) {
+                    val cls = session.schema.createVertexClass(typeName(i))
+                    if (i % 10 != 0) {
+                        cls.addSuperClass(session.schema.getClass(typeName(i - i % 10)))
+                    }
+                    session.schema.createEdgeClass("link$i")
+                }
+                session.activeTransaction.commit()
+
+                // transaction 2: make every class genuinely populated, with committed collections,
+                // so the emptiness guard cannot fire on the measured pass. The filler property name
+                // is one no later phase declares, so it cannot bias checkPersistentPropertyType.
+                session.begin()
+                for (i in 0 until classCount) {
+                    repeat(recordsPerClass) { r ->
+                        session.newVertex(typeName(i)).setProperty("benchFill", r.toLong())
+                    }
+                }
+                session.activeTransaction.commit()
+
+                // transaction 3 (MEASURED): the properties, over committed and POPULATED classes
+                session.begin()
+                var linkBagNs = 0L
+                var simpleNs = 0L
+                val start = System.nanoTime()
+                for (i in 0 until classCount) {
+                    if (i % 10 == 0) {
+                        val cls = session.schema.getClass(typeName(i))!!
+                        val startSimple = System.nanoTime()
+                        for (p in 0 until propertyCount) {
+                            cls.createBenchProperty("prop$p", ytdbType(p), unsafe)
+                        }
+                        simpleNs += System.nanoTime() - startSimple
+                    }
+                    val startLinkBag = System.nanoTime()
+                    session.schema.getClass(typeName(i))!!
+                        .createBenchProperty("out_link$i", PropertyType.LINKBAG, unsafe)
+                    session.schema.getClass(typeName((i + 1) % classCount))!!
+                        .createBenchProperty("in_link$i", PropertyType.LINKBAG, unsafe)
+                    linkBagNs += System.nanoTime() - startLinkBag
+                }
+                val ms = (System.nanoTime() - start) / 1_000_000
+                session.activeTransaction.commit()
+                PropertyCreationTiming(ms, linkBagNs / 1_000_000, simpleNs / 1_000_000)
+            }
+        }
 
     private fun rawSchemaCreation(unsafe: Boolean): Long = withDatabase { provider ->
         provider.withSession { session ->
@@ -771,6 +914,30 @@ class SchemaInitBenchmark {
                 }
             }
         }
+    }
+
+    /**
+     * Splits the pass's index definitions into the per-transaction chunks the knobs ask for.
+     * Definitions are flattened to (owner class, definition) pairs and regrouped per chunk, so a
+     * chunk boundary may fall inside a class's index set - which is what a production chunking would
+     * have to tolerate too (`applyIndices` looks each owner class up per chunk). The default is a
+     * single chunk: today's shape, so a `0/0` run is the unmodified baseline.
+     */
+    private fun indexTransactionChunks(
+        indices: Map<String, Set<DeferredIndex>>
+    ): List<Map<String, Set<DeferredIndex>>> {
+        val flat = indices.entries.flatMap { (owner, set) -> set.map { owner to it } }
+        val chunks = when {
+            indexTailTxs > 0 -> {
+                require(indexBatch == 0) { "INDEX_BATCH and INDEX_TAIL_TXS are mutually exclusive" }
+                val tail = indexTailTxs.coerceAtMost(flat.size)
+                listOf(flat.take(flat.size - tail)) + flat.takeLast(tail).map { listOf(it) }
+            }
+            indexBatch > 0 -> flat.chunked(indexBatch)
+            else -> listOf(flat)
+        }
+        return chunks.filter { it.isNotEmpty() }
+            .map { chunk -> chunk.groupBy({ it.first }, { it.second }).mapValues { (_, v) -> v.toSet() } }
     }
 
     private companion object {
