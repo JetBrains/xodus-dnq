@@ -817,6 +817,9 @@ class SchemaInitBenchmark {
             line("properties/class   = $propertyCount")
             line("database type      = $dbType")
             line("txIndices flag     = $txIndices")
+            line("index batch        = $indexBatch${if (!txIndices) " (ignored; TX_INDICES=false)" else ""}")
+            line("index tail txs     = $indexTailTxs${if (!txIndices) " (ignored; TX_INDICES=false)" else ""}")
+            line("merge index tx     = $mergeIndexTx${if (!txIndices) " (ignored; TX_INDICES=false)" else ""}")
         }
     }
 
