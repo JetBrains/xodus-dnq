@@ -85,6 +85,10 @@ import kotlin.io.path.absolutePathString
  *   the sweep model: tx-local schema seed + commit-entry rebuild + promotion + carry publish),
  *   without paying the whole grid: the delta against a `0` run, divided by N, is that cost.
  *   Ignored unless `TX_INDICES=true`; mutually exclusive with `INDEX_BATCH` and `MERGE_INDEX_TX`.
+ *
+ * Numeric shape constraints are checked before any database is created: `CLASSES` must be positive,
+ * `PROPERTIES` must be at least 2 because the model always declares a `prop0`+`prop1` composite
+ * index, and `LATE_LINKS`, `INDEX_BATCH`, and `INDEX_TAIL_TXS` must be non-negative.
  */
 class SchemaInitBenchmark {
 
@@ -203,7 +207,7 @@ class SchemaInitBenchmark {
                 line("classes / startup links = $classCount / $classCount")
                 line("late links              = $lateLinkCount")
                 line("late association add    = $totalMs ms")
-                line("per late link           = ${"%.1f".format(totalMs.toDouble() / lateLinkCount)} ms")
+                line("per late link           = ${if (lateLinkCount == 0) "n/a" else "%.1f".format(totalMs.toDouble() / lateLinkCount) + " ms"}")
                 line("storage files           = ${storageFileCount()}")
             }
             verifyLateAssociations(provider)
@@ -243,7 +247,6 @@ class SchemaInitBenchmark {
     @Test
     fun `single-pass schema application on a fresh database`() {
         assumeBenchmarkEnabled()
-        validateIndexConfiguration()
         printConfiguration()
 
         // Build the model against a throwaway database so that every schema-application
@@ -780,7 +783,22 @@ class SchemaInitBenchmark {
         System.getenv("DNQ_BENCH") != null || System.getProperty("dnq.bench") != null
     )
 
-    private fun validateIndexConfiguration() {
+    private fun validateBenchmarkConfiguration() {
+        require(classCount > 0) {
+            "CLASSES must be > 0, got $classCount"
+        }
+        require(propertyCount >= 2) {
+            "PROPERTIES must be >= 2 because the benchmark declares a prop0+prop1 composite index, got $propertyCount"
+        }
+        require(lateLinkCount >= 0) {
+            "LATE_LINKS must be >= 0, got $lateLinkCount"
+        }
+        require(indexBatch >= 0) {
+            "INDEX_BATCH must be >= 0, got $indexBatch"
+        }
+        require(indexTailTxs >= 0) {
+            "INDEX_TAIL_TXS must be >= 0, got $indexTailTxs"
+        }
         require(!mergeIndexTx || txIndices) {
             "MERGE_INDEX_TX=true requires TX_INDICES=true"
         }
@@ -789,11 +807,14 @@ class SchemaInitBenchmark {
         }
     }
 
-    private fun printConfiguration() = report("configuration") {
-        line("classes            = $classCount")
-        line("properties/class   = $propertyCount")
-        line("database type      = $dbType")
-        line("txIndices flag     = $txIndices")
+    private fun printConfiguration(): Unit {
+        validateBenchmarkConfiguration()
+        report("configuration") {
+            line("classes            = $classCount")
+            line("properties/class   = $propertyCount")
+            line("database type      = $dbType")
+            line("txIndices flag     = $txIndices")
+        }
     }
 
     /**
