@@ -77,8 +77,10 @@ import kotlin.io.path.absolutePathString
  *   commit rebuilds the immutable schema twice, and both rebuilds then resolve every class against
  *   the transaction's ~3900-entry index overlay); the point of the knob is to re-ask the question on
  *   an engine where that scan is O(1) per class. The complementary-property backfill stays after the
- *   merged commit, as it needs committed schema. Requires `TX_INDICES=true`; cannot be combined with
- *   `INDEX_BATCH` or `INDEX_TAIL_TXS` because those probes require separate transactions.
+ *   merged commit, as it needs committed schema. Requires `TX_INDICES=true` to take effect; when
+ *   transactional index creation is disabled, this and the other shaping knobs are ignored. It
+ *   cannot be combined with `INDEX_BATCH` or `INDEX_TAIL_TXS` when transactional mode is enabled,
+ *   because those probes require separate transactions.
  * - `DNQ_BENCH_INDEX_TAIL_TXS` / `dnq.bench.indexTailTxs` (default 0) - create all but the last N
  *   definitions in one transaction, then each of those N in its OWN transaction. This measures the
  *   MARGINAL cost of one extra schema-carrying transaction at this schema size (the `A+F` term of
@@ -260,7 +262,7 @@ class SchemaInitBenchmark {
             var indexCount = 0
             var indexTxCount: Int? = null
             var initializeMs = 0L
-            val mergedIndices = mergeIndexTx
+            val mergedIndices = mergeIndexTx && txIndices
             var heapBeforeIndices = -1L
             var peakHeapDuringIndices = -1L
             var heapAfterIndices = -1L
@@ -799,14 +801,13 @@ class SchemaInitBenchmark {
         require(indexTailTxs >= 0) {
             "INDEX_TAIL_TXS must be >= 0, got $indexTailTxs"
         }
-        require(indexBatch == 0 || indexTailTxs == 0) {
-            "INDEX_BATCH and INDEX_TAIL_TXS are mutually exclusive"
-        }
-        require(!mergeIndexTx || txIndices) {
-            "MERGE_INDEX_TX=true requires TX_INDICES=true"
-        }
-        require(!mergeIndexTx || (indexBatch == 0 && indexTailTxs == 0)) {
-            "MERGE_INDEX_TX cannot be combined with INDEX_BATCH or INDEX_TAIL_TXS"
+        if (txIndices) {
+            require(indexBatch == 0 || indexTailTxs == 0) {
+                "INDEX_BATCH and INDEX_TAIL_TXS are mutually exclusive"
+            }
+            require(!mergeIndexTx || (indexBatch == 0 && indexTailTxs == 0)) {
+                "MERGE_INDEX_TX cannot be combined with INDEX_BATCH or INDEX_TAIL_TXS"
+            }
         }
     }
 
