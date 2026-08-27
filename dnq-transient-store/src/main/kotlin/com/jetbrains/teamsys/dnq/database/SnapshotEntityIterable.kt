@@ -49,7 +49,7 @@ internal class SnapshotEntityIterable(
         wrap(original.minus(getOriginal(right)))
 
     override fun concat(right: EntityIterable): EntityIterable =
-        wrap(original.minus(getOriginal(right)))
+        wrap(original.concat(getOriginal(right)))
 
     override fun skip(number: Int): EntityIterable = wrap(original.skip(number))
 

@@ -68,6 +68,14 @@ class PersistentEntityIteratorWrapper(
         return source.dispose()
     }
 
+    /**
+     * Skips up to [number] entities and returns the value of [hasNext], per the
+     * `EntityIterator.skip` contract.
+     *
+     * The terminal answer must go through [initCurrent] (i.e. this iterator's own [hasNext]) and
+     * **not** `source.hasNext()`: this iterator filters out entities the transient changes tracker
+     * knows as removed, so `source` can still have elements while this iterator is exhausted.
+     */
     override fun skip(number: Int): Boolean {
 
         repeat(number) {
@@ -76,7 +84,7 @@ class PersistentEntityIteratorWrapper(
             }
             consumeCurrent()
         }
-        return true
+        return initCurrent() != null
     }
 
     override fun shouldBeDisposed(): Boolean {

@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.translator.GroovyTranslato
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class YTDBGremlinEntityIterableTest : OTestMixin {
 
@@ -663,6 +664,94 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
         }
     }
 
+    /**
+     * XD-1292 / audit #10 — a negative argument must clamp, not throw, per Xodus's
+     * `EntityIterableBase` (`skip`: `if (number <= 0 …) return this`; `take`:
+     * `if (number <= 0 …) return EMPTY`). Before the fix both calls threw
+     * `IllegalArgumentException` from the `require(skip >= 0)` / `require(limit >= 0)` guards in
+     * [GremlinBlock], which stay in place as internal invariants.
+     *
+     * **The identity assertions are correct here because this is the raw layer** — `skip` returns the
+     * receiver itself and `take` returns the [YTDBEntityIterable.EMPTY] singleton (`:279-290`), so both
+     * are observable facts rather than incidental allocation. The other levels must assert **contents**
+     * instead, for two different reasons: the in-memory clamp
+     * (`AbstractInMemoryEntityIterable.take`) and the DNQ query layer (`XdQuery.operation`) genuinely
+     * allocate a new iterable / a freshly wrapped query, so identity never holds there; the transient
+     * level (`TransientEntityIterable.skip`/`take`) does return the receiver and this same `EMPTY`
+     * singleton, but its own test still asserts contents on purpose, so that the pin survives any future
+     * decision to allocate. The link-read rows below likewise assert contents: `skip` goes through
+     * `YTDBVertexEntityIterable.skip` → `asQueryIterable().skip(-1)`, whose receiver is the *query*
+     * iterable and not the link iterable, so `=== boardIssues` would be wrong (`take` would in fact
+     * return `EMPTY`, but emptiness is the property under test).
+     *
+     * `iterable take 0` and `iterable skip 0` above are the negative controls: widening `== 0` to
+     * `<= 0` must leave the `0` boundary bit-identical.
+     */
+    @Test
+    fun `negative skip and take match Xodus`() {
+        val test = givenTestCase()
+
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+        }
+
+        withStoreTx { tx ->
+            val issues = tx.sort(Issues.CLASS, "name", true)
+
+            assertThat(issues.skip(-1)).isSameInstanceAs(issues)
+            assertNamesExactlyInOrder(issues.skip(-1), "issue1", "issue2", "issue3")
+
+            assertThat(issues.take(-1)).isSameInstanceAs(YTDBEntityIterable.EMPTY)
+            assertThat(issues.take(-1)).isEmpty()
+
+            // a link read reaches the same clamp through asQueryIterable()
+            val boardIssues = test.board1.getLinks(Boards.Links.HAS_ISSUE)
+            assertNamesExactly(boardIssues, "issue1", "issue2")
+            assertNamesExactly(boardIssues.skip(-1), "issue1", "issue2")
+            assertThat(boardIssues.take(-1)).isEmpty()
+        }
+    }
+
+    /**
+     * XD-1292 / audit #9 — [jetbrains.exodus.entitystore.EntityIterator.skip] must return the value
+     * of `hasNext()`, not `true`.
+     *
+     * **Every assertion obtains a FRESH `iterator()`, and that is load-bearing, not hygiene:** after
+     * the fix `skip` ends in `hasNext()`, and `YTDBEntityIterator.hasNext()` **disposes** the
+     * traversal on exhaustion. On one shared iterator the `skip(3)` row would leave a disposed,
+     * fully-consumed iterator, so a following `skip(2)` would observe `false` instead of `true` — the
+     * row that actually discriminates the defect would look wrong for an unrelated reason. Do not
+     * "simplify" this back to a single shared iterator.
+     */
+    @Test
+    fun `iterator skip returns hasNext`() {
+        givenTestCase()
+
+        withStoreTx { tx ->
+            val issues = YTDBEntityIterable.where(Issues.CLASS, tx.getStore(), GremlinBlock.All)
+            assertEquals(3L, issues.size())
+
+            // skipping to exact exhaustion: nothing is left
+            assertEquals(false, issues.iterator().skip(3))
+            // one element left
+            assertEquals(true, issues.iterator().skip(2))
+            // skipping past the end: nothing is left
+            assertEquals(false, issues.iterator().skip(4))
+
+            // negative n is a no-op: nothing is consumed, and the answer is hasNext()
+            val nonEmpty = issues.iterator()
+            assertEquals(true, nonEmpty.skip(-1))
+            assertEquals(3, nonEmpty.asSequence().count())
+
+            // ... which on an EMPTY iterable is false, where it used to be an unconditional true
+            val empty = YTDBEntityIterable.where(Issues.CLASS, tx.getStore(), GremlinBlock.PropNull("name"))
+            assertEquals(0L, empty.size())
+            assertEquals(false, empty.iterator().skip(-1))
+            assertEquals(false, empty.iterator().skip(0))
+        }
+    }
+
     @Test
     fun `iterable sort and reverse`() {
         // Given
@@ -678,10 +767,7 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
 
             // Then
             // Note: GremlinBlock.Reverse has BlockType.ORDER, so GremlinQuery.then() routes it through
-            // Order.of() (the `block.type == BlockType.ORDER` branch) before ever reaching the
-            // `block is GremlinBlock.Reverse` check. This means the entire `block is GremlinBlock.Reverse`
-            // branch — including the `is SortBy -> reverseOrder()` case — is dead code. Even a SortBy
-            // query gets fold().reverse().unfold() appended rather than having its sort direction flipped.
+            // Order.of() — even a SortBy query gets fold().reverse().unfold() appended.
             checkGremlin(
                 reversedByName as YTDBEntityIterable,
                 "g.V().hasLabel(\"Issue\").order().by(__.values(\"name\").count(),Order.desc).by(__.values(\"name\").fold(),Order.asc).fold().reverse().unfold()"
@@ -1201,6 +1287,88 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
                 """g.V().has("name",P.within(["board1", "board2"])).hasLabel("Board").out("HasIssue_link").dedup()"""
             )
             assertNamesExactly(issues, "issue1", "issue2")
+        }
+    }
+
+    /**
+     * XD-1292 / audit #7 — the four binary operators must normalise the right operand with `unwrap()`
+     * before casting it, so a link read (a `YTDBVertexEntityIterable`, which implements only
+     * `EntityIterable`) can be combined with a query iterable. All four throw
+     * `IllegalArgumentException("Only GremlinEntityIterable is supported, but was
+     * YTDBVertexEntityIterable")` from `YTDBCasts` today.
+     *
+     * **The operand must really contain elements.** The naive choice — a *board's*
+     * `getLinks(ON_BOARD)` — is empty, because `ON_BOARD` is Issue→Board and `getLinks` follows
+     * outgoing edges only; every assertion over it would be satisfied by dropping the operand
+     * entirely. Here the operand is `issue1.getLinks(ON_BOARD)` = `[board1]`, asserted non-empty first.
+     *
+     * Content only, never order: optimiser rule O3 strips the right operand's sort for
+     * intersect/difference and both sorts for union, so the link order does not survive a binary op.
+     */
+    @Test
+    fun `binary ops accept a link-read iterable as operand`() {
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+            tx.addIssueToBoard(test.issue3, test.board2)
+        }
+
+        withStoreTx { tx ->
+            val boardsOfIssue1 = test.issue1.getLinks(Issues.Links.ON_BOARD)
+            // precondition: a non-empty, non-identity operand
+            assertEquals(listOf("board1"), boardsOfIssue1.map { it.getProperty("name") })
+
+            val allBoards = tx.getAll(Boards.CLASS)
+            assertNamesExactly(allBoards, "board1", "board2", "board3")
+
+            assertNamesExactly(allBoards.intersect(boardsOfIssue1), "board1")
+            assertNamesExactly(allBoards.union(boardsOfIssue1), "board1", "board2", "board3")
+            assertNamesExactly(allBoards.minus(boardsOfIssue1), "board2", "board3")
+            assertNamesExactly(
+                allBoards.concat(boardsOfIssue1),
+                "board1", "board2", "board3", "board1"
+            )
+            assertNamesExactly(allBoards.intersectSavingOrder(boardsOfIssue1), "board1")
+        }
+    }
+
+    /**
+     * XD-1292 / BG15 — the accepted risk of #7, pinned so it is visible rather than latent.
+     *
+     * Normalising the operand newly routes a `YTDBVertexEntityIterable` into
+     * `requirePolymorphicMatch`, and a link read's unwrapped form carries a **hardcoded**
+     * `polymorphic = true` (`YTDBVertexEntityIterable.asQueryIterable()` calls the
+     * `YTDBEntityIterable.query` factory, whose flag defaults to `true`; there is no source for a
+     * per-link flag). So a **non-polymorphic** receiver combined with a link read now fails the flag
+     * check instead of the cast.
+     *
+     * This is not a regression: the same input already threw `IllegalArgumentException` from
+     * `YTDBCasts` before the change, so no working input starts failing — only the message changes.
+     * Threading a flag through `asQueryIterable()` is out of scope. A `polymorphic = false` receiver
+     * *is* reachable from production — `XdEntityType.all(polymorphic = false)` and
+     * `YTDBStoreTransaction.getAll(type, polymorphic = false)` are public — but combining one with a
+     * link read has never worked: a link read is a `YTDBVertexEntityIterable`, which is not a
+     * [YTDBEntityIterable], so the pre-change cast rejected it too.
+     */
+    @Test
+    fun `a non-polymorphic receiver cannot be combined with a link read`() {
+        val test = givenTestCase()
+        withStoreTx { tx -> tx.addIssueToBoard(test.issue1, test.board1) }
+
+        withStoreTx { tx ->
+            val boardsOfIssue1 = test.issue1.getLinks(Issues.Links.ON_BOARD)
+            val nonPolymorphic = YTDBEntityIterable.where(
+                Boards.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false
+            )
+
+            val e = assertFailsWith<IllegalArgumentException> {
+                nonPolymorphic.intersect(boardsOfIssue1)
+            }
+            assertThat(e).hasMessageThat().contains("Both operands must have the same polymorphic flag")
+
+            // ... while a polymorphic receiver - the only match for a link read's hardcoded true - works
+            assertNamesExactly(tx.getAll(Boards.CLASS).intersect(boardsOfIssue1), "board1")
         }
     }
 

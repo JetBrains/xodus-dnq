@@ -52,9 +52,38 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
         return values.size.toLong()
     }
 
-    override fun indexOf(entity: Entity) = values.indexOf(entity)
+    /**
+     * Compares [jetbrains.exodus.entitystore.EntityId]s, analogous to Xodus's
+     * `EntityIterableBase.indexOfImpl`.
+     *
+     * The previous `values.indexOf(entity)` missed whenever the argument was the *persistent* entity
+     * for the same id — which is exactly what `XdQuery.contains`/`indexOf` can hand down. The
+     * mechanism is **argument-first**: [values] is a `Set`, not a `List`, so Kotlin's
+     * `Iterable<T>.indexOf` falls through to its scan, which evaluates `element == item`
+     * (stdlib 2.1.0 `commonMain/generated/_Collections.kt:322-332`, the comparison at `:327`) — i.e.
+     * it runs the *argument's* `equals`. For a `YTDBVertexEntity` argument that is
+     * `YTDBVertexEntity.equals`, which returns `false` at its `other !is YTDBEntity` check because
+     * `TransientEntity` extends `Entity`, not `YTDBEntity`; the elements' `TransientEntityImpl.equals`
+     * is never reached. Id comparison is safe across implementations: `RIDEntityId.equals` tests
+     * `(typeId, localId)` against any `EntityId`.
+     *
+     * Note the index of a `Set`-backed iterable has always been iteration-order dependent; that is
+     * unchanged.
+     */
+    override fun indexOf(entity: Entity): Int {
+        val id = entity.id
+        return values.indexOfFirst { it.id == id }
+    }
 
-    operator override fun contains(entity: Entity) = values.contains(entity)
+    /**
+     * `indexOf(entity) != -1`, but keeping the O(1) hash lookup as a fast path: [values] is a `Set`,
+     * so the common same-type case must not become a linear scan. The two are consistent —
+     * `TransientEntityImpl.equals` implies equal ids — and the hash lookup cannot succeed for a
+     * foreign wrapper anyway (`TransientEntityImpl.hashCode` is `id.hashCode() +
+     * persistentStore.hashCode()`, `YTDBVertexEntity.hashCode` is `id.hashCode()`).
+     */
+    operator override fun contains(entity: Entity) =
+            values.contains(entity) || values.any { it.id == entity.id }
 
     override fun intersect(right: EntityIterable): EntityIterable =
             throw UnsupportedOperationException("Not supported by TransientEntityIterable")
@@ -78,8 +107,13 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
         return TransientEntityIterable(values + right.values)
     }
 
+    /**
+     * `Sequence.drop` opens with `require(n >= 0)`, so a negative [number] would throw where Xodus's
+     * `EntityIterableBase.skip` returns the receiver. Widening the existing `== 0` guard to `<= 0` is a
+     * negative-only change: the guard already returned `this` at `0`.
+     */
     override fun skip(number: Int): EntityIterable {
-        if (number == 0) return this
+        if (number <= 0) return this
 
         return TransientEntityIterable(
                 values.asSequence()
@@ -88,8 +122,13 @@ open class TransientEntityIterable(protected val values: Set<TransientEntity>) :
         )
     }
 
+    /**
+     * `Sequence.take` opens with `require(n >= 0)`, so a negative [number] would throw where Xodus's
+     * `EntityIterableBase.take` returns the empty iterable. As in [skip], widening `== 0` to `<= 0`
+     * changes nothing at `0`.
+     */
     override fun take(number: Int): EntityIterable {
-        if (number == 0) return YTDBEntityIterable.EMPTY
+        if (number <= 0) return YTDBEntityIterable.EMPTY
 
         return TransientEntityIterable(
                 values.asSequence()

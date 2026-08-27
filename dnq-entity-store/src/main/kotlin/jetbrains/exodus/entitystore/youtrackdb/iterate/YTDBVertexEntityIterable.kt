@@ -30,8 +30,6 @@ import jetbrains.exodus.entitystore.youtrackdb.resolveTypeName
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import org.apache.commons.collections4.IterableUtils
-import org.apache.commons.collections4.IteratorUtils
-import org.apache.commons.collections4.functors.EqualPredicate
 
 class YTDBVertexEntityIterable(
     private val tx: YTDBStoreTransaction,
@@ -45,12 +43,31 @@ class YTDBVertexEntityIterable(
 
         private val iterator = vertices.iterator()
 
-        override fun skip(number: Int) =
-            (0 until number).count { iterator.hasNext() }.also { iterator.next() } == number
+        /**
+         * Skips up to [number] entities and returns the value of `hasNext()`, per the
+         * [EntityIterator.skip] contract (Xodus: `while (number-- > 0 && hasNextImpl()) nextIdImpl();
+         * return hasNextImpl()`).
+         *
+         * A non-positive [number] consumes nothing. Note this must *consume* — the previous form
+         * counted `hasNext()` (which consumes nothing) and then consumed exactly one element
+         * unconditionally, which is what made [getLast] return the wrong element or throw.
+         */
+        override fun skip(number: Int): Boolean {
+            var left = number
+            while (left-- > 0 && iterator.hasNext()) {
+                iterator.next()
+            }
+            return iterator.hasNext()
+        }
 
         override fun nextId() = RIDEntityId.fromVertex(iterator.next())
 
-        override fun dispose() = true
+        /**
+         * Nothing is held — [vertices] is an already-materialised `List` — so nothing can be
+         * released, and `dispose()`'s contract is "`true` if the `EntityIterator` was actually
+         * disposed". Keep this consistent with [shouldBeDisposed].
+         */
+        override fun dispose() = false
 
         override fun shouldBeDisposed() = false
 
@@ -81,9 +98,30 @@ class YTDBVertexEntityIterable(
 
     override fun getRoughSize() = count()
 
-    override fun indexOf(entity: Entity) = IteratorUtils.indexOf(iterator(), EqualPredicate.equalPredicate(entity))
+    /**
+     * Compares [jetbrains.exodus.entitystore.EntityId]s, matching the sibling
+     * [YTDBEntityIterableImpl.indexOf] and Xodus's `EntityIterableBase.indexOfImpl`.
+     *
+     * The previous commons-collections form (`IteratorUtils.indexOf(iterator(),
+     * EqualPredicate.equalPredicate(entity))`) compared *objects*, and argument-first at that, so a
+     * foreign `Entity` implementation carrying a member's id missed: `YTDBVertexEntity.equals` has a
+     * `javaClass` check and `TransientEntityImpl.equals` rejects any non-`TransientEntity` before it
+     * ever looks at the id. Id comparison is safe across implementations — `RIDEntityId.equals`
+     * compares `(typeId, localId)` against any [jetbrains.exodus.entitystore.EntityId].
+     */
+    override fun indexOf(entity: Entity): Int {
+        val id = entity.id
+        val it = iterator()
+        var i = 0
+        while (it.hasNext()) {
+            if (it.nextId() == id) return i
+            ++i
+        }
+        return -1
+    }
 
-    override fun contains(entity: Entity) = IteratorUtils.contains(iterator(), entity)
+    /** Per the `EntityIterable.contains` contract: "just returns `indexOf(entity) != -1`". */
+    override fun contains(entity: Entity) = indexOf(entity) != -1
 
     override fun intersect(right: EntityIterable) = asQueryIterable().intersect(right)
 
@@ -108,7 +146,18 @@ class YTDBVertexEntityIterable(
 
     override fun getFirst() = iterator().run { if (hasNext()) next() else null }
 
-    override fun getLast() = iterator().run { if (hasNext()) skip(count().toInt() - 1).run { next() } else null }
+    /**
+     * Walks to the last element. Deliberately independent of [count] (which returns `-1` for a
+     * non-`Collection`, non-`Sizeable` source) and of [skip].
+     */
+    override fun getLast(): Entity? {
+        var last: Entity? = null
+        val it = iterator()
+        while (it.hasNext()) {
+            last = it.next()
+        }
+        return last
+    }
 
     override fun reverse() = asQueryIterable().reverse()
 

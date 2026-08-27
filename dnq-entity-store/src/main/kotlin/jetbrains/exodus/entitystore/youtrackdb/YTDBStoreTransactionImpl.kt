@@ -437,10 +437,16 @@ class YTDBStoreTransactionImpl(
         polymorphic: Boolean
     ): YTDBEntityIterable {
         requireActiveTransaction()
-        return if (entities === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
+        // Normalise the operand before the identity guard, for the same reasons as
+        // YTDBEntityIterableImpl.operand(): wrappers expose their query form only through unwrap(),
+        // and a wrapper around EMPTY is not identical to EMPTY. This method has no access to that
+        // private helper, so it unwraps locally. This is the one findLinks overload reachable from the
+        // public session API (SessionQueryMixin forwards `entities` unchanged).
+        val operand = entities.unwrap()
+        return if (operand === YTDBEntityIterable.EMPTY) YTDBEntityIterable.EMPTY
         else YTDBEntityIterable.query(
             getStore(),
-            entities.asYTDBIterable().query
+            operand.asYTDBIterable().query
                 .then(GremlinBlock.InLink(linkName))
                 .then(GremlinBlock.HasLabel(entityType)),
             polymorphic
