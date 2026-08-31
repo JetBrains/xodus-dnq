@@ -69,14 +69,11 @@ data class MigrateFromXodusConfig(
 /**
  * Migrates a Xodus database into YouTrackDB.
  *
- * **XD-1283 - the application's first `prepare()` after this migration must use a provider with
- * [YTDBDatabaseParams.transactionalIndexCreation] = `false`.** The migrator creates the classes
- * and the data but **no indices at all**, so the application's first schema pass builds every
- * index (including each `<class>_localEntityId`) over **fully populated** classes. With the
- * shipping default (`true`, i.e. in-transaction index creation) that pass is rejected at commit
- * by upstream **YTDB-1064** ("index creation inside a transaction is bounded to an empty source
- * collection"), and it keeps failing on every restart until the flag is turned off. Pin
- * `withTransactionalIndexCreation(false)` for that first startup - or until YTDB-1064 is lifted.
+ * **XD-1283:** the migrator creates the classes and data but **no indices at all**, so the
+ * application's first schema pass builds every index (including each `<class>_localEntityId`)
+ * over fully populated classes. The index-mode preflight routes those owners through YTDB's
+ * supported non-transactional create-and-fill path, while retaining transactional creation for
+ * owners that are empty. This avoids YTDB-1064 without requiring a migration-specific setting.
  */
 class XodusToOrientDataMigratorLauncher(
     val orient: MigrateToOrientConfig,

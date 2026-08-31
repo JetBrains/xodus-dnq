@@ -46,7 +46,9 @@ private val log = KotlinLogging.logger {}
 
 internal data class SchemaApplicationResult(
     val indices: Map<String, Set<DeferredIndex>>,
-    val newIndexedLinks: Map<String, Set<String>> // ClassName -> set of link names
+    val newIndexedLinks: Map<String, Set<String>>, // ClassName -> set of link names
+    /** Classes created by this schema pass, used by the temporary index-mode preflight. */
+    val createdClasses: Set<String> = emptySet()
 )
 
 /**
@@ -59,6 +61,7 @@ internal data class SchemaApplicationResult(
 internal fun Iterable<SchemaApplicationResult>.merged(): SchemaApplicationResult {
     val indices = HashMap<String, MutableSet<DeferredIndex>>()
     val newIndexedLinks = HashMap<String, MutableSet<String>>()
+    val createdClasses = HashSet<String>()
     for (result in this) {
         for ((className, classIndices) in result.indices) {
             indices.getOrPut(className) { HashSet() }.addAll(classIndices)
@@ -66,8 +69,9 @@ internal fun Iterable<SchemaApplicationResult>.merged(): SchemaApplicationResult
         for ((className, linkNames) in result.newIndexedLinks) {
             newIndexedLinks.getOrPut(className) { HashSet() }.addAll(linkNames)
         }
+        createdClasses.addAll(result.createdClasses)
     }
-    return SchemaApplicationResult(indices, newIndexedLinks)
+    return SchemaApplicationResult(indices, newIndexedLinks, createdClasses)
 }
 
 internal fun DatabaseSessionEmbedded.applySchema(
@@ -206,6 +210,9 @@ internal class YouTrackDbSchemaInitializer(
 
     private val newIndexedLinks = HashMap<String, MutableSet<String>>()
 
+    /** Classes actually created by this initializer, including edge classes created for associations. */
+    private val createdClasses = HashSet<String>()
+
     /**
      * Per-class memo for [holdsNoRecords], keyed by class name. Valid for the lifetime of one schema
      * step (this object is created per schema application / per association add) because DNQ writes
@@ -324,7 +331,8 @@ internal class YouTrackDbSchemaInitializer(
 
             return SchemaApplicationResult(
                 indices = indices,
-                newIndexedLinks
+                newIndexedLinks = newIndexedLinks,
+                createdClasses = createdClasses
             )
         } finally {
             paddedLogger.flush()
@@ -344,7 +352,8 @@ internal class YouTrackDbSchemaInitializer(
             )
             return SchemaApplicationResult(
                 indices = indices,
-                newIndexedLinks = newIndexedLinks
+                newIndexedLinks = newIndexedLinks,
+                createdClasses = createdClasses
             )
         } finally {
             paddedLogger.flush()
@@ -417,6 +426,7 @@ internal class YouTrackDbSchemaInitializer(
         var oClass: SchemaClass? = schema.getClass(name)
         if (oClass == null) {
             oClass = oSession.schema.createVertexClass(name)!!
+            createdClasses.add(name)
             append(", created")
         } else {
             append(", already created")
@@ -434,12 +444,15 @@ internal class YouTrackDbSchemaInitializer(
              * mutex serializes schema transactions, so the loser's tx-local schema copy is
              * seeded after the winner's commit and the re-check sees the winner's class.
              */
+            var created = true
             oClass = try {
                 oSession.schema.createEdgeClass(className)!!
             } catch (e: SchemaException) {
+                created = false
                 schema.getClass(className) ?: throw e
             }
-            append(", edge class created")
+            if (created) createdClasses.add(className)
+            append(if (created) ", edge class created" else ", edge class created concurrently")
         } else {
             append(", edge class already created")
         }
