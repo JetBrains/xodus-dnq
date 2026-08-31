@@ -36,6 +36,8 @@ import jetbrains.exodus.entitystore.youtrackdb.ClassIdReservation
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_CUSTOM_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_SEQUENCE_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
+import jetbrains.exodus.entitystore.youtrackdb.createClassIdSequenceIfAbsent
+import jetbrains.exodus.entitystore.youtrackdb.createLocalEntityIdSequenceIfAbsent
 import jetbrains.exodus.entitystore.youtrackdb.createSequencesIfAbsent
 import jetbrains.exodus.entitystore.youtrackdb.setClassIdIfAbsent
 import mu.KotlinLogging
@@ -71,21 +73,29 @@ internal fun Iterable<SchemaApplicationResult>.merged(): SchemaApplicationResult
 internal fun DatabaseSessionEmbedded.applySchema(
     metaData: ModelMetaData,
     indexForEverySimpleProperty: Boolean = false,
-    applyLinkCardinality: Boolean = true
+    applyLinkCardinality: Boolean = true,
+    useBatchedSequenceAcquisition: Boolean = false
 ): SchemaApplicationResult =
-    applySchema(metaData.entitiesMetaData, indexForEverySimpleProperty, applyLinkCardinality)
+    applySchema(
+        metaData.entitiesMetaData,
+        indexForEverySimpleProperty,
+        applyLinkCardinality,
+        useBatchedSequenceAcquisition
+    )
 
 internal fun DatabaseSessionEmbedded.applySchema(
     entitiesMetaData: Iterable<EntityMetaData>,
     indexForEverySimpleProperty: Boolean = false,
-    applyLinkCardinality: Boolean = true
+    applyLinkCardinality: Boolean = true,
+    useBatchedSequenceAcquisition: Boolean = false
 ): SchemaApplicationResult {
     val initializer =
         YouTrackDbSchemaInitializer(
             entitiesMetaData,
             this,
             indexForEverySimpleProperty,
-            applyLinkCardinality
+            applyLinkCardinality,
+            useBatchedSequenceAcquisition
         )
     return initializer.apply()
 }
@@ -112,7 +122,8 @@ internal fun DatabaseSessionEmbedded.addAssociation(
         listOf(),
         this,
         indexForEverySimpleProperty = false,
-        applyLinkCardinality = applyLinkCardinality
+        applyLinkCardinality = applyLinkCardinality,
+        useBatchedSequenceAcquisition = false
     )
     return initializer.addAssociation(link, indicesContainingLink)
 }
@@ -150,7 +161,8 @@ internal fun DatabaseSessionEmbedded.removeAssociation(
             listOf(),
             this,
             indexForEverySimpleProperty = false,
-            applyLinkCardinality = false
+            applyLinkCardinality = false,
+            useBatchedSequenceAcquisition = false
         )
     initializer.removeAssociation(association)
 }
@@ -178,7 +190,8 @@ internal class YouTrackDbSchemaInitializer(
     private val entitiesMetaData: Iterable<EntityMetaData>,
     private val oSession: DatabaseSessionEmbedded,
     private val indexForEverySimpleProperty: Boolean,
-    private val applyLinkCardinality: Boolean
+    private val applyLinkCardinality: Boolean,
+    private val useBatchedSequenceAcquisition: Boolean
 ) {
     private val paddedLogger = PaddedLogger.logger(log)
 
@@ -222,31 +235,35 @@ internal class YouTrackDbSchemaInitializer(
             appendLine("applying the DNQ schema to OrientDB")
             val sortedEntities = entitiesMetaData.sortedTopologically()
 
-            /*
-             * All sequences the pass needs - the classId sequence and one localEntityId sequence
-             * per entity type - are created up front in a SINGLE immediately-committed side
-             * transaction (XD-1283 performance; it used to be one transaction per type, i.e. one
-             * storage commit per type). This must happen before the pass's first DDL write: on a
-             * genesis database it creates the OSequence class, and the reservation below reads the
-             * classId sequence through a pooled side transaction that only sees committed records.
-             */
-            oSession.createSequencesIfAbsent(
-                buildList {
-                    add(CLASS_ID_SEQUENCE_NAME)
-                    sortedEntities.forEach { add(localEntityIdSequenceName(it.type)) }
-                }
-            )
-            /*
-             * One reserved block of class ids for the whole pass instead of one sequence.next()
-             * transaction per type. The count is taken from the COMMITTED schema, which is what
-             * this transaction still sees: nothing has been written yet.
-             */
-            val classIdReservation = ClassIdReservation(
-                sortedEntities.count { dnqEntity ->
-                    oSession.schema.getClass(dnqEntity.type)
-                        ?.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME) == null
-                }
-            )
+            val classIdReservation = if (useBatchedSequenceAcquisition) {
+                /*
+                 * Test/benchmark-only optimization (XD-1283): create all sequences in one
+                 * immediately-committed side transaction, then reserve one class-id block for the
+                 * whole pass. The reservation reads the classId sequence through a pooled side
+                 * transaction that only sees committed records, so this must happen before the
+                 * pass's first DDL write.
+                 */
+                oSession.createSequencesIfAbsent(
+                    buildList {
+                        add(CLASS_ID_SEQUENCE_NAME)
+                        sortedEntities.forEach { add(localEntityIdSequenceName(it.type)) }
+                    }
+                )
+                ClassIdReservation(
+                    sortedEntities.count { dnqEntity ->
+                        oSession.schema.getClass(dnqEntity.type)
+                            ?.getCustom(CLASS_ID_CUSTOM_PROPERTY_NAME) == null
+                    }
+                )
+            } else {
+                /*
+                 * Preserve the historical sequence behavior unless the test-only batch mechanism
+                 * is explicitly enabled: create the class-id sequence once, acquire one class id
+                 * per class, and create each localEntityId sequence as its class is initialized.
+                 */
+                oSession.createClassIdSequenceIfAbsent()
+                null
+            }
 
             appendLine("creating classes if absent:")
             withPadding {
@@ -347,15 +364,17 @@ internal class YouTrackDbSchemaInitializer(
 
     private fun createVertexClassIfAbsent(
         dnqEntity: EntityMetaData,
-        classIdReservation: ClassIdReservation
+        classIdReservation: ClassIdReservation?
     ) {
         append(dnqEntity.type)
         val oClass = oSession.createVertexClassIfAbsent(dnqEntity.type)
         oClass.applySuperClass(dnqEntity.superType)
         appendLine()
 
-        // the localEntityId sequence was created with all the others up front (see apply())
         oSession.setClassIdIfAbsent(oClass, classIdReservation)
+        if (classIdReservation == null) {
+            oSession.createLocalEntityIdSequenceIfAbsent(oClass)
+        }
         /*
         * We do not apply a unique index to the localEntityId property because indices in OrientDB are polymorphic.
         * So, you can not have the same value in a property in an instance of a superclass and in an instance of its subclass.

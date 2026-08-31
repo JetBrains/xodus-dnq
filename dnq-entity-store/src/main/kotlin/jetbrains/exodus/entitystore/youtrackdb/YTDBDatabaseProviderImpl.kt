@@ -95,6 +95,9 @@ class YTDBDatabaseProviderImpl(
     override val transactionalIndexCreation: Boolean
         get() = params.transactionalIndexCreation
 
+    override val useBatchedSequenceAcquisition: Boolean
+        get() = params.useBatchedSequenceAcquisition
+
     override val autoIndexSimpleProperties: Boolean
         get() = params.autoIndexSimpleProperties
 
