@@ -37,14 +37,10 @@ abstract class XdEnumEntityType<XD : XdEnumEntity>(entityTypeName: String? = nul
     /**
      * Creates this enum type's constants if absent, updating the existing ones otherwise.
      *
-     * @param flush whether to flush the session afterwards. Flushing per enum type is what the
-     * metadata initialization used to do, and on a large model it is one persistent commit per enum
-     * type (XD-1283: 50 of the 100 transactions of a YouTrack test's initialization were these).
-     * The initialization pass now passes `false` and flushes once for the whole enum phase instead;
-     * the default stays `true` so any other caller keeps the previous behaviour.
+     * The caller owns the transaction boundary. In particular, metadata initialization keeps enum
+     * values, entity-type initialization, and singleton initialization in one transaction.
      */
-    @JvmOverloads
-    fun initEnumValues(txn: TransientStoreSession, flush: Boolean = true) {
+    fun initEnumValues(txn: TransientStoreSession) {
         if (constants.isNotEmpty()) {
             constants.forEach { enumConst ->
                 var xdEnumValue = query(XdEnumEntity::name eq enumConst.enumFieldName).firstOrNull()
@@ -55,10 +51,6 @@ abstract class XdEnumEntityType<XD : XdEnumEntity>(entityTypeName: String? = nul
                 } else {
                     enumConst.update(xdEnumValue)
                 }
-
-            }
-            if (flush) {
-                txn.flush()
             }
         }
     }
