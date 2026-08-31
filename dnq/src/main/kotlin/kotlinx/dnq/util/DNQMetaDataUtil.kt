@@ -92,25 +92,10 @@ fun initMetaData(hierarchy: Map<String, XdHierarchyNode>, entityStore: Transient
     // JT-57205: we should be able to start in read-only mode
     // TODO here should be readonly check
     entityStore.transactional { txn ->
-        /*
-         * XD-1283: one flush for the whole enum phase, not one per enum type. `initEnumValues` used
-         * to flush itself, which is a persistent commit per enum type - 50 of the 100 transactions
-         * of a YouTrack test's initialization. The phase-level flush keeps the guarantee the
-         * per-type flushes provided together, namely that every enum constant is committed before
-         * the entity-type and singleton passes below query for them; what it drops is the
-         * visibility of one enum type's constants to a LATER enum type's `update` lambda within
-         * this phase, which no enum constant may depend on (a constant initializer that queried
-         * another enum type would already be order-dependent on model registration order).
-         */
-        var anyEnumConstants = false
         naturalNodes.values.asSequence().map {
             it.entityType
         }.filterIsInstance<XdEnumEntityType<*>>().forEach {
-            it.initEnumValues(txn, flush = false)
-            anyEnumConstants = anyEnumConstants || it.constants.isNotEmpty()
-        }
-        if (anyEnumConstants) {
-            txn.flush()
+            it.initEnumValues(txn)
         }
 
         naturalNodes.values.asSequence().map {

@@ -16,7 +16,6 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
-import com.google.common.truth.Truth.assertWithMessage
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.database.TransientEntityChange
 import jetbrains.exodus.database.TransientStoreSession
@@ -24,18 +23,17 @@ import jetbrains.exodus.database.TransientStoreSessionListener
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.size
 import kotlinx.dnq.query.toList
+import kotlin.test.assertFailsWith
 import org.junit.Test
 
 /**
- * XD-1283: the metadata initialization applies every enum type's constants inside ONE transaction and
- * flushes once for the whole phase, instead of once per enum type (which was one persistent commit
- * each - 50 of the 100 transactions of a YouTrack test's initialization).
+ * Tests that enum initialization stays inside the transaction owned by the caller.
  *
- * These tests pin the two properties the change relies on: the `flush` parameter really controls the
- * flush, and initializing several enum types without intermediate flushes produces each constant
- * exactly once, both on a fresh database and when the constants already exist.
+ * Enum constants are ordinary entities and must be created exactly once. Initialization of all enum
+ * types, entity types, and singletons is committed together by the enclosing transaction; enum
+ * initialization itself must not introduce an intermediate flush.
  */
-class EnumPhaseFlushTest : DBTest() {
+class EnumInitializationTest : DBTest() {
 
     class FirstEnum(entity: Entity) : XdEnumEntity(entity) {
         companion object : XdEnumEntityType<FirstEnum>() {
@@ -78,15 +76,13 @@ class EnumPhaseFlushTest : DBTest() {
 
     /**
      * Re-applying the constants over an already-initialized database - which is what every restart
-     * does - updates the existing entities instead of creating new ones, with or without the
-     * per-type flush.
+     * does - updates the existing entities instead of creating duplicates.
      */
     @Test
-    fun `re-initializing enum values without a per-type flush creates no duplicates`() {
+    fun `re-initializing enum values creates no duplicates`() {
         transactional { txn ->
-            FirstEnum.initEnumValues(txn, flush = false)
-            SecondEnum.initEnumValues(txn, flush = false)
-            txn.flush()
+            FirstEnum.initEnumValues(txn)
+            SecondEnum.initEnumValues(txn)
 
             assertThat(FirstEnum.all().size()).isEqualTo(2)
             assertThat(SecondEnum.all().size()).isEqualTo(2)
@@ -99,54 +95,47 @@ class EnumPhaseFlushTest : DBTest() {
         }
     }
 
-    /**
-     * The `flush` parameter is what the phase-level batching turns off, so it has to be the only
-     * thing that flushes: with `false` the session keeps its changes pending, with the default it
-     * does not. This is the property that turns N per-type commits into one phase commit.
-     */
     @Test
-    fun `the flush parameter controls whether the session is flushed`() {
-        transactional { txn: TransientStoreSession ->
-            FirstEnum.all().toList().forEach { it.delete() }
-            SecondEnum.all().toList().forEach { it.delete() }
-            txn.flush()
-
-            FirstEnum.initEnumValues(txn, flush = false)
-            assertWithMessage("initEnumValues(flush = false) must leave the changes pending")
-                .that(txn.hasChanges())
-                .isTrue()
-
-            SecondEnum.initEnumValues(txn)
-            assertWithMessage("initEnumValues(flush = true) must flush both enum types' changes")
-                .that(txn.hasChanges())
-                .isFalse()
-        }
-    }
-
-    /**
-     * The point of the change is the NUMBER of persistent commits: the phase-level shape the
-     * initialization now uses flushes once for any number of enum types, where the previous per-type
-     * shape flushed once per type. Counted through the session listener, whose `flushed` fires per
-     * flush that carried changes.
-     */
-    @Test
-    fun `the phase-level shape flushes once for two enum types where the per-type shape flushes twice`() {
-        assertThat(flushesWhileInitializingBothEnumTypes(perTypeFlush = true))
-            .isEqualTo(2)
-        assertThat(flushesWhileInitializingBothEnumTypes(perTypeFlush = false))
-            .isEqualTo(1)
-    }
-
-    /**
-     * Deletes the constants (so both shapes have something to create), then applies both enum types
-     * either flushing per type or once for the phase, and returns how many flushes carried changes.
-     */
-    private fun flushesWhileInitializingBothEnumTypes(perTypeFlush: Boolean): Int {
+    fun `enum initialization leaves changes pending until the enclosing transaction commits`() {
         transactional { txn ->
             FirstEnum.all().toList().forEach { it.delete() }
             SecondEnum.all().toList().forEach { it.delete() }
             txn.flush()
+
+            FirstEnum.initEnumValues(txn)
+            SecondEnum.initEnumValues(txn)
+
+            assertThat(txn.hasChanges()).isTrue()
+            assertThat(FirstEnum.all().size()).isEqualTo(2)
+            assertThat(SecondEnum.all().size()).isEqualTo(2)
         }
+    }
+
+    @Test
+    fun `enum initialization rolls back with the enclosing transaction`() {
+        transactional {
+            FirstEnum.all().toList().forEach { it.delete() }
+        }
+
+        assertFailsWith<IllegalStateException> {
+            transactional { txn ->
+                FirstEnum.initEnumValues(txn)
+                throw IllegalStateException("fail after enum initialization")
+            }
+        }
+
+        transactional {
+            assertThat(FirstEnum.all().size()).isEqualTo(0)
+        }
+    }
+
+    @Test
+    fun `enum initialization does not flush before the enclosing transaction completes`() {
+        transactional { txn ->
+            FirstEnum.all().toList().forEach { it.delete() }
+            SecondEnum.all().toList().forEach { it.delete() }
+        }
+
         var flushes = 0
         val counter = object : TransientStoreSessionListener {
             override fun flushed(
@@ -169,15 +158,15 @@ class EnumPhaseFlushTest : DBTest() {
         store.addListener(counter)
         try {
             transactional { txn ->
-                FirstEnum.initEnumValues(txn, flush = perTypeFlush)
-                SecondEnum.initEnumValues(txn, flush = perTypeFlush)
-                if (!perTypeFlush) {
-                    txn.flush()
-                }
+                FirstEnum.initEnumValues(txn)
+                SecondEnum.initEnumValues(txn)
+                assertThat(flushes).isEqualTo(0)
             }
         } finally {
             store.removeListener(counter)
         }
-        return flushes
+
+        // The only flush is the enclosing transaction's final commit.
+        assertThat(flushes).isEqualTo(1)
     }
 }
