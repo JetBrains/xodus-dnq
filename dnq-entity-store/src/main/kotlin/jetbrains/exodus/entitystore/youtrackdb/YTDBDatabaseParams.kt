@@ -54,6 +54,18 @@ class YTDBDatabaseParams private constructor(
      */
     val transactionalIndexCreation: Boolean = true,
     /**
+     * Whether schema initialization acquires class ids in one reserved batch instead of acquiring
+     * them one at a time from the class-id sequence.
+     *
+     * `false` (the default) preserves the historical per-class sequence acquisition behavior.
+     * `true` reserves one class-id block for the schema pass and is intended for tests and
+     * benchmarks only; it is not a production setting.
+     *
+     * The batch mechanism consumes class ids eagerly and leaves gaps if schema initialization is
+     * rolled back. See [Builder.withBatchedSequenceAcquisition].
+     */
+    val useBatchedSequenceAcquisition: Boolean = false,
+    /**
      * Whether `prepare()` creates YouTrackDB's automatic index for every auto-indexed SIMPLE
      * property of the model (JT-95771 / XD-1283, EXPERIMENTAL).
      *
@@ -143,6 +155,7 @@ class YTDBDatabaseParams private constructor(
         private var serverParams: YTDBServerParams? = null
         private var configBuilder: YouTrackDBConfigBuilder.() -> Unit = {}
         private var transactionalIndexCreation: Boolean = true
+        private var useBatchedSequenceAcquisition: Boolean = false
         private var autoIndexSimpleProperties: Boolean =
             java.lang.Boolean.parseBoolean(System.getProperty("dnq.autoIndexSimpleProperties", "true"))
         private var skipSchemaApplication: Boolean =
@@ -243,6 +256,16 @@ class YTDBDatabaseParams private constructor(
             this.transactionalIndexCreation = transactionalIndexCreation
         }
 
+        /**
+         * Enables batched class-id sequence acquisition for schema initialization.
+         *
+         * This is a test/benchmark-only optimization. When not called, schema initialization uses
+         * the historical per-class sequence acquisition path.
+         */
+        fun withBatchedSequenceAcquisition(useBatchedSequenceAcquisition: Boolean) = apply {
+            this.useBatchedSequenceAcquisition = useBatchedSequenceAcquisition
+        }
+
         /** See [YTDBDatabaseParams.autoIndexSimpleProperties] (EXPERIMENTAL, test/benchmark use). */
         fun withAutoIndexSimpleProperties(autoIndexSimpleProperties: Boolean) = apply {
             this.autoIndexSimpleProperties = autoIndexSimpleProperties
@@ -288,6 +311,7 @@ class YTDBDatabaseParams private constructor(
                 serverParams,
                 configBuilder,
                 transactionalIndexCreation,
+                useBatchedSequenceAcquisition,
                 autoIndexSimpleProperties,
                 skipSchemaApplication,
                 callFsync

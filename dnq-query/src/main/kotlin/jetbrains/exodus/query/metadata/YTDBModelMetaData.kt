@@ -66,7 +66,8 @@ class YTDBModelMetaData(
                     // and of every subsequent database open. Unique/composite indices are
                     // unaffected, so it is a query-plan trade, for test databases only.
                     indexForEverySimpleProperty = dbProvider.autoIndexSimpleProperties,
-                    applyLinkCardinality = true
+                    applyLinkCardinality = true,
+                    useBatchedSequenceAcquisition = dbProvider.useBatchedSequenceAcquisition
                 )
             }
             session.initializeComplementaryPropertiesForNewIndexedLinks(result.newIndexedLinks)

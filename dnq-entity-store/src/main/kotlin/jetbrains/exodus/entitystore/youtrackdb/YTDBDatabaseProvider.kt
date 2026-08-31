@@ -58,6 +58,13 @@ interface YTDBDatabaseProvider {
     val transactionalIndexCreation: Boolean get() = true
 
     /**
+     * Whether schema initialization uses batched class-id sequence acquisition, as configured by
+     * [YTDBDatabaseParams.useBatchedSequenceAcquisition]. This is intended for tests and
+     * benchmarks only; the default preserves the historical per-class acquisition behavior.
+     */
+    val useBatchedSequenceAcquisition: Boolean get() = false
+
+    /**
      * Whether `prepare()` creates the automatic index of every auto-indexed simple property
      * (EXPERIMENTAL, JT-95771/XD-1283) - plumbed from
      * [YTDBDatabaseParams.autoIndexSimpleProperties]. `false` trades simple-property lookups for

@@ -30,6 +30,18 @@ class YTDBDatabaseConfigTest {
     private val fsyncKey = GlobalConfiguration.STORAGE_CALL_FSYNC.key
 
     @Test
+    fun `batched sequence acquisition is disabled by default`() {
+        Assert.assertFalse(params().useBatchedSequenceAcquisition)
+    }
+
+    @Test
+    fun `batched sequence acquisition can be explicitly enabled`() {
+        val params = params { withBatchedSequenceAcquisition(true) }
+
+        Assert.assertTrue(params.useBatchedSequenceAcquisition)
+    }
+
+    @Test
     fun `encryption key calculated from hex`() {
         val keyHex = "546e6f624b737371796f41586e7269304c744f42663252613630586631374a67"
 
