@@ -49,10 +49,9 @@ import kotlin.io.path.absolutePathString
  * - `DNQ_BENCH_CLASSES` / `dnq.bench.classes` (default 300) - number of DNQ entity types
  * - `DNQ_BENCH_PROPERTIES` / `dnq.bench.properties` (default 10) - simple properties per type
  * - `DNQ_BENCH_DBTYPE` / `dnq.bench.dbtype` (default MEMORY) - MEMORY or DISK
- * - `DNQ_BENCH_TX_INDICES` / `dnq.bench.txIndices` (default false, i.e. NOT the production
- *   default) - value of [YTDBDatabaseParams.transactionalIndexCreation]: `true` creates ALL
- *   indices in ONE transaction, which is ~8x faster than the legacy per-index path on the
- *   current YTDB pin (MEMORY, 300 types) - see the track-04 notes in research-log.md
+ * - `DNQ_BENCH_TX_INDICES` / `dnq.bench.txIndices` (default false) - benchmark-only choice
+ *   between creating ALL indices in ONE transaction and using the legacy per-index path. The
+ *   production path uses the index-mode preflight rather than this direct A/B switch.
  * - `DNQ_BENCH_LATE_LINKS` / `dnq.bench.lateLinks` (default 50) - number of associations the
  *   runtime (post-startup) association-add benchmarks register after the schema is applied
  * - `DNQ_BENCH_HEAP` / `dnq.bench.heap` (default false) - measure the heap around the index
@@ -862,7 +861,6 @@ class SchemaInitBenchmark {
                 .withDatabasePath(dbPath.absolutePathString())
                 .withAppUser("admin", "password")
                 .withDatabaseName("benchDB")
-                .withTransactionalIndexCreation(txIndices)
                 .build()
             db = YouTrackDBFactory.createEmbedded(params) as YouTrackDBImpl
             return block(YTDBDatabaseProviderFactory.createProvider(params, db!!))

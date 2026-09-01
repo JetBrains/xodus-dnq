@@ -38,12 +38,9 @@ class YTDBModelMetaData(
              *    sequence.next() self-hoists to a pooled session that can only see committed
              *    records;
              * 2. the complementary-property backfill keeps its own batched data transactions;
-             * 3. index creation is dual-mode behind YTDBDatabaseParams.transactionalIndexCreation:
-             *    by default (true) one explicit transaction covers all index creation, which
-             *    fails at commit for populated classes until YTDB-1064 is lifted; with the flag
-             *    off it runs on YTDB's legacy non-transactional path (createIndex + fillIndex
-             *    over committed rows - works for populated classes), which is what a database
-             *    that already contains data must use. The flag retires when YTDB-1064 is lifted.
+             * 3. index creation uses an index-mode preflight: empty owners stay in one explicit
+             *    transaction and populated owners use YTDB's legacy non-transactional path
+             *    (createIndex + fillIndex). The legacy tail remains until YTDB-1064 is lifted.
              */
             /*
              * EXPERIMENTAL (JT-95771): the caller may declare that this database's schema already
@@ -71,13 +68,15 @@ class YTDBModelMetaData(
                 )
             }
             session.initializeComplementaryPropertiesForNewIndexedLinks(result.newIndexedLinks)
-            if (dbProvider.transactionalIndexCreation) {
-                session.withTx {
-                    it.applyIndices(result.indices)
-                }
-            } else {
-                session.applyIndicesNonTx(result.indices)
+            val plan = session.withTx {
+                val indexPlan = it.planIndexCreation(result)
+                it.applyIndices(indexPlan.transactional)
+                indexPlan
             }
+            // YTDB-1064 rejects only the populated-owner subset. It must be applied after
+            // the transactional subset, because non-transactional DDL does not engage the
+            // metadata write mutex.
+            session.applyIndicesNonTx(plan.nonTransactional)
             initialize(session)
         }
     }
@@ -113,15 +112,10 @@ class YTDBModelMetaData(
          * rename/deleteOClass DDL in one business transaction is declared unsupported (AD11)
          * and fails loudly with MetadataWriteMutex's same-thread IllegalStateException.
          *
-         * Index creation is dual-mode (XD-1283, YTDBDatabaseParams.transactionalIndexCreation):
-         * - flag on (the default): single transaction for DDL + index when no backfill is needed (AD10);
-         *   three-phase (DDL tx -> batched backfill txs -> index tx, mirroring startup) only
-         *   when the new indexed links require the complementary-property backfill (AD4).
-         *   In-tx index creation over classes with pre-existing committed rows fails at
-         *   commit until YTDB-1064 is lifted - accepted for this mode.
-         * - flag off (required for a database that already contains data, until YTDB-1064 is
-         *   lifted): DDL tx (+ backfill txs if needed), then indices on the legacy
-         *   non-transactional path, which works for populated classes.
+         * Index creation uses the same preflight as startup: empty owners remain transactional,
+         * while populated owners are applied by the legacy non-transactional tail after the
+         * transactional DDL/index transaction (or after backfill). The legacy tail remains until
+         * YTDB-1064 is lifted.
          */
         /*
          * EXPERIMENTAL (JT-95771), see YTDBDatabaseParams.skipSchemaApplication: the caller has
@@ -131,8 +125,7 @@ class YTDBModelMetaData(
          */
         if (dbProvider.skipSchemaApplication) return
         dbProvider.withSession { session ->
-            val inTxIndices = dbProvider.transactionalIndexCreation
-            val result = session.withTx { sessionToWork ->
+            val (result, nonTransactionalAfterDdl) = session.withTx { sessionToWork ->
                 /*
                  * The whole delta's DDL goes into this one transaction; the deferred indices of all
                  * of it are merged and created once, after the last link exists, so an index over a
@@ -141,20 +134,34 @@ class YTDBModelMetaData(
                 val schemaApplicationResult = associations.map { added ->
                     sessionToWork.addAssociation(added.entityMetaData, added.association)
                 }.merged()
-                if (inTxIndices && schemaApplicationResult.newIndexedLinks.isEmpty()) {
-                    // no backfill needed: DDL + index commit atomically in this one tx (AD10)
-                    sessionToWork.applyIndices(schemaApplicationResult.indices)
+                if (schemaApplicationResult.newIndexedLinks.isEmpty()) {
+                    // Plan after the indexExists checks. Empty owners remain atomic with the DDL;
+                    // populated owners are deferred until after this transaction commits.
+                    val indexPlan = sessionToWork.planIndexCreation(schemaApplicationResult)
+                    sessionToWork.applyIndices(indexPlan.transactional)
+                    schemaApplicationResult to indexPlan.nonTransactional
+                } else {
+                    schemaApplicationResult to emptyMap()
                 }
-                schemaApplicationResult
             }
             if (result.newIndexedLinks.isNotEmpty()) {
                 // backfill keeps its own batched transactions between the DDL and index phases
                 session.initializeComplementaryPropertiesForNewIndexedLinks(result.newIndexedLinks)
             }
             when {
-                !inTxIndices -> session.applyIndicesNonTx(result.indices)
-                result.newIndexedLinks.isNotEmpty() -> session.withTx { it.applyIndices(result.indices) }
-                // else: the indices were already created inside the DDL transaction above
+                result.newIndexedLinks.isNotEmpty() -> {
+                    // The backfill may have populated an owner, so plan against its current
+                    // committed state in the final transaction before applying the safe subset.
+                    val indexPlan = session.withTx {
+                        val plan = it.planIndexCreation(result)
+                        it.applyIndices(plan.transactional)
+                        plan
+                    }
+                    session.applyIndicesNonTx(indexPlan.nonTransactional)
+                }
+                nonTransactionalAfterDdl.isNotEmpty() ->
+                    session.applyIndicesNonTx(nonTransactionalAfterDdl)
+                // else: every index was created inside the DDL transaction above
             }
         }
     }
@@ -221,8 +228,8 @@ class YTDBModelMetaData(
          * fail loudly at MetadataWriteMutex.engage - so the edge class (and its indices)
          * are created in the caller's transaction instead.
          *
-         * This branch is deliberately NOT gated on transactionalIndexCreation: the caller's
-         * transaction is open, so the legacy non-tx index path is unreachable here (it
+         * This branch always uses the transactional path: the caller's transaction is open, so
+         * the legacy non-tx index path is unreachable here (it
          * requires a session with no active transaction), and the same-tx-created edge class
          * is exempt from YTDB-1064 anyway.
          */
@@ -250,9 +257,8 @@ class YTDBModelMetaData(
              * ad-hoc edge-class paths never need the complementary-property backfill (AD8),
              * and a same-tx-created class is exempt from YTDB-1064, so the edge class and its
              * indices commit atomically - a failure rolls both back for a clean retry.
-             * Deliberately NOT gated on transactionalIndexCreation: the 1064 exemption makes
-             * the in-tx path safe here in both modes, and splitting DDL and index would trade
-             * away the atomicity for nothing.
+             * The 1064 exemption makes the in-tx path safe here, and splitting DDL and index
+             * would trade away the atomicity for nothing.
              *
              * Pre-write re-check on the side session: a pre-first-write read resolves the live
              * committed schema, so an edge class committed by a concurrent winner after the

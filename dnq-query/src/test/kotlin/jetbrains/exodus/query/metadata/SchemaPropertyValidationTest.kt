@@ -15,11 +15,7 @@
  */
 package jetbrains.exodus.query.metadata
 
-import YTDBDatabaseProviderFactory
-import com.jetbrains.youtrackdb.api.DatabaseType
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
-import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseParams
-import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.withTx
@@ -51,19 +47,6 @@ class SchemaPropertyValidationTest {
      * exists for. Uses the raw session rather than the DNQ store, because the record only has to
      * exist - no entity id, no model registration.
      */
-    /** A second provider over the rule's database with [transactionalIndexCreation] pinned. */
-    private fun providerWith(transactionalIndexCreation: Boolean): YTDBDatabaseProvider {
-        val params = YTDBDatabaseParams.builder()
-            .withDatabaseType(DatabaseType.MEMORY)
-            .withDatabasePath(youTrackDb.params.databasePath)
-            .withAppUser(youTrackDb.username, youTrackDb.password)
-            .withDatabaseName(youTrackDb.dbName)
-            .withCloseDatabaseInDbProvider(false)
-            .withTransactionalIndexCreation(transactionalIndexCreation)
-            .build()
-        return YTDBDatabaseProviderFactory.createProvider(params, youTrackDb.database)
-    }
-
     private var nextLocalEntityId = 1L
 
     private fun writeRecord(className: String, propertyName: String, value: Any) {
@@ -167,18 +150,13 @@ class SchemaPropertyValidationTest {
         // The memo is per class: the populated class must not make the empty one slow, and the empty
         // one must not make the populated one skip its check. Both declarations are legal, so the
         // whole application must succeed.
-        // pinned to the legacy non-transactional index path: declaring a simple property on a
-        // POPULATED class also creates its index, which upstream YTDB-1064 rejects in-transaction
-        // (covered by its own test in OModelMetaDataTest) - not what this test is about
-        val nonTxProvider = providerWith(transactionalIndexCreation = false)
-
-        oModel(nonTxProvider) {
+        oModel(youTrackDb.provider) {
             entity("populated")
             entity("empty")
         }.prepare()
         writeRecord("populated", "prop1", "a string")
 
-        oModel(nonTxProvider) {
+        oModel(youTrackDb.provider) {
             entity("populated") { property("prop1", "string") }
             entity("empty") { property("prop1", "int") }
         }.prepare()
