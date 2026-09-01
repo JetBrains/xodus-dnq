@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package jetbrains.exodus.query.metadata
+
+import YTDBDatabaseProviderFactory
+import com.jetbrains.youtrackdb.api.DatabaseType
 import jetbrains.exodus.entitystore.PersistentEntityId
 
 import jetbrains.exodus.entitystore.youtrackdb.*
@@ -496,6 +499,35 @@ class OModelMetaDataTest : OTestMixin {
             val indexedRids = index.getRids(session, "indexed").toList()
             assertEquals(1, indexedRids.size)
         }
+    }
+
+    @Test
+    fun `disabling non-transactional index fallback attempts a transactional index build`() {
+        oModel(youTrackDb.provider) {
+            entity("type1")
+        }.prepare()
+        youTrackDb.withStoreTx { tx ->
+            createVertexAndSetLocalEntityId(tx, "type1")
+        }
+
+        val strictParams = YTDBDatabaseParams.builder()
+            .withDatabaseType(DatabaseType.MEMORY)
+            .withDatabasePath(youTrackDb.params.databasePath)
+            .withAppUser(youTrackDb.username, youTrackDb.password)
+            .withDatabaseName(youTrackDb.dbName)
+            .withCloseDatabaseInDbProvider(false)
+            .withAllowNonTransactionalIndexFallback(false)
+            .build()
+        val strictProvider = YTDBDatabaseProviderFactory.createProvider(strictParams, youTrackDb.database)
+
+        val error = assertFailsWith<RuntimeException> {
+            oModel(strictProvider) {
+                entity("type1") {
+                    property("newProperty", "string")
+                }
+            }.prepare()
+        }
+        assertTrue(error.message!!.contains("YTDB-1064"))
     }
 
     @Test
