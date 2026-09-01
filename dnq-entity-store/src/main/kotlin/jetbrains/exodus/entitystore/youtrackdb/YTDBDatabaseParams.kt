@@ -34,26 +34,6 @@ class YTDBDatabaseParams private constructor(
     val serverParams: YTDBServerParams? = null,
     val configBuilder: YouTrackDBConfigBuilder.() -> Unit = {},
     /**
-     * Dual-mode index creation (XD-1283).
-     *
-     * **The default is `true`**: all index definitions of a schema pass are created inside ONE
-     * transaction, so the index pass is atomic (and much faster). When `false`, indices are
-     * created on YTDB's legacy non-transactional path (createIndex + fillIndex over committed
-     * rows).
-     *
-     * **Transactional index creation requires EMPTY classes** on the current YouTrackDB version
-     * (upstream YTDB-1064): creating an index over a class that already holds rows - or whose
-     * subtypes hold rows - is rejected at commit. The failure recurs on every RESTART
-     * (`applySchema` is idempotent: the index stays absent, the class stays populated) - but an
-     * in-process retry does not surface it either, because `ModelMetaDataImpl` memoizes the
-     * model before invoking `onPrepared`, so a caught exception leaves a running model with the
-     * index silently missing. **A database that already contains data must therefore pin this
-     * flag to `false`** until YTDB-1064 is lifted. See [Builder.withTransactionalIndexCreation].
-     *
-     * The flag retires when YTDB-1064 is lifted.
-     */
-    val transactionalIndexCreation: Boolean = true,
-    /**
      * Whether schema initialization acquires class ids in one reserved batch instead of acquiring
      * them one at a time from the class-id sequence.
      *
@@ -154,7 +134,6 @@ class YTDBDatabaseParams private constructor(
         private var closeDatabaseInDbProvider = true
         private var serverParams: YTDBServerParams? = null
         private var configBuilder: YouTrackDBConfigBuilder.() -> Unit = {}
-        private var transactionalIndexCreation: Boolean = true
         private var useBatchedSequenceAcquisition: Boolean = false
         private var autoIndexSimpleProperties: Boolean =
             java.lang.Boolean.parseBoolean(System.getProperty("dnq.autoIndexSimpleProperties", "true"))
@@ -228,35 +207,6 @@ class YTDBDatabaseParams private constructor(
         }
 
         /**
-         * Dual-mode index creation (XD-1283), see [YTDBDatabaseParams.transactionalIndexCreation].
-         *
-         * **The default is `true`** - one transaction for the whole index pass.
-         *
-         * **Transactional index creation requires EMPTY classes** on the current YouTrackDB
-         * version (upstream YTDB-1064): an index over a class that already holds rows (or whose
-         * subtypes hold rows) is rejected at commit. The failure recurs on every RESTART
-         * (`applySchema` is idempotent: the index stays absent, the class stays populated) - but
-         * an in-process retry does not surface it either, because `ModelMetaDataImpl` memoizes
-         * the model before invoking `onPrepared`, so a caught exception leaves a running model
-         * with the index silently missing.
-         * **Pass `false` for a database that already contains data**, which keeps index creation
-         * on YTDB's legacy non-transactional path (createIndex + fillIndex over committed rows);
-         * that path supports populated classes.
-         *
-         * `false` is required in particular for:
-         * - a schema upgrade that adds an index (e.g. one new indexed simple property) to a class
-         *   that already holds data;
-         * - the application's first `prepare()` after a Xodus -> YouTrackDB migration - the
-         *   migrator creates no indices, so every class is populated by the time indices are
-         *   built (see `XodusToOrientDataMigratorLauncher`).
-         *
-         * The flag retires when YTDB-1064 is lifted.
-         */
-        fun withTransactionalIndexCreation(transactionalIndexCreation: Boolean) = apply {
-            this.transactionalIndexCreation = transactionalIndexCreation
-        }
-
-        /**
          * Enables batched class-id sequence acquisition for schema initialization.
          *
          * This is a test/benchmark-only optimization. When not called, schema initialization uses
@@ -310,7 +260,6 @@ class YTDBDatabaseParams private constructor(
                 closeAfterDelayTimeout,
                 serverParams,
                 configBuilder,
-                transactionalIndexCreation,
                 useBatchedSequenceAcquisition,
                 autoIndexSimpleProperties,
                 skipSchemaApplication,

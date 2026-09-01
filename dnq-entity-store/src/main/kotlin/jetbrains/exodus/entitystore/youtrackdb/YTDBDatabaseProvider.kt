@@ -33,31 +33,6 @@ interface YTDBDatabaseProvider {
     fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R
 
     /**
-     * Dual-mode index creation (XD-1283), plumbed from
-     * [YTDBDatabaseParams.transactionalIndexCreation].
-     *
-     * **The default is `true`**: all index definitions of a schema pass are created inside ONE
-     * transaction, so the index pass is atomic (and much faster). When `false`, indices are
-     * created on YTDB's legacy non-transactional path (createIndex + fillIndex over committed
-     * rows).
-     *
-     * **Transactional index creation requires EMPTY classes** on the current YouTrackDB version
-     * (upstream YTDB-1064): creating an index over a class that already holds rows - or whose
-     * subtypes hold rows - is rejected at commit. The failure recurs on every RESTART
-     * (`applySchema` is idempotent: the index stays absent, the class stays populated) - but an
-     * in-process retry does not surface it either, because `ModelMetaDataImpl` memoizes the
-     * model before invoking `onPrepared`, so a caught exception leaves a running model with the
-     * index silently missing. **A database that already contains data must therefore pin this
-     * flag to `false`** until YTDB-1064 is lifted. That applies in particular to a schema upgrade
-     * that adds an index over a populated class, and to the application's first `prepare()`
-     * after a Xodus -> YouTrackDB migration (the migrator creates no indices, so every class is
-     * populated by the time indices are built).
-     *
-     * The flag retires when YTDB-1064 is lifted.
-     */
-    val transactionalIndexCreation: Boolean get() = true
-
-    /**
      * Whether schema initialization uses batched class-id sequence acquisition, as configured by
      * [YTDBDatabaseParams.useBatchedSequenceAcquisition]. This is intended for tests and
      * benchmarks only; the default preserves the historical per-class acquisition behavior.

@@ -465,14 +465,16 @@ class SchemaInitBatchingTest {
     fun `merging schema application results unions the per-class entries`() {
         val first = SchemaApplicationResult(
             indices = mapOf("type1" to setOf(DeferredIndex("type1", setOf("prop1"), unique = false))),
-            newIndexedLinks = mapOf("type1" to setOf("ass1"))
+            newIndexedLinks = mapOf("type1" to setOf("ass1")),
+            createdClasses = setOf("type1")
         )
         val second = SchemaApplicationResult(
             indices = mapOf(
                 "type1" to setOf(DeferredIndex("type1", setOf("prop2"), unique = true)),
                 "type2" to setOf(DeferredIndex("type2", setOf("prop3"), unique = false))
             ),
-            newIndexedLinks = mapOf("type1" to setOf("ass2"), "type2" to setOf("ass3"))
+            newIndexedLinks = mapOf("type1" to setOf("ass2"), "type2" to setOf("ass3")),
+            createdClasses = setOf("type2")
         )
 
         val merged = listOf(first, second).merged()
@@ -487,6 +489,7 @@ class SchemaInitBatchingTest {
         assertEquals(setOf("type2_prop3"), merged.indices.getValue("type2").map { it.indexName }.toSet())
         assertEquals(setOf("ass1", "ass2"), merged.newIndexedLinks.getValue("type1"))
         assertEquals(setOf("ass3"), merged.newIndexedLinks.getValue("type2"))
+        assertEquals(setOf("type1", "type2"), merged.createdClasses)
     }
 
     @Test
@@ -495,6 +498,7 @@ class SchemaInitBatchingTest {
 
         assertTrue(merged.indices.isEmpty())
         assertTrue(merged.newIndexedLinks.isEmpty())
+        assertTrue(merged.createdClasses.isEmpty())
     }
 
     /**

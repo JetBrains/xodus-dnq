@@ -92,9 +92,6 @@ class YTDBDatabaseProviderImpl(
     override val databaseLocation: String
         get() = File(params.databasePath, params.databaseName).absolutePath
 
-    override val transactionalIndexCreation: Boolean
-        get() = params.transactionalIndexCreation
-
     override val useBatchedSequenceAcquisition: Boolean
         get() = params.useBatchedSequenceAcquisition
 
