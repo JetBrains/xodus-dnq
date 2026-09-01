@@ -30,6 +30,18 @@ class YTDBDatabaseConfigTest {
     private val fsyncKey = GlobalConfiguration.STORAGE_CALL_FSYNC.key
 
     @Test
+    fun `non-transactional index fallback is enabled by default`() {
+        Assert.assertTrue(params().allowNonTransactionalIndexFallback)
+    }
+
+    @Test
+    fun `non-transactional index fallback can be disabled`() {
+        val params = params { withAllowNonTransactionalIndexFallback(false) }
+
+        Assert.assertFalse(params.allowNonTransactionalIndexFallback)
+    }
+
+    @Test
     fun `batched sequence acquisition is disabled by default`() {
         Assert.assertFalse(params().useBatchedSequenceAcquisition)
     }

@@ -34,6 +34,17 @@ class YTDBDatabaseParams private constructor(
     val serverParams: YTDBServerParams? = null,
     val configBuilder: YouTrackDBConfigBuilder.() -> Unit = {},
     /**
+     * Whether the index-mode preflight may route populated or uncertain owners through YTDB's
+     * legacy non-transactional index creation path.
+     *
+     * `true` (the default) keeps the current behavior: empty owners use transactional index
+     * creation and populated/uncertain owners use the non-transactional create-and-fill path.
+     * `false` disables the fallback and puts all indices in the transactional bucket without
+     * running the preflight. This is useful for callers that require a purely transactional
+     * attempt; on the current YTDB version, populated owners fail at commit with YTDB-1064.
+     */
+    val allowNonTransactionalIndexFallback: Boolean = true,
+    /**
      * Whether schema initialization acquires class ids in one reserved batch instead of acquiring
      * them one at a time from the class-id sequence.
      *
@@ -134,6 +145,7 @@ class YTDBDatabaseParams private constructor(
         private var closeDatabaseInDbProvider = true
         private var serverParams: YTDBServerParams? = null
         private var configBuilder: YouTrackDBConfigBuilder.() -> Unit = {}
+        private var allowNonTransactionalIndexFallback: Boolean = true
         private var useBatchedSequenceAcquisition: Boolean = false
         private var autoIndexSimpleProperties: Boolean =
             java.lang.Boolean.parseBoolean(System.getProperty("dnq.autoIndexSimpleProperties", "true"))
@@ -206,6 +218,11 @@ class YTDBDatabaseParams private constructor(
             this.serverParams = serverParams
         }
 
+        /** See [YTDBDatabaseParams.allowNonTransactionalIndexFallback]. */
+        fun withAllowNonTransactionalIndexFallback(allowNonTransactionalIndexFallback: Boolean) = apply {
+            this.allowNonTransactionalIndexFallback = allowNonTransactionalIndexFallback
+        }
+
         /**
          * Enables batched class-id sequence acquisition for schema initialization.
          *
@@ -260,6 +277,7 @@ class YTDBDatabaseParams private constructor(
                 closeAfterDelayTimeout,
                 serverParams,
                 configBuilder,
+                allowNonTransactionalIndexFallback,
                 useBatchedSequenceAcquisition,
                 autoIndexSimpleProperties,
                 skipSchemaApplication,

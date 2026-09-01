@@ -69,14 +69,19 @@ class YTDBModelMetaData(
             }
             session.initializeComplementaryPropertiesForNewIndexedLinks(result.newIndexedLinks)
             val plan = session.withTx {
-                val indexPlan = it.planIndexCreation(result)
+                val indexPlan = it.planIndexCreation(
+                    result,
+                    dbProvider.allowNonTransactionalIndexFallback
+                )
                 it.applyIndices(indexPlan.transactional)
                 indexPlan
             }
             // YTDB-1064 rejects only the populated-owner subset. It must be applied after
             // the transactional subset, because non-transactional DDL does not engage the
             // metadata write mutex.
-            session.applyIndicesNonTx(plan.nonTransactional)
+            if (plan.nonTransactional.isNotEmpty()) {
+                session.applyIndicesNonTx(plan.nonTransactional)
+            }
             initialize(session)
         }
     }
@@ -137,7 +142,10 @@ class YTDBModelMetaData(
                 if (schemaApplicationResult.newIndexedLinks.isEmpty()) {
                     // Plan after the indexExists checks. Empty owners remain atomic with the DDL;
                     // populated owners are deferred until after this transaction commits.
-                    val indexPlan = sessionToWork.planIndexCreation(schemaApplicationResult)
+                    val indexPlan = sessionToWork.planIndexCreation(
+                        schemaApplicationResult,
+                        dbProvider.allowNonTransactionalIndexFallback
+                    )
                     sessionToWork.applyIndices(indexPlan.transactional)
                     schemaApplicationResult to indexPlan.nonTransactional
                 } else {
@@ -153,11 +161,16 @@ class YTDBModelMetaData(
                     // The backfill may have populated an owner, so plan against its current
                     // committed state in the final transaction before applying the safe subset.
                     val indexPlan = session.withTx {
-                        val plan = it.planIndexCreation(result)
+                        val plan = it.planIndexCreation(
+                            result,
+                            dbProvider.allowNonTransactionalIndexFallback
+                        )
                         it.applyIndices(plan.transactional)
                         plan
                     }
-                    session.applyIndicesNonTx(indexPlan.nonTransactional)
+                    if (indexPlan.nonTransactional.isNotEmpty()) {
+                        session.applyIndicesNonTx(indexPlan.nonTransactional)
+                    }
                 }
                 nonTransactionalAfterDdl.isNotEmpty() ->
                     session.applyIndicesNonTx(nonTransactionalAfterDdl)

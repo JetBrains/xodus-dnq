@@ -45,11 +45,20 @@ internal data class IndexCreationPlan(
  * newly-created owner/subclass closures and provisional-only collections are empty by construction;
  * otherwise the O(1) approximate count rejects populated owners, and the exact count confirms the
  * zero case in the caller's active transaction. Any uncertainty is conservative and routes the
- * owner to the legacy non-transactional path.
+ * owner to the legacy non-transactional path. Callers that disable that fallback bypass this
+ * predicate and receive all requested indices in the transactional bucket instead.
  */
 internal fun DatabaseSessionEmbedded.planIndexCreation(
-    result: SchemaApplicationResult
-): IndexCreationPlan = planIndexCreation(result.indices, result.createdClasses)
+    result: SchemaApplicationResult,
+    allowNonTransactionalIndexFallback: Boolean = true
+): IndexCreationPlan =
+    if (!allowNonTransactionalIndexFallback) {
+        // Strict mode deliberately bypasses all preflight work. The caller asked for a purely
+        // transactional attempt, so let YTDB report YTDB-1064 at commit for populated owners.
+        IndexCreationPlan(result.indices, emptyMap())
+    } else {
+        planIndexCreation(result.indices, result.createdClasses)
+    }
 
 internal fun DatabaseSessionEmbedded.planIndexCreation(
     indices: Map<String, Set<DeferredIndex>>,

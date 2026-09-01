@@ -33,6 +33,13 @@ interface YTDBDatabaseProvider {
     fun <R> withSession(block: (DatabaseSessionEmbedded) -> R): R
 
     /**
+     * Whether the index-mode preflight may use the legacy non-transactional path for populated or
+     * uncertain index owners. When `false`, preflight is bypassed and all indices are attempted
+     * transactionally.
+     */
+    val allowNonTransactionalIndexFallback: Boolean get() = true
+
+    /**
      * Whether schema initialization uses batched class-id sequence acquisition, as configured by
      * [YTDBDatabaseParams.useBatchedSequenceAcquisition]. This is intended for tests and
      * benchmarks only; the default preserves the historical per-class acquisition behavior.
