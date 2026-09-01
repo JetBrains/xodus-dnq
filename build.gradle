@@ -101,6 +101,8 @@ subprojects {
         minHeapSize = '2g'
         maxHeapSize = '2g'
         systemProperty 'exodus.tests.buildDirectory', project.buildDir
+        systemProperty 'dnq.query.requireMatchTranslation',
+                System.getProperty('dnq.query.requireMatchTranslation', 'false')
     }
 
     dokkaJavadoc {

@@ -70,6 +70,9 @@ sealed class GremlinQuery {
         admin.strategies = admin.strategies.clone().apply {
             addStrategies(GremlinCaseInsensitiveHasStrategy.instance())
         }
+        if (GremlinQueryTranslationGuard.enabled) {
+            GremlinQueryTranslationGuard.attach(traversal, GremlinQueryShape.of(this))
+        }
         return traversal
     }
 
@@ -496,4 +499,3 @@ sealed class GremlinQuery {
         }
     }
 }
-
