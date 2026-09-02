@@ -18,6 +18,7 @@ package kotlinx.dnq
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.toList
+import kotlinx.dnq.singleton.SingletonEntitiesNoCacheImpl
 import kotlinx.dnq.singleton.XdSingletonEntityType
 import org.junit.Test
 
@@ -31,7 +32,7 @@ class SingletonTest : DBTest() {
             }
         }
 
-        var name by xdRequiredStringProp()
+        var name by xdRequiredStringProp(unique = true)
     }
 
     override fun registerEntityTypes() {
@@ -59,6 +60,31 @@ class SingletonTest : DBTest() {
         store.transactional {
             assertThat(TheKing.all().toList())
                     .containsExactly(TheKing.get())
+        }
+    }
+
+    @Test
+    fun `singleton of a concurrent transaction should be reused`() {
+        val cache = XdModel.singletonEntitiesCache
+        // the cache would hand the entity of the outer transaction to the inner one
+        XdModel.singletonEntitiesCache = SingletonEntitiesNoCacheImpl
+        try {
+            // meta data initialization creates the singleton, so drop it to reach the creating branch
+            store.transactional {
+                TheKing.all().toList().forEach { it.delete() }
+            }
+            store.transactional {
+                TheKing.get()
+                store.transactional(isNew = true) {
+                    TheKing.get()
+                }
+            }
+        } finally {
+            XdModel.singletonEntitiesCache = cache
+        }
+
+        store.transactional {
+            assertThat(TheKing.all().toList()).hasSize(1)
         }
     }
 }

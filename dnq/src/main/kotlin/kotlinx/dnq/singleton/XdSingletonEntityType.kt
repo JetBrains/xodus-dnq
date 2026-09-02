@@ -18,6 +18,7 @@ package kotlinx.dnq.singleton
 import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.XdNaturalEntityType
+import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.query.firstOrNull
 import kotlinx.dnq.store.container.StaticStoreContainer
 import kotlinx.dnq.store.container.StoreContainer
@@ -27,7 +28,7 @@ abstract class XdSingletonEntityType<XD : XdEntity>(entityTypeName: String? = nu
         XdNaturalEntityType<XD>(entityTypeName, storeContainer) {
 
     fun get() = XdModel.singletonEntitiesCache.getOrPut(this) {
-        all().firstOrNull() ?: new {
+        all().firstOrNull() ?: findOrNew(all()) {
             initSingleton()
         }
     }
