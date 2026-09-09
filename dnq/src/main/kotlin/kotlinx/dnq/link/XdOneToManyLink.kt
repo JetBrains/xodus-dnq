@@ -27,7 +27,6 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.query.XdMutableQuery
 import kotlinx.dnq.query.isNotEmpty
-import kotlinx.dnq.store.XdQueryEngine
 import kotlinx.dnq.util.isReadOnly
 import kotlinx.dnq.util.reattach
 import kotlinx.dnq.util.threadSessionOrThrow
@@ -60,12 +59,14 @@ open class XdOneToManyLink<R : XdEntity, T : XdEntity>(
                     try {
                         val queryEngine = oppositeEntityType.entityStore.queryEngine
                         val oppositeType = oppositeEntityType.entityType
-                        if (thisRef.isReadOnly || queryEngine !is XdQueryEngine || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
+                        if (thisRef.isReadOnly || queryEngine.modelMetaData?.getEntityMetaData(oppositeType)?.hasSubTypes() == true) {
                             thisRef.reattach().getLinks(property.dbName)
                         } else {
-                            queryEngine.wrap(
+                            val session = thisRef.threadSessionOrThrow
+                            thisRef.reattach(session)
+                            session.createPersistentEntityIterableWrapper(
                                 YTDBEntityIterable.query(
-                                    (thisRef.threadSessionOrThrow.transactionInternal as YTDBStoreTransaction).getStore(),
+                                    (session.transactionInternal as YTDBStoreTransaction).getStore(),
                                     GremlinQuery.ByIds(
                                         listOf((thisRef.entityId as YTDBEntityId).asOId()),
                                         thisRef.xdEntityTypeName

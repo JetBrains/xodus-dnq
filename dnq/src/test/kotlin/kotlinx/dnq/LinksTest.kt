@@ -16,14 +16,33 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.query.QueryEngine
 import kotlinx.dnq.query.*
 import kotlinx.dnq.util.getAddedLinks
 import kotlinx.dnq.util.getOldValue
 import kotlinx.dnq.util.getRemovedLinks
 import org.junit.Test
 
+class SuggestionIssue(entity: Entity) : XdEntity(entity) {
+    companion object : XdNaturalEntityType<SuggestionIssue>()
+
+    val suggestions by xdLink0_N(Suggestion::issue)
+}
+
+class Suggestion(entity: Entity) : XdEntity(entity) {
+    companion object : XdNaturalEntityType<Suggestion>()
+
+    var issue by xdLink1(SuggestionIssue)
+}
+
 
 class LinksTest : DBTest() {
+
+    override fun registerEntityTypes() {
+        super.registerEntityTypes()
+        XdModel.registerNodes(SuggestionIssue, Suggestion)
+    }
 
     @Test
     fun `bidirectional many to many`() {
@@ -82,6 +101,54 @@ class LinksTest : DBTest() {
 
         store.transactional {
             assertThat(user.contacts.first().email).isEqualTo("1@1.com")
+        }
+    }
+
+    /**
+     * Reproduces the application integration path where the transient store uses a custom
+     * QueryEngine subclass instead of DNQ's XdQueryEngine.
+     *
+     * The forward link is unidirectional, so the inverse collection must query
+     * Suggestion.issue == issue. The current one-to-many delegate instead falls back to
+     * issue.getLinks("suggestions"), which is an outgoing-link lookup on YouTrackDB.
+     */
+    @Test
+    fun `inverse unidirectional one to many link is readable with a generic query engine`() {
+        store.queryEngine = QueryEngine(store.modelMetaData, store.persistentStore)
+
+        val issue = store.transactional {
+            val issue = SuggestionIssue.new()
+            Suggestion.new { this.issue = issue }
+            issue
+        }
+
+        store.transactional {
+            assertThat(issue.suggestions.toList()).hasSize(1)
+        }
+    }
+
+    /**
+     * The many-to-many inverse must follow the persisted forward edge when a generic query engine
+     * is installed. The forward edge is written directly here so the test does not accidentally
+     * pass because createManyToMany also materializes the reciprocal edge used by getLinks().
+     */
+    @Test
+    fun `inverse many to many link is readable with a generic query engine`() {
+        val group = store.transactional {
+            User.new {
+                login = "many-to-many-user"
+                skill = 1
+            }
+            val group = RootGroup.new { name = "generic-query-group" }
+            User.query(User::login eq "many-to-many-user").first().entity.addLink("groups", group.entity)
+            group
+        }
+
+        store.queryEngine = QueryEngine(store.modelMetaData, store.persistentStore)
+
+        store.transactional {
+            assertThat(group.users.toList().map { it.login })
+                    .containsExactly("many-to-many-user")
         }
     }
 
