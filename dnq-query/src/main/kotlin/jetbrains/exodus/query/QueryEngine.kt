@@ -100,7 +100,8 @@ open class QueryEngine(val modelMetaData: ModelMetaData?, val persistentStore: P
         instance: Iterable<Entity>
     ): Iterable<Entity> {
         val sb = tree.query as GremlinQuery.SortBy
-        val sbBlock = sb.sortBlock
+        val sbBlock = sb.sortBlocks.singleOrNull()
+            ?: error("In-memory sorting requires a singleton SortBy")
         val sorted = when (val by = sbBlock.by) {
             is GremlinBlock.Sort.ByProp ->
                 sortEngine!!.sort(

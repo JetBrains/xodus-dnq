@@ -60,7 +60,15 @@ object GremlinQueryShape {
                 append(", ${query.direction}, \"${query.linkName}\")")
             }
             is GremlinQuery.SortBy -> {
-                append("Sort("); appendQuery(query.inner); append(", ?)")
+                append("Sort("); appendQuery(query.inner); append(", [")
+                query.sortBlocks.forEachIndexed { i, sort ->
+                    if (i > 0) append(", ")
+                    when (sort.by) {
+                        is GremlinBlock.Sort.ByProp -> append("ByProp(?)")
+                        is GremlinBlock.Sort.ByLinked -> append("ByLinked(?)")
+                    }
+                }
+                append("])")
             }
             is GremlinQuery.Order -> when (query.orderBlock) {
                 GremlinBlock.Dedup   -> { append("Dedup("); appendQuery(query.inner); append(")") }
@@ -130,6 +138,7 @@ object GremlinQueryShape {
             is GremlinBlock.Limit         -> append("Limit(?)")
             is GremlinBlock.Skip          -> append("Skip(?)")
             is GremlinBlock.Tail          -> append("Tail(?)")
+            is GremlinBlock.SortSequence -> append("SortSequence")
             is GremlinBlock.Sort -> {
                 append("Sort(")
                 when (val by = block.by) {

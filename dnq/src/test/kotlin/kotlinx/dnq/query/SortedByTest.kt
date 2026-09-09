@@ -27,6 +27,8 @@ class SortedByTest : DBTest() {
         companion object : XdNaturalEntityType<User>()
 
         var login by xdStringProp()
+        var project by xdStringProp()
+        var type by xdStringProp()
         var badge by xdLink0_1(Badge)
         override fun toString(): String {
             return "User(login=$login, badge=$badge)"
@@ -83,6 +85,21 @@ class SortedByTest : DBTest() {
             { sortedBy(User::login, asc = false) },
             compareBy(nullsLast(reverseOrder())) { it.login }
         )
+    }
+
+    @Test
+    fun `chained property sort uses explicit secondary key before provider rid`() {
+        transactional {
+            User.new { project = "Apple"; type = "Z" }
+            User.new { project = "Apple"; type = "A" }
+
+            val result = User.filter { it.project eq "Apple" }
+                .sortedBy(User::type)
+                .sortedBy(User::project)
+                .toList()
+
+            assertThat(result.map { it.type }).containsExactly("A", "Z").inOrder()
+        }
     }
 
     @Test

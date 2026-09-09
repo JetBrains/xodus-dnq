@@ -447,37 +447,59 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
         class ByProp(val propName: String) : By
         class ByLinked(val linkName: String, val propName: String) : By
 
-        override fun traverse(g: YT): YT {
-            val order = when (direction) {
+        private val order: Order
+            get() = when (direction) {
                 SortDirection.ASC -> Order.asc
                 SortDirection.DESC -> Order.desc
             }
 
-            return when (by) {
-                is ByProp -> g.order()
-                    .by(values<YTDBVertex, Any>(by.propName).count(), Order.desc)
+        /** Appends this logical sort key to an already-open Gremlin order step. */
+        fun appendToOrder(g: YT): YT = when (val sortBy = by) {
+            is ByProp -> g
+                .by(values<YTDBVertex, Any>(sortBy.propName).count(), Order.desc)
+                .by(
+                    `__`.values<YTDBVertex, Any>(sortBy.propName).fold(),
+                    order
+                )
+                .asYT()
+            is ByLinked -> {
+                val edgeLabel = YTDBVertexEntity.edgeClassName(sortBy.linkName)
+                g.by(`__`.out(edgeLabel).values<Any>(sortBy.propName).count(), Order.desc)
                     .by(
-                        `__`.values<YTDBVertex, Any>(by.propName).fold(),
+                        `__`.out(edgeLabel)
+                            .values<Any>(sortBy.propName)
+                            .fold(),
                         order
                     )
-
-                is ByLinked -> {
-                    val edgeLabel = YTDBVertexEntity.edgeClassName(by.linkName)
-                    g.order()
-                        .by(`__`.out(edgeLabel).values<Any>(by.propName).count(), Order.desc)
-                        .by(
-                            `__`.out(edgeLabel)
-                                .values<Any>(by.propName)
-                                .fold(),
-                            order
-                        )
-                }
+                    .asYT()
             }
         }
+
+        override fun traverse(g: YT): YT = g.order().asYT().let(::appendToOrder)
 
         override fun describe(s: StringBuilder): StringBuilder =
             s.append(".sortBy(").append(by).append(", ").append(direction).append(")")
 
+    }
+
+    /** A composite sort operation used by [GremlinQuery.SortBy] for adjacent property keys. */
+    internal class SortSequence(private val sorts: List<Sort>) : GremlinBlock("sb", BlockType.ORDER) {
+        init {
+            require(sorts.isNotEmpty()) { "SortBy must contain at least one sort block" }
+            require(sorts.size == 1 || sorts.all { it.by is Sort.ByProp }) {
+                "Only property sorts can be combined into one SortBy"
+            }
+        }
+
+        override fun traverse(g: YT): YT =
+            if (sorts.size == 1) {
+                sorts.single().traverse(g)
+            } else {
+                sorts.fold(g.order().asYT()) { ordered, sort -> sort.appendToOrder(ordered) }
+            }
+
+        override fun describe(s: StringBuilder): StringBuilder =
+            sorts.fold(s) { result, sort -> sort.describe(result) }
     }
 
     companion object {

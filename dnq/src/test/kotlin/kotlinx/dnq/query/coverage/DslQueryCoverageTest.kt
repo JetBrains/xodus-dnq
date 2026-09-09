@@ -193,25 +193,25 @@ class DslQueryCoverageTest : DBTest() {
             // D13: sorted by priority ASC
             val d13 = Issue.all().sortedBy(Issue::priority)
             assertThat(d13.shape())
-                .isEqualTo("""Sort(Labeled(Where(All), "Issue"), ?)""")
+                .isEqualTo("""Sort(Labeled(Where(All), "Issue"), [ByProp(?)])""")
             assertThat(d13.keys()).containsExactlyElementsIn(allIssueKeys)
 
             // D14: sorted by estimate DESC
             val d14 = Issue.all().sortedBy(Issue::estimate, asc = false)
             assertThat(d14.shape())
-                .isEqualTo("""Sort(Labeled(Where(All), "Issue"), ?)""")
+                .isEqualTo("""Sort(Labeled(Where(All), "Issue"), [ByProp(?)])""")
             assertThat(d14.keys()).containsExactlyElementsIn(allIssueKeys)
 
             // D15: sorted by assignee name ASC (sort by linked property)
             val d15 = Issue.all().sortedBy(Issue::assignee, Employee::name)
             assertThat(d15.shape())
-                .isEqualTo("""Sort(Labeled(Where(All), "Issue"), ?)""")
+                .isEqualTo("""Sort(Labeled(Where(All), "Issue"), [ByLinked(?)])""")
             assertThat(d15.keys()).containsExactlyElementsIn(allIssueKeys)
 
             // D16: open issues sorted by priority
             val d16 = Issue.filter { it.status eq "open" }.sortedBy(Issue::priority)
             assertThat(d16.shape())
-                .isEqualTo("""Sort(Labeled(Where(PropEqual("status", ?)), "Issue"), ?)""")
+                .isEqualTo("""Sort(Labeled(Where(PropEqual("status", ?)), "Issue"), [ByProp(?)])""")
             assertThat(d16.keys()).containsExactlyElementsIn(
                 listOf("ENG-1","ENG-2","ENG-5","ENG-6","ENG-8","ENG-10","ENG-11","ENG-13","ENG-14",
                        "OPS-2","OPS-4","INFRA-3","INFRA-4"))

@@ -503,6 +503,9 @@ private val Iterable<Entity>.queryPolymorphic: Boolean
  * XdUser.all().sortedBy(XdUser::login).sortedBy(XdUser::gender, asc = true)
  * ```
  *
+ * Earlier explicit sort keys are used as secondary keys. When all explicit keys compare equal,
+ * the provider may choose the relative order of those rows.
+ *
  * @param asc if `true` (by default) sort in ascending order, if `false` sort in descending order.
  */
 fun <T : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(
