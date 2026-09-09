@@ -62,7 +62,15 @@ sealed class GremlinQuery {
 
     fun start(gs: GraphTraversalSource): YT {
         if (GremlinQueryCollector.enabled) GremlinQueryCollector.record(GremlinQueryShape.of(this))
-        return startTraversal(gs).traversal
+        val traversal = startTraversal(gs).traversal
+        // This is attached at the common root rather than in individual query subclasses so every
+        // DNQ traversal gets the same post-provider fallback. TinkerPop propagates root strategies
+        // to nested traversal children when it applies strategies recursively.
+        val admin = traversal.asAdmin()
+        admin.strategies = admin.strategies.clone().apply {
+            addStrategies(GremlinCaseInsensitiveHasStrategy.instance())
+        }
+        return traversal
     }
 
     abstract fun shortName(): String

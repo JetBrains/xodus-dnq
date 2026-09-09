@@ -339,6 +339,18 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
         val isCollection: Boolean,
         val caseSensitive: Boolean,
     ) : GremlinBlock("str$op", BlockType.CONDITION) {
+        /**
+         * Builds the scalar property predicate used by the native, case-insensitive path.
+         * Keeping this construction here makes the residual-HasStep fallback use exactly the
+         * same null handling and lowercasing rules as ordinary string matching.
+         */
+        internal fun scalarFilterTraversal(): GraphTraversal<*, *> {
+            val predicate = op.predicate(if (caseSensitive) matchValue else matchValue?.lowercase())
+            return values<YTDBVertex, String>(property)
+                .let { if (caseSensitive) it else it.toLower() }
+                .`is`(predicate)
+        }
+
         override fun traverse(g: YT): YT {
             val predicate = op.predicate(if (caseSensitive) matchValue else matchValue?.lowercase())
 
@@ -352,11 +364,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
             else if (caseSensitive)
                 g.has(property, predicate)
             else
-                g.where(
-                    values<YTDBVertex, String>(property)
-                        .toLower()
-                        .`is`(predicate)
-                )
+                g.where(scalarFilterTraversal())
         }
 
         override fun describe(s: StringBuilder): StringBuilder =
@@ -473,6 +481,20 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
     }
 
     companion object {
+        /**
+         * The native fallback for a string equality that remains after provider optimizations.
+         * This deliberately returns the existing [MatchStringProp] representation rather than
+         * changing [PropEqual], because MATCH and YTDBGraphStep must retain their pushdown paths.
+         */
+        fun caseInsensitiveStringEqual(property: String, value: String): MatchStringProp =
+            MatchStringProp(
+                property = property,
+                op = StringCompare.Equal,
+                matchValue = value,
+                isCollection = false,
+                caseSensitive = false,
+            )
+
         /**
          * Ascending order by the local entity id — the order Xodus gives a link read for free.
          *
