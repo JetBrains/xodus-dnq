@@ -436,10 +436,30 @@ sealed class GremlinQuery {
         override fun shortName(): String = "aggregateNoOrder"
     }
 
-    data class SortBy(val inner: GremlinQuery, val sortBlock: GremlinBlock.Sort) :
-        Chained(inner, sortBlock, dependsOnOrder = false, isOrder = true) {
+    data class SortBy(val inner: GremlinQuery, val sortBlocks: List<GremlinBlock.Sort>) :
+        Chained(inner, GremlinBlock.SortSequence(sortBlocks), isOrder = true) {
+
+        // Keep the singleton constructor for callers that construct query-model leaves directly.
+        constructor(inner: GremlinQuery, sortBlock: GremlinBlock.Sort) : this(inner, listOf(sortBlock))
+
         companion object {
-            fun of(query: GremlinQuery, sortBlock: GremlinBlock.Sort): GremlinQuery = SortBy(query, sortBlock)
+            fun of(query: GremlinQuery, sortBlock: GremlinBlock.Sort): GremlinQuery {
+                val wrappers = mutableListOf<SortBy>()
+                var base = query
+                while (base is SortBy) {
+                    wrappers += base
+                    base = base.inner
+                }
+                val existingBlocks = wrappers.flatMap { it.sortBlocks }
+                val canFlatten = sortBlock.by is GremlinBlock.Sort.ByProp &&
+                    existingBlocks.all { it.by is GremlinBlock.Sort.ByProp }
+
+                return if (canFlatten) {
+                    SortBy(base, listOf(sortBlock) + existingBlocks)
+                } else {
+                    SortBy(query, sortBlock)
+                }
+            }
         }
     }
 

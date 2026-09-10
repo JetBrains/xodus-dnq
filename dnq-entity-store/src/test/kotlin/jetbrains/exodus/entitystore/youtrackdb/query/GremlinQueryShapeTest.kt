@@ -225,14 +225,21 @@ class GremlinQueryShapeTest {
     // ---- SortBy shape ----
 
     @Test
-    fun `SortBy collapses sort key to ?`() {
+    fun `SortBy shape exposes clause count and sort kind`() {
         val byPriority = GremlinBlock.Sort(GremlinBlock.Sort.ByProp("priority"), GremlinBlock.SortDirection.ASC)
         val byEstimate = GremlinBlock.Sort(GremlinBlock.Sort.ByProp("estimate"), GremlinBlock.SortDirection.DESC)
         val q1 = GremlinQuery.SortBy(issues(), byPriority)
-        val q2 = GremlinQuery.SortBy(issues(), byEstimate)
-        // Sort always renders as Sort(‹inner›, ?) regardless of sort key
-        assertThat(GremlinQueryShape.of(q1)).isEqualTo(GremlinQueryShape.of(q2))
+        val q2 = GremlinQuery.SortBy(issues(), listOf(byEstimate, byPriority))
+        val linked = GremlinQuery.SortBy(
+            issues(),
+            GremlinBlock.Sort(GremlinBlock.Sort.ByLinked("project", "name"), GremlinBlock.SortDirection.ASC)
+        )
+
         assertThat(GremlinQueryShape.of(q1))
-            .isEqualTo("""Sort(Labeled(Where(All), "Issue"), ?)""")
+            .isEqualTo("""Sort(Labeled(Where(All), "Issue"), [ByProp(?)])""")
+        assertThat(GremlinQueryShape.of(q2))
+            .isEqualTo("""Sort(Labeled(Where(All), "Issue"), [ByProp(?), ByProp(?)])""")
+        assertThat(GremlinQueryShape.of(linked))
+            .isEqualTo("""Sort(Labeled(Where(All), "Issue"), [ByLinked(?)])""")
     }
 }

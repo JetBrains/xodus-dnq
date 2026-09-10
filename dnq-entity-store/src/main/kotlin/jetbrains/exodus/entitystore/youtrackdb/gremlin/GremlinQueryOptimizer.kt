@@ -87,7 +87,7 @@ internal fun GremlinQuery.combineEfficient(
         val otherInner = if (other is SortBy) other.inner else other
         val combined = this.inner.combineEfficient(otherInner, condCombiner) ?: return null
         return if (condCombiner is ConditionCombiner.Union) combined
-               else SortBy(combined, this.sortBlock)
+               else SortBy(combined, this.sortBlocks)
     }
 
     // Strip right-side sort and retry

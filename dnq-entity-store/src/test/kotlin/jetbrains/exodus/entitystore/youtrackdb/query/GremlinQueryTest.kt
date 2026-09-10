@@ -299,6 +299,80 @@ class GremlinQueryTest {
             .isEqualTo("""__.order().by(__.out("rel_link").values("name").count(),Order.desc).by(__.out("rel_link").values("name").fold(),Order.asc)""")
     }
 
+    @Test
+    fun `adjacent property sorts combine in primary-first order`() {
+        val result = issueCondition("type", "A")
+            .then(Sort(Sort.ByProp("type"), SortDirection.ASC))
+            .then(Sort(Sort.ByProp("project"), SortDirection.DESC))
+
+        assertThat(result).isInstanceOf(SortBy::class.java)
+        assertThat((result as SortBy).sortBlocks.map { (it.by as Sort.ByProp).propName })
+            .containsExactly("project", "type").inOrder()
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.desc).by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc)""")
+    }
+
+    @Test
+    fun `adjacent property sorts retain each direction`() {
+        val directions = listOf(
+            SortDirection.ASC to SortDirection.ASC,
+            SortDirection.ASC to SortDirection.DESC,
+            SortDirection.DESC to SortDirection.ASC,
+            SortDirection.DESC to SortDirection.DESC,
+        )
+
+        directions.forEach { (innerDirection, outerDirection) ->
+            val result = issueCondition("type", "A")
+                .then(Sort(Sort.ByProp("type"), innerDirection))
+                .then(Sort(Sort.ByProp("project"), outerDirection))
+            val expected = """g.V().has("type","A").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.${outerDirection.name.lowercase()}).by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.${innerDirection.name.lowercase()})"""
+            assertThat(result.toGremlin()).isEqualTo(expected)
+        }
+    }
+
+    @Test
+    fun `property sort chain is not flattened across a slice`() {
+        val result = issueCondition("type", "A")
+            .then(Sort(Sort.ByProp("type"), SortDirection.ASC))
+            .then(Skip(1))
+            .then(Sort(Sort.ByProp("project"), SortDirection.ASC))
+
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc).skip(1L).order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.asc)""")
+    }
+
+    @Test
+    fun `property sort chain is not flattened across reverse`() {
+        val first = issueCondition("type", "A")
+            .then(Sort(Sort.ByProp("type"), SortDirection.ASC))
+        val result = GremlinQuery.ReversedOrder(first)
+            .then(Sort(Sort.ByProp("project"), SortDirection.ASC))
+
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc).fold().reverse().unfold().order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.asc)""")
+    }
+
+    @Test
+    fun `property sort chain containing linked sort is not flattened`() {
+        val result = issueCondition("type", "A")
+            .then(Sort(Sort.ByLinked("rel", "name"), SortDirection.ASC))
+            .then(Sort(Sort.ByProp("project"), SortDirection.ASC))
+
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.out("rel_link").values("name").count(),Order.desc).by(__.out("rel_link").values("name").fold(),Order.asc).order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.asc)""")
+    }
+
+    @Test
+    fun `complete property sort chain before a slice is combined`() {
+        val result = issueCondition("type", "A")
+            .then(Sort(Sort.ByProp("type"), SortDirection.ASC))
+            .then(Sort(Sort.ByProp("project"), SortDirection.ASC))
+            .then(Skip(1))
+
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.asc).by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc).skip(1L)""")
+    }
+
     // O3: SortBy passthrough in combineEfficient
 
     private fun issueCondition(prop: String, value: String): Labeled =
@@ -353,6 +427,17 @@ class GremlinQueryTest {
         val result = SortBy(issueCondition("name", "a"), sortByName).difference(issueCondition("name", "b"))
         assertThat(result.toGremlin())
             .isEqualTo("""g.V().and(__.has("name","a"),__.not(__.has("name","b"))).hasLabel("Issue")$sortByNameGremlin""")
+    }
+
+    @Test
+    fun `O3 - intersect preserves every clause of a combined left sort`() {
+        val sorted = issueCondition("name", "a")
+            .then(Sort(Sort.ByProp("type"), SortDirection.ASC))
+            .then(Sort(Sort.ByProp("project"), SortDirection.DESC))
+        val result = sorted.intersect(issueCondition("name", "b"))
+
+        assertThat(result.toGremlin())
+            .isEqualTo("""g.V().has("name","a").has("name","b").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.desc).by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc)""")
     }
 
     // O6: Labeled.of flattens nested Labeled wrappers
