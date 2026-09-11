@@ -16,6 +16,7 @@
 package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
+import com.jetbrains.youtrackdb.api.gremlin.tokens.YTDBQueryConfigParam
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.exception.SchemaException
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
@@ -278,19 +279,17 @@ class YTDBSchemaBuddyImpl(
          */
         if (oClass.classIdOrNull() != classId) return null
 
-        val oid = session.activeTransaction
-            .query(
-                "SELECT FROM ${oClass.name} WHERE $LOCAL_ENTITY_ID_PROPERTY_NAME = ? AND @class = ?",
-                localEntityId,
-                oClass.name
-            )
-            .use { resultSet ->
-                if (resultSet.hasNext()) {
-                    resultSet.next().asVertexOrNull()?.identity ?: return null
-                } else {
-                    return null
-                }
-            }
+        val vertex = dbProvider.graph
+            .traversal()
+            .with(YTDBQueryConfigParam.polymorphicQuery, false)
+            .V()
+            .hasLabel(oClass.name)
+            .has(LOCAL_ENTITY_ID_PROPERTY_NAME, localEntityId)
+            .limit(1)
+            .tryNext()
+            .orElse(null)
+            ?: return null
+        val oid = (vertex as YTDBVertex).id()
 
         return RIDEntityId(classId, localEntityId, oid, oClass.name)
     }
