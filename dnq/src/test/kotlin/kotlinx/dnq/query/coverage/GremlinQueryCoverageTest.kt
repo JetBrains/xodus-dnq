@@ -114,11 +114,11 @@ class GremlinQueryCoverageTest : DBTest() {
     private val byAssigneeName = Sort(Sort.ByLinked("assignee", "name"), SortDirection.ASC)
 
     private val byPriorityGremlin =
-        """.order().by(__.values("priority").count(),Order.desc).by(__.values("priority").fold(),Order.asc)"""
+        """.order().by(__.values("priority").count(),Order.desc).by(__.values("priority").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)"""
     private val byEstimateGremlin =
-        """.order().by(__.values("estimate").count(),Order.desc).by(__.values("estimate").fold(),Order.desc)"""
+        """.order().by(__.values("estimate").count(),Order.desc).by(__.values("estimate").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.desc)"""
     private val byAssigneeNameGremlin =
-        """.order().by(__.out("assignee_link").values("name").count(),Order.desc).by(__.out("assignee_link").values("name").fold(),Order.asc)"""
+        """.order().by(__.out("assignee_link").values("name").count(),Order.desc).by(__.out("assignee_link").values("name").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)"""
 
     // =========================================================================
     // Result assertion infrastructure — DNQ-level IssueTrackerDataset
@@ -1239,7 +1239,7 @@ class GremlinQueryCoverageTest : DBTest() {
         assertThat(q79.toGremlin()).isEqualTo(
             """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
             """.V().hasLabel("Issue")""" +
-            """.order().by(__.values("priority").count(),Order.desc).by(__.values("priority").fold(),Order.asc)""" +
+            """.order().by(__.values("priority").count(),Order.desc).by(__.values("priority").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)""" +
             """.fold().reverse().unfold()""" +
             """.where(P.within(["aggr_0"]))"""
         )

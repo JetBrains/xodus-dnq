@@ -70,6 +70,25 @@ class StringCollationQueryTest : DBTest() {
     }
 
     @Test
+    fun `sorting string property respects case insensitive collation`() {
+        store.transactional {
+            listOf("a", "B").forEach { name ->
+                StringCollationUser.new { this.name = name }
+            }
+
+            val result = StringCollationUser.all()
+                .sortedBy(StringCollationUser::name)
+                .toList()
+
+            // Case-insensitive collation orders "a" before "B". Ordinary lexical comparison
+            // would produce "B", "a", making this falsifiable against native Gremlin order.
+            assertThat(result.map { it.name })
+                .containsExactly("a", "B")
+                .inOrder()
+        }
+    }
+
+    @Test
     fun `link traversal respects string property collation for startsWith`() {
         store.transactional {
             val targetNames = listOf("Lev", "lev", "leV", "Levit", "Alex")

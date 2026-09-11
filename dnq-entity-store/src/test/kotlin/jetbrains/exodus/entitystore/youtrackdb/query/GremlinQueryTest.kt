@@ -284,19 +284,19 @@ class GremlinQueryTest {
     @Test
     fun `Sort by prop ascending produces order by nulls-last`() {
         assertThat(Sort(Sort.ByProp("name"), SortDirection.ASC).toGremlin())
-            .isEqualTo("""__.order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)""")
+            .isEqualTo("""__.order().by(__.values("name").count(),Order.desc).by(__.values("name").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)""")
     }
 
     @Test
     fun `Sort by prop descending produces order by nulls-last`() {
         assertThat(Sort(Sort.ByProp("name"), SortDirection.DESC).toGremlin())
-            .isEqualTo("""__.order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.desc)""")
+            .isEqualTo("""__.order().by(__.values("name").count(),Order.desc).by(__.values("name").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.desc)""")
     }
 
     @Test
     fun `Sort by linked prop ascending traverses edge then orders`() {
         assertThat(Sort(Sort.ByLinked("rel", "name"), SortDirection.ASC).toGremlin())
-            .isEqualTo("""__.order().by(__.out("rel_link").values("name").count(),Order.desc).by(__.out("rel_link").values("name").fold(),Order.asc)""")
+            .isEqualTo("""__.order().by(__.out("rel_link").values("name").count(),Order.desc).by(__.out("rel_link").values("name").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)""")
     }
 
     @Test
@@ -309,7 +309,7 @@ class GremlinQueryTest {
         assertThat((result as SortBy).sortBlocks.map { (it.by as Sort.ByProp).propName })
             .containsExactly("project", "type").inOrder()
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.desc).by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc)""")
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.desc).by(__.values("type").count(),Order.desc).by(__.values("type").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)""")
     }
 
     @Test
@@ -325,7 +325,7 @@ class GremlinQueryTest {
             val result = issueCondition("type", "A")
                 .then(Sort(Sort.ByProp("type"), innerDirection))
                 .then(Sort(Sort.ByProp("project"), outerDirection))
-            val expected = """g.V().has("type","A").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.${outerDirection.name.lowercase()}).by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.${innerDirection.name.lowercase()})"""
+            val expected = """g.V().has("type","A").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.${outerDirection.name.lowercase()}).by(__.values("type").count(),Order.desc).by(__.values("type").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.${innerDirection.name.lowercase()})"""
             assertThat(result.toGremlin()).isEqualTo(expected)
         }
     }
@@ -338,7 +338,7 @@ class GremlinQueryTest {
             .then(Sort(Sort.ByProp("project"), SortDirection.ASC))
 
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc).skip(1L).order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.asc)""")
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("type").count(),Order.desc).by(__.values("type").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc).skip(1L).order().by(__.values("project").count(),Order.desc).by(__.values("project").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)""")
     }
 
     @Test
@@ -349,7 +349,7 @@ class GremlinQueryTest {
             .then(Sort(Sort.ByProp("project"), SortDirection.ASC))
 
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc).fold().reverse().unfold().order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.asc)""")
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("type").count(),Order.desc).by(__.values("type").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc).fold().reverse().unfold().order().by(__.values("project").count(),Order.desc).by(__.values("project").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)""")
     }
 
     @Test
@@ -359,7 +359,7 @@ class GremlinQueryTest {
             .then(Sort(Sort.ByProp("project"), SortDirection.ASC))
 
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.out("rel_link").values("name").count(),Order.desc).by(__.out("rel_link").values("name").fold(),Order.asc).order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.asc)""")
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.out("rel_link").values("name").count(),Order.desc).by(__.out("rel_link").values("name").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc).order().by(__.values("project").count(),Order.desc).by(__.values("project").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)""")
     }
 
     @Test
@@ -370,7 +370,7 @@ class GremlinQueryTest {
             .then(Skip(1))
 
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.asc).by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc).skip(1L)""")
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc).by(__.values("type").count(),Order.desc).by(__.values("type").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc).skip(1L)""")
     }
 
     // O3: SortBy passthrough in combineEfficient
@@ -382,7 +382,7 @@ class GremlinQueryTest {
     private val sortByDate = Sort(Sort.ByProp("date"), SortDirection.ASC)
 
     private val sortByNameGremlin =
-        """.order().by(__.values("name").count(),Order.desc).by(__.values("name").fold(),Order.asc)"""
+        """.order().by(__.values("name").count(),Order.desc).by(__.values("name").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)"""
     private val unionGremlin =
         """g.V().has("name",P.within(["a", "b"])).hasLabel("Issue")"""
 
@@ -437,7 +437,7 @@ class GremlinQueryTest {
         val result = sorted.intersect(issueCondition("name", "b"))
 
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().has("name","a").has("name","b").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").fold(),Order.desc).by(__.values("type").count(),Order.desc).by(__.values("type").fold(),Order.asc)""")
+            .isEqualTo("""g.V().has("name","a").has("name","b").hasLabel("Issue").order().by(__.values("project").count(),Order.desc).by(__.values("project").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.desc).by(__.values("type").count(),Order.desc).by(__.values("type").choose(P.typeOf(java.lang.String),__.toLower(),__.identity()).fold(),Order.asc)""")
     }
 
     // O6: Labeled.of flattens nested Labeled wrappers
