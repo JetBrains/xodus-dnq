@@ -279,7 +279,11 @@ class YTDBSchemaBuddyImpl(
         if (oClass.classIdOrNull() != classId) return null
 
         val oid = session.activeTransaction
-            .query("SELECT FROM ${oClass.name} WHERE $LOCAL_ENTITY_ID_PROPERTY_NAME = ?", localEntityId)
+            .query(
+                "SELECT FROM ${oClass.name} WHERE $LOCAL_ENTITY_ID_PROPERTY_NAME = ? AND @class = ?",
+                localEntityId,
+                oClass.name
+            )
             .use { resultSet ->
                 if (resultSet.hasNext()) {
                     resultSet.next().asVertexOrNull()?.identity ?: return null
