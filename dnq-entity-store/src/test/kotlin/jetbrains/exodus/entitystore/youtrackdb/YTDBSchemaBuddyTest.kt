@@ -91,6 +91,51 @@ class YTDBSchemaBuddyTest : OTestMixin {
         }
     }
 
+    @Test
+    fun `resolveEntityIdOrNull() does not substitute a subtype with the same local id`() {
+        val buddy = YTDBSchemaBuddyImpl(youTrackDb.provider, autoInitialize = false)
+        val baseClassName = "BaseWithCollidingLocalId"
+        val subtypeClassName = "SubtypeWithCollidingLocalId"
+
+        val (baseTypeId, subtypeTypeId) = withTxSession { session ->
+            // Create the subtype first so the hierarchy has independently allocated concrete
+            // classes and local-id sequences.
+            val subtypeClass = session.createVertexClassWithClassId(subtypeClassName)
+            val baseClass = session.createVertexClassWithClassId(baseClassName)
+            subtypeClass.addSuperClass(baseClass)
+            baseClass.requireClassId() to subtypeClass.requireClassId()
+        }
+        // Initialize the resolver after the schema transaction commits, otherwise the cache would
+        // retain transaction-local (negative) collection IDs rather than the committed IDs.
+        withSession { buddy.initialize(it) }
+
+        val (baseId, subtypeId) = withStoreTx { tx ->
+            // The base class has no entity with local ID 0, while its subtype does. A polymorphic
+            // query over the base class therefore returns the subtype for the base logical ID.
+            tx.newEntity(baseClassName, 1L).id to tx.newEntity(subtypeClassName).id
+        }
+        assertEquals(1L, baseId.localId)
+        assertEquals(0L, subtypeId.localId)
+
+        withTxSession { session ->
+            // This should be null: there is no BaseWithCollidingLocalId/0. The current resolver
+            // incorrectly returns the SubtypeWithCollidingLocalId/0 record instead.
+            val resolvedBase = buddy.resolveEntityIdOrNull(session, baseTypeId, 0L)
+            assertNull(
+                "resolved $resolvedBase at ${resolvedBase?.asOId()}, " +
+                    "subtype is ${(subtypeId as YTDBEntityId).asOId()}",
+                resolvedBase
+            )
+
+            val resolvedSubtype = buddy.resolveEntityIdOrNull(session, subtypeTypeId, subtypeId.localId)
+            assertNotNull(resolvedSubtype)
+            assertEquals((subtypeId as YTDBEntityId).asOId(), resolvedSubtype.asOId())
+            assertEquals((baseId as YTDBEntityId).asOId(), buddy.resolveEntityIdOrNull(
+                session, baseTypeId, baseId.localId
+            )?.asOId())
+        }
+    }
+
     /*
     * SchemaBuddy heavily depends on this invariant for the classId map consistency
     * */
