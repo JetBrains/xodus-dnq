@@ -299,6 +299,24 @@ class TransientSessionImpl(
 
             try {
                 var replaying = false
+                val replayedUniqueKeys = HashSet<Pair<String, Any?>>()
+
+                fun replayChangesInFreshTransaction() {
+                    // Replay is a write path. A requested-readonly session must never reach it
+                    // (its flush is idempotent and returns before flushing); keep the invariant
+                    // explicit instead of silently opening a writable transaction.
+                    if (requestedReadonly) throw ReadonlyTransactionException()
+
+                    transactionInternal = beginPersistentTransaction()
+                    transientChangesTracker.changedEntities.forEach {
+                        it.resetIfNew()
+                        it.generateIdIfNew()
+                    }
+
+                    replayChanges()
+                    checkBeforeSaveChangesConstraints()
+                }
+
                 while (true) {
                     try {
                         performDeferredEntitiesDeletion()
@@ -310,22 +328,16 @@ class TransientSessionImpl(
                     } catch (nre: NeedRetryException) {
                         replaying = true
                         logger.debug(nre) { "Replaying changes: ${nre.message}" }
+                        replayChangesInFreshTransaction()
+                    } catch (duplicate: RecordDuplicatedException) {
+                        val uniqueKey = duplicate.indexName to duplicate.key
+                        if (!replayedUniqueKeys.add(uniqueKey)) throw duplicate
 
-                        // Replay is a write path. A requested-readonly session must never reach it
-                        // (its flush is idempotent and returns before flushing); keep the invariant
-                        // explicit instead of silently opening a writable transaction.
-                        if (requestedReadonly) throw ReadonlyTransactionException()
-
-                        // replay changes
-                        transactionInternal = beginPersistentTransaction()
-                        transientChangesTracker.changedEntities.forEach {
-                            it.resetIfNew()
-                            it.generateIdIfNew()
+                        replaying = true
+                        logger.debug(duplicate) {
+                            "Replaying changes after unique-index conflict: ${duplicate.indexName}, key=${duplicate.key}"
                         }
-
-                        replayChanges()
-                        //recheck constraints
-                        checkBeforeSaveChangesConstraints()
+                        replayChangesInFreshTransaction()
                     }
                 }
 
