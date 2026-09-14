@@ -26,6 +26,7 @@ import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 class FindOrCreateTest : DBTest() {
@@ -65,9 +66,17 @@ class FindOrCreateTest : DBTest() {
         var value by xdRequiredIntProp()
     }
 
+    class MonthlyCounter(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<MonthlyCounter>() {
+            override val compositeIndices = listOf(listOf(MonthlyCounter::periodStart))
+        }
+
+        var periodStart by xdRequiredLongProp()
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNodes(ApprovedScope, JustCounter)
+        XdModel.registerNodes(ApprovedScope, JustCounter, MonthlyCounter)
     }
 
     @Test
@@ -155,6 +164,34 @@ class FindOrCreateTest : DBTest() {
             assertThat(ApprovedScope.all().toList()).hasSize(1)
             // Both threads must have received the same entity.
             assertThat(result1).isEqualTo(result2)
+        }
+    }
+
+    @Test
+    fun `concurrent first creation with scalar unique key should return the same entity`() {
+        val periodStart = 1L
+        val created = CyclicBarrier(2)
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val results = List(2) {
+                pool.submit<MonthlyCounter> {
+                    transactional {
+                        MonthlyCounter.findOrNew(
+                            MonthlyCounter.filter { it.periodStart eq periodStart }
+                        ) {
+                            this.periodStart = periodStart
+                            created.await()
+                        }
+                    }
+                }
+            }.map { it.get(20, TimeUnit.SECONDS) }
+
+            assertThat(results[0]).isEqualTo(results[1])
+            transactional {
+                assertThat(MonthlyCounter.all().toList()).hasSize(1)
+            }
+        } finally {
+            pool.shutdownNow()
         }
     }
 
