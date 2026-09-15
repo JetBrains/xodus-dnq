@@ -16,6 +16,7 @@
 package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
+import jetbrains.exodus.database.exceptions.ConstraintsValidationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.query.addAll
@@ -28,6 +29,7 @@ import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import kotlin.test.assertFailsWith
 
 class FindOrCreateTest : DBTest() {
 
@@ -74,9 +76,23 @@ class FindOrCreateTest : DBTest() {
         var periodStart by xdRequiredLongProp()
     }
 
+    class Project(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<Project>()
+
+        var name by xdRequiredStringProp(unique = true)
+    }
+
+    class ProjectScope(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<ProjectScope>() {
+            override val compositeIndices = listOf(listOf(ProjectScope::project))
+        }
+
+        var project by xdLink1(Project)
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNodes(ApprovedScope, JustCounter, MonthlyCounter)
+        XdModel.registerNodes(ApprovedScope, JustCounter, MonthlyCounter, Project, ProjectScope)
     }
 
     @Test
@@ -192,6 +208,25 @@ class FindOrCreateTest : DBTest() {
             }
         } finally {
             pool.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `duplicate project with reused mandatory-linked scope should fail with constraints validation`() {
+        transactional {
+            Project.new { name = "Project" }
+        }
+
+        assertFailsWith<ConstraintsValidationException> {
+            transactional {
+                val duplicate = Project.new { name = "Project" }
+                // Project creation requests the same project scope for two assigned roles.
+                repeat(2) {
+                    ProjectScope.findOrNew(ProjectScope.filter { it.project eq duplicate }) {
+                        project = duplicate
+                    }
+                }
+            }
         }
     }
 
