@@ -17,6 +17,7 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.database.exceptions.ConstraintsValidationException
+import jetbrains.exodus.database.exceptions.UniqueIndexViolationException
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.creator.findOrNew
 import kotlinx.dnq.query.addAll
@@ -90,9 +91,28 @@ class FindOrCreateTest : DBTest() {
         var project by xdLink1(Project)
     }
 
+    class AssignedRole(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<AssignedRole>()
+
+        var scope by xdLink1(ProjectScope)
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNodes(ApprovedScope, JustCounter, MonthlyCounter, Project, ProjectScope)
+        XdModel.registerNodes(ApprovedScope, JustCounter, MonthlyCounter, Project, ProjectScope, AssignedRole)
+    }
+
+    private fun createProjectWithAssignedRoles(name: String) {
+        val project = Project.new { this.name = name }
+        val scope = ProjectScope.findOrNew(ProjectScope.filter { it.project eq project }) {
+            this.project = project
+        }
+        AssignedRole.new { this.scope = scope }
+        AssignedRole.new {
+            this.scope = ProjectScope.findOrNew(ProjectScope.filter { it.project eq project }) {
+                this.project = project
+            }
+        }
     }
 
     @Test
@@ -113,6 +133,7 @@ class FindOrCreateTest : DBTest() {
             assertThat(approvedScope1).isEqualTo(approvedScope2)
         }
     }
+
 
     @Test
     fun `parallel creation should return the same entity`() {
@@ -217,7 +238,7 @@ class FindOrCreateTest : DBTest() {
             Project.new { name = "Project" }
         }
 
-        assertFailsWith<ConstraintsValidationException> {
+        val exception = assertFailsWith<ConstraintsValidationException> {
             transactional {
                 val duplicate = Project.new { name = "Project" }
                 // Project creation requests the same project scope for two assigned roles.
@@ -228,6 +249,24 @@ class FindOrCreateTest : DBTest() {
                 }
             }
         }
+        val causes = exception.causes.toList()
+        assertThat(causes).hasSize(1)
+        assertThat(causes.single()).isInstanceOf(UniqueIndexViolationException::class.java)
+    }
+
+    @Test
+    fun `duplicate project with assigned roles should report unique constraint`() {
+        transactional {
+            createProjectWithAssignedRoles("Project")
+        }
+        val exception = assertFailsWith<ConstraintsValidationException> {
+            transactional {
+                createProjectWithAssignedRoles("Project")
+            }
+        }
+        val causes = exception.causes.toList()
+        assertThat(causes).hasSize(1)
+        assertThat(causes.single()).isInstanceOf(UniqueIndexViolationException::class.java)
     }
 
     @Test
