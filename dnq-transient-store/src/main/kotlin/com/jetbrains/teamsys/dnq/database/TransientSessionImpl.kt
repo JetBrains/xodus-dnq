@@ -932,6 +932,11 @@ class TransientSessionImpl(
                 upgradeReadonlyTransactionIfNecessary()
                 // somebody deleted our (initially found) entity! we need to create some again
                 val oldId = transientEntity.idOrNull
+                // The replay-reset pass (resetToNew) pre-created a vertex for this entity.
+                // We are about to replace it with a fresh one, so delete the old vertex first;
+                // otherwise it stays in the YTDB transaction as an uninitialised orphan that
+                // fails mandatory-property validation on commit.
+                transientEntity.entity.delete()
                 transientEntity.entity = transactionInternal.newEntity(creator.type) as YTDBEntity
                 evictFromIdentityMap(oldId)
                 transientChangesTracker.entityAdded(transientEntity)
