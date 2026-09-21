@@ -44,6 +44,71 @@ class SortedByTest : DBTest() {
         }
     }
 
+    class BoardProject(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<BoardProject>()
+
+        var shortName by xdStringProp()
+    }
+
+    class BoardIssue(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<BoardIssue>()
+
+        var numberInProject by xdIntProp()
+        var project by xdLink0_1(BoardProject)
+        val sprints: XdMutableQuery<BoardSprint> by xdLink0_N(
+            BoardSprint::issues,
+            dbPropertyName = "_sprints",
+            dbOppositePropertyName = "_issues"
+        )
+    }
+
+    class BoardSprint(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<BoardSprint>()
+
+        val issues: XdMutableQuery<BoardIssue> by xdLink0_N(
+            BoardIssue::sprints,
+            dbPropertyName = "_issues",
+            dbOppositePropertyName = "_sprints"
+        )
+    }
+
+    @Test
+    fun `sorting union of sprint issues by project and issue number preserves issue order`() {
+        transactional {
+            val project = BoardProject.new { shortName = "agile" }
+            val s1 = BoardSprint.new {}
+            val s2 = BoardSprint.new {}
+            val s3 = BoardSprint.new {}
+
+            val i2 = BoardIssue.new { numberInProject = 2; this.project = project }
+            val i3 = BoardIssue.new { numberInProject = 3; this.project = project }
+            val i5 = BoardIssue.new { numberInProject = 5; this.project = project }
+            val i6 = BoardIssue.new { numberInProject = 6; this.project = project }
+            val i7 = BoardIssue.new { numberInProject = 7; this.project = project }
+
+            s1.issues.add(i2)
+            s1.issues.add(i3)
+            s1.issues.add(i5)
+            s2.issues.add(i3)
+            s3.issues.add(i6)
+            s3.issues.add(i7)
+
+            val candidates = listOf(s1, s2, s3).fold(BoardIssue.emptyQuery()) { query, sprint ->
+                query union sprint.issues
+            }
+
+            val result = candidates
+                .sortedBy(BoardIssue::numberInProject, asc = true)
+                .sortedBy(BoardIssue::project, BoardProject::shortName, asc = true)
+                .toList()
+
+            assertThat(result.map { it.numberInProject })
+                .containsExactly(2, 3, 5, 6, 7)
+                .inOrder()
+        }
+    }
+
+
     val users by lazy {
         transactional {
             listOf(
@@ -61,7 +126,7 @@ class SortedByTest : DBTest() {
     }
 
     override fun registerEntityTypes() {
-        XdModel.registerNodes(User, Badge)
+        XdModel.registerNodes(User, Badge, BoardProject, BoardIssue, BoardSprint)
     }
 
     @Before

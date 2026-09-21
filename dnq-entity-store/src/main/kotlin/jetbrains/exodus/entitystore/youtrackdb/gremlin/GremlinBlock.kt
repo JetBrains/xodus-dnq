@@ -469,13 +469,10 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
 
     }
 
-    /** A composite sort operation used by [GremlinQuery.SortBy] for adjacent property keys. */
+    /** A composite sort operation used by [GremlinQuery.SortBy] for adjacent sort keys. */
     internal class SortSequence(private val sorts: List<Sort>) : GremlinBlock("sb", BlockType.ORDER) {
         init {
             require(sorts.isNotEmpty()) { "SortBy must contain at least one sort block" }
-            require(sorts.size == 1 || sorts.all { it.by is Sort.ByProp }) {
-                "Only property sorts can be combined into one SortBy"
-            }
         }
 
         override fun traverse(g: YT): YT =

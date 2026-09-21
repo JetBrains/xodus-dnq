@@ -353,13 +353,16 @@ class GremlinQueryTest {
     }
 
     @Test
-    fun `property sort chain containing linked sort is not flattened`() {
+    fun `adjacent property and linked sorts combine in primary-first order`() {
         val result = issueCondition("type", "A")
-            .then(Sort(Sort.ByLinked("rel", "name"), SortDirection.ASC))
-            .then(Sort(Sort.ByProp("project"), SortDirection.ASC))
+            .then(Sort(Sort.ByProp("number"), SortDirection.DESC))
+            .then(Sort(Sort.ByLinked("project", "name"), SortDirection.ASC))
 
+        assertThat(result).isInstanceOf(SortBy::class.java)
+        assertThat((result as SortBy).sortBlocks.map { it.by::class.java })
+            .containsExactly(Sort.ByLinked::class.java, Sort.ByProp::class.java).inOrder()
         assertThat(result.toGremlin())
-            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.out("rel_link").values("name"),Order.asc).order().by("project",Order.asc)""")
+            .isEqualTo("""g.V().has("type","A").hasLabel("Issue").order().by(__.out("project_link").values("name"),Order.asc).by("number",Order.desc)""")
     }
 
     @Test

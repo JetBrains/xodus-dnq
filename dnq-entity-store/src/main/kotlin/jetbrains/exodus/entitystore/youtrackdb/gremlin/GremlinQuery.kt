@@ -478,14 +478,7 @@ sealed class GremlinQuery {
                     base = base.inner
                 }
                 val existingBlocks = wrappers.flatMap { it.sortBlocks }
-                val canFlatten = sortBlock.by is GremlinBlock.Sort.ByProp &&
-                    existingBlocks.all { it.by is GremlinBlock.Sort.ByProp }
-
-                return if (canFlatten) {
-                    SortBy(base, listOf(sortBlock) + existingBlocks)
-                } else {
-                    SortBy(query, sortBlock)
-                }
+                return SortBy(base, listOf(sortBlock) + existingBlocks)
             }
         }
     }
