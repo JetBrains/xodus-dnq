@@ -441,7 +441,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
         ASC, DESC
     }
 
-    // Always "nulls last", as the old xodus DNQ implementation worked like this.
+    // GremlinQuery configures both sort directions to absolute NULLS LAST.
     data class Sort(val by: By, val direction: SortDirection) : GremlinBlock("sb", BlockType.ORDER) {
         sealed interface By
         class ByProp(val propName: String) : By
@@ -455,26 +455,10 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
 
         /** Appends this logical sort key to an already-open Gremlin order step. */
         fun appendToOrder(g: YT): YT = when (val sortBy = by) {
-            is ByProp -> g
-                .by(values<YTDBVertex, Any>(sortBy.propName).count(), Order.desc)
-                .by(
-                    `__`.values<YTDBVertex, Any>(sortBy.propName)
-                        .caseInsensitiveOrderValue()
-                        .fold(),
-                    order
-                )
-                .asYT()
+            is ByProp -> g.by(sortBy.propName, order).asYT()
             is ByLinked -> {
                 val edgeLabel = YTDBVertexEntity.edgeClassName(sortBy.linkName)
-                g.by(`__`.out(edgeLabel).values<Any>(sortBy.propName).count(), Order.desc)
-                    .by(
-                        `__`.out(edgeLabel)
-                            .values<Any>(sortBy.propName)
-                            .caseInsensitiveOrderValue()
-                            .fold(),
-                        order
-                    )
-                    .asYT()
+                g.by(`__`.out(edgeLabel).values<Any>(sortBy.propName), order).asYT()
             }
         }
 
@@ -550,18 +534,6 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
         override fun describe(s: StringBuilder): StringBuilder = s.append(".reverse()")
     }
 }
-
-/**
- * Temporary workaround for native Gremlin ordering not honoring declared case-insensitive
- * collation. Remove this once YTDB-1297 is available. Non-string values pass through unchanged.
- */
-@Suppress("UNCHECKED_CAST")
-private fun GraphTraversal<*, *>.caseInsensitiveOrderValue(): GraphTraversal<*, Any> =
-    (this as GraphTraversal<Any?, Any>).choose(
-        P.typeOf<Any>(String::class.java),
-        `__`.toLower<Any>() as GraphTraversal<*, Any>,
-        `__`.identity<Any>()
-    ) as GraphTraversal<*, Any>
 
 @Suppress("UNCHECKED_CAST")
 fun GraphTraversal<*, *>.asYT(): YT = this as YT

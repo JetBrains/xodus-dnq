@@ -15,7 +15,9 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb.gremlin
 
+import com.jetbrains.youtrackdb.api.config.OrderByNullsPlacement
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
+import com.jetbrains.youtrackdb.api.gremlin.tokens.YTDBQueryConfigParam
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import org.apache.tinkerpop.gremlin.process.traversal.P
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
@@ -33,6 +35,23 @@ sealed class GremlinQuery {
 
         @JvmStatic
         val none = Where(GremlinBlock.None)
+
+        private fun optionsWithNullsLast(strategies: TraversalStrategies): OptionsStrategy {
+            val builder = OptionsStrategy.build()
+            strategies.getStrategy(OptionsStrategy::class.java).ifPresent { existing ->
+                existing.options.forEach { (key, value) -> builder.with(key, value) }
+            }
+            return builder
+                .with(
+                    YTDBQueryConfigParam.orderByNullsPlacementAsc.name,
+                    OrderByNullsPlacement.LAST.name
+                )
+                .with(
+                    YTDBQueryConfigParam.orderByNullsPlacementDesc.name,
+                    OrderByNullsPlacement.LAST.name
+                )
+                .create()
+        }
     }
 
     fun then(block: GremlinBlock): GremlinQuery = when {
@@ -63,12 +82,17 @@ sealed class GremlinQuery {
     fun start(gs: GraphTraversalSource): YT {
         if (GremlinQueryCollector.enabled) GremlinQueryCollector.record(GremlinQueryShape.of(this))
         val traversal = startTraversal(gs).traversal
-        // This is attached at the common root rather than in individual query subclasses so every
-        // DNQ traversal gets the same post-provider fallback. TinkerPop propagates root strategies
-        // to nested traversal children when it applies strategies recursively.
+        // Attach query policy at the common root without changing traversal bytecode. Existing
+        // source options are retained; DNQ overrides both sort directions to absolute NULLS LAST.
+        // Provider strategies read root options for nested traversals as well.
         val admin = traversal.asAdmin()
+        val options = optionsWithNullsLast(admin.strategies)
         admin.strategies = admin.strategies.clone().apply {
-            addStrategies(GremlinCaseInsensitiveHasStrategy.instance())
+            addStrategies(
+                options,
+                GremlinCaseInsensitiveHasStrategy.instance(),
+                GremlinCaseInsensitiveOrderStrategy.instance()
+            )
         }
         if (GremlinQueryTranslationGuard.enabled) {
             GremlinQueryTranslationGuard.attach(traversal, GremlinQueryShape.of(this))

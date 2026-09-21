@@ -47,12 +47,12 @@ class GremlinQueryTranslationTest : OTestMixin {
     }
 
     @Test
-    fun `hasLabel query with sort is not translated to MATCH`() {
+    fun `hasLabel query with sort is translated to MATCH`() {
         assertTranslationStatus(
             GremlinQuery.all
                 .then(HasLabel("Issue"))
                 .then(Sort(Sort.ByProp("name"), SortDirection.ASC)),
-            expectedTranslated = false
+            expectedTranslated = true
         )
     }
 
@@ -65,7 +65,7 @@ class GremlinQueryTranslationTest : OTestMixin {
 
         assertThat(query).isInstanceOf(GremlinQuery.SortBy::class.java)
         assertThat((query as GremlinQuery.SortBy).sortBlocks).hasSize(2)
-        assertTranslationStatus(query, expectedTranslated = false)
+        assertTranslationStatus(query, expectedTranslated = true)
     }
 
     private fun assertTranslationStatus(query: GremlinQuery, expectedTranslated: Boolean) {

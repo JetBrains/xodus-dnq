@@ -106,6 +106,32 @@ class StringCollationQueryTest : DBTest() {
     }
 
     @Test
+    fun `sorting by linked string property respects collation and keeps nulls last`() {
+        store.transactional {
+            val lowerTarget = StringCollationUser.new { name = "a" }
+            val upperTarget = StringCollationUser.new { name = "B" }
+            StringCollationUser.new {
+                name = "source-a"
+                superviser = lowerTarget
+            }
+            StringCollationUser.new {
+                name = "source-b"
+                superviser = upperTarget
+            }
+            StringCollationUser.new { name = "source-null" }
+
+            val result = StringCollationUser
+                .filter { it.name startsWith "source-" }
+                .sortedBy(StringCollationUser::superviser, StringCollationUser::name)
+                .toList()
+
+            assertThat(result.map { it.name })
+                .containsExactly("source-a", "source-b", "source-null")
+                .inOrder()
+        }
+    }
+
+    @Test
     fun `link traversal respects string property collation for startsWith`() {
         store.transactional {
             val targetNames = listOf("Lev", "lev", "leV", "Levit", "Alex")
