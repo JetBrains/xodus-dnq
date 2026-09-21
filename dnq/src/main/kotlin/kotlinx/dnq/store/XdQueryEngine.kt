@@ -35,7 +35,7 @@ import jetbrains.exodus.query.QueryEngine
 
 
 class XdQueryEngine(val store: TransientEntityStore) :
-        QueryEngine(store.modelMetaData, store.persistentStore as YTDBPersistentEntityStore) {
+    QueryEngine(store.modelMetaData, store.persistentStore as YTDBPersistentEntityStore) {
 
     private val session get() = store.threadSessionOrThrow
 
@@ -77,7 +77,7 @@ class XdQueryEngine(val store: TransientEntityStore) :
     }
 
     override fun toEntityIterable(it: Iterable<Entity>): Iterable<Entity> {
-        return wrap(super.toEntityIterable(it) as EntityIterable)
+        return wrap(super.toEntityIterable(it))
     }
 
     override fun instantiateGetAll(entityType: String): EntityIterable {
@@ -89,7 +89,7 @@ class XdQueryEngine(val store: TransientEntityStore) :
     }
 
     fun wrap(it: Iterable<Entity>): EntityIterable {
-        return if (it is EntityIterable){
+        return if (it is EntityIterable) {
             session.createPersistentEntityIterableWrapper(it)
         } else {
             session.createPersistentEntityIterableWrapper(InMemoryEntityIterable(it, session, this))

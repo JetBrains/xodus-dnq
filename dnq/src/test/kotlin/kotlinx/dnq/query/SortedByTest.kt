@@ -120,6 +120,43 @@ class SortedByTest : DBTest() {
         )
     }
 
+    @Test
+    fun `in-memory sorts keep nulls last`() {
+        checkInMemoryOrder(
+            "property asc",
+            { sortedBy(User::login, asc = true) },
+            compareBy(nullsLast()) { it.login }
+        )
+        checkInMemoryOrder(
+            "linked asc",
+            { sortedBy(User::badge, Badge::name, asc = true) },
+            compareBy(nullsLast()) { it.badge?.name }
+        )
+        checkInMemoryOrder(
+            "property desc",
+            { sortedBy(User::login, asc = false) },
+            compareBy(nullsLast(reverseOrder())) { it.login }
+        )
+        checkInMemoryOrder(
+            "linked desc",
+            { sortedBy(User::badge, Badge::name, asc = false) },
+            compareBy(nullsLast(reverseOrder())) { it.badge?.name }
+        )
+    }
+
+    private fun checkInMemoryOrder(
+        name: String,
+        queryOrder: XdQuery<User>.() -> XdQuery<User>,
+        expectedOrder: Comparator<User>
+    ) {
+        transactional {
+            val result = queryOrder(users.map { it.entity }.asQuery(User)).toList()
+            println("in-memory $name: $result")
+            assertThat(result).containsExactlyElementsIn(users)
+            assertThat(result).isInOrder(expectedOrder)
+        }
+    }
+
     /**
      * Regression test for: linked-sort overload of SortEngine.sort blows up on an empty
      * YTDBEntityIterable.

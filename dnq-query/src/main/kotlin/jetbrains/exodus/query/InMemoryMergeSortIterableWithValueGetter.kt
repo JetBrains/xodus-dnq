@@ -19,7 +19,11 @@ import jetbrains.exodus.entitystore.ComparableGetter
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.kotlin.notNull
 
-class InMemoryMergeSortIterableWithValueGetter(private val source: Iterable<Entity>, private val valueGetter: ComparableGetter, private val comparator: Comparator<Comparable<Any>>) : Iterable<Entity> {
+class InMemoryMergeSortIterableWithValueGetter(
+    private val source: Iterable<Entity>,
+    private val valueGetter: ComparableGetter,
+    private val comparator: Comparator<Comparable<Any>?>
+) : Iterable<Entity> {
 
     override fun iterator(): MutableIterator<Entity> {
         return object : MutableIterator<Entity> {
@@ -79,7 +83,11 @@ class InMemoryMergeSortIterableWithValueGetter(private val source: Iterable<Enti
                 while (next[1] < 0) {
                     segment = segment shl 1
                     if (segment >= size2 || next[segment] >= 0 && next[segment + 1] >= 0) {
-                        if (next[segment + 1] >= size || next[segment] < size && comparator.compare(values[next[segment]], values[next[segment + 1]]) <= 0) {
+                        if (next[segment + 1] >= size || next[segment] < size && comparator.compare(
+                                values[next[segment]],
+                                values[next[segment + 1]]
+                            ) <= 0
+                        ) {
                             next[segment shr 1] = next[segment]
                         } else {
                             next[segment shr 1] = next[segment + 1]

@@ -267,7 +267,7 @@ private fun <T : XdEntity> XdEntityType<T>.singletonOf(element: Entity?): Iterab
  */
 fun <T : XdEntity> XdEntityType<T>.queryOf(vararg elements: T?): XdQuery<T> {
     val notNullElements = elements.filterNotNull()
-    val iterable = if (notNullElements.isEmpty()){
+    val iterable = if (notNullElements.isEmpty()) {
         YTDBEntityIterable.EMPTY
     } else {
         val txn = notNullElements.first().threadSessionOrThrow
@@ -497,6 +497,8 @@ private val Iterable<Entity>.queryPolymorphic: Boolean
 /**
  * Returns a new query of all results of `this` query sorted by value of the given [property].
  *
+ * Null property values are always ordered after non-null values, regardless of [asc].
+ *
  * The sorting is stable, i.e. it allows to sort by one property then by another. For example,
  * sort all users by gender and users of the same gender sort by login
  * ```
@@ -524,6 +526,8 @@ fun <T : XdEntity, V : Comparable<*>?> XdQuery<T>.sortedBy(
 
 /**
  * Returns a new query of all results of `this` query sorted by value of the given [property] of the given [linkProperty].
+ *
+ * Null or absent linked property values are always ordered after non-null values, regardless of [asc].
  *
  * For example, sort all users by the titles of their jobs:
  * ```
@@ -815,7 +819,7 @@ fun <T : XdEntity> XdQuery<T>.first(node: NodeBase): T {
  * Returns the first result of the query, or `null` if the query is empty.
  */
 fun <T : XdEntity> XdQuery<T>.firstOrNull(ignoreXdCache: Boolean = false): T? {
-    if (entityIterable is TransientEntityIterable){
+    if (entityIterable is TransientEntityIterable) {
         return useIterable(entityIterable) { eit -> eit.firstOrNull()?.let { entityType.wrap(it) } }
     }
     val it = queryEngine.toEntityIterable(entityIterable)

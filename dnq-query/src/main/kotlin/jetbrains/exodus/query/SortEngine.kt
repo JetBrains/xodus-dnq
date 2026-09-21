@@ -225,9 +225,16 @@ open class SortEngine {
     companion object {
 
         private val PROPERTY_VALUE_COMPARATOR =
-            Comparator<Comparable<Any>> { o1, o2 -> compareNullableComparables(o1, o2) }
+            Comparator<Comparable<Any>?> { o1, o2 -> compareNullableComparables(o1, o2) }
         private val REVERSE_PROPERTY_VALUE_COMPARATOR =
-            Comparator<Comparable<Any>> { o1, o2 -> compareNullableComparables(o2, o1) }
+            Comparator<Comparable<Any>?> { o1, o2 ->
+                when {
+                    o1 == null && o2 == null -> 0
+                    o1 == null -> 1
+                    o2 == null -> -1
+                    else -> compareNullableComparables(o2, o1)
+                }
+            }
 
         fun compareNullableComparables(c1: Comparable<Any>?, c2: Comparable<Any>?): Int {
             if (c1 == null && c2 == null) {
@@ -242,7 +249,7 @@ open class SortEngine {
 
         }
 
-        private fun caseInsensitiveComparator(asc: Boolean): Comparator<Comparable<Any>> {
+        private fun caseInsensitiveComparator(asc: Boolean): Comparator<Comparable<Any>?> {
             return if (asc) PROPERTY_VALUE_COMPARATOR else REVERSE_PROPERTY_VALUE_COMPARATOR
         }
 
