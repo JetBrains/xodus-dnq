@@ -26,6 +26,7 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBVertexEntityIterable
 import java.io.File
 import java.io.InputStream
 
@@ -292,6 +293,32 @@ open class TransientEntityImpl : TransientEntity {
 
     override fun getLinks(linkName: String): EntityIterable {
         return PersistentEntityIterableWrapper(store, entity.getLinks(linkName))
+    }
+
+    /**
+     * Deletion-only read of the already materialized outgoing adjacency. A mixed concrete type
+     * set must use the original wrapper: its query sorts by local id, while the raw read
+     * sorts by (type id, local id). Reuse this same raw read for the query-backed fallback.
+     *
+     * Iterate through the same transient iterator used by the regular wrapper. It filters
+     * tracker-removed targets and calls session.newEntity, which also recovers canonical wrappers
+     * for newly created targets across replay. Never cache this across deletion phases.
+     */
+    internal fun outgoingLinksForDeletion(linkName: String): List<Entity>? {
+        val links = entity.getLinks(linkName) as? YTDBVertexEntityIterable ?: return null
+        var typeId: Int? = null
+        val ids = links.iterator()
+        while (ids.hasNext()) {
+            val nextTypeId = ids.nextId()?.typeId ?: return null
+            if (typeId != null && typeId != nextTypeId) {
+                return PersistentEntityIterableWrapper(store, links).toList()
+            }
+            typeId = nextTypeId
+        }
+        val targets = ArrayList<Entity>()
+        val iterator = PersistentEntityIteratorWrapper(links.iterator(), threadSessionOrThrow)
+        while (iterator.hasNext()) targets.add(iterator.next())
+        return targets
     }
 
     override fun getLink(linkName: String): Entity? = getLink(linkName, null)

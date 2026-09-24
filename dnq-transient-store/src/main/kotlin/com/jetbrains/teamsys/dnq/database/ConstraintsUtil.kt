@@ -277,8 +277,14 @@ object ConstraintsUtil: KLogging() {
             callDestructorsPhase: Boolean,
             processed: MutableSet<Entity>,
             checkEntityRemoved: Boolean) {
-        AssociationSemantics.getToMany(source, associationEndMetaData.name, checkEntityRemoved)
-                .toList()
+        // Preserve specialized getLinks dispatch (notably ReadonlyTransientEntity snapshots).
+        // Only the ordinary transient wrapper can use the raw adjacency. Reattach on every
+        // invocation so the mutation phase and replay both read the current transaction.
+        val attached = source.reattachTransient(checkEntityRemoved = checkEntityRemoved)
+        val targets = if (attached.javaClass == TransientEntityImpl::class.java) {
+            (attached as TransientEntityImpl).outgoingLinksForDeletion(associationEndMetaData.name)
+        } else null
+        (targets ?: attached.getLinks(associationEndMetaData.name).toList())
                 .asSequence()
                 .filterNot { EntityOperations.isRemoved(it) }
                 .forEach {
