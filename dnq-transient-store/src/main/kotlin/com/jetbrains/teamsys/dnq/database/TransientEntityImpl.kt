@@ -15,16 +15,21 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
+import com.jetbrains.youtrackdb.internal.core.db.record.ridbag.LinkBag
+import com.jetbrains.youtrackdb.internal.core.record.impl.EntityImpl
 import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityStore
+import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.iterate.EntityIteratorWithPropId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+import jetbrains.exodus.entitystore.youtrackdb.raw
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBVertexEntityIterable
 import java.io.File
@@ -109,6 +114,35 @@ open class TransientEntityImpl : TransientEntity {
                     }
             }?.toList().orEmpty()
         }
+
+    /**
+     * A one-way, current-transaction absence proof for deletion policy and validation reads.
+     * Every incoming edge property, including unrelated labels and hidden properties, must
+     * contain an empty raw LinkBag. A nonempty bag or unknown representation keeps the original
+     * typed/untyped query path. Never traverse vertices here: traversal can skip missing RIDs.
+     */
+    internal fun hasNoIncomingLinksForDeletion(): Boolean {
+        if (javaClass != TransientEntityImpl::class.java || idOrNull == null) return false
+        val persistent = entity
+        if (persistent.javaClass != YTDBVertexEntity::class.java) return false
+        persistent as YTDBVertexEntity
+        persistent.requireActiveTx()
+        try {
+            // raw() rebinds the vertex to the active session after replay. Unfiltered names
+            // include aliases/subclasses and links hidden by propertyAccess. No RID is loaded.
+            val raw = persistent.vertex.raw() as EntityImpl
+            return raw.getPropertyNamesInternal(false, false)
+                .asSequence()
+                .filter { it.startsWith("in_") }
+                .all { name ->
+                    val bag = raw.getPropertyInternal<Any>(name, false)
+                    bag is LinkBag && bag.isEmpty
+                }
+        } catch (missing: RecordNotFoundException) {
+            // Match the ordinary vertex adapter's safeVertex error contract.
+            throw EntityRemovedInDatabaseException(persistent.type, persistent.id, missing)
+        }
+    }
 
     override val parent: Entity?
         get() = threadSessionOrThrow.getParent(this)

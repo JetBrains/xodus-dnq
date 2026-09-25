@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright 2006 - 2026 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,6 +27,7 @@ import kotlinx.dnq.xdParent
 import kotlinx.dnq.xdRequiredLongProp
 import kotlinx.dnq.xdRequiredStringProp
 import kotlinx.dnq.xdStringProp
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQueryCollector
 import kotlinx.dnq.query.and
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.lt
@@ -117,6 +118,37 @@ class PersistentJobCleanupReproducerTest : DBTest() {
         assertThat(batchSizes).containsExactly(300, 300, 300, 100).inOrder()
         store.transactional {
             assertThat(ArchivedJob.all().toList().map { it.key }).containsExactly("recent-job")
+        }
+    }
+
+    @Test
+    fun populatedHistoryKeepsIncomingQueriesAndCascadesChildren() {
+        store.transactional {
+            repeat(8) { index ->
+                val job = ArchivedJob.new {
+                    uuid = "populated-job-$index"
+                    key = "old-job-$index"
+                    statusName = "COMPLETED"
+                    typeName = JOB_TYPE
+                    priorityName = "NORMAL"
+                    scheduledAtMillis = OLD_TIME
+                    lastActiveAtMillis = OLD_TIME
+                    completedAtMillis = OLD_TIME
+                    archivedAtMillis = OLD_TIME
+                }
+                HistoryUuid.new { uuid = "history-$index"; parent = job }
+            }
+        }
+        GremlinQueryCollector.enableForTests()
+        val before = GremlinQueryCollector.snapshot()
+        store.transactional { ArchivedJob.all().toList().forEach { it.delete() } }
+        val incoming = GremlinQueryCollector.countSince(before) {
+            "FollowLink" in it && "IN" in it && "parent" in it
+        }
+        assertThat(incoming).isAtLeast(8)
+        store.transactional {
+            assertThat(ArchivedJob.all().toList()).isEmpty()
+            assertThat(HistoryUuid.all().toList()).isEmpty()
         }
     }
 

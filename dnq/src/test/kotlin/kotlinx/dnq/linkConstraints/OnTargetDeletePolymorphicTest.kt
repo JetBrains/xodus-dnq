@@ -34,9 +34,9 @@ import kotlin.test.assertFailsWith
  * referenced by instances of multiple distinct source types via the same link name.
  *
  * This is the "N-subtype fan-out" scenario described in XD-1263: when [target] is deleted,
- * DNQ processes one (sourceType, linkName) pair per source entity type, each of which
- * triggers a separate findLinks query. These tests verify that all source types are handled
- * correctly regardless of how the underlying queries are batched.
+ * DNQ processes every (sourceType, linkName) pair, historically with a separate findLinks
+ * query per source type. These tests verify that all source types are handled correctly
+ * regardless of how the underlying queries are batched.
  *
  * Entities: one [PolyTarget] is referenced by five independent source types
  * ([PolySub1]..[PolySub5]), all via a link named "target".
@@ -410,18 +410,18 @@ class OnTargetDeletePolymorphicTest : DBTest() {
      * are issued when deleting an entity referenced by instances of multiple distinct source
      * types via the same link name.
      *
-     * The model has 10 source types (5 CASCADE + 5 CLEAR), all linked via "target".
-     * Two separate code paths fire these queries:
+     * The model registers 13 source types (5 CASCADE + 5 CLEAR + 3 FAIL), all using
+     * "target". This fixture populates only the five CASCADE types.
      *
-     * 1. processOnDeleteConstraints (EntityOperations.remove, 2 phases):
-     *    Source types for "target" link: 5 CASCADE + 5 CLEAR + 3 FAIL = 13
-     *    BEFORE fix: 13 source types × 2 = 26 typed Labeled(FollowLink) queries
-     *    AFTER  fix:  1 link name   × 2 =  2 untyped FollowLink queries
+     * Historical XD-1263 counts: processOnDeleteConstraints issued 26 typed queries
+     * before batching and 2 untyped queries after batching (one link name, two phases).
+     * Validation issued 13 typed queries in both versions. Totals were 39 before
+     * XD-1263 and 15 after XD-1263.
      *
-     * 2. checkIncomingLinks (constraint validation — not in scope for XD-1263):
-     *    13 source types × 1 call = 13 typed Labeled(FollowLink) queries (unchanged)
-     *
-     * Total BEFORE: 39  |  Total AFTER: 15
+     * With the incoming-empty probe, the two populated policy-phase reads still issue
+     * untyped queries. CASCADE then removes the sources and their outgoing edges. The
+     * target has no incoming links at validation, so all 13 typed reads are skipped.
+     * The current successful-delete total is exactly 2 FollowLink query starts.
      *
      * Note: the Gremlin optimizer rewrites ByIds+InLink+HasLabel into
      * Labeled(FollowLink(ByIds(?), IN, linkName), type), and ByIds+InLink into
@@ -445,19 +445,9 @@ class OnTargetDeletePolymorphicTest : DBTest() {
 
         val findLinksCount = GremlinQueryCollector.countSince(before) { "FollowLink" in it }
 
-        // Breakdown of FollowLink queries during target.delete():
-        //
-        // Source types registered for "target" link: 5 CASCADE + 5 CLEAR + 3 FAIL = 13
-        //
-        // processOnDeleteConstraints (EntityOperations.remove, 2 phases):
-        //   BEFORE fix: 13 source types × 2 phases = 26 typed Labeled(FollowLink) queries
-        //   AFTER  fix:  1 link name   × 2 phases =  2 untyped FollowLink queries
-        //
-        // checkIncomingLinks (constraint validation, unchanged):
-        //   13 source types × 1 call = 13 typed Labeled(FollowLink) queries
-        //
-        // Total BEFORE: 39  |  Total AFTER: 15
-        assertThat(findLinksCount).isEqualTo(15)
+        // Current count: 2 populated policy-phase reads, 0 empty-target validation reads.
+        // Historical XD-1263 totals were 39 before batching and 15 after batching.
+        assertThat(findLinksCount).isEqualTo(2)
     }
 
     /**
@@ -468,7 +458,7 @@ class OnTargetDeletePolymorphicTest : DBTest() {
      * Leaf types register incoming-association metadata without requiring actual rows — the
      * pre-fix code fires one typed DB query per (sourceType, linkName) pair regardless.
      *
-     * Query breakdown (pre-fix):
+     * Historical query breakdown (before XD-1263):
      *
      *   processOnDeleteConstraints for TransRoot (2 phases):
      *     3 Mid types × 2 = 6
@@ -484,16 +474,19 @@ class OnTargetDeletePolymorphicTest : DBTest() {
      *
      *   Total BEFORE: 6 + 324 + 3 + 162 = 495
      *
-     * After the XD-1263 fix, processOnDeleteConstraints issues one untyped query per distinct
-     * linkName per invocation ("root" for TransRoot, "mid" for each Mid instance):
+     * After XD-1263 batching, processOnDeleteConstraints issued one untyped query per
+     * distinct linkName per invocation ("root" for TransRoot, "mid" for each Mid instance):
      *
      *   processOnDeleteConstraints TransRoot (2 phases × 1 linkName):     2
      *   processOnDeleteConstraints 54 Mid instances (2 phases × 1 linkName): 108
      *   checkIncomingLinks (unchanged):                                    165
      *
-     *   Total AFTER: 275
+     *   Historical XD-1263 total: 275
      *
-     * Update the assertion below from 495 to 275 after applying the Phase 1 fix.
+     * With the incoming-empty probe, TransRoot still has populated Mid links during both
+     * policy phases (2 queries). None of the 54 Mids has a Leaf instance, so their
+     * policy reads are skipped. CASCADE removes the Mid-to-root links before validation,
+     * so validation reads for the root and Mids are also skipped. Current total: 2.
      */
     @Test
     fun `findLinks query count for transitive multi-subtype cascade - baseline`() {
@@ -511,7 +504,7 @@ class OnTargetDeletePolymorphicTest : DBTest() {
 
         val findLinksCount = GremlinQueryCollector.countSince(before) { "FollowLink" in it }
 
-        assertThat(findLinksCount).isEqualTo(275)
+        assertThat(findLinksCount).isEqualTo(2)
     }
 
     /**
@@ -527,8 +520,8 @@ class OnTargetDeletePolymorphicTest : DBTest() {
      * checkIncomingLinks (fires before the ConstraintsValidationException is thrown):
      *   13 source types × 1 call = 13 typed Labeled(FollowLink) queries
      *
-     * Total: 15 — same as the successful CASCADE delete, confirming that FAIL policy
-     * does not cause additional query fan-out compared to CASCADE or CLEAR.
+     * Total: 15. Unlike the successful CASCADE case (2 queries), the FAIL sources
+     * retain their incoming links, so validation still runs all 13 typed queries.
      */
     @Test
     fun `findLinks query count for FAIL policy blocked delete attempt`() {

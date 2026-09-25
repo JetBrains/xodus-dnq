@@ -62,7 +62,19 @@ object ConstraintsUtil: KLogging() {
                 .asSequence()
                 .filter { it.isRemoved }
                 .map { targetEntity ->
-                    val badIncomingLinks = targetEntity.incomingLinks
+                    // Reobserve after before-flush work, orphan removal, and on every replay.
+                    // No raw read is needed when metadata cannot produce an incoming query.
+                    val hasIncomingMetadata = if (targetEntity.javaClass == TransientEntityImpl::class.java) {
+                        val modelMetaData = (targetEntity as TransientEntityImpl).getStore().modelMetaData
+                        modelMetaData?.let { metadata ->
+                            metadata.getEntityMetaData(targetEntity.type)
+                                ?.getIncomingAssociations(metadata)?.isNotEmpty()
+                        } == true
+                    } else false
+                    val badIncomingLinks = if (hasIncomingMetadata &&
+                        (targetEntity as TransientEntityImpl).hasNoIncomingLinksForDeletion()) {
+                        emptyList()
+                    } else targetEntity.incomingLinks
                             .asSequence()
                             .mapNotNull { (linkName, linkedEntities) ->
                                 var incomingLinkViolation: IncomingLinkViolation? = null
@@ -176,7 +188,12 @@ object ConstraintsUtil: KLogging() {
 
         // incoming associations — one untyped DB query per distinct linkName, then dispatch in-memory
         val ytdbTransaction = session.transactionInternal as YTDBStoreTransaction
-        entityMetaData.getIncomingAssociations(modelMetaData)
+        val incomingAssociations = entityMetaData.getIncomingAssociations(modelMetaData)
+        // Outgoing policies and callbacks above can add links. Observe once per phase, only
+        // when incoming metadata can trigger a query; never reuse across phases or replay.
+        if (incomingAssociations.isNotEmpty() && entity.javaClass == TransientEntityImpl::class.java &&
+            (entity as TransientEntityImpl).hasNoIncomingLinksForDeletion()) return
+        incomingAssociations
                 .asSequence()
                 .flatMap { (oppositeType, linkNames) ->
                     linkNames.asSequence().map { linkName -> linkName to oppositeType }

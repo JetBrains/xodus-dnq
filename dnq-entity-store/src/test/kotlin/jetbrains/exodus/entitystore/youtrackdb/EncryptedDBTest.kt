@@ -20,6 +20,7 @@ import com.jetbrains.youtrackdb.api.DatabaseType
 import com.jetbrains.youtrackdb.api.exception.RecordNotFoundException
 import com.jetbrains.youtrackdb.internal.core.YouTrackDBEnginesManager
 import com.jetbrains.youtrackdb.internal.core.exception.ConfigurationException
+import com.jetbrains.youtrackdb.internal.core.exception.InconsistentStorageMetadataException
 import com.jetbrains.youtrackdb.internal.core.exception.StorageException
 import jetbrains.exodus.util.toByteArray
 import mu.KLogging
@@ -100,6 +101,7 @@ class EncryptedDBTest(val number: Int) {
 
         // Reopen the DB without the encryption key
         logger.info("Connect to db one more time without encryption")
+        var openedWithoutKey = false
         try {
             provider = YTDBDatabaseProviderFactory.createProvider(noEncryptionParams)
             provider.withSession { session ->
@@ -108,7 +110,7 @@ class EncryptedDBTest(val number: Int) {
                     print(vertex.size)
                 }
             }
-            Assert.fail("Should not open")
+            openedWithoutKey = true
         } catch (_: StorageException) {
             logger.info("As expected DB failed to initialize without key")
         } catch (_: RecordNotFoundException) {
@@ -116,16 +118,21 @@ class EncryptedDBTest(val number: Int) {
         } catch (_: AssertionError) {
             logger.info("As expected DB failed to initialize without key")
         } catch (_: ConfigurationException) {
-            // Since YTDB 0.5.0-dev-2026-07-29 the un-keyed open of an encrypted database may
-            // also fail on the storage-format-version probe: the version metadata cannot be
-            // decrypted, reads as garbage/<missing> and surfaces as ConfigurationException
-            // ("Storage format version <missing> ... predates the current format").
+            // Earlier YTDB snapshots may report unreadable encrypted storage metadata as a
+            // configuration error during the storage-format-version probe.
             logger.info("As expected DB failed to initialize without key")
+        } catch (e: InconsistentStorageMetadataException) {
+            Assert.assertEquals(
+                InconsistentStorageMetadataException.Inconsistency.STORAGE_LAYOUT_VERSION,
+                e.inconsistency()
+            )
+            logger.info("As expected DB rejected inconsistent storage-layout metadata without key")
         } catch (e: Throwable) {
             // SLF4J is NOP in tests: fail with the actual exception as the cause so it is
             // visible in the test report instead of an opaque "Wrong error".
             throw AssertionError("Wrong error: $e", e)
         }
+        Assert.assertFalse("Should not open", openedWithoutKey)
     }
 
     @After
