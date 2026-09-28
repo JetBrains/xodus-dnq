@@ -21,6 +21,7 @@ import com.jetbrains.youtrackdb.internal.core.gremlin.traversal.strategy.optimiz
 import com.jetbrains.youtrackdb.internal.core.gremlin.traversal.strategy.optimization.YTDBGraphStepStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.Order
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
+import org.apache.tinkerpop.gremlin.process.traversal.lambda.ValueTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.OrderGlobalStep
 import org.apache.tinkerpop.gremlin.process.traversal.util.DefaultTraversalStrategies
 import org.junit.Test
@@ -30,20 +31,20 @@ class GremlinCaseInsensitiveOrderStrategyTest {
     private val strategy = GremlinCaseInsensitiveOrderStrategy.instance()
 
     @Test
-    fun `rewrites direct and linked property orders and is idempotent`() {
+    fun `leaves direct property orders to YTDB and rewrites linked property orders`() {
         val direct = `__`.start<Any>().order().by("name", Order.desc)
         val linked = `__`.start<Any>().order()
             .by(`__`.out("manager").values<Any>("name"), Order.asc)
+        val directOrder = direct.asAdmin().steps.filterIsInstance<OrderGlobalStep<*, *>>().single()
+        val directComparator = directOrder.comparators.single()
+        val directModulator = directComparator.value0
+        assertThat(directModulator).isInstanceOf(ValueTraversal::class.java)
 
         strategy.apply(direct.asAdmin())
         strategy.apply(linked.asAdmin())
 
-        val directOrder = direct.asAdmin().steps.filterIsInstance<OrderGlobalStep<*, *>>().single()
-        val directComparator = directOrder.comparators.single()
         assertThat(directComparator.value1).isEqualTo(Order.desc)
-        assertThat(directComparator.value0.steps.map { it::class.java.simpleName })
-            .containsExactly("PropertiesStep", "ChooseStep")
-            .inOrder()
+        assertThat(directOrder.comparators.single().value0).isSameInstanceAs(directModulator)
 
         val linkedOrder = linked.asAdmin().steps.filterIsInstance<OrderGlobalStep<*, *>>().single()
         val linkedComparator = linkedOrder.comparators.single()
@@ -51,6 +52,9 @@ class GremlinCaseInsensitiveOrderStrategyTest {
         assertThat(linkedComparator.value0.steps.map { it::class.java.simpleName })
             .containsExactly("VertexStep", "PropertiesStep", "ChooseStep")
             .inOrder()
+
+        strategy.apply(linked.asAdmin())
+        assertThat(linkedOrder.comparators.single().value0).isSameInstanceAs(linkedComparator.value0)
 
         strategy.apply(direct.asAdmin())
         assertThat(directOrder.comparators.single().value0)

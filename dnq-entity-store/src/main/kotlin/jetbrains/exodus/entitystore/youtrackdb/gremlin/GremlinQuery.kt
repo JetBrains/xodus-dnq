@@ -90,7 +90,7 @@ sealed class GremlinQuery {
         admin.strategies = admin.strategies.clone().apply {
             addStrategies(
                 options,
-                GremlinCaseInsensitiveHasStrategy.instance(),
+//                GremlinCaseInsensitiveHasStrategy.instance(),
                 GremlinCaseInsensitiveOrderStrategy.instance()
             )
         }

@@ -28,7 +28,6 @@ import org.apache.tinkerpop.gremlin.process.traversal.lambda.ValueTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.OrderGlobalStep
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.PropertiesStep
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.AbstractTraversalStrategy
-import org.apache.tinkerpop.gremlin.structure.Element
 import org.apache.tinkerpop.gremlin.structure.PropertyType
 
 /**
@@ -75,18 +74,17 @@ class GremlinCaseInsensitiveOrderStrategy private constructor() :
     }
 
     /**
-     * Property-name `by()` modulators use [ValueTraversal], while linked-property sorts use an
-     * explicit traversal ending in [PropertiesStep]. Rewriting only those two shapes avoids
-     * changing arbitrary user comparators. An absent property remains unproductive so YTDB can
-     * expose it as a null sort key and apply the query's NULLS LAST policy.
+     * Plain property-name `by()` modulators use [ValueTraversal] and are left to YTDB's native
+     * order-collation strategy. Linked-property sorts use an explicit traversal ending in
+     * [PropertiesStep]; this workaround rewrites only that traversal shape. An absent property
+     * remains unproductive so YTDB can expose it as a null sort key and apply NULLS LAST.
      */
     @Suppress("UNCHECKED_CAST")
     private fun caseInsensitiveOrderTraversal(
         traversal: Traversal.Admin<*, *>
     ): Traversal.Admin<*, *>? {
         val propertyTraversal: GraphTraversal.Admin<Any, Any> = when (traversal) {
-            is ValueTraversal<*, *> ->
-                `__`.values<Element, Any>(traversal.propertyKey).asAdmin() as GraphTraversal.Admin<Any, Any>
+            is ValueTraversal<*, *> -> return null
 
             is GraphTraversal.Admin<*, *> -> {
                 val propertiesStep = traversal.endStep as? PropertiesStep<*> ?: return null

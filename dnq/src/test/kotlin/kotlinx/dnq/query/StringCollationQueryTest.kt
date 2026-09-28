@@ -16,6 +16,7 @@
 package kotlinx.dnq.query
 
 import com.google.common.truth.Truth.assertThat
+import com.jetbrains.youtrackdb.internal.core.gremlin.translator.step.AbstractMatchPlanStep
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQueryShape
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
@@ -25,6 +26,9 @@ import kotlinx.dnq.XdModel
 import kotlinx.dnq.XdNaturalEntityType
 import kotlinx.dnq.xdLink0_1
 import kotlinx.dnq.xdRequiredStringProp
+import org.apache.tinkerpop.gremlin.process.traversal.lambda.ValueTraversal
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.RangeGlobalStep
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.OrderGlobalStep
 import org.junit.Test
 
 class StringCollationUser(entity: Entity) : XdEntity(entity) {
@@ -91,18 +95,70 @@ class StringCollationQueryTest : DBTest() {
     @Test
     fun `sorting string property respects case insensitive collation with uppercase first value`() {
         store.transactional {
-            listOf("A", "b").forEach { name ->
+            listOf("c", "A", "e", "D", "b").forEach { name ->
                 StringCollationUser.new { this.name = name }
             }
 
-            val result = StringCollationUser.all()
+            val resultAsc = StringCollationUser.all()
                 .sortedBy(StringCollationUser::name)
                 .toList()
+            val resultDesc = StringCollationUser.all()
+                .sortedBy(StringCollationUser::name, asc = false)
+                .toList()
 
-            assertThat(result.map { it.name })
-                .containsExactly("A", "b")
+            assertThat(resultAsc.map { it.name })
+                .containsExactly("A", "b", "c", "D", "e")
+                .inOrder()
+
+            assertThat(resultDesc.map { it.name })
+                .containsExactly("e", "D", "c", "b", "A")
                 .inOrder()
         }
+    }
+
+    @Test
+    fun `sorting string property respects collation when MATCH translation declines`() {
+        store.transactional {
+            listOf("c", "A", "e", "D", "b").forEach { name ->
+                StringCollationUser.new { this.name = name }
+            }
+
+            val resultAsc = StringCollationUser.all()
+                .sortedBy(StringCollationUser::name)
+                .take(5)
+                .sortedBy(StringCollationUser::name)
+            val resultDesc = StringCollationUser.all()
+                .sortedBy(StringCollationUser::name)
+                .take(5)
+                .sortedBy(StringCollationUser::name, asc = false)
+
+            assertNativeSort(resultAsc, listOf("A", "b", "c", "D", "e"))
+            assertNativeSort(resultDesc, listOf("e", "D", "c", "b", "A"))
+        }
+    }
+
+    private fun assertNativeSort(query: XdQuery<StringCollationUser>, expectedNames: List<String>) {
+        val traversal = (query.entityIterable as YTDBEntityIterable).traversal().asAdmin()
+        val steps = traversal.steps
+        val orderIndices = steps.indices.filter { steps[it] is OrderGlobalStep<*, *> }
+        assertThat(orderIndices).hasSize(2)
+        val rangeIndex = steps.indexOfFirst { it is RangeGlobalStep<*> }
+        assertThat(rangeIndex).isGreaterThan(orderIndices.first())
+        assertThat(rangeIndex).isLessThan(orderIndices.last())
+
+        val orderSteps = steps.filterIsInstance<OrderGlobalStep<*, *>>()
+        orderSteps.forEach { step ->
+            assertThat(step.comparators).hasSize(1)
+            val modulator = step.comparators.single().value0
+            assertThat(modulator).isInstanceOf(ValueTraversal::class.java)
+            assertThat((modulator as ValueTraversal<*, *>).propertyKey).isEqualTo("name")
+        }
+
+        traversal.applyStrategies()
+        assertThat(traversal.steps.any { it is AbstractMatchPlanStep<*, *> }).isFalse()
+
+        val names = traversal.toList().map { it.value<String>("name") }
+        assertThat(names).containsExactlyElementsIn(expectedNames).inOrder()
     }
 
     @Test
