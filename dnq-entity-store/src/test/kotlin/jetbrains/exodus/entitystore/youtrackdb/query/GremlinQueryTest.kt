@@ -135,17 +135,17 @@ class GremlinQueryTest {
     }
 
     @Test
-    fun `MatchStringProp substring produces toLower and contains check`() {
+    fun `MatchStringProp substring uses collated has predicate`() {
         assertThat(
             MatchStringProp("prop", StringCompare.Substring, "val", isCollection = false, caseSensitive = false).toGremlin()
-        ).isEqualTo("""__.where(__.values("prop").toLower().is(TextP.containing("val")))""")
+        ).isEqualTo("""__.has("prop",TextP.containing("val"))""")
     }
 
     @Test
-    fun `MatchStringProp prefix produces toLower and startingWith check`() {
+    fun `MatchStringProp prefix uses collated has predicate`() {
         assertThat(
             MatchStringProp("prop", StringCompare.Prefix, "pre", isCollection = false, caseSensitive = false).toGremlin()
-        ).isEqualTo("""__.where(__.values("prop").toLower().is(TextP.startingWith("pre")))""")
+        ).isEqualTo("""__.has("prop",TextP.startingWith("pre"))""")
     }
 
     @Test
@@ -249,17 +249,17 @@ class GremlinQueryTest {
     }
 
     @Test
-    fun `MatchStringProp equal case-insensitive produces toLower and eq check`() {
+    fun `MatchStringProp equal case-insensitive uses collated has with original value`() {
         assertThat(
             MatchStringProp("name", StringCompare.Equal, "John", isCollection = false, caseSensitive = false).toGremlin()
-        ).isEqualTo("""__.where(__.values("name").toLower().is(P.eq("john")))""")
+        ).isEqualTo("""__.has("name",P.eq("John"))""")
     }
 
     @Test
-    fun `MatchStringProp suffix produces toLower and endingWith check`() {
+    fun `MatchStringProp suffix uses collated has predicate`() {
         assertThat(
             MatchStringProp("prop", StringCompare.Suffix, "ue", isCollection = false, caseSensitive = false).toGremlin()
-        ).isEqualTo("""__.where(__.values("prop").toLower().is(TextP.endingWith("ue")))""")
+        ).isEqualTo("""__.has("prop",TextP.endingWith("ue"))""")
     }
 
     @Test

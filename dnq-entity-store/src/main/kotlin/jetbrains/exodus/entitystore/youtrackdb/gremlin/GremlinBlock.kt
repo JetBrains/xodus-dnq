@@ -339,11 +339,7 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
         val isCollection: Boolean,
         val caseSensitive: Boolean,
     ) : GremlinBlock("str$op", BlockType.CONDITION) {
-        /**
-         * Builds the scalar property predicate used by the native, case-insensitive path.
-         * Keeping this construction here makes the residual-HasStep fallback use exactly the
-         * same null handling and lowercasing rules as ordinary string matching.
-         */
+        /** Builds the legacy traversal fallback for case-insensitive equality on a residual HasStep. */
         internal fun scalarFilterTraversal(): GraphTraversal<*, *> {
             val predicate = op.predicate(if (caseSensitive) matchValue else matchValue?.lowercase())
             return values<YTDBVertex, String>(property)
@@ -351,21 +347,18 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
                 .`is`(predicate)
         }
 
-        override fun traverse(g: YT): YT {
-            val predicate = op.predicate(if (caseSensitive) matchValue else matchValue?.lowercase())
-
-            return if (isCollection)
+        override fun traverse(g: YT): YT =
+            if (isCollection) {
+                val predicate = op.predicate(if (caseSensitive) matchValue else matchValue?.lowercase())
                 g.where(
                     values<YTDBVertex, String>(property)
                         .unfold<String>()
                         .let { if (caseSensitive) it else it.toLower() }
                         .`is`(predicate)
                 )
-            else if (caseSensitive)
-                g.has(property, predicate)
-            else
-                g.where(scalarFilterTraversal())
-        }
+            } else {
+                g.has(property, op.predicate(matchValue))
+            }
 
         override fun describe(s: StringBuilder): StringBuilder =
             s.append(property).append(" ").append(op.shortName).append(" ").append(matchValue)

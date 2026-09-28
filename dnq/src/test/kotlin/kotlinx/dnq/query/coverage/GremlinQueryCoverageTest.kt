@@ -202,22 +202,22 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q07 summary contains login] query  : $q07")
         println("[Q07 summary contains login] gremlin: ${q07.toGremlin()}")
         assertThat(q07.toGremlin())
-            .isEqualTo("""g.V().where(__.values("summary").toLower().is(TextP.containing("login"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("summary",TextP.containing("login")).hasLabel("Issue")""")
 
         // Q08: Issues where summary starts with "Bug:" (prefix, case-insensitive)
-        // The value is lowercased in the predicate since caseSensitive = false.
+        // The original value is passed to the property predicate; YTDB applies declared collation.
         val q08 = issues(MatchStringProp("summary", StringCompare.Prefix, "Bug:", isCollection = false, caseSensitive = false))
         println("[Q08 summary starts with Bug:] query  : $q08")
         println("[Q08 summary starts with Bug:] gremlin: ${q08.toGremlin()}")
         assertThat(q08.toGremlin())
-            .isEqualTo("""g.V().where(__.values("summary").toLower().is(TextP.startingWith("bug:"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("summary",TextP.startingWith("Bug:")).hasLabel("Issue")""")
 
         // Q09: Issues where summary ends with "crash" (suffix, case-insensitive)
         val q09 = issues(MatchStringProp("summary", StringCompare.Suffix, "crash", isCollection = false, caseSensitive = false))
         println("[Q09 summary ends with crash] query  : $q09")
         println("[Q09 summary ends with crash] gremlin: ${q09.toGremlin()}")
         assertThat(q09.toGremlin())
-            .isEqualTo("""g.V().where(__.values("summary").toLower().is(TextP.endingWith("crash"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("summary",TextP.endingWith("crash")).hasLabel("Issue")""")
 
         // Q10: Active users (active = true) — User label with a boolean property filter
         val q10 = users(PropEqual("active", true))
@@ -568,7 +568,7 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q37 subtasks or bug prefix] query  : $q37")
         println("[Q37 subtasks or bug prefix] gremlin: ${q37.toGremlin()}")
         assertThat(q37.toGremlin())
-            .isEqualTo("""g.V().or(__.where(__.out("parent_link")),__.where(__.values("summary").toLower().is(TextP.startingWith("bug:")))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().or(__.where(__.out("parent_link")),__.has("summary",TextP.startingWith("Bug:"))).hasLabel("Issue")""")
 
         // Q38: SortBy(open issues).union(SortBy(critical issues)) — O3 drops both sorts for union
         val q38 = SortBy(issues(PropEqual("status", "open")), byPriority)

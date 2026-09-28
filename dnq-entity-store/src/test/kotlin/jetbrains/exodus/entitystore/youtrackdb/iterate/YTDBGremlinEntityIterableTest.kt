@@ -1050,25 +1050,25 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
-    fun `findContaining produces toLower contains traversal`() {
+    fun `findContaining uses collated contains predicate`() {
         givenTestCase()
 
         withStoreTx { tx ->
             val issues = tx.findContaining(Issues.CLASS, "name", "issue", true)
 
-            checkGremlin(issues, """g.V().where(__.values("name").toLower().is(TextP.containing("issue"))).hasLabel("Issue")""")
+            checkGremlin(issues, """g.V().has("name",TextP.containing("issue")).hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1", "issue2", "issue3")
         }
     }
 
     @Test
-    fun `findStartingWith produces toLower startingWith traversal`() {
+    fun `findStartingWith uses collated startsWith predicate`() {
         givenTestCase()
 
         withStoreTx { tx ->
             val issues = tx.findStartingWith(Issues.CLASS, "name", "issu")
 
-            checkGremlin(issues, """g.V().where(__.values("name").toLower().is(TextP.startingWith("issu"))).hasLabel("Issue")""")
+            checkGremlin(issues, """g.V().has("name",TextP.startingWith("issu")).hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1", "issue2", "issue3")
         }
     }

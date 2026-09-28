@@ -16,6 +16,7 @@
 package jetbrains.exodus.query
 
 import com.google.common.truth.Truth.assertThat
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType as YTDBPropertyType
 import io.mockk.every
 import io.mockk.mockk
 import jetbrains.exodus.entitystore.Entity
@@ -151,8 +152,12 @@ class YTDBGremlinEngineTest(
     fun `should query property contains (string)`() {
         // Given
         val test = givenTestCase()
+        declareCaseInsensitiveStringProperty("caseInsensitive")
         val engine = givenOQueryEngine()
-        withStoreTx { test.issue2.setProperty("case", "Find me if YOU can") }
+        withStoreTx {
+            test.issue2.setProperty("case", "Find me if YOU can")
+            test.issue2.setProperty("caseInsensitive", "Find me if YOU can")
+        }
 
         // When
         withStoreTx { tx ->
@@ -160,13 +165,13 @@ class YTDBGremlinEngineTest(
                 iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "YOU", false)
             )
             val issuesIgnoreCase = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "yOu", true)
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("caseInsensitive", "yOu", true)
             )
             val issuesIgnoreNotIgnoreCase = engine.query(
                 iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "yOu", false)
             )
             val empty = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "not", true)
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("caseInsensitive", "not", true)
             )
 
             // Then
@@ -229,15 +234,16 @@ class YTDBGremlinEngineTest(
     fun `should query property starts with`() {
         // Given
         val test = givenTestCase()
+        declareCaseInsensitiveStringProperty("caseInsensitive")
         val engine = givenOQueryEngine()
-        withStoreTx { test.issue2.setProperty("case", "Find me if YOU can") }
+        withStoreTx { test.issue2.setProperty("caseInsensitive", "Find me if YOU can") }
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("case", "Find"))
+            val issues = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("caseInsensitive", "Find"))
             val issuesOtherCase =
-                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("case", "find"))
-            val empty = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("case", "you"))
+                engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("caseInsensitive", "find"))
+            val empty = engine.query(iterableGetter(engine, tx), "Issue", NodeFactory.hasPrefix("caseInsensitive", "you"))
 
             // Then
             assertNamesExactly(issues, "issue2")
@@ -250,17 +256,20 @@ class YTDBGremlinEngineTest(
     fun `should query string properties correctly`() {
         // Given
         val test = givenTestCase()
+        declareCaseInsensitiveStringProperty("caseInsensitive")
         val engine = givenOQueryEngine()
         withStoreTx {
             test.issue2.setProperty("case", "Find me if YOU can")
             test.issue3.setProperty("case", "find me IF you CAN")
+            test.issue2.setProperty("caseInsensitive", "Find me if YOU can")
+            test.issue3.setProperty("caseInsensitive", "find me IF you CAN")
         }
 
         withStoreTx { tx ->
             assertNamesExactly(
                 engine.query(
                     iterableGetter(engine, tx), "Issue",
-                    NodeFactory.stringPropEqual("case", "find me if you can", ignoreCase = true)
+                    NodeFactory.stringPropEqual("caseInsensitive", "find me if you can", ignoreCase = true)
                 ),
                 "issue2", "issue3"
             )
@@ -871,6 +880,14 @@ class YTDBGremlinEngineTest(
             // As sorted by project name
             assertOrderedNamesExactly(issuesDesc, "issue3", "issue2", "issue1")
             assertOrderedNamesExactly(issuesAsc, "issue1", "issue2", "issue3")
+        }
+    }
+
+    private fun declareCaseInsensitiveStringProperty(propertyName: String) {
+        withSession { session ->
+            val issueClass = session.schema.getClass(Issues.CLASS)
+                ?: error("${Issues.CLASS} schema class is missing")
+            issueClass.createProperty(propertyName, YTDBPropertyType.STRING).setCollate("ci")
         }
     }
 
