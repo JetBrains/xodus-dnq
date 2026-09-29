@@ -247,6 +247,18 @@ class YTDBStoreTransactionImpl(
         g().V(id).drop().iterate()
     }
 
+    override fun deleteEntity(id: EntityId) {
+        val ridEntityId = store.resolveEntityId(id)
+        requireActiveTransaction()
+        val vertex = try {
+            activeYtdbSession().loadVertex(ridEntityId.asOId())
+        } catch (rnf: RecordNotFoundException) {
+            throw EntityRemovedInDatabaseException(ridEntityId.getTypeName(), ridEntityId, rnf)
+        }
+        requireActiveWritableTransaction()
+        vertex.delete()
+    }
+
     override fun deleteEdge(id: RID) {
         g().E(id).drop().iterate()
     }

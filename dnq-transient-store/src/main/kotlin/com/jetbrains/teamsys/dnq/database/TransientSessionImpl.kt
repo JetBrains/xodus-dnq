@@ -760,8 +760,7 @@ class TransientSessionImpl(
 
     private fun performDeferredEntitiesDeletion() {
         changesTracker.getRemovedEntitiesIds().forEach {
-            //TODO optimize it. We do not need to load entity to remove it
-            persistentStore.currentTransaction?.getEntity(it)?.delete()
+            persistentStore.currentTransaction?.asYTDBTransaction()?.deleteEntity(it)
         }
     }
 

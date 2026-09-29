@@ -641,6 +641,110 @@ class YTDBStoreTransactionTest : OTestMixin {
     }
 
     @Test
+    fun `deleteEntity() deletes by resolved and by unresolved id and leaves others`() {
+        val test = givenTestCase()
+        val unresolved = PersistentEntityId(test.issue2.id.typeId, test.issue2.id.localId)
+
+        withStoreTx { tx ->
+            tx.deleteEntity(test.issue1.id)
+            tx.deleteEntity(unresolved)
+        }
+
+        withStoreTx { tx ->
+            assertNamesExactly(tx.getAll(Issues.CLASS), "issue3")
+        }
+    }
+
+    @Test
+    fun `deleteEntity() removes incident edges and keeps the opposite vertex`() {
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            tx.addIssueToProject(test.issue1, test.project1)
+            tx.addIssueToProject(test.issue2, test.project1)
+        }
+
+        fun YTDBStoreTransaction.edgeCount() = (g().E().count().next() as Long)
+        val edgesBefore = withStoreTx { it.edgeCount() }
+
+        withStoreTx { tx -> tx.deleteEntity(test.issue1.id) }
+
+        withStoreTx { tx ->
+            // issue1 had InProject and HasIssue edges; both are gone with it
+            assertEquals(edgesBefore - 2, tx.edgeCount())
+            val project = tx.getEntity(test.project1.id)
+            assertNamesExactly(project.getLinks(Projects.Links.HAS_ISSUE), "issue2")
+        }
+    }
+
+    @Test
+    fun `deleteEntity() deletes an entity created in the same transaction`() {
+        givenTestCase()
+
+        withStoreTx { tx ->
+            val fresh = tx.createIssue("fresh")
+            tx.deleteEntity(fresh.id)
+        }
+
+        withStoreTx { tx ->
+            assertNamesExactly(tx.getAll(Issues.CLASS), "issue1", "issue2", "issue3")
+        }
+    }
+
+    @Test
+    fun `deleteEntity() throws EntityRemovedInDatabaseException for a missing entity`() {
+        val aId = youTrackDb.createIssue("A").id
+        withStoreTx { tx -> tx.deleteEntity(aId) }
+
+        withStoreTx { tx ->
+            // resolved id of an already deleted record
+            assertFailsWith<EntityRemovedInDatabaseException> { tx.deleteEntity(aId) }
+            // id that cannot be resolved at all
+            assertFailsWith<EntityRemovedInDatabaseException> {
+                tx.deleteEntity(PersistentEntityId(300, 300))
+            }
+        }
+    }
+
+    @Test
+    fun `deleteEntity() is forbidden in a read-only transaction`() {
+        val aId = youTrackDb.createIssue("A").id
+        val tx = youTrackDb.store.beginReadonlyTransaction() as YTDBStoreTransaction
+        try {
+            assertFailsWith<IllegalStateException> { tx.deleteEntity(aId) }
+        } finally {
+            tx.abort()
+        }
+
+        withStoreTx { assertNamesExactly(it.getAll(Issues.CLASS), "A") }
+    }
+
+    @Test
+    fun `deleteEntity() reports a missing entity before the read-only violation`() {
+        val aId = youTrackDb.createIssue("A").id
+        withStoreTx { tx -> tx.deleteEntity(aId) }
+
+        val tx = youTrackDb.store.beginReadonlyTransaction() as YTDBStoreTransaction
+        try {
+            assertFailsWith<EntityRemovedInDatabaseException> { tx.deleteEntity(aId) }
+        } finally {
+            tx.abort()
+        }
+    }
+
+    @Test
+    fun `deleteEntity() twice in one transaction throws EntityRemovedInDatabaseException`() {
+        val aId = youTrackDb.createIssue("A").id
+
+        withStoreTx { tx ->
+            tx.deleteEntity(aId)
+            assertFailsWith<EntityRemovedInDatabaseException> { tx.deleteEntity(aId) }
+            assertFailsWith<EntityRemovedInDatabaseException> {
+                tx.deleteEntity(PersistentEntityId(aId.typeId, aId.localId))
+            }
+        }
+    }
+
+    @Test
     fun `getEntity() throws an exception if the entity not found`() {
         val aId = youTrackDb.createIssue("A").id
 

@@ -72,6 +72,16 @@ interface YTDBStoreTransaction : StoreTransaction {
     fun deleteVertex(id: RID)
     fun deleteEdge(id: RID)
 
+    /**
+     * Physically deletes the entity with the given [id] without materializing an entity wrapper.
+     *
+     * Equivalent to `getEntity(id).delete()`: an [id] that cannot be resolved, or whose record is
+     * missing or already deleted in this transaction, throws
+     * [jetbrains.exodus.entitystore.EntityRemovedInDatabaseException]. Missing entities are reported
+     * before the read-only check.
+     */
+    fun deleteEntity(id: EntityId)
+
     override fun getEntity(id: EntityId): YTDBVertexEntity
 
     fun getBlob(rid: RID): Blob
