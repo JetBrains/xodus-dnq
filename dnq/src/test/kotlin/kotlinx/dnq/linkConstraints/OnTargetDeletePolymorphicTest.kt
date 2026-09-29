@@ -518,10 +518,11 @@ class OnTargetDeletePolymorphicTest : DBTest() {
      *   2 untyped FollowLink queries — FAIL sources are fetched but not acted on
      *
      * checkIncomingLinks (fires before the ConstraintsValidationException is thrown):
-     *   13 source types × 1 call = 13 typed Labeled(FollowLink) queries
+     *   the 13 source types share the link name "target", so one untyped FollowLink query
+     *   is dispatched by source type in memory (13 typed queries before XD-1297 candidate 1)
      *
-     * Total: 15. Unlike the successful CASCADE case (2 queries), the FAIL sources
-     * retain their incoming links, so validation still runs all 13 typed queries.
+     * Total: 3. Unlike the successful CASCADE case (2 queries), the FAIL sources
+     * retain their incoming links, so validation still reads them once.
      */
     @Test
     fun `findLinks query count for FAIL policy blocked delete attempt`() {
@@ -541,7 +542,7 @@ class OnTargetDeletePolymorphicTest : DBTest() {
         }
 
         val findLinksCount = GremlinQueryCollector.countSince(before) { "FollowLink" in it }
-        assertThat(findLinksCount).isEqualTo(15)
+        assertThat(findLinksCount).isEqualTo(3)
     }
 
     // ---- onTargetDelete FAIL tests -------------------------------------------

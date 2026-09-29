@@ -74,26 +74,7 @@ object ConstraintsUtil: KLogging() {
                     val badIncomingLinks = if (hasIncomingMetadata &&
                         (targetEntity as TransientEntityImpl).hasNoIncomingLinksForDeletion()) {
                         emptyList()
-                    } else targetEntity.incomingLinks
-                            .asSequence()
-                            .mapNotNull { (linkName, linkedEntities) ->
-                                var incomingLinkViolation: IncomingLinkViolation? = null
-                                linkedEntities
-                                        .asSequence()
-                                        .filterIsInstance<TransientEntity>()
-                                        .filter { sourceEntity -> !sourceEntity.isRemoved && targetEntity !in sourceEntity.getRemovedLinks(linkName) }
-                                        .takeWhile { sourceEntity ->
-                                            val violation = incomingLinkViolation
-                                                    ?: createIncomingLinkViolation(sourceEntity, linkName)
-                                                            .also { newViolation ->
-                                                                incomingLinkViolation = newViolation
-                                                            }
-                                            violation.tryAddCause(sourceEntity)
-                                        }
-                                        .toList()
-                                incomingLinkViolation
-                            }
-                            .toList()
+                    } else collectIncomingLinkViolations(targetEntity)
                     targetEntity to badIncomingLinks
                 }
                 .filter { (_, badIncomingLinks) -> badIncomingLinks.isNotEmpty() }
@@ -105,6 +86,96 @@ object ConstraintsUtil: KLogging() {
         return linkSource.lifecycle
                 ?.createIncomingLinkViolation(linkName, linkSource)
                 ?: IncomingLinkViolation(linkName)
+    }
+
+    /**
+     * One violation per metadata `(source type, link name)` pair that has at least one live source,
+     * in `incomingLinks` order. Lifecycle factories run only after every read finished and in pair
+     * order, so grouping the reads does not change their order.
+     */
+    private fun collectIncomingLinkViolations(target: TransientEntity): List<IncomingLinkViolation> {
+        val linkSources = if (target is TransientEntityImpl) {
+            groupedIncomingSources(target)
+        } else {
+            target.incomingLinks.map { (linkName, sources) ->
+                linkName to liveIncomingSources(target, linkName, sources.asSequence())
+            }
+        }
+        return linkSources.mapNotNull { (linkName, sources) ->
+            var violation: IncomingLinkViolation? = null
+            for (source in sources) {
+                val current = violation
+                    ?: createIncomingLinkViolation(source, linkName).also { violation = it }
+                if (!current.tryAddCause(source)) break
+            }
+            violation
+        }
+    }
+
+    /**
+     * The first sources of [sources] that still reference [target] through [linkName], stopping after
+     * the one that overflows the violation report. Never reads further than the report needs.
+     */
+    private fun liveIncomingSources(
+            target: TransientEntity,
+            linkName: String,
+            sources: Sequence<Entity>): List<TransientEntity> =
+        sources
+                .filterIsInstance<TransientEntity>()
+                .filter { source -> !source.isRemoved && target !in source.getRemovedLinks(linkName) }
+                .take(MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW + 1)
+                .toList()
+
+    private class IncomingPairScan(val linkName: String, val declaredType: String, modelMetaData: ModelMetaData) {
+        // A typed polymorphic read returns instances of the type and of all its subtypes.
+        val sourceTypes: Set<String> = HashSet<String>().apply {
+            add(declaredType)
+            modelMetaData.getEntityMetaData(declaredType)?.allSubTypes?.let(::addAll)
+        }
+        val live = ArrayList<TransientEntity>()
+        val isFull: Boolean get() = live.size > MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW
+    }
+
+    /**
+     * Live incoming sources for every `(source type, link name)` pair, in the order of
+     * `incomingLinks`. Pairs sharing a link name are served by a single untyped read that is
+     * dispatched by source type in memory; a lone pair keeps its typed read. Each pair keeps at most
+     * as many sources as its violation report can use, and the read stops once all pairs are full.
+     */
+    private fun groupedIncomingSources(target: TransientEntityImpl): List<Pair<String, List<TransientEntity>>> {
+        val store = target.getStore()
+        val modelMetaData = store.modelMetaData ?: return emptyList()
+        val incomingAssociations = modelMetaData.getEntityMetaData(target.type)
+            ?.getIncomingAssociations(modelMetaData) ?: return emptyList()
+        val session = store.threadSessionOrThrow
+        val scans = incomingAssociations.flatMap { (sourceType, linkNames) ->
+            linkNames.map { linkName -> IncomingPairScan(linkName, sourceType, modelMetaData) }
+        }
+        scans.groupBy { it.linkName }.forEach { (linkName, group) ->
+            if (group.size == 1) {
+                val scan = group.single()
+                scan.live += liveIncomingSources(
+                    target, linkName, session.findLinks(scan.declaredType, target, linkName).asSequence())
+            } else {
+                val sources = session.createPersistentEntityIterableWrapper(
+                    (session.transactionInternal as YTDBStoreTransaction).findLinksUntyped(target, linkName))
+                for (source in sources) {
+                    if (source !is TransientEntity) continue
+                    val sourceType = source.type
+                    var stillReferences: Boolean? = null
+                    for (scan in group) {
+                        if (scan.isFull || sourceType !in scan.sourceTypes) continue
+                        val referenced = stillReferences
+                            ?: (!source.isRemoved && target !in source.getRemovedLinks(linkName))
+                                .also { stillReferences = it }
+                        if (!referenced) break
+                        scan.live += source
+                    }
+                    if (group.all { it.isFull }) break
+                }
+            }
+        }
+        return scans.map { it.linkName to it.live }
     }
 
     private fun createIncomingLinksException(targetEntity: TransientEntity, badIncomingLinks: List<IncomingLinkViolation>): DataIntegrityViolationException {

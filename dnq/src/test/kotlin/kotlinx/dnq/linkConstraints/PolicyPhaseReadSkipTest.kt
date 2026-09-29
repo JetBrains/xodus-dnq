@@ -172,8 +172,8 @@ class PolicyPhaseReadSkipTest : DBTest() {
         GremlinQueryCollector.enableForTests()
         val before = GremlinQueryCollector.snapshot()
         assertFailsWith<ConstraintsValidationException> { transactional { target.delete() } }
-        // Mutation-phase read (1) + typed validation reads for the two source types (2).
-        assertThat(followLinkSince(before, "IN", "mixLink")).isEqualTo(3)
+        // Mutation-phase read (1) + one grouped validation read shared by the two source types (1).
+        assertThat(followLinkSince(before, "IN", "mixLink")).isEqualTo(2)
         transactional {
             assertThat(MixTarget.all().toList()).containsExactly(target)
             assertThat(fail.mixLink).isEqualTo(target)

@@ -19,7 +19,7 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.core.dataStructures.NanoSet
 import jetbrains.exodus.entitystore.Entity
 
-private const val MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW = 10
+internal const val MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW = 10
 
 open class IncomingLinkViolation(val linkName: String) {
     private val entitiesCausedViolation = ArrayList<Entity>(MAXIMUM_BAD_LINKED_ENTITIES_TO_SHOW)
