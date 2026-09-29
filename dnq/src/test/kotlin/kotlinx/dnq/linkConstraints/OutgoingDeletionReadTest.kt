@@ -157,7 +157,7 @@ class OutgoingDeletionReadTest : DBTest() {
     }
 
     @Test
-    fun `ordinary deletion issues three incoming child queries`() {
+    fun `ordinary deletion issues one incoming child query`() {
         val root = transactional {
             val r = Root.new()
             r.children.add(FirstChild.new { name = "linked" })
@@ -166,7 +166,7 @@ class OutgoingDeletionReadTest : DBTest() {
         GremlinQueryCollector.enableForTests()
         val before = GremlinQueryCollector.snapshot()
         transactional { root.delete() }
-        assertThat(incomingSince(before)).isEqualTo(3)
+        assertThat(incomingSince(before)).isEqualTo(1)
         assertThat(outgoingSince(before)).isEqualTo(0)
     }
 
@@ -219,9 +219,10 @@ class OutgoingDeletionReadTest : DBTest() {
         assertThat(loser.isAlive).isFalse()
         assertThat(winnerError.get()).isNull()
         assertThat(loserError.get()).isNull()
-        // Ordinary deletion performs two incoming policy reads plus one validation read.
-        // Replay rechecks constraints in the new transaction, which must exceed that baseline.
-        assertThat(incomingSince(before)).isGreaterThan(3)
+        // Ordinary deletion performs one incoming validation read (Child's FAIL-only incoming
+        // policy is not read in the policy phases). Replay rechecks in the new transaction and
+        // must exceed that baseline.
+        assertThat(incomingSince(before)).isGreaterThan(1)
         assertThat(outgoingSince(before)).isEqualTo(0)
         // The winner's child did not exist in the loser's original deletion phase.
         transactional { assertThat(FirstChild.all().toList()).isEmpty() }

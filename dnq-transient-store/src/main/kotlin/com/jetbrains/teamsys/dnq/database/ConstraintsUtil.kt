@@ -186,27 +186,48 @@ object ConstraintsUtil: KLogging() {
                     processOnSourceDeleteConstrains(entity, associationEndMetaData, callDestructorsPhase, processed, checkEntityRemoved)
                 }
 
-        // incoming associations — one untyped DB query per distinct linkName, then dispatch in-memory
+        // incoming associations — one untyped DB query per distinct linkName, then dispatch in-memory.
+        // Groups whose source policies cannot act in this phase are not read at all (FAIL is enforced
+        // at validation, CLEAR acts only in the mutation phase).
         val ytdbTransaction = session.transactionInternal as YTDBStoreTransaction
         val incomingAssociations = entityMetaData.getIncomingAssociations(modelMetaData)
-        // Outgoing policies and callbacks above can add links. Observe once per phase, only
-        // when incoming metadata can trigger a query; never reuse across phases or replay.
-        if (incomingAssociations.isNotEmpty() && entity.javaClass == TransientEntityImpl::class.java &&
-            (entity as TransientEntityImpl).hasNoIncomingLinksForDeletion()) return
-        incomingAssociations
+        val actionableGroups = incomingAssociations
                 .asSequence()
                 .flatMap { (oppositeType, linkNames) ->
                     linkNames.asSequence().map { linkName -> linkName to oppositeType }
                 }
                 .groupBy({ it.first }, { it.second })
-                .forEach { (linkName, oppositeTypes) ->
-                    val allSources = session.createPersistentEntityIterableWrapper(
-                        ytdbTransaction.findLinksUntyped(entity, linkName)
-                    ).toList()
-                    for (oppositeType in oppositeTypes) {
-                        processOnTargetDeleteConstraints(entity, modelMetaData, oppositeType, linkName, allSources, session, callDestructorsPhase, processed)
-                    }
+                .filter { (linkName, oppositeTypes) ->
+                    oppositeTypes.any { hasOnTargetDeleteWork(modelMetaData, it, linkName, callDestructorsPhase) }
                 }
+        if (actionableGroups.isEmpty()) return
+        // Outgoing policies and callbacks above can add links. Observe once per phase, only
+        // when an incoming group can act; never reuse across phases or replay.
+        if (entity.javaClass == TransientEntityImpl::class.java &&
+            (entity as TransientEntityImpl).hasNoIncomingLinksForDeletion()) return
+        actionableGroups.forEach { (linkName, oppositeTypes) ->
+            val allSources = session.createPersistentEntityIterableWrapper(
+                ytdbTransaction.findLinksUntyped(entity, linkName)
+            ).toList()
+            for (oppositeType in oppositeTypes) {
+                processOnTargetDeleteConstraints(entity, modelMetaData, oppositeType, linkName, allSources, session, callDestructorsPhase, processed)
+            }
+        }
+    }
+
+    /**
+     * Whether [processOnTargetDeleteConstraints] can act for this source type in the given phase.
+     * Missing entity metadata is reported as work so that dispatch keeps throwing for it.
+     */
+    private fun hasOnTargetDeleteWork(
+            modelMetaData: ModelMetaData,
+            oppositeType: String,
+            linkName: String,
+            callDestructorsPhase: Boolean): Boolean {
+        val oppositeEntityMetaData = modelMetaData.getEntityMetaData(oppositeType) ?: return true
+        val associationEndMetaData = oppositeEntityMetaData.getAssociationEndMetaData(linkName) ?: return false
+        return associationEndMetaData.targetCascadeDelete ||
+                (associationEndMetaData.targetClearOnDelete && !callDestructorsPhase)
     }
 
     private fun processOnSourceDeleteConstrains(
@@ -215,6 +236,9 @@ object ConstraintsUtil: KLogging() {
             callDestructorsPhase: Boolean,
             processed: MutableSet<Entity>,
             checkEntityRemoved: Boolean) {
+        // The destructor phase only cascades; clearing targets is a mutation-phase action. Without
+        // a cascade obligation nothing would be done with the targets, so do not load them.
+        if (callDestructorsPhase && !associationEndMetaData.cascadesToTargets()) return
         when (associationEndMetaData.cardinality) {
             AssociationEndCardinality._0_1,
             AssociationEndCardinality._1 ->
@@ -233,7 +257,7 @@ object ConstraintsUtil: KLogging() {
             checkEntityRemoved: Boolean) {
         val target = AssociationSemantics.getToOne(source, associationEndMetaData.name, checkEntityRemoved)
         if (target != null && !EntityOperations.isRemoved(target)) {
-            if (associationEndMetaData.cascadeDelete || associationEndMetaData.oppositeEndOrNull?.targetCascadeDelete == true) {
+            if (associationEndMetaData.cascadesToTargets()) {
                 EntityOperations.remove(target, callDestructorsPhase, processed)
             } else if (!callDestructorsPhase) {
                 removeSingleLink(source, associationEndMetaData, associationEndMetaData.oppositeEndOrNull, target)
@@ -305,7 +329,7 @@ object ConstraintsUtil: KLogging() {
                 .asSequence()
                 .filterNot { EntityOperations.isRemoved(it) }
                 .forEach {
-                    if (associationEndMetaData.cascadeDelete || associationEndMetaData.oppositeEndOrNull?.targetCascadeDelete == true) {
+                    if (associationEndMetaData.cascadesToTargets()) {
                         EntityOperations.remove(it, callDestructorsPhase, processed)
                     } else if (!callDestructorsPhase) {
                         removeOneLinkFromMultipleLink(source, associationEndMetaData, associationEndMetaData.oppositeEndOrNull, it)
@@ -411,6 +435,9 @@ object ConstraintsUtil: KLogging() {
             null
         }
 
+    /** True when deleting the source must delete the link targets (own or opposite-end cascade). */
+    private fun AssociationEndMetaData.cascadesToTargets(): Boolean =
+        cascadeDelete || oppositeEndOrNull?.targetCascadeDelete == true
 
     @JvmStatic
     fun checkRequiredProperties(
