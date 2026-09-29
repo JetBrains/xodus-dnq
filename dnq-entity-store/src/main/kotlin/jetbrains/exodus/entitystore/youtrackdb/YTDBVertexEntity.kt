@@ -385,11 +385,9 @@ open class YTDBVertexEntity(
     }
 
     override fun deleteLinks(linkName: String) {
-        val tx = requireActiveWritableTransaction()
+        requireActiveWritableTransaction()
         val edgeClassName = edgeClassName(linkName)
-        safeVertex { edges(Direction.OUT, edgeClassName) }.forEach {
-            tx.deleteEdge(it.id() as RID)
-        }
+        safeVertex { edges(Direction.OUT, edgeClassName) }.forEach { it.remove() }
         safeVertex { deleteAllTargetEntityIdsIfLinkIndexed(linkName) }
     }
 
@@ -398,7 +396,7 @@ open class YTDBVertexEntity(
 
         val edge = findEdge(edgeClassName, ytdbVertex.id(), targetId)
         if (edge != null) {
-            deleteEdge(edge.id() as RID)
+            edge.remove()
             // if the link in a composite index, we have to update the complementary internal property.
             safeVertex { deleteTargetEntityIdIfLinkIndexed(linkName, targetId) }
             return true

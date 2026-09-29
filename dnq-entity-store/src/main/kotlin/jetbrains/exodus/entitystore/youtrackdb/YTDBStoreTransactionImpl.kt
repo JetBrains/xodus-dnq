@@ -259,10 +259,6 @@ class YTDBStoreTransactionImpl(
         vertex.delete()
     }
 
-    override fun deleteEdge(id: RID) {
-        g().E(id).drop().iterate()
-    }
-
     override fun loadVertexOrNull(id: RID): YTDBVertex? =
         g().V(id)
             .tryNext()

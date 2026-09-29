@@ -70,7 +70,6 @@ interface YTDBStoreTransaction : StoreTransaction {
     fun getVertex(id: YTDBEntityId): YTDBVertex
 
     fun deleteVertex(id: RID)
-    fun deleteEdge(id: RID)
 
     /**
      * Physically deletes the entity with the given [id] without materializing an entity wrapper.

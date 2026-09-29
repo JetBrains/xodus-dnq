@@ -690,6 +690,247 @@ class YTDBEntityTest : OTestMixin {
     }
 
     @Test
+    fun `deleteLink removes only the requested edge, is false when absent and persists after commit`() {
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+        }
+
+        val issueA = youTrackDb.createIssue("A")
+        val issueB = youTrackDb.createIssue("B")
+        val issueC = youTrackDb.createIssue("C")
+
+        youTrackDb.withStoreTx {
+            issueA.addLink(linkName, issueB)
+            issueA.addLink(linkName, issueC)
+            // reverse direction is a separate directed edge and must survive
+            issueB.addLink(linkName, issueA)
+        }
+
+        youTrackDb.withStoreTx {
+            assertTrue(issueA.deleteLink(linkName, issueB))
+            assertFalse(issueA.deleteLink(linkName, issueB))
+            assertFalse(issueA.deleteLink(linkName, issueB.id))
+            assertEquals(listOf(issueC.id), issueA.getLinks(linkName).map { it.id })
+        }
+
+        youTrackDb.withStoreTx {
+            assertEquals(listOf(issueC.id), issueA.getLinks(linkName).map { it.id })
+            assertEquals(listOf(issueA.id), issueB.getLinks(linkName).map { it.id })
+        }
+    }
+
+    @Test
+    fun `deleteLink removes a self link`() {
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+        }
+
+        val issueA = youTrackDb.createIssue("A")
+        youTrackDb.withStoreTx { issueA.addLink(linkName, issueA) }
+
+        youTrackDb.withStoreTx {
+            assertTrue(issueA.deleteLink(linkName, issueA))
+            assertEquals(0, issueA.getLinks(linkName).size())
+        }
+
+        youTrackDb.withStoreTx {
+            assertEquals(0, issueA.getLinks(linkName).size())
+        }
+    }
+
+    @Test
+    fun `deleteLinks removes every outgoing edge of a non-indexed link, keeps incoming edges and persists`() {
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+        }
+
+        val issueA = youTrackDb.createIssue("A")
+        val issueB = youTrackDb.createIssue("B")
+        val issueC = youTrackDb.createIssue("C")
+
+        youTrackDb.withStoreTx {
+            issueA.addLink(linkName, issueB)
+            issueA.addLink(linkName, issueC)
+            issueB.addLink(linkName, issueA)
+        }
+
+        youTrackDb.withStoreTx {
+            issueA.deleteLinks(linkName)
+            assertEquals(0, issueA.getLinks(linkName).size())
+            issueA.deleteLinks(linkName) // no edges left: no-op
+        }
+
+        youTrackDb.withStoreTx {
+            assertEquals(0, issueA.getLinks(linkName).size())
+            assertEquals(listOf(issueA.id), issueB.getLinks(linkName).map { it.id })
+        }
+    }
+
+    @Test
+    fun `setLink replaces the previous edge and keeps the complementary bag in sync`() {
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+            session.schema.getClass(Issues.CLASS)!!.createProperty(
+                linkTargetEntityIdPropertyName(linkName),
+                PropertyType.LINKBAG
+            )
+        }
+
+        val issueA = youTrackDb.createIssue("A")
+        val issueB = youTrackDb.createIssue("B")
+        val issueC = youTrackDb.createIssue("C")
+
+        youTrackDb.withStoreTx { issueA.setLink(linkName, issueB) }
+        youTrackDb.withStoreTx {
+            assertTrue(issueA.setLink(linkName, issueC))
+            assertEquals(listOf(issueC.id), issueA.getLinks(linkName).map { it.id })
+            val bag = issueA.vertex.raw().getTargetLocalEntityIds(linkName)
+            assertEquals(1, bag.size())
+            assertTrue(bag.contains(issueC.vertex.id()))
+        }
+        youTrackDb.withStoreTx {
+            assertEquals(listOf(issueC.id), issueA.getLinks(linkName).map { it.id })
+        }
+    }
+
+    private fun edgeCount(tx: YTDBStoreTransaction, linkName: String): Long =
+        tx.g().E().hasLabel(YTDBVertexEntity.edgeClassName(linkName)).count().next()
+
+    private fun incomingCount(tx: YTDBStoreTransaction, target: YTDBVertexEntity, linkName: String): Long =
+        tx.g().V(target.vertex.id()).inE(YTDBVertexEntity.edgeClassName(linkName)).count().next()
+
+    private fun createIndexedLink(linkName: String) {
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+            session.schema.getClass(Issues.CLASS)!!.createProperty(
+                linkTargetEntityIdPropertyName(linkName),
+                PropertyType.LINKBAG
+            )
+        }
+    }
+
+    @Test
+    fun `deleteLink removes the edge record and the target's incoming adjacency`() {
+        val linkName = "link"
+        createIndexedLink(linkName)
+
+        val issueA = youTrackDb.createIssue("A")
+        val issueB = youTrackDb.createIssue("B")
+        val issueC = youTrackDb.createIssue("C")
+        youTrackDb.withStoreTx {
+            issueA.addLink(linkName, issueB)
+            issueA.addLink(linkName, issueC)
+        }
+
+        youTrackDb.withStoreTx { tx ->
+            assertTrue(issueA.deleteLink(linkName, issueB.id))
+            assertEquals(1, edgeCount(tx, linkName))
+            assertEquals(0, incomingCount(tx, issueB, linkName))
+            assertEquals(1, incomingCount(tx, issueC, linkName))
+            val bag = issueA.vertex.raw().getTargetLocalEntityIds(linkName)
+            assertEquals(1, bag.size())
+            assertTrue(bag.contains(issueC.vertex.id()))
+        }
+        youTrackDb.withStoreTx { tx ->
+            assertEquals(1, edgeCount(tx, linkName))
+            assertEquals(0, incomingCount(tx, issueB, linkName))
+            assertEquals(1, incomingCount(tx, issueC, linkName))
+        }
+    }
+
+    @Test
+    fun `deleteLinks removes every edge record and target adjacency including a self link`() {
+        val linkName = "link"
+        createIndexedLink(linkName)
+
+        val issueA = youTrackDb.createIssue("A")
+        val issueB = youTrackDb.createIssue("B")
+        youTrackDb.withStoreTx {
+            issueA.addLink(linkName, issueA)
+            issueA.addLink(linkName, issueB)
+            issueB.addLink(linkName, issueA)
+        }
+
+        youTrackDb.withStoreTx { tx ->
+            issueA.deleteLinks(linkName)
+            assertEquals(1, edgeCount(tx, linkName)) // only B -> A remains
+            assertEquals(0, incomingCount(tx, issueB, linkName))
+            assertEquals(1, incomingCount(tx, issueA, linkName))
+            assertEquals(0, issueA.vertex.raw().getTargetLocalEntityIds(linkName).size())
+        }
+        youTrackDb.withStoreTx { tx ->
+            assertEquals(1, edgeCount(tx, linkName))
+            assertEquals(listOf(issueA.id), issueB.getLinks(linkName).map { it.id })
+        }
+    }
+
+    @Test
+    fun `links added and removed in the same transaction leave no trace`() {
+        val linkName = "link"
+        createIndexedLink(linkName)
+
+        val issueA = youTrackDb.createIssue("A")
+        val issueB = youTrackDb.createIssue("B")
+        val issueC = youTrackDb.createIssue("C")
+
+        youTrackDb.withStoreTx { tx ->
+            assertTrue(issueA.addLink(linkName, issueB))
+            assertTrue(issueA.deleteLink(linkName, issueB))
+
+            assertTrue(issueA.addLink(linkName, issueB))
+            assertTrue(issueA.addLink(linkName, issueC))
+            issueA.deleteLinks(linkName)
+
+            assertTrue(issueA.setLink(linkName, issueB))
+            assertTrue(issueA.setLink(linkName, issueC))
+
+            assertEquals(1, edgeCount(tx, linkName))
+            assertEquals(0, incomingCount(tx, issueB, linkName))
+            val bag = issueA.vertex.raw().getTargetLocalEntityIds(linkName)
+            assertEquals(1, bag.size())
+            assertTrue(bag.contains(issueC.vertex.id()))
+        }
+        youTrackDb.withStoreTx { tx ->
+            assertEquals(listOf(issueC.id), issueA.getLinks(linkName).map { it.id })
+            assertEquals(1, edgeCount(tx, linkName))
+            assertEquals(0, incomingCount(tx, issueB, linkName))
+        }
+    }
+
+    @Test
+    fun `aborted deleteLink and deleteLinks leave the committed edges untouched`() {
+        val linkName = "link"
+        createIndexedLink(linkName)
+
+        val issueA = youTrackDb.createIssue("A")
+        val issueB = youTrackDb.createIssue("B")
+        val issueC = youTrackDb.createIssue("C")
+        youTrackDb.withStoreTx {
+            issueA.addLink(linkName, issueB)
+            issueA.addLink(linkName, issueC)
+        }
+
+        val tx = youTrackDb.store.beginTransaction()
+        try {
+            assertTrue(issueA.deleteLink(linkName, issueB))
+            issueA.deleteLinks(linkName)
+            assertEquals(0, edgeCount(tx, linkName))
+        } finally {
+            tx.abort()
+        }
+
+        youTrackDb.withStoreTx { tx2 ->
+            assertEquals(2, edgeCount(tx2, linkName))
+            assertEquals(setOf(issueB.id, issueC.id), issueA.getLinks(linkName).map { it.id }.toSet())
+            assertEquals(2, issueA.vertex.raw().getTargetLocalEntityIds(linkName).size())
+        }
+    }
+
+    @Test
     fun `should replace a link correctly`() {
         val linkName = "link"
         youTrackDb.withSession { session ->
