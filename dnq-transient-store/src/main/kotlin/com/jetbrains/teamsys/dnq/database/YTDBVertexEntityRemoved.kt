@@ -71,7 +71,13 @@ class YTDBVertexEntityRemoved(
             addAll(linkChanges.keys)
         }
         for (linkName in linkNames) {
-            val ids = originalVertex.getLinks(linkName).asSequence().mapTo(LinkedHashSet()) { it.id }
+            // nextId() yields the same RIDEntityId.fromVertex(...) as next().id without allocating
+            // a YTDBVertexEntity wrapper per neighbor; iteration order is unchanged.
+            val ids = LinkedHashSet<EntityId>()
+            val linkIterator = originalVertex.getLinks(linkName).iterator()
+            while (linkIterator.hasNext()) {
+                ids.add(linkIterator.nextId()!!)
+            }
             linkChanges[linkName]?.let { change ->
                 change.removedEntities?.forEach { ids.add(it.id) }
                 change.deletedEntities?.forEach { ids.add(it.id) }

@@ -575,6 +575,84 @@ class TransientStoreSessionListenerTest : DBTest() {
     }
 
     @Test
+    fun `snapshot of removed entity keeps live links first and re-added links last`() {
+        // The snapshot's link-ID set is ordered: live targets in ascending id order, then links
+        // stripped earlier in the txn appended. getLink() on a to-many link exposes the first
+        // element, so the order is observable: after removing A from {A, B, C} the first snapshot
+        // element is B (the lowest live id), not A (the lowest overall id).
+        val (parent, ids) = store.transactional {
+            val three = LevelThreeEntity.new { name = "three" }
+            val twoA = LevelTwoEntity.new { name = "twoA" }
+            val twoB = LevelTwoEntity.new { name = "twoB" }
+            val twoC = LevelTwoEntity.new { name = "twoC" }
+            three.children.add(twoA)
+            three.children.add(twoB)
+            three.children.add(twoC)
+            Pair(three, listOf(twoA.entityId, twoB.entityId, twoC.entityId))
+        }
+        val (idA, idB, idC) = ids
+        assertTrue(idA < idB && idB < idC)
+        val originalA = store.transactional { parent.children.toList().first { it.name == "twoA" } }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val parentChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.REMOVE && it.transientEntity.id == parent.entityId
+            } ?: error("expected REMOVE change for parent")
+            assertEquals(idB, parentChange.snapshotEntity.getLink("children")?.id)
+            assertEquals(setOf(idA, idB, idC), parentChange.snapshotEntity.getLinks("children").map { it.id }.toSet())
+        }
+
+        store.transactional {
+            parent.children.remove(originalA)
+            parent.delete()
+        }
+        listener.check()
+    }
+
+    @Test
+    fun `snapshot of removed entity includes to-many targets that were deleted and unlinked before delete`() {
+        // Pre-txn children: {A, B, C}. In the same txn A is unlinked (LinkChange.removedEntities),
+        // B is deleted (CLEAR strips it: LinkChange.deletedEntities) and then the parent is deleted.
+        // The snapshot must contain all three, live target first (C), overlay targets after.
+        val (parent, ids) = store.transactional {
+            val three = LevelThreeEntity.new { name = "three" }
+            val twoA = LevelTwoEntity.new { name = "twoA" }
+            val twoB = LevelTwoEntity.new { name = "twoB" }
+            val twoC = LevelTwoEntity.new { name = "twoC" }
+            three.children.add(twoA)
+            three.children.add(twoB)
+            three.children.add(twoC)
+            Pair(three, listOf(twoA.entityId, twoB.entityId, twoC.entityId))
+        }
+        val (idA, idB, idC) = ids
+        val (childA, childB) = store.transactional {
+            val byName = parent.children.toList().associateBy { it.name }
+            Pair(byName.getValue("twoA"), byName.getValue("twoB"))
+        }
+
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            val parentChange = changes.singleOrNull {
+                it.changeType == EntityChangeType.REMOVE && it.transientEntity.id == parent.entityId
+            } ?: error("expected REMOVE change for parent")
+            assertEquals(idC, parentChange.snapshotEntity.getLink("children")?.id)
+            assertEquals(setOf(idA, idB, idC), parentChange.snapshotEntity.getLinks("children").map { it.id }.toSet())
+        }
+
+        store.transactional {
+            parent.children.remove(childA)
+            childB.delete()
+            parent.delete()
+        }
+        listener.check()
+    }
+
+    @Test
     fun `snapshot of removed entity should exclude to-one link added in same transaction`() {
         // Pre-txn the child has no parent. In the same txn we set parent and then
         // delete the child. The snapshot must reflect the pre-txn null — the link
