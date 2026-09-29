@@ -80,7 +80,8 @@ sealed class GremlinQuery {
     }
 
     fun start(gs: GraphTraversalSource): YT {
-        if (GremlinQueryCollector.enabled) GremlinQueryCollector.record(GremlinQueryShape.of(this))
+        val shape = if (GremlinQueryCollector.enabled) GremlinQueryShape.of(this) else null
+        if (shape != null) GremlinQueryCollector.record(shape)
         val traversal = startTraversal(gs).traversal
         // Attach query policy at the common root without changing traversal bytecode. Existing
         // source options are retained; DNQ overrides both sort directions to absolute NULLS LAST.
@@ -94,9 +95,7 @@ sealed class GremlinQuery {
                 GremlinCaseInsensitiveOrderStrategy.instance()
             )
         }
-        if (GremlinQueryTranslationGuard.enabled) {
-            GremlinQueryTranslationGuard.attach(traversal, GremlinQueryShape.of(this))
-        }
+        if (shape != null) admin.strategies.addStrategies(GremlinTranslationOutcomeStrategy(shape))
         return traversal
     }
 

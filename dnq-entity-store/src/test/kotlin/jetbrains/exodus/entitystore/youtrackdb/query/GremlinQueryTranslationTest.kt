@@ -18,9 +18,11 @@ package jetbrains.exodus.entitystore.youtrackdb.query
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.youtrackdb.internal.core.gremlin.translator.step.AbstractMatchPlanStep
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.HasLabel
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.HasLink
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.Sort
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirection
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQueryCollector
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQueryShape
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import jetbrains.exodus.entitystore.youtrackdb.testutil.OTestMixin
@@ -66,6 +68,40 @@ class GremlinQueryTranslationTest : OTestMixin {
         assertThat(query).isInstanceOf(GremlinQuery.SortBy::class.java)
         assertThat((query as GremlinQuery.SortBy).sortBlocks).hasSize(2)
         assertTranslationStatus(query, expectedTranslated = true)
+    }
+
+    @Test
+    fun `collector records translation outcomes and lets untranslated queries run`() {
+        GremlinQueryCollector.enableForTests()
+        val translated = GremlinQuery.all.then(HasLabel("Issue"))
+        val untranslated = GremlinQuery.Labeled(GremlinQuery.Where.of(HasLink("friend")), "BaseUser")
+
+        withStoreTx { tx ->
+            translated.start(tx.g()).asAdmin().applyStrategies()
+            val traversal = untranslated.start(tx.g())
+            traversal.count() // appended after start(): must still appear in the native shape
+            traversal.asAdmin().applyStrategies()
+        }
+
+        val outcomes = GremlinQueryCollector.outcomeReport()
+        val translatedEntry = outcomes.first { it.shape == GremlinQueryShape.of(translated) && it.translated }
+        assertThat(translatedEntry.nativeGremlinShape).contains("hasLabel")
+        assertThat(translatedEntry.nativeGremlinShape).doesNotContain("Issue")
+        assertThat(translatedEntry.executionExample).contains("Gremlin: g.V().hasLabel(\"Issue\")")
+        assertThat(translatedEntry.executionExample).contains("MatchPlanStep")
+        val notTranslated = outcomes.first {
+            it.shape == GremlinQueryShape.of(untranslated) && !it.translated &&
+                it.nativeGremlinShape.orEmpty().endsWith(".count()")
+        }
+        assertThat(notTranslated.nativeGremlinShape).contains("where")
+        assertThat(notTranslated.nativeGremlinShape).doesNotContain("friend_link")
+        assertThat(notTranslated.executionExample).contains("friend_link")
+        assertThat(GremlinQueryCollector.reportLines()).contains(
+            listOf(
+                "[${notTranslated.count}]", "NOT_TRANSLATED", notTranslated.shape,
+                notTranslated.nativeGremlinShape, notTranslated.executionExample
+            ).joinToString("\t").replace("\n", "\\n")
+        )
     }
 
     private fun assertTranslationStatus(query: GremlinQuery, expectedTranslated: Boolean) {

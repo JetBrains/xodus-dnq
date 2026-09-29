@@ -27,6 +27,9 @@ test {
         jvmArgs "-Ddnq.query.collector.enabled=true",
                 "-Ddnq.query.collector.output=/tmp/dnq-query-shapes.txt"
     }
+    if (project.hasProperty('gremlinToMatch')) {
+        systemProperty 'youtrackdb.query.gremlin.toMatchTranslator.enabled', project.property('gremlinToMatch')
+    }
 }
 
 tasks.register('testJar', Jar) {

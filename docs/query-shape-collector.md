@@ -21,7 +21,7 @@ test {
 | Property | Description |
 |----------|-------------|
 | `dnq.query.collector.enabled` | Set to `true` to activate collection. Default: disabled. |
-| `dnq.query.collector.output` | Path to write the report file. If omitted, output goes to stdout. |
+| `dnq.query.collector.output` | Path to write the report file. If omitted, output goes to stdout. `{pid}` is replaced by the JVM's process id, so JVMs forked during a test run do not overwrite each other's file. |
 
 The report is written automatically when the test JVM exits, after all test classes
 have completed. Each line is one unique query shape with its occurrence count,
@@ -39,6 +39,32 @@ To find all unoptimized queries in the output:
 ```bash
 grep Aggregate /tmp/query-shapes.txt
 ```
+
+### Translation outcomes
+
+While collection is enabled, DNQ also observes whether YouTrackDB translated each executed query to
+a MATCH statement. The outcomes follow the shape frequencies, after a `# translation outcomes` header,
+as one tab-separated line per distinct outcome with five columns:
+
+1. `[count]`
+2. `TRANSLATED` or `NOT_TRANSLATED`
+3. the DNQ shape
+4. the parameterized native TinkerPop Gremlin shape (built from the traversal bytecode, including steps
+   appended after `start()`; runtime values are `_args_n` placeholders). Untranslated outcomes are
+   distinguished by it; for translated ones it is the first execution's
+5. an execution example from the first execution seen, keeping its runtime values: the Gremlin script,
+   the final provider traversal and, for translated queries, the execution plan of the MATCH that will run
+   (and the MATCH statement when the planner recorded one); newlines are escaped as `\n`
+
+```
+# translation outcomes: [count]<TAB>OUTCOME<TAB>DNQ shape<TAB>native Gremlin shape<TAB>execution example
+[812]	TRANSLATED	Labeled(Where(PropEqual("status", ?)), "Issue")	g.V().has(_args_0,_args_1).hasLabel(_args_2)	Gremlin: g.V().has("status","open").hasLabel("Issue")\nFinal traversal: [YTDBMatchPlanStep($g2m_v0,ELEMENT)]\nExecution plan:\n+ PREFETCH $g2m_v0 …
+[40]	NOT_TRANSLATED	Labeled(Where(HasLink("assignee")), "Issue")	g.V().where(__.out(_args_0)).hasLabel(_args_1)	Gremlin: g.V().where(__.out("assignee_link")).hasLabel("Issue")\nFinal traversal: [YTDBGraphStep(vertex,[~label.eq(Issue)]), TraversalFilterStep([VertexStep(OUT,[assignee_link],edge)])]
+```
+
+Outcomes are recorded when provider strategies run, so a query that is built but never iterated has
+none, and a traversal that is cloned and re-executed is counted each time. Collection only observes
+queries; it never changes or fails them.
 
 ---
 
@@ -109,7 +135,7 @@ Dedup(Labeled(FollowLink(Labeled(Where(PropWithin("key", ?)), "Project"), IN, "p
 ## Notes
 
 - Collection is disabled by default; overhead when disabled is a single `@Volatile`
-  boolean read per executed query.
+  boolean read per executed query. When enabled, each query also carries a small observing
+  strategy; the native Gremlin script and execution example are rendered once per distinct outcome.
 - The report covers all queries executed across the entire test JVM lifetime, not
   per test class — this is intentional, giving the full picture in one file.
-- Gremlin string logging (one example string per shape) is a possible future addition.

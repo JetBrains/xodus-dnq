@@ -20,7 +20,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Collects a frequency distribution of executed [GremlinQuery] shapes.
+ * Collects a frequency distribution of executed [GremlinQuery] shapes, and the outcome of provider
+ * optimization (translated to YouTrackDB MATCH or not) for every executed query.
  *
  * ### JVM-wide collection (across all tests)
  *
@@ -28,10 +29,20 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * - `dnq.query.collector.enabled=true` — activates collection (default: disabled)
  * - `dnq.query.collector.output=<path>` — file to write the report to on JVM exit
- *   (default: stdout)
+ *   (default: stdout). `{pid}` in the path is replaced by the JVM's process id, so JVMs forked by a
+ *   test run do not overwrite each other's reports.
  *
  * The report is written automatically via a JVM shutdown hook when the test JVM exits,
  * so the output reflects the full accumulated data across all test classes.
+ *
+ * The report has two sections. The first lists `[count] <DNQ shape>` per started query. The second, after
+ * a `# translation outcomes` header, lists one tab-separated line per distinct outcome: `[count]`,
+ * `TRANSLATED` or `NOT_TRANSLATED`, the DNQ shape, the parameterized native Gremlin shape (runtime values
+ * are replaced by `_args_n`; untranslated outcomes are distinguished by it, for translated ones it is the
+ * first execution's) and an execution example from the first execution seen: the Gremlin script with its
+ * runtime values, the final provider traversal and, for translated queries, the MATCH execution plan
+ * (newlines escaped as `\n`). Outcomes are recorded when provider strategies are applied, so a query that
+ * is built but never iterated has none. Collection only observes queries; it never changes or fails them.
  *
  * Example Gradle test configuration:
  * ```
@@ -67,6 +78,8 @@ object GremlinQueryCollector {
     val enabled: Boolean get() = enabledByProperty || enabledForTests
 
     private val counts = ConcurrentHashMap<String, AtomicInteger>()
+    private val outcomes = ConcurrentHashMap<OutcomeKey, AtomicInteger>()
+    private val examples = ConcurrentHashMap<OutcomeKey, Example>()
 
     init {
         if (enabledByProperty) {
@@ -86,6 +99,22 @@ object GremlinQueryCollector {
     fun record(shape: String) {
         if (!enabled) return
         counts.computeIfAbsent(shape) { AtomicInteger(0) }.incrementAndGet()
+    }
+
+    internal fun recordOutcome(
+        shape: String,
+        translated: Boolean,
+        nativeGremlinShape: () -> String,
+        executionExample: () -> String
+    ) {
+        if (!enabled) return
+        // Untranslated outcomes are keyed by their native shape; translated ones only by DNQ shape, so their
+        // native shape is rendered for the first execution only (as is the costly execution example).
+        val key = OutcomeKey(shape, translated, if (translated) null else nativeGremlinShape())
+        outcomes.computeIfAbsent(key) { AtomicInteger(0) }.incrementAndGet()
+        if (!examples.containsKey(key)) {
+            examples.putIfAbsent(key, Example(key.nativeGremlinShape ?: nativeGremlinShape(), executionExample()))
+        }
     }
 
     /**
@@ -114,11 +143,40 @@ object GremlinQueryCollector {
             .sortedByDescending { it.value.get() }
             .map { ReportEntry(it.key, it.value.get()) }
 
+    /** Returns translation outcomes sorted by count descending. */
+    fun outcomeReport(): List<OutcomeEntry> =
+        outcomes.entries
+            .sortedByDescending { it.value.get() }
+            .map { (key, count) ->
+                val example = examples[key]
+                OutcomeEntry(
+                    key.shape, key.translated, key.nativeGremlinShape ?: example?.nativeGremlinShape,
+                    count.get(), example?.execution
+                )
+            }
+
+    /** Renders the report exactly as it is written on JVM exit. */
+    internal fun reportLines(): List<String> {
+        val shapeLines = report().map { (shape, count) -> "[$count] $shape" }
+        val outcomeEntries = outcomeReport()
+        if (outcomeEntries.isEmpty()) return shapeLines
+        val outcomeLines = outcomeEntries.map { entry ->
+            listOf(
+                "[${entry.count}]",
+                if (entry.translated) "TRANSLATED" else "NOT_TRANSLATED",
+                entry.shape,
+                entry.nativeGremlinShape.orEmpty(),
+                entry.executionExample.orEmpty()
+            ).joinToString("\t") { it.replace('\t', ' ').replace("\n", "\\n") }
+        }
+        return shapeLines + "" + OUTCOMES_HEADER + outcomeLines
+    }
+
     private fun writeReport() {
-        val entries = report()
-        if (entries.isEmpty()) return
-        val lines = entries.map { (shape, count) -> "[$count] $shape" }
+        val lines = reportLines()
+        if (lines.isEmpty()) return
         val outputPath = System.getProperty(PROP_OUTPUT)
+            ?.replace("{pid}", ProcessHandle.current().pid().toString())
         if (outputPath != null) {
             File(outputPath).writeText(lines.joinToString("\n"))
         } else {
@@ -127,4 +185,19 @@ object GremlinQueryCollector {
     }
 
     data class ReportEntry(val shape: String, val count: Int)
+
+    data class OutcomeEntry(
+        val shape: String,
+        val translated: Boolean,
+        val nativeGremlinShape: String?,
+        val count: Int,
+        val executionExample: String?
+    )
+
+    private data class OutcomeKey(val shape: String, val translated: Boolean, val nativeGremlinShape: String?)
+
+    private class Example(val nativeGremlinShape: String, val execution: String)
+
+    private const val OUTCOMES_HEADER =
+        "# translation outcomes: [count]<TAB>OUTCOME<TAB>DNQ shape<TAB>native Gremlin shape<TAB>execution example"
 }
