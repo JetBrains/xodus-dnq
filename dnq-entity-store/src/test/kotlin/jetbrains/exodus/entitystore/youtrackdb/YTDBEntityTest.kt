@@ -741,6 +741,71 @@ class YTDBEntityTest : OTestMixin {
     }
 
     @Test
+    fun `countLinksUpTo is the link size capped at the limit and sees uncommitted changes`() {
+        val linkName = "link"
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+        }
+
+        val source = youTrackDb.createIssue("source")
+        val targets = (1..5).map { youTrackDb.createIssue("target$it") }
+
+        youTrackDb.withStoreTx {
+            assertEquals(0, source.countLinksUpTo(linkName, 0))
+            assertEquals(0, source.countLinksUpTo(linkName, 2))
+            targets.take(1).forEach { source.addLink(linkName, it) }
+            assertEquals(1, source.countLinksUpTo(linkName, 2))
+            assertEquals(1, source.countLinksUpTo(linkName, 1))
+            targets.drop(1).forEach { source.addLink(linkName, it) }
+            assertEquals(0, source.countLinksUpTo(linkName, 0))
+            assertEquals(1, source.countLinksUpTo(linkName, 1))
+            assertEquals(2, source.countLinksUpTo(linkName, 2))
+            assertEquals(5, source.countLinksUpTo(linkName, 5))
+            assertEquals(5, source.countLinksUpTo(linkName, 100))
+        }
+
+        youTrackDb.withStoreTx {
+            assertEquals(2, source.countLinksUpTo(linkName, 2))
+            assertEquals(5, source.countLinksUpTo(linkName, Int.MAX_VALUE))
+            source.deleteLink(linkName, targets[0])
+            source.deleteLink(linkName, targets[1])
+            assertEquals(3, source.countLinksUpTo(linkName, 10))
+            source.deleteLinks(linkName)
+            assertEquals(0, source.countLinksUpTo(linkName, 10))
+            // a link that was never used
+            assertEquals(0, source.countLinksUpTo("unused", 2))
+            assertFailsWith<IllegalArgumentException> { source.countLinksUpTo(linkName, -1) }
+        }
+    }
+
+    @Test
+    fun `countLinksUpTo stops reading the adjacency after the limit`() {
+        val linkName = "link"
+        val source = youTrackDb.createIssue("source")
+        var consumed = 0
+        val vertex = mockk<YTDBVertex> {
+            every { vertices(any(), any()) } answers {
+                generateSequence { mockk<org.apache.tinkerpop.gremlin.structure.Vertex>() }
+                    .onEach { consumed++ }
+                    .take(1_000)
+                    .iterator()
+            }
+        }
+
+        youTrackDb.withStoreTx {
+            val entity = YTDBVertexEntity(source.id as RIDEntityId, vertex, source.getStore() as YTDBEntityStore)
+            assertEquals(2, entity.countLinksUpTo(linkName, 2))
+            assertEquals(2, consumed)
+            consumed = 0
+            assertEquals(1, entity.countLinksUpTo(linkName, 1))
+            assertEquals(1, consumed)
+            consumed = 0
+            assertEquals(0, entity.countLinksUpTo(linkName, 0))
+            assertEquals(0, consumed)
+        }
+    }
+
+    @Test
     fun `deleteLinks removes every outgoing edge of a non-indexed link, keeps incoming edges and persists`() {
         val linkName = "link"
         youTrackDb.withSession { session ->

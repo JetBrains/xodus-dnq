@@ -29,6 +29,7 @@ import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.database.exceptions.NullPropertyException
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import jetbrains.exodus.query.metadata.*
 import mu.KLogging
 
@@ -39,14 +40,10 @@ object ConstraintsUtil: KLogging() {
         val cardinality = md.cardinality
         if (cardinality == AssociationEndCardinality._0_n) return true
 
-        val links = e.entity.getLinks(md.name)
-
-        val iter = links.iterator()
-        var size = 0
-        while (size < 2 && iter.hasNext()) {
-            iter.next()
-            size++
-        }
+        // Only "none / one / more than one" matters, so read at most as many targets as the rule
+        // can distinguish: one for `_1_n`, two for `_0_1` and `_1`.
+        val limit = if (cardinality == AssociationEndCardinality._1_n) 1 else 2
+        val size = countLinksUpTo(e, md.name, limit)
 
         return when (cardinality) {
             AssociationEndCardinality._0_1 -> size <= 1
@@ -54,6 +51,24 @@ object ConstraintsUtil: KLogging() {
             AssociationEndCardinality._1_n -> size >= 1
             else -> throw IllegalArgumentException("Unknown cardinality [$cardinality]")
         }
+    }
+
+    /**
+     * `min(limit, number of targets)`. Only the plain persistent vertex has the bounded read;
+     * any other wrapper keeps its own `getLinks` dispatch.
+     */
+    private fun countLinksUpTo(e: TransientEntity, linkName: String, limit: Int): Int {
+        val persistent = e.entity
+        if (persistent.javaClass == YTDBVertexEntity::class.java) {
+            return (persistent as YTDBVertexEntity).countLinksUpTo(linkName, limit)
+        }
+        val iter = persistent.getLinks(linkName).iterator()
+        var size = 0
+        while (size < limit && iter.hasNext()) {
+            iter.next()
+            size++
+        }
+        return size
     }
 
     @JvmStatic

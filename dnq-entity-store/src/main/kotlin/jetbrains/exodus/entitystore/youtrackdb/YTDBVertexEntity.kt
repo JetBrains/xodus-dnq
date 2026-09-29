@@ -494,6 +494,27 @@ open class YTDBVertexEntity(
         return YTDBVertexEntityIterable(txn, links, store, linkName, this.oEntityId)
     }
 
+    /**
+     * Number of targets of [linkName], counted only up to [limit]: the result is
+     * `min(limit, getLinks(linkName).size())`.
+     *
+     * Cardinality validation needs to tell zero, one and "more than one" targets apart, not the
+     * targets themselves or their order. [getLinks] sorts the whole link by entity id, so its
+     * cost grows with the link degree; this walks the same live adjacency lazily and stops after
+     * [limit] targets, without sorting and without allocating wrappers.
+     */
+    fun countLinksUpTo(linkName: String, limit: Int): Int {
+        require(limit >= 0) { "limit must not be negative, but was $limit" }
+        requireActiveTx()
+        val targets = safeVertex { vertices(Direction.OUT, edgeClassName(linkName)) }
+        var count = 0
+        while (count < limit && targets.hasNext()) {
+            targets.next()
+            count++
+        }
+        return count
+    }
+
     //todo this method should return iterable of different type
     override fun getLinks(linkNames: Collection<String>): EntityIterable {
         requireActiveTx()

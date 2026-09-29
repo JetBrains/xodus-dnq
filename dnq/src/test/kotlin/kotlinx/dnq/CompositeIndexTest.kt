@@ -91,6 +91,17 @@ class CompositeIndexTest : DBTest() {
     }
 
     @Test
+    fun `link that is part of a composite index must not be empty`() {
+        val e = assertFailsWith<ConstraintsValidationException> {
+            store.transactional {
+                DefaultRole.new { key = "A"; name = "a" }
+            }
+        }
+        assertThat(e.causes.map { it.message })
+                .contains("Association [service] cannot be empty, because it's part of unique constraint")
+    }
+
+    @Test
     fun `definition of index by property of parent entity should be possible`() {
         store.transactional {
             Role.new { key = "A"; name = "a" }
