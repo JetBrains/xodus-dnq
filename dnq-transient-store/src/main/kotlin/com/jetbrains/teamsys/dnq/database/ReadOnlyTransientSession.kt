@@ -66,7 +66,7 @@ class ReadOnlyTransientSession(
 
     override fun newEntity(creator: EntityCreator) = throw UnsupportedOperationException()
 
-    override fun newLocalCopy(entity: TransientEntity, checkEntityRemoved: Boolean): TransientEntity = entity
+    override fun checkAttached(entity: TransientEntity, checkEntityRemoved: Boolean) {}
 
     override fun newEntity(persistentEntity: Entity): ReadonlyTransientEntity {
         if (persistentEntity !is YTDBVertexEntity)

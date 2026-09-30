@@ -81,6 +81,16 @@ interface YTDBStoreTransaction : StoreTransaction {
      */
     fun deleteEntity(id: EntityId)
 
+    /**
+     * Whether the entity with the given [id] exists in this transaction: it is present in the
+     * database, or created in this transaction, and not deleted in this transaction. An [id] that
+     * cannot be resolved is reported as not existing.
+     *
+     * Answers the same question as [getEntity] succeeding, but neither runs a traversal, nor reads
+     * the record's content, nor materializes an entity wrapper.
+     */
+    fun entityExists(id: EntityId): Boolean
+
     override fun getEntity(id: EntityId): YTDBVertexEntity
 
     fun getBlob(rid: RID): Blob

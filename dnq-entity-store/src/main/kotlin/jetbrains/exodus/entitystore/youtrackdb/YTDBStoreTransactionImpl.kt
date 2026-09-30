@@ -259,6 +259,12 @@ class YTDBStoreTransactionImpl(
         vertex.delete()
     }
 
+    override fun entityExists(id: EntityId): Boolean {
+        requireActiveTransaction()
+        val ridEntityId = store.resolveEntityIdOrNull(id) ?: return false
+        return activeYtdbSession().exists(ridEntityId.asOId())
+    }
+
     override fun loadVertexOrNull(id: RID): YTDBVertex? =
         g().V(id)
             .tryNext()

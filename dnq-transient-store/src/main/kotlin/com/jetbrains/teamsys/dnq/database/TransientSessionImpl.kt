@@ -593,41 +593,32 @@ class TransientSessionImpl(
     }
 
     /**
-     * Creates local copy of given entity in current session.
-     *
-     * @param entity
-     * @return
+     * Verifies that [entity] can be used in the current session, before any change is applied or
+     * queued. Nothing is copied: the persistent vertex is rebound to the active session lazily on
+     * every access.
+     * - [EntityRemovedException] if the entity was removed in this session (only when
+     *   [checkEntityRemoved]; deletion is deferred, so the vertex is still readable until flush);
+     * - [EntityRemovedInDatabaseException] if another transaction has deleted it. The database is
+     *   consulted once per entity per transaction/replay (see [loadedIds]), and, like the
+     *   same-session check, only when [checkEntityRemoved].
      */
-    override fun newLocalCopy(entity: TransientEntity, checkEntityRemoved: Boolean): TransientEntity {
-        assertOpen("create local copy")
-        val tracker = transientChangesTracker
-        return when {
-            entity.isReadonly || entity.isWrapper -> entity
-            checkEntityRemoved && tracker.isRemoved(entity.id) -> {
-                logger.warn { "Entity [$entity] was removed by you." }
-                throw EntityRemovedException(entity.id)
-            }
+    override fun checkAttached(entity: TransientEntity, checkEntityRemoved: Boolean) {
+        assertOpen("check entity is attached")
+        if (entity.isReadonly || entity.isWrapper) return
 
-            tracker.isNew(entity) -> entity
-            else -> {
-                entity
-//                val yTDBEntity = entity.entity
-//                if (yTDBEntity is YTDBVertexEntity &&
-//                    (yTDBEntity.isUnloaded ||
-//                            store.persistentStore.currentTransaction?.isNotBound(yTDBEntity) ?: true)
-//                ) {
-//                    try {
-//                        // load persistent entity from database by id
-//                        newEntityImpl(transactionInternal.getEntity(entity.id))
-//                    } catch (e: EntityRemovedInDatabaseException) {
-//                        logger.warn { "Entity [$entity] was removed in database, can't create local copy" }
-//                        throw e
-//                    }
-//
-//                } else {
-//                    entity
-//                }
+        val id = entity.id
+        if (checkEntityRemoved && transientChangesTracker.isRemoved(id)) {
+            logger.warn { "Entity [$entity] was removed by you." }
+            throw EntityRemovedException(id)
+        }
+        if (transientChangesTracker.isNew(entity)) return
+
+        if (checkEntityRemoved && id !in loadedIds) {
+            if (!transactionInternal.asYTDBTransaction().entityExists(id)) {
+                logger.warn { "Entity [$entity] was removed in database, can't use it" }
+                throw EntityRemovedInDatabaseException(entity.type, id)
             }
+            addLoadedId(id)
         }
     }
 
@@ -962,17 +953,6 @@ class TransientSessionImpl(
 
     override fun setUserObject(key: Any, value: Any) {
         userObjects[key] = value
-    }
-
-    internal fun newLocalCopySafe(entity: TransientEntity?): TransientEntity? {
-        if (entity == null) {
-            return null
-        }
-        return try {
-            newLocalCopy(entity)
-        } catch (ignore: EntityRemovedInDatabaseException) {
-            null
-        }
     }
 
     private fun addChange(change: () -> Boolean): () -> Boolean {

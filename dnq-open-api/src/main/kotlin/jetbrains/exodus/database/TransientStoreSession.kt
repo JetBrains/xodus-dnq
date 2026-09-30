@@ -60,9 +60,18 @@ interface TransientStoreSession : StoreTransaction {
     fun newEntity(creator: EntityCreator): TransientEntity
 
     /**
-     * Used by dnq to create session local copies of transient entities that come from another session
+     * Verifies that [entity], which may come from an earlier transaction or session, can be used in
+     * this session. Used by dnq before any read or change of such an entity, so a stale entity is
+     * rejected before anything is applied or queued. Nothing is copied or bound: the entity is used
+     * as it is afterwards.
+     *
+     * When [checkEntityRemoved]:
+     * - [jetbrains.exodus.database.exceptions.EntityRemovedException] if it was removed in this session;
+     * - [jetbrains.exodus.entitystore.EntityRemovedInDatabaseException] if another transaction
+     *   has deleted it.
+     * Read-only entities and wrappers are always accepted.
      */
-    fun newLocalCopy(entity: TransientEntity, checkEntityRemoved: Boolean = true): TransientEntity
+    fun checkAttached(entity: TransientEntity, checkEntityRemoved: Boolean = true)
 
     fun hasChanges(): Boolean
 

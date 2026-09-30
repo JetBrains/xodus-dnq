@@ -31,6 +31,7 @@ import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class YTDBStoreTransactionTest : OTestMixin {
@@ -741,6 +742,34 @@ class YTDBStoreTransactionTest : OTestMixin {
             assertFailsWith<EntityRemovedInDatabaseException> {
                 tx.deleteEntity(PersistentEntityId(aId.typeId, aId.localId))
             }
+        }
+    }
+
+    @Test
+    fun `entityExists() reports committed, new, deleted and unresolvable entities`() {
+        val aId = youTrackDb.createIssue("A").id
+        val bId = youTrackDb.createIssue("B").id
+        withStoreTx { tx -> tx.deleteEntity(bId) }
+
+        withStoreTx { tx ->
+            assertTrue(tx.entityExists(aId))
+            // an id that has to be resolved through the schema first
+            assertTrue(tx.entityExists(PersistentEntityId(aId.typeId, aId.localId)))
+            // deleted by an earlier transaction
+            assertFalse(tx.entityExists(bId))
+            assertFalse(tx.entityExists(PersistentEntityId(bId.typeId, bId.localId)))
+            // cannot be resolved at all
+            assertFalse(tx.entityExists(PersistentEntityId(300, 300)))
+
+            // created in this transaction, still has a temporary RID
+            val fresh = tx.createIssue("fresh")
+            assertTrue(tx.entityExists(fresh.id))
+
+            // deleted in this transaction, both a committed and a new entity
+            tx.deleteEntity(aId)
+            assertFalse(tx.entityExists(aId))
+            tx.deleteEntity(fresh.id)
+            assertFalse(tx.entityExists(fresh.id))
         }
     }
 

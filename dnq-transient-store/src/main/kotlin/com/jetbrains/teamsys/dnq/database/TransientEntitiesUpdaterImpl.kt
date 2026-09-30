@@ -18,6 +18,7 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator
 import jetbrains.exodus.database.TransientEntitiesUpdater
 import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import mu.KLogging
 import java.io.File
@@ -319,9 +320,9 @@ class TransientEntitiesUpdaterImpl(
         one: TransientEntity?
     ) {
         addChangeAndRun {
-            val m = session.newLocalCopySafe(many)
+            val m = attachedOrNull(many)
             if (m != null) {
-                val o = session.newLocalCopySafe(one)
+                val o = attachedOrNull(one)
                 val oldOne = m.getLink(manyToOneLinkName) as TransientEntity?
                 if (oldOne != null) {
                     deleteLinkInternal(oldOne, oneToManyLinkName, m)
@@ -335,6 +336,21 @@ class TransientEntitiesUpdaterImpl(
                 }
             }
             true
+        }
+    }
+
+    /**
+     * [entity] if it can be used in this session, `null` if it is `null` or another transaction has
+     * deleted it. Replaying [setManyToOne] must skip, or clear, an association whose endpoint
+     * disappeared concurrently. An entity removed in this session still throws.
+     */
+    private fun attachedOrNull(entity: TransientEntity?): TransientEntity? {
+        if (entity == null) return null
+        return try {
+            session.checkAttached(entity)
+            entity
+        } catch (ignore: EntityRemovedInDatabaseException) {
+            null
         }
     }
 
