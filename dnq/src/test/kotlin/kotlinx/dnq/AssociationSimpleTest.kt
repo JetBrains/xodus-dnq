@@ -18,6 +18,7 @@ package kotlinx.dnq
 import com.google.common.truth.Truth.assertThat
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.query.*
+import kotlinx.dnq.util.reattach
 import org.junit.Test
 import kotlin.concurrent.thread
 import kotlin.test.Ignore
@@ -73,6 +74,156 @@ class AssociationSimpleTest : DBTest() {
             assertThat(m1.thisThing).isEqualTo(m2)
             assertThat(m2.anotherThing).isEqualTo(m1)
         }
+    }
+
+    @Test
+    fun `saved self-link can be cleared at both ends and committed`() {
+        val thing = transactional {
+            MyThing.new().apply { anotherThing = this }
+        }
+
+        transactional {
+            assertThat(thing.anotherThing).isEqualTo(thing)
+            assertThat(thing.thisThing).isEqualTo(thing)
+
+            thing.anotherThing = null
+
+            assertThat(thing.anotherThing).isNull()
+            assertThat(thing.thisThing).isNull()
+        }
+
+        transactional {
+            assertThat(thing.anotherThing).isNull()
+            assertThat(thing.thisThing).isNull()
+        }
+    }
+
+    @Test
+    fun `saved self-link can be reassigned to an occupied saved target and committed`() {
+        val (thing, target, previousPartner) = transactional {
+            val thing = MyThing.new().apply { anotherThing = this }
+            val target = MyThing.new()
+            val previousPartner = MyThing.new().apply { anotherThing = target }
+            Triple(thing, target, previousPartner)
+        }
+
+        transactional {
+            assertThat(thing.anotherThing).isEqualTo(thing)
+            assertThat(thing.thisThing).isEqualTo(thing)
+            assertThat(target.thisThing).isEqualTo(previousPartner)
+            assertThat(previousPartner.anotherThing).isEqualTo(target)
+
+            thing.anotherThing = target
+
+            assertThat(thing.anotherThing).isEqualTo(target)
+            assertThat(thing.thisThing).isNull()
+            assertThat(target.anotherThing).isNull()
+            assertThat(target.thisThing).isEqualTo(thing)
+            assertThat(previousPartner.anotherThing).isNull()
+            assertThat(previousPartner.thisThing).isNull()
+        }
+
+        transactional {
+            assertThat(thing.anotherThing).isEqualTo(target)
+            assertThat(thing.thisThing).isNull()
+            assertThat(target.anotherThing).isNull()
+            assertThat(target.thisThing).isEqualTo(thing)
+            assertThat(previousPartner.anotherThing).isNull()
+            assertThat(previousPartner.thisThing).isNull()
+        }
+    }
+
+    @Test
+    fun `rollback of self-link clear restores both saved ends`() {
+        val thing = transactional {
+            MyThing.new().apply { anotherThing = this }
+        }
+
+        transactional { txn ->
+            thing.anotherThing = null
+
+            assertThat(thing.anotherThing).isNull()
+            assertThat(thing.thisThing).isNull()
+
+            txn.revert()
+
+            assertThat(thing.anotherThing).isEqualTo(thing)
+            assertThat(thing.thisThing).isEqualTo(thing)
+        }
+
+        transactional {
+            assertThat(thing.anotherThing).isEqualTo(thing)
+            assertThat(thing.thisThing).isEqualTo(thing)
+        }
+    }
+
+    @Test
+    fun `rollback of self-link reassignment restores self-link and displaced partner`() {
+        val (thing, target, previousPartner) = transactional {
+            val thing = MyThing.new().apply { anotherThing = this }
+            val target = MyThing.new()
+            val previousPartner = MyThing.new().apply { anotherThing = target }
+            Triple(thing, target, previousPartner)
+        }
+
+        transactional { txn ->
+            thing.anotherThing = target
+
+            assertThat(thing.anotherThing).isEqualTo(target)
+            assertThat(thing.thisThing).isNull()
+            assertThat(target.anotherThing).isNull()
+            assertThat(target.thisThing).isEqualTo(thing)
+            assertThat(previousPartner.anotherThing).isNull()
+            assertThat(previousPartner.thisThing).isNull()
+
+            txn.revert()
+
+            assertThat(thing.anotherThing).isEqualTo(thing)
+            assertThat(thing.thisThing).isEqualTo(thing)
+            assertThat(target.anotherThing).isNull()
+            assertThat(target.thisThing).isEqualTo(previousPartner)
+            assertThat(previousPartner.anotherThing).isEqualTo(target)
+            assertThat(previousPartner.thisThing).isNull()
+        }
+
+        transactional {
+            assertThat(thing.anotherThing).isEqualTo(thing)
+            assertThat(thing.thisThing).isEqualTo(thing)
+            assertThat(target.anotherThing).isNull()
+            assertThat(target.thisThing).isEqualTo(previousPartner)
+            assertThat(previousPartner.anotherThing).isEqualTo(target)
+            assertThat(previousPartner.thisThing).isNull()
+        }
+    }
+
+    @Test
+    fun `assigning the same saved target leaves both ends unchanged without updates`() {
+        val (thing, target) = transactional {
+            val target = MyThing.new()
+            val thing = MyThing.new().apply { anotherThing = target }
+            Pair(thing, target)
+        }
+        val updates = mutableListOf<MyThing>()
+        MyThing.onUpdate { _, current -> updates.add(current) }
+
+        transactional { txn ->
+            thing.anotherThing = target
+
+            assertThat(thing.anotherThing).isEqualTo(target)
+            assertThat(thing.thisThing).isNull()
+            assertThat(target.anotherThing).isNull()
+            assertThat(target.thisThing).isEqualTo(thing)
+            assertThat(thing.reattach(txn).hasChanges()).isFalse()
+            assertThat(target.reattach(txn).hasChanges()).isFalse()
+        }
+
+        transactional {
+            assertThat(thing.anotherThing).isEqualTo(target)
+            assertThat(thing.thisThing).isNull()
+            assertThat(target.anotherThing).isNull()
+            assertThat(target.thisThing).isEqualTo(thing)
+        }
+        assertThat(updates).isEmpty()
     }
 
     @Test

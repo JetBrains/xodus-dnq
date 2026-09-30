@@ -575,6 +575,165 @@ class TransientStoreSessionListenerTest : DBTest() {
     }
 
     @Test
+    fun `snapshot excludes newly linked target deleted while another new target survives`() {
+        val source = transactional { LevelThreeEntity.new { name = "source" } }
+        lateinit var survivor: LevelTwoEntity
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            assertEquals(setOf(source.entityId, survivor.entityId), changes.map { it.transientEntity.id }.toSet())
+            val sourceChange = changes.single { it.transientEntity.id == source.entityId }
+            assertEquals(EntityChangeType.UPDATE, sourceChange.changeType)
+            assertTrue(sourceChange.snapshotEntity.getLinks("children").toList().isEmpty())
+            assertEquals(
+                setOf(survivor.entityId),
+                sourceChange.transientEntity.getLinks("children").map { it.id }.toSet()
+            )
+            val linkChange = sourceChange.changedLinksDetailed!!.getValue("children")
+            assertEquals(setOf(survivor.entityId), linkChange.addedEntities.orEmpty().map { it.id }.toSet())
+            assertTrue(linkChange.removedEntities.isNullOrEmpty())
+            assertTrue(linkChange.deletedEntities.isNullOrEmpty())
+            assertFalse((survivor.entity as TransientEntity).isRemoved)
+        }
+
+        transactional { session ->
+            val deletedTarget = LevelTwoEntity.new { name = "B" }
+            survivor = LevelTwoEntity.new { name = "C" }
+            source.children.add(deletedTarget)
+            source.children.add(survivor)
+            deletedTarget.delete()
+
+            val transientSource = source.entity as TransientEntity
+            val sourceChange = session.transientChangesTracker.getChangeDescription(transientSource)
+            assertTrue(sourceChange.snapshotEntity.getLinks("children").toList().isEmpty())
+            assertEquals(setOf(survivor.entityId), source.children.toList().map { it.entityId }.toSet())
+            val linkChange = sourceChange.changedLinksDetailed!!.getValue("children")
+            assertEquals(setOf(survivor.entityId), linkChange.addedEntities.orEmpty().map { it.id }.toSet())
+            assertTrue(linkChange.removedEntities.isNullOrEmpty())
+            assertTrue(linkChange.deletedEntities.isNullOrEmpty())
+        }
+        listener.check()
+
+        transactional {
+            assertEquals(setOf(survivor.entityId), source.children.toList().map { it.entityId }.toSet())
+            assertEquals(setOf(survivor.entityId), LevelTwoEntity.all().toList().map { it.entityId }.toSet())
+        }
+    }
+
+    @Test
+    fun `removed source snapshot excludes deleted and surviving targets linked in same transaction`() {
+        val source = transactional { LevelThreeEntity.new { name = "source" } }
+        lateinit var survivor: LevelTwoEntity
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            assertEquals(setOf(source.entityId, survivor.entityId), changes.map { it.transientEntity.id }.toSet())
+            val sourceChange = changes.single { it.transientEntity.id == source.entityId }
+            assertEquals(EntityChangeType.REMOVE, sourceChange.changeType)
+            assertTrue(sourceChange.snapshotEntity.getLinks("children").toList().isEmpty())
+            val survivorChange = changes.single { it.transientEntity.id == survivor.entityId }
+            assertEquals(EntityChangeType.ADD, survivorChange.changeType)
+            assertFalse(survivorChange.transientEntity.isRemoved)
+            assertEquals("C", survivorChange.transientEntity.getProperty("name"))
+        }
+
+        transactional { session ->
+            val deletedTarget = LevelTwoEntity.new { name = "B" }
+            survivor = LevelTwoEntity.new { name = "C" }
+            source.children.add(deletedTarget)
+            source.children.add(survivor)
+            deletedTarget.delete()
+
+            val transientSource = source.entity as TransientEntity
+            assertTrue(
+                session.transientChangesTracker.getSnapshotEntity(transientSource)
+                    .getLinks("children").toList().isEmpty()
+            )
+            assertEquals(setOf(survivor.entityId), source.children.toList().map { it.entityId }.toSet())
+            source.delete()
+            val sourceChange = session.transientChangesTracker.getChangeDescription(transientSource)
+            assertEquals(EntityChangeType.REMOVE, sourceChange.changeType)
+            assertTrue(sourceChange.snapshotEntity.getLinks("children").toList().isEmpty())
+            assertFalse((survivor.entity as TransientEntity).isRemoved)
+        }
+        listener.check()
+
+        transactional {
+            assertTrue(LevelThreeEntity.all().isEmpty)
+            assertEquals(setOf(survivor.entityId), LevelTwoEntity.all().toList().map { it.entityId }.toSet())
+            assertEquals("C", survivor.name)
+        }
+    }
+
+    @Test
+    fun `snapshot retains saved target removed restored removed and deleted while new target survives`() {
+        val (source, oldTarget) = transactional {
+            val source = LevelThreeEntity.new { name = "source" }
+            val oldTarget = LevelTwoEntity.new { name = "B" }
+            source.children.add(oldTarget)
+            Pair(source, oldTarget)
+        }
+        lateinit var survivor: LevelTwoEntity
+        val listener = CallbackListener()
+        store.addListener(listener)
+
+        listener.onFlush { changes ->
+            assertEquals(
+                setOf(source.entityId, oldTarget.entityId, survivor.entityId),
+                changes.map { it.transientEntity.id }.toSet()
+            )
+            val sourceChange = changes.single { it.transientEntity.id == source.entityId }
+            assertEquals(EntityChangeType.REMOVE, sourceChange.changeType)
+            val oldChildren = sourceChange.snapshotEntity.getLinks("children").toList()
+            assertEquals(listOf(oldTarget.entityId), oldChildren.map { it.id })
+            assertTrue((oldChildren.single() as TransientEntity).isRemoved)
+            assertEquals("B", oldChildren.single().getProperty("name"))
+            val survivorChange = changes.single { it.transientEntity.id == survivor.entityId }
+            assertEquals(EntityChangeType.ADD, survivorChange.changeType)
+            assertFalse(survivorChange.transientEntity.isRemoved)
+        }
+
+        transactional { session ->
+            survivor = LevelTwoEntity.new { name = "C" }
+            source.children.add(survivor)
+            val transientSource = source.entity as TransientEntity
+            val linkChange = session.transientChangesTracker.getChangedLinksDetailed(transientSource)!!
+                .getValue("children")
+            source.children.remove(oldTarget)
+            assertEquals(setOf(oldTarget.entityId), linkChange.removedEntities.orEmpty().map { it.id }.toSet())
+            source.children.add(oldTarget)
+            assertTrue(linkChange.removedEntities.isNullOrEmpty())
+            assertEquals(setOf(survivor.entityId), linkChange.addedEntities.orEmpty().map { it.id }.toSet())
+            source.children.remove(oldTarget)
+            assertEquals(setOf(oldTarget.entityId), linkChange.removedEntities.orEmpty().map { it.id }.toSet())
+            oldTarget.delete()
+
+            assertEquals(setOf(survivor.entityId), linkChange.addedEntities.orEmpty().map { it.id }.toSet())
+            assertTrue(linkChange.removedEntities.isNullOrEmpty())
+            assertEquals(setOf(oldTarget.entityId), linkChange.deletedEntities.orEmpty().map { it.id }.toSet())
+            assertEquals(
+                listOf(oldTarget.entityId),
+                session.transientChangesTracker.getSnapshotEntity(transientSource).getLinks("children").map { it.id }
+            )
+            assertEquals(setOf(survivor.entityId), source.children.toList().map { it.entityId }.toSet())
+            source.delete()
+            val sourceChange = session.transientChangesTracker.getChangeDescription(transientSource)
+            assertEquals(EntityChangeType.REMOVE, sourceChange.changeType)
+            assertEquals(listOf(oldTarget.entityId), sourceChange.snapshotEntity.getLinks("children").map { it.id })
+            assertFalse((survivor.entity as TransientEntity).isRemoved)
+        }
+        listener.check()
+
+        transactional {
+            assertTrue(LevelThreeEntity.all().isEmpty)
+            assertEquals(setOf(survivor.entityId), LevelTwoEntity.all().toList().map { it.entityId }.toSet())
+            assertEquals("C", survivor.name)
+        }
+    }
+
+    @Test
     fun `snapshot of removed entity keeps live links first and re-added links last`() {
         // The snapshot's link-ID set is ordered: live targets in ascending id order, then links
         // stripped earlier in the txn appended. getLink() on a to-many link exposes the first

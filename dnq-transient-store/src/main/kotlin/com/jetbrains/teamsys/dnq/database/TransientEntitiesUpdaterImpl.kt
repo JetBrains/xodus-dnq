@@ -397,7 +397,7 @@ class TransientEntitiesUpdaterImpl(
     ) {
         addChangeAndRun {
             val prevE2 = e1.getLink(e1Toe2LinkName) as TransientEntity?
-            if (prevE2 == null || prevE2 != e1) {
+            if (prevE2 != e2) {
                 if (prevE2 != null) {
                     deleteLinkInternal(prevE2, e2Toe1LinkName, e1)
                     deleteLinkInternal(e1, e1Toe2LinkName, prevE2)

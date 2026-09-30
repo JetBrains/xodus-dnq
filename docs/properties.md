@@ -609,6 +609,12 @@ There are three types of links: directed links, bi-directed links and aggregatio
 Most of the methods that create delegates for links accept optional parameter `dbPropertyName`. By default Xodus-DNQ
 uses Kotlin-property name to reference the link in Xodus database. Parameter `dbPropertyName` helps to override this.  
 
+Link changes are tracked relative to the transaction's starting state. A link added and then removed
+in the same transaction is not an old link, including when `onTargetDelete = CLEAR` removes it.
+Listener old-value snapshots exclude such cancelled additions even if the source is subsequently
+deleted. Links that existed at transaction start remain in the old snapshot if their targets are
+deleted.
+
 #### On delete policy
 Most of the methods that create delegates for links accept optional parameters `onDelete` and `onTargetDelete`.
 This parameters defines what Xodus-DNQ should do with the link on this entity delete or on the link target delete.
@@ -693,6 +699,11 @@ val users by xdLink1_N(XdUser)
 For bidirectional associations Xodus-DNQ maintains both ends of the links. For example, if there is a bidirectional
 link between `XdUser::groups` and `XdGroup::users`, and you add some group to `user.groups.add(group)` 
 Xodus-DNQ will automatically add `user` to `group.users`.
+
+Opposing one-to-one links may connect an entity to itself. Clearing either end clears both
+self-link ends; reassigning it clears the old inverse end and sets the new target's inverse end,
+disconnecting that target's previous partner if necessary. These changes commit together, and
+rollback restores both ends. Assigning the current target again leaves the association unchanged.
 
 ##### xdLink0_1<XdSource, XdTarget> --- bidirectional [0..1] association
 - Property type: `XdTarget?`.

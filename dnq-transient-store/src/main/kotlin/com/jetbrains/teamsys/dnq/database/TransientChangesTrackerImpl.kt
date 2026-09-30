@@ -207,7 +207,7 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
             if (oldTarget != null) {
                 addRemoved(linkChange, oldTarget)
             }
-            linkChange.addAdded(target)
+            addAdded(linkChange, target)
         } else {
             addRemoved(linkChange, target)
         }
@@ -219,10 +219,23 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
         }
     }
 
+    private fun addAdded(change: LinkChange, entity: TransientEntity) {
+        change.addAdded(entity)
+        val changes = removedFrom[entity] ?: return
+        changes.remove(change)
+        if (changes.isEmpty()) {
+            removedFrom.remove(entity)
+        }
+    }
+
     private fun addRemoved(change: LinkChange, entity: TransientEntity) {
         change.addRemoved(entity)
+        if (change.removedEntities?.contains(entity) != true) return
+
         val changes = removedFrom.getOrPut(entity) { ArrayList() }
-        changes.add(change)
+        if (!changes.contains(change)) {
+            changes.add(change)
+        }
     }
 
     private fun entityChanged(e: TransientEntity) {
@@ -263,10 +276,12 @@ class TransientChangesTrackerImpl : TransientChangesTracker {
         entityChanged(e)
         val removed = removedSnapshots.remove(e.id) ?: createRemovedSnapshot(e)
         removedEntities[e.id] = removed
-        val changes = removedFrom[e]
+        val changes = removedFrom.remove(e)
         if (changes != null) {
             for (change in changes) {
-                change.addDeleted(e)
+                if (change.removedEntities?.contains(e) == true) {
+                    change.addDeleted(e)
+                }
             }
         }
     }
