@@ -20,6 +20,7 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
+import org.apache.tinkerpop.gremlin.process.traversal.P
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
 import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyGraph
 import org.junit.Rule
@@ -299,6 +300,24 @@ class YTDBPolymorphicQueryTest : OTestMixin {
             // If poly leaked on BaseUser: \ {base1,user1,guest1} = empty
             val result = nonPolyUser.union(nonPolyGuest).minus(nonPolyBase)
             assertNamesExactly(result, "user1", "guest1")
+        }
+    }
+
+    @Test
+    fun `non-polymorphic class scan on the left of an aggregate stays non-polymorphic`() {
+        givenUserHierarchy()
+
+        withStoreTx { tx ->
+            val nonPolyBase = YTDBEntityIterable.where(BaseUser.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+            val nonPolyGuest = YTDBEntityIterable.where(Guest.CLASS, tx.getStore(), GremlinBlock.All, polymorphic = false)
+
+            // BaseUser \ Guest as an Aggregate: the BaseUser scan is the embedded left child.
+            // Non-poly: {base1} \ {guest1} = {base1}.
+            // If the child scan turned polymorphic: {base1,user1,guest1} \ {guest1} = {base1,user1}.
+            val aggregate = GremlinQuery.Aggregate(nonPolyBase.query, nonPolyGuest.query) { P.without(it) }
+            val result = YTDBEntityIterableImpl(tx.getStore(), aggregate, polymorphic = false)
+
+            assertNamesExactly(result, "base1")
         }
     }
 

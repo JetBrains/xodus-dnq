@@ -16,7 +16,6 @@
 package jetbrains.exodus.entitystore.youtrackdb.gremlin
 
 import com.jetbrains.youtrackdb.api.config.OrderByNullsPlacement
-import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.gremlin.tokens.YTDBQueryConfigParam
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import org.apache.tinkerpop.gremlin.process.traversal.P
@@ -25,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.OptionsStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.LazyBarrierStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.util.DefaultTraversalStrategies
 
 sealed class GremlinQuery {
@@ -51,6 +51,43 @@ sealed class GremlinQuery {
                     OrderByNullsPlacement.LAST.name
                 )
                 .create()
+        }
+
+        private fun extractOptionsStrategy(strategies: TraversalStrategies): OptionsStrategy? =
+            strategies.getStrategy(OptionsStrategy::class.java).orElse(null)
+
+        /**
+         * Creates an anonymous child traversal that carries [optionsStrategy], if any.
+         *
+         * When [optionsStrategy] is provided, it is added to the anonymous child traversal.
+         * This propagates query-level config (e.g. `polymorphicQuery`) so that provider
+         * optimization strategies (such as `YTDBGraphStepStrategy`) can read it when they
+         * are applied to the child traversal.
+         *
+         * Only [OptionsStrategy] is propagated — not the full strategy list — to avoid
+         * interfering with TinkerPop's own strategy application on child traversals.
+         * The graph reference is not needed: TinkerPop propagates it automatically when
+         * the child traversal is integrated into the parent (`union()`, `flatMap()`).
+         *
+         * The child's strategies container is replaced with a fresh [DefaultTraversalStrategies]
+         * before adding [optionsStrategy]. `__.start()` aliases its strategies field to the
+         * shared `TraversalStrategies.GlobalCache[EmptyGraph]` singleton; mutating it races
+         * across threads (`ConcurrentModificationException` in `sortStrategies`) and leaks
+         * options globally. A private container eliminates both issues — the child's
+         * strategies are only probed via `getStrategy(OptionsStrategy.class)` before
+         * TinkerPop's `lock()` overwrites them with the parent's.
+         *
+         * `GraphTraversal.with()` cannot be used here: it is a step modulator (configures
+         * the preceding step), not traversal-wide config. Anonymous traversals need the
+         * [OptionsStrategy] set directly via the admin API.
+         */
+        private fun anonymousChild(optionsStrategy: OptionsStrategy?): YT {
+            val child = `__`.start<Any>()
+            if (optionsStrategy != null) {
+                val admin = child.asAdmin()
+                admin.strategies = DefaultTraversalStrategies().apply { addStrategies(optionsStrategy) }
+            }
+            return child.asYT()
         }
     }
 
@@ -95,8 +132,29 @@ sealed class GremlinQuery {
                 GremlinCaseInsensitiveOrderStrategy.instance()
             )
         }
+        if (containsAggregate()) {
+            // LazyBarrierStrategy inserts a `NoOpBarrierStep` after flat-map steps to bulk traversers.
+            // An Aggregate already collects its whole right side into a side effect, and its left side
+            // is an embedded child whose `V()` must stay directly followed by its `hasLabel(...)`
+            // (see [Aggregate]). Only queries that contain an Aggregate are affected.
+            admin.strategies.removeStrategies(LazyBarrierStrategy::class.java)
+        }
         if (shape != null) admin.strategies.addStrategies(GremlinTranslationOutcomeStrategy(shape))
         return traversal
+    }
+
+    /** Whether this query is, or contains, an [Aggregate]. */
+    internal fun containsAggregate(): Boolean = when (this) {
+        is Aggregate -> true
+        is Labeled -> inner.containsAggregate()
+        is AndThen -> inner.containsAggregate()
+        is FollowLink -> inner.containsAggregate()
+        is SortBy -> inner.containsAggregate()
+        is Order -> inner.containsAggregate()
+        is ReversedOrder -> inner.containsAggregate()
+        is Slice -> inner.containsAggregate()
+        is UnionAll -> subqueries.any { it.containsAggregate() }
+        is Where, is ByIds, is NestedCondition -> false
     }
 
     abstract fun shortName(): String
@@ -343,29 +401,8 @@ sealed class GremlinQuery {
     data class UnionAll(val subqueries: List<GremlinQuery>) : GremlinQuery() {
 
         /**
-         * Creates anonymous child traversals for each subquery.
-         *
-         * When [optionsStrategy] is provided, it is added to each anonymous child traversal.
-         * This propagates query-level config (e.g. `polymorphicQuery`) so that provider
-         * optimization strategies (such as `YTDBGraphStepStrategy`) can read it when they
-         * are applied to the child traversal.
-         *
-         * Only [OptionsStrategy] is propagated — not the full strategy list — to avoid
-         * interfering with TinkerPop's own strategy application on child traversals.
-         * The graph reference is not needed: TinkerPop propagates it automatically when
-         * the child traversal is integrated into the parent via `union()`.
-         *
-         * The child's strategies container is replaced with a fresh [DefaultTraversalStrategies]
-         * before adding [optionsStrategy]. `__.start()` aliases its strategies field to the
-         * shared `TraversalStrategies.GlobalCache[EmptyGraph]` singleton; mutating it races
-         * across threads (`ConcurrentModificationException` in `sortStrategies`) and leaks
-         * options globally. A private container eliminates both issues — the child's
-         * strategies are only probed via `getStrategy(OptionsStrategy.class)` before
-         * TinkerPop's `lock()` overwrites them with the parent's.
-         *
-         * `GraphTraversal.with()` cannot be used here: it is a step modulator (configures
-         * the preceding step), not traversal-wide config. Anonymous traversals need the
-         * [OptionsStrategy] set directly via the admin API.
+         * Creates an anonymous child traversal (see [anonymousChild]) for each subquery, so that
+         * query-level config such as `polymorphicQuery` reaches the branches.
          */
         private fun subtraversals(
             optionsStrategy: OptionsStrategy?,
@@ -375,21 +412,13 @@ sealed class GremlinQuery {
             val result = mutableListOf<YT>()
             var c = counter
             subqueries.forEach { sq ->
-                val child = `__`.start<Any>()
-                if (optionsStrategy != null) {
-                    val admin = child.asAdmin()
-                    admin.strategies = DefaultTraversalStrategies().apply { addStrategies(optionsStrategy) }
-                }
-                val subRes = sq.continueTraversal(child.asYT(), c, sortApplied)
+                val subRes = sq.continueTraversal(anonymousChild(optionsStrategy), c, sortApplied)
                 c = subRes.counter
                 result.add(subRes.traversal)
             }
 
             return Pair(result.toTypedArray(), c)
         }
-
-        private fun extractOptionsStrategy(strategies: TraversalStrategies): OptionsStrategy? =
-            strategies.getStrategy(OptionsStrategy::class.java).orElse(null)
 
         override fun startTraversal(gs: GraphTraversalSource): YTBuilder {
             val subi = subtraversals(extractOptionsStrategy(gs.strategies), 0, sortApplied = false)
@@ -408,6 +437,23 @@ sealed class GremlinQuery {
         override fun shortName(): String = "unionAll"
     }
 
+    /**
+     * `left` filtered by membership in (or absence from) `right`.
+     *
+     * `right` runs first and its results are collected into the traversal side effect `aggr_N`
+     * (`aggregate(...).fold()` leaves a single traverser). `left` is then built as an embedded
+     * anonymous child of a `flatMap`, so its `V()` is the first step of its own traversal rather
+     * than a bare `V()` in the middle of the outer one. Two things follow from that:
+     *  - TinkerPop's `LazyBarrierStrategy` inserts a `NoOpBarrierStep` after every flat-map step
+     *    but the first of a traversal. Mid-traversal it landed between `V()` and `hasLabel(...)`,
+     *    which stopped YouTrackDB from folding the label into the graph step, so the step scanned
+     *    every vertex in the database. As the first step of a child, `V()` never gets a barrier.
+     *  - the child is a normal source of `hasLabel(...)`/`has(...)` steps, exactly like the
+     *    branches of [UnionAll].
+     *
+     * The side effect is shared with the child, so `where(P.within/without("aggr_N"))` inside the
+     * child sees it.
+     */
     data class Aggregate(val left: GremlinQuery, val right: GremlinQuery, val fn: (String) -> P<String>) :
         GremlinQuery() {
 
@@ -420,46 +466,20 @@ sealed class GremlinQuery {
 
         private fun builder(rightInner: YTBuilder, ignoreSort: Boolean): YTBuilder {
             val rightSetName = "aggr_" + rightInner.counter
+            val collected = rightInner.traversal.aggregate(rightSetName).fold().asYT()
 
-            return left
-                .continueTraversal(
-                    rightInner.traversal.aggregate(rightSetName).fold().asYT(),
-                    rightInner.counter + 1,
-                    ignoreSort = ignoreSort
-                )
-                .combine { it.where(fn(rightSetName)) }
+            val leftInner = left.continueTraversal(
+                anonymousChild(extractOptionsStrategy(collected.asAdmin().strategies)),
+                rightInner.counter + 1,
+                ignoreSort = ignoreSort
+            )
+            return YTBuilder(
+                collected.flatMap(leftInner.traversal.where(fn(rightSetName))).asYT(),
+                leftInner.counter
+            )
         }
 
         override fun shortName(): String = "aggregate"
-    }
-
-    data class AggregateNoOrder(
-        val query1: GremlinQuery,
-        val query2: GremlinQuery,
-        val combiner: (GraphTraversal<*, *>, GraphTraversal<*, *>) -> GraphTraversal<*, *>
-    ) : GremlinQuery() {
-
-        override fun startTraversal(gs: GraphTraversalSource): YTBuilder {
-            val res1 = query1.startTraversal(gs)
-            val res2 = query2.continueTraversal(`__`.start(), res1.counter, false)
-            return aggregate(res1, res2)
-        }
-
-        override fun continueTraversal(t: YT, paramCounter: Int, ignoreSort: Boolean): YTBuilder {
-            val res1 = query1.continueTraversal(t, paramCounter, ignoreSort)
-            val res2 = query2.continueTraversal(`__`.start(), res1.counter, ignoreSort)
-            return aggregate(res1, res2)
-        }
-
-        private fun aggregate(
-            res1: YTBuilder,
-            res2: YTBuilder
-        ): YTBuilder = YTBuilder.of(
-            combiner(res1.traversal.fold(), res2.traversal.fold()).unfold<YTDBVertex>(),
-            counter = res2.counter
-        )
-
-        override fun shortName(): String = "aggregateNoOrder"
     }
 
     data class SortBy(val inner: GremlinQuery, val sortBlocks: List<GremlinBlock.Sort>) :

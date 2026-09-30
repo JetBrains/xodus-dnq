@@ -777,6 +777,74 @@ class GremlinQueryTest {
         assertThat(projectsLink.intersect(allOf("Issue"))).isInstanceOf(GremlinQuery.Aggregate::class.java)
     }
 
+    // Aggregate — `left` is an embedded child of flatMap, `right` runs first and is aggregated
+
+    private val projectsOnBoard = Labeled(FollowLink(boardCond, LinkDirection.IN, "OnBoard"), "Project")
+    private val projectsOnBoardGremlin =
+        """g.V().has("name","b").hasLabel("Board").in("OnBoard_link").hasLabel("Project")"""
+
+    @Test
+    fun `Aggregate collects right first and embeds left as a flatMap child`() {
+        // The labels differ (Issue vs Project), so O21 declines and the Aggregate is kept.
+        val result = allOf("Issue").intersect(projectsOnBoard)
+        assertThat(result).isInstanceOf(GremlinQuery.Aggregate::class.java)
+
+        // left.continueTraversal runs on an anonymous child, so its V() is that child's first step.
+        assertThat(result.toGremlin()).isEqualTo(
+            projectsOnBoardGremlin +
+                """.aggregate("aggr_0").fold()""" +
+                """.flatMap(__.V().hasLabel("Issue").where(P.within(["aggr_0"])))"""
+        )
+    }
+
+    @Test
+    fun `nested Aggregate embeds the inner one in the outer child with distinct aggregate names`() {
+        val inner = allOf("Issue").intersect(projectsOnBoard)
+        val blockedByBoard = Labeled(FollowLink(boardCond, LinkDirection.IN, "Blocks"), "Issue")
+        val outer = inner.intersect(blockedByBoard)
+        assertThat(outer).isInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat((outer as GremlinQuery.Aggregate).left).isEqualTo(inner)
+
+        // The outer right side runs first (aggr_0). The inner Aggregate is built on the outer child,
+        // so its own right side (aggr_1) and its own flatMap child nest inside it.
+        assertThat(outer.toGremlin()).isEqualTo(
+            """g.V().has("name","b").hasLabel("Board").in("Blocks_link").hasLabel("Issue")""" +
+                """.aggregate("aggr_0").fold()""" +
+                """.flatMap(__.V().has("name","b").hasLabel("Board").in("OnBoard_link").hasLabel("Project")""" +
+                """.aggregate("aggr_1").fold()""" +
+                """.flatMap(__.V().hasLabel("Issue").where(P.within(["aggr_1"])))""" +
+                """.where(P.within(["aggr_0"])))"""
+        )
+    }
+
+    @Test
+    fun `Aggregate of a Slice left keeps the slice inside the child so it still pages the full scan`() {
+        // skip(1) must apply to the whole class scan before the membership filter, exactly as when
+        // the scan was a mid-traversal V(): the child contains both, in that order.
+        val sliced = allOf("Issue").then(Skip(1))
+        val result = sliced.intersect(projectsOnBoard)
+        assertThat(result).isInstanceOf(GremlinQuery.Aggregate::class.java)
+        assertThat(result.toGremlin()).isEqualTo(
+            projectsOnBoardGremlin +
+                """.aggregate("aggr_0").fold()""" +
+                """.flatMap(__.V().hasLabel("Issue").skip(1L).where(P.within(["aggr_0"])))"""
+        )
+    }
+
+    @Test
+    fun `containsAggregate finds an Aggregate at any depth and only there`() {
+        val aggregate = allOf("Issue").intersect(projectsOnBoard)
+        assertThat(aggregate).isInstanceOf(GremlinQuery.Aggregate::class.java)
+
+        assertThat(aggregate.containsAggregate()).isTrue()
+        assertThat(aggregate.then(Skip(1)).containsAggregate()).isTrue()
+        assertThat(aggregate.union(issueCondition("status", "open")).containsAggregate()).isTrue()
+
+        assertThat(issuesOnBoard.containsAggregate()).isFalse()
+        assertThat(issuesOnBoard.then(Skip(1)).containsAggregate()).isFalse()
+        assertThat(issuesOnBoard.union(issueCondition("status", "open")).containsAggregate()).isFalse()
+    }
+
     @Test
     fun `O21 - no rewrite ever emits two consecutive hasLabel steps`() {
         // Concern #1, structural proof: across every O21-eligible shape, the appended hasLabel(T) is

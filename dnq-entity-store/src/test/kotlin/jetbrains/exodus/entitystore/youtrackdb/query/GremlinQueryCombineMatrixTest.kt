@@ -92,7 +92,6 @@ class GremlinQueryCombineMatrixTest {
         is UnionAll             -> "UnionAll"
         is GremlinQuery.AndThen -> "AndThen"
         is FollowLink           -> "FollowLink"
-        is AggregateNoOrder     -> "AggregateNoOrder"
         is ReversedOrder        -> "Reverse"
         is NestedCondition      -> "NestedCondition"
     }

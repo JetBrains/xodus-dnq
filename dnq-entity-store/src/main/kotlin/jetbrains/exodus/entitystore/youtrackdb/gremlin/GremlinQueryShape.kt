@@ -90,9 +90,6 @@ object GremlinQueryShape {
             is GremlinQuery.Aggregate -> {
                 append("Aggregate("); appendQuery(query.left); append(", "); appendQuery(query.right); append(")")
             }
-            is GremlinQuery.AggregateNoOrder -> {
-                append("AggregateNoOrder("); appendQuery(query.query1); append(", "); appendQuery(query.query2); append(")")
-            }
         }
     }
 

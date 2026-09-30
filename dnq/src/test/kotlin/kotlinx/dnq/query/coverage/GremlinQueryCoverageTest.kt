@@ -1075,7 +1075,7 @@ class GremlinQueryCoverageTest : DBTest() {
     //     outer falls to Aggregate because AndThen is not Condition
     //
     // Gremlin shape:
-    //   g.{right}.aggregate("aggr_N").fold().{left_via_continueTraversal}.where(P.within/without("aggr_N"))
+    //   g.{right}.aggregate("aggr_N").fold().flatMap(__.{left_via_continueTraversal}.where(P.within/without("aggr_N")))
     // =========================================================================
 
     @Test
@@ -1139,8 +1139,8 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q72 followlink-left intersect followlink-right] gremlin: ${q72.toGremlin()}")
         assertThat(q72.toGremlin()).isEqualTo(
             """g.V().has("department","Engineering").hasLabel("Employee").in("assignee_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.where(P.within(["aggr_0"]))"""
+            """.flatMap(__.V().hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.within(["aggr_0"])))"""
         )
 
         // Q73: FollowLink(left) \ FollowLink(right)
@@ -1151,8 +1151,8 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q73 followlink-left difference followlink-right] gremlin: ${q73.toGremlin()}")
         assertThat(q73.toGremlin()).isEqualTo(
             """g.V().hasLabel("Employee").in("assignee_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.where(P.without(["aggr_0"]))"""
+            """.flatMap(__.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.without(["aggr_0"])))"""
         )
 
         // ------------------------------------------------------------------
@@ -1168,8 +1168,8 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q74 slice-left intersect condition-right] gremlin: ${q74.toGremlin()}")
         assertThat(q74.toGremlin()).isEqualTo(
             """g.V().has("priority","critical").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().hasLabel("Issue").skip(10L)""" +
-            """.where(P.within(["aggr_0"]))"""
+            """.flatMap(__.V().hasLabel("Issue").skip(10L)""" +
+            """.where(P.within(["aggr_0"])))"""
         )
 
         // Q75: Slice(left) \ condition(right)
@@ -1180,8 +1180,8 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q75 slice-left difference condition-right] gremlin: ${q75.toGremlin()}")
         assertThat(q75.toGremlin()).isEqualTo(
             """g.V().where(__.out("sprint_link")).hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().hasLabel("Issue").limit(5L)""" +
-            """.where(P.without(["aggr_0"]))"""
+            """.flatMap(__.V().hasLabel("Issue").limit(5L)""" +
+            """.where(P.without(["aggr_0"])))"""
         )
 
         // Q76: Slice(left) ∩ FollowLink(right)
@@ -1193,8 +1193,8 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q76 slice-left intersect followlink-right] gremlin: ${q76.toGremlin()}")
         assertThat(q76.toGremlin()).isEqualTo(
             """g.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().hasLabel("Issue").skip(10L)""" +
-            """.where(P.within(["aggr_0"]))"""
+            """.flatMap(__.V().hasLabel("Issue").skip(10L)""" +
+            """.where(P.within(["aggr_0"])))"""
         )
 
         // ------------------------------------------------------------------
@@ -1211,8 +1211,8 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q77 unionall-left intersect condition-right] gremlin: ${q77.toGremlin()}")
         assertThat(q77.toGremlin()).isEqualTo(
             """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.union(__.V().hasLabel("Issue").skip(1L),__.V().hasLabel("Issue").skip(2L)).dedup()""" +
-            """.where(P.within(["aggr_0"]))"""
+            """.flatMap(__.union(__.V().hasLabel("Issue").skip(1L),__.V().hasLabel("Issue").skip(2L)).dedup()""" +
+            """.where(P.within(["aggr_0"])))"""
         )
 
         // Q78: UnionAll(left) \ condition(right)
@@ -1221,8 +1221,8 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q78 unionall-left difference condition-right] gremlin: ${q78.toGremlin()}")
         assertThat(q78.toGremlin()).isEqualTo(
             """g.V().has("priority","critical").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.union(__.V().hasLabel("Issue").skip(1L),__.V().hasLabel("Issue").skip(2L)).dedup()""" +
-            """.where(P.without(["aggr_0"]))"""
+            """.flatMap(__.union(__.V().hasLabel("Issue").skip(1L),__.V().hasLabel("Issue").skip(2L)).dedup()""" +
+            """.where(P.without(["aggr_0"])))"""
         )
 
         // ------------------------------------------------------------------
@@ -1238,10 +1238,10 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q79 reversedorder-left intersect condition-right] gremlin: ${q79.toGremlin()}")
         assertThat(q79.toGremlin()).isEqualTo(
             """g.V().has("status","open").hasLabel("Issue").aggregate("aggr_0").fold()""" +
-            """.V().hasLabel("Issue")""" +
+            """.flatMap(__.V().hasLabel("Issue")""" +
             """.order().by("priority",Order.asc)""" +
             """.fold().reverse().unfold()""" +
-            """.where(P.within(["aggr_0"]))"""
+            """.where(P.within(["aggr_0"])))"""
         )
 
         // ------------------------------------------------------------------
@@ -1648,8 +1648,8 @@ class GremlinQueryCoverageTest : DBTest() {
         assertThat(q97.toGremlin()).isEqualTo(
             """g.V().has("department","Engineering").hasLabel("Employee").in("assignee_link").hasLabel("Issue")""" +
             """.aggregate("aggr_0").fold()""" +
-            """.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
-            """.where(P.without(["aggr_0"]))"""
+            """.flatMap(__.V().has("key","ENG").hasLabel("Project").in("project_link").hasLabel("Issue")""" +
+            """.where(P.without(["aggr_0"])))"""
         )
 
         // ---- Result assertions ----

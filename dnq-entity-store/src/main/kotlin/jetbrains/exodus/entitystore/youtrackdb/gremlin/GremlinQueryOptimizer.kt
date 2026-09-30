@@ -219,13 +219,14 @@ internal fun GremlinQuery.combineEfficient(
     // Without O_B:
     //   step2 = Aggregate(Aggregate(events_T, eventsByType), allT)
     //   → g.V().hasLabel("T").aggregate("aggr_0").fold()
-    //          .V().hasLabel("T2").aggregate("aggr_1").fold()
-    //          .V().<cond>.hasLabel("T").where(within("aggr_1")).where(within("aggr_0"))
+    //          .flatMap(__.V().hasLabel("T2").aggregate("aggr_1").fold()
+    //                     .flatMap(__.V().<cond>.hasLabel("T").where(within("aggr_1")))
+    //                     .where(within("aggr_0")))
     //
     // With O_B:
     //   step2 = Aggregate(events_T, eventsByType)
     //   → g.V().<cond2>.hasLabel("T2").aggregate("aggr_0").fold()
-    //          .V().<cond1>.hasLabel("T").where(within("aggr_0"))
+    //          .flatMap(__.V().<cond1>.hasLabel("T").where(within("aggr_0")))
     //
     // Applicable for Intersect only; Difference/Union semantics differ.
     // Symmetric: also handle Labeled(Where(All), T) ∩ Aggregate(left_T, ...).

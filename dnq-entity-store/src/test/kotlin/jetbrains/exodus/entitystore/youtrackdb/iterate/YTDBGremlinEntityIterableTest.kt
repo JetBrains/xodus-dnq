@@ -16,11 +16,17 @@
 package jetbrains.exodus.entitystore.youtrackdb.iterate
 
 import com.google.common.truth.Truth.assertThat
+import org.apache.tinkerpop.gremlin.process.traversal.P
+import com.jetbrains.youtrackdb.internal.core.gremlin.traversal.step.sideeffect.YTDBGraphStep
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
+import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import org.apache.tinkerpop.gremlin.process.traversal.translator.GroovyTranslator
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.NoOpBarrierStep
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.LazyBarrierStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -578,13 +584,119 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
             // Then
             // Falls back to Aggregate: right (board2) collected first, then left (board1) filtered against it.
             // right.startTraversal → g.V(rid_board2).hasLabel("Board").in(...).hasLabel("Issue")
-            // left.continueTraversal → .V(rid_board1).hasLabel("Board").in(...).hasLabel("Issue")  (direct by-id)
+            // left.continueTraversal → an embedded child: flatMap(__.V(rid_board1).hasLabel("Board").in(...).hasLabel("Issue"))
             checkGremlinPattern(
                 issues as YTDBEntityIterable,
-                """g.V({rid}).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").aggregate("aggr_0").fold().V({rid}).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").where(P.without(["aggr_0"]))"""
+                """g.V({rid}).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").aggregate("aggr_0").fold().flatMap(__.V({rid}).hasLabel("Board").in("OnBoard_link").hasLabel("Issue").where(P.without(["aggr_0"])))"""
             )
             assertNamesExactly(issues, "issue2", "issue3")
         }
+    }
+
+    /**
+     * The left side of an Aggregate is a class scan (`allOf(Issue)`). Its `V()` must reach the
+     * database as a label-scoped graph step. When it was a bare `V()` in the middle of the outer
+     * traversal, TinkerPop's LazyBarrierStrategy put a `NoOpBarrierStep` between it and the
+     * `hasLabel` step, the label was not folded into the graph step, and the step scanned every
+     * vertex of every class.
+     *
+     * The Aggregate is built directly: `all \ links-of(board)` is rewritten by the optimizer into an
+     * inverse-link predicate, so it never reaches the Aggregate fallback through the public API.
+     */
+    @Test
+    fun `aggregate difference over a class scan does not scan the whole graph`() {
+        // Given
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board2)
+        }
+
+        withStoreTx { tx ->
+            val issuesOnBoard1 = tx.findLinks(Issues.CLASS, test.board1, Issues.Links.ON_BOARD) as YTDBEntityIterable
+            val allIssues = YTDBEntityIterable.where(Issues.CLASS, tx.getStore(), GremlinBlock.All)
+
+            // When: all issues \ issues on board1
+            val aggregate = GremlinQuery.Aggregate(allIssues.query, issuesOnBoard1.query) { P.without(it) }
+            val issues = YTDBEntityIterableImpl(tx.getStore(), aggregate)
+
+            // Then
+            assertThat(unscopedGraphSteps(issues)).isEmpty()
+            assertNamesExactly(issues, "issue2", "issue3")
+        }
+    }
+
+    @Test
+    fun `nested aggregates keep every class scan label-scoped`() {
+        // Given
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board2)
+        }
+
+        withStoreTx { tx ->
+            val issuesOnBoard1 = tx.findLinks(Issues.CLASS, test.board1, Issues.Links.ON_BOARD) as YTDBEntityIterable
+            val issuesOnBoard2 = tx.findLinks(Issues.CLASS, test.board2, Issues.Links.ON_BOARD) as YTDBEntityIterable
+            val allIssues = YTDBEntityIterable.where(Issues.CLASS, tx.getStore(), GremlinBlock.All)
+
+            // When: (all \ board1) \ board2 — an Aggregate whose left side is an Aggregate
+            val inner = GremlinQuery.Aggregate(allIssues.query, issuesOnBoard1.query) { P.without(it) }
+            val outer = GremlinQuery.Aggregate(inner, issuesOnBoard2.query) { P.without(it) }
+            val issues = YTDBEntityIterableImpl(tx.getStore(), outer)
+
+            // Then
+            assertThat(unscopedGraphSteps(issues)).isEmpty()
+            assertNamesExactly(issues, "issue3")
+        }
+    }
+
+    /**
+     * LazyBarrierStrategy is switched off only for queries that contain an Aggregate: without it the
+     * nested Aggregate's traversal has no `NoOpBarrierStep` at all, while an ordinary query keeps the
+     * strategy.
+     */
+    @Test
+    fun `lazy barrier strategy is removed only for queries containing an aggregate`() {
+        // Given
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            tx.addIssueToBoard(test.issue1, test.board1)
+            tx.addIssueToBoard(test.issue2, test.board2)
+        }
+
+        withStoreTx { tx ->
+            val issuesOnBoard1 = tx.findLinks(Issues.CLASS, test.board1, Issues.Links.ON_BOARD) as YTDBEntityIterable
+            val issuesOnBoard2 = tx.findLinks(Issues.CLASS, test.board2, Issues.Links.ON_BOARD) as YTDBEntityIterable
+            val allIssues = YTDBEntityIterable.where(Issues.CLASS, tx.getStore(), GremlinBlock.All)
+            val inner = GremlinQuery.Aggregate(allIssues.query, issuesOnBoard1.query) { P.without(it) }
+            val outer = GremlinQuery.Aggregate(inner, issuesOnBoard2.query) { P.without(it) }
+
+            // When
+            val aggregate = YTDBEntityIterableImpl(tx.getStore(), outer).traversal().asAdmin()
+            val plain = issuesOnBoard1.traversal().asAdmin()
+
+            // Then
+            assertThat(aggregate.strategies.getStrategy(LazyBarrierStrategy::class.java).isPresent).isFalse()
+            assertThat(plain.strategies.getStrategy(LazyBarrierStrategy::class.java).isPresent).isTrue()
+
+            aggregate.applyStrategies()
+            assertThat(TraversalHelper.getStepsOfAssignableClassRecursively(NoOpBarrierStep::class.java, aggregate))
+                .isEmpty()
+        }
+    }
+
+    /**
+     * Graph steps that will read every vertex of the database: no ids and no `has`/`hasLabel`
+     * predicate folded into them, in the whole traversal including embedded child traversals,
+     * after the provider strategies have run.
+     */
+    private fun unscopedGraphSteps(iterable: YTDBEntityIterable): List<YTDBGraphStep<*, *>> {
+        val admin = iterable.traversal().asAdmin()
+        admin.applyStrategies()
+        return TraversalHelper.getStepsOfAssignableClassRecursively(YTDBGraphStep::class.java, admin)
+            .filter { it.ids.isEmpty() && it.hasContainers.isEmpty() }
     }
 
 

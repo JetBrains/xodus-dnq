@@ -1004,3 +1004,35 @@ closed ENG issues: ENG-4,7,9,15 (4) + 1 = 5; closed OPS: OPS-1,3,4 (3)) = 5 + 2 
 count. Roughly 7–8 non-open issues in ENG+OPS.
 
 **Status:** ✅ Done
+
+---
+
+## Aggregate traversal shape: embedded left side
+
+**Not an optimizer rule: `Aggregate` still appears wherever `combineEfficient` returns null. What changed is the
+traversal it emits.**
+
+The old shape collected `right` into `aggr_N` and continued on the same traversal with a bare `V()`:
+
+```
+g.<right>.aggregate("aggr_0").fold().V().<left>.where(P.within/without(["aggr_0"]))
+```
+
+TinkerPop's `LazyBarrierStrategy` inserts a `NoOpBarrierStep` after every flat-map step except the first of a
+traversal. That put a barrier between the mid-traversal `V()` and its `hasLabel(...)`, so YouTrackDB did not fold the
+label into the graph step (`YTDBGraphStep(vertex,[])`) and the step read **every vertex in the database**. A query
+such as `Labeled(Where(All), T) \ FollowLink(...)` therefore cost the whole graph, not the extent of `T`.
+
+The left side is now an embedded child of `flatMap`, built on an anonymous traversal (as the branches of `UnionAll`
+are), so its `V()` is the first step of its own traversal and never gets a barrier:
+
+```
+g.<right>.aggregate("aggr_0").fold().flatMap(__.V().<left>.where(P.within/without(["aggr_0"])))
+```
+
+The side effect `aggr_N` is shared with the child. Nested aggregates nest their `flatMap`s and keep distinct names.
+`LazyBarrierStrategy` is also removed, via `GremlinQuery.start`, from queries that contain an `Aggregate` (and only
+from those).
+
+Covered by `GremlinQueryTest` (shape, nesting, slice), `YTDBGremlinEntityIterableTest` (no unscoped graph step after
+provider strategies, barrier scoping) and the updated Group 9 shapes in `GremlinQueryCoverageTest`.

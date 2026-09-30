@@ -644,9 +644,6 @@ codebase contains other sites that construct anonymous traversals via
 they are not polymorphism-aware today, so the Track 5/7 race is not
 reproducible through them:
 
-- `GremlinQuery.AggregateNoOrder.startTraversal` / `.continueTraversal`
-  (in `GremlinQuery.kt`). Emits anonymous traversals for the aggregate
-  branches; `polymorphicQuery` never reaches them today.
 - `GremlinBlock.Or`, `.And`, `.Where`, `.Not` inner predicates. These
   build anonymous sub-predicates for Gremlin step-level filtering;
   again, `polymorphicQuery` is not propagated into them today.
