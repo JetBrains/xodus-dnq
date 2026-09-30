@@ -62,6 +62,24 @@ XdUser.all().toMutableSet()
 XdUser.queryOf(user)
 ``` 
 
+### Membership
+
+`contains` compares entity IDs, independent of transient or persistent entity wrappers. It works
+with saved entities and new entities before flushing:
+
+```kotlin
+store.transactional {
+    val fresh = XdUser.new { login = "fresh" }
+    val query = XdUser.singleton(fresh)
+    query.contains(fresh)             // true
+    query.contains(null as XdUser?)   // false
+}
+```
+
+A nonmember or null returns `false`; empty queries contain neither entities nor null.
+Ordinary collection and Sequence-backed queries use the same ID-based membership semantics.
+Fallback scans dispose resource-owning entity iterators, including on early return or failure.
+
 ### Filter
 
 Xodus-DNQ provides methods for entity filtering using built-in Xodus indices. It's much more efficient and 

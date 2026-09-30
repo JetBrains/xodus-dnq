@@ -78,6 +78,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.javaType
 import kotlin.sequences.Sequence
+import kotlin.sequences.any
 import kotlin.sequences.asIterable
 import kotlin.sequences.count
 import kotlin.sequences.distinct
@@ -768,24 +769,19 @@ fun <T : XdEntity> XdQuery<T>.indexOf(entity: T?): Int {
  * Returns `true` if query contains [entity].
  */
 operator fun <T : XdEntity> XdQuery<T>.contains(entity: Entity?): Boolean {
+    if (entity == null) return false
+
     val iterable = entityIterable
     val i = if (iterable is EntityIterable) {
         iterable.unwrap()
     } else {
         iterable
     }
-    return when {
-        i is Collection<*> -> {
-            i.contains(entity)
-        }
-
-        i is YTDBEntityIterable && entity != null -> {
-            i.contains(entity)
-        }
-
-        else -> {
-            (i as EntityIterable).unwrap().indexOf(entity) != -1
-        }
+    return if (i is EntityIterable) {
+        i.contains(entity)
+    } else {
+        val id = entity.id
+        useIterable(i) { entities -> entities.any { it.id == id } }
     }
 }
 

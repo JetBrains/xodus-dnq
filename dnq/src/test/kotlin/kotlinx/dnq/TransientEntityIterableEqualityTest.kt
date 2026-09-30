@@ -31,9 +31,8 @@ import kotlin.test.assertTrue
  * XD-1292 / audit #11-B — `TransientEntityIterable.indexOf`/`contains` compared objects
  * (`values.indexOf` / `values.contains` over a `Set<TransientEntity>`) instead of `EntityId`s.
  *
- * This is the most user-visible member of the #11 family: `XdQuery.contains`/`indexOf` route into it
- * (a `TransientEntityIterable` unwraps to itself, is not a `Collection` and not a
- * `YTDBEntityIterable`, so `XdQuery.contains` takes the `else` arm → `indexOf(entity) != -1`).
+ * This is the most user-visible member of the #11 family: `XdQuery.contains` delegates to
+ * `TransientEntityIterable.contains`, while `XdQuery.indexOf` routes into its `indexOf`.
  *
  * Argument choice: the **underlying persistent `YTDBEntity`** of a member. That is the natural failing
  * direction here — `TransientEntityImpl.equals` rejects any non-`TransientEntity` outright, and its

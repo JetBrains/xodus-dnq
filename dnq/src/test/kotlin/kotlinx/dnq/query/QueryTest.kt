@@ -16,12 +16,150 @@
 package kotlinx.dnq.query
 
 import com.google.common.truth.Truth.assertThat
+import com.jetbrains.teamsys.dnq.database.TransientEntityIterable
 import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterator
 import kotlinx.dnq.DBTest
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
 class QueryTest : DBTest() {
+
+    @Test
+    fun `new singleton contains its unflushed member but not null or another entity`() {
+        transactional {
+            val fresh = User.new {
+                login = "fresh"
+                skill = 3
+            }
+            val other = User.new {
+                login = "other"
+                skill = 3
+            }
+            assertThat((fresh.entity as TransientEntity).isNew).isTrue()
+            val query = User.singleton(fresh)
+
+            assertThat(query.contains(fresh)).isTrue()
+            assertThat(query.contains(fresh.entity)).isTrue()
+            assertThat(query.contains(null as User?)).isFalse()
+            assertThat(query.contains(null as Entity?)).isFalse()
+            assertThat(query.contains(other)).isFalse()
+        }
+    }
+
+    @Test
+    fun `saved singleton contains the same id across entity wrappers`() {
+        val (saved, other) = transactional {
+            User.new {
+                login = "saved"
+                skill = 3
+            } to User.new {
+                login = "other"
+                skill = 3
+            }
+        }
+        transactional {
+            val transient = saved.entity as TransientEntity
+            assertThat(transient.isNew).isFalse()
+            val query = User.singleton(saved)
+
+            assertThat(query.contains(saved)).isTrue()
+            assertThat(query.contains(transient.entity)).isTrue()
+            assertThat(query.contains(other)).isFalse()
+            assertThat(query.contains(null as User?)).isFalse()
+            assertThat(query.contains(null as Entity?)).isFalse()
+        }
+    }
+
+    @Test
+    fun `empty queries contain neither entities nor null`() {
+        transactional {
+            val fresh = User.new {
+                login = "fresh"
+                skill = 3
+            }
+            val queries = listOf(
+                User.emptyQuery(),
+                User.singleton(null),
+                emptyList<Entity>().asQuery(User),
+                emptySequence<Entity>().asIterable().asQuery(User),
+                TransientEntityIterable(emptySet()).asQuery(User)
+            )
+            queries.forEach { query ->
+                assertThat(query.contains(fresh)).isFalse()
+                assertThat(query.contains(null as User?)).isFalse()
+                assertThat(query.contains(null as Entity?)).isFalse()
+            }
+        }
+    }
+
+    @Test
+    fun `ordinary backings compare ids in both wrapper directions`() {
+        val (saved, other) = transactional {
+            User.new {
+                login = "saved"
+                skill = 3
+            } to User.new {
+                login = "other"
+                skill = 3
+            }
+        }
+        transactional {
+            val transient = saved.entity as TransientEntity
+            val persistent = transient.entity
+            assertThat(transient.id).isEqualTo(persistent.id)
+            assertThat(transient == persistent).isFalse()
+            assertThat(persistent == transient).isFalse()
+
+            listOf(transient, persistent).forEach { member ->
+                val queries = listOf(
+                    listOf(member).asQuery(User),
+                    hashSetOf(member).asQuery(User),
+                    sequenceOf(member).asIterable().asQuery(User)
+                )
+                queries.forEach { query ->
+                    assertThat(query.contains(transient)).isTrue()
+                    assertThat(query.contains(persistent)).isTrue()
+                    assertThat(query.contains(other)).isFalse()
+                    assertThat(query.contains(null as Entity?)).isFalse()
+                }
+            }
+
+            val transientQuery = TransientEntityIterable(setOf(transient)).asQuery(User)
+            assertThat(transientQuery.contains(persistent)).isTrue()
+            assertThat(transientQuery.contains(other)).isFalse()
+            assertThat(transientQuery.contains(null as Entity?)).isFalse()
+        }
+    }
+
+    @Test
+    fun `ordinary backing closes its database iterator on match and exhaustion`() {
+        val (first, other) = transactional {
+            User.new {
+                login = "first"
+                skill = 3
+            } to User.new {
+                login = "other"
+                skill = 3
+            }
+        }
+        transactional {
+            val source = User.singleton(first).entityIterable
+            lateinit var iterator: EntityIterator
+            val query = Iterable<Entity> {
+                (source.iterator() as EntityIterator).also {
+                    iterator = it
+                    assertThat(it.shouldBeDisposed()).isTrue()
+                }
+            }.asQuery(User)
+
+            assertThat(query.contains(first)).isTrue()
+            assertThat(iterator.shouldBeDisposed()).isFalse()
+            assertThat(query.contains(other)).isFalse()
+            assertThat(iterator.shouldBeDisposed()).isFalse()
+        }
+    }
 
     @Test
     fun `firstOrNull should return null if nothing found`() {
