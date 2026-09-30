@@ -89,14 +89,7 @@ object FilteringContext {
 
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.eq(value: T?): XdSearchingNode {
-        val correctedValue = value?.let {
-            if (it is DateTime) {
-                it.millis
-            } else {
-                it
-            }
-        }
-        return withNode(NodeFactory.propEqual(deepestNodeName, correctedValue).decorateIfNeeded())
+        return withNode(NodeFactory.propEqual(deepestNodeName, value?.rawValue()).decorateIfNeeded())
     }
 
     @DnqFilterDsl
@@ -151,7 +144,7 @@ object FilteringContext {
 
     @DnqFilterDsl
     infix fun <T : Comparable<T>> T?.ne(value: T?): XdSearchingNode {
-        return withNode(NodeFactory.not(NodeFactory.propEqual(deepestNodeName, value).decorateIfNeeded()))
+        return withNode(NodeFactory.not(NodeFactory.propEqual(deepestNodeName, value?.rawValue()).decorateIfNeeded()))
     }
 
     @DnqFilterDsl
@@ -160,7 +153,7 @@ object FilteringContext {
             tree or (NodeFactory.hasLinkTo(
                 deepestNodeName,
                 e?.entity
-            ))
+            ).decorateIfNeeded())
         })
     }
 

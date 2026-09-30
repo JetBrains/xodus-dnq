@@ -140,6 +140,67 @@ class IsInQueryTest : DBTest() {
         }
     }
 
+    @Test
+    fun `entity membership should preserve nested link depth`() {
+        val (root, middle, leaf) = createSupervisorChain()
+
+        store.transactional {
+            assertThat(User.filter { it.supervisor?.supervisor isIn listOf(root) }.toList())
+                .containsExactly(leaf)
+            assertThat(User.filter { it.supervisor?.supervisor eq root }.toList())
+                .containsExactly(leaf)
+            assertThat(User.filter { it.supervisor isIn listOf(root) }.toList())
+                .containsExactly(middle)
+        }
+    }
+
+    @Test
+    fun `nested entity membership should support multiple targets null and empty input`() {
+        val (root, middle, leaf) = createSupervisorChain()
+        val tip = store.transactional {
+            User.new {
+                login = "tip"
+                skill = 1
+                supervisor = leaf
+            }
+        }
+
+        store.transactional {
+            assertThat(User.filter { it.supervisor?.supervisor isIn listOf(root, middle) }.toList())
+                .containsExactly(leaf, tip)
+            // Only middle has a supervisor whose own supervisor is absent.
+            // Root has no intermediate supervisor and must not match nested null.
+            assertThat(User.filter { it.supervisor?.supervisor isIn listOf<User?>(null) }.toList())
+                .containsExactly(middle)
+            assertThat(User.filter { it.supervisor?.supervisor eq null }.toList())
+                .containsExactly(middle)
+            assertThat(User.filter { it.supervisor?.supervisor isIn listOf(root, null) }.toList())
+                .containsExactly(middle, leaf)
+            assertThat(User.filter { it.supervisor isIn listOf<User?>(null) }.toList())
+                .containsExactly(root)
+            assertThat(User.filter { it.supervisor?.supervisor isIn emptyList<User>() }.toList())
+                .isEmpty()
+        }
+    }
+
+    private fun createSupervisorChain(): Triple<User, User, User> = store.transactional {
+        val root = User.new {
+            login = "root"
+            skill = 1
+        }
+        val middle = User.new {
+            login = "middle"
+            skill = 1
+            supervisor = root
+        }
+        val leaf = User.new {
+            login = "leaf"
+            skill = 1
+            supervisor = middle
+        }
+        Triple(root, middle, leaf)
+    }
+
     private fun <T : XdEntity> measure(
             randomCharms: List<String>,
             iterationCount: Int,

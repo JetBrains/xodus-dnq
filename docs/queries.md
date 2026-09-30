@@ -121,6 +121,28 @@ XdUser.query(XdUser::gender ne XdGender.FEMALE)
 XdUser.filter { it.gender ne XdGender.FEMALE }
 ```
 
+For optional properties, `ne value` includes entities whose property is absent; `ne null` selects
+entities whose property is present. `DateTime` equality and inequality compare stored milliseconds,
+so different time zones do not make the same instant unequal.
+
+#### Entity membership
+
+Use `isIn` to match any of the supplied entity targets. Nested links retain the full path, just
+as with `eq`:
+
+```kotlin
+// Users whose supervisor's supervisor is root
+XdUser.filter { it.supervisor?.supervisor isIn listOf(root) }
+
+// Either target may match at the end of the same nested path
+XdUser.filter { it.supervisor?.supervisor isIn listOf(root, anotherBoss) }
+```
+
+An empty target list matches no entities. A `null` target matches an absent final link.
+For a nested path, all preceding links must exist: `it.supervisor?.supervisor isIn listOf(null)`
+matches a user whose supervisor has no supervisor, not a user with no supervisor.
+Entity and `null` targets can be mixed in the same list.
+
 #### Greater than
 
 Filter entities with a value of the property greater than given `value`.  

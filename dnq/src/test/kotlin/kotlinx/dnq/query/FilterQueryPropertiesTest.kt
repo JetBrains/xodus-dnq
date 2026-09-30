@@ -22,6 +22,7 @@ import kotlinx.dnq.XdEntity
 import kotlinx.dnq.XdEntityType
 import kotlinx.dnq.xdStringProp
 import org.joda.time.DateTime
+import org.joda.time.DateTimeZone
 import org.junit.Test
 
 private var DBTest.User.inn by xdStringProp<DBTest.User>(dbName = "_inn_")
@@ -278,6 +279,62 @@ class FilterQueryPropertiesTest : DBTest() {
             User.assertThatFilterResult { it.registered gt date }.hasSize(0)
 
             User.assertThatFilterResult { it.registered eq null }.hasSize(1)
+        }
+    }
+
+    @Test
+    fun `DateTime inequality should exclude the equal date and include absent dates`() {
+        val date = DateTime(123456L)
+        val users = store.transactional {
+            listOf("root", "middle", "leaf", "fresh").map { login ->
+                User.new {
+                    this.login = login
+                    skill = 1
+                    if (login == "root") registered = date
+                }
+            }
+        }
+
+        store.transactional {
+            User.assertThatFilterResult { it.registered ne date }
+                .containsExactlyElementsIn(users.drop(1))
+            User.assertThatFilterResult { it.registered eq date }.containsExactly(users.first())
+            User.assertThatFilterResult { it.registered ne null }.containsExactly(users.first())
+            User.assertThatFilterResult { it.registered eq null }
+                .containsExactlyElementsIn(users.drop(1))
+        }
+    }
+
+    @Test
+    fun `nested DateTime inequality should compare stored instants and preserve missing links`() {
+        val date = DateTime(123456L)
+        val sameInstant = date.withZone(DateTimeZone.forID("America/New_York"))
+        val (bosses, subordinates) = store.transactional {
+            val bosses = listOf(date, date.plusMillis(1), null).mapIndexed { index, registered ->
+                User.new {
+                    login = "boss$index"
+                    skill = 1
+                    this.registered = registered
+                }
+            }
+            val subordinates = bosses.mapIndexed { index, boss ->
+                User.new {
+                    login = "subordinate$index"
+                    skill = 1
+                    supervisor = boss
+                }
+            }
+            bosses to subordinates
+        }
+
+        store.transactional {
+            User.assertThatFilterResult { it.registered ne sameInstant }
+                .containsExactlyElementsIn(bosses.drop(1) + subordinates)
+            User.assertThatFilterResult { it.registered eq sameInstant }.containsExactly(bosses.first())
+            User.assertThatFilterResult { it.supervisor?.registered ne sameInstant }
+                .containsExactlyElementsIn(bosses + subordinates.drop(1))
+            User.assertThatFilterResult { it.supervisor?.registered eq sameInstant }
+                .containsExactly(subordinates.first())
         }
     }
 
