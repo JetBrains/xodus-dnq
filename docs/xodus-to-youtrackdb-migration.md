@@ -148,8 +148,8 @@ BinaryNode.getQuery()
 | `PropertyEqual(name, value)` | `GremlinBlock.PropEqual(name, value)` |
 | `PropertyNotNull(name)` | `GremlinBlock.PropNotNull(name)` |
 | `PropertyRange(name, min, max)` | `GremlinBlock.PropInRange(name, min, max)` |
-| `PropertyContains(name, v, ignoreCase)` | `GremlinBlock.MatchStringProp(..., Substring, ..., !ignoreCase)` |
-| `PropertyStartsWith(name, v, ignoreCase)` | `GremlinBlock.MatchStringProp(..., Prefix, ..., !ignoreCase)` |
+| `PropertyContains(name, v, ignoreCase)` | `GremlinBlock.MatchStringProp(name, Substring, v, isCollection = false)` |
+| `PropertyStartsWith(name, v, ignoreCase)` | `GremlinBlock.MatchStringProp(name, Prefix, v, isCollection = false)` |
 | `LinkEqual(name, entityId)` | `GremlinBlock.HasLinkTo(name, rid)` |
 | `LinkNotNull(name)` | `GremlinBlock.HasLink(name)` |
 | `And` | `GremlinBlock.And(left, right)` via `BinaryNode(..., ::And)` |
@@ -161,6 +161,13 @@ BinaryNode.getQuery()
 | `GetLinks` / link traversal | `GremlinBlock.OutLink` / `InLink` → `GremlinQuery.FollowLink` |
 | `LinksEqualDecorator` | `GremlinQuery.NestedCondition` (see below) |
 | `Wildcard`, `ConversionWildcard` | Removed — no longer needed |
+
+The case-mode parameters shown in the master APIs above are not retained on this branch.
+Remove the former `ignoreCase` argument from `findContaining`, the `NodeFactory` string factories,
+and property-reference String `contains`; `MatchStringProp` no longer accepts `caseSensitive`.
+Scalar predicates retain declared-schema collation and native predicate pushdown; standard DNQ
+string properties use case-insensitive collation. `HasElement` compares String set elements
+case-insensitively, independently of schema collation, while preserving non-String equality.
 
 ### LinksEqualDecorator → GremlinQuery.NestedCondition
 

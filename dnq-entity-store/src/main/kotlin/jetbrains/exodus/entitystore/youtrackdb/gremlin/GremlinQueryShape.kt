@@ -128,7 +128,7 @@ object GremlinQueryShape {
             is GremlinBlock.HasNoLink     -> append("HasNoLink(\"${block.linkName}\")")
             is GremlinBlock.HasLinkTo     -> append("HasLinkTo(\"${block.linkName}\", ?)")
             is GremlinBlock.HasElement    -> append("HasElement(\"${block.property}\", ?)")
-            is GremlinBlock.MatchStringProp -> append("MatchStringProp(\"${block.property}\", ${block.op}, ?, ?, ?)")
+            is GremlinBlock.MatchStringProp -> append("MatchStringProp(\"${block.property}\", ${block.op}, ?, ?)")
             is GremlinBlock.OutLink       -> append("OutLink(\"${block.linkName}\")")
             is GremlinBlock.InLink        -> append("InLink(\"${block.linkName}\")")
             is GremlinBlock.IdWithin      -> append("IdWithin(?)")

@@ -139,7 +139,7 @@ object FilteringContext {
 
     @DnqFilterDsl
     infix fun String?.contains(value: String?): XdSearchingNode {
-        return withNode(NodeFactory.hasSubstring(deepestNodeName, value ?: "", true).decorateIfNeeded())
+        return withNode(NodeFactory.hasSubstring(deepestNodeName, value ?: "").decorateIfNeeded())
     }
 
     @DnqFilterDsl

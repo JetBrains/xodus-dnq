@@ -148,15 +148,13 @@ interface YTDBStoreTransaction : StoreTransaction {
     override fun findContaining(
         entityType: String,
         propertyName: String,
-        value: String,
-        ignoreCase: Boolean
-    ): YTDBEntityIterable = findContaining(entityType, propertyName, value, ignoreCase, polymorphic = true)
+        value: String
+    ): YTDBEntityIterable = findContaining(entityType, propertyName, value, polymorphic = true)
 
     fun findContaining(
         entityType: String,
         propertyName: String,
         value: String,
-        ignoreCase: Boolean,
         polymorphic: Boolean
     ): YTDBEntityIterable
 

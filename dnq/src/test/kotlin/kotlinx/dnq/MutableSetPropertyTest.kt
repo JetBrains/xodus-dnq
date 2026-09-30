@@ -38,6 +38,7 @@ class MutableSetPropertyTest : DBTest() {
         companion object : XdNaturalEntityType<Employee>()
 
         val skills by xdMutableSetProp<Employee, String>()
+        val levels by xdMutableSetProp<Employee, Int>()
     }
 
     override fun registerEntityTypes() {
@@ -102,6 +103,60 @@ class MutableSetPropertyTest : DBTest() {
 
             assertThat(Employee.query(Employee::skills contains "Scala").toList())
                     .isEmpty()
+        }
+    }
+
+    @Test
+    fun `committed string set membership ignores case and preserves stored spelling`() {
+        val (mixed, lower) = transactional {
+            val mixed = Employee.new { skills.add("MiXeD@Example") }
+            val lower = Employee.new { skills.add("mixed@example") }
+            Employee.new { skills.add("prefix-MiXeD@Example") }
+            Employee.new()
+            mixed to lower
+        }
+
+        transactional {
+            assertCaseInsensitiveStringMembership(mixed, lower)
+            assertThat(mixed.skills).containsExactly("MiXeD@Example")
+            assertThat(lower.skills).containsExactly("mixed@example")
+        }
+    }
+
+    @Test
+    fun `string set membership ignores case before flushing new entities`() {
+        transactional {
+            val mixed = Employee.new { skills.add("MiXeD@Example") }
+            val lower = Employee.new { skills.add("mixed@example") }
+            Employee.new { skills.add("prefix-MiXeD@Example") }
+            Employee.new()
+
+            assertThat((mixed.entity as TransientEntity).isNew).isTrue()
+            assertCaseInsensitiveStringMembership(mixed, lower)
+        }
+    }
+
+    private fun assertCaseInsensitiveStringMembership(mixed: Employee, lower: Employee) {
+        for (value in listOf("MiXeD@Example", "mixed@example", "MIXED@EXAMPLE")) {
+            assertThat(Employee.query(Employee::skills contains value).toList())
+                .containsExactly(mixed, lower)
+        }
+        assertThat(Employee.query(Employee::skills contains "not-present").toList()).isEmpty()
+        assertThat(Employee.query(Employee::skills contains "mixed").toList()).isEmpty()
+    }
+
+    @Test
+    fun `non string set membership retains exact element matching`() {
+        val (match, other) = transactional {
+            Employee.new { levels.add(7) } to Employee.new { levels.add(8) }
+        }
+        transactional {
+            assertThat(Employee.query(Employee::levels contains 7).toList()).containsExactly(match)
+            assertThat(Employee.query(Employee::levels contains 8).toList()).containsExactly(other)
+            assertThat(Employee.query(Employee::levels contains 9).toList()).isEmpty()
+
+            val fresh = Employee.new { levels.add(9) }
+            assertThat(Employee.query(Employee::levels contains 9).toList()).containsExactly(fresh)
         }
     }
 

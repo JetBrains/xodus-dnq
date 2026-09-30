@@ -138,8 +138,8 @@ fun <V : Comparable<V>> gt(dbPropertyName: String, value: V, valueKClass: KClass
     return NodeFactory.inRange(dbPropertyName, valueKClass.next(value), valueKClass.maxValue())
 }
 
-inline fun <reified R : XdEntity> KProperty1<R, String?>.contains(value: String?, ignoreCase: Boolean = true): NodeBase {
-    return NodeFactory.hasSubstring(this.getDBName(R::class), value, ignoreCase)
+inline fun <reified R : XdEntity> KProperty1<R, String?>.contains(value: String?): NodeBase {
+    return NodeFactory.hasSubstring(this.getDBName(R::class), value)
 }
 
 /**

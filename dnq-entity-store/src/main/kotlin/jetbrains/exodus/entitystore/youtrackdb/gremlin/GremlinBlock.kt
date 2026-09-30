@@ -337,23 +337,22 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
         val op: StringCompare,
         val matchValue: String?,
         val isCollection: Boolean,
-        val caseSensitive: Boolean,
     ) : GremlinBlock("str$op", BlockType.CONDITION) {
         /** Builds the legacy traversal fallback for case-insensitive equality on a residual HasStep. */
         internal fun scalarFilterTraversal(): GraphTraversal<*, *> {
-            val predicate = op.predicate(if (caseSensitive) matchValue else matchValue?.lowercase())
+            val predicate = op.predicate(matchValue?.lowercase())
             return values<YTDBVertex, String>(property)
-                .let { if (caseSensitive) it else it.toLower() }
+                .toLower()
                 .`is`(predicate)
         }
 
         override fun traverse(g: YT): YT =
             if (isCollection) {
-                val predicate = op.predicate(if (caseSensitive) matchValue else matchValue?.lowercase())
+                val predicate = op.predicate(matchValue?.lowercase())
                 g.where(
                     values<YTDBVertex, String>(property)
                         .unfold<String>()
-                        .let { if (caseSensitive) it else it.toLower() }
+                        .toLower()
                         .`is`(predicate)
                 )
             } else {
@@ -365,12 +364,13 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
     }
 
     data class HasElement(val property: String, val value: Any) : GremlinBlock("he", BlockType.CONDITION) {
-        override fun traverse(g: YT): YT =
-            g.where(
-                values<YTDBVertex, Any>(property)
-                    .unfold<Any>()
-                    .`is`(value)
+        override fun traverse(g: YT): YT {
+            val elements = values<YTDBVertex, Any>(property).unfold<Any>()
+            return g.where(
+                if (value is String) elements.toLower().`is`(value.lowercase())
+                else elements.`is`(value)
             )
+        }
 
         override fun describe(s: StringBuilder): StringBuilder = s.append(property).append(" hasElement ").append(value)
     }
@@ -491,7 +491,6 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
                 op = StringCompare.Equal,
                 matchValue = value,
                 isCollection = false,
-                caseSensitive = false,
             )
 
         /**

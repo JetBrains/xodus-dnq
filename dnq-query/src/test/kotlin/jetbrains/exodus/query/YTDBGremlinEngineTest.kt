@@ -155,30 +155,20 @@ class YTDBGremlinEngineTest(
         declareCaseInsensitiveStringProperty("caseInsensitive")
         val engine = givenOQueryEngine()
         withStoreTx {
-            test.issue2.setProperty("case", "Find me if YOU can")
             test.issue2.setProperty("caseInsensitive", "Find me if YOU can")
         }
 
         // When
         withStoreTx { tx ->
-            val issues = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "YOU", false)
-            )
             val issuesIgnoreCase = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("caseInsensitive", "yOu", true)
-            )
-            val issuesIgnoreNotIgnoreCase = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("case", "yOu", false)
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("caseInsensitive", "yOu")
             )
             val empty = engine.query(
-                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("caseInsensitive", "not", true)
+                iterableGetter(engine, tx), "Issue", NodeFactory.hasSubstring("caseInsensitive", "not")
             )
 
             // Then
-            assertNamesExactly(issues, "issue2")
             assertNamesExactly(issuesIgnoreCase, "issue2")
-            //this may be subject to change if we want to support exact case search
-            assertThat(issuesIgnoreNotIgnoreCase).isEmpty()
             assertThat(empty).isEmpty()
         }
     }
@@ -259,8 +249,6 @@ class YTDBGremlinEngineTest(
         declareCaseInsensitiveStringProperty("caseInsensitive")
         val engine = givenOQueryEngine()
         withStoreTx {
-            test.issue2.setProperty("case", "Find me if YOU can")
-            test.issue3.setProperty("case", "find me IF you CAN")
             test.issue2.setProperty("caseInsensitive", "Find me if YOU can")
             test.issue3.setProperty("caseInsensitive", "find me IF you CAN")
         }
@@ -269,22 +257,9 @@ class YTDBGremlinEngineTest(
             assertNamesExactly(
                 engine.query(
                     iterableGetter(engine, tx), "Issue",
-                    NodeFactory.stringPropEqual("caseInsensitive", "find me if you can", ignoreCase = true)
+                    NodeFactory.stringPropEqual("caseInsensitive", "find me if you can")
                 ),
                 "issue2", "issue3"
-            )
-            assertThat(
-                engine.query(
-                    iterableGetter(engine, tx), "Issue",
-                    NodeFactory.stringPropEqual("case", "find me if you can", ignoreCase = false)
-                )
-            ).isEmpty()
-            assertNamesExactly(
-                engine.query(
-                    iterableGetter(engine, tx), "Issue",
-                    NodeFactory.stringPropEqual("case", "Find me if YOU can", ignoreCase = false)
-                ),
-                "issue2"
             )
         }
     }
@@ -299,16 +274,10 @@ class YTDBGremlinEngineTest(
             assertNamesExactly(
                 engine.query(
                     iterableGetter(engine, tx), "Issue",
-                    NodeFactory.hasStringElement("tags", "IN_ProGRess", ignoreCase = true)
+                    NodeFactory.hasStringElement("tags", "IN_ProGRess")
                 ),
                 "issue1", "issue3"
             )
-            assertThat(
-                engine.query(
-                    iterableGetter(engine, tx), "Issue",
-                    NodeFactory.hasStringElement("tags", "IN_ProGRess", ignoreCase = false)
-                ),
-            ).isEmpty()
         }
     }
 

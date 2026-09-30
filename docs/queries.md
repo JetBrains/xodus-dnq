@@ -221,6 +221,17 @@ XdUser.query(XdUser::groups contains group)
 XdUser.filter { it.groups contains group }
 ```
 
+Scalar String `contains` searches for a substring:
+
+```kotlin
+XdUser.query(XdUser::login.contains("mixed"))
+XdUser.filter { it.login contains "mixed" }
+```
+
+String queries have no per-query case-sensitive option. Scalar predicates use the property's
+declared schema collation; the standard DNQ schema uses case-insensitive collation.
+The native substring API is `findContaining(entityType, propertyName, value)`.
+
 #### Value in range
 
 Filter entities with a value of the property matching the given range.  
@@ -243,6 +254,11 @@ class XdPost(entity: Entity): XdEntity(entity) {
 
 XdPost.query(XdPost::tags contains "Kotlin")
 ```
+
+String-set membership is case-insensitive, matching Xodus behavior: the example above also
+matches a stored tag `"kotlin"` or `"KOTLIN"`. Comparison does not rewrite stored values.
+Non-string set elements retain their ordinary equality semantics. Missing or empty sets do
+not match any element.
 
 #### Set element starts with
 

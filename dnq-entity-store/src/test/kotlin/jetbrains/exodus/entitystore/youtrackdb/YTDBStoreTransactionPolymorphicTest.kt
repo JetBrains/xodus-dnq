@@ -128,11 +128,11 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
         withStoreTx { tx ->
             // "1" matches all entity names — non-polymorphic should still return only BaseUser
             val result = tx.findContaining(
-                BaseUser.CLASS, "name", "1", false, polymorphic = false
+                BaseUser.CLASS, "name", "1", polymorphic = false
             )
             assertNamesExactly(result, "base1")
 
-            val polyResult = tx.findContaining(BaseUser.CLASS, "name", "1", false)
+            val polyResult = tx.findContaining(BaseUser.CLASS, "name", "1")
             assertNamesExactly(polyResult, "base1", "user1", "guest1")
         }
     }

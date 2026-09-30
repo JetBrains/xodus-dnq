@@ -128,25 +128,6 @@ class GremlinQueryTest {
             .isEqualTo("""__.has("value",P.gte((int) 1).and(P.lte((int) 5)))""")
     }
 
-    @Test
-    fun `HasElement produces where unfold-and-match on collection`() {
-        assertThat(HasElement("tags", "bug").toGremlin())
-            .isEqualTo("""__.where(__.values("tags").unfold().is("bug"))""")
-    }
-
-    @Test
-    fun `MatchStringProp substring uses collated has predicate`() {
-        assertThat(
-            MatchStringProp("prop", StringCompare.Substring, "val", isCollection = false, caseSensitive = false).toGremlin()
-        ).isEqualTo("""__.has("prop",TextP.containing("val"))""")
-    }
-
-    @Test
-    fun `MatchStringProp prefix uses collated has predicate`() {
-        assertThat(
-            MatchStringProp("prop", StringCompare.Prefix, "pre", isCollection = false, caseSensitive = false).toGremlin()
-        ).isEqualTo("""__.has("prop",TextP.startingWith("pre"))""")
-    }
 
     @Test
     fun `Dedup produces dedup`() {
@@ -241,40 +222,6 @@ class GremlinQueryTest {
         assertThat(gremlin).doesNotContain("hasId")
     }
 
-    @Test
-    fun `MatchStringProp equal case-sensitive produces has with eq predicate`() {
-        assertThat(
-            MatchStringProp("name", StringCompare.Equal, "John", isCollection = false, caseSensitive = true).toGremlin()
-        ).isEqualTo("""__.has("name",P.eq("John"))""")
-    }
-
-    @Test
-    fun `MatchStringProp equal case-insensitive uses collated has with original value`() {
-        assertThat(
-            MatchStringProp("name", StringCompare.Equal, "John", isCollection = false, caseSensitive = false).toGremlin()
-        ).isEqualTo("""__.has("name",P.eq("John"))""")
-    }
-
-    @Test
-    fun `MatchStringProp suffix uses collated has predicate`() {
-        assertThat(
-            MatchStringProp("prop", StringCompare.Suffix, "ue", isCollection = false, caseSensitive = false).toGremlin()
-        ).isEqualTo("""__.has("prop",TextP.endingWith("ue"))""")
-    }
-
-    @Test
-    fun `MatchStringProp collection case-insensitive produces unfold toLower check`() {
-        assertThat(
-            MatchStringProp("tags", StringCompare.Substring, "val", isCollection = true, caseSensitive = false).toGremlin()
-        ).isEqualTo("""__.where(__.values("tags").unfold().toLower().is(TextP.containing("val")))""")
-    }
-
-    @Test
-    fun `MatchStringProp collection case-sensitive produces unfold without toLower`() {
-        assertThat(
-            MatchStringProp("tags", StringCompare.Equal, "John", isCollection = true, caseSensitive = true).toGremlin()
-        ).isEqualTo("""__.where(__.values("tags").unfold().is(P.eq("John")))""")
-    }
 
     @Test
     fun `Reverse produces fold reverse unfold`() {

@@ -341,7 +341,6 @@ class YTDBStoreTransactionImpl(
         entityType: String,
         propertyName: String,
         value: String,
-        ignoreCase: Boolean,
         polymorphic: Boolean
     ): YTDBEntityIterable {
         requireActiveTransaction()
@@ -352,8 +351,7 @@ class YTDBStoreTransactionImpl(
                 propertyName,
                 StringCompare.Substring,
                 value,
-                isCollection = false,
-                caseSensitive = !ignoreCase
+                isCollection = false
             ),
             polymorphic
         )
@@ -373,8 +371,7 @@ class YTDBStoreTransactionImpl(
                 propertyName,
                 StringCompare.Prefix,
                 value,
-                isCollection = false,
-                caseSensitive = false
+                isCollection = false
             ),
             polymorphic
         )

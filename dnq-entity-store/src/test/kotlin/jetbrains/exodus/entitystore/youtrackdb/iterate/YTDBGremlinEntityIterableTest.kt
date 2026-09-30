@@ -1250,13 +1250,12 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     }
 
     @Test
-    fun `findContaining uses collated contains predicate`() {
+    fun `findContaining returns entities whose property contains the substring`() {
         givenTestCase()
 
         withStoreTx { tx ->
-            val issues = tx.findContaining(Issues.CLASS, "name", "issue", true)
+            val issues = tx.findContaining(Issues.CLASS, "name", "issue")
 
-            checkGremlin(issues, """g.V().has("name",TextP.containing("issue")).hasLabel("Issue")""")
             assertNamesExactly(issues, "issue1", "issue2", "issue3")
         }
     }

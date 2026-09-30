@@ -109,8 +109,8 @@ class YTDBStoreTransactionTest : OTestMixin {
 
         // When
         withStoreTx { tx ->
-            val issues = tx.findContaining(Issues.CLASS, "case", "YOU", true)
-            val empty = tx.findContaining(Issues.CLASS, "case", "not", true)
+            val issues = tx.findContaining(Issues.CLASS, "case", "YOU")
+            val empty = tx.findContaining(Issues.CLASS, "case", "not")
 
             // Then
             assertNamesExactly(issues, "issue2")

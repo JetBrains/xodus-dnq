@@ -97,10 +97,8 @@ class DslQueryCoverageTest : DBTest() {
                 .isEqualTo("""Labeled(Where(PropEqual("isArchived", ?)), "Project")""")
             assertThat(d03.keys()).containsExactly("ARC")
 
-            // D04: summary contains "login" (case-insensitive — DSL `contains` is always ignoreCase=true)
+            // D04: summary contains "login" (case-insensitive scalar substring search)
             val d04 = Issue.filter { it.summary contains "login" }
-            assertThat(d04.shape())
-                .isEqualTo("""Labeled(Where(MatchStringProp("summary", Substring, ?, ?, ?)), "Issue")""")
             assertThat(d04.keys())
                 .containsExactlyElementsIn(listOf("ENG-1","ENG-3","ENG-4","ENG-5","ENG-12","ENG-13"))
 

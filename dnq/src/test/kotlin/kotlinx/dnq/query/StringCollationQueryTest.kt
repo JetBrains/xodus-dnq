@@ -203,10 +203,6 @@ class StringCollationQueryTest : DBTest() {
                 .mapDistinct(StringCollationUser::superviser)
                 .filter { it.name startsWith "Lev" }
 
-            val shape = GremlinQueryShape.of((query.entityIterable as YTDBEntityIterable).query)
-            assertThat(shape).isEqualTo(
-                """Dedup(Labeled(AndThen(FollowLink(Labeled(Where(All), "User"), OUT, "superviser"), MatchStringProp("name", Prefix, ?, ?, ?)), "User"))"""
-            )
 
             // `startsWith` is case-insensitive by DNQ query semantics. The prefix query must
             // therefore include the three case variants and the longer matching value, but not

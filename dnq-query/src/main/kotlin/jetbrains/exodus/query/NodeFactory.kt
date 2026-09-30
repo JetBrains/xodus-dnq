@@ -49,86 +49,76 @@ object NodeFactory {
     @JvmStatic
     fun hasSubstring(
         property: String,
-        value: String?,
-        ignoreCase: Boolean = true
+        value: String?
     ): LeafNode = LeafNode(
         MatchStringProp(
             property,
             StringCompare.Substring,
             value,
-            isCollection = false,
-            caseSensitive = !ignoreCase
+            isCollection = false
         )
     )
 
     @JvmStatic
     fun hasElementWithSubstring(
         property: String,
-        value: String?,
-        ignoreCase: Boolean = true
+        value: String?
     ): LeafNode = LeafNode(
         MatchStringProp(
             property,
             StringCompare.Substring,
             value,
-            isCollection = true,
-            caseSensitive = !ignoreCase
+            isCollection = true
         )
     )
 
     @JvmStatic
     fun hasPrefix(
         property: String,
-        value: String?,
-        ignoreCase: Boolean = true
+        value: String?
     ): LeafNode = LeafNode(
         MatchStringProp(
             property,
             StringCompare.Prefix,
             value,
-            isCollection = false,
-            caseSensitive = !ignoreCase
+            isCollection = false
         )
     )
 
     @JvmStatic
     fun hasElementWithPrefix(
         property: String,
-        value: String?,
-        ignoreCase: Boolean = true
+        value: String?
     ): LeafNode =
         LeafNode(
             MatchStringProp(
                 property,
                 StringCompare.Prefix,
                 value,
-                isCollection = true,
-                caseSensitive = !ignoreCase
+                isCollection = true
             )
         )
 
     @JvmStatic
-    fun stringPropEqual(property: String, value: String?, ignoreCase: Boolean = true): LeafNode =
+    fun stringPropEqual(property: String, value: String?): LeafNode =
         if (value == null) LeafNode(PropNull(property))
         else LeafNode(
             MatchStringProp(
                 property,
                 StringCompare.Equal,
                 value,
-                isCollection = false,
-                caseSensitive = !ignoreCase
+                isCollection = false
             )
         )
 
     @JvmStatic
-    fun hasStringElement(property: String, value: String?, ignoreCase: Boolean = true): LeafNode =
+    fun hasStringElement(property: String, value: String?): LeafNode =
         LeafNode(
             MatchStringProp(
                 property,
                 StringCompare.Equal,
                 value,
-                isCollection = true,
-                caseSensitive = !ignoreCase
+                isCollection = true
             )
         )
 
