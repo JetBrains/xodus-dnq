@@ -18,6 +18,9 @@ package jetbrains.exodus.entitystore.youtrackdb.iterate
 import com.google.common.truth.Truth.assertThat
 import org.apache.tinkerpop.gremlin.process.traversal.P
 import com.jetbrains.youtrackdb.internal.core.gremlin.traversal.step.sideeffect.YTDBGraphStep
+import com.jetbrains.youtrackdb.internal.core.gremlin.translator.strategy.GremlinToMatchStrategy
+import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
@@ -39,6 +42,91 @@ class YTDBGremlinEntityIterableTest : OTestMixin {
     val orientDbRule = InMemoryYouTrackDB()
 
     override val youTrackDb = orientDbRule
+
+    private fun assertMembersInBothExecutionModes(result: EntityIterable, vararg expected: Entity) {
+        val expectedMembers = expected.map { it.id to it.type }
+        assertThat(result.map { it.id to it.type }).containsExactlyElementsIn(expectedMembers)
+
+        val traversal = (result as YTDBEntityIterable).traversal()
+        traversal.asAdmin().strategies.removeStrategies(GremlinToMatchStrategy::class.java)
+        YTDBEntityIterator.of(traversal, youTrackDb.store).use { iterator ->
+            val members = iterator.asSequence().map { it.id to it.type }.toList()
+            assertThat(members).containsExactlyElementsIn(expectedMembers)
+        }
+    }
+
+    @Test
+    fun `single entity and disjoint typed extent preserve operand membership`() {
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            val project = YTDBEntityIterable.single(tx.getStore(), test.project1.id)
+            val issues = tx.getAll(Issues.CLASS)
+
+            assertMembersInBothExecutionModes(project.union(issues), test.project1, test.issue1, test.issue2, test.issue3)
+            assertMembersInBothExecutionModes(issues.union(project), test.project1, test.issue1, test.issue2, test.issue3)
+            assertMembersInBothExecutionModes(project.minus(issues), test.project1)
+            assertMembersInBothExecutionModes(issues.minus(project), test.issue1, test.issue2, test.issue3)
+            assertMembersInBothExecutionModes(project.intersect(issues))
+            assertMembersInBothExecutionModes(issues.intersect(project))
+        }
+    }
+
+    @Test
+    fun `unlabeled predicate keeps cross-type members when combined with typed predicate`() {
+        val test = givenTestCase()
+        withStoreTx {
+            test.project1.setProperty("name", "issue1")
+        }
+        withStoreTx { tx ->
+            val untyped = YTDBEntityIterable.query(
+                tx.getStore(), GremlinQuery.Where.of(GremlinBlock.PropEqual("name", "issue1"))
+            )
+            val typed = tx.find(Issues.CLASS, "name", "issue1")
+
+            assertMembersInBothExecutionModes(untyped.union(typed), test.project1, test.issue1)
+            assertMembersInBothExecutionModes(typed.union(untyped), test.project1, test.issue1)
+            assertMembersInBothExecutionModes(untyped.minus(typed), test.project1)
+            assertMembersInBothExecutionModes(typed.minus(untyped))
+            assertMembersInBothExecutionModes(untyped.intersect(typed), test.issue1)
+            assertMembersInBothExecutionModes(typed.intersect(untyped), test.issue1)
+        }
+    }
+
+    @Test
+    fun `intersection deduplicates repeated concat members in either operand direction`() {
+        val test = givenTestCase()
+        withStoreTx { tx ->
+            val matching = tx.find(Issues.CLASS, "name", "issue2")
+            val duplicates = matching.concat(matching)
+
+            assertMembersInBothExecutionModes(duplicates, test.issue2, test.issue2)
+            assertMembersInBothExecutionModes(matching.intersect(duplicates), test.issue2)
+            assertMembersInBothExecutionModes(duplicates.intersect(matching), test.issue2)
+        }
+    }
+
+    @Test
+    fun `distributed intersection preserves labels and multiplicity across heterogeneous branches`() {
+        val test = givenTestCase()
+        withStoreTx {
+            test.project1.setProperty("name", "issue2")
+        }
+        withStoreTx { tx ->
+            val matching = tx.find(Issues.CLASS, "name", "issue2")
+            val branches = tx.getAll(Issues.CLASS).concat(tx.getAll(Projects.CLASS)).concat(matching)
+
+            assertMembersInBothExecutionModes(matching.intersect(branches), test.issue2)
+            assertMembersInBothExecutionModes(branches.intersect(matching), test.issue2)
+            assertMembersInBothExecutionModes(matching.intersect(branches.distinct()), test.issue2)
+            assertMembersInBothExecutionModes(branches.distinct().intersect(matching), test.issue2)
+
+            val untyped = YTDBEntityIterable.query(
+                tx.getStore(), GremlinQuery.Where.of(GremlinBlock.PropEqual("name", "issue2"))
+            )
+            assertMembersInBothExecutionModes(untyped.intersect(branches), test.issue2, test.project1)
+            assertMembersInBothExecutionModes(branches.intersect(untyped), test.issue2, test.project1)
+        }
+    }
 
     @Test
     fun `property is null`() {

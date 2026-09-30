@@ -482,12 +482,12 @@ internal fun GremlinQuery.combineEfficient(
                 // losing the hasLabel filter. Wrapping the result re-applies hasLabel after
                 // the union — at a different traversal level, so TinkerPop's
                 // InlineFilterStrategy won't merge it with branch-level hasLabel steps.
-                // When a label is present, omit Dedup here — O17 (the caller that stripped
-                // Order(Dedup) before recursing) will re-wrap the result with Dedup.
+                // Intersection is a set operation even when reached directly from concat,
+                // without an enclosing O17 Dedup wrapper.
                 val label = extractLabel(this)
                 val branches = other.subqueries.map { it.then(condBlock) }
-                return if (label != null) Labeled.of(UnionAll(branches), label)
-                       else UnionAll(branches).then(GremlinBlock.Dedup)
+                val result = if (label != null) Labeled.of(UnionAll(branches), label) else UnionAll(branches)
+                return result.then(GremlinBlock.Dedup)
             }
         }
         if (this is UnionAll && this.subqueries.none { hasPaging(it) }) {
@@ -501,8 +501,8 @@ internal fun GremlinQuery.combineEfficient(
                 // O20b-fix: same label preservation as the symmetric path above.
                 val label = extractLabel(other)
                 val branches = this.subqueries.map { it.then(condBlock) }
-                return if (label != null) Labeled.of(UnionAll(branches), label)
-                       else UnionAll(branches).then(GremlinBlock.Dedup)
+                val result = if (label != null) Labeled.of(UnionAll(branches), label) else UnionAll(branches)
+                return result.then(GremlinBlock.Dedup)
             }
         }
     }
@@ -740,6 +740,13 @@ internal fun GremlinQuery.combineEfficient(
     val otherCondition = extractCondition(other)
 
     if (thisCondition == null || otherCondition == null) {
+        return null
+    }
+
+    // A label on only one operand is not a constraint on the union or difference.
+    // Keep operand-local labels through the existing composition fallback. Intersection
+    // may factor the lone label because every result must satisfy both operands.
+    if (thisLabel != otherLabel && condCombiner !is ConditionCombiner.Intersect) {
         return null
     }
 

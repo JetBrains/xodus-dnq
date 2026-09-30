@@ -821,17 +821,6 @@ class GremlinQueryCoverageTest : DBTest() {
         assertThat(q55.toGremlin())
             .isEqualTo("""g.V().and(__.has("status","open"),__.not(__.out("assignee_link"))).hasLabel("Issue")$byPriorityGremlin""")
 
-        // Q56: ByIds difference condition — specific issues that are not open
-        // ByIds.asBlock() returns IdWithin([...]) which is a valid CONDITION block,
-        // so extractCondition succeeds → combineEfficient produces And(IdWithin, Not(PropEqual))
-        // with the label from the right operand. No Aggregate fallback.
-        val q56 = ByIds(listOf(issueRid1, issueRid2))
-            .difference(issues(PropEqual("status", "open")))
-        println("[Q56 byids difference condition] query  : $q56")
-        println("[Q56 byids difference condition] gremlin: ${q56.toGremlin()}")
-        assertThat(q56.toGremlin())
-            .isEqualTo("""g.V().and(__.hasId(P.within([#30:1, #30:2])),__.not(__.has("status","open"))).hasLabel("Issue")""")
-
         // Q57: Open issues NOT in a specific project
         val q57 = issues(PropEqual("status", "open"))
             .difference(issues(HasLinkTo("project", projectRid)))
@@ -841,7 +830,7 @@ class GremlinQueryCoverageTest : DBTest() {
             .isEqualTo("""g.V().and(__.has("status","open"),__.not(__.where(__.out("project_link").hasId(#20:1)))).hasLabel("Issue")""")
 
         // ---- Result assertions ----
-        // Q50, Q52, Q54, Q56, Q57 use fake RIDs; build real queries with dataset entity RIDs.
+        // Q50, Q52, Q54, Q57 use fake RIDs; build real queries with dataset entity RIDs.
         withLowLevelTx { tx ->
             // Q50 real: open \ assigned-to-Alice = 10 issues (13 open, 3 of which are Alice's: ENG-1,5,10)
             val q50real = issues(PropEqual("status","open")).difference(issues(HasLinkTo("assignee", rid(dataset.users["Alice"]!!))))

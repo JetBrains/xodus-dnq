@@ -236,13 +236,6 @@ class GremlinQueryCombineMatrixTest {
 
     @Test
     fun `ByIds x Labeled(Where)`() {
-        // union/difference: ByIds.asBlock() = IdWithin is extractable and merges with the condition
-        // into a single Where (e.g. Or/And(Not) with @rid IN).
-        check(byids, "u", cond, "Labeled(Where)")
-        check(byids, "d", cond, "Labeled(Where)")
-        check(cond, "u", byids, "Labeled(Where)")
-        check(cond, "d", byids, "Labeled(Where)")
-
         // intersect: O22 keeps the ids on the GraphStep — ByIds.then(cond) → AndThen(ByIds, cond) —
         // so it's a direct g.V(ids) load + residual filter, not a `WHERE @rid IN` class scan.
         check(byids, "i", cond, "Labeled(AndThen)")
@@ -338,8 +331,8 @@ class GremlinQueryCombineMatrixTest {
         // so we use unionAll() to get a real UnionAll node.
         val unionQ = Order(cond.unionAll(cond2), GremlinBlock.Dedup)
 
-        // O17 strips Dedup, O20b fires on inner UnionAll: distributes the condition
-        // into branches and wraps with label (O20b-fix). O17 re-wraps with Dedup.
+        // O17 strips Dedup; O20b preserves the label and deduplicates independently.
+        // O17 returns the already-deduplicated result without re-wrapping.
         check(unionQ, "i", cond, "Dedup(Labeled(UnionAll))")
         assertEquals("Issue", ((unionQ.intersect(cond) as Order).inner as Labeled).label)
 
@@ -412,17 +405,4 @@ class GremlinQueryCombineMatrixTest {
         check(byids, "i", allOfIssue, "Labeled(Where)")
     }
 
-    @Test
-    fun `bare UnionAll x Labeled(Where) — intersect preserves label without Dedup`() {
-        // Bare UnionAll (from concat, no Order(Dedup) wrapper) — no O17 involvement.
-        // O20b fires directly: extracts label, wraps with Labeled but no Dedup.
-        // This is correct for concat semantics (UNION ALL preserves duplicates).
-        val bareUnion = cond.unionAll(cond2)
-
-        check(bareUnion, "i", cond, "Labeled(UnionAll)")
-        assertEquals("Issue", (bareUnion.intersect(cond) as Labeled).label)
-
-        check(cond, "i", bareUnion, "Labeled(UnionAll)")
-        assertEquals("Issue", (cond.intersect(bareUnion) as Labeled).label)
-    }
 }

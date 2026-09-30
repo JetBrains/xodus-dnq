@@ -572,22 +572,6 @@ class GremlinQueryTest {
             .isEqualTo("""g.V().has("name",P.within(["a", "b"]))""")
     }
 
-    @Test
-    fun `labeled union unlabeled inherits the label`() {
-        val labeled = issueCondition("name", "a")
-        val unlabeled = GremlinQuery.Where.of(PropEqual("name", "b"))
-        assertThat(labeled.union(unlabeled).toGremlin())
-            .isEqualTo("""g.V().has("name",P.within(["a", "b"])).hasLabel("Issue")""")
-    }
-
-    @Test
-    fun `unlabeled union labeled inherits the label`() {
-        val unlabeled = GremlinQuery.Where.of(PropEqual("name", "a"))
-        val labeled = issueCondition("name", "b")
-        // label = thisLabel ?: otherLabel — label comes from the right side when left is unlabeled
-        assertThat(unlabeled.union(labeled).toGremlin())
-            .isEqualTo("""g.V().has("name",P.within(["a", "b"])).hasLabel("Issue")""")
-    }
 
     // O2 — identity shortcuts in combineBlocks
 

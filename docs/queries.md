@@ -310,6 +310,14 @@ class XdCompetence(entity: Entity) : XdEntity(entity) {
 
 ### Query operations
 
+Union and intersection use set semantics; concatenation (`plus`) preserves duplicates.
+Intersection returns each matching entity once, even when an operand contains repeated
+entities from concatenation.
+
+Type constraints belong to individual operands. At the `EntityIterable` layer, union
+or exclusion of a by-ID query and a typed query must not apply the typed operand's
+label to the other operand's members.
+
 #### Intersect
 ```kotlin
 XdUser.query(XdUser::gender eq XdGender.FEMALE) intersect XdUser.query(XdUser::skill gt 2) 
