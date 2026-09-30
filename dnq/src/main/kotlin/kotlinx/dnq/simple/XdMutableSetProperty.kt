@@ -80,7 +80,19 @@ class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName:
     }
 
     override fun iterator(): MutableIterator<T> {
-        return (get() ?: YTDBComparableSet(HashSet())).iterator()
+        val propertyValue = get() ?: YTDBComparableSet(HashSet<T>())
+        val iterator = propertyValue.iterator()
+        return object : MutableIterator<T> {
+            override fun hasNext() = iterator.hasNext()
+
+            override fun next() = iterator.next()
+
+            override fun remove() {
+                iterator.remove()
+                // Keep the backing iterator valid while recording the mutation for MVCC replay.
+                set(propertyValue)
+            }
+        }
     }
 
     override fun remove(element: T) = update {

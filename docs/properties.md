@@ -418,6 +418,16 @@ var description by xdRequiredBlobStringProp()
 var tags by xdSetProp<XdPost, String>()
 ```
 
+##### xdMutableSetProp --- mutable set of comparables property
+- Property type: `MutableSet`.
+- If its value is not defined in the database, the property reads as an empty set.
+- Mutate the set inside a writable transaction. Successful iterator removals, including Java
+  `removeIf`, are reported as property changes and survive transaction replay after an MVCC conflict.
+
+```kotlin
+val tags by xdMutableSetProp<XdPost, String>()
+```
+
 ### Simple property constraints
 Property constraints are checked on transaction flush. Xodus-DNQ throws `ConstraintsValidationException` 
 if some of them fail. Method `getCauses()` of `ConstraintsValidationException` returns all actual

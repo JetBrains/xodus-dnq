@@ -27,6 +27,9 @@ import kotlinx.dnq.util.hasChanges
 import kotlinx.dnq.util.isDefined
 import org.junit.Assert
 import org.junit.Test
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import kotlin.test.assertFailsWith
 
 class MutableSetPropertyTest : DBTest() {
 
@@ -176,6 +179,124 @@ class MutableSetPropertyTest : DBTest() {
                 .updateSkills(expectModification = false) { remove("Kotlin") }
                 .assertThatSkills()
                 .containsExactly("Java")
+    }
+
+    @Test
+    fun `iterator removal is tracked and committed`() {
+        createEmployee("Java", "Kotlin")
+                .updateSkills {
+                    val iterator = iterator()
+                    while (iterator.hasNext()) {
+                        if (iterator.next() == "Java") iterator.remove()
+                    }
+                    assertThat(this).containsExactly("Kotlin")
+                }
+                .assertThatSkills()
+                .containsExactly("Kotlin")
+    }
+
+    @Test
+    fun `iterator can continue removing through the last element`() {
+        createEmployee("Java", "Kotlin", "Scala")
+                .updateSkills {
+                    val visited = mutableSetOf<String>()
+                    val iterator = iterator()
+                    while (iterator.hasNext()) {
+                        visited.add(iterator.next())
+                        iterator.remove()
+                    }
+                    assertThat(visited).containsExactly("Java", "Kotlin", "Scala")
+                    assertThat(this).isEmpty()
+                    assertFailsWith<NoSuchElementException> { iterator.next() }
+                }
+                .assertThatSkills()
+                .isEmpty()
+    }
+
+    @Test
+    fun `iterator rejects removal without an unremoved current element`() {
+        val employee = createEmployee("Java")
+        transactional {
+            val iterator = employee.skills.iterator()
+            assertFailsWith<IllegalStateException> { iterator.remove() }
+            assertThat(employee.hasChanges(Employee::skills)).isFalse()
+            assertThat(iterator.next()).isEqualTo("Java")
+            iterator.remove()
+            assertFailsWith<IllegalStateException> { iterator.remove() }
+            assertThat(employee.hasChanges(Employee::skills)).isTrue()
+        }
+        employee.assertThatSkills().isEmpty()
+    }
+
+    @Test
+    fun `empty iterator does not define or change the property`() {
+        val employee = transactional { Employee.new() }
+        transactional {
+            val iterator = employee.skills.iterator()
+            assertThat(iterator.hasNext()).isFalse()
+            assertFailsWith<NoSuchElementException> { iterator.next() }
+            assertFailsWith<IllegalStateException> { iterator.remove() }
+            assertThat(employee.hasChanges(Employee::skills)).isFalse()
+            assertThat(employee.isDefined(Employee::skills)).isFalse()
+        }
+        transactional {
+            assertThat(employee.skills).isEmpty()
+            assertThat(employee.isDefined(Employee::skills)).isFalse()
+        }
+    }
+
+    @Test
+    fun `removeIf tracks and commits iterator removals`() {
+        createEmployee("Java", "Kotlin", "Scala")
+                .updateSkills {
+                    assertThat(removeIf { it != "Kotlin" }).isTrue()
+                }
+                .assertThatSkills()
+                .containsExactly("Kotlin")
+    }
+
+    @Test
+    fun `iterator removal survives MVCC replay`() {
+        assertRemovalSurvivesReplay { skills ->
+            val iterator = skills.iterator()
+            while (iterator.hasNext()) {
+                if (iterator.next() == "Java") iterator.remove()
+            }
+        }
+    }
+
+    @Test
+    fun `removeIf removals survive MVCC replay`() {
+        assertRemovalSurvivesReplay { skills ->
+            assertThat(skills.removeIf { it == "Java" }).isTrue()
+        }
+    }
+
+    private fun assertRemovalSurvivesReplay(remove: (MutableSet<String>) -> Unit) {
+        val employee = createEmployee("Java", "Kotlin")
+        val counter = transactional { User.new { login = "replay-counter"; skill = 0 } }
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val tracked = transactional {
+                counter.skill = 1
+                remove(employee.skills)
+                assertThat(employee.skills).containsExactly("Kotlin")
+                val tracked = employee.hasChanges(Employee::skills)
+                // The competing commit completes before the losing transaction can flush.
+                executor.submit {
+                    transactional { counter.skill = 2 }
+                }.get(30, TimeUnit.SECONDS)
+                tracked
+            }
+            transactional {
+                // Both writes target the same record: the loser's commit must have replayed.
+                assertThat(counter.skill).isEqualTo(1)
+                assertThat(employee.skills).containsExactly("Kotlin")
+            }
+            assertThat(tracked).isTrue()
+        } finally {
+            executor.shutdownNow()
+        }
     }
 
     @Test
