@@ -411,7 +411,20 @@ object ConstraintsUtil: KLogging() {
         val targets = if (attached.javaClass == TransientEntityImpl::class.java) {
             (attached as TransientEntityImpl).outgoingLinksForDeletion(associationEndMetaData.name)
         } else null
-        (targets ?: attached.getLinks(associationEndMetaData.name).toList())
+        val candidates = targets ?: attached.getLinks(associationEndMetaData.name).toList()
+        if (attached.javaClass == TransientEntityImpl::class.java &&
+            canClearTargetsInBulk(associationEndMetaData, callDestructorsPhase, checkEntityRemoved)) {
+            // Nothing is cascaded, so the selection cannot change while it is cleared.
+            val selected = candidates.filterNot { EntityOperations.isRemoved(it) }
+            if (selected.size > 1 && selected.all { it.javaClass == TransientEntityImpl::class.java }) {
+                (attached as TransientEntityImpl).deleteSelectedLinksForDeletion(
+                    associationEndMetaData.name,
+                    selected.map { it.reattachTransient() }
+                )
+                return
+            }
+        }
+        candidates
                 .asSequence()
                 .filterNot { EntityOperations.isRemoved(it) }
                 .forEach {
@@ -422,6 +435,20 @@ object ConstraintsUtil: KLogging() {
                     }
                 }
     }
+
+    /**
+     * The mutation-phase clearing of a directed, non-cascading plural link on the normal deletion
+     * dispatch. Replay reprocessing of a removed source (`checkEntityRemoved = false`), aggregation
+     * and undirected ends keep the per-target dispatch.
+     */
+    private fun canClearTargetsInBulk(
+            sourceEnd: AssociationEndMetaData,
+            callDestructorsPhase: Boolean,
+            checkEntityRemoved: Boolean): Boolean =
+        !callDestructorsPhase &&
+                checkEntityRemoved &&
+                !sourceEnd.cascadesToTargets() &&
+                sourceEnd.associationEndType == AssociationEndType.DirectedAssociationEnd
 
     private fun removeOneLinkFromMultipleLink(
             source: Entity,

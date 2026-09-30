@@ -18,6 +18,7 @@ package com.jetbrains.teamsys.dnq.database
 import jetbrains.exodus.core.dataStructures.decorators.QueueDecorator
 import jetbrains.exodus.database.TransientEntitiesUpdater
 import jetbrains.exodus.database.TransientEntity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
 import mu.KLogging
 import java.io.File
 import java.io.InputStream
@@ -244,6 +245,38 @@ class TransientEntitiesUpdaterImpl(
             true
         } else {
             false
+        }
+    }
+
+    /**
+     * Deletes the links from [source] to [targets] as the loop of [deleteLink] calls would, but
+     * lets the adapter clear a fully matching adjacency without a lookup per target. The recorded
+     * action keeps the ordered selection and re-checks the match on every run, so a replay
+     * against changed adjacency deletes exactly the selected targets one by one.
+     *
+     * Tracking is the pairwise [deleteLinkInternal] one: [TransientChangesTracker.linkChanged]
+     * once per removed link, in selection order. `linksRemoved` is not equivalent: it leaves an
+     * empty link-change entry when the removal cancels an earlier addition.
+     */
+    internal fun deleteSelectedLinks(source: TransientEntity, linkName: String, targets: List<TransientEntity>) {
+        addChangeAndRun {
+            deleteSelectedLinksInternal(source, linkName, targets)
+            true
+        }
+    }
+
+    private fun deleteSelectedLinksInternal(source: TransientEntity, linkName: String, targets: List<TransientEntity>) {
+        val persistentSource = source.entity
+        if (persistentSource.javaClass == YTDBVertexEntity::class.java &&
+            targets.all { it.entity.javaClass == YTDBVertexEntity::class.java }
+        ) {
+            val cleared = (persistentSource as YTDBVertexEntity).deleteLinksToAll(linkName, targets.map { it.entity }) { index ->
+                transientChangesTracker.linkChanged(source, linkName, targets[index], null, false)
+            }
+            if (cleared) return
+        }
+        for (target in targets) {
+            deleteLinkInternal(source, linkName, target)
         }
     }
 

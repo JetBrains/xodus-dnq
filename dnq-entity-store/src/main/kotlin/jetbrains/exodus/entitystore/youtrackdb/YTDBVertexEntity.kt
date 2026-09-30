@@ -25,6 +25,7 @@ import com.jetbrains.youtrackdb.internal.core.db.record.record.Identifiable
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.db.record.ridbag.LinkBag
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBEdgeInternal
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBVertexInternal
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
@@ -391,6 +392,57 @@ open class YTDBVertexEntity(
         safeVertex { deleteAllTargetEntityIdsIfLinkIndexed(linkName) }
     }
 
+    /**
+     * Guarded bulk form of `deleteLink(linkName, target)` for every element of [targets], in
+     * order, without a `findEdge` traversal per target.
+     *
+     * Declines, returning `false` and changing nothing, unless the current outgoing edges of
+     * [linkName] are exactly one edge per target: a missing edge, an extra edge, a duplicate
+     * target or a duplicate edge would make the pairwise result differ. A declined call must be
+     * followed by the pairwise `deleteLink` loop. Every identity is resolved from the current
+     * transaction on each call; nothing is kept between calls.
+     *
+     * Otherwise the edges are removed in the order of [targets] and [onRemoved] is called with the
+     * index of each target right after its edge is gone, so that the caller's bookkeeping is
+     * exactly the pairwise loop's if a removal fails partway. The complementary bag is emptied once
+     * at the end; if a removal fails, it is instead reduced by the targets already removed, and
+     * the failure is rethrown.
+     *
+     * Every element of [targets] must be a plain [YTDBVertexEntity].
+     */
+    fun deleteLinksToAll(linkName: String, targets: List<Entity>, onRemoved: (index: Int) -> Unit): Boolean {
+        requireActiveWritableTransaction()
+        val targetIds = targets.map { (it as YTDBVertexEntity).oEntityId.asOId() }
+        val edges = safeVertex { edges(Direction.OUT, edgeClassName(linkName)) }
+        val edgeByTarget = HashMap<RID, YTDBEdge>(targetIds.size * 2)
+        while (edges.hasNext()) {
+            val edge = edges.next() as YTDBEdge
+            val targetId = (edge as YTDBEdgeInternal).rawEntity.toLink?.identity ?: return false
+            if (edgeByTarget.put(targetId, edge) != null) return false
+        }
+        if (edgeByTarget.size != targetIds.size) return false
+        // A duplicate target finds its edge already taken.
+        val selectedEdges = targetIds.map { edgeByTarget.remove(it) ?: return false }
+
+        var removed = 0
+        try {
+            for (i in selectedEdges.indices) {
+                selectedEdges[i].remove()
+                removed++
+                onRemoved(i)
+            }
+        } catch (failure: Throwable) {
+            try {
+                safeVertex { deleteTargetEntityIdsIfLinkIndexed(linkName, targetIds.subList(0, removed)) }
+            } catch (secondary: Throwable) {
+                failure.addSuppressed(secondary)
+            }
+            throw failure
+        }
+        safeVertex { deleteAllTargetEntityIdsIfLinkIndexed(linkName) }
+        return true
+    }
+
     private fun YTDBStoreTransaction.deleteLinkImpl(linkName: String, targetId: RID): Boolean {
         val edgeClassName = edgeClassName(linkName)
 
@@ -411,6 +463,17 @@ open class YTDBVertexEntity(
             val bag = property<LinkBag>(linkTargetEntityIdPropertyName).orElse(null)
                 ?: LinkBag(raw().boundedToSession as DatabaseSessionEmbedded)
             bag.remove(targetId)
+            property(linkTargetEntityIdPropertyName, bag)
+        }
+    }
+
+    private fun YTDBVertex.deleteTargetEntityIdsIfLinkIndexed(linkName: String, targetIds: List<RID>) {
+        if (targetIds.isEmpty()) return
+        val linkTargetEntityIdPropertyName = linkTargetEntityIdPropertyName(linkName)
+        if (requireSchemaClass().existsProperty(linkTargetEntityIdPropertyName)) {
+            val bag = property<LinkBag>(linkTargetEntityIdPropertyName).orElse(null)
+                ?: LinkBag(raw().boundedToSession as DatabaseSessionEmbedded)
+            targetIds.forEach { bag.remove(it) }
             property(linkTargetEntityIdPropertyName, bag)
         }
     }

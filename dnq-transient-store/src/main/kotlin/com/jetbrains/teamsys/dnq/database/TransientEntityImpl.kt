@@ -355,6 +355,14 @@ open class TransientEntityImpl : TransientEntity {
         return targets
     }
 
+    /**
+     * Deletion-only bulk form of calling [deleteLink] for each of [targets] in order. Falls back
+     * to exactly that loop when the current adjacency is not precisely the selected set.
+     */
+    internal fun deleteSelectedLinksForDeletion(linkName: String, targets: List<TransientEntity>) {
+        threadSessionOrThrow.entitiesUpdater.deleteSelectedLinks(this, linkName, targets)
+    }
+
     override fun getLink(linkName: String): Entity? = getLink(linkName, null)
 
     open fun getLink(linkName: String, session: TransientStoreSession? = null): Entity? {

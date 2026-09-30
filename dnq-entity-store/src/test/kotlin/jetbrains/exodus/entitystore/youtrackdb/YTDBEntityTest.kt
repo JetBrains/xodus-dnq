@@ -778,6 +778,124 @@ class YTDBEntityTest : OTestMixin {
         }
     }
 
+    private fun createLinkClass(linkName: String, indexed: Boolean = false) {
+        youTrackDb.withSession { session ->
+            session.schema.createEdgeClass(YTDBVertexEntity.edgeClassName(linkName))
+            if (indexed) {
+                // pretend that the link is indexed
+                session.schema.getClass(Issues.CLASS)!!
+                    .createProperty(linkTargetEntityIdPropertyName(linkName), PropertyType.LINKBAG)
+            }
+        }
+    }
+
+    @Test
+    fun `deleteLinksToAll removes exactly thdfffggghghgdd selected edges in order and clears the companion bag`() {
+        val linkName = "link"
+        createLinkClass(linkName, indexed = true)
+        val source = youTrackDb.createIssue("source")
+        val other = youTrackDb.createIssue("other")
+        val targets = (1..4).map { youTrackDb.createIssue("target$it") }
+        youTrackDb.withStoreTx {
+            targets.forEach { source.addLink(linkName, it) }
+            // an incoming edge and another link name must not be touched
+            targets[0].addLink(linkName, source)
+            other.addLink(linkName, targets[0])
+        }
+
+        youTrackDb.withStoreTx {
+            val selection = listOf(targets[2], targets[0], targets[3], targets[1])
+            val removed = mutableListOf<Int>()
+            assertTrue(source.deleteLinksToAll(linkName, selection) { removed.add(it) })
+            assertEquals(listOf(0, 1, 2, 3), removed)
+            assertEquals(0, source.countLinksUpTo(linkName, 10))
+            assertEquals(0, source.vertex.raw().getTargetLocalEntityIds(linkName).size())
+            assertEquals(listOf(source.id), targets[0].getLinks(linkName).map { it.id })
+            assertEquals(listOf(targets[0].id), other.getLinks(linkName).map { it.id })
+        }
+
+        youTrackDb.withStoreTx {
+            assertEquals(0, source.countLinksUpTo(linkName, 10))
+            assertEquals(0, source.vertex.raw().getTargetLocalEntityIds(linkName).size())
+            assertEquals(listOf(source.id), targets[0].getLinks(linkName).map { it.id })
+        }
+    }
+
+    @Test
+    fun `deleteLinksToAll declines without changing anything unless the adjacency is exactly the selection`() {
+        val linkName = "link"
+        createLinkClass(linkName, indexed = true)
+        val source = youTrackDb.createIssue("source")
+        val unlinked = youTrackDb.createIssue("unlinked")
+        val targets = (1..3).map { youTrackDb.createIssue("target$it") }
+        youTrackDb.withStoreTx { targets.forEach { source.addLink(linkName, it) } }
+
+        youTrackDb.withStoreTx { tx ->
+            fun assertDeclined(selection: List<YTDBVertexEntity>, edges: Int = 3) {
+                assertFalse(source.deleteLinksToAll(linkName, selection) { fail("nothing may be removed") })
+                assertEquals(edges, source.countLinksUpTo(linkName, 10))
+                assertEquals(edges, source.vertex.raw().getTargetLocalEntityIds(linkName).size())
+            }
+            // an adjacent edge that is not selected
+            assertDeclined(targets.take(2))
+            // a selected target without an edge
+            assertDeclined(listOf(targets[0], targets[1], unlinked))
+            assertDeclined(targets + unlinked)
+            // a duplicate selected target
+            assertDeclined(listOf(targets[0], targets[1], targets[1]))
+            assertDeclined(emptyList())
+
+            // a new edge is seen by the guard: the selection is no longer complete
+            val extra = tx.createIssue("extra")
+            source.addLink(linkName, extra)
+            assertDeclined(targets, edges = 4)
+            assertTrue(source.deleteLinksToAll(linkName, targets + extra) { })
+            assertEquals(0, source.countLinksUpTo(linkName, 10))
+        }
+    }
+
+    @Test
+    fun `deleteLinksToAll declines when the source removes an edge that the selection contains`() {
+        val linkName = "link"
+        createLinkClass(linkName)
+        val source = youTrackDb.createIssue("source")
+        val targets = (1..3).map { youTrackDb.createIssue("target$it") }
+        youTrackDb.withStoreTx {
+            targets.forEach { source.addLink(linkName, it) }
+            source.deleteLink(linkName, targets[1])
+            assertFalse(source.deleteLinksToAll(linkName, targets) { fail("nothing may be removed") })
+            assertTrue(source.deleteLinksToAll(linkName, listOf(targets[0], targets[2])) { })
+            assertEquals(0, source.countLinksUpTo(linkName, 10))
+        }
+    }
+
+    @Test
+    fun `deleteLinksToAll keeps the storage consistent with the callback when it fails partway`() {
+        val linkName = "link"
+        createLinkClass(linkName, indexed = true)
+        val source = youTrackDb.createIssue("source")
+        val targets = (1..4).map { youTrackDb.createIssue("target$it") }
+        youTrackDb.withStoreTx { targets.forEach { source.addLink(linkName, it) } }
+
+        youTrackDb.withStoreTx {
+            val seen = mutableListOf<Int>()
+            val failure = assertFailsWith<IllegalStateException> {
+                source.deleteLinksToAll(linkName, targets) { index ->
+                    seen.add(index)
+                    if (index == 1) throw IllegalStateException("boom")
+                }
+            }
+            assertEquals("boom", failure.message)
+            assertEquals(listOf(0, 1), seen)
+            // both removed edges are gone from the adjacency and from the companion bag, the rest stays
+            assertEquals(listOf(targets[2].id, targets[3].id), source.getLinks(linkName).map { it.id })
+            val bag = source.vertex.raw().getTargetLocalEntityIds(linkName)
+            assertEquals(2, bag.size())
+            assertTrue(bag.contains(targets[2].vertex.id()))
+            assertTrue(bag.contains(targets[3].vertex.id()))
+        }
+    }
+
     @Test
     fun `countLinksUpTo stops reading the adjacency after the limit`() {
         val linkName = "link"
