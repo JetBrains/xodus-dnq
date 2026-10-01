@@ -25,6 +25,7 @@ import kotlinx.dnq.query.query
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.util.hasChanges
 import kotlinx.dnq.util.isDefined
+import kotlinx.dnq.util.reattach
 import org.junit.Assert
 import org.junit.Test
 import java.util.concurrent.Executors
@@ -180,6 +181,110 @@ class MutableSetPropertyTest : DBTest() {
         }
     }
 
+    private fun assertNoOpPreservesEmptyProperty(operation: MutableSet<String>.() -> Unit) {
+        for (defined in listOf(false, true)) {
+            val employee = transactional {
+                Employee.new {
+                    if (defined) {
+                        skills.add("Java")
+                        skills.clear()
+                    }
+                }
+            }
+            transactional {
+                assertThat(employee.isDefined(Employee::skills)).isEqualTo(defined)
+                employee.skills.operation()
+                assertThat(employee.skills).isEmpty()
+                assertThat(employee.hasChanges(Employee::skills)).isFalse()
+                assertThat(employee.isDefined(Employee::skills)).isEqualTo(defined)
+                assertThat(employee.reattach().getProperty("skills") != null).isEqualTo(defined)
+            }
+            transactional {
+                assertThat(employee.skills).isEmpty()
+                assertThat(employee.isDefined(Employee::skills)).isEqualTo(defined)
+                assertThat(employee.reattach().getProperty("skills") != null).isEqualTo(defined)
+            }
+        }
+    }
+
+    @Test
+    fun `remove missing then duplicate add reports only individual changes`() {
+        val employee = transactional { Employee.new() }
+        transactional {
+            val skills = employee.skills
+            assertThat(skills.remove("missing")).isFalse()
+            assertThat(employee.reattach().getProperty("skills")).isNull()
+            assertThat(employee.isDefined(Employee::skills)).isFalse()
+            assertThat(employee.hasChanges(Employee::skills)).isFalse()
+            assertThat(skills.add("Java")).isTrue()
+            assertThat(skills.add("Java")).isFalse()
+            assertThat(skills.remove("missing")).isFalse()
+            assertThat(employee.isDefined(Employee::skills)).isTrue()
+            assertThat(employee.hasChanges(Employee::skills)).isTrue()
+        }
+        employee.assertThatSkills().containsExactly("Java")
+    }
+
+    @Test
+    fun `empty addAll preserves undefined and empty properties`() {
+        assertNoOpPreservesEmptyProperty { assertThat(addAll(emptyList())).isFalse() }
+    }
+
+    @Test
+    fun `removeAll preserves undefined and empty properties`() {
+        assertNoOpPreservesEmptyProperty { assertThat(removeAll(listOf("missing", "missing"))).isFalse() }
+    }
+
+    @Test
+    fun `retainAll preserves undefined and empty properties`() {
+        assertNoOpPreservesEmptyProperty { assertThat(retainAll(listOf("missing"))).isFalse() }
+    }
+
+    @Test
+    fun `addAll reports and persists every new member despite duplicates`() {
+        val employee = createEmployee("Java")
+        employee.updateSkills {
+            assertThat(addAll(listOf("Java", "Java"))).isFalse()
+            assertThat(addAll(listOf("Kotlin", "Scala", "Java", "Kotlin"))).isTrue()
+            assertThat(addAll(listOf("Scala", "Java", "Kotlin"))).isFalse()
+            assertThat(addAll(emptyList())).isFalse()
+        }
+        employee.assertThatSkills().containsExactly("Java", "Kotlin", "Scala")
+    }
+
+    @Test
+    fun `removeAll reports and persists every removal despite missing members`() {
+        val employee = createEmployee("Java", "Kotlin", "Scala")
+        employee.updateSkills {
+            assertThat(removeAll(listOf("missing"))).isFalse()
+            assertThat(removeAll(listOf("Java", "missing", "Kotlin", "Java"))).isTrue()
+            assertThat(removeAll(listOf("Java", "missing", "Kotlin"))).isFalse()
+            assertThat(removeAll(emptyList())).isFalse()
+        }
+        employee.assertThatSkills().containsExactly("Scala")
+        employee.updateSkills {
+            assertThat(removeAll(listOf("Scala"))).isTrue()
+            assertThat(removeAll(listOf("Scala"))).isFalse()
+        }
+        employee.assertThatSkills().isEmpty()
+    }
+
+    @Test
+    fun `retainAll reports only removed members and persists an empty result`() {
+        val employee = createEmployee("Java", "Kotlin", "Scala")
+        employee.updateSkills {
+            assertThat(retainAll(listOf("Java", "Kotlin", "Scala", "missing"))).isFalse()
+            assertThat(retainAll(listOf("Kotlin", "missing"))).isTrue()
+            assertThat(retainAll(listOf("Kotlin"))).isFalse()
+        }
+        employee.assertThatSkills().containsExactly("Kotlin")
+        employee.updateSkills {
+            assertThat(retainAll(emptyList())).isTrue()
+            assertThat(retainAll(emptyList())).isFalse()
+        }
+        employee.assertThatSkills().isEmpty()
+    }
+
     @Test
     fun `add element to non empty set`() {
         createEmployee("Java")
@@ -222,10 +327,7 @@ class MutableSetPropertyTest : DBTest() {
 
     @Test
     fun `remove element from empty set`() {
-        createEmployee()
-                .updateSkills(expectModification = false) { remove("Java") }
-                .assertThatSkills()
-                .isEmpty()
+        assertNoOpPreservesEmptyProperty { assertThat(remove("Java")).isFalse() }
     }
 
     @Test
@@ -356,10 +458,7 @@ class MutableSetPropertyTest : DBTest() {
 
     @Test
     fun `clear empty`() {
-        createEmployee()
-                .updateSkills(expectModification = false) { clear() }
-                .assertThatSkills()
-                .isEmpty()
+        assertNoOpPreservesEmptyProperty { clear() }
     }
 
     @Test

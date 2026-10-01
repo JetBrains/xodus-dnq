@@ -421,6 +421,11 @@ var tags by xdSetProp<XdPost, String>()
 ##### xdMutableSetProp --- mutable set of comparables property
 - Property type: `MutableSet`.
 - If its value is not defined in the database, the property reads as an empty set.
+- `add`, `addAll`, `remove`, `removeAll` and `retainAll` return whether that call changed membership,
+  independently of earlier mutations in the transaction.
+- No-op mutations do not report property changes or define an absent property. This includes adding
+  no elements, removing missing elements, retaining all existing elements, and clearing an empty set.
+- Removing every element from a defined set leaves a defined empty set.
 - Mutate the set inside a writable transaction. Successful iterator removals, including Java
   `removeIf`, are reported as property changes and survive transaction replay after an MVCC conflict.
 

@@ -41,12 +41,8 @@ class XdMutableSetProperty<in R : XdEntity, T : Comparable<T>>(dbPropertyName: S
 
 class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName: String) : MutableSet<T> {
 
-    private fun set(value: YTDBComparableSet<T>?) {
-        if (value == null){
-            entity.reattachTransient().setProperty(dbPropertyName, YTDBComparableSet(HashSet<T>()))
-        } else {
-            entity.reattachTransient().setProperty(dbPropertyName, value)
-        }
+    private fun set(value: YTDBComparableSet<T>) {
+        entity.reattachTransient().setProperty(dbPropertyName, value)
     }
 
     private fun get(): YTDBComparableSet<T>? {
@@ -54,28 +50,35 @@ class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName:
         return entity.reattachTransient().getProperty(dbPropertyName) as YTDBComparableSet<T>?
     }
 
-    private inline fun update(operation: (YTDBComparableSet<T>) -> Unit): Boolean {
-        val propertyValue = get() ?: YTDBComparableSet(HashSet())
-        operation(propertyValue)
-        return if (propertyValue.isDirty) {
-            set(propertyValue)
-            true
-        } else {
-            false
-        }
+    private inline fun update(
+            createIfAbsent: Boolean = false,
+            operation: (YTDBComparableSet<T>) -> Boolean
+    ): Boolean {
+        val propertyValue = get() ?: if (createIfAbsent) YTDBComparableSet(HashSet()) else return false
+        if (!operation(propertyValue)) return false
+        set(propertyValue)
+        return true
     }
 
-    override fun add(element: T) = update {
+    override fun add(element: T) = update(createIfAbsent = true) {
         it.add(element)
     }
 
-    override fun addAll(elements: Collection<T>) = update {
-        elements.forEach { element -> it.add(element) }
+    override fun addAll(elements: Collection<T>): Boolean {
+        if (elements.isEmpty()) return false
+        return update(createIfAbsent = true) {
+            it.addAll(elements)
+        }
     }
 
     override fun clear() {
         update {
-            it.clear()
+            if (it.isEmpty()) {
+                false
+            } else {
+                it.clear()
+                true
+            }
         }
     }
 
@@ -100,11 +103,11 @@ class BoundMutableSet<T : Comparable<T>>(val entity: Entity, val dbPropertyName:
     }
 
     override fun removeAll(elements: Collection<T>) = update {
-        elements.forEach { element -> it.remove(element) }
+        it.removeAll(elements)
     }
 
     override fun retainAll(elements: Collection<T>) = update {
-        (it - elements).forEach { element -> it.remove(element) }
+        it.retainAll(elements)
     }
 
     override val size: Int
