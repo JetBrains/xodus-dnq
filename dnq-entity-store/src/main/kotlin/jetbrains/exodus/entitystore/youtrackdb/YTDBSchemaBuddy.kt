@@ -286,7 +286,7 @@ class YTDBSchemaBuddyImpl(
             .hasLabel(oClass.name)
             .has(LOCAL_ENTITY_ID_PROPERTY_NAME, localEntityId)
             .limit(1)
-            .tryNext()
+            .use { it.tryNext() }
             .orElse(null)
             ?: return null
         val oid = (vertex as YTDBVertex).id()

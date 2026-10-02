@@ -31,7 +31,6 @@ import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
-import jetbrains.exodus.Questionable
 import jetbrains.exodus.core.dataStructures.decorators.HashMapDecorator
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
@@ -214,7 +213,7 @@ class YTDBStoreTransactionImpl(
 
         requireActiveWritableTransaction()
         val t = if (entityType == null) g().addV() else g().addV(entityType)
-        return t.next() as YTDBVertex
+        return t.use { it.next() } as YTDBVertex
     }
 
     override fun newEntity(entityType: String): YTDBVertexEntity {
@@ -267,7 +266,7 @@ class YTDBStoreTransactionImpl(
 
     override fun loadVertexOrNull(id: RID): YTDBVertex? =
         g().V(id)
-            .tryNext()
+            .use { it.tryNext() }
             .map { (it as YTDBVertex) }
             .getOrNull()
 
@@ -285,12 +284,11 @@ class YTDBStoreTransactionImpl(
         return activeYtdbSession().loadBlob(rid)
     }
 
-    @Questionable("Not tested")
     override fun findEdge(edgeClassName: String, outId: RID, inId: RID): YTDBEdge? {
         return g().V(outId)
             .outE(edgeClassName)
             .where(`__`.inV().hasId(inId))
-            .tryNext()
+            .use { it.tryNext() }
             .map { e -> (e as YTDBEdge) }
             .getOrNull()
     }

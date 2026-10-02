@@ -57,6 +57,18 @@ XdUser.all().toSortedSet(compareBy { it.login })
 XdUser.all().toMutableSet()
 ```
 
+For short-circuiting sequence operations, use `useSequence` so the query iterator is disposed even
+on early return or failure:
+
+```kotlin
+XdUser.all().useSequence { users -> users.firstOrNull { it.login == "root" } }
+```
+
+`asSequence()`, `asIdSequence()`, `asIterable()` and `iterator()` do not provide a disposal scope.
+Raw YouTrackDB result sets must also be closed: consuming their streams or calling `toList()` does
+not close them. DNQ's internal user initialization, indexed-link backfill and single-element
+Gremlin lookups use `use {}` to close their locally owned result sets/traversals before returning.
+
 ### Query of specified elements
 ```kotlin
 XdUser.queryOf(user)

@@ -168,9 +168,11 @@ internal fun DatabaseSessionEmbedded.initializeComplementaryPropertiesForNewInde
              * boundaries; every vertex is loaded afresh in the transaction that is current
              * at its turn.
              */
-            val rids = activeTransaction.query("select from $className").vertexStream()
-                .map { (it as Vertex).identity }
-                .toList()
+            val rids = activeTransaction.query("select from $className").use { rs ->
+                rs.vertexStream()
+                    .map { (it as Vertex).identity }
+                    .toList()
+            }
             for (rid in rids) {
                 val vertex = activeTransaction.loadVertex(rid)
                 for (indexedLink in indexedLinks) {

@@ -64,11 +64,12 @@ class YTDBDatabaseProviderImpl(
         if (params.additionalUsers.any()) {
             withSession { session ->
                 session.transaction { tx ->
-                    val existingNames = tx.query("SELECT name FROM " + SecurityUserImpl.CLASS_NAME)
-                        .stream()
-                        .map { it.getString("name") }
-                        .asSequence()
-                        .toSet()
+                    val existingNames = tx.query("SELECT name FROM " + SecurityUserImpl.CLASS_NAME).use { rs ->
+                        rs.stream()
+                            .map { it.getString("name") }
+                            .asSequence()
+                            .toSet()
+                    }
 
                     params.additionalUsers
                         .asSequence()
