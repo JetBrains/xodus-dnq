@@ -644,7 +644,7 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q41 open and in sprint] query  : $q41")
         println("[Q41 open and in sprint] gremlin: ${q41.toGremlin()}")
         assertThat(q41.toGremlin())
-            .isEqualTo("""g.V().and(__.has("status","open"),__.where(__.out("sprint_link"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("status","open").where(__.out("sprint_link")).hasLabel("Issue")""")
 
         // Q42: Issues with assignee AND with at least one tag
         val q42 = issues(HasLink("assignee"))
@@ -701,7 +701,7 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q47 critical and open and in-sprint] query  : $q47")
         println("[Q47 critical and open and in-sprint] gremlin: ${q47.toGremlin()}")
         assertThat(q47.toGremlin())
-            .isEqualTo("""g.V().and(__.has("priority","critical"),__.has("status","open"),__.where(__.out("sprint_link"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("priority","critical").has("status","open").where(__.out("sprint_link")).hasLabel("Issue")""")
 
         // Q48: Open issues intersected with issues in Engineering project
         // "issues in Engineering project" = NestedCondition following project → lead link
@@ -711,7 +711,7 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q48 open and in project] query  : $q48")
         println("[Q48 open and in project] gremlin: ${q48.toGremlin()}")
         assertThat(q48.toGremlin())
-            .isEqualTo("""g.V().and(__.has("status","open"),__.where(__.out("project_link").hasId(#20:1))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("status","open").where(__.out("project_link").hasId(#20:1)).hasLabel("Issue")""")
 
         // Q49: Unresolved issues that are also unassigned (two HasNoLink conditions)
         val q49 = issues(HasNoLink("assignee"))
@@ -778,7 +778,7 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q51 critical not in sprint] query  : $q51")
         println("[Q51 critical not in sprint] gremlin: ${q51.toGremlin()}")
         assertThat(q51.toGremlin())
-            .isEqualTo("""g.V().and(__.has("priority","critical"),__.not(__.out("sprint_link"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().has("priority","critical").not(__.out("sprint_link")).hasLabel("Issue")""")
 
         // Q52: Issues in project A NOT marked as subtasks
         val q52 = issues(HasLinkTo("project", projectRid))
@@ -811,7 +811,7 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q55 sorted difference preserves sort] query  : $q55")
         println("[Q55 sorted difference preserves sort] gremlin: ${q55.toGremlin()}")
         assertThat(q55.toGremlin())
-            .isEqualTo("""g.V().and(__.has("status","open"),__.not(__.out("assignee_link"))).hasLabel("Issue")$byPriorityGremlin""")
+            .isEqualTo("""g.V().has("status","open").not(__.out("assignee_link")).hasLabel("Issue")$byPriorityGremlin""")
 
         // Q57: Open issues NOT in a specific project
         val q57 = issues(PropEqual("status", "open"))
@@ -914,7 +914,7 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q61 open in A or B minus assigned] query  : $q61")
         println("[Q61 open in A or B minus assigned] gremlin: ${q61.toGremlin()}")
         assertThat(q61.toGremlin())
-            .isEqualTo("""g.V().and(__.or(__.and(__.has("status","open"),__.where(__.out("project_link").hasId(#20:1))),__.and(__.has("status","open"),__.where(__.out("project_link").hasId(#20:2)))),__.not(__.out("assignee_link"))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.or(__.has("status","open").where(__.out("project_link").hasId(#20:1)),__.has("status","open").where(__.out("project_link").hasId(#20:2))),__.not(__.out("assignee_link"))).hasLabel("Issue")""")
 
         // Q62: Cascaded 3-way union with fallback — all three operands are Labeled conditions,
         // so combineEfficient succeeds at each step, building nested Or conditions.
@@ -969,7 +969,7 @@ class GremlinQueryCoverageTest : DBTest() {
         println("[Q65 open in sprint A minus open in sprint B] query  : $q65")
         println("[Q65 open in sprint A minus open in sprint B] gremlin: ${q65.toGremlin()}")
         assertThat(q65.toGremlin())
-            .isEqualTo("""g.V().and(__.has("status","open"),__.where(__.out("sprint_link").hasId(#50:1)),__.not(__.and(__.has("status","open"),__.where(__.out("sprint_link").hasId(#50:2))))).hasLabel("Issue")""")
+            .isEqualTo("""g.V().and(__.has("status","open"),__.where(__.out("sprint_link").hasId(#50:1)),__.not(__.has("status","open").where(__.out("sprint_link").hasId(#50:2)))).hasLabel("Issue")""")
 
         // Q66: Issues whose project's lead is in Engineering
         // Uses NestedCondition to traverse Issue → project → lead and filter by department.
@@ -1102,13 +1102,13 @@ class GremlinQueryCoverageTest : DBTest() {
         // Q71: condition(left) \ FollowLink(right) — reversed roles
         // High-priority issues, excluding those in any sprint.
         // O11: srcCond = All → inverse = HasLink("sprint") → Not(HasLink) → HasNoLink.
-        // Rewrites to: and(has("priority","high"), not(out("sprint_link"))).hasLabel("Issue")
+        // Rewrites to: has("priority","high").not(out("sprint_link")).hasLabel("Issue")
         val q71 = issues(PropEqual("priority", "high"))
             .difference(issuesInSprint())
         println("[Q71 condition-left difference followlink-right] query  : $q71")
         println("[Q71 condition-left difference followlink-right] gremlin: ${q71.toGremlin()}")
         assertThat(q71.toGremlin()).isEqualTo(
-            """g.V().and(__.has("priority","high"),__.not(__.out("sprint_link"))).hasLabel("Issue")"""
+            """g.V().has("priority","high").not(__.out("sprint_link")).hasLabel("Issue")"""
         )
 
         // Q72: FollowLink(left) ∩ FollowLink(right)
