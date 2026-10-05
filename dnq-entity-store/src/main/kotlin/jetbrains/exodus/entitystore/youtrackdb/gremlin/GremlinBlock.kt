@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.TextP
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.values
+import org.apache.tinkerpop.gremlin.structure.T
 
 typealias YT = GraphTraversal<*, YTDBVertex>
 
@@ -180,11 +181,30 @@ sealed class GremlinBlock(val shortName: String, val type: BlockType, val isChai
 
         // O12: if every operand is a pure vertex-property filter, chain them directly
         // (.has().has()...) instead of wrapping in .and(__.has(), __.has(), ...).
-        override fun traverse(g: YT): YT =
+        override fun traverse(g: YT): YT {
             if (operands.all { it.isChainable })
-                operands.fold(g) { t, op -> op.traverse(t) }
-            else
-                g.and(*operands.map { it.traverse(`__`.start<Any>().asYT()) }.toTypedArray())
+                return operands.fold(g) { t, op -> op.traverse(t) }
+
+            // Native and residual evaluation agree for these scalar kinds. Type filters stay
+            // outside this path because adjacent labels can merge with OR semantics (YTDB-1369).
+            if (operands.any(::isEligibleMixedScalar) && operands.all {
+                    isEligibleMixedScalar(it) || it is HasLinkTo || it is HasLink || it is HasNoLink
+                }) {
+                val (scalars, links) = operands.partition(::isEligibleMixedScalar)
+                return (scalars + links).fold(g) { t, op -> op.traverse(t) }
+            }
+            return g.and(*operands.map { it.traverse(`__`.start<Any>().asYT()) }.toTypedArray())
+        }
+
+        companion object {
+            private val tokenKeys = T.values().map { it.accessor }.toSet()
+
+            private fun isEligibleMixedScalar(block: GremlinBlock): Boolean = when (block) {
+                is PropEqual -> block.property !in tokenKeys && block.value != null && block.value !is P<*>
+                is PropWithin -> block.propName !in tokenKeys && block.within.none { it == null }
+                else -> false
+            }
+        }
 
         override fun describe(s: StringBuilder): StringBuilder {
             operands.forEachIndexed { i, op -> if (i > 0) s.append(" AND "); op.describe(s) }
