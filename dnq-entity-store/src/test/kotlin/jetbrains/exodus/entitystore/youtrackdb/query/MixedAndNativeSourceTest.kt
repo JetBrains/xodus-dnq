@@ -21,6 +21,7 @@ import com.jetbrains.youtrackdb.internal.common.profiler.monitoring.QueryMetrics
 import com.jetbrains.youtrackdb.internal.common.profiler.monitoring.QueryMonitoringMode
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphInternal
+import com.jetbrains.youtrackdb.internal.core.gremlin.translator.strategy.GremlinToMatchStrategy
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
@@ -126,9 +127,10 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
 
     /**
      * Reproduces the original link-first `and()` traversal independently of `GremlinBlock`.
+     * Its own source excludes MATCH translation to preserve the native scan and membership baseline.
      * This reference detects result changes without using the emission rule under test.
      */
-    private fun reference(tx: YTDBStoreTransactionImpl, rid: RID): YT = tx.g().V().and(
+    private fun reference(tx: YTDBStoreTransactionImpl, rid: RID): YT = tx.g().withoutStrategies(GremlinToMatchStrategy::class.java).V().and(
         `__`.where<Vertex>(`__`.out("user_link").hasId(rid)),
         `__`.has<YTDBVertex>("email", EMAIL),
         `__`.has<YTDBVertex>("verified", true)
@@ -137,7 +139,7 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
     private data class Measurement(val names: List<String>, val candidates: Int, val plans: List<String>, val containers: List<Pair<String, Any?>>, val matched: Boolean)
     /**
      * Captures executed plans and counts native source vertices before the residual link filter.
-     * Full consumption measures no-match work. `early` checks source closure after the first result.
+     * Full consumption measures native no-match work. `early` checks native source closure after the first result.
      * `allowMatch` permits no native source only when MATCH actually translates the query.
      * Assertions reject listener failures, empty plan capture, and incorrect source open or close counts.
      */
@@ -164,6 +166,41 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
         return Measurement(names, probe.candidates, listener.plans.toList(), probe.containers, probe.matched)
     }
 
+    // Eligible measured filters must use the expected path and an executed email-index plan in both modes.
+    private fun assertIndexedPath(measured: Measurement) {
+        assertEquals(match, measured.matched, "Eligible measured filters must translate exactly when MATCH is enabled")
+        assertIndexedSource(measured.plans)
+        if (!measured.matched) {
+            assertEquals(setOf("email", "verified", T.label.accessor), measured.containers.map { it.first }.toSet(), "Both safe scalar filters and the trailing type must join the native source")
+        }
+    }
+
+    private fun assertIndexedSource(plans: List<String>) {
+        assertTrue(plans.isNotEmpty(), "Positive executed-plan capture is required")
+        // In these measured plans, the first fetch is the native source or the outer MATCH prefetch.
+        // A nested anti-join fetch does not establish outer-source index use.
+        for (plan in plans) {
+            val source = plan.lineSequence().map { it.trim() }.firstOrNull { it.startsWith("+ FETCH FROM ") }
+            assertEquals("+ FETCH FROM INDEX $INDEX", source, "Executed outer source must use $INDEX: $plan")
+        }
+    }
+
+    /** Rejects a class-scanning outer source even when the anti-join branch uses the email index. */
+    @Test fun `indexed source assertion rejects class scan with indexed anti join`() {
+        val plan = """
+            + PREFETCH contact
+              + FETCH FROM CLASS XDContact
+              + FILTER ITEMS WHERE
+                email = ? AND verified = ?
+            + HASH ANTI_JOIN on [contact] (
+              + SET contact AS
+                + FETCH FROM INDEX idx_xd_contact_email
+              )
+        """.trimIndent()
+        assertTrue(INDEX in plan, "The nested index must be present in the counterexample")
+        assertFailsWith<AssertionError> { assertIndexedSource(listOf(plan)) }
+    }
+
     // Check emitted steps before provider optimization can remove an unwanted and() wrapper.
     private fun assertNormalized(traversal: YT, linkOperator: String = "where") {
         traversal.use {
@@ -175,9 +212,10 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
 
     /**
      * Queries email and verified equality with a user-link check that matches no contact.
-     * The reference scans 138 then 522 contacts. The indexed source must emit only six candidates each time.
-     * A matching query must close its source after early success.
-     * This fails on a class scan, missing source predicates, growing candidate work, or an unclosed source.
+     * The native reference scans 138 then 522 contacts. A normalized native source emits only six candidates.
+     * Normalized MATCH execution instead requires an executed email-index plan, including after early success.
+     * A native matching query must close its source after early success with at most six candidates.
+     * This fails on a missing index plan, wrong execution path, growing native work, or an unclosed native source.
      */
     @Test fun `indexed native source bounds candidates and closes on early success`() {
         fixture(128)
@@ -192,23 +230,25 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
                 assertEquals(emptyList(), original.names)
                 assertEquals(population, original.candidates, "Observer must see the class-wide reference population")
                 assertTrue(original.plans.any { "FETCH FROM CLASS" in it }, original.plans.toString())
-                val normalized = measure(tx, query(tx, condition(rid)))
+                val normalized = measure(tx, query(tx, condition(rid)), allowMatch = match)
                 assertEquals(original.names, normalized.names)
-                println("XD-1306 MATCH=$match population=$population original=${original.candidates} normalized=${normalized.candidates} plans=${normalized.plans}")
-                assertTrue(normalized.plans.any { INDEX in it }, "Executed plan must use $INDEX: ${normalized.plans}")
-                assertEquals(setOf("email", "verified", T.label.accessor), normalized.containers.map { it.first }.toSet(), "Both equalities and the trailing type must join the native source")
-                assertEquals(6, normalized.candidates, "Source work must stay within the selective population as unrelated data grows")
-                assertTrue(normalized.candidates * 10 < original.candidates)
-                val success = measure(tx, query(tx, condition(user(tx, "user"))), early = true)
-                assertEquals(1, success.names.size)
-                assertTrue(success.candidates in 1..6)
+                println("XD-1306 MATCH=$match population=$population translated=${normalized.matched} original=${original.candidates} normalized=${if (normalized.matched) "MATCH-plan-only" else normalized.candidates} plans=${normalized.plans}")
+                assertIndexedPath(normalized)
+                if (!normalized.matched) {
+                    assertEquals(6, normalized.candidates, "Source work must stay within the selective population as unrelated data grows")
+                    assertTrue(normalized.candidates * 10 < original.candidates)
+                }
+                val success = measure(tx, query(tx, condition(user(tx, "user"))), early = true, allowMatch = match)
+                assertTrue(success.names.single() in listOf("case", "child", "match", "multi"))
+                assertIndexedPath(success)
+                if (!success.matched) assertTrue(success.candidates in 1..6)
             }
         }
     }
 
     /**
      * Compares link existence or absence with a literal link-first `and()` membership reference.
-     * The literal reference reproduces the original emission independently of `GremlinBlock`.
+     * The native literal reference reproduces link-first semantics independently of `GremlinBlock`.
      * A separate no-match reference validates the observer against all 138 contacts.
      * Require an executed email-index plan and six candidates when a native source exists.
      * A translated MATCH query has no native source, so its executed index plan supplies the evidence.
@@ -221,21 +261,20 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
             assertTrue(original.plans.any { "FETCH FROM CLASS" in it }, original.plans.toString())
             val literalLink = if (noLink) `__`.not<YTDBVertex>(`__`.out("user_link"))
                 else `__`.where<Vertex>(`__`.out("user_link"))
-            val expected = tx.g().V().and(literalLink, `__`.has<YTDBVertex>("email", EMAIL),
+            val expected = tx.g().withoutStrategies(GremlinToMatchStrategy::class.java).V().and(literalLink, `__`.has<YTDBVertex>("email", EMAIL),
                 `__`.has<YTDBVertex>("verified", true)).hasLabel(CONTACT).use {
                 it.toList().map { v -> v.value<String>("name") }.sorted()
             }
             val link = if (noLink) HasNoLink("user") else HasLink("user")
             val block = And(listOf(link, PropEqual("email", EMAIL), PropEqual("verified", true)))
-            val normalized = measure(tx, query(tx, block), allowMatch = true)
+            val normalized = measure(tx, query(tx, block), allowMatch = match)
             assertEquals(expected, normalized.names.sorted(), "Membership must match the literal link-first reference")
             println("XD-1306 MATCH=$match link=$link translated=${normalized.matched} reference=${original.candidates} candidates=${if (normalized.matched) "MATCH-plan-only" else normalized.candidates} members=${normalized.names.sorted()} plans=${normalized.plans}")
-            assertTrue(normalized.plans.any { INDEX in it }, "Executed plan must use $INDEX: ${normalized.plans}")
-            // MATCH has no YTDBGraphStep source. Its executed index plan is the positive evidence.
-            if (normalized.matched) assertTrue(match, "MATCH must be enabled for a translated query") else {
+            assertIndexedPath(normalized)
+            // MATCH has no native source. Its executed index plan is the positive evidence.
+            if (!normalized.matched) {
                 assertEquals(6, normalized.candidates, "Native source must stay within the selective population")
                 assertTrue(normalized.candidates * 10 < original.candidates, "Native source must be well below the class-wide reference")
-                assertEquals(setOf("email", "verified", T.label.accessor), normalized.containers.map { it.first }.toSet())
             }
             assertNormalized(query(tx, block), if (noLink) "not" else "where")
         }
@@ -254,7 +293,8 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
 
     /**
      * Permutes and nests the user-link, email, and verified filters.
-     * Every order must return `case`, `child`, `match`, and `multi` once with an indexed six-candidate source.
+     * Every order must return `case`, `child`, `match`, and `multi` once with an executed email-index plan.
+     * Native execution must use a six-candidate source with both safe scalar filters and the trailing type.
      * Two copies of `multi` in the input must remain two copies despite its duplicate matching links.
      * This fails on a retained `and()`, order-dependent results, link-induced duplication, or deduplication.
      */
@@ -270,11 +310,10 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
                 val traversal = query(tx, And(ops))
                 assertEquals(expected, traversal.use { it.toList().map { v -> v.value<String>("name") }.sorted() })
                 assertNormalized(query(tx, And(ops)))
-                val measured = measure(tx, query(tx, And(ops)))
+                val measured = measure(tx, query(tx, And(ops)), allowMatch = match)
                 assertEquals(expected, measured.names.sorted())
-                assertEquals(6, measured.candidates)
-                assertTrue(measured.plans.any { INDEX in it }, measured.plans.toString())
-                assertEquals(setOf("email", "verified", T.label.accessor), measured.containers.map { it.first }.toSet())
+                assertIndexedPath(measured)
+                if (!measured.matched) assertEquals(6, measured.candidates)
             }
             for (nested in listOf(And(operands[0], And(operands[1], operands[2])), And(And(operands[0], operands[1]), operands[2]))) {
                 assertEquals(expected, query(tx, nested).use { it.toList().map { v -> v.value<String>("name") }.sorted() })
@@ -316,7 +355,8 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
 
     /**
      * Combines link filters with equality, in-list, absence, not-equal, range, and text property filters.
-     * Safe equality and in-list must return the four matching contacts from an indexed six-candidate source.
+     * Safe equality and in-list must return the four matching contacts with an executed email-index plan.
+     * Native execution must use a six-candidate source with both safe scalar filters and the trailing type.
      * Other kinds must retain their asserted members and `and()` wrapper. Pure-property emission must stay unchanged.
      * This fails if safe filters stay hidden, unsupported kinds are chained, or scalar scope changes.
      */
@@ -352,13 +392,13 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
             assertEquals(listOf("case", "child", "match", "missingVerified", "multi", "wrongVerified"),
                 query(tx, text).use { it.toList().map { v -> v.value<String>("name") }.sorted() })
             assertEquals(listOf("V", "has", "has", "hasLabel"), query(tx, And(PropEqual("email", EMAIL), PropEqual("verified", true))).use { it.asAdmin().bytecode.stepInstructions.map { step -> step.operator } }, "Pure-property path stays unchanged")
-            for ((scalar, _) in native) {
+            for ((scalar, members) in native) {
                 val block = And(listOf(HasLinkTo("user", rid), PropEqual("email", EMAIL), scalar))
                 assertNormalized(query(tx, block))
-                val measured = measure(tx, query(tx, block))
-                assertTrue(measured.plans.any { INDEX in it }, measured.plans.toString())
-                assertEquals(setOf("email", "verified", T.label.accessor), measured.containers.map { it.first }.toSet())
-                assertEquals(6, measured.candidates)
+                val measured = measure(tx, query(tx, block), allowMatch = match)
+                assertEquals(members, measured.names.sorted())
+                assertIndexedPath(measured)
+                if (!measured.matched) assertEquals(6, measured.candidates)
             }
             for ((scalar, _) in fallback) {
                 assertEquals(listOf("V", "and", "hasLabel"), query(tx, And(listOf(HasLinkTo("user", rid), PropEqual("email", EMAIL), scalar))).use { it.asAdmin().bytecode.stepInstructions.map { step -> step.operator } })

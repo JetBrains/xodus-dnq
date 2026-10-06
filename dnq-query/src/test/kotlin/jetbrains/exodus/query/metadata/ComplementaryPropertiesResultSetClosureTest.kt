@@ -15,11 +15,9 @@
  */
 package jetbrains.exodus.query.metadata
 
-import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
-import com.jetbrains.youtrackdb.internal.core.db.SessionListener
-import com.jetbrains.youtrackdb.internal.core.query.ResultSet
 import jetbrains.exodus.entitystore.youtrackdb.getTargetLocalEntityIds
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
+import jetbrains.exodus.entitystore.youtrackdb.testutil.QueryResourceRecorder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -65,18 +63,12 @@ class ComplementaryPropertiesResultSetClosureTest {
             val secondTarget = tx.loadVertex(secondTargetId)
             assertEquals(0, owner.getTargetLocalEntityIds("ass1").size())
             val before = session.getActiveQueries().size
-            // Embedded sessions track queries weakly; retain real results until after the assertion.
-            val openedResults = mutableListOf<ResultSet>()
-            val listener = object : SessionListener {
-                override fun onCommandStart(database: DatabaseSessionEmbedded, resultSet: ResultSet) {
-                    openedResults.add(resultSet)
-                }
-            }
-            session.registerListener(listener)
-            try {
+            QueryResourceRecorder().use { recorder ->
+                recorder.attach(session)
                 // begin/commit nest in YTDB. One owner stays below the batching threshold, so
                 // backfill's terminal commit must leave this outer transaction alive.
                 session.initializeComplementaryPropertiesForNewIndexedLinks(newIndexedLinks)
+                assertTrue("The backfill class query must be captured", recorder.resources.isNotEmpty())
                 assertSame(tx, session.activeTransaction)
                 assertTrue(tx.isActive)
                 val targetIds = owner.getTargetLocalEntityIds("ass1")
@@ -84,9 +76,6 @@ class ComplementaryPropertiesResultSetClosureTest {
                 assertTrue(targetIds.contains(firstTarget.identity))
                 assertTrue(targetIds.contains(secondTarget.identity))
                 assertEquals("Backfill must close its class result set before commit", before, session.getActiveQueries().size)
-            } finally {
-                session.unregisterListener(listener)
-                openedResults.forEach { it.close() }
             }
         }
     }

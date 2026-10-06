@@ -17,15 +17,16 @@ package jetbrains.exodus.entitystore.youtrackdb
 
 import com.jetbrains.youtrackdb.api.config.GlobalConfiguration
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
-import com.jetbrains.youtrackdb.internal.core.db.SessionListener
-import com.jetbrains.youtrackdb.internal.core.query.ResultSet
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
+import jetbrains.exodus.entitystore.youtrackdb.testutil.QueryResourceRecorder
+import jetbrains.exodus.entitystore.youtrackdb.testutil.withNativeQueryRecorder
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class YTDBTraversalResourceTest {
 
@@ -47,6 +48,7 @@ class YTDBTraversalResourceTest {
         youTrackDb.withStoreTx { tx ->
             val session = tx.activeYtdbSession()
             withNativeQueries(session) {
+                // Native ID lookups do not register queries. These checks cover behavior and registry stability.
                 val before = session.getActiveQueries().size
                 assertEquals(0, before)
                 val vertex = assertNotNull(tx.loadVertexOrNull(presentId.asOId()))
@@ -76,6 +78,7 @@ class YTDBTraversalResourceTest {
         youTrackDb.withStoreTx { tx ->
             val session = tx.activeYtdbSession()
             withNativeQueries(session) {
+                // Native edge lookups do not register queries. These checks cover behavior and registry stability.
                 val before = session.getActiveQueries().size
                 assertEquals(0, before)
                 val edge = assertNotNull(tx.findEdge(EDGE_CLASS, outId.asOId(), inId.asOId()))
@@ -106,12 +109,13 @@ class YTDBTraversalResourceTest {
 
         youTrackDb.withStoreTx { tx ->
             val session = tx.activeYtdbSession()
-            withNativeQueries(session) {
+            withNativeQueries(session) { recorder ->
                 val before = session.getActiveQueries().size
                 assertEquals(0, before)
                 val resolved = assertNotNull(youTrackDb.schemaBuddy.resolveEntityIdOrNull(
                     session, expected.typeId, expected.localId
                 ))
+                assertTrue(recorder.resources.isNotEmpty(), "The schema-ID lookup query must be captured")
                 assertEquals(before, session.getActiveQueries().size)
                 assertEquals(expected.typeId, resolved.typeId)
                 assertEquals(expected.localId, resolved.localId)
@@ -134,29 +138,12 @@ class YTDBTraversalResourceTest {
         }
     }
 
-    private fun withNativeQueries(session: DatabaseSessionEmbedded, block: () -> Unit) {
-        // The translator reads the session context, so a scoped override avoids changing global state.
-        val flag = GlobalConfiguration.QUERY_GREMLIN_TO_MATCH_TRANSLATOR_ENABLED
-        val configuration = requireNotNull(session.configuration)
-        val previous = configuration.setValue(flag, false)
-        // Active-query values are weak: retain the real result sets until after all assertions.
-        val retained = ArrayList<ResultSet>()
-        val listener = object : SessionListener {
-            override fun onCommandStart(database: DatabaseSessionEmbedded, resultSet: ResultSet) {
-                retained.add(resultSet)
-            }
-        }
-        session.registerListener(listener)
-        try {
-            assertFalse(configuration.getValueAsBoolean(flag))
-            block()
-        } finally {
-            session.unregisterListener(listener)
-            try {
-                retained.forEach { it.close() }
-            } finally {
-                configuration.setValue(flag, previous)
-            }
+    private fun withNativeQueries(session: DatabaseSessionEmbedded, block: (QueryResourceRecorder) -> Unit) {
+        withNativeQueryRecorder(session) { recorder ->
+            assertFalse(requireNotNull(session.configuration).getValueAsBoolean(
+                GlobalConfiguration.QUERY_GREMLIN_TO_MATCH_TRANSLATOR_ENABLED
+            ))
+            block(recorder)
         }
     }
 
