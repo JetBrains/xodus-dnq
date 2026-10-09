@@ -305,7 +305,10 @@ interface YTDBStoreTransaction : StoreTransaction {
         propertyName: String,
         rightOrder: EntityIterable,
         ascending: Boolean
-    ): YTDBEntityIterable = sort(entityType, propertyName, rightOrder, ascending, polymorphic = true)
+    ): YTDBEntityIterable {
+        requirePolymorphicRightOrder("sort", rightOrder)
+        return sort(entityType, propertyName, rightOrder, ascending, polymorphic = true)
+    }
 
     fun sort(
         entityType: String,
@@ -321,8 +324,10 @@ interface YTDBStoreTransaction : StoreTransaction {
         isMultiple: Boolean,
         linkName: String,
         rightOrder: EntityIterable
-    ): YTDBEntityIterable =
-        sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder, polymorphic = true)
+    ): YTDBEntityIterable {
+        requirePolymorphicRightOrder("sortLinks", rightOrder)
+        return sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder, polymorphic = true)
+    }
 
     fun sortLinks(
         entityType: String,
@@ -341,8 +346,10 @@ interface YTDBStoreTransaction : StoreTransaction {
         rightOrder: EntityIterable,
         oppositeEntityType: String,
         oppositeLinkName: String
-    ): YTDBEntityIterable =
-        sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder, oppositeEntityType, oppositeLinkName, polymorphic = true)
+    ): YTDBEntityIterable {
+        requirePolymorphicRightOrder("sortLinks", rightOrder)
+        return sortLinks(entityType, sortedLinks, isMultiple, linkName, rightOrder, oppositeEntityType, oppositeLinkName, polymorphic = true)
+    }
 
     fun sortLinks(
         entityType: String,
@@ -373,4 +380,13 @@ interface YTDBStoreTransaction : StoreTransaction {
      * @param value user object bound to the transaction
      */
     fun setUserObject(key: Any, value: Any)
+}
+
+/** Default sorting overloads require a polymorphic rightOrder. Wrappers expose it through unwrap(). */
+private fun requirePolymorphicRightOrder(method: String, rightOrder: EntityIterable) {
+    val operand = rightOrder.unwrap()
+    require(operand !is YTDBEntityIterable || operand.polymorphic) {
+        "$method does not support a non-polymorphic rightOrder. " +
+                "Use the overload with an explicit polymorphic argument."
+    }
 }

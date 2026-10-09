@@ -129,7 +129,7 @@ object NodeFactory {
     @JvmStatic
     fun hasLinkTo(linkName: String, entity: Entity?) =
         if (entity == null) hasNoLink(linkName)
-        else LeafNode(HasLinkTo(linkName, (entity.id as YTDBEntityId).asOId()))
+        else (entity.id as YTDBEntityId).let { LeafNode(HasLinkTo(linkName, it.asOId()), it) }
 
     @JvmStatic
     fun hasNoLink(linkName: String) = LeafNode(HasNoLink(linkName))

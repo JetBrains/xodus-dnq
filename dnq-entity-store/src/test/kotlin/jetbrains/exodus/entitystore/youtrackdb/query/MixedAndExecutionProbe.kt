@@ -31,7 +31,7 @@ import kotlin.test.assertNotNull
  * Duplicate close callbacks share a start time, duration, and query summary, so only one copy is retained.
  * A missing plan records a failure for the measuring test instead of silently accepting an empty capture.
  */
-internal class MixedAndPlanListener : QueryMetricsListener {
+internal class MixedAndPlanListener(var allowNativeDirectRid: Boolean = false) : QueryMetricsListener {
     val plans = mutableListOf<String>()
     val failures = mutableListOf<Throwable>()
     private val seen = mutableSetOf<Triple<Long, Long, String?>>()
@@ -39,7 +39,10 @@ internal class MixedAndPlanListener : QueryMetricsListener {
     override fun queryFinished(details: QueryMetricsListener.QueryDetails, startedAtMillis: Long, executionTimeNanos: Long) {
         try {
             if (seen.add(Triple(startedAtMillis, executionTimeNanos, details.querySummary))) {
-                plans += assertNotNull(details.executionPlan, "Measured query must have an executed plan").prettyPrint(0, 2)
+                val plan = details.executionPlan
+                if (plan != null || !allowNativeDirectRid) {
+                    plans += assertNotNull(plan, "Measured query must have an executed plan").prettyPrint(0, 2)
+                }
             }
         } catch (failure: Throwable) {
             // The provider catches listener exceptions. Retain them so the measuring test can fail.
@@ -59,7 +62,7 @@ internal class MixedAndPlanListener : QueryMetricsListener {
  * That case needs an executed index plan from the listener, not a zero candidate count as evidence.
  * Otherwise `single()` requires exactly one native source and throws if the optimized shape changes.
  */
-internal class MixedAndSourceProbe(traversal: YT, allowMatch: Boolean = false) {
+internal class MixedAndSourceProbe(traversal: YT, allowMatch: Boolean = false, optimized: Boolean = false) {
     var candidates = 0
         private set
     var opened = 0
@@ -68,14 +71,16 @@ internal class MixedAndSourceProbe(traversal: YT, allowMatch: Boolean = false) {
         private set
     val containers: List<Pair<String, Any?>>
     val matched: Boolean
+    val sourceIds: List<Any>
 
     init {
         val admin = traversal.asAdmin()
-        admin.applyStrategies()
+        if (!optimized) admin.applyStrategies()
         matched = admin.steps.any { it is AbstractMatchPlanStep<*, *> }
         @Suppress("UNCHECKED_CAST")
         val source = if (allowMatch && matched) null else
             admin.steps.filterIsInstance<YTDBGraphStep<*, *>>().single() as YTDBGraphStep<Any, YTDBVertex>
+        sourceIds = source?.ids?.toList() ?: emptyList()
         containers = source?.hasContainers?.map { it.key to it.predicate } ?: emptyList()
         if (source != null) observe(source)
     }

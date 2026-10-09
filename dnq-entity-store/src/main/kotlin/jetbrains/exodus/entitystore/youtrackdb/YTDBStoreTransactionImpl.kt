@@ -530,7 +530,8 @@ class YTDBStoreTransactionImpl(
                         if (ascending) SortDirection.ASC else SortDirection.DESC
                     )
                 ),
-            polymorphic
+            polymorphic,
+            (rightOrder.unwrap() as? YTDBEntityIterableImpl)?.linkTargets ?: emptyMap()
         )
     }
 
@@ -575,7 +576,8 @@ class YTDBStoreTransactionImpl(
                         if (ascending) SortDirection.ASC else SortDirection.DESC
                     )
                 ),
-            polymorphic
+            polymorphic,
+            (rightOrder.unwrap() as? YTDBEntityIterableImpl)?.linkTargets ?: emptyMap()
         )
     }
 

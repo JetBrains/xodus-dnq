@@ -17,6 +17,7 @@ package kotlinx.dnq
 
 import com.google.common.truth.Truth.assertThat
 import com.jetbrains.teamsys.dnq.database.PersistentEntityIterableWrapper
+import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import kotlinx.dnq.query.exclude
 import kotlinx.dnq.query.filter
@@ -115,6 +116,44 @@ class XdEntityTypePolymorphicTest : DBTest() {
             val polyIterable = polyQuery.entityIterable
             assertThat(polyIterable).isInstanceOf(PersistentEntityIterableWrapper::class.java)
             assertThat((polyIterable as YTDBEntityIterable).polymorphic).isTrue()
+        }
+    }
+
+    @Test
+    fun `session sorting rejects wrapped non-polymorphic rightOrder and accepts polymorphic rightOrder`() {
+        transactional {
+            val owner = User.new { login = "owner"; skill = 1 }
+            User.new { login = "member"; skill = 2; supervisor = owner }
+        }
+        transactional(readonly = true) { session ->
+            // One MATCH mode is enough for rejection. Validation runs before any traversal.
+            val nonPoly = User.all(polymorphic = false).entityIterable as EntityIterable
+            assertThat(nonPoly).isInstanceOf(PersistentEntityIterableWrapper::class.java)
+            val sortedLinks = nonPoly
+            val errors = listOf(
+                "sort" to assertFailsWith<IllegalArgumentException> {
+                    session.sort(User.entityType, "login", nonPoly, true)
+                },
+                "sortLinks" to assertFailsWith<IllegalArgumentException> {
+                    session.sortLinks(User.entityType, sortedLinks, false, "boss", nonPoly)
+                },
+                "sortLinks" to assertFailsWith<IllegalArgumentException> {
+                    session.sortLinks(User.entityType, sortedLinks, false, "boss", nonPoly, User.entityType, "boss")
+                }
+            )
+            errors.forEach { (method, error) ->
+                assertThat(error).hasMessageThat().isEqualTo(
+                    "$method does not support a non-polymorphic rightOrder. " +
+                            "Use the overload with an explicit polymorphic argument."
+                )
+            }
+            val poly = BaseUser.all().entityIterable as EntityIterable
+            assertThat(session.sort(BaseUser.entityType, "login", poly, true).map { it.getProperty("login") })
+                .containsExactly("member", "owner").inOrder()
+            assertThat(session.sortLinks(BaseUser.entityType, sortedLinks, false, "boss", poly).map { it.getProperty("login") })
+                .containsExactly("member")
+            assertThat(session.sortLinks(BaseUser.entityType, sortedLinks, false, "boss", poly, User.entityType, "boss").map { it.getProperty("login") })
+                .containsExactly("member")
         }
     }
 

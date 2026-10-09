@@ -88,7 +88,7 @@ open class SortEngine {
         if (underlying is YTDBEntityIterable && underlying.query !is GremlinQuery.ByIds) {
             val txn = queryEngine.persistentStore.andCheckCurrentTransaction
             return (txn as YTDBStoreTransactionImpl).sortLinked(
-                entityType, linkName, propName, source, asc
+                entityType, linkName, propName, source, asc, underlying.polymorphic
             )
         } else {
             val mmd = queryEngine.modelMetaData!!

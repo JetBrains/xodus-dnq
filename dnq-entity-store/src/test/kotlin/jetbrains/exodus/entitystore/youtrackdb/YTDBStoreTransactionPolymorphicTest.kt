@@ -15,10 +15,14 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
+import jetbrains.exodus.entitystore.EntityIterable
+import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.testutil.*
 import org.junit.Rule
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 
 class YTDBStoreTransactionPolymorphicTest : OTestMixin {
 
@@ -308,6 +312,81 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
 
             val polyResult = tx.sort(BaseUser.CLASS, "age", rightOrder, true)
             assertNamesExactlyInOrder(polyResult, "guest1", "user1", "base1")
+
+            val nonPoly = tx.getAll(BaseUser.CLASS, polymorphic = false)
+            assertNamesExactlyInOrder(tx.sort(BaseUser.CLASS, "age", nonPoly, true, false), "base1")
+            assertNamesExactlyInOrder(tx.sort(BaseUser.CLASS, "age", nonPoly, true, true), "guest1", "user1", "base1")
+        }
+    }
+
+    @Test
+    fun `default sort rejects a non-polymorphic rightOrder`() {
+        givenUserHierarchy()
+        withStoreTx { tx ->
+            // One MATCH mode is enough. Validation runs before any traversal.
+            val rightOrder = tx.getAll(BaseUser.CLASS, polymorphic = false)
+            val error = assertFailsWith<IllegalArgumentException> {
+                tx.sort(BaseUser.CLASS, "age", rightOrder, true)
+            }
+            assertEquals(
+                "sort does not support a non-polymorphic rightOrder. " +
+                        "Use the overload with an explicit polymorphic argument.", error.message
+            )
+        }
+    }
+
+    @Test
+    fun `default sortLinks rejects a non-polymorphic rightOrder`() {
+        givenUserHierarchyWithLinks()
+        withStoreTx { tx ->
+            val rightOrder = tx.getAll(BaseUser.CLASS, polymorphic = false)
+            val sortedLinks = tx.find(BaseUser.CLASS, "name", "base1")
+            val error = assertFailsWith<IllegalArgumentException> {
+                tx.sortLinks(BaseUser.CLASS, sortedLinks, false, "friend", rightOrder)
+            }
+            assertEquals(
+                "sortLinks does not support a non-polymorphic rightOrder. " +
+                        "Use the overload with an explicit polymorphic argument.", error.message
+            )
+        }
+    }
+
+    @Test
+    fun `default sortLinks with opposite rejects a non-polymorphic rightOrder`() {
+        givenUserHierarchyWithLinks()
+        withStoreTx { tx ->
+            val rightOrder = tx.getAll(BaseUser.CLASS, polymorphic = false)
+            val sortedLinks = tx.find(BaseUser.CLASS, "name", "base1")
+            val error = assertFailsWith<IllegalArgumentException> {
+                tx.sortLinks(BaseUser.CLASS, sortedLinks, false, "friend", rightOrder, BaseUser.CLASS, "friend")
+            }
+            assertEquals(
+                "sortLinks does not support a non-polymorphic rightOrder. " +
+                        "Use the overload with an explicit polymorphic argument.", error.message
+            )
+        }
+    }
+
+    @Test
+    fun `default sorting leaves empty and non-YTDB rightOrder handling unchanged`() {
+        givenUserHierarchy()
+        withStoreTx { tx ->
+            val empty = YTDBEntityIterable.EMPTY
+            assertSame(empty, tx.sort(BaseUser.CLASS, "age", empty, true))
+            assertSame(empty, tx.sortLinks(BaseUser.CLASS, empty, false, "friend", empty))
+            assertSame(empty, tx.sortLinks(BaseUser.CLASS, empty, false, "friend", empty, BaseUser.CLASS, "friend"))
+            val inMemory = object : EntityIterable by empty {
+                override fun unwrap(): EntityIterable = this
+            }
+            val defaultError = assertFailsWith<IllegalArgumentException> {
+                tx.sort(BaseUser.CLASS, "age", inMemory, true)
+            }
+            val explicitError = assertFailsWith<IllegalArgumentException> {
+                tx.sort(BaseUser.CLASS, "age", inMemory, true, true)
+            }
+            assertEquals(explicitError.message, defaultError.message)
+            assertSame(empty, tx.sortLinks(BaseUser.CLASS, empty, false, "friend", inMemory))
+            assertSame(empty, tx.sortLinks(BaseUser.CLASS, empty, false, "friend", inMemory, BaseUser.CLASS, "friend"))
         }
     }
 
@@ -381,6 +460,12 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
                 BaseUser.CLASS, sortedLinks, false, "friend", rightOrder
             )
             assertNamesExactly(polyResult, "base1", "user1")
+
+            val nonPoly = tx.getAll(BaseUser.CLASS, polymorphic = false)
+            assertNamesExactly(tx.sortLinks(BaseUser.CLASS, sortedLinks, false, "friend", nonPoly, false), "base1")
+            assertNamesExactly(tx.sortLinks(BaseUser.CLASS, sortedLinks, false, "friend", nonPoly, true), "base1", "user1")
+            val nonPolyLinks = tx.find(BaseUser.CLASS, "name", "base1", polymorphic = false)
+            assertNamesExactly(tx.sortLinks(BaseUser.CLASS, nonPolyLinks, false, "friend", rightOrder), "base1", "user1")
         }
     }
 
@@ -403,6 +488,12 @@ class YTDBStoreTransactionPolymorphicTest : OTestMixin {
                 BaseUser.CLASS, "friend"
             )
             assertNamesExactly(polyResult, "base1", "user1")
+
+            val nonPoly = tx.getAll(BaseUser.CLASS, polymorphic = false)
+            assertNamesExactly(tx.sortLinks(BaseUser.CLASS, sortedLinks, false, "friend", nonPoly, BaseUser.CLASS, "friend", false), "base1")
+            assertNamesExactly(tx.sortLinks(BaseUser.CLASS, sortedLinks, false, "friend", nonPoly, BaseUser.CLASS, "friend", true), "base1", "user1")
+            val nonPolyLinks = tx.find(BaseUser.CLASS, "name", "base1", polymorphic = false)
+            assertNamesExactly(tx.sortLinks(BaseUser.CLASS, nonPolyLinks, false, "friend", rightOrder, BaseUser.CLASS, "friend"), "base1", "user1")
         }
     }
 

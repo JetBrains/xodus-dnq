@@ -116,10 +116,77 @@ sealed class GremlinQuery {
         }
     }
 
-    fun start(gs: GraphTraversalSource): YT {
+    internal fun start(
+        gs: GraphTraversalSource,
+        targetClass: (RID) -> String?,
+        terminalResultLimit: Boolean
+    ): YT = start(gs, lowerLinkEquality(targetClass, terminalResultLimit))
+
+    // Select once for the final tree. Recursive traversal construction never selects an access path.
+    private fun lowerLinkEquality(
+        targetClass: (RID) -> String?,
+        terminalResultLimit: Boolean
+    ): GremlinQuery {
+        fun orderKind(block: GremlinBlock): Int? = when (block) {
+            GremlinBlock.Dedup, GremlinBlock.Reverse -> 0
+            is GremlinBlock.Sort -> 1
+            is GremlinBlock.AndThen -> orderKind(block.left)?.let { left -> orderKind(block.right)?.let { left + it } }
+            else -> null
+        }
+        fun validSlice(block: GremlinBlock): Boolean = when (block) {
+            is GremlinBlock.Limit, is GremlinBlock.Skip, is GremlinBlock.Tail -> true
+            is GremlinBlock.AndThen -> validSlice(block.left) && validSlice(block.right)
+            else -> false
+        }
+        var core: GremlinQuery = this
+        var sorted = false
+        var sliced = terminalResultLimit
+        val wrappers = mutableListOf<GremlinQuery>()
+        while (true) {
+            val wrapper = core
+            core = when (wrapper) {
+                is SortBy -> { sorted = true; wrapper.inner }
+                is ReversedOrder -> wrapper.inner
+                is Order -> {
+                    val kind = orderKind(wrapper.orderBlock) ?: return this
+                    sorted = sorted || kind > 0
+                    wrapper.inner
+                }
+                is Slice -> {
+                    if (!validSlice(wrapper.sliceBlock)) return this
+                    sliced = true
+                    wrapper.inner
+                }
+                else -> break
+            }
+            wrappers += wrapper
+        }
+        if (sorted && sliced) return this
+        val labeled = core as? Labeled ?: return this
+        val link = (labeled.inner as? Where)?.block as? GremlinBlock.HasLinkTo ?: return this
+        val resolvedTargetClass = targetClass(link.rid) ?: return this
+        var physical: GremlinQuery = ByIds(listOf(link.rid), resolvedTargetClass)
+            .then(GremlinBlock.InLink(link.linkName))
+            .then(GremlinBlock.HasLabel(labeled.label))
+            .then(GremlinBlock.Dedup)
+        for (wrapper in wrappers.asReversed()) {
+            physical = when (wrapper) {
+                is SortBy -> wrapper.copy(inner = physical)
+                is ReversedOrder -> wrapper.copy(inner = physical)
+                is Order -> wrapper.copy(inner = physical)
+                is Slice -> wrapper.copy(inner = physical)
+                else -> error("Unexpected result wrapper")
+            }
+        }
+        return physical
+    }
+
+    fun start(gs: GraphTraversalSource): YT = start(gs, this)
+
+    private fun start(gs: GraphTraversalSource, physical: GremlinQuery): YT {
         val shape = if (GremlinQueryCollector.enabled) GremlinQueryShape.of(this) else null
         if (shape != null) GremlinQueryCollector.record(shape)
-        val traversal = startTraversal(gs).traversal
+        val traversal = physical.startTraversal(gs).traversal
         // Attach query policy at the common root without changing traversal bytecode. Existing
         // source options are retained; DNQ overrides both sort directions to absolute NULLS LAST.
         // Provider strategies read root options for nested traversals as well.

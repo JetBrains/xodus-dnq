@@ -15,7 +15,9 @@
  */
 package jetbrains.exodus.query
 
+import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.iterate.YTDBEntityIterable
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
@@ -23,8 +25,17 @@ import jetbrains.exodus.query.metadata.ModelMetaData
 import java.util.*
 import javax.annotation.Nonnull
 
-class LeafNode(private val query: GremlinQuery) : NodeBase() {
-    constructor(block: GremlinBlock) : this(GremlinQuery.all.then(block))
+/**
+ * [linkTarget] is optional execution metadata. Its ID must describe the same RID as the link
+ * condition. Its concrete class must resolve without loading the target. Otherwise lowering keeps
+ * the existing traversal. Metadata never changes query results or the logical tree.
+ */
+class LeafNode @JvmOverloads constructor(
+    private val query: GremlinQuery,
+    internal val linkTarget: YTDBEntityId? = null
+) : NodeBase() {
+    @JvmOverloads
+    constructor(block: GremlinBlock, linkTarget: YTDBEntityId? = null) : this(GremlinQuery.all.then(block), linkTarget)
 
     companion object {
         val none = LeafNode(GremlinBlock.None)
@@ -42,10 +53,11 @@ class LeafNode(private val query: GremlinQuery) : NodeBase() {
     ): Iterable<Entity> = YTDBEntityIterable.query(
         queryEngine.oStore,
         query.then(GremlinBlock.HasLabel(entityType)),
-        polymorphic
+        polymorphic,
+        executionLinkTargets()
     )
 
-    override fun getClone(): NodeBase = LeafNode(query)
+    override fun getClone(): NodeBase = LeafNode(query, linkTarget)
 
     override fun getSimpleName(): String = query.shortName()
 
@@ -66,4 +78,12 @@ class LeafNode(private val query: GremlinQuery) : NodeBase() {
     override fun hashCode(): Int {
         return Objects.hashCode(query)
     }
+}
+
+internal fun NodeBase.executionLinkTargets(): Map<RID, YTDBEntityId> = buildMap {
+    fun collect(node: NodeBase) {
+        if (node is LeafNode) node.linkTarget?.let { put(it.asOId(), it) }
+        else node.children.forEach(::collect)
+    }
+    collect(this@executionLinkTargets)
 }

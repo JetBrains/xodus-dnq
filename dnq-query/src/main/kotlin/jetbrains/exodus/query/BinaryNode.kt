@@ -67,7 +67,8 @@ open class BinaryNode(
         YTDBEntityIterable.query(
             queryEngine.oStore,
             query.then(GremlinBlock.HasLabel(entityType)),
-            polymorphic
+            polymorphic,
+            executionLinkTargets()
         )
 
     override fun getClone(): NodeBase =

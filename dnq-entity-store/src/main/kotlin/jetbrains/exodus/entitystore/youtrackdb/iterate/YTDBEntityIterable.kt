@@ -17,6 +17,7 @@ package jetbrains.exodus.entitystore.youtrackdb.iterate
 
 import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.api.gremlin.tokens.YTDBQueryConfigParam
+import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityId
 import jetbrains.exodus.entitystore.EntityIterable
@@ -61,6 +62,21 @@ interface YTDBEntityIterable : EntityIterable {
         @JvmOverloads
         fun query(store: YTDBEntityStore, query: GremlinQuery, polymorphic: Boolean = true) =
             YTDBEntityIterableImpl(store, query, polymorphic)
+
+        /**
+         * [linkTargets] is optional execution metadata. Each ID must describe the same RID as its
+         * map key and the link condition. Its concrete class must resolve without loading the target.
+         * Otherwise lowering keeps the existing traversal. Metadata never changes query results or
+         * the logical tree.
+         */
+        @JvmStatic
+        @JvmOverloads
+        fun query(
+            store: YTDBEntityStore,
+            query: GremlinQuery,
+            polymorphic: Boolean = true,
+            linkTargets: Map<RID, YTDBEntityId>
+        ) = YTDBEntityIterableImpl(store, query, polymorphic, linkTargets)
 
         @JvmStatic
         fun empty() = EMPTY
@@ -126,6 +142,20 @@ class YTDBEntityIterableImpl(
     override val polymorphic: Boolean = true
 ) : YTDBEntityIterable {
 
+    /** Optional execution metadata with the contract defined by [YTDBEntityIterable.query]. */
+    var linkTargets: Map<RID, YTDBEntityId> = emptyMap()
+        private set
+
+    /** [linkTargets] follows the execution metadata contract of [YTDBEntityIterable.query]. */
+    constructor(
+        oStore: YTDBEntityStore,
+        query: GremlinQuery,
+        polymorphic: Boolean,
+        linkTargets: Map<RID, YTDBEntityId>
+    ) : this(oStore, query, polymorphic) {
+        this.linkTargets = linkTargets
+    }
+
     @Volatile
     private var cachedSize: Long = -1
 
@@ -135,12 +165,14 @@ class YTDBEntityIterableImpl(
     private val querySummary: String by lazy { GremlinQueryShape.of(query) }
 
     private fun modify(block: GremlinBlock): YTDBEntityIterableImpl =
-        YTDBEntityIterableImpl(oStore,this.query.then(block), polymorphic)
+        YTDBEntityIterableImpl(oStore, this.query.then(block), polymorphic, linkTargets)
 
     private fun iterator(traversal: GraphTraversal<*, YTDBVertex>): YTDBEntityIterator =
         YTDBEntityIterator.of(traversal, oStore)
 
-    override fun traversal(): GraphTraversal<*, YTDBVertex> {
+    override fun traversal(): GraphTraversal<*, YTDBVertex> = traversal(false)
+
+    private fun traversal(terminalResultLimit: Boolean): GraphTraversal<*, YTDBVertex> {
         // `with(...)` clones the whole traversal source (bytecode + strategies), so skip it for the
         // common polymorphic=true case: when no `polymorphicQuery` option is set, YTDB falls back to
         // GlobalConfiguration.QUERY_GREMLIN_POLYMORPHIC_BY_DEFAULT, which is true (and YTDBDatabaseParams
@@ -150,7 +182,11 @@ class YTDBEntityIterableImpl(
         if (FullScanDetection.enabled) {
             gs = gs.with(YTDBQueryConfigParam.querySummary, querySummary)
         }
-        return query.start(gs)
+        return query.start(
+            gs,
+            { rid -> linkTargets[rid]?.takeIf { it.asOId() == rid }?.resolveTypeName(oStore) },
+            terminalResultLimit
+        )
     }
 
     override fun iterator(): YTDBEntityIterator = iterator(traversal())
@@ -160,7 +196,7 @@ class YTDBEntityIterableImpl(
     /** Same query with the result order dropped — see [GremlinQuery.withoutResultOrder]. */
     private fun unordered(): YTDBEntityIterableImpl {
         val unordered = query.withoutResultOrder()
-        return if (unordered === query) this else YTDBEntityIterableImpl(oStore, unordered, polymorphic)
+        return if (unordered === query) this else YTDBEntityIterableImpl(oStore, unordered, polymorphic, linkTargets)
     }
 
     override fun isEmpty(): Boolean {
@@ -221,7 +257,7 @@ class YTDBEntityIterableImpl(
         val rightIterable = right.operand()
         if (rightIterable === YTDBEntityIterable.EMPTY) return YTDBEntityIterable.EMPTY
         requirePolymorphicMatch(rightIterable)
-        return YTDBEntityIterableImpl(oStore, query.intersect(rightIterable.query), polymorphic)
+        return YTDBEntityIterableImpl(oStore, query.intersect(rightIterable.query), polymorphic, linkTargets + rightIterable.executionLinkTargets())
     }
 
     override fun intersectSavingOrder(right: EntityIterable): EntityIterable = intersect(right)
@@ -230,21 +266,21 @@ class YTDBEntityIterableImpl(
         val rightIterable = right.operand()
         if (rightIterable === YTDBEntityIterable.EMPTY) return this
         requirePolymorphicMatch(rightIterable)
-        return YTDBEntityIterableImpl(oStore, query.union(rightIterable.query), polymorphic)
+        return YTDBEntityIterableImpl(oStore, query.union(rightIterable.query), polymorphic, linkTargets + rightIterable.executionLinkTargets())
     }
 
     override fun minus(right: EntityIterable): EntityIterable {
         val rightIterable = right.operand()
         if (rightIterable === YTDBEntityIterable.EMPTY) return this
         requirePolymorphicMatch(rightIterable)
-        return YTDBEntityIterableImpl(oStore, query.difference(rightIterable.query), polymorphic)
+        return YTDBEntityIterableImpl(oStore, query.difference(rightIterable.query), polymorphic, linkTargets + rightIterable.executionLinkTargets())
     }
 
     override fun concat(right: EntityIterable): EntityIterable {
         val rightIterable = right.operand()
         if (rightIterable === YTDBEntityIterable.EMPTY) return this
         requirePolymorphicMatch(rightIterable)
-        return YTDBEntityIterableImpl(oStore, query.unionAll(rightIterable.query), polymorphic)
+        return YTDBEntityIterableImpl(oStore, query.unionAll(rightIterable.query), polymorphic, linkTargets + rightIterable.executionLinkTargets())
     }
 
     /**
@@ -261,6 +297,9 @@ class YTDBEntityIterableImpl(
      * One helper for all five operand sites, so they cannot drift apart again.
      */
     private fun EntityIterable.operand(): YTDBEntityIterable = unwrap().asYTDBIterable()
+
+    private fun YTDBEntityIterable.executionLinkTargets(): Map<RID, YTDBEntityId> =
+        (this as? YTDBEntityIterableImpl)?.linkTargets ?: emptyMap()
 
     private fun requirePolymorphicMatch(right: YTDBEntityIterable) {
         require(polymorphic == right.polymorphic) {
@@ -308,12 +347,12 @@ class YTDBEntityIterableImpl(
         selectMany(linkName).distinct()
 
     override fun getFirst(): Entity? =
-        iterator(traversal().limit(1)).use {
+        iterator(traversal(true).limit(1)).use {
             if (it.hasNext()) it.next() else null
         }
 
     override fun getLast(): Entity? =
-        iterator(traversal().tail()).use {
+        iterator(traversal(true).tail()).use {
             if (it.hasNext()) return it.next() else null
         }
 

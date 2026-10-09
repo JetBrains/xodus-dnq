@@ -20,12 +20,11 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.query.LeafNode
 import jetbrains.exodus.query.NodeFactory
 import kotlinx.dnq.DBTest
-import org.junit.Ignore
 import org.junit.Test
 
 /**
- * Documents YouTrackDB defect YTDB-1369 in the DNQ query library.
- * Chained label checks after a non-source step are OR-matched, so either label can pass.
+ * Checks the YTDB-1369 regression fixed in YouTrackDB `0.5.0-dev-20261008.022819-302`.
+ * Chained label checks after navigation must reject sibling types.
  * Mixed `AND` emission must exclude type filters so they do not become adjacent to an outer label.
  * Only safe property filters may precede link checks for indexed SQL (Structured Query Language) execution.
  *
@@ -33,9 +32,8 @@ import org.junit.Test
  * After navigation, public `XdQuery.query` receives a `NodeFactory` conjunction of alias equality
  * and a `HasLabel` predicate for `RootGroup`. Plain `filterIsInstance` did not reproduce this defect.
  *
- * MATCH is YouTrackDB's pattern query mode translated from Gremlin. The defect reproduces in both modes.
- * `@Ignore` keeps this known provider failure out of the suite. This class does not toggle the mode itself.
- * Remove `@Ignore` after the pinned YouTrackDB version includes the YTDB-1369 fix, then run both modes.
+ * MATCH is YouTrackDB's pattern query mode translated from Gremlin.
+ * This regression runs with MATCH enabled and disabled. This class does not toggle the mode itself.
  */
 class FilterIsInstanceAfterNavigationTest : DBTest() {
 
@@ -45,7 +43,6 @@ class FilterIsInstanceAfterNavigationTest : DBTest() {
      * This fails if the provider OR-matches the subtype check with the outer `Group` label.
      */
     @Test
-    @Ignore("fix YTDB-1369 to unignore")
     fun `property and subtype filters after navigation exclude sibling`() {
         val root = transactional {
             val user = User.new { login = "owner"; skill = 1 }
@@ -71,7 +68,7 @@ class FilterIsInstanceAfterNavigationTest : DBTest() {
                         LeafNode(GremlinQuery.Where.of(GremlinBlock.HasLabel(RootGroup.entityType)))
                     )
                 )
-            // YTDB-1369 admits the sibling NestedGroup despite the RootGroup predicate.
+            // The YTDB-1369 regression must reject the sibling NestedGroup.
             assertQuery(roots).containsExactly(root)
         }
     }
