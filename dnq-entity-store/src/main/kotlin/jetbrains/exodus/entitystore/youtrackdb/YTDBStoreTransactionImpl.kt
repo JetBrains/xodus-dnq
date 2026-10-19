@@ -27,6 +27,9 @@ import com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex
 import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Blob
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
+import com.jetbrains.youtrackdb.internal.core.db.record.record.Edge
+import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBEdgeImpl
+import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
 import com.jetbrains.youtrackdb.internal.core.db.record.record.Vertex
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
 import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphEmbedded
@@ -285,6 +288,28 @@ class YTDBStoreTransactionImpl(
     }
 
     override fun findEdge(edgeClassName: String, outId: RID, inId: RID): YTDBEdge? {
+        val session = activeYtdbSession()
+        val edgeClass = session.schema.getClass(edgeClassName) as? SchemaClassInternal
+        // The parser decodes Unicode escapes before tokenization. Unsafe names use traversal.
+        val safeName = edgeClassName.isNotEmpty() && edgeClassName.all {
+            it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '_'
+        }
+        if (edgeClass != null && safeName &&
+            edgeClass.areIndexed(session, Edge.DIRECTION_IN, Edge.DIRECTION_OUT)
+        ) {
+            // YTDB-1429: Use both endpoint keys until native edge traversal is efficient.
+            return session.query(
+                "SELECT FROM `$edgeClassName` WHERE outV() = :outId AND inV() = :inId LIMIT 1",
+                mapOf("outId" to outId, "inId" to inId)
+            ).use { results ->
+                val edge = if (results.hasNext()) {
+                    YTDBEdgeImpl(graph as YTDBGraphInternal, results.next().asEdge())
+                } else null
+                // Exhaustion closes the cached execution stream and plan before returning.
+                while (results.hasNext()) results.next()
+                edge
+            }
+        }
         return g().V(outId)
             .outE(edgeClassName)
             .where(`__`.inV().hasId(inId))

@@ -1,4 +1,4 @@
-val ytdbVersion = "0.5.0-dev-20261008.022819-302"
+val ytdbVersion = "0.5.0-20261015.230404-01cd3e1-dev-SNAPSHOT"
 
 val ktorVersion = "3.1.3"
 val graalVmVersion = "22.0.0.2"
@@ -13,6 +13,7 @@ dependencies {
         exclude("org.graalvm.sdk", "graal-sdk")
         exclude("org.graalvm.truffle", "truffle-api")
         exclude("org.graalvm.js", "js-scriptengine")
+        exclude("org.graalvm.js", "js")
     }
     // server is disabled for now:
 //    implementation("io.youtrackdb:youtrackdb-tools:$ytdbVersion") {
@@ -33,6 +34,8 @@ dependencies {
 
     testImplementation("io.github.classgraph:classgraph:4.8.112")
     testImplementation(project(":dnq-utils", "testArtifacts"))
+    testImplementation(project(":dnq-transient-store"))
+    testImplementation(project(":dnq-open-api"))
     testImplementation(libs.mockk)
     testImplementation(libs.truth)
     testImplementation(kotlin("test"))
