@@ -245,6 +245,134 @@ return LeafNode(GremlinQuery.NestedCondition(listOf(getDBName(entityKClass)), co
   3. `createEdgeClassesIfAbsent()` — creates `<linkName>_link` edge classes
   4. `copyLinks()` — copies all relationships as edges, deduplicating as needed
 
+### Target prerequisites and entry points
+
+Run migration with exclusive, offline access to both databases. Keep applications offline
+until you accept the target data. Both public migration entries inspect the opened target
+before migration-owned preparation or schema, record and sequence writes. They refuse any
+class name outside this exact case-sensitive list:
+
+`OIdentity`, `OSecurityPolicy`, `ORole`, `OUser`, `OFunction`, `OSchedule`, `OSequence`, `O`, `V`, `E`.
+
+None of these classes must exist. The check reads names only. It does not check definitions,
+contents or record counts. Empty application classes and subclasses also refuse.
+Independently, the check explicitly reloads the engine sequence library and requires its
+loaded names to be empty. It refuses failed required observations. Reload sees only the
+provider session's authorized view. CLASS read denial or a read policy can silently hide
+sequence records. This is not a physical storage audit or proof of an empty database.
+
+Before migration, manually validate all standard-class contents, including records directly
+in O, V and E. Validate effective application-user permissions, security policies, functions,
+scheduled jobs and their effects. Requesting the admin role at creation does not bypass
+persisted permissions or policies. Reassess the permitted names when upgrading the engine.
+
+The launcher returns without target inspection when the source path is missing, empty or
+contains no Xodus files. Otherwise it inspects the target before opening the Xodus environment.
+It then prepares wrappers with automatic schema initialization disabled, copies through the inspected provider, initializes
+the schema, optionally validates, releases resources and performs eligible cleanup.
+
+The direct API is
+`migrateDataFromXodusToOrientDb(xodus, orientProvider, entitiesPerTransaction = 10, mapPropertyName = { it })`.
+It always inspects and builds its own wrappers from that provider with automatic schema initialization disabled. It accepts
+no independent target store or schema buddy. Every migration write uses the inspected provider.
+It closes only its owned store wrapper. The caller keeps the source and provider open.
+
+### Ordinary-property names
+
+The direct copier, `checkDataIsSame` and `XodusToOrientDataMigratorLauncher` accept an optional
+`mapPropertyName: (String) -> String`. It defaults to identity. The function must be pure and
+deterministic. Supply the same function to copy and check. The launcher forwards it to both.
+Only ordinary scalar, set and string property names are mapped. Values retain their existing
+conversion. Blob, link and entity-type names stay unchanged.
+
+Callers can combine explicit mappings and rules with identity fallback:
+
+```kotlin
+val names = mapOf("oldTitle" to "title")
+val mapPropertyName: (String) -> String = { name ->
+    names[name] ?: if (name.startsWith("legacy_")) name.removePrefix("legacy_") else name
+}
+```
+
+Checks are per entity, not global or type-wide. Two distinct ordinary source names must not
+reach one target name, including another unchanged name. A renamed output must not reach a
+blob name on that entity, `localEntityId`, or a name ending in `_targetEntityId`, `_blob_size`
+or `_string_blob_hash`. Unchanged same-name property/blob behavior keeps blob precedence.
+Names may be reused across entities. Engine name restrictions still apply.
+
+The checker reads original source names and mapped target names. It retains identity filtering
+but never filters away a renamed output. Callback exceptions and collision refusals propagate,
+even when launcher validation is disabled. These checks are not a source-wide preflight.
+Earlier committed target work can remain. Failure blocks source cleanup, and a nonfresh target
+refuses retry. Preserve both databases and follow the recovery checklist below.
+
+### Persisted sequences and identifier reservations
+
+Migration reads saved Xodus sequence rows, not cached handles. It preserves application names
+and current Long values, including saved caller-assigned values. A getter without a saved row
+does not create a migrated counter. Unsaved cache changes are not migration input.
+The pinned Xodus compressed-long encoding cannot save negative application values.
+
+The source `<store>.entity.types.sequence` becomes `sequence_classId`.
+Each retained type's `<store>.entities.sequences#<typeId>` becomes
+`<Type>_sequence_localEntityId`. Reservations survive deletion of the highest entity or type.
+An all-deleted retained type keeps its local reservation. A never-allocated retained type has
+current -1 and receives local ID 0 on its first allocation.
+
+Deleted-type local counters have no target equivalent. Migration also excludes exactly
+`<store>.property.types.sequence`, `<store>.link.types.sequence`,
+`<store>.property.custom.types.sequence` and the unprefixed `blob.handles.sequence`.
+Similar-looking application names remain application counters.
+
+Every destination must be unique under the pinned target engine's sequence-name rule,
+copied locally as `name.uppercase(Locale.ROOT)`, including Unicode case expansion.
+Conflicts refuse before migration schema, record or sequence writes, even when values match
+or launcher validation is disabled. Dependency upgrades require compatibility checks.
+Selected test cases do not promise compatibility across engine versions. Validation retains
+its dependence on the engine's internal `OSequence`/`name`/`value` storage schema.
+
+Validation reads committed target sequence rows without creating or advancing counters.
+Missing counters, changed values and unexpected counters fail validation.
+The supported allocator input is ordinary allocation and deletion history. Migration adds no
+repair, reconstruction or clamping for manually lowered or deleted internal counters.
+Native malformed-row decoding errors propagate. The source initializer k means current k-1.
+The target initializer k means current k. Saved current values, not initializers, transfer.
+
+### Lifecycle and source files
+
+Copy and requested-validation errors reach the caller. Committed target batches can remain,
+so a failed run does not imply an empty target. There is no automatic reset, repair or resume.
+
+Validation is optional. A run with validation disabled reports `validation skipped`.
+Source-file cleanup is eligible only after copy, requested validation, and resource release
+succeed. `dropOldDatabaseAfterMigration=false` moves source files into `xodus_backup`.
+`true` deletes them. Neither value preserves the source in place after success. Cleanup is
+a separate filesystem operation and is not atomic or automatically retried.
+
+The launcher releases its target store wrapper, source store, and separately opened source
+environment. It closes the target provider only when `closeOnFinish=true`. It attempts all
+releases even when one fails. A primary failure keeps its identity and later close failures
+are suppressed on it. A release failure blocks source-file cleanup. The direct copier does
+not own or close caller resources.
+
+After a refusal or failure, use this recovery checklist:
+
+1. Identify the failed stage. Copy, requested-validation or release failure means lifecycle
+   cleanup did not run. Startup recovery, callbacks or external activity can still change files.
+2. Preserve the source, target and any backup. Check which copies are complete before deciding
+   what to do. Never blindly recreate a target after refusal or a failed run.
+3. If cleanup started or was interrupted, source or backup files may be incomplete. The target
+   may be the only complete copy. Preserve it, assess the files and finish cleanup manually.
+
 ### Shaded Xodus Dependency
 
 `dnq-migrate` must read the *source* Xodus database, so it depends on Xodus. To avoid package conflicts with the rest of this project it uses **shaded** Xodus JARs (`xodus-entity-store:3.1-dev-shaded`, `xodus-environment:3.1-dev-shaded`, etc.) whose packages are renamed to `jetbrains.shaded.exodus.*`. The target YouTrackDB store uses the normal non-shaded classes.
+
+The selected `xodus-environment:3.1-dev-shaded` JAR has SHA-256
+`127e01ae9bd007586688e20fb929f8ac9e5993b19bfbdea346da17b4280f80fc`.
+On this runtime, source startup recovery can truncate or delete log tail segments. Backup
+creation can fail while recovery continues. Disabling restore-at-any-cost does not always
+force an abort. The traced abort branch also requires more than two affected blocks.
+Do not assume unconditional recoverability or byte-for-byte source preservation. These limits
+come from inspection of the selected JAR. No runtime corruption fixture establishes recovery
+behavior for your source.

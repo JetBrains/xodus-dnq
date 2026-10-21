@@ -32,8 +32,6 @@ import kotlin.time.measureTimedValue
 
 private val log = KotlinLogging.logger { }
 
-val VERTEX_CLASSES_TO_SKIP_MIGRATION = 10
-
 /**
  * Configuration for migrating to OrientDB from another system.
  *
@@ -69,6 +67,12 @@ data class MigrateFromXodusConfig(
 /**
  * Migrates a Xodus database into YouTrackDB.
  *
+ * [mapPropertyName] is an identity-defaulted pure, deterministic ordinary-property name mapper.
+ * The same function is used for copying and requested checking, including its filtering.
+ * Blob, link and type names are unchanged. Per-entity ordinary destination collisions and
+ * renamed outputs reaching blob/internal fields refuse even when validation is disabled.
+ * Mapping failures propagate and block source cleanup. Partial targets remain ineligible for retry.
+ *
  * **XD-1283:** the migrator creates the classes and data but **no indices at all**, so the
  * application's first schema pass builds every index (including each `<class>_localEntityId`)
  * over fully populated classes. The index-mode preflight routes those owners through YTDB's
@@ -80,8 +84,15 @@ class XodusToOrientDataMigratorLauncher(
     val xodus: MigrateFromXodusConfig,
     val validateDataAfterMigration: Boolean,
     val entitiesPerTransaction: Int,
+    val mapPropertyName: (String) -> String = { it },
 ) {
-    fun migrate() {
+    fun migrate() = migrate(::cleanUpXodusDB)
+
+    // The cleanup boundary is internal so tests can observe eligibility without moving source files.
+    internal fun migrate(cleanup: (Boolean) -> Unit) = runMigrationLifecycle(
+        closeTarget = if (orient.closeOnFinish) orient.databaseProvider::close else null,
+        cleanup = { cleanup(xodus.dropOldDatabaseAfterMigration) }
+    ) {
         // 0. Check if migration is already done
         // 0.0 No xodus directory or empty one -> no migration needed
         val xodusDir = File(xodus.databaseDirectory)
@@ -90,26 +101,19 @@ class XodusToOrientDataMigratorLauncher(
                 ?.isEmpty() == true
         ) {
             log.info { "No xodus database found, migration not needed" }
-            return
+            return@runMigrationLifecycle false
         }
-        // 0.1 Orient database is already provided we can check already created tables in DB
+        // Inspect before source startup and before any migration-owned preparation.
         val dbProvider = orient.databaseProvider
-
         val dbName = orient.orientConfig.databaseName
-        val classesCount = dbProvider.withSession { session ->
-            session.schema.classes.filter { schemaClass -> !schemaClass.name.startsWith("O") }.size
-        }
-        if (classesCount > VERTEX_CLASSES_TO_SKIP_MIGRATION) {
-            log.info { "There are already $classesCount classes in the database so it's considered as migrated" }
-            return
-        }
+        dbProvider.withSession(XodusMigrationTargetFreshness::inspect)
 
 
         // 2. Where we migrate the data from
 
         // 2.1 Create PersistentEntityStoreImpl
         log.info { "2. Open Xodus" }
-        val env = Environments.newInstance(xodus.databaseDirectory, newEnvironmentConfig {
+        val env = own(Environments.newInstance(xodus.databaseDirectory, newEnvironmentConfig {
             isLogProceedDataRestoredAtAnyCost = true
             isGcEnabled = false
             if (xodus.cipherKey != null) {
@@ -120,8 +124,8 @@ class XodusToOrientDataMigratorLauncher(
                 require(cipherKey == null) { "Provided Xodus cipherKey is null, but there is not null cipherKey in the default config. Most probably, somebody again left a cipherKey in the gradle config. Delete it or nothing will work." }
             }
             memoryUsagePercentage = xodus.memoryUsagePercentage
-        })
-        val xEntityStore = PersistentEntityStores.newInstance(env, xodus.storeName)
+        })) { it.close() }
+        val xEntityStore = own(PersistentEntityStores.newInstance(env, xodus.storeName)) { it.close() }
 
         // 1.2 Create OModelMetadata
         // it is important to disable autoInitialize for the schemaBuddy,
@@ -132,26 +136,28 @@ class XodusToOrientDataMigratorLauncher(
         // 1.3 Create OPersistentEntityStore
         // it is important to pass the oModelMetadata to the entityStore as schemaBuddy.
         // it (oModelMetadata) must handle all the schema-related logic.
-        val oEntityStore = YTDBPersistentEntityStore(dbProvider, dbName, schemaBuddy = oModelMetadata)
+        val oEntityStore = own(YTDBPersistentEntityStore(dbProvider, dbName, schemaBuddy = oModelMetadata)) {
+            it.close()
+        }
 
         // 1.4 Create TransientEntityStore
         // val oTransientEntityStore = TransientEntityStoreImpl(oModelMetadata, oEntityStore)
 
-
-        try {
-            xEntityStore.computeInTransaction { tx ->
+        run {
+            xEntityStore.withReadonlyTx { tx ->
                 require(tx.entityTypes.size > 0) { "The Xodus database contains 0 entity types. Looks like a misconfiguration." }
             }
 
             // 3. Migrate the data
             val (migrateDataStats, migrateDataDuration) = measureTimedValue {
-                migrateDataFromXodusToOrientDb(
+                XodusToOrientDataMigrator(
                     xEntityStore,
                     oEntityStore,
                     dbProvider,
                     oModelMetadata,
-                    entitiesPerTransaction
-                )
+                    entitiesPerTransaction,
+                    mapPropertyName = mapPropertyName
+                ).migrate()
             }
             dbProvider.withSession {
                 schemaBuddy.initialize(it)
@@ -160,15 +166,12 @@ class XodusToOrientDataMigratorLauncher(
             // 4. Check data is the same
             val (checkDataStats, validateDataDuration) = measureTimedValue {
                 if (validateDataAfterMigration) {
-                    try {
-                        checkDataIsSame(xEntityStore, oEntityStore, migrateDataStats.xEntityIdToOEntityId)
-                    } catch (e: Exception) {
-                        log.error(e) { "Error on the data checking after migration" }
-                        null
-                    }
+                    checkDataIsSame(
+                        xEntityStore, oEntityStore, migrateDataStats.xEntityIdToOEntityId, mapPropertyName
+                    )
                 } else null
             }
-            log.info { "Xodus -> OrientDB migration and validation completed" }
+            log.info { migrationCompletionMessage(validateDataAfterMigration) }
             with(migrateDataStats) {
                 log.info {
                     """
@@ -239,15 +242,7 @@ class XodusToOrientDataMigratorLauncher(
                     }
                 }
             }
-        } catch (e: Exception) {
-            throw e
-        } finally {
-            // cleanup
-            xEntityStore.close()
-            cleanUpXodusDB(xodus.dropOldDatabaseAfterMigration)
-            if (orient.closeOnFinish) {
-                orient.databaseProvider.close()
-            }
+            true
         }
     }
 
@@ -323,5 +318,9 @@ class XodusToOrientDataMigratorLauncher(
         }
     }
 }
+
+internal fun migrationCompletionMessage(validated: Boolean): String =
+    if (validated) "Xodus -> OrientDB copy and requested validation completed"
+    else "Xodus -> OrientDB copy completed, validation skipped"
 
 private fun percent(value: Double): String = "%.${2}f".format(value * 100) + "%"

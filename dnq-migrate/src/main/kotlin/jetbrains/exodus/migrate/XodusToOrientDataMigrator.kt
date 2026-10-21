@@ -21,15 +21,16 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseProvider
 import jetbrains.exodus.entitystore.youtrackdb.YTDBEntityId
 import jetbrains.exodus.entitystore.youtrackdb.YTDBPersistentEntityStore
 import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddy
+import jetbrains.exodus.entitystore.youtrackdb.YTDBSchemaBuddyImpl
+import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity
+import jetbrains.exodus.query.metadata.YTDBModelMetaData
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_CUSTOM_PROPERTY_NAME
-import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.CLASS_ID_SEQUENCE_NAME
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.LOCAL_ENTITY_ID_PROPERTY_NAME
-import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
 import jetbrains.exodus.entitystore.youtrackdb.asEdgeClass
-import jetbrains.exodus.entitystore.youtrackdb.createClassIdSequenceIfAbsent
 import jetbrains.exodus.entitystore.youtrackdb.createSequencesIfAbsent
 import jetbrains.exodus.query.metadata.withTx
 import jetbrains.shaded.exodus.bindings.ComparableSet
+import jetbrains.shaded.exodus.entitystore.Entity
 import jetbrains.shaded.exodus.entitystore.EntityId
 import jetbrains.shaded.exodus.entitystore.EntityRemovedInDatabaseException
 import jetbrains.shaded.exodus.entitystore.PersistentEntityStore
@@ -40,24 +41,52 @@ import kotlin.time.measureTimedValue
 
 private val log = KotlinLogging.logger { }
 
+internal fun mappedPropertyNames(entity: Entity, mapPropertyName: (String) -> String): List<Pair<String, String>> {
+    val destinations = HashSet<String>()
+    val blobNames = entity.blobNames.toSet()
+    return entity.propertyNames.map { source ->
+        val target = mapPropertyName(source)
+        require(destinations.add(target)) {
+            "Ordinary property destination collision on ${entity.id}: $source -> $target"
+        }
+        if (target != source) {
+            require(target !in blobNames && target !in YTDBVertexEntity.IGNORED_PROPERTY_NAMES &&
+                    YTDBVertexEntity.IGNORED_SUFFIXES.none { target.endsWith(it) }) {
+                "Renamed property destination collision on ${entity.id}: $source -> $target (blob/internal field)"
+            }
+        }
+        source to target
+    }
+}
+
+/**
+ * Copies ordinary properties using [mapPropertyName], which must be pure and deterministic.
+ * The default is identity. Blob, link and entity-type names and value conversion are unchanged.
+ * Supply the same function to [checkDataIsSame] for target lookup and filtering.
+ * Distinct ordinary names on one entity must not reach one destination. Renamed outputs must
+ * not reach that entity's blob names or the store's ignored internal names/suffixes.
+ * Callback exceptions and collision refusals propagate. Earlier target batches may remain,
+ * so a nonfresh partial target cannot be retried. These checks are not a source-wide preflight.
+ */
 fun migrateDataFromXodusToOrientDb(
     xodus: PersistentEntityStore,
-    orient: YTDBPersistentEntityStore,
     orientProvider: YTDBDatabaseProvider,
-    schemaBuddy: YTDBSchemaBuddy,
     /*
     * How many entities should be copied in a single transaction
     * */
-    entitiesPerTransaction: Int = 10
+    entitiesPerTransaction: Int = 10,
+    mapPropertyName: (String) -> String = { it }
 ): XodusToOrientMigrationStats {
-    val migrator = XodusToOrientDataMigrator(
-        xodus,
-        orient,
-        orientProvider,
-        schemaBuddy,
-        entitiesPerTransaction
+    orientProvider.withSession(XodusMigrationTargetFreshness::inspect)
+    val schemaBuddy = YTDBModelMetaData(
+        orientProvider, YTDBSchemaBuddyImpl(orientProvider, autoInitialize = false)
     )
-    return migrator.migrate()
+    YTDBPersistentEntityStore(orientProvider, "migration", schemaBuddy).use { orient ->
+        return XodusToOrientDataMigrator(
+            xodus, orient, orientProvider, schemaBuddy, entitiesPerTransaction,
+            mapPropertyName = mapPropertyName
+        ).migrate()
+    }
 }
 
 data class XodusToOrientMigrationStats(
@@ -101,7 +130,8 @@ internal class XodusToOrientDataMigrator(
     * How many entities should be copied in a single transaction
     * */
     private val entitiesPerTransaction: Int = 10,
-    private val printProgressAtLeastOnceIn: Int = 5_000
+    private val printProgressAtLeastOnceIn: Int = 5_000,
+    private val mapPropertyName: (String) -> String = { it }
 ) {
     private val xEntityIdToOEntityId = HashMap<EntityId, YTDBEntityId>()
 
@@ -126,8 +156,11 @@ internal class XodusToOrientDataMigrator(
 
     fun migrate(): XodusToOrientMigrationStats {
         log.info { "Starting Xodus -> OrientDB data migration" }
+        // Validate every counter destination before the first migration write, through either entry.
+        val sequences = migrationSequenceState(xodus)
         val createVertexClassesDuration = measureTime {
             createVertexClassesIfAbsent()
+            orientProvider.withSession { it.createSequencesIfAbsent(sequences) }
         }
         val (edgeClassesToCreate, copyPropertiesAndBlobsDuration) = measureTimedValue {
             copyPropertiesAndBlobs()
@@ -173,7 +206,6 @@ internal class XodusToOrientDataMigrator(
         // in one explicit transaction - pure DDL only; sequence creation happens after it
         // commits, before any data is copied.
         log.info { "1. Copy entity types" }
-        var maxClassId = 0
         orientProvider.withSession { oSession ->
             xodus.withReadonlyTx { xTx ->
                 val entityTypes = xTx.entityTypes.toSet()
@@ -185,7 +217,6 @@ internal class XodusToOrientDataMigrator(
                         val classId = xodus.getEntityTypeId(type)
 
                         oClass.setCustom(CLASS_ID_CUSTOM_PROPERTY_NAME, classId.toString())
-                        maxClassId = maxOf(maxClassId, classId)
 
                         // create localEntityId property if absent
                         if (oClass.getProperty(LOCAL_ENTITY_ID_PROPERTY_NAME) == null) {
@@ -196,21 +227,6 @@ internal class XodusToOrientDataMigrator(
                 entityClassesCount = entityTypes.size
             }
 
-            // create a sequence to generate classIds
-            check(
-                schemaBuddy.getSequenceOrNull(
-                    oSession,
-                    CLASS_ID_SEQUENCE_NAME
-                ) == null
-            ) { "$CLASS_ID_SEQUENCE_NAME is already created. It means that some data migration has happened to the target database before. Such a scenario is not supported." }
-            /*
-             * Sequence creation stays outside the DDL transaction above:
-             * createClassIdSequenceIfAbsent runs on an independent session in its own short,
-             * immediately-committed transaction, because sequence.next() self-hoists to a
-             * pooled session that can only see committed records (XD-1283, AD1).
-             */
-            oSession.createClassIdSequenceIfAbsent(maxClassId.toLong())
-
             log.info { "All the types have been copied" }
         }
     }
@@ -218,14 +234,11 @@ internal class XodusToOrientDataMigrator(
     private fun copyPropertiesAndBlobs(): Set<String> {
         log.info { "2. Copy entities, their simple properties and blobs" }
         val edgeClassesToCreate = HashSet<String>()
-        val sequencesToCreate =
-            mutableListOf<Pair<String, Long>>() // sequenceName, largestExistingId
         xodus.withReadonlyTx { xTx ->
             orient.withCountingTx(entitiesPerTransaction) { countingTx ->
                 val entityTypes = xTx.entityTypes.toSet()
                 val entityTypesCount = entityTypes.size
                 entityTypes.forEachIndexed { typeIdx, type ->
-                    var largestEntityId = 0L
                     val xEntities = xTx.getAll(type)
                     val xEntitiesCount = xEntities.size()
                     log.info { "$typeIdx/${entityTypesCount} $type $xEntitiesCount entities to copy" }
@@ -235,21 +248,20 @@ internal class XodusToOrientDataMigrator(
                     xEntities.forEachIndexed { xEntityIdx, xEntity ->
                         val (oEntity, createVertexDuration) = measureTimedValue {
                             val localEntityId = xEntity.id.localId
-                            largestEntityId = maxOf(largestEntityId, localEntityId)
 
                             countingTx.newVertex(type, localEntityId)
                         }
                         createEntitiesDuration += createVertexDuration
 
                         copyPropertiesDuration += measureTime {
-                            for (propName in xEntity.propertyNames) {
+                            for ((propName, targetName) in mappedPropertyNames(xEntity, mapPropertyName)) {
                                 val propValue = xEntity.getProperty(propName)
                                 val comparableValue = if (propValue is ComparableSet<*>) {
                                     YTDBComparableSet(propValue.toHashSet())
                                 } else {
                                     propValue as Comparable<*>
                                 }
-                                oEntity.setProperty(propName, comparableValue)
+                                oEntity.setProperty(targetName, comparableValue)
                                 properties++
                             }
                         }
@@ -276,9 +288,6 @@ internal class XodusToOrientDataMigrator(
                         edgeClassesToCreate.addAll(xEntity.linkNames)
                     }
 
-                    // plan to create a sequence to generate localEntityIds for the class
-                    sequencesToCreate.add(Pair(localEntityIdSequenceName(type), largestEntityId))
-
                     log.info { "${typeIdx}/${entityTypes.size} $type entities copied: $xEntitiesCount, properties copied: $properties, blobs copied: $blobs" }
                     totalEntities += xEntitiesCount
                     totalProperties += properties
@@ -288,15 +297,6 @@ internal class XodusToOrientDataMigrator(
                 copyEntitiesPropertiesAndBlobsTransactions = countingTx.transactionsCommited
                 log.info { "Entities have been copied. Entity types: ${entityTypesCount}, entities copied: $totalEntities, properties copied: $totalProperties, blobs copied: $totalBlobs" }
             }
-        }
-        /*
-         * All localEntityId sequences are created in ONE immediately-committed transaction on an
-         * independent session (XD-1283 performance): creating them one by one - which is what
-         * getOrCreateSequence does, each call managing its own transaction - cost one storage
-         * commit per entity type.
-         */
-        orientProvider.withSession { session ->
-            session.createSequencesIfAbsent(sequencesToCreate.toMap())
         }
         return edgeClassesToCreate
     }

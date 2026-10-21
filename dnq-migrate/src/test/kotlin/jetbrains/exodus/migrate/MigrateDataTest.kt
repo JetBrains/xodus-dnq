@@ -540,9 +540,7 @@ class MigrateDataTest {
     private fun migrateAndCheckData(xodus: PersistentEntityStore, orient: InMemoryYouTrackDB) {
         val stats = migrateDataFromXodusToOrientDb(
             xodus,
-            orient.store,
-            orient.provider,
-            orient.schemaBuddy
+            orient.provider
         )
         checkDataIsSame(xodus, orient.store, stats.xEntityIdToOEntityId)
     }

@@ -31,12 +31,21 @@ import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 private val log = KotlinLogging.logger { }
 
+/**
+ * Checks original source names against mapped target names using the same pure, deterministic
+ * [mapPropertyName] as the copier. Identity is the default. Only ordinary properties are mapped.
+ * Both copier collision guards apply before filtering. Only unchanged names retain the store's
+ * identity filtering. Callback exceptions, collision refusals and mismatches reach the caller.
+ */
 fun checkDataIsSame(
     xStore: PersistentEntityStore,
     oStore: YTDBPersistentEntityStore,
-    xEntityIdToOEntityId: Map<EntityId, YTDBEntityId>
+    xEntityIdToOEntityId: Map<EntityId, YTDBEntityId>,
+    mapPropertyName: (String) -> String = { it }
 ): DataAfterMigrationCheckingStats {
-    return DataAfterMigrationChecker(xStore, oStore, xEntityIdToOEntityId).checkDataIsSame()
+    return DataAfterMigrationChecker(
+        xStore, oStore, xEntityIdToOEntityId, mapPropertyName = mapPropertyName
+    ).checkDataIsSame()
 }
 
 data class DataAfterMigrationCheckingStats(
@@ -54,7 +63,8 @@ internal class DataAfterMigrationChecker(
     private val xStore: PersistentEntityStore,
     private val oStore: YTDBPersistentEntityStore,
     private val xEntityIdToOEntityId: Map<EntityId, YTDBEntityId>,
-    private val printProgressAtLeastOnceIn: Int = 5_000
+    private val printProgressAtLeastOnceIn: Int = 5_000,
+    private val mapPropertyName: (String) -> String = { it }
 ) {
     private var findEntitiesDuration = Duration.Companion.ZERO
     private var checkPropertiesDuration = Duration.Companion.ZERO
@@ -62,6 +72,7 @@ internal class DataAfterMigrationChecker(
     private var checkLinksDuration = Duration.Companion.ZERO
 
     fun checkDataIsSame(): DataAfterMigrationCheckingStats {
+        checkSequences()
         val checkEntityTypesDuration = measureTime {
             checkEntityTypes()
         }
@@ -77,6 +88,24 @@ internal class DataAfterMigrationChecker(
             checkBlobsDuration = checkBlobsDuration,
             checkLinksDuration = checkLinksDuration
         )
+    }
+
+    private fun checkSequences() {
+        val expected = migrationSequenceState(xStore)
+        val actual = oStore.withReadonlyTx { tx ->
+            val values = linkedMapOf<String, Long>()
+            tx.g().yql("SELECT name AS name, value AS value FROM OSequence").use { rows ->
+                for (result in rows) {
+                    val row = result as Map<*, *>
+                    val name = row["name"] as String
+                    check(values.put(name, (row["value"] as Number).toLong()) == null) {
+                        "Duplicate persisted target sequence $name"
+                    }
+                }
+            }
+            values
+        }
+        require(expected == actual) { "Sequence state differs. Expected: $expected, actual: $actual" }
     }
 
     private fun checkEntityTypes() {
@@ -130,14 +159,12 @@ internal class DataAfterMigrationChecker(
                         findEntitiesDuration += findEntityDuration
 
                         checkPropertiesDuration += measureTime {
-                            val xdPropertyNames = xodusEntity.propertyNames
-                            for (propName in xdPropertyNames.filter(
-                                YTDBVertexEntity.validPropertyNamesPredicate(
-                                    ytdbEntity
-                                )
-                            )) {
+                            val names = mappedPropertyNames(xodusEntity, mapPropertyName)
+                            val validIdentityName = YTDBVertexEntity.validPropertyNamesPredicate(ytdbEntity)
+                            for ((propName, targetName) in names) {
+                                if (propName == targetName && !validIdentityName(targetName)) continue
                                 val xodusValue = xodusEntity.getProperty(propName)
-                                val ytdbValue = ytdbEntity.getProperty(propName)
+                                val ytdbValue = ytdbEntity.getProperty(targetName)
                                 withEntityFieldExceptionLogging(xodusEntity, propName, "property") {
                                     when {
                                         xodusValue is ComparableSet<*> -> {
