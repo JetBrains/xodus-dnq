@@ -20,6 +20,48 @@ import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransaction
 import jetbrains.shaded.exodus.entitystore.PersistentEntityStore
 import jetbrains.shaded.exodus.entitystore.StoreTransaction
 
+/** Releases owned resources in reverse acquisition order and keeps every failure observable. */
+internal class MigrationResources {
+    private val releases = ArrayDeque<() -> Unit>()
+
+    fun <T> own(resource: T, release: (T) -> Unit): T {
+        releases.addFirst { release(resource) }
+        return resource
+    }
+
+    fun release(primary: Throwable?): Throwable? {
+        var failure = primary
+        while (releases.isNotEmpty()) {
+            try {
+                releases.removeFirst().invoke()
+            } catch (closeFailure: Throwable) {
+                if (failure == null) failure = closeFailure
+                else if (failure !== closeFailure) failure.addSuppressed(closeFailure)
+            }
+        }
+        return failure
+    }
+}
+
+/** A no-op returns false. Only successful work followed by successful release permits cleanup. */
+internal fun runMigrationLifecycle(
+    closeTarget: (() -> Unit)?,
+    cleanup: () -> Unit,
+    work: MigrationResources.() -> Boolean
+) {
+    val resources = MigrationResources()
+    if (closeTarget != null) resources.own(closeTarget) { it() }
+    var completed = false
+    var failure: Throwable? = null
+    try {
+        completed = resources.work()
+    } catch (primary: Throwable) {
+        failure = primary
+    }
+    resources.release(failure)?.let { throw it }
+    if (completed) cleanup()
+}
+
 fun <R> PersistentEntityStore.withReadonlyTx(block: (StoreTransaction) -> R): R {
     val tx = this.beginReadonlyTransaction()
     try {

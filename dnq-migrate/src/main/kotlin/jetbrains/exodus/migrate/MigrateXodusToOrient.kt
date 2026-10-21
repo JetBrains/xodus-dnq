@@ -20,6 +20,13 @@ import YouTrackDBFactory
 import com.jetbrains.youtrackdb.api.DatabaseType
 import jetbrains.exodus.entitystore.youtrackdb.YTDBDatabaseParams
 
+internal class MigrationExecutionOptions(getProperty: (String) -> String?) {
+    val validateDataAfterMigrationStr = getProperty("validateDataAfterMigration")
+    val entitiesPerTransactionStr = getProperty("entitiesPerTransaction")
+    val validateDataAfterMigration = validateDataAfterMigrationStr?.toBooleanStrictOrNull() ?: true
+    val entitiesPerTransaction = entitiesPerTransactionStr?.toIntOrNull() ?: 100
+}
+
 fun main() {
     val xodusDatabaseDirectory = requireParam("xodusDatabaseDirectory")
     val xodusStoreName = requireParam("xodusStoreName")
@@ -33,8 +40,9 @@ fun main() {
     val orientUsernameStr = System.getProperty("orientUsername")
     val orientPasswordStr = System.getProperty("orientPassword")
 
-    val validateDataAfterMigrationStr = System.getProperty("validateDataAfterMigration")
-    val entitiesPerTransactionStr = System.getProperty("entitiesPerTransaction")
+    val executionOptions = MigrationExecutionOptions(System::getProperty)
+    val validateDataAfterMigrationStr = executionOptions.validateDataAfterMigrationStr
+    val entitiesPerTransactionStr = executionOptions.entitiesPerTransactionStr
     println(
         """
             Provided params:
@@ -73,8 +81,8 @@ fun main() {
     val orientUsername = if (!orientUsernameStr.isNullOrBlank()) orientUsernameStr else "admin"
     val orientPassword = if (!orientPasswordStr.isNullOrBlank()) orientPasswordStr else "password"
 
-    val validateDataAfterMigration = validateDataAfterMigrationStr?.toBooleanStrictOrNull() ?: true
-    val entitiesPerTransaction = validateDataAfterMigrationStr?.toIntOrNull() ?: 100
+    val validateDataAfterMigration = executionOptions.validateDataAfterMigration
+    val entitiesPerTransaction = executionOptions.entitiesPerTransaction
 
     println(
         """

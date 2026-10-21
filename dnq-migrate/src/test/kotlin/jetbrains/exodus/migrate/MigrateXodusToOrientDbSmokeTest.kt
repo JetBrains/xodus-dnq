@@ -82,7 +82,7 @@ class MigrateXodusToOrientDbSmokeTest {
 
 
         // 3. Migrate the data
-        migrateDataFromXodusToOrientDb(xEntityStore, oEntityStore, dbProvider, oModelMetadata,)
+        migrateDataFromXodusToOrientDb(xEntityStore, dbProvider)
 
 
         // 4. Initialize the schema
