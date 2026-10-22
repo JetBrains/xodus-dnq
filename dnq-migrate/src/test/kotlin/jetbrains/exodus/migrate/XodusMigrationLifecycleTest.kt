@@ -443,7 +443,10 @@ class XodusMigrationLifecycleTest {
             return failure
         }
 
-        private fun sourceFiles() = source.walkTopDown().filter { it.isFile }.associate {
+        // Xodus holds an exclusive lock on this runtime file; Windows forbids reading it while open.
+        private fun sourceFiles() = source.walkTopDown().filter {
+            it.isFile && it != File(source, "xd.lck")
+        }.associate {
             it.relativeTo(source).path to java.security.MessageDigest.getInstance("SHA-256")
                 .digest(it.readBytes()).toList()
         }
