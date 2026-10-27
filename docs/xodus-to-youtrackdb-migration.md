@@ -70,6 +70,28 @@ https://packages.jetbrains.team/maven/p/xodus/youtrackdb-daily
 ```
 The version pin lives in `dnq-entity-store/build.gradle.kts` as `ytdbVersion`, currently `0.5.0-20261027.020202-2f517e2-dev-SNAPSHOT`. The key artifact is `io.youtrackdb:youtrackdb-core`.
 
+### Query-result-cache experiment
+
+On `adopt-youtrackdb-enable-query-cache`, DNQ defaults the JVM-global
+`QUERY_TX_RESULT_CACHE_ENABLED` flag to `true` when `YTDBDatabaseParams` initializes,
+unless the host has already set it explicitly. The pinned core reads this global
+flag, not a database option. No per-database enablement is required or supported;
+the cache contents themselves belong to individual transactions.
+
+For A/B runs, launch a fresh application or test-worker JVM with
+`-Dyoutrackdb.query.txResultCache.enabled=true` or
+`-Dyoutrackdb.query.txResultCache.enabled=false`. Set the argument on the JVM that
+opens the database, not only on a Gradle launcher or daemon. A programmatic
+`GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED.setValue(...)` before DNQ
+parameter initialization is also preserved. Later database opens do not reset
+the global choice. A database `configBuilder` cannot override this policy, and
+the pinned core does not load this flag from an environment variable.
+
+This branch is for disposable performance-test databases. It does not repair
+known stale-result, failed-read retention or cache-cost concerns, change Gremlin
+translation, or establish a performance improvement. Cache hits can also omit
+execution plans, so plan-measurement fixtures need an explicitly cache-off JVM.
+
 ---
 
 ## NodeBase Query Tree

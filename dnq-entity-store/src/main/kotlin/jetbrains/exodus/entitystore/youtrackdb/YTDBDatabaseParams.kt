@@ -115,6 +115,14 @@ class YTDBDatabaseParams private constructor(
 
     companion object {
 
+        init {
+            // Experiment-only: the core reads the JVM-global flag, not the database option.
+            val resultCache = GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED
+            if (!resultCache.isChanged) {
+                resultCache.setValue(true)
+            }
+        }
+
         fun builder(): Builder {
             return Builder()
         }
@@ -124,7 +132,6 @@ class YTDBDatabaseParams private constructor(
         .addGlobalConfigurationParameter(GlobalConfiguration.AUTO_CLOSE_AFTER_DELAY, true)
         .addGlobalConfigurationParameter(GlobalConfiguration.AUTO_CLOSE_DELAY, closeAfterDelayTimeout)
         .addGlobalConfigurationParameter(GlobalConfiguration.QUERY_GREMLIN_POLYMORPHIC_BY_DEFAULT, true)
-        .addGlobalConfigurationParameter(GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED, true)
         .apply {
             encryptionKey?.let { addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_ENCRYPTION_KEY, it) }
             callFsync?.let { addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_CALL_FSYNC, it) }
