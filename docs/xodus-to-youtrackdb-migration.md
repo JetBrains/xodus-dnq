@@ -90,7 +90,21 @@ the pinned core does not load this flag from an environment variable.
 This branch is for disposable performance-test databases. It does not repair
 known stale-result, failed-read retention or cache-cost concerns, change Gremlin
 translation, or establish a performance improvement. Cache hits can also omit
-execution plans, so plan-measurement fixtures need an explicitly cache-off JVM.
+execution plans. Measurement fixtures explicitly disable caching for their
+transactions; functional coverage retains explicit cache-on/off execution.
+
+Verification found a known core defect: after a committed matching record is
+deleted, repeating a fully consumed cached `SELECT` can throw
+`Record is not bound to the current session` from `DeltaBuilder.buildForRecord`.
+The cache-off control succeeds. The new mixed-query mutation regression is
+explicitly ignored at the user's request for this evaluation branch; its two
+MATCH-parameter cases remain in the source. This is an experimental exception,
+not a core fix or validation that enabling the cache is safe.
+
+TeamCity now runs `build --continue` and then a separate success-only `publish`
+step. Harmless CI smoke builds verified that failed verification skips the second
+step and successful verification runs it; no application artifacts were published
+by those smoke builds.
 
 ---
 

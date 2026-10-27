@@ -51,6 +51,16 @@ class ReverseLinkEqualityEngineTest(private val match: Boolean) {
         tx.activeYtdbSession().configuration!!.setValue(GlobalConfiguration.QUERY_GREMLIN_TO_MATCH_TRANSLATOR_ENABLED, match)
         action(tx)
     }
+    private fun <R> inTx(cacheEnabled: Boolean, action: (YTDBStoreTransactionImpl) -> R): R {
+        val flag = GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED
+        val previous = flag.getValueAsBoolean()
+        flag.setValue(cacheEnabled)
+        return try {
+            inTx(action)
+        } finally {
+            flag.setValue(previous)
+        }
+    }
     private fun fixture(indexed: Boolean = false) {
         db.withSession { s ->
             val types = listOf("Source", "ChildSource", "Target", "ChildTarget", "Foreign")
@@ -103,7 +113,7 @@ class ReverseLinkEqualityEngineTest(private val match: Boolean) {
     }
     @Test fun `standalone roots preserve types distinct consumers and protected sorted limits`() {
         fixture()
-        inTx { tx ->
+        inTx(cacheEnabled = false) { tx ->
             val target = target(tx)
             val query = lookup(target)
             val logical = GremlinQuery.Labeled(GremlinQuery.Where(HasLinkTo("target", (target.id as YTDBEntityId).asOId())), "Source")
@@ -184,7 +194,7 @@ class ReverseLinkEqualityEngineTest(private val match: Boolean) {
     }
     @Test fun `final shape permits reduced equal operands and rejects unsupported roots`() {
         fixture(indexed = true)
-        inTx { tx ->
+        inTx(cacheEnabled = false) { tx ->
             val target = target(tx)
             val node = NodeFactory.hasLinkTo("target", target)
             val query = lookup(target)
@@ -230,7 +240,7 @@ class ReverseLinkEqualityEngineTest(private val match: Boolean) {
         (0 until 120).toList().chunked(100).forEach { chunk ->
             inTx { tx -> chunk.forEach { tx.newEntity("Source").apply { setProperty("name", "unrelated$it"); setProperty("rank", 99) } } }
         }
-        inTx { tx ->
+        inTx(cacheEnabled = false) { tx ->
             val target = target(tx)
             val query = lookup(target)
             val member = tx.find("Source", "name", "a").first!!
@@ -331,7 +341,7 @@ class ReverseLinkEqualityEngineTest(private val match: Boolean) {
                 inTx { tx -> chunk.forEach { tx.newEntity("Source").setProperty("name", "unrelated$it") } }
             }
             previous = population
-            inTx { tx ->
+            inTx(cacheEnabled = false) { tx ->
                 val target = target(tx)
                 val query = lookup(target)
                 val logical = query.query
@@ -353,7 +363,7 @@ class ReverseLinkEqualityEngineTest(private val match: Boolean) {
                 assertEquals(6, adjacency, "Controlled rows include a duplicate and a foreign source")
             }
         }
-        inTx { tx ->
+        inTx(cacheEnabled = false) { tx ->
             val target = target(tx)
             repeat(8) { tx.newEntity("Source").apply { setProperty("name", "linked$it"); addLink("target", target) } }
             repeat(7) { tx.newEntity("Foreign").apply { setProperty("name", "foreign$it"); addLink("target", target) } }

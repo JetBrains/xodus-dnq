@@ -15,6 +15,7 @@
  */
 package jetbrains.exodus.entitystore.youtrackdb
 
+import com.jetbrains.youtrackdb.api.config.GlobalConfiguration
 import com.jetbrains.youtrackdb.internal.common.util.RawPair
 import com.jetbrains.youtrackdb.internal.core.db.record.RecordOperation
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
@@ -27,6 +28,8 @@ import com.jetbrains.youtrackdb.internal.core.sql.parser.LocalResultSet
 import com.jetbrains.youtrackdb.internal.core.tx.FrontendTransactionImpl
 import io.mockk.*
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.util.stream.Stream
@@ -34,6 +37,21 @@ import kotlin.test.*
 
 class YTDBEndpointWorkTest {
     @Rule @JvmField val db = InMemoryYouTrackDB(false, false)
+
+    private var previousCacheEnabled = false
+
+    @Before
+    fun disableQueryCache() {
+        // The database rule initializes DNQ params before this override.
+        val flag = GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED
+        previousCacheEnabled = flag.getValueAsBoolean()
+        flag.setValue(false)
+    }
+
+    @After
+    fun restoreQueryCache() {
+        GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED.setValue(previousCacheEnabled)
+    }
 
     private fun schema(name: String = EDGE, fields: Array<String> = arrayOf("in", "out"), indexed: Boolean = true) {
         db.withTxSession { s ->
@@ -63,7 +81,7 @@ class YTDBEndpointWorkTest {
         fun record(block: () -> Unit) { try { block() } catch (failure: Throwable) { failures += failure } }
         fun healthy() { assertTrue(failures.isEmpty(), "Recorder failed: $failures") }
         init {
-            assertNull(raw.queryResultCache, "Measurements require production cache-off settings")
+            assertNull(raw.queryResultCache, "Measurements require explicit cache-off settings")
             mockkObject(session)
             mockkObject(raw, recordPrivateCalls = true)
             every { raw["preProcessRecordOperationAndExecuteBeforeCallbacks"](any<RecordOperation>(), any<RecordSerializer>()) } answers {

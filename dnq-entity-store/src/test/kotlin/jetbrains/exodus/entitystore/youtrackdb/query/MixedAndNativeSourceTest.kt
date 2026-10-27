@@ -24,6 +24,7 @@ import com.jetbrains.youtrackdb.internal.core.gremlin.YTDBGraphInternal
 import com.jetbrains.youtrackdb.internal.core.gremlin.translator.strategy.GremlinToMatchStrategy
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.SchemaClass
+import com.jetbrains.youtrackdb.internal.core.tx.FrontendTransactionImpl
 import jetbrains.exodus.entitystore.youtrackdb.YTDBStoreTransactionImpl
 import jetbrains.exodus.entitystore.youtrackdb.getOrCreateVertexClass
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
@@ -37,6 +38,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.TextP
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
 import org.apache.tinkerpop.gremlin.structure.T
 import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,6 +58,8 @@ import kotlin.test.*
  *
  * MATCH is YouTrackDB's pattern query mode translated from Gremlin.
  * Each parameterized test sets the session flag explicitly to exercise MATCH enabled and disabled.
+ * Plan/source-work transactions explicitly disable result caching so every measured traversal executes.
+ * A separate semantic regression exercises explicit cache-on and cache-off transactions in both modes.
  */
 @RunWith(Parameterized::class)
 class MixedAndNativeSourceTest(private val match: Boolean) {
@@ -75,6 +79,18 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
     private fun <R> inTx(action: (YTDBStoreTransactionImpl) -> R): R = db.withStoreTx { tx ->
         tx.activeYtdbSession().configuration!!.setValue(GlobalConfiguration.QUERY_GREMLIN_TO_MATCH_TRANSLATOR_ENABLED, match)
         action(tx)
+    }
+
+    // Override only after the database rule initialized DNQ params, and before opening the transaction.
+    private fun <R> inTx(cacheEnabled: Boolean, action: (YTDBStoreTransactionImpl) -> R): R {
+        val flag = GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED
+        val previous = flag.getValueAsBoolean()
+        flag.setValue(cacheEnabled)
+        return try {
+            inTx(action)
+        } finally {
+            flag.setValue(previous)
+        }
     }
 
     // Vary unrelated email values without increasing the selective indexed population.
@@ -224,7 +240,7 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
                 val target = tx.g().V(user(tx, "user")).next()
                 repeat(384) { tx.g().addV(CONTACT).property("name", "more$it").property("email", "more$it").property("verified", true).next().addEdge("user_link", target) }
             }
-            inTx { tx ->
+            inTx(cacheEnabled = false) { tx ->
                 val rid = user(tx, "nobody")
                 val original = measure(tx, reference(tx, rid))
                 assertEquals(emptyList(), original.names)
@@ -255,7 +271,7 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
      */
     private fun assertLinkFirstSource(noLink: Boolean) {
         fixture(128)
-        inTx { tx ->
+        inTx(cacheEnabled = false) { tx ->
             val original = measure(tx, reference(tx, user(tx, "nobody")))
             assertEquals(138, original.candidates, "Observer must see the class-wide reference population")
             assertTrue(original.plans.any { "FETCH FROM CLASS" in it }, original.plans.toString())
@@ -300,7 +316,7 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
      */
     @Test fun `six operand orders nested associations and repeated inputs preserve multisets`() {
         fixture()
-        inTx { tx ->
+        inTx(cacheEnabled = false) { tx ->
             val rid = user(tx, "user")
             val expected = listOf("case", "child", "match", "multi")
             assertEquals(expected, reference(tx, rid).use { it.toList().map { v -> v.value<String>("name") }.sorted() })
@@ -322,6 +338,61 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
             val id = tx.g().V().hasLabel(CONTACT).has("name", "multi").next().id()
             val repeated = condition(rid).traverse(tx.g().inject(tx.g().V(id).next(), tx.g().V(id).next()).asYT())
             assertEquals(listOf("multi", "multi"), repeated.use { it.toList().map { v -> v.value<String>("name") } })
+        }
+    }
+
+    /**
+     * Replays a mixed query before and after cached contacts enter, leave, or remain in its source.
+     * Exact multisets detect stale membership and duplicate delta rows; duplicate links must not multiply rows.
+     * Native cache-on execution must prove a real cache hit. The recognized MATCH route may bypass that cache.
+     */
+    @Ignore("Cache evaluation experiment: core DeltaBuilder fails after committed-row deletion")
+    @Test fun `cached mixed queries preserve multisets and transaction mutation visibility`() {
+        fixture()
+        for (cacheOn in listOf(false, true)) {
+            inTx(cacheEnabled = cacheOn) { tx ->
+                val rid = user(tx, "user")
+                val block = condition(rid)
+                val expected = listOf("case", "child", "match", "multi")
+                fun names() = query(tx, block).use { it.toList().map { v -> v.value<String>("name") }.sorted() }
+                fun assertMembers(members: List<String>) {
+                    repeat(2) { assertEquals(members, names(), "MATCH=$match cache=$cacheOn replay=$it") }
+                }
+                val multiId = tx.g().V().hasLabel(CONTACT).has("name", "multi").next().id()
+                fun repeatedNames() = condition(rid).traverse(
+                    tx.g().inject(tx.g().V(multiId).next(), tx.g().V(multiId).next()).asYT()
+                ).use { it.toList().map { v -> v.value<String>("name") } }
+                val cache = if (cacheOn && !match) {
+                    assertNotNull((tx.activeYtdbSession().activeTransaction as FrontendTransactionImpl).queryResultCache)
+                } else null
+                assertEquals(expected, names())
+                val hitsBeforeReplay = cache?.metrics?.hits ?: 0L
+                assertEquals(expected, names())
+                if (cache != null) {
+                    assertTrue(cache.metrics.hits > hitsBeforeReplay, "The native mixed query must actually replay a cached source")
+                }
+                assertEquals(listOf("multi", "multi"), repeatedNames())
+
+                // An updated cached row still matches: replay must replace it, not emit old and new copies.
+                tx.g().V(multiId).next().property("name", "renamedMulti")
+                tx.g().V().hasLabel(CONTACT).has("name", "wrongVerified").next().property("verified", true)
+                tx.g().V().hasLabel(CONTACT).has("name", "match").next().property("verified", false)
+                assertMembers(listOf("case", "child", "renamedMulti", "wrongVerified"))
+                assertEquals(listOf("renamedMulti", "renamedMulti"), repeatedNames())
+
+                tx.g().V().hasLabel(CONTACT).has("name", "child").next().remove()
+                assertMembers(listOf("case", "renamedMulti", "wrongVerified"))
+                val target = tx.g().V(rid).next()
+                val created = tx.g().addV(CONTACT).property("name", "created").property("email", EMAIL).property("verified", true).next()
+                repeat(2) { created.addEdge("user_link", target) }
+                assertMembers(listOf("case", "created", "renamedMulti", "wrongVerified"))
+                created.remove()
+                assertMembers(listOf("case", "renamedMulti", "wrongVerified"))
+
+                tx.revert()
+                assertMembers(expected)
+                assertEquals(listOf("multi", "multi"), repeatedNames())
+            }
         }
     }
 
@@ -362,7 +433,7 @@ class MixedAndNativeSourceTest(private val match: Boolean) {
      */
     @Test fun `native predicate kinds and dedicated existence filters retain scalar scope`() {
         fixture()
-        inTx { tx ->
+        inTx(cacheEnabled = false) { tx ->
             val rid = user(tx, "user")
             val expected = listOf("case", "child", "match", "multi")
             val native = listOf(

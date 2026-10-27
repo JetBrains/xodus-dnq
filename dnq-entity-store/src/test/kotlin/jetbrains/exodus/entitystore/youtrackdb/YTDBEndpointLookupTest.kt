@@ -58,11 +58,13 @@ class YTDBEndpointLookupTest {
     private fun lookup(tx: YTDBStoreTransactionImpl, ids: Pair<RID, RID>, name: String = EDGE) =
         tx.findEdge(name, ids.first, ids.second)
 
-    private fun closed(s: DatabaseSessionEmbedded, cacheOn: Boolean = false, requireEntry: Boolean = false) {
+    private fun closed(s: DatabaseSessionEmbedded,
+                       cacheOn: Boolean = GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED.getValueAsBoolean(),
+                       requireEntry: Boolean = false) {
         assertEquals(0, s.activeQueries.size)
         val cache = (s.activeTransaction as FrontendTransactionImpl).queryResultCache
         if (!cacheOn) {
-            assertNull(cache, "Production transaction must not have a cache")
+            assertNull(cache, "Cache-off transaction must not have a cache")
             return
         }
         assertNotNull(cache, "Cache-on transaction must have a cache")
@@ -97,11 +99,10 @@ class YTDBEndpointLookupTest {
         db.withStoreTx { assertNull(lookup(it, ids)) }
     }
 
-    @Test fun `visibility agrees with production and effective cache on past invalidation threshold`() {
+    @Test fun `visibility agrees with cache off and on past invalidation threshold`() {
         schema()
         val persisted = pair()
         val flag = GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED
-        assertFalse(flag.getValueAsBoolean())
         for (cacheOn in listOf(false, true)) {
             val previous = flag.getValueAsBoolean()
             flag.setValue(cacheOn)
@@ -290,41 +291,46 @@ class YTDBEndpointLookupTest {
     }
 
     @Test fun `real uncached stream and plan close before hit miss and failure return`() {
-        schema()
-        val ids = pair()
-        db.withStoreTx { add(it, ids) }
-        db.withStoreTx { tx ->
-            val s = tx.activeYtdbSession()
-            closed(s)
-            val original = IllegalArgumentException("uncached stream sentinel")
-            for (mode in listOf("hit", "miss", "failure")) {
-                var stream: ExecutionStream? = null
-                var plan: com.jetbrains.youtrackdb.internal.core.sql.executor.InternalExecutionPlan? = null
-                mockkObject(s)
-                try {
-                    every { s.query(any<String>(), any<Map<*, *>>()) } answers {
-                        val result = callOriginal() as LocalResultSet
-                        plan = result.internalExecutionPlan.also { mockkObject(it) }
-                        stream = (result.javaClass.getDeclaredField("stream").apply { isAccessible = true }
-                            .get(result) as ExecutionStream).also { mockkObject(it) }
-                        if (mode == "failure") every { stream!!.hasNext(any()) } throws original
-                        result
+        val flag = GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED
+        val previous = flag.getValueAsBoolean()
+        flag.setValue(false)
+        try {
+            schema()
+            val ids = pair()
+            db.withStoreTx { add(it, ids) }
+            db.withStoreTx { tx ->
+                val s = tx.activeYtdbSession()
+                closed(s, cacheOn = false)
+                val original = IllegalArgumentException("uncached stream sentinel")
+                for (mode in listOf("hit", "miss", "failure")) {
+                    var stream: ExecutionStream? = null
+                    var plan: com.jetbrains.youtrackdb.internal.core.sql.executor.InternalExecutionPlan? = null
+                    mockkObject(s)
+                    try {
+                        every { s.query(any<String>(), any<Map<*, *>>()) } answers {
+                            val result = callOriginal() as LocalResultSet
+                            plan = result.internalExecutionPlan.also { mockkObject(it) }
+                            stream = (result.javaClass.getDeclaredField("stream").apply { isAccessible = true }
+                                .get(result) as ExecutionStream).also { mockkObject(it) }
+                            if (mode == "failure") every { stream!!.hasNext(any()) } throws original
+                            result
+                        }
+                        when (mode) {
+                            "hit" -> assertNotNull(lookup(tx, ids))
+                            "miss" -> assertNull(lookup(tx, ids.second to ids.first))
+                            else -> assertSame(original, assertFails { lookup(tx, ids) })
+                        }
+                        verify(exactly = 1) { stream!!.close(any()) }
+                        verify(exactly = 1) { plan!!.close() }
+                        closed(s, cacheOn = false)
+                    } finally {
+                        stream?.let { unmockkObject(it) }
+                        plan?.let { unmockkObject(it) }
+                        unmockkObject(s)
                     }
-                    when (mode) {
-                        "hit" -> assertNotNull(lookup(tx, ids))
-                        "miss" -> assertNull(lookup(tx, ids.second to ids.first))
-                        else -> assertSame(original, assertFails { lookup(tx, ids) })
-                    }
-                    verify(exactly = 1) { stream!!.close(any()) }
-                    verify(exactly = 1) { plan!!.close() }
-                    closed(s)
-                } finally {
-                    stream?.let { unmockkObject(it) }
-                    plan?.let { unmockkObject(it) }
-                    unmockkObject(s)
                 }
             }
-        }
+        } finally { flag.setValue(previous) }
     }
 
     @Test fun `iteration failure closes results and reaches transactional caller during replay`() {
