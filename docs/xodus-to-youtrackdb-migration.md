@@ -68,7 +68,7 @@ YouTrackDB is pulled from JetBrains team Maven repositories:
 https://central.sonatype.com/repository/maven-snapshots
 https://packages.jetbrains.team/maven/p/xodus/youtrackdb-daily
 ```
-The version pin lives in `dnq-entity-store/build.gradle.kts` as `ytdbVersion` (currently a dev-SNAPSHOT). The key artifact is `io.youtrackdb:youtrackdb-core`.
+The version pin lives in `dnq-entity-store/build.gradle.kts` as `ytdbVersion`, currently `0.5.0-20261027.020202-2f517e2-dev-SNAPSHOT`. The key artifact is `io.youtrackdb:youtrackdb-core`.
 
 ---
 
