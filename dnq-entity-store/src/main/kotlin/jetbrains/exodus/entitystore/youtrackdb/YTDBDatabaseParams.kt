@@ -132,6 +132,7 @@ class YTDBDatabaseParams private constructor(
         .addGlobalConfigurationParameter(GlobalConfiguration.AUTO_CLOSE_AFTER_DELAY, true)
         .addGlobalConfigurationParameter(GlobalConfiguration.AUTO_CLOSE_DELAY, closeAfterDelayTimeout)
         .addGlobalConfigurationParameter(GlobalConfiguration.QUERY_GREMLIN_POLYMORPHIC_BY_DEFAULT, true)
+        .addGlobalConfigurationParameter(GlobalConfiguration.CLASS_COLLECTIONS_COUNT, 1)
         .apply {
             encryptionKey?.let { addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_ENCRYPTION_KEY, it) }
             callFsync?.let { addGlobalConfigurationParameter(GlobalConfiguration.STORAGE_CALL_FSYNC, it) }

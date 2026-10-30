@@ -70,6 +70,18 @@ https://packages.jetbrains.team/maven/p/xodus/youtrackdb-daily
 ```
 The version pin lives in `dnq-entity-store/build.gradle.kts` as `ytdbVersion`, currently `0.5.0-20261027.020202-2f517e2-dev-SNAPSHOT`. The key artifact is `io.youtrackdb:youtrackdb-core`.
 
+### Collections per class
+
+DNQ defaults newly created databases to one collection per concrete class through
+`GlobalConfiguration.CLASS_COLLECTIONS_COUNT=1` in `YTDBDatabaseParams`. This
+applies to vertex and edge classes, including subclasses; abstract classes remain
+storage-free. An explicit `withConfigBuilder` setting overrides this default.
+
+The pinned engine persists the database's collection minimum. Existing databases
+retain that stored setting and their existing collections; this change neither
+consolidates collections nor moves records. Create a fresh database to use the
+single-collection default for this branch's experiments.
+
 ### Query-result-cache experiment
 
 On `adopt-youtrackdb-enable-query-cache`, DNQ defaults the JVM-global
