@@ -222,6 +222,14 @@ public class ModelMetaDataImpl implements ModelMetaData {
         }
     }
 
+    /** Copies registered references without preparing the model or invoking schema callbacks. */
+    @NotNull
+    List<EntityMetaData> getRegisteredEntityMetaDatas() {
+        synchronized (entityMetaDatas) {
+            return new ArrayList<>(entityMetaDatas);
+        }
+    }
+
     @NotNull
     public Map<String, EntityMetaData> prepare() {
         Map<String, EntityMetaData> result = typeToEntityMetaDatas;

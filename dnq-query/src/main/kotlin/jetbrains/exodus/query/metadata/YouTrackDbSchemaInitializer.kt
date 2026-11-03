@@ -689,30 +689,17 @@ internal class YouTrackDbSchemaInitializer(
         simpleProp: PropertyMetaDataImpl,
         required: Boolean
     ) {
-        val propertyName = simpleProp.name
+        val mapping = simpleProp.toYouTrackDbProperty()
+        val propertyName = mapping.name
         append(propertyName)
 
         when (simpleProp.type) {
             jetbrains.exodus.query.metadata.PropertyType.PRIMITIVE -> {
-                require(simpleProp is SimplePropertyMetaDataImpl) { "$propertyName is a primitive property but it is not an instance of SimplePropertyMetaDataImpl. Happy fixing!" }
-                val primitiveTypeName =
-                    simpleProp.primitiveTypeName
-                        ?: throw IllegalArgumentException("primitiveTypeName is null")
-
-                if (primitiveTypeName.lowercase() == "set") {
+                val primitiveTypeName = (simpleProp as SimplePropertyMetaDataImpl).primitiveTypeName!!
+                if (mapping.type == PropertyType.EMBEDDEDSET) {
                     append(", is not supported yet")
-                    /*
-                    * To support sets we have to:
-                    * 1. On the Xodus repo level
-                    *   1. Add SimplePropertyMetaDataImpl.argumentType: String? property (or list of them, it is easier to extend)
-                    * 2. On the XodusDNQ repo level
-                    *   1. DNQMetaDataUtil.kt, addEntityMetaData(), 119 line, fill that argumentType param
-                    * 3. Support here
-                    * */
-                    val typeParameter = simpleProp.typeParameterNames?.firstOrNull()
-                        ?: throw IllegalStateException("$propertyName is Set but does not contain information about the type parameter")
                     val oProperty =
-                        createEmbeddedSetPropertyIfAbsent(propertyName, getOType(typeParameter))
+                        createEmbeddedSetPropertyIfAbsent(propertyName, mapping.linkedType!!)
 
                     /*
                     * If the value is not defined, the property returns true.
@@ -732,7 +719,7 @@ internal class YouTrackDbSchemaInitializer(
                     addIndex(index)
                 } else { // primitive types
                     val oProperty =
-                        createPropertyIfAbsent(propertyName, getOType(primitiveTypeName))
+                        createPropertyIfAbsent(propertyName, mapping.type)
                     oProperty.setRequirement(required)
                     /*
                     * A property may opt out of the automatic per-property index
@@ -788,13 +775,9 @@ internal class YouTrackDbSchemaInitializer(
                 * */
             }
 
-            jetbrains.exodus.query.metadata.PropertyType.TEXT -> {
-                val oProperty = createPropertyIfAbsent(propertyName, PropertyType.LINK)
-                oProperty.setRequirement(required)
-            }
-
+            jetbrains.exodus.query.metadata.PropertyType.TEXT,
             jetbrains.exodus.query.metadata.PropertyType.BLOB -> {
-                val oProperty = createPropertyIfAbsent(propertyName, PropertyType.LINK)
+                val oProperty = createPropertyIfAbsent(propertyName, mapping.type)
                 oProperty.setRequirement(required)
             }
         }
@@ -1013,24 +996,4 @@ internal class YouTrackDbSchemaInitializer(
         return oProperty
     }
 
-    private fun getOType(jvmTypeName: String): PropertyType {
-        return when (jvmTypeName.lowercase()) {
-            "boolean" -> PropertyType.BOOLEAN
-            "string" -> PropertyType.STRING
-
-            "byte" -> PropertyType.BYTE
-            "short" -> PropertyType.SHORT
-            "int",
-            "integer" -> PropertyType.INTEGER
-
-            "long" -> PropertyType.LONG
-
-            "float" -> PropertyType.FLOAT
-            "double" -> PropertyType.DOUBLE
-
-            "datetime" -> PropertyType.LONG
-
-            else -> throw IllegalArgumentException("$jvmTypeName is not supported. Feel free to support it.")
-        }
-    }
 }

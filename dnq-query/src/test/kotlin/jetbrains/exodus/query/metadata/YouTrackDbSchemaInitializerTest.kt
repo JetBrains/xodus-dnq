@@ -196,6 +196,37 @@ class YouTrackDbSchemaInitializerTest {
         }
 
     @Test
+    fun `canonical mapping preserves kind precedence defaults indexes and historical flags`() =
+        orientDb.withSession { session ->
+            val stored = session.createVertexClass("Mapping")
+            stored.createProperty("optional", PropertyType.STRING).setNotNull(true)
+            val metadata = model {
+                entity("Mapping") {
+                    property("optional", "string")
+                    property("enabled", "Boolean")
+                    propertiesMetaData = listOf(
+                        SimplePropertyMetaDataImpl("unindexed", "string").apply { isAutoIndexed = false },
+                        SimplePropertyMetaDataImpl("text", "unsupported").apply {
+                            type = jetbrains.exodus.query.metadata.PropertyType.TEXT
+                        }
+                    )
+                    setProperty("dates", "datetime")
+                }
+            }
+            val result = session.applySchemaInTx(metadata, indexForEverySimpleProperty = true)
+            val c = session.schema.getClass("Mapping")
+            assertEquals(PropertyType.LINK, c.getProperty("text").type)
+            assertEquals(PropertyType.BOOLEAN, c.getProperty("enabled").type)
+            assertEquals("false", c.getProperty("enabled").defaultValue)
+            assertEquals(PropertyType.EMBEDDEDSET, c.getProperty("dates").type)
+            assertEquals(PropertyType.LONG, c.getProperty("dates").linkedType)
+            c.getProperty("optional").check(required = false, notNull = true)
+            result.indices.checkIndex("Mapping", false, "enabled")
+            result.indices.checkIndex("Mapping", false, "dates")
+            assertTrue(result.indices.getValue("Mapping").none { "unindexed" in it.properties })
+        }
+
+    @Test
     fun `one-directional associations`(): Unit =
         orientDb.provider.withSession { oSession ->
             val model = model {
