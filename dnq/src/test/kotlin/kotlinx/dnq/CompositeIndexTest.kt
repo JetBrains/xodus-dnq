@@ -56,9 +56,35 @@ class CompositeIndexTest : DBTest() {
         }
     }
 
+    abstract class IndexedBase(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<IndexedBase>() {
+            override val compositeIndices = listOf(listOf(IndexedBase::optionalCode))
+        }
+        var optionalCode by xdStringProp()
+    }
+
+    class IndexedChild(entity: Entity) : IndexedBase(entity) {
+        companion object : XdNaturalEntityType<IndexedChild>()
+    }
+
+    @Test
+    fun `otherwise optional ancestor indexed field is required in child constraints`() {
+        val metadata = store.modelMetaData!!.getEntityMetaData(IndexedChild.entityType)!!
+        assertThat(metadata.ownIndexes).isEmpty()
+        assertThat(metadata.indexes.flatMap { it.fields }.map { it.name }).contains("optionalCode")
+        val failure = assertFailsWith<ConstraintsValidationException> {
+            transactional { IndexedChild.new() }
+        }
+        assertThat(failure.causes.toList()).isNotEmpty()
+        transactional { IndexedChild.new { optionalCode = "present" } }
+        assertFailsWith<ConstraintsValidationException> {
+            transactional { IndexedChild.new { optionalCode = "present" } }
+        }
+    }
+
     override fun registerEntityTypes() {
         super.registerEntityTypes()
-        XdModel.registerNodes(Service, BaseRole, DefaultRole, Role)
+        XdModel.registerNodes(Service, BaseRole, DefaultRole, Role, IndexedBase, IndexedChild)
     }
 
     @Test

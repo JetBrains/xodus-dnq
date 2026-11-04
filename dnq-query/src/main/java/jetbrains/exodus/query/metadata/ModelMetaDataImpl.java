@@ -230,6 +230,21 @@ public class ModelMetaDataImpl implements ModelMetaData {
         }
     }
 
+    /** Validates registered entity input without preparing or inspecting live effective indexes. */
+    static void validateClassMetaData(@NotNull EntityMetaData entity) {
+        if (!entity.getInterfaceTypes().isEmpty()) {
+            throw new IllegalArgumentException("Entity [" + entity.getType() +
+                "] does not support interfaces: " + entity.getInterfaceTypes());
+        }
+        for (Index index : entity.getOwnIndexes()) {
+            if (!entity.getType().equals(index.getOwnerEntityType())) {
+                throw new IllegalArgumentException("Own index in entity [" + entity.getType() +
+                    "] must have declaring owner [" + entity.getType() +
+                    "], got [" + index.getOwnerEntityType() + "]");
+            }
+        }
+    }
+
     @NotNull
     public Map<String, EntityMetaData> prepare() {
         Map<String, EntityMetaData> result = typeToEntityMetaDatas;
@@ -241,6 +256,9 @@ public class ModelMetaDataImpl implements ModelMetaData {
             result = typeToEntityMetaDatas;
             if (result != null) {
                 return result;
+            }
+            for (EntityMetaData emd : entityMetaDatas) {
+                validateClassMetaData(emd);
             }
             result = new HashMap<>();
 
@@ -295,10 +313,6 @@ public class ModelMetaDataImpl implements ModelMetaData {
                 if (superType != null) {
                     addSubTypeToMetaData(result, emd, superType);
                 }
-                // add interface types
-                for (String iFaceType : emd.getInterfaceTypes()) {
-                    addSubTypeToMetaData(result, emd, iFaceType);
-                }
 
                 // set supertypes
                 List<String> thisAndSuperTypes = new ArrayList<>();
@@ -306,7 +320,6 @@ public class ModelMetaDataImpl implements ModelMetaData {
                 String t = data.getType();
                 do {
                     thisAndSuperTypes.add(t);
-                    thisAndSuperTypes.addAll(data.getInterfaceTypes());
                     data = result.get(t);
                     t = data.getSuperType();
                 } while (t != null);

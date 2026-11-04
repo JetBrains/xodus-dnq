@@ -412,14 +412,6 @@ internal class YouTrackDbSchemaInitializer(
             )
         }
 
-        /*
-        * Interfaces
-        *
-        * On the one hand, interfaces are in use in the query logic, see jetbrains.exodus.query.Utils.isTypeOf(...).
-        * On the other hand, interfaces are not initialized anywhere, so EntityMetaData.interfaceTypes are always empty.
-        *
-        * So here, we ignore interfaces and do not try to apply them anyhow to OrientDB schema.
-        * */
     }
 
     private fun DatabaseSessionEmbedded.createVertexClassIfAbsent(name: String): SchemaClass {

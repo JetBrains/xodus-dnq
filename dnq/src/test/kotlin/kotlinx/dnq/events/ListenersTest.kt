@@ -33,7 +33,32 @@ import kotlin.test.Ignore
 class ListenersTest : DBTest() {
 
     override fun registerEntityTypes() {
-        XdModel.registerNodes(Foo, Goo)
+        XdModel.registerNodes(Foo, Goo, Bar, ExtraBar)
+    }
+
+    @Test
+    fun `base listeners receive descendants but not unrelated entities`() {
+        val baseTypes = mutableListOf<String>()
+        val childTypes = mutableListOf<String>()
+        Bar.addListener(store, object : XdEntityListener<Bar> {
+            override fun addedSyncBeforeConstraints(added: Bar) {
+                baseTypes.add(added.entity.type)
+            }
+        })
+        ExtraBar.addListener(store, object : XdEntityListener<ExtraBar> {
+            override fun addedSyncBeforeConstraints(added: ExtraBar) {
+                childTypes.add(added.entity.type)
+            }
+        })
+        transactional { ExtraBar.new() }
+        Assert.assertEquals(listOf(ExtraBar.entityType), baseTypes)
+        Assert.assertEquals(listOf(ExtraBar.entityType), childTypes)
+        transactional { Foo.new() }
+        Assert.assertEquals(listOf(ExtraBar.entityType), baseTypes)
+        Assert.assertEquals(listOf(ExtraBar.entityType), childTypes)
+        transactional { Bar.new() }
+        Assert.assertEquals(listOf(ExtraBar.entityType, Bar.entityType), baseTypes)
+        Assert.assertEquals(listOf(ExtraBar.entityType), childTypes)
     }
 
     private val ref = AtomicInteger(0)

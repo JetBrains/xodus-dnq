@@ -19,6 +19,9 @@ import com.jetbrains.youtrackdb.internal.core.db.DatabaseSessionEmbedded
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.SchemaClassInternal
 import com.jetbrains.youtrackdb.internal.core.metadata.sequence.DBSequence
 import com.jetbrains.youtrackdb.internal.core.metadata.schema.schema.PropertyType as EngineType
+import jetbrains.exodus.entitystore.youtrackdb.withTx
+import jetbrains.exodus.entitystore.youtrackdb.createClassIdSequenceIfAbsent
+import jetbrains.exodus.entitystore.youtrackdb.setClassIdIfAbsent
 import jetbrains.exodus.entitystore.youtrackdb.YTDBVertexEntity.Companion.localEntityIdSequenceName
 import jetbrains.exodus.entitystore.youtrackdb.testutil.InMemoryYouTrackDB
 import org.junit.Rule
@@ -93,100 +96,167 @@ class YouTrackDbSchemaTargetTest {
     }
 
     @Test
-    fun `ancestor and interface indexes count without collapsing child-only contexts`() {
-        fun EntityMetaDataImpl.parentProperties() {
+    fun `literal superclass requirements stay in their class contexts`() {
+        fun EntityMetaDataImpl.properties() {
             property("inherited", "string")
             property("childOnly", "string")
             property("modelRequired", "string", required = true)
+            property("optional", "string")
         }
         val m = model {
-            entity("Parent") {
-                parentProperties()
+            entity("Base") {
+                properties()
                 index("inherited")
                 index(IndexedField("linkWithoutSimpleProperty", false))
             }
-            entity("Interface") {
-                property("interfaceField", "string")
-                index("interfaceField")
-            }
-            // DNQMetaDataUtil uses getAllProperties for both properties and requirements.
-            // The test entity helper does not copy inherited metadata.
-            entity("Child", "Parent") {
-                parentProperties()
-                property("interfaceField", "string")
-                setInterfaces(listOf("Interface"))
-            }
-            entity("IndexedChild", "Parent") {
-                parentProperties()
-                index("childOnly")
-            }
+            entity("Middle", "Base") { properties() }
+            entity("Leaf", "Middle") { properties(); index("childOnly") }
+            entity("Sibling", "Base") { properties() }
         }
         val target = m.youTrackDbSchemaTarget()
-        m.prepare()
-        assertTrue(m.getEntityMetaData("Child")!!.ownIndexes.isEmpty())
-        assertEquals(setOf("inherited", "interfaceField"), m.getEntityMetaData("Child")!!.indexes
-            .flatMap { it.fields }.filter { it.isProperty }.map { it.name }.toSet())
-        fun flags(type: String, property: String, required: Boolean) {
-            val p = target.getValue(type).properties.getValue(property)
-            assertEquals(required, p.mandatory, "$type.$property mandatory")
-            assertEquals(required, p.notNull, "$type.$property notNull")
+        for ((type, required) in mapOf(
+            "Base" to setOf("inherited", "modelRequired", "localEntityId"),
+            "Middle" to setOf("inherited", "modelRequired", "localEntityId"),
+            "Leaf" to setOf("inherited", "childOnly", "modelRequired", "localEntityId"),
+            "Sibling" to setOf("inherited", "modelRequired", "localEntityId")
+        )) {
+            val properties = target.getValue(type).properties
+            assertEquals(setOf("inherited", "childOnly", "modelRequired", "optional", "localEntityId"),
+                properties.keys)
+            for ((name, property) in properties) {
+                assertEquals(name in required, property.mandatory, "$type.$name mandatory")
+                assertEquals(name in required, property.notNull, "$type.$name notNull")
+            }
         }
-        flags("Parent", "inherited", true)
-        flags("Child", "inherited", true)
-        flags("Child", "interfaceField", true)
-        flags("Child", "modelRequired", true)
-        flags("Parent", "childOnly", false)
-        flags("Child", "childOnly", false)
-        flags("IndexedChild", "childOnly", true)
-        assertFalse("linkWithoutSimpleProperty" in target.getValue("Parent").properties)
     }
 
     @Test
-    fun `interface requirements and index owner expansion agree with prepared runtime`() {
-        val fields = listOf("interfaceRequired", "transitive", "interfaceParent", "direct", "bridge")
-        val m = model {
-            entity("Transitive") { index("transitive") }
-            entity("InterfaceParent") { index("interfaceParent") }
-            entity("Interface", "InterfaceParent") {
-                setInterfaces(listOf("Transitive"))
-                requiredProperties = setOf("interfaceRequired")
-            }
-            entity("Direct") { index("direct") }
-            entity("Bridge") {
-                setInterfaces(listOf("Transitive"))
-                index("bridge")
-            }
-            entity("Child") {
-                setInterfaces(listOf("Interface", "Direct"))
-                fields.forEach { property(it, "string") }
-            }
-            entity("Expanded") {
-                setInterfaces(listOf("Bridge"))
-                fields.forEach { property(it, "string") }
-            }
-            entity("ParentWithInterface") { setInterfaces(listOf("Direct")) }
-            entity("ChildOfParent", "ParentWithInterface") {
-                fields.forEach { property(it, "string") }
+    fun `raw acquisition rejects missing ancestors and cycles explicitly`() {
+        val missing = model { entity("Leaf", "Missing") }
+        assertEquals("No entity metadata for super type [Missing]",
+            assertFailsWith<IllegalArgumentException> { missing.youTrackDbSchemaTarget() }.message)
+        val cycle = model { entity("Base", "Leaf"); entity("Leaf", "Base") }
+        assertTrue(assertFailsWith<IllegalArgumentException> {
+            cycle.youTrackDbSchemaTarget()
+        }.message!!.startsWith("Cyclic entity ancestry at ["))
+    }
+
+    @Test
+    fun `each raw read validates custom metadata without preparing or changing stored evidence`() {
+        db.withSession { session ->
+            session.createClassIdSequenceIfAbsent()
+            val stored = session.createVertexClass("Historical")
+            session.setClassIdIfAbsent(stored)
+            stored.createProperty("value", EngineType.STRING).setNotNull(true)
+            stored.createProperty("extra", EngineType.INTEGER)
+            stored.createIndex("historical", "NOTUNIQUE", "value")
+            session.metadata.sequenceLibrary.createSequence(
+                "historicalSequence", DBSequence.SEQUENCE_TYPE.ORDERED, DBSequence.CreateParams().setStart(41)
+            )
+            session.withTx {
+                it.newVertex("Historical").apply {
+                    setProperty("value", "retained")
+                    setProperty("localEntityId", 1L)
+                }
             }
         }
-        val target = m.youTrackDbSchemaTarget()
-        // An ordinary non-YTDB model supplies the independent runtime oracle.
+        val cache = ModelMetaDataImpl::class.java.getDeclaredField("typeToEntityMetaDatas").apply {
+            isAccessible = true
+        }
+        for ((case, invalid) in listOf("interfaces", null, "Unrelated", "Base", "Leaf").withIndex()) {
+            val suffix = case.toString()
+            db.withSession { session ->
+                val stored = session.createVertexClass("Middle$suffix")
+                stored.createProperty("missing", EngineType.STRING)
+                stored.createProperty("extra", EngineType.INTEGER)
+                stored.createIndex("historicalMiddle$suffix", "NOTUNIQUE", "extra")
+            }
+            class CustomEntity : EntityMetaDataImpl() {
+                var memberships = false
+                var raw = true
+                override fun getInterfaceTypes(): Collection<String> =
+                    if (memberships) listOf("Unrelated$suffix") else super.getInterfaceTypes()
+                override fun getIndexes(): Set<Index> {
+                    check(!raw) { "Raw acquisition called live indexes" }
+                    return super.getIndexes()
+                }
+            }
+            val middle = CustomEntity().apply {
+                type = "Middle$suffix"
+                superType = "Base$suffix"
+                property("indexed", "string")
+                property("missing", "string", required = true)
+                index("indexed")
+            }
+            val index = middle.ownIndexes.single() as IndexImpl
+            val m = oModel(db.provider, db.schemaBuddy) {
+                entity("Base$suffix")
+                addEntityMetaData(middle)
+                entity("Leaf$suffix", middle.type)
+                entity("Unrelated$suffix")
+            }
+            fun invalidate() {
+                if (invalid == "interfaces") middle.memberships = true
+                else index.ownerEntityType = invalid?.plus(suffix)
+            }
+            fun repair() {
+                middle.memberships = false
+                index.ownerEntityType = middle.type
+            }
+            val before = db.withSession { it.schemaEvidence() }
+            fun unchanged() {
+                assertNull(cache.get(m), "Raw projection published a prepared model")
+                assertEquals(before, db.withSession { it.schemaEvidence() })
+            }
+            invalidate()
+            repeat(2) {
+                assertTrue(assertFailsWith<IllegalArgumentException> {
+                    m.youTrackDbSchemaTarget()
+                }.message!!.contains(middle.type))
+                unchanged()
+            }
+            repair()
+            val projected = m.youTrackDbSchemaTarget().getValue(middle.type)
+            assertTrue(projected.properties.getValue("indexed").mandatory)
+            assertTrue(projected.properties.getValue("missing").mandatory)
+            assertFalse("extra" in projected.properties)
+            db.withSession { session ->
+                assertFalse(session.schema.getClass(middle.type).getProperty("missing").isMandatory)
+                assertNull(session.schema.getClass(middle.type).getProperty("indexed"))
+            }
+            unchanged()
+            invalidate()
+            assertFailsWith<IllegalArgumentException> { m.youTrackDbSchemaTarget() }
+            unchanged()
+            repair()
+            middle.raw = false
+            m.prepare()
+            assertNotNull(cache.get(m))
+            db.withSession { session ->
+                assertTrue(session.schema.getClass(middle.type).getProperty("missing").isMandatory)
+                assertNotNull(session.schema.getClass("Leaf$suffix"))
+            }
+        }
+    }
+
+    @Test
+    fun `raw acquisition never invokes prepare build or callbacks`() {
+        var preparing = false
+        var callbacks = 0
+        val m = object : ModelMetaDataImpl() {
+            override fun prepare(): MutableMap<String, EntityMetaData> {
+                check(preparing) { "Raw projection invoked prepare" }
+                return super.prepare()
+            }
+            override fun buildModel(build: Runnable) = error("Raw projection invoked buildModel")
+            override fun onPrepared(entities: MutableCollection<EntityMetaData>) { callbacks++ }
+        }
+        m.entity("Example") { property("optional", "string") }
+        repeat(2) { m.youTrackDbSchemaTarget() }
+        assertEquals(0, callbacks)
+        preparing = true
         m.prepare()
-        for ((type, expected) in mapOf(
-            "Child" to setOf("direct"),
-            "Expanded" to setOf("bridge", "transitive"),
-            "ChildOfParent" to emptySet()
-        )) {
-            val runtime = m.getEntityMetaData(type)!!
-            val required = runtime.requiredProperties + runtime.indexes.flatMap { it.fields }
-                .filter { it.isProperty }.map { it.name }
-            assertEquals(expected, required, "$type runtime requirements")
-            for (field in fields) {
-                val property = target.getValue(type).properties.getValue(field)
-                assertEquals(field in required, property.mandatory, "$type.$field mandatory")
-                assertEquals(field in required, property.notNull, "$type.$field notNull")
-            }
-        }
+        assertEquals(1, callbacks)
     }
 
     @Test
@@ -268,6 +338,13 @@ class YouTrackDbSchemaTargetTest {
             }
             for (i in (c as SchemaClassInternal).indexesInternal.sortedBy { it.name }) {
                 add("index:${i.name}:${i.type}:${i.definition.properties}:${i.definition.types.toList()}")
+            }
+        }
+        if (schema.getClass("Historical") != null) {
+            withTx { session ->
+                session.activeTransaction.query("select from Historical").use { rows ->
+                    add("data:" + rows.vertexStream().map { it.getProperty<String>("value") }.sorted().toList())
+                }
             }
         }
         for (name in metadata.sequenceLibrary.sequenceNames.sorted()) {

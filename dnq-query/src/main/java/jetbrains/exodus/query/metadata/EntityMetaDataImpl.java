@@ -33,7 +33,6 @@ public class EntityMetaDataImpl implements EntityMetaData {
     private final AtomicReference<ModelMetaData> modelMetaData;
     private String type = null;
     private String superType = null;
-    private final Set<String> interfaces = new LinkedHashSetDecorator<>();
     private Runnable initializer = null;
     private boolean removeOrphan = true;
     private boolean isAbstract = false;
@@ -192,11 +191,13 @@ public class EntityMetaDataImpl implements EntityMetaData {
 
     @Override
     public Collection<String> getInterfaceTypes() {
-        return interfaces;
+        return Collections.emptyList();
     }
 
     public void setInterfaces(List<String> interfaces) {
-        this.interfaces.addAll(interfaces);
+        if (!interfaces.isEmpty()) {
+            throw new IllegalArgumentException("Entity [" + type + "] does not support interfaces: " + interfaces);
+        }
     }
 
     void addAssociationEndMetaData(AssociationEndMetaData end) {
@@ -384,14 +385,9 @@ public class EntityMetaDataImpl implements EntityMetaData {
                 Set<Index> currentIndexes = indexes;
                 if (currentIndexes == null) {
                     final Set<Index> result = new HashSet<>();
-                    // add indexes of super types
+                    // Each class owns only its declared indexes.
                     for (String t : getThisAndSuperTypes()) {
-                        for (Index index : getEntityMetaData(t).getOwnIndexes()) {
-                            final String entityType = index.getOwnerEntityType();
-                            for (String st : getEntityMetaData(entityType).getThisAndSuperTypes()) {
-                                result.addAll(getEntityMetaData(st).getOwnIndexes());
-                            }
-                        }
+                        result.addAll(getEntityMetaData(t).getOwnIndexes());
                     }
                     currentIndexes = copySet(result);
                     indexes = currentIndexes;

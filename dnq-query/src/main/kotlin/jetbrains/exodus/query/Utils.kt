@@ -38,11 +38,6 @@ internal object Utils {
                 return true
             }
             val emd = mmd.getEntityMetaData(t) ?: break
-            for (i in emd.interfaceTypes) {
-                if (i == ofType) {
-                    return true
-                }
-            }
             t = emd.superType ?: break
         }
         return false

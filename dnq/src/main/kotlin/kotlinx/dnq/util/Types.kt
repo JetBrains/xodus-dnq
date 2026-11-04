@@ -38,11 +38,6 @@ fun isTypeOf(mmd: ModelMetaData, type: String, ofType: String): Boolean {
             return true
         }
         val emd = mmd.getEntityMetaData(currentType) ?: break
-        for (iFace in emd.interfaceTypes) {
-            if (iFace == ofType) {
-                return true
-            }
-        }
         currentType = emd.superType
     } while (true)
     return false

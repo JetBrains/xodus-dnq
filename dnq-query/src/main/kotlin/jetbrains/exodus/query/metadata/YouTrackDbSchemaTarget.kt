@@ -36,24 +36,21 @@ internal data class YouTrackDbClassTarget(
 internal fun ModelMetaDataImpl.youTrackDbSchemaTarget(): Map<String, YouTrackDbClassTarget> {
     val raw = linkedMapOf<String, EntityMetaData>()
     for (entity in registeredEntityMetaDatas) {
+        ModelMetaDataImpl.validateClassMetaData(entity)
         require(raw.put(entity.type, entity) == null) { "Duplicate entity [${entity.type}]" }
     }
 
     fun metadata(name: String): EntityMetaData =
         requireNotNull(raw[name]) { "No entity metadata for super type [$name]" }
 
-    // Mirror ModelMetaDataImpl.prepare's thisAndSuperTypes construction without preparing.
-    // Keep its interface context update order, rather than recursively expanding interfaces.
-    fun indexContexts(entity: EntityMetaData): List<EntityMetaData> {
+    fun ancestry(entity: EntityMetaData): List<EntityMetaData> {
         val result = mutableListOf<EntityMetaData>()
         val visited = mutableSetOf<String>()
-        var data = entity
         var type: String? = entity.type
         while (type != null) {
             require(visited.add(type)) { "Cyclic entity ancestry at [$type]" }
-            result.add(metadata(type))
-            result.addAll(data.interfaceTypes.map { metadata(it) })
-            data = metadata(type)
+            val data = metadata(type)
+            result.add(data)
             type = data.superType
         }
         return result
@@ -61,14 +58,9 @@ internal fun ModelMetaDataImpl.youTrackDbSchemaTarget(): Map<String, YouTrackDbC
 
     return raw.mapValues { (_, entity) ->
         val required = entity.requiredProperties.toMutableSet()
-        // EntityMetaDataImpl.updateIndexes expands each encountered index's owner contexts.
-        for (context in indexContexts(entity)) {
+        for (context in ancestry(entity)) {
             for (index in context.ownIndexes) {
-                for (ownerContext in indexContexts(metadata(index.ownerEntityType))) {
-                    for (effectiveIndex in ownerContext.ownIndexes) {
-                        required.addAll(effectiveIndex.fields.filter { it.isProperty }.map { it.name })
-                    }
-                }
+                required.addAll(index.fields.filter { it.isProperty }.map { it.name })
             }
         }
         val properties = linkedMapOf<String, YouTrackDbPropertyTarget>()
