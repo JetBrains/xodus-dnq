@@ -116,6 +116,12 @@ class YTDBDatabaseParams private constructor(
     companion object {
 
         init {
+            // Experiment-only: page layouts and the shared cache capture this JVM-global value.
+            val pageSize = GlobalConfiguration.DISK_CACHE_PAGE_SIZE
+            if (!pageSize.isChanged) {
+                pageSize.setValue(4)
+            }
+
             // Experiment-only: the core reads the JVM-global flag, not the database option.
             val resultCache = GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED
             if (!resultCache.isChanged) {

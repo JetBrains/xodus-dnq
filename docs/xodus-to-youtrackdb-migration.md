@@ -82,6 +82,27 @@ retain that stored setting and their existing collections; this change neither
 consolidates collections nor moves records. Create a fresh database to use the
 single-collection default for this branch's experiments.
 
+### Disk-cache-page-size experiment
+
+On `adopt-youtrackdb-one-collection-per-class`, DNQ defaults the JVM-global
+`DISK_CACHE_PAGE_SIZE` to `4` KiB (4,096 bytes) when `YTDBDatabaseParams` initializes,
+unless the host has already set it explicitly. The pinned engine normally uses
+8 KiB and warns never to change this value. This is an experiment for disposable
+databases, not a supported storage migration or a demonstrated performance gain.
+
+Page-layout constants and the shared cache capture the global value during
+initialization. Start a fresh JVM and create a fresh database for each page size;
+do not open existing 8 KiB databases with this experiment's 4 KiB default.
+Initialize DNQ parameters before any other YouTrackDB storage/cache use. A
+per-database `withConfigBuilder` page-size override is unsafe because it cannot
+change the global page-layout constants.
+
+For an 8 KiB control, pass `-Dyoutrackdb.storage.diskCache.pageSize=8` to the JVM
+that opens the database. An explicit system property or programmatic
+`GlobalConfiguration.DISK_CACHE_PAGE_SIZE.setValue(...)` before DNQ parameter
+initialization is preserved; later parameter creation does not reset that choice.
+Do not change page size after engine initialization.
+
 ### Query-result-cache experiment
 
 On `adopt-youtrackdb-enable-query-cache`, DNQ defaults the JVM-global
