@@ -63,7 +63,10 @@ subprojects {
 
     dependencies {
         implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-        implementation 'io.github.microutils:kotlin-logging:1.5.4'
+        implementation 'io.github.oshai:kotlin-logging-jvm:8.0.7'
+        implementation 'org.slf4j:slf4j-api:2.0.7'
+        compileOnly 'io.github.microutils:kotlin-logging:3.0.5'
+        testCompileOnly 'io.github.microutils:kotlin-logging:3.0.5'
 
         testImplementation "junit:junit:$junit_version"
         testImplementation "org.apache.logging.log4j:log4j-1.2-api:$log4j_version"

@@ -15,8 +15,8 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.database.TransientChangesTracker
-import mu.KLogging
 import java.lang.management.ManagementFactory
 import java.util.concurrent.atomic.AtomicLong
 import javax.management.InstanceNotFoundException
@@ -28,7 +28,9 @@ private const val MAX_DETAILS_PER_TYPE = 10
 
 class TransactionSizeWarning : TransactionSizeWarningMBean {
 
-    companion object : KLogging()
+    companion object {
+        val logger = KotlinLogging.logger {}
+    }
 
     @Volatile
     override var enabled: Boolean = false
@@ -70,7 +72,7 @@ class TransactionSizeWarning : TransactionSizeWarningMBean {
 
         _warningCount.incrementAndGet()
 
-        if (!logger.isWarnEnabled) return
+        if (!logger.isWarnEnabled()) return
 
         val entitiesByType = tracker.changedEntities.groupBy { it.type }
 

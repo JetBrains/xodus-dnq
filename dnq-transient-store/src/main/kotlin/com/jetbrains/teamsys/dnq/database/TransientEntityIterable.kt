@@ -15,13 +15,13 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.EntityIterable
 import jetbrains.exodus.entitystore.EntityIterator
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.entitystore.iterate.EntityIterableBase
-import mu.KLogging
 
 /**
  * Date: 28.12.2006
@@ -30,7 +30,9 @@ import mu.KLogging
  * @author Vadim.Gurov
  */
 open class TransientEntityIterable(protected val values: Set<TransientEntity>) : EntityIterableWrapper {
-    companion object : KLogging()
+    companion object {
+        val logger = KotlinLogging.logger {}
+    }
 
     override fun size(): Long {
         logger.warn { "size() is requested from TransientEntityIterable!" }

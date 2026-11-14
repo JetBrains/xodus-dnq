@@ -15,13 +15,13 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.core.dataStructures.StablePriorityQueue
 import jetbrains.exodus.database.*
 import jetbrains.exodus.entitystore.*
 import jetbrains.exodus.env.EnvironmentConfig
 import jetbrains.exodus.query.QueryEngine
 import jetbrains.exodus.query.metadata.ModelMetaData
-import mu.KLogging
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
@@ -31,7 +31,9 @@ import java.util.concurrent.locks.ReentrantLock
  */
 open class TransientEntityStoreImpl : TransientEntityStore {
 
-    companion object : KLogging()
+    companion object {
+        val logger = KotlinLogging.logger {}
+    }
 
     private lateinit var _persistentStore: PersistentEntityStore
 
@@ -157,7 +159,7 @@ open class TransientEntityStoreImpl : TransientEntityStore {
         val sessionsSize = sessions.size
         if (sessionsSize > 0) {
             logger.warn { "There're $sessionsSize open transient sessions. Print." }
-            if (logger.isDebugEnabled) {
+            if (logger.isDebugEnabled()) {
                 sessions.asSequence()
                         .filterIsInstance<TransientSessionImpl>()
                         .mapNotNull { session -> session.stack }

@@ -15,6 +15,7 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.ByteIterable
 import jetbrains.exodus.ExodusException
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
@@ -27,7 +28,6 @@ import jetbrains.exodus.entitystore.util.EntityIdSetFactory
 import jetbrains.exodus.env.TransactionFinishedException
 import jetbrains.exodus.query.metadata.EntityMetaData
 import jetbrains.exodus.query.metadata.Index
-import mu.KLogging
 import java.io.File
 import java.io.InputStream
 import java.util.*
@@ -47,7 +47,8 @@ class TransientSessionImpl(
     private val readonly: Boolean,
 ) : TransientStoreSession, SessionQueryMixin {
 
-    companion object : KLogging() {
+    companion object {
+        val logger = KotlinLogging.logger {}
         private val assertLinkTypes = "true" == System.getProperty("xodus.dnq.links.assertTypes", "true")
     }
 
@@ -68,7 +69,7 @@ class TransientSessionImpl(
     private val hashCode = (Math.random() * Integer.MAX_VALUE).toInt()
     private var allowRunnables = true
 
-    val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled) Throwable() else null
+    val stack = if (TransientEntityStoreImpl.logger.isDebugEnabled()) Throwable() else null
 
     private var flushing = false
 
@@ -167,7 +168,7 @@ class TransientSessionImpl(
     }
 
     override fun revert() {
-        logger.debug("Revert transient session ${this}")
+        logger.debug { "Revert transient session ${this}" }
         assertOpen("revert")
 
         if (!persistentTransactionInternal.isReadonly) {
@@ -183,12 +184,12 @@ class TransientSessionImpl(
         if (store.threadSession !== this) throw IllegalStateException("Cannot commit session from another thread")
 
 
-        logger.debug("Intermediate commit transient session ${this}")
+        logger.debug { "Intermediate commit transient session ${this}" }
 
         assertOpen("flush")
 
         if (changes.isEmpty()) {
-            logger.trace("Nothing to flush")
+            logger.trace { "Nothing to flush" }
         } else {
             flushChanges()
             changes.clear()
@@ -227,7 +228,7 @@ class TransientSessionImpl(
         if (store.threadSession !== this)
             throw IllegalStateException("Cannot abort session that is not current thread session. Current thread session is [${store.threadSession}]")
 
-        logger.debug("Abort transient session ${this}")
+        logger.debug { "Abort transient session ${this}" }
 
         assertOpen("abort")
         try {
@@ -289,7 +290,7 @@ class TransientSessionImpl(
     }
 
     private fun closePersistentSession() {
-        logger.debug("Close persistent session for transient session ${this}")
+        logger.debug { "Close persistent session for transient session ${this}" }
 
         store.persistentStore.currentTransaction?.abort()
         txnWhichWasUpgraded?.abort()
@@ -338,7 +339,7 @@ class TransientSessionImpl(
                 ) {
                     if (entityMetaData.removeOrphan) {
                         // has no parent - remove
-                        logger.debug("Remove orphan: $changedEntity")
+                        logger.debug { "Remove orphan: $changedEntity" }
 
                         // we don't want this change to be repeated on flush
                         deleteEntityInternal(changedEntity)
@@ -482,7 +483,7 @@ class TransientSessionImpl(
         val modelMetaData = store.modelMetaData
 
         if (quietFlush || /* for tests only */ modelMetaData == null) {
-            logger.warn("Quiet intermediate commit: skip before flush triggers. $this")
+            logger.warn { "Quiet intermediate commit: skip before flush triggers. $this" }
             return
         }
 
@@ -560,7 +561,7 @@ class TransientSessionImpl(
             allowRunnables = true
         }
 
-        logger.trace("Flush persistent transaction in transient session ${this}")
+        logger.trace { "Flush persistent transaction in transient session ${this}" }
 
     }
 
@@ -745,7 +746,7 @@ class TransientSessionImpl(
             try {
                 ep.flushed(this, oldChangesTracker, changesDescription)
             } catch (e: Exception) {
-                logger.error("Exception while inside events multiplexer", e)
+                logger.error(e) { "Exception while inside events multiplexer" }
                 oldChangesTracker.dispose()
             }
         }

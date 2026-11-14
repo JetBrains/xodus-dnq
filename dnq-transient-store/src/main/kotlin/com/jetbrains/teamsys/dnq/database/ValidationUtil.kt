@@ -15,12 +15,12 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.*
-import mu.NamedKLogging
 
 object ValidationUtil {
-    private val logger = NamedKLogging(ValidationUtil::class.java.name).logger
+    private val logger = KotlinLogging.logger(ValidationUtil::class.java.name)
 
     @JvmStatic
     fun validateEntity(entity: Entity, modelMetaData: ModelMetaData) {

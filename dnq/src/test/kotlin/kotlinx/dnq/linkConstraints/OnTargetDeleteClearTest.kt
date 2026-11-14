@@ -16,12 +16,12 @@
 package kotlinx.dnq.linkConstraints
 
 import com.google.common.truth.Truth.assertThat
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.entitystore.Entity
 import kotlinx.dnq.*
 import kotlinx.dnq.link.OnDeletePolicy
 import kotlinx.dnq.query.first
 import kotlinx.dnq.query.toList
-import mu.KLogging
 import org.junit.Test
 import java.util.*
 import java.util.concurrent.Semaphore
@@ -31,7 +31,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class OnTargetDeleteClearTest : DBTest() {
-    companion object : KLogging()
+    companion object {
+        val logger = KotlinLogging.logger {}
+    }
 
     override fun registerEntityTypes() {
         XdModel.registerNodes(CLicense, CApplication, DParent, DChild, EApplication, ELicense)

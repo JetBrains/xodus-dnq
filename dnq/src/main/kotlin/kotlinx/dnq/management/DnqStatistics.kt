@@ -15,9 +15,9 @@
  */
 package kotlinx.dnq.management
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.util.XdPropertyCachedProvider
-import mu.KLogging
 import java.lang.management.ManagementFactory
 import javax.management.ObjectName
 
@@ -25,7 +25,9 @@ const val OBJECT_NAME_PREFIX = "kotlinx.dnq: type=DnqStatistics"
 
 class DnqStatistics : DnqStatisticsMBean {
 
-    companion object : KLogging()
+    companion object {
+        val logger = KotlinLogging.logger {}
+    }
 
     override val delegatesCacheSize: Int
         get() = XdPropertyCachedProvider.cache.size()

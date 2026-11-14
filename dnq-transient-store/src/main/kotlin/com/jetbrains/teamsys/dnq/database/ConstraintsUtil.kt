@@ -19,6 +19,7 @@ import com.jetbrains.teamsys.dnq.association.AggregationAssociationSemantics
 import com.jetbrains.teamsys.dnq.association.AssociationSemantics
 import com.jetbrains.teamsys.dnq.association.DirectedAssociationSemantics
 import com.jetbrains.teamsys.dnq.association.UndirectedAssociationSemantics
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.core.dataStructures.decorators.HashSetDecorator
 import jetbrains.exodus.database.TransientChangesTracker
 import jetbrains.exodus.database.TransientEntity
@@ -29,9 +30,10 @@ import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.database.exceptions.NullPropertyException
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.query.metadata.*
-import mu.KLogging
 
-object ConstraintsUtil: KLogging() {
+object ConstraintsUtil {
+
+    val logger = KotlinLogging.logger {}
 
     @JvmStatic
     fun checkCardinality(e: TransientEntity, md: AssociationEndMetaData): Boolean {
@@ -137,7 +139,7 @@ object ConstraintsUtil: KLogging() {
                                     entityMetaData.getAssociationEndMetaData(changedLinkName)
                                             .also { associationEndMetaData ->
                                                 if (associationEndMetaData == null) {
-                                                    logger.debug("Cannot check cardinality for link [${changedEntity.type}.$changedLinkName]. Association end metadata for it is undefined")
+                                                    logger.debug { "Cannot check cardinality for link [${changedEntity.type}.$changedLinkName]. Association end metadata for it is undefined" }
                                                 }
                                             }
                                 }
@@ -526,7 +528,7 @@ object ConstraintsUtil: KLogging() {
         return if (propertyMetaData != null) {
             propertyMetaData.type
         } else {
-            logger.warn("Cannot determine property type. Try to get property value as if it of primitive type.")
+            logger.warn { "Cannot determine property type. Try to get property value as if it of primitive type." }
             PropertyType.PRIMITIVE
         }
     }
