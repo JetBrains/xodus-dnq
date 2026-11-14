@@ -15,11 +15,11 @@
  */
 package jetbrains.exodus.entitystore
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.core.dataStructures.hash.HashMap
 import jetbrains.exodus.database.*
 import jetbrains.exodus.database.exceptions.DataIntegrityViolationException
 import jetbrains.exodus.entitystore.listeners.ListenerInvocationsImpl
-import mu.KLogging
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -34,7 +34,9 @@ open class TransientChangesMultiplexer :
     private val rwl = ReentrantReadWriteLock()
     private var isOpen = true
 
-    companion object : KLogging()
+    companion object {
+        val logger = KotlinLogging.logger {}
+    }
 
     override fun flushed(session: TransientStoreSession, changedEntities: Set<TransientEntityChange>) {
         // do nothing. actual job is in flushed(changesTracker)

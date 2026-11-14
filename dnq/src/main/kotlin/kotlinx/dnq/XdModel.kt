@@ -16,6 +16,7 @@
 package kotlinx.dnq
 
 import com.jetbrains.teamsys.dnq.database.TransientEntityImpl
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.core.dataStructures.LongObjectCacheBase
 import jetbrains.exodus.core.dataStructures.SoftConcurrentLongObjectCache
 import jetbrains.exodus.entitystore.Entity
@@ -26,7 +27,6 @@ import kotlinx.dnq.singleton.XdSingletonEntitiesCache
 import kotlinx.dnq.util.XdHierarchyNode
 import kotlinx.dnq.util.entityType
 import kotlinx.dnq.util.parent
-import mu.KLogging
 import org.reflections.Reflections
 import org.reflections.util.ClasspathHelper
 import org.reflections.util.ConfigurationBuilder
@@ -39,7 +39,8 @@ import kotlin.reflect.full.getExtensionDelegate
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.jvmErasure
 
-object XdModel : KLogging() {
+object XdModel {
+    val logger = KotlinLogging.logger {}
     const val JAVA_CLASSPATH = "java_classpath"
     const val WEB_CLASSPATH = "web_classpath"
 

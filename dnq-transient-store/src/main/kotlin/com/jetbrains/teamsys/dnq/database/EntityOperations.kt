@@ -15,14 +15,14 @@
  */
 package com.jetbrains.teamsys.dnq.database
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jetbrains.exodus.core.dataStructures.hash.HashSet
 import jetbrains.exodus.database.TransientEntity
 import jetbrains.exodus.entitystore.Entity
-import mu.NamedKLogging
 
 // TODO: move this class to the associations semantics package
 object EntityOperations {
-    private val logger = NamedKLogging(EntityOperations::class.java.name).logger
+    private val logger = KotlinLogging.logger(EntityOperations::class.java.name)
 
     @JvmStatic
     fun remove(e: Entity?) {
