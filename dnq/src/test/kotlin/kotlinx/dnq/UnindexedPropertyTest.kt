@@ -25,16 +25,11 @@ import kotlinx.dnq.query.size
 import kotlinx.dnq.query.toList
 import kotlinx.dnq.store.container.StaticStoreContainer
 import org.junit.Test
-import kotlin.test.assertFailsWith
 
 /**
  * A property may opt out of the automatic per-property index with `indexed = false`.
- *
- * Motivation: YouTrackDB indexes every simple property, and a B-tree index key may not exceed
- * `BTREE_MAX_KEY_SIZE` - 30% of the page size, i.e. ~2457 bytes with the default 8 KB page. Writing a longer
- * value into an indexed property fails with `TooBigIndexKeyException`, so an unbounded string had no way to
- * live in a plain property at all. Each test below has its indexed twin as a negative control, so the tests
- * fail if the opt-out silently stops taking effect.
+ * YouTrackDB shortens oversized string keys in single-field indexes without changing the stored
+ * value. Cover both the opt-out and exact equality lookups on the indexed property.
  */
 class UnindexedPropertyTest : DBTest() {
 
@@ -78,19 +73,23 @@ class UnindexedPropertyTest : DBTest() {
     }
 
     @Test
-    fun `indexed property still rejects a value larger than the index key limit`() {
-        // Negative control: this is exactly what the opt-out exists to avoid, and it must keep failing.
-        val e = assertFailsWith<Throwable> {
-            store.transactional {
-                Doc.new { requiredPayload = "short"; indexedPayload = hugeValue }
-            }
+    fun `indexed oversized values keep their full contents and match exactly`() {
+        val firstValue = hugeValue + "a"
+        val secondValue = hugeValue + "b"
+        store.transactional {
+            Doc.new { requiredPayload = "short"; indexedPayload = firstValue }
+            Doc.new { requiredPayload = "short"; indexedPayload = secondValue }
         }
-        val chain = generateSequence<Throwable>(e) { it.cause }
-            .joinToString(" | ") { "${it.javaClass.simpleName}: ${it.message}" }
-        // e.g. TooBigIndexKeyException: Key size is more than allowed, operation was canceled.
-        //      Current key size 10024, allowed 2457 [...] Component Name="Doc_indexedPayload"
-        assertThat(chain).contains("TooBigIndexKeyException")
-        assertThat(chain).contains("Doc_indexedPayload")
+
+        store.transactional {
+            // Both values have the same shortened index key, but equality must use the full value.
+            fun matchingValues(value: String) = Doc.query(Doc::indexedPayload eq value)
+                .toList().map { it.indexedPayload }
+
+            assertThat(matchingValues(firstValue)).containsExactly(firstValue)
+            assertThat(matchingValues(secondValue)).containsExactly(secondValue)
+            assertThat(matchingValues(hugeValue + "c")).isEmpty()
+        }
     }
 
     @Test

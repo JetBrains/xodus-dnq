@@ -59,9 +59,6 @@ import kotlin.io.path.absolutePathString
  *   during, used heap after, all post-GC where meaningful). Off by default because the forced
  *   collections it needs would perturb the timings.
  * - `DNQ_BENCH_FSYNC` / `dnq.bench.fsync` - overrides `youtrackdb.storage.callFsync`
- * - `DNQ_BENCH_COLLECTIONS` / `dnq.bench.collections` - overrides
- *   `youtrackdb.class.collectionsCount` (default 8; each collection costs 5 storage files, and
- *   every created file costs 2 fsyncs, so this dominates on-disk initialization)
  * - `DNQ_BENCH_PROFILE` / `dnq.bench.profile` - sample the measured phases and print the hottest
  *   YTDB/DNQ frames
  * - `DNQ_BENCH_INDEX_BATCH` / `dnq.bench.indexBatch` (default 0 = one transaction for the whole
@@ -848,12 +845,6 @@ class SchemaInitBenchmark {
                 if (fsync.isNotEmpty()) {
                     com.jetbrains.youtrackdb.api.config.GlobalConfiguration.STORAGE_CALL_FSYNC
                         .setValue(fsync.toBoolean())
-                }
-            }
-            config("COLLECTIONS", "collections", "").let { collections ->
-                if (collections.isNotEmpty()) {
-                    com.jetbrains.youtrackdb.api.config.GlobalConfiguration.CLASS_COLLECTIONS_COUNT
-                        .setValue(collections.toInt())
                 }
             }
             val params = YTDBDatabaseParams.builder()
