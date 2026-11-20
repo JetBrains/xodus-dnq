@@ -40,6 +40,7 @@ import jetbrains.exodus.query.metadata.RegistrationCategory.NON_NATURAL
 import jetbrains.exodus.query.metadata.ScalarDeclaration
 import jetbrains.exodus.query.metadata.TypeDeclaration
 import jetbrains.exodus.util.LightOutputStream
+import kotlinx.dnq.simple.RequireIfConstraint
 import kotlinx.dnq.simple.XdConstrainedProperty
 import kotlinx.dnq.simple.XdNullableProperty
 import kotlinx.dnq.simple.XdPropertyRequirement
@@ -71,9 +72,11 @@ import kotlinx.dnq.util.MissingDeclarationFact
 import kotlinx.dnq.util.ScalarConstraintFacts
 import kotlinx.dnq.util.XdHierarchyNode
 import kotlinx.dnq.util.captureTypeDeclaration
+import kotlinx.dnq.util.getPropertyConstraints
 import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import java.util.Collections
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
@@ -82,11 +85,24 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class ModelDeclarationCaptureTest {
     class Plain(entity: Entity) : XdEntity(entity) {
         companion object : XdNaturalEntityType<Plain>("DeclarationCapturePlain")
         val value by xdStringProp()
+        val javaEmpty by XdNullableProperty<Plain, String>(String::class.java, null, Collections.emptyList())
+    }
+
+    class WrappedConstraints(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<WrappedConstraints>("DeclarationCaptureWrappedConstraints") {
+            val required = RequireIfConstraint<WrappedConstraints, String?>(null) { error("Conditional predicate") }
+            val storageConstraints = GuardedList<PropertyConstraint<String?>>(required, Opaque())
+        }
+
+        val double by XdNullableProperty<WrappedConstraints, String>(String::class.java, null, storageConstraints)
+            .wrap<WrappedConstraints, String?, Int?>({ error("Wrap conversion") }, { error("Unwrap conversion") })
+            .wrap<WrappedConstraints, Int?, Long?>({ error("Wrap conversion") }, { error("Unwrap conversion") })
     }
 
     abstract class Root(entity: Entity) : XdEntity(entity) {
@@ -124,6 +140,7 @@ class ModelDeclarationCaptureTest {
             )
             override val compositeIndices get() = indexesProbe.read(indexLists)
             val tokenConstraints = GuardedList<PropertyConstraint<Token?>>()
+            val tokenConstraintsGetter = Probe()
             val tokenMetadata = Probe()
             val tokenBinding = Probe()
             var bindingValue: XdCustomTypeBinding<Token>? = TrappingBinding
@@ -198,6 +215,7 @@ class ModelDeclarationCaptureTest {
     class DirectTokenProperty : XdConstrainedProperty<S, Token?>(
         null, S.tokenConstraints, XdPropertyRequirement.OPTIONAL, PRIMITIVE
     ), XdCustomTypeProperty<Token> {
+        override val constraints get() = S.tokenConstraintsGetter.read(S.tokenConstraints)
         override val dbPropertyName get() = S.tokenMetadata.read("custom_token")
         override val requirement get() = S.tokenMetadata.read(XdPropertyRequirement.OPTIONAL)
         override val propertyType get() = S.tokenMetadata.read(PRIMITIVE)
@@ -259,7 +277,7 @@ class ModelDeclarationCaptureTest {
 
     private fun <T> withoutModelReads(vararg extra: Probe, action: () -> T): T {
         val probes = listOf(Root.nameProbe, S.nameProbe, S.indexesProbe, S.indexLists.traversal,
-            S.firstIndex.traversal, S.tokenConstraints.traversal, S.tokenMetadata, S.tokenBinding) + extra
+            S.firstIndex.traversal, S.tokenConstraintsGetter, S.tokenConstraints.traversal, S.tokenMetadata, S.tokenBinding) + extra
         val before = probes.map { it.reads }
         probes.forEach { it.armed = true }
         try {
@@ -270,12 +288,59 @@ class ModelDeclarationCaptureTest {
         }
     }
 
+    private fun <T> withRegisteredIndexes(vararg indexes: List<KProperty1<S, *>>, action: () -> T): T {
+        val original = S.indexLists.toList()
+        try {
+            S.indexLists.clear()
+            S.indexLists.addAll(indexes)
+            return action()
+        } finally {
+            S.indexLists.clear()
+            S.indexLists.addAll(original)
+        }
+    }
+
     @Test
     fun `capture uses proven defaults without supplied facts`() {
         val plain = XdModel.registerNode(Plain)
+        val slot = plain.simpleProperties.getValue("javaEmpty")
+        assertSame<List<*>>(Collections.emptyList<PropertyConstraint<String?>>(), slot.delegate.constraints)
         assertDeclaration(TypeDeclaration("DeclarationCapturePlain", false, emptyList(), NATURAL,
-            scalars = listOf(scalar("DeclarationCapturePlain", "value")), identity = identity),
-            plain.captureTypeDeclaration())
+            scalars = listOf(scalar("DeclarationCapturePlain", "value"), scalar("DeclarationCapturePlain", "javaEmpty")),
+            identity = identity), plain.captureTypeDeclaration())
+        val failure = assertFailsWith<IllegalArgumentException> {
+            plain.captureTypeDeclaration(CONSTRAINTS.at(plain, ScalarConstraintFacts(false, opaque), slot))
+        }
+        assertEquals("Cannot override declaration fact constraints for ${Plain.javaClass.name}::javaEmpty", failure.message)
+    }
+
+    @Test
+    fun `known conditional membership survives opaque storage constraints`() {
+        val node = XdModel.registerNode(WrappedConstraints)
+        val slot = node.simpleProperties.getValue("double")
+        val list = WrappedConstraints.storageConstraints
+        val iterator = list.traversal.observe { list.iterator() }
+        assertSame(WrappedConstraints.required, iterator.next())
+        assertEquals<Class<*>>(Opaque::class.java, iterator.next().javaClass)
+        assertTrue(getPropertyConstraints(slot.delegate).isEmpty())
+
+        val conditional = ConstraintDeclaration(ConstraintKind.CUSTOM, "kotlinx.dnq.simple.RequireIfConstraint", CUSTOM)
+        withoutModelReads(list.traversal) {
+            fun verifyOmission() {
+                val failure = assertFailsWith<MissingDeclarationFact> { node.captureTypeDeclaration() }
+                assertEquals("Missing declaration fact constraints for ${WrappedConstraints.javaClass.name}::double", failure.message)
+            }
+            verifyOmission()
+            val failure = assertFailsWith<IllegalArgumentException> {
+                node.captureTypeDeclaration(CONSTRAINTS.at(node, ScalarConstraintFacts(true, conditional, opaque), slot))
+            }
+            assertEquals("Cannot override declaration fact conditional requiredness for ${WrappedConstraints.javaClass.name}::double",
+                failure.message)
+            val result = node.captureTypeDeclaration(CONSTRAINTS.at(node, ScalarConstraintFacts(false, conditional, opaque), slot))
+            assertEquals(listOf(conditional, opaque), result.scalars.single().constraints)
+            assertEquals(emptySet(), result.conditionalRequiredCandidates)
+            verifyOmission()
+        }
     }
 
     @Test
@@ -334,8 +399,11 @@ class ModelDeclarationCaptureTest {
             child.simpleProperties["label"] = checkNotNull(child.simpleProperties.remove("label"))
 
             assertDeclaration(expectedChild(), snapshot)
+            assertEquals(listOf("target", "required"), oldIndex.indexes.first())
             assertEquals(childIndexes, child.captureTypeDeclaration(*childFacts(oldIndex)).indexes)
-            val current = child.captureTypeDeclaration(*childFacts(ExplicitIndexFacts(firstFields)))
+            val current = withRegisteredIndexes(listOf(S::required, S::target)) {
+                child.captureTypeDeclaration(*childFacts(ExplicitIndexFacts(firstFields)))
+            }
             assertEquals("label", current.scalars.last().property.kotlinName)
             assertEquals(
                 listOf(rawLength.copy(minLength = 42), subclassLength, opaque),
@@ -359,10 +427,14 @@ class ModelDeclarationCaptureTest {
     }
 
     @Test
-    fun `unregistered composite field fails explicitly`() = withoutModelReads {
-        val badIndexes = ExplicitIndexFacts(arrayOf("target", "notRegistered"))
-        val failure = assertFailsWith<IllegalArgumentException> { child.captureTypeDeclaration(*childFacts(badIndexes)) }
-        assertEquals("Cannot build composite index by property DeclarationCaptureS::notRegistered", failure.message)
+    fun `unregistered composite field fails explicitly`() {
+        withRegisteredIndexes(listOf(S::target, S::notRegistered)) {
+            withoutModelReads {
+                val badIndexes = ExplicitIndexFacts(arrayOf("target", "notRegistered"))
+                val failure = assertFailsWith<IllegalArgumentException> { child.captureTypeDeclaration(*childFacts(badIndexes)) }
+                assertEquals("Cannot build composite index by property DeclarationCaptureS::notRegistered", failure.message)
+            }
+        }
     }
 
     @Test
@@ -371,8 +443,10 @@ class ModelDeclarationCaptureTest {
         val indexes = S.indexesProbe.observe { S.compositeIndices }
         assertSame(S.firstIndex, S.indexLists.traversal.observe { indexes.iterator() }.next())
         S.firstIndex.traversal.observe { S.firstIndex.iterator() }
-        S.tokenConstraints.traversal.observe { S.tokenConstraints.iterator() }
         val delegate = child.simpleProperties.getValue("custom").delegate as DirectTokenProperty
+        val constraints = S.tokenConstraintsGetter.observe { delegate.constraints }
+        assertSame(S.tokenConstraints, constraints)
+        S.tokenConstraints.traversal.observe { constraints.iterator() }
         assertSame(TrappingBinding, S.tokenBinding.observe { delegate.binding })
 
         withoutModelReads {
@@ -409,12 +483,16 @@ class ModelDeclarationCaptureTest {
             } finally {
                 S.currentName = "DeclarationCaptureS"
             }
+        }
 
+        withRegisteredIndexes {
             S.bindingValue = null
             try {
-                val result = child.captureTypeDeclaration(*childFacts(ExplicitIndexFacts(), binding = null))
-                assertEquals(emptyList(), result.indexes)
-                assertNull(result.scalars.single { it.property.kotlinName == "custom" }.customType)
+                withoutModelReads {
+                    val result = child.captureTypeDeclaration(*childFacts(ExplicitIndexFacts(), binding = null))
+                    assertEquals(emptyList(), result.indexes)
+                    assertNull(result.scalars.single { it.property.kotlinName == "custom" }.customType)
+                }
             } finally {
                 S.bindingValue = TrappingBinding
             }

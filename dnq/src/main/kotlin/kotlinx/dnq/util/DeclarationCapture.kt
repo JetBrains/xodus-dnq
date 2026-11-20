@@ -264,11 +264,37 @@ private class TypeCapture(evidence: Array<out DeclarationFact<*>>) {
             } else null)
         val requirement = fact(DeclarationFactKind.REQUIREMENT, node, scalar, key,
             if (storage.usesGetter("getRequirement", base)) DeclarationRequirement.valueOf(storage.requirement.name) else null)
-        val constraints = fact(DeclarationFactKind.CONSTRAINTS, node, scalar, key, direct.safeConstraints(storage))
+        val constraints = constraints(node, key, scalar, direct, storage)
         val binding = fact(DeclarationFactKind.BINDING, node, scalar, key, direct.safeBinding())
         if (constraints.conditionalRequired) conditionalCandidates.add(databaseName)
         return ScalarDeclaration(DeclarationPropertyId(owner, name), databaseName, kind, type.name, type.parameters,
             indexed, requirement, constraints.descriptors, binding.descriptor)
+    }
+
+    private fun constraints(
+        node: XdHierarchyNode,
+        key: String,
+        scalar: XdHierarchyNode.SimpleProperty,
+        direct: XdConstrainedProperty<*, *>,
+        storage: XdConstrainedProperty<*, *>
+    ): ScalarConstraintFacts {
+        val list = storage.safeConstraintList()
+        // Legacy membership unwraps once. An inner wrapper has its own empty list.
+        val knownCandidate = if (direct is XdWrappedProperty<*, *, *> && direct.wrapped !== storage) {
+            false
+        } else {
+            list?.any { it is RequireIfConstraint<*, *> }
+        }
+        val known = list?.let {
+            ScalarConstraintFacts(
+                checkNotNull(knownCandidate), *it.map { constraint -> constraint.captureDeclaration() }.toTypedArray()
+            )
+        }
+        val result = fact(DeclarationFactKind.CONSTRAINTS, node, scalar, key, known)
+        require(knownCandidate == null || knownCandidate == result.conditionalRequired) {
+            "Cannot override declaration fact conditional requiredness for ${node.entityType.javaClass.name}::$key"
+        }
+        return result
     }
 }
 
@@ -281,14 +307,12 @@ private fun Any.usesGetter(name: String, vararg audited: Class<*>): Boolean {
 private tailrec fun XdConstrainedProperty<*, *>.storageDelegate(): XdConstrainedProperty<*, *> =
     if (this is XdWrappedProperty<*, *, *>) wrapped.storageDelegate() else this
 
-private fun XdConstrainedProperty<*, *>.safeConstraints(storage: XdConstrainedProperty<*, *>): ScalarConstraintFacts? {
-    if (!storage.usesGetter("getConstraints", XdConstrainedProperty::class.java)) return null
-    val constraints = storage.constraints
-    if (constraints.javaClass !== ArrayList::class.java && constraints.javaClass !== emptyList<Any>().javaClass) return null
-    // Bounds describe the storage constraints. Legacy conditional membership unwraps at most one layer.
-    val candidate = (this !is XdWrappedProperty<*, *, *> || wrapped === storage) &&
-        constraints.any { it is RequireIfConstraint<*, *> }
-    return ScalarConstraintFacts(candidate, *constraints.map { it.captureDeclaration() }.toTypedArray())
+private fun XdConstrainedProperty<*, *>.safeConstraintList(): List<PropertyConstraint<*>>? {
+    if (!usesGetter("getConstraints", XdConstrainedProperty::class.java)) return null
+    val list = constraints
+    return list.takeIf {
+        it.javaClass === ArrayList::class.java || it === emptyList<Any>() || it === Collections.emptyList<Any>()
+    }
 }
 
 private fun XdConstrainedProperty<*, *>.safeBinding(): DirectBindingFact? = when (this) {
