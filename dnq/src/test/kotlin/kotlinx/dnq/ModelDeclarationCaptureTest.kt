@@ -54,9 +54,11 @@ import kotlinx.dnq.simple.wrap
 import kotlinx.dnq.simple.xdNullableProp
 import kotlinx.dnq.simple.xdProp
 import kotlinx.dnq.store.container.StaticStoreContainer
+import kotlinx.dnq.util.ConstraintDescriptors
 import kotlinx.dnq.util.DeclarationFact
 import kotlinx.dnq.util.DeclarationFactKind.Companion.AUTO_INDEXED
 import kotlinx.dnq.util.DeclarationFactKind.Companion.BINDING
+import kotlinx.dnq.util.DeclarationFactKind.Companion.CONDITIONAL_REQUIRED
 import kotlinx.dnq.util.DeclarationFactKind.Companion.CONSTRAINTS
 import kotlinx.dnq.util.DeclarationFactKind.Companion.DATABASE_NAME
 import kotlinx.dnq.util.DeclarationFactKind.Companion.INDEXES
@@ -69,13 +71,13 @@ import kotlinx.dnq.util.DirectBindingFact
 import kotlinx.dnq.util.ExplicitIndexFacts
 import kotlinx.dnq.util.LogicalScalarType
 import kotlinx.dnq.util.MissingDeclarationFact
-import kotlinx.dnq.util.ScalarConstraintFacts
 import kotlinx.dnq.util.XdHierarchyNode
 import kotlinx.dnq.util.captureTypeDeclaration
 import kotlinx.dnq.util.getPropertyConstraints
 import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import java.util.Arrays
 import java.util.Collections
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
@@ -92,6 +94,53 @@ class ModelDeclarationCaptureTest {
         companion object : XdNaturalEntityType<Plain>("DeclarationCapturePlain")
         val value by xdStringProp()
         val javaEmpty by XdNullableProperty<Plain, String>(String::class.java, null, Collections.emptyList())
+    }
+
+    class ConstraintLists(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<ConstraintLists>("DeclarationCaptureConstraintLists") {
+            val required = RequireIfConstraint<ConstraintLists, String?>(null) { error("Conditional predicate") }
+            val elementProbe = Probe()
+            val guarded = Opaque(elementProbe)
+            val shared = arrayOf<PropertyConstraint<String?>>(required, guarded)
+        }
+
+        private fun property(name: String, list: List<PropertyConstraint<String?>>) =
+            XdNullableProperty<ConstraintLists, String>(String::class.java, name, list)
+
+        val arrayList by property("array_list", arrayListOf(guarded, LengthSubclass(), guarded))
+        val kotlinEmpty by property("kotlin_empty", emptyList())
+        val kotlinZero by property("kotlin_zero", listOf())
+        val kotlinOne by property("kotlin_one", listOf(required))
+        val kotlinMany by property("kotlin_many", listOf(LengthSubclass(), required))
+        val arraysZero by property("arrays_zero", Arrays.asList())
+        val arraysMany by property("arrays_many", Arrays.asList(required, guarded))
+        val listOfZero by property("list_of_zero", java.util.List.of())
+        val listOfOne by property("list_of_one", java.util.List.of(guarded))
+        val listOfTwo by property("list_of_two", java.util.List.of(required, guarded))
+        val listOfMany by property("list_of_many", java.util.List.of(guarded, required, guarded))
+        val javaEmpty by property("java_empty", Collections.emptyList())
+        val javaSingleton by property("java_singleton", Collections.singletonList(required))
+        val copiesZero by property("copies_zero", Collections.nCopies(0, required))
+        val copiesMany by property("copies_many", Collections.nCopies(3, required))
+        val sharedArray by property("shared_array", shared.asList())
+        val single by property("single_wrap", listOf(required))
+            .wrap<ConstraintLists, String?, Int?>({ error("Wrap conversion") }, { error("Unwrap conversion") })
+        val double by property("double_wrap", listOf(required))
+            .wrap<ConstraintLists, String?, Int?>({ error("Wrap conversion") }, { error("Unwrap conversion") })
+            .wrap<ConstraintLists, Int?, Long?>({ error("Wrap conversion") }, { error("Unwrap conversion") })
+    }
+
+    class OpaqueConstraints(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<OpaqueConstraints>("DeclarationCaptureOpaqueConstraints") {
+            val required = RequireIfConstraint<OpaqueConstraints, String?>(null) { error("Conditional predicate") }
+            val directList = GuardedList<PropertyConstraint<String?>>(required)
+            val backing = GuardedList<PropertyConstraint<String?>>(required)
+            val delegating = Collections.unmodifiableList(backing)
+        }
+
+        val direct by XdNullableProperty<OpaqueConstraints, String>(String::class.java, "direct_db", directList)
+        val single by XdNullableProperty<OpaqueConstraints, String>(String::class.java, "single_db", delegating)
+            .wrap<OpaqueConstraints, String?, Int?>({ error("Wrap conversion") }, { error("Unwrap conversion") })
     }
 
     class WrappedConstraints(entity: Entity) : XdEntity(entity) {
@@ -208,6 +257,7 @@ class ModelDeclarationCaptureTest {
         override fun iterator(): MutableIterator<T> = traversal.read(Unit).let { super.iterator() }
         override fun get(index: Int): T = traversal.read(Unit).let { super.get(index) }
         override val size: Int get() = traversal.read(Unit).let { super.size }
+        override fun isEmpty() = traversal.read(Unit).let { super.isEmpty() }
         override fun toArray(): Array<Any?> = traversal.read(Unit).let { super.toArray() }
         override fun <E> toArray(array: Array<E>): Array<E> = traversal.read(Unit).let { super.toArray(array) }
     }
@@ -247,9 +297,12 @@ class ModelDeclarationCaptureTest {
         override fun isValid(value: Long?): Boolean = error("Range subclass validator")
     }
 
-    class Opaque : PropertyConstraint<String?>() {
+    class Opaque(private val probe: Probe? = null) : PropertyConstraint<String?>() {
         override fun isValid(value: String?): Boolean = error("Opaque validator")
         override fun getExceptionMessage(propertyName: String, propertyValue: String?): String = error("Opaque message")
+        override fun equals(other: Any?) = probe?.read(this === other) ?: (this === other)
+        override fun hashCode() = probe?.read(System.identityHashCode(this)) ?: System.identityHashCode(this)
+        override fun toString() = probe?.read("Opaque constraint") ?: super.toString()
     }
 
     private lateinit var child: XdHierarchyNode
@@ -272,7 +325,8 @@ class ModelDeclarationCaptureTest {
         return arrayOf(rootName(), TYPE_NAME.at(child, currentName), INDEXES.at(child, indexes),
             DATABASE_NAME.at(child, "custom_token", slot), KIND.at(child, PRIMITIVE, slot),
             AUTO_INDEXED.at(child, false, slot), REQUIREMENT.at(child, OPTIONAL, slot),
-            CONSTRAINTS.at(child, ScalarConstraintFacts(false), slot), BINDING.at(child, DirectBindingFact(binding), slot))
+            CONSTRAINTS.at(child, ConstraintDescriptors(), slot), CONDITIONAL_REQUIRED.at(child, false, slot),
+            BINDING.at(child, DirectBindingFact(binding), slot))
     }
 
     private fun <T> withoutModelReads(vararg extra: Probe, action: () -> T): T {
@@ -309,7 +363,7 @@ class ModelDeclarationCaptureTest {
             scalars = listOf(scalar("DeclarationCapturePlain", "value"), scalar("DeclarationCapturePlain", "javaEmpty")),
             identity = identity), plain.captureTypeDeclaration())
         val failure = assertFailsWith<IllegalArgumentException> {
-            plain.captureTypeDeclaration(CONSTRAINTS.at(plain, ScalarConstraintFacts(false, opaque), slot))
+            plain.captureTypeDeclaration(CONSTRAINTS.at(plain, ConstraintDescriptors(opaque), slot))
         }
         assertEquals("Cannot override declaration fact constraints for ${Plain.javaClass.name}::javaEmpty", failure.message)
     }
@@ -324,22 +378,151 @@ class ModelDeclarationCaptureTest {
         assertEquals<Class<*>>(Opaque::class.java, iterator.next().javaClass)
         assertTrue(getPropertyConstraints(slot.delegate).isEmpty())
 
-        val conditional = ConstraintDeclaration(ConstraintKind.CUSTOM, "kotlinx.dnq.simple.RequireIfConstraint", CUSTOM)
         withoutModelReads(list.traversal) {
             fun verifyOmission() {
                 val failure = assertFailsWith<MissingDeclarationFact> { node.captureTypeDeclaration() }
                 assertEquals("Missing declaration fact constraints for ${WrappedConstraints.javaClass.name}::double", failure.message)
             }
             verifyOmission()
-            val failure = assertFailsWith<IllegalArgumentException> {
-                node.captureTypeDeclaration(CONSTRAINTS.at(node, ScalarConstraintFacts(true, conditional, opaque), slot))
+            val descriptors = CONSTRAINTS.at(node, ConstraintDescriptors(conditional, opaque), slot)
+            for (membership in arrayOf(false, true)) {
+                val failure = assertFailsWith<IllegalArgumentException> {
+                    node.captureTypeDeclaration(descriptors, CONDITIONAL_REQUIRED.at(node, membership, slot))
+                }
+                assertEquals("Cannot override declaration fact conditional requiredness for ${WrappedConstraints.javaClass.name}::double",
+                    failure.message)
             }
-            assertEquals("Cannot override declaration fact conditional requiredness for ${WrappedConstraints.javaClass.name}::double",
-                failure.message)
-            val result = node.captureTypeDeclaration(CONSTRAINTS.at(node, ScalarConstraintFacts(false, conditional, opaque), slot))
+            val result = node.captureTypeDeclaration(descriptors)
             assertEquals(listOf(conditional, opaque), result.scalars.single().constraints)
             assertEquals(emptySet(), result.conditionalRequiredCandidates)
             verifyOmission()
+        }
+    }
+
+    @Test
+    fun `audited list families preserve effective facts without replacement evidence`() {
+        val node = XdModel.registerNode(ConstraintLists)
+        val probe = ConstraintLists.elementProbe
+        val guarded = ConstraintLists.guarded
+        probe.observe { guarded.equals(guarded) }
+        probe.observe { guarded.hashCode() }
+        probe.observe { guarded.toString() }
+        assertFailsWith<IllegalStateException> { guarded.isValid(null) }
+        assertFailsWith<IllegalStateException> { guarded.getExceptionMessage("list_of_one", null) }
+        assertTrue(getPropertyConstraints(node.simpleProperties.getValue("double").delegate).isEmpty())
+
+        val expected = mapOf(
+            "arrayList" to listOf(opaque, subclassLength, opaque), "kotlinEmpty" to emptyList(),
+            "kotlinZero" to emptyList(), "kotlinOne" to listOf(conditional),
+            "kotlinMany" to listOf(subclassLength, conditional), "arraysZero" to emptyList(),
+            "arraysMany" to listOf(conditional, opaque), "listOfZero" to emptyList(),
+            "listOfOne" to listOf(opaque), "listOfTwo" to listOf(conditional, opaque),
+            "listOfMany" to listOf(opaque, conditional, opaque), "javaEmpty" to emptyList(),
+            "javaSingleton" to listOf(conditional), "copiesZero" to emptyList(),
+            "copiesMany" to listOf(conditional, conditional, conditional), "sharedArray" to listOf(conditional, opaque),
+            "single" to listOf(conditional), "double" to listOf(conditional)
+        )
+        val candidates = setOf("kotlin_one", "kotlin_many", "arrays_many", "list_of_two", "list_of_many",
+            "java_singleton", "copies_many", "shared_array", "single_wrap")
+        withoutModelReads(probe) {
+            val snapshot = node.captureTypeDeclaration()
+            assertEquals(expected, snapshot.scalars.associate { it.property.kotlinName to it.constraints })
+            assertEquals(candidates, snapshot.conditionalRequiredCandidates)
+
+            // listOfZero is the zero-argument Java List.of() case (RG-3).
+            for ((key, conflicting) in listOf("listOfZero" to listOf(opaque), "listOfMany" to emptyList())) {
+                val slot = node.simpleProperties.getValue(key)
+                for (replacement in listOf(expected.getValue(key), conflicting)) {
+                    val failure = assertFailsWith<IllegalArgumentException> {
+                        node.captureTypeDeclaration(CONSTRAINTS.at(node, ConstraintDescriptors(*replacement.toTypedArray()), slot))
+                    }
+                    assertEquals("Cannot override declaration fact constraints for ${ConstraintLists.javaClass.name}::$key",
+                        failure.message)
+                }
+            }
+            for ((key, membership) in listOf("listOfZero" to false, "single" to true, "double" to false)) {
+                for (replacement in arrayOf(membership, !membership)) {
+                    val failure = assertFailsWith<IllegalArgumentException> {
+                        node.captureTypeDeclaration(CONDITIONAL_REQUIRED.at(node, replacement, node.simpleProperties.getValue(key)))
+                    }
+                    assertEquals("Cannot override declaration fact conditional requiredness for ${ConstraintLists.javaClass.name}::$key",
+                        failure.message)
+                }
+            }
+            try {
+                ConstraintLists.shared[0] = guarded
+                val fresh = node.captureTypeDeclaration()
+                assertEquals(expected + ("sharedArray" to listOf(opaque, opaque)),
+                    fresh.scalars.associate { it.property.kotlinName to it.constraints })
+                assertEquals(candidates - "shared_array", fresh.conditionalRequiredCandidates)
+                assertEquals(expected, snapshot.scalars.associate { it.property.kotlinName to it.constraints })
+                assertEquals(candidates, snapshot.conditionalRequiredCandidates)
+            } finally {
+                ConstraintLists.shared[0] = ConstraintLists.required
+            }
+        }
+    }
+
+    @Test
+    fun `opaque direct and single wrapper evidence agrees with current registered slots`() {
+        val node = XdModel.registerNode(OpaqueConstraints)
+        val direct = node.simpleProperties.getValue("direct")
+        val single = node.simpleProperties.getValue("single")
+        val directList = OpaqueConstraints.directList
+        val backing = OpaqueConstraints.backing
+        assertSame<List<*>>(directList, getPropertyConstraints(direct.delegate))
+        assertSame<List<*>>(OpaqueConstraints.delegating, getPropertyConstraints(single.delegate))
+        for ((probe, list) in listOf(directList.traversal to directList, backing.traversal to OpaqueConstraints.delegating)) {
+            assertEquals(1, probe.observe { list.size })
+            assertSame(OpaqueConstraints.required, probe.observe { list[0] })
+            assertSame(OpaqueConstraints.required, probe.observe { list.iterator() }.next())
+            assertSame(OpaqueConstraints.required, probe.observe { ArrayList(list) }.single())
+        }
+        withoutModelReads(directList.traversal, backing.traversal) {
+            fun missing(fact: String, key: String, vararg supplied: DeclarationFact<*>) {
+                val failure = assertFailsWith<MissingDeclarationFact> { node.captureTypeDeclaration(*supplied) }
+                assertEquals("Missing declaration fact $fact for ${OpaqueConstraints.javaClass.name}::$key", failure.message)
+            }
+            fun evidence(slot: XdHierarchyNode.SimpleProperty, descriptor: ConstraintDeclaration, membership: Boolean) =
+                arrayOf(CONSTRAINTS.at(node, ConstraintDescriptors(descriptor), slot), CONDITIONAL_REQUIRED.at(node, membership, slot))
+
+            val directFacts = evidence(direct, conditional, true)
+            val singleFacts = evidence(single, conditional, true)
+            missing("constraints", "direct")
+            missing("constraints", "direct", CONSTRAINTS.at(child, ConstraintDescriptors(conditional), direct))
+            missing("constraints", "direct", CONSTRAINTS.at(node, ConstraintDescriptors(conditional), direct.copy()))
+            missing("conditional requiredness", "direct", directFacts[0])
+            missing("constraints", "single", *directFacts)
+            missing("conditional requiredness", "single", *directFacts, singleFacts[0])
+
+            for ((descriptor, membership, message) in listOf(
+                Triple(opaque, true, "Conditional requiredness needs a constraint descriptor"),
+                Triple(conditional, false, "Conditional constraint descriptor needs conditional requiredness")
+            )) {
+                for (facts in listOf(evidence(direct, descriptor, membership) + singleFacts,
+                    directFacts + evidence(single, descriptor, membership))) {
+                    assertEquals(message, assertFailsWith<IllegalArgumentException> {
+                        node.captureTypeDeclaration(*facts)
+                    }.message)
+                }
+            }
+            val snapshot = node.captureTypeDeclaration(*directFacts, *singleFacts)
+            assertEquals(listOf(listOf(conditional), listOf(conditional)), snapshot.scalars.map { it.constraints })
+            assertEquals(setOf("direct_db", "single_db"), snapshot.conditionalRequiredCandidates)
+            try {
+                directList[0] = Opaque()
+                backing[0] = Opaque()
+                val fresh = node.captureTypeDeclaration(*evidence(direct, opaque, false), *evidence(single, opaque, false))
+                assertEquals(listOf(listOf(opaque), listOf(opaque)), fresh.scalars.map { it.constraints })
+                assertEquals(emptySet(), fresh.conditionalRequiredCandidates)
+                assertEquals(listOf(listOf(conditional), listOf(conditional)), snapshot.scalars.map { it.constraints })
+                assertEquals(setOf("direct_db", "single_db"), snapshot.conditionalRequiredCandidates)
+                missing("constraints", "direct")
+                missing("constraints", "single", *evidence(direct, opaque, false))
+            } finally {
+                directList[0] = OpaqueConstraints.required
+                backing[0] = OpaqueConstraints.required
+            }
         }
     }
 
@@ -457,7 +640,8 @@ class ModelDeclarationCaptureTest {
                 val diagnostics = listOf(
                     "type name for ${Root.javaClass.name}", "type name for $childId", "explicit indexes for $childId",
                     "database name for $slotId", "scalar kind for $slotId", "auto-indexing for $slotId",
-                    "requiredness for $slotId", "constraints for $slotId", "direct binding for $slotId"
+                    "requiredness for $slotId", "constraints for $slotId", "conditional requiredness for $slotId",
+                    "direct binding for $slotId"
                 )
                 assertEquals(diagnostics.size, supplied.size)
                 for ((omitted, diagnostic) in supplied.zip(diagnostics)) {
@@ -658,4 +842,5 @@ class ModelDeclarationCaptureTest {
     private val subclassLength = ConstraintDeclaration(ConstraintKind.LENGTH, LengthSubclass::class.java.name, SUBCLASS,
         minLength = -7, maxLength = 19)
     private val opaque = ConstraintDeclaration(ConstraintKind.CUSTOM, Opaque::class.java.name, CUSTOM)
+    private val conditional = ConstraintDeclaration(ConstraintKind.CUSTOM, "kotlinx.dnq.simple.RequireIfConstraint", CUSTOM)
 }

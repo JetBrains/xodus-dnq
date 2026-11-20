@@ -40,6 +40,7 @@ import kotlinx.dnq.simple.XdWrappedProperty
 import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
+import java.util.Arrays
 import java.util.Collections
 import java.util.IdentityHashMap
 import kotlin.reflect.KProperty1
@@ -63,7 +64,8 @@ internal class DeclarationFactKind<T : Any> private constructor(val label: Strin
         val KIND = DeclarationFactKind<PropertyType>("scalar kind")
         val AUTO_INDEXED = DeclarationFactKind<Boolean>("auto-indexing")
         val REQUIREMENT = DeclarationFactKind<DeclarationRequirement>("requiredness")
-        val CONSTRAINTS = DeclarationFactKind<ScalarConstraintFacts>("constraints")
+        val CONSTRAINTS = DeclarationFactKind<ConstraintDescriptors>("constraints")
+        val CONDITIONAL_REQUIRED = DeclarationFactKind<Boolean>("conditional requiredness")
         val BINDING = DeclarationFactKind<DirectBindingFact>("direct binding")
     }
 }
@@ -86,14 +88,8 @@ internal class LogicalScalarType(val name: String, parameters: Array<out String>
     val parameters: List<String>? = parameters?.let { Collections.unmodifiableList(it.toList()) }
 }
 
-internal class ScalarConstraintFacts(val conditionalRequired: Boolean, vararg descriptors: ConstraintDeclaration) {
-    val descriptors: List<ConstraintDeclaration> = Collections.unmodifiableList(descriptors.toList())
-
-    init {
-        require(!conditionalRequired || this.descriptors.any { it.implementationId == RequireIfConstraint::class.java.name }) {
-            "Conditional requiredness needs a constraint descriptor"
-        }
-    }
+internal class ConstraintDescriptors(vararg descriptors: ConstraintDeclaration) {
+    val values: List<ConstraintDeclaration> = Collections.unmodifiableList(descriptors.toList())
 }
 
 internal class DirectBindingFact(val descriptor: CustomTypeDeclaration?) {
@@ -264,11 +260,11 @@ private class TypeCapture(evidence: Array<out DeclarationFact<*>>) {
             } else null)
         val requirement = fact(DeclarationFactKind.REQUIREMENT, node, scalar, key,
             if (storage.usesGetter("getRequirement", base)) DeclarationRequirement.valueOf(storage.requirement.name) else null)
-        val constraints = constraints(node, key, scalar, direct, storage)
+        val (descriptors, conditionalRequired) = constraints(node, key, scalar, direct, storage)
         val binding = fact(DeclarationFactKind.BINDING, node, scalar, key, direct.safeBinding())
-        if (constraints.conditionalRequired) conditionalCandidates.add(databaseName)
+        if (conditionalRequired) conditionalCandidates.add(databaseName)
         return ScalarDeclaration(DeclarationPropertyId(owner, name), databaseName, kind, type.name, type.parameters,
-            indexed, requirement, constraints.descriptors, binding.descriptor)
+            indexed, requirement, descriptors, binding.descriptor)
     }
 
     private fun constraints(
@@ -277,24 +273,33 @@ private class TypeCapture(evidence: Array<out DeclarationFact<*>>) {
         scalar: XdHierarchyNode.SimpleProperty,
         direct: XdConstrainedProperty<*, *>,
         storage: XdConstrainedProperty<*, *>
-    ): ScalarConstraintFacts {
-        val list = storage.safeConstraintList()
+    ): Pair<List<ConstraintDeclaration>, Boolean> {
         // Legacy membership unwraps once. An inner wrapper has its own empty list.
-        val knownCandidate = if (direct is XdWrappedProperty<*, *, *> && direct.wrapped !== storage) {
-            false
-        } else {
-            list?.any { it is RequireIfConstraint<*, *> }
+        val sameList = direct !is XdWrappedProperty<*, *, *> || direct.wrapped === storage
+        val list = storage.safeConstraintList()
+        if (list != null) {
+            val kind = DeclarationFactKind.CONSTRAINTS
+            require(FactAddress(kind, node, scalar) !in supplied) {
+                "Cannot override declaration fact ${kind.label} for ${node.entityType.javaClass.name}::$key"
+            }
+            var conditional = false
+            val descriptors = List(list.size) { index ->
+                val constraint = list[index]
+                if (sameList && constraint is RequireIfConstraint<*, *>) conditional = true
+                constraint.captureDeclaration()
+            }
+            val membership = fact(DeclarationFactKind.CONDITIONAL_REQUIRED, node, scalar, key, conditional)
+            return descriptors to membership
         }
-        val known = list?.let {
-            ScalarConstraintFacts(
-                checkNotNull(knownCandidate), *it.map { constraint -> constraint.captureDeclaration() }.toTypedArray()
-            )
+
+        val descriptors = fact(DeclarationFactKind.CONSTRAINTS, node, scalar, key, known = null).values
+        val membership = fact(DeclarationFactKind.CONDITIONAL_REQUIRED, node, scalar, key, if (sameList) null else false)
+        if (sameList) {
+            val hasConditional = descriptors.any { it.implementationId == RequireIfConstraint::class.java.name }
+            require(!membership || hasConditional) { "Conditional requiredness needs a constraint descriptor" }
+            require(membership || !hasConditional) { "Conditional constraint descriptor needs conditional requiredness" }
         }
-        val result = fact(DeclarationFactKind.CONSTRAINTS, node, scalar, key, known)
-        require(knownCandidate == null || knownCandidate == result.conditionalRequired) {
-            "Cannot override declaration fact conditional requiredness for ${node.entityType.javaClass.name}::$key"
-        }
-        return result
+        return descriptors to membership
     }
 }
 
@@ -307,12 +312,24 @@ private fun Any.usesGetter(name: String, vararg audited: Class<*>): Boolean {
 private tailrec fun XdConstrainedProperty<*, *>.storageDelegate(): XdConstrainedProperty<*, *> =
     if (this is XdWrappedProperty<*, *, *>) wrapped.storageDelegate() else this
 
+// On the supported JDK and Kotlin library, these exact representations use stored fields or
+// array slots for size and indexed get. Class identity does not admit subclasses or list wrappers.
+private val indexedConstraintListClasses = setOf(
+    ArrayList::class.java,
+    emptyList<Any>().javaClass,
+    Arrays.asList(Unit).javaClass,
+    Collections.emptyList<Any>().javaClass,
+    Collections.singletonList(Unit).javaClass,
+    Collections.nCopies(1, Unit).javaClass,
+    java.util.List.of<Any>().javaClass,
+    java.util.List.of(Unit).javaClass,
+    java.util.List.of(Unit, Unit).javaClass,
+    java.util.List.of(Unit, Unit, Unit).javaClass
+)
+
 private fun XdConstrainedProperty<*, *>.safeConstraintList(): List<PropertyConstraint<*>>? {
     if (!usesGetter("getConstraints", XdConstrainedProperty::class.java)) return null
-    val list = constraints
-    return list.takeIf {
-        it.javaClass === ArrayList::class.java || it === emptyList<Any>() || it === Collections.emptyList<Any>()
-    }
+    return constraints.takeIf { it.javaClass in indexedConstraintListClasses }
 }
 
 private fun XdConstrainedProperty<*, *>.safeBinding(): DirectBindingFact? = when (this) {
