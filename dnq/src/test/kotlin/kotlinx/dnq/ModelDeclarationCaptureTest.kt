@@ -77,6 +77,7 @@ import kotlinx.dnq.util.getPropertyConstraints
 import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import java.lang.ref.Reference
 import java.lang.ref.SoftReference
 import java.util.Arrays
 import java.util.Collections
@@ -104,7 +105,12 @@ class ModelDeclarationCaptureTest {
     }
 
     class PropertyOrigin(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<PropertyOrigin>("DeclarationCapturePropertyOrigin")
+        companion object : XdNaturalEntityType<PropertyOrigin>("DeclarationCapturePropertyOrigin") {
+            val indexesProbe = Probe()
+
+            override val compositeIndices: List<List<KProperty1<PropertyOrigin, *>>>
+                get() = indexesProbe.read(listOf(listOf(PropertyOrigin::target)))
+        }
         val value by xdStringProp()
         val other by xdStringProp()
         var target by xdLink0_1(Plain)
@@ -406,38 +412,73 @@ class ModelDeclarationCaptureTest {
     fun `registered properties stay known after a reflection member cache rebuild`() {
         val node = XdModel.registerNode(PropertyOrigin)
         val slot = node.simpleProperties.getValue("value")
+        val link = node.linkProperties.getValue("target")
+        assertNull(link.delegate.dbPropertyName)
+        val probe = PropertyOrigin.indexesProbe
+        val keys = probe.observe { PropertyOrigin.compositeIndices.single().map { it.name }.toTypedArray() }
+        assertEquals(listOf("target"), keys.toList())
+
+        val cache = PropertyOriginMemberCache()
+        try {
+            repeat(2) {
+                assertSame(node, XdModel.registerNode(PropertyOrigin))
+                assertCaptureAfterMemberRebuild(node, slot, link, keys, cache)
+            }
+        } finally {
+            Reference.reachabilityFence(cache)
+        }
+    }
+
+    private fun assertCaptureAfterMemberRebuild(
+        node: XdHierarchyNode,
+        slot: XdHierarchyNode.SimpleProperty,
+        link: XdHierarchyNode.LinkProperty,
+        keys: Array<String>,
+        cache: PropertyOriginMemberCache
+    ) {
         val property = slot.property
         val delegate = slot.delegate
-        val link = node.linkProperties.getValue("target")
-        val ownerClass = PropertyOrigin::class
-        assertSame(property, ownerClass.declaredMemberProperties.single { it.name == "value" })
-        clearPropertyOriginMemberCache()
-        val rebuilt = ownerClass.declaredMemberProperties.associateBy { it.name }
+        val linkProperty = link.property
+        val linkDelegate = link.delegate
+        val before = cache.properties()
+        cache.rebuild()
+        val rebuilt = cache.properties()
         val fresh = rebuilt.getValue("value")
+        val freshLink = rebuilt.getValue("target")
+        assertNotSame(before.getValue("value"), fresh)
+        assertNotSame(before.getValue("target"), freshLink)
         assertNotSame(property, fresh)
-        assertNotSame(link.property, rebuilt.getValue("target"))
+        assertNotSame(linkProperty, freshLink)
         assertSame(node, XdModel[PropertyOrigin])
         assertSame(slot, node.simpleProperties.getValue("value"))
         assertSame(property, node.simpleProperties.getValue("value").property)
         assertSame(delegate, node.simpleProperties.getValue("value").delegate)
+        assertSame(link, node.linkProperties.getValue("target"))
+        assertSame(linkProperty, node.linkProperties.getValue("target").property)
+        assertSame(linkDelegate, node.linkProperties.getValue("target").delegate)
         val sameTypeOtherNode = XdHierarchyNode(PropertyOrigin, null)
 
-        withoutModelReads {
+        withoutModelReads(PropertyOrigin.indexesProbe) {
+            fun capture(owner: XdHierarchyNode, vararg facts: DeclarationFact<*>) =
+                owner.captureTypeDeclaration(INDEXES.at(owner, ExplicitIndexFacts(keys)), *facts)
+
             fun assertValue() {
-                val actual = node.captureTypeDeclaration().scalars.single { it.property.kotlinName == "value" }
+                val declaration = capture(node)
+                val actual = declaration.scalars.single { it.property.kotlinName == "value" }
                 assertEquals(DeclarationPropertyId("DeclarationCapturePropertyOrigin", "value"), actual.property)
                 assertEquals("String", actual.primitiveTypeName)
+                assertEquals(listOf(IndexFieldDeclaration("target", false)), declaration.indexes.single().fields)
             }
             assertValue()
             assertTrue(node.hasRegisteredPropertyOrigin("target", link))
             for (fact in listOf(KOTLIN_NAME.at(node, "value", slot), LOGICAL_TYPE.at(node, LogicalScalarType("String"), slot))) {
-                val failure = assertFailsWith<IllegalArgumentException> { node.captureTypeDeclaration(fact) }
+                val failure = assertFailsWith<IllegalArgumentException> { capture(node, fact) }
                 assertEquals("Cannot override declaration fact ${fact.kind.label} for ${PropertyOrigin.javaClass.name}::value", failure.message)
             }
             assertValue()
 
             fun missing(owner: XdHierarchyNode, key: String) {
-                val failure = assertFailsWith<MissingDeclarationFact> { owner.captureTypeDeclaration() }
+                val failure = assertFailsWith<MissingDeclarationFact> { capture(owner) }
                 assertEquals("Missing declaration fact Kotlin name for ${PropertyOrigin.javaClass.name}::$key", failure.message)
             }
 
@@ -461,8 +502,8 @@ class ModelDeclarationCaptureTest {
                 missing(node, "value")
                 node.simpleProperties["value"] = slot.copy(property = fresh)
                 assertValue() // Independent fresh-member proof.
-                clearPropertyOriginMemberCache()
-                val current = ownerClass.declaredMemberProperties.single { it.name == "value" }
+                cache.rebuild()
+                val current = cache.properties().getValue("value")
                 assertNotSame(fresh, current)
                 assertEquals(current, fresh)
                 missing(node, "value") // Equality does not make this stale replacement a proven reference.
@@ -475,15 +516,23 @@ class ModelDeclarationCaptureTest {
         }
     }
 
-    private fun clearPropertyOriginMemberCache() {
-        // kotlin-reflect 2.1.0 layout. Clear only this fixture's actual declared instance member cache.
-        val klass: Any = PropertyOrigin::class
-        val data = (klass.javaClass.getMethod("getData").invoke(klass) as Lazy<*>).value!!
-        val members = data.javaClass.getDeclaredField("declaredNonStaticMembers\$delegate")
-            .apply { isAccessible = true }.get(data)
-        val reference = members.javaClass.getDeclaredField("value").apply { isAccessible = true }.get(members) as SoftReference<*>
-        checkNotNull(reference.get()) { "Expected a populated declared member cache" }
-        reference.clear()
+    private class PropertyOriginMemberCache {
+        // kotlin-reflect 2.1.0 layout. Keep the KClass and its soft data referent alive with the member collection.
+        private val klass = PropertyOrigin::class
+        private val data = checkNotNull(((klass as Any).javaClass.getMethod("getData").invoke(klass) as Lazy<*>).value)
+        private val members = data.javaClass.getDeclaredField("declaredNonStaticMembers\$delegate")
+            .apply { isAccessible = true }.get(data) as Function0<*>
+        private val reference = members.javaClass.getDeclaredField("value").apply { isAccessible = true }
+
+        // Invoke the lazy directly so even a cache miss returns the exact collection into a strong reference.
+        private var pinnedMembers = members()
+
+        fun properties() = klass.declaredMemberProperties.associateBy { it.name }
+
+        fun rebuild() {
+            (reference.get(members) as SoftReference<*>).clear()
+            pinnedMembers = members()
+        }
     }
 
     @Test
