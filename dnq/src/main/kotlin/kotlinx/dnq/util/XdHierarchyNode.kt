@@ -59,6 +59,16 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
     val simpleProperties = LinkedHashMap<String, SimpleProperty>()
     val linkProperties = LinkedHashMap<String, LinkProperty>()
 
+    // Only ordinary delegated registration records the member it selected for each local slot kind.
+    private val declaredScalarOrigins = HashMap<String, KProperty1<*, *>>()
+    private val declaredLinkOrigins = HashMap<String, KProperty1<*, *>>()
+
+    internal fun hasRegisteredPropertyOrigin(key: String, slot: MetaProperty): Boolean = when (slot) {
+        is SimpleProperty -> simpleProperties[key] === slot && declaredScalarOrigins[key] === slot.property
+        is LinkProperty -> linkProperties[key] === slot && declaredLinkOrigins[key] === slot.property
+        else -> false
+    }
+
     val customTargetDeletePolicies: Map<String, OnDeletePolicy>
 
     val requireIfConstraints = LinkedHashMap<String, MutableList<RequireIfConstraint<*, *>>>()
@@ -106,7 +116,7 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
 
         val xdEntityClass = this.entityType.javaClass.enclosingClass
         xdEntityClass.getDelegatedFields().forEach { (property, delegateField) ->
-            process(property, delegateField.get(xdFakeEntity))
+            process(property, delegateField.get(xdFakeEntity), ordinaryDeclaration = true)
         }
     }
 
@@ -124,9 +134,16 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
                 ?: this.parentNode?.resolveMetaProperty(prop)
     }
 
-    fun process(property: KProperty1<*, *>, delegate: Any): Any? {
+    fun process(property: KProperty1<*, *>, delegate: Any): Any? =
+        process(property, delegate, ordinaryDeclaration = false)
+
+    private fun process(property: KProperty1<*, *>, delegate: Any, ordinaryDeclaration: Boolean): Any? {
         when (delegate) {
-            is XdConstrainedProperty<*, *> -> simpleProperties[property.name] = SimpleProperty(property, delegate)
+            is XdConstrainedProperty<*, *> -> {
+                val key = property.name
+                simpleProperties[key] = SimpleProperty(property, delegate)
+                if (ordinaryDeclaration) declaredScalarOrigins[key] = property
+            }
             is XdLink<*, *> -> {
                 val oppositeField = delegate.oppositeField
                 oppositeField?.let {
@@ -137,7 +154,9 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
                     }
                 }
 
-                linkProperties[property.name] = LinkProperty(property, delegate)
+                val key = property.name
+                linkProperties[key] = LinkProperty(property, delegate)
+                if (ordinaryDeclaration) declaredLinkOrigins[key] = property
                 oppositeField?.let {
                     // is bidirected
                     val extensionDelegate = try {

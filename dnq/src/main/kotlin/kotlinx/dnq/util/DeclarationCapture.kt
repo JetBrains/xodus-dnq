@@ -36,6 +36,7 @@ import kotlinx.dnq.simple.RequireIfConstraint
 import kotlinx.dnq.simple.XdConstrainedProperty
 import kotlinx.dnq.simple.XdNullableProperty
 import kotlinx.dnq.simple.XdProperty
+import kotlinx.dnq.simple.XdPropertyRequirement
 import kotlinx.dnq.simple.XdWrappedProperty
 import kotlinx.dnq.simple.custom.type.XdCustomTypeProperty
 import java.lang.reflect.Modifier
@@ -159,7 +160,7 @@ private class TypeCapture(evidence: Array<out DeclarationFact<*>>) {
         }
         val natural = node.entityType as? XdNaturalEntityType<*>
         val knownIndexes = if (natural == null ||
-            natural.usesGetter("getCompositeIndices", XdNaturalEntityType::class.java)
+            natural.usesGetter("getCompositeIndices", List::class.java, XdNaturalEntityType::class.java)
         ) ExplicitIndexFacts() else null
         // The audited base accessor always supplies an empty list. Never read or copy an override.
         val indexes = fact(DeclarationFactKind.INDEXES, node, known = knownIndexes).indexes.map { fields ->
@@ -188,14 +189,16 @@ private class TypeCapture(evidence: Array<out DeclarationFact<*>>) {
 
     private fun typeName(node: XdHierarchyNode): String {
         val type = node.entityType
-        val known = if (type.usesGetter("getEntityType", XdNaturalEntityType::class.java)) type.entityType else null
+        val known = if (type.usesGetter("getEntityType", String::class.java, XdNaturalEntityType::class.java)) type.entityType else null
         return fact(DeclarationFactKind.TYPE_NAME, node, known = known)
     }
 
-    private fun trustedProperty(node: XdHierarchyNode, key: String, slot: XdHierarchyNode.MetaProperty) =
-        reflected.getOrPut(node) {
+    private fun trustedProperty(node: XdHierarchyNode, key: String, slot: XdHierarchyNode.MetaProperty): KProperty1<*, *>? {
+        if (node.hasRegisteredPropertyOrigin(key, slot)) return slot.property
+        return reflected.getOrPut(node) {
             node.entityType.javaClass.enclosingClass.kotlin.declaredMemberProperties.associateBy { it.name }
         }[key]?.takeIf { it === slot.property }
+    }
 
     private fun kotlinName(
         node: XdHierarchyNode, key: String, slot: XdHierarchyNode.MetaProperty, known: String?
@@ -224,7 +227,7 @@ private class TypeCapture(evidence: Array<out DeclarationFact<*>>) {
         storage: XdConstrainedProperty<*, *>,
         name: String? = null
     ): String {
-        val known = if (storage.usesGetter("getDbPropertyName", XdConstrainedProperty::class.java)) {
+        val known = if (storage.usesGetter("getDbPropertyName", String::class.java, XdConstrainedProperty::class.java)) {
             storage.dbPropertyName ?: name ?: kotlinName(node, key, scalar, trustedProperty(node, key, scalar)?.name)
         } else null
         return fact(DeclarationFactKind.DATABASE_NAME, node, scalar, key, known)
@@ -253,13 +256,15 @@ private class TypeCapture(evidence: Array<out DeclarationFact<*>>) {
         val databaseName = databaseName(node, key, scalar, storage, name)
         val base = XdConstrainedProperty::class.java
         val kind = fact(DeclarationFactKind.KIND, node, scalar, key,
-            if (direct.usesGetter("getPropertyType", base)) direct.propertyType else null)
+            if (direct.usesGetter("getPropertyType", PropertyType::class.java, base)) direct.propertyType else null)
         val indexed = fact(DeclarationFactKind.AUTO_INDEXED, node, scalar, key,
-            if (storage.usesGetter("isAutoIndexed", base, XdProperty::class.java, XdNullableProperty::class.java)) {
+            if (storage.usesGetter("isAutoIndexed", java.lang.Boolean.TYPE, base, XdProperty::class.java, XdNullableProperty::class.java)) {
                 storage.isAutoIndexed
             } else null)
         val requirement = fact(DeclarationFactKind.REQUIREMENT, node, scalar, key,
-            if (storage.usesGetter("getRequirement", base)) DeclarationRequirement.valueOf(storage.requirement.name) else null)
+            if (storage.usesGetter("getRequirement", XdPropertyRequirement::class.java, base)) {
+                DeclarationRequirement.valueOf(storage.requirement.name)
+            } else null)
         val (descriptors, conditionalRequired) = constraints(node, key, scalar, direct, storage)
         val binding = fact(DeclarationFactKind.BINDING, node, scalar, key, direct.safeBinding())
         if (conditionalRequired) conditionalCandidates.add(databaseName)
@@ -304,8 +309,11 @@ private class TypeCapture(evidence: Array<out DeclarationFact<*>>) {
 }
 
 /** Only audited method bodies are safe. An override can be final and still execute model code. */
-private fun Any.usesGetter(name: String, vararg audited: Class<*>): Boolean {
-    val method = javaClass.methods.singleOrNull { it.name == name && it.parameterCount == 0 } ?: return false
+private fun Any.usesGetter(name: String, returnType: Class<*>, vararg audited: Class<*>): Boolean {
+    // A bridge with the exact descriptor still controls dispatch to its override.
+    val method = javaClass.methods.singleOrNull {
+        it.name == name && it.parameterCount == 0 && it.returnType === returnType && !Modifier.isStatic(it.modifiers)
+    } ?: return false
     return audited.any { it === method.declaringClass }
 }
 
@@ -328,7 +336,7 @@ private val indexedConstraintListClasses = setOf(
 )
 
 private fun XdConstrainedProperty<*, *>.safeConstraintList(): List<PropertyConstraint<*>>? {
-    if (!usesGetter("getConstraints", XdConstrainedProperty::class.java)) return null
+    if (!usesGetter("getConstraints", List::class.java, XdConstrainedProperty::class.java)) return null
     return constraints.takeIf { it.javaClass in indexedConstraintListClasses }
 }
 

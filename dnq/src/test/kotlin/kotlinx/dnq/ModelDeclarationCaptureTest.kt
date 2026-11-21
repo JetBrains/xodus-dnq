@@ -77,11 +77,13 @@ import kotlinx.dnq.util.getPropertyConstraints
 import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import java.lang.ref.SoftReference
 import java.util.Arrays
 import java.util.Collections
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
+import kotlin.reflect.full.declaredMemberProperties
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotSame
@@ -91,9 +93,41 @@ import kotlin.test.assertTrue
 
 class ModelDeclarationCaptureTest {
     class Plain(entity: Entity) : XdEntity(entity) {
-        companion object : XdNaturalEntityType<Plain>("DeclarationCapturePlain")
+        companion object : XdNaturalEntityType<Plain>("DeclarationCapturePlain") {
+            val summaryProbe = Probe()
+
+            @JvmName("getCompositeIndices")
+            fun indexSummary(): String = summaryProbe.read("summary")
+        }
         val value by xdStringProp()
         val javaEmpty by XdNullableProperty<Plain, String>(String::class.java, null, Collections.emptyList())
+    }
+
+    class PropertyOrigin(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<PropertyOrigin>("DeclarationCapturePropertyOrigin")
+        val value by xdStringProp()
+        val other by xdStringProp()
+        var target by xdLink0_1(Plain)
+    }
+
+    open class IndexParent(entity: Entity) : XdEntity(entity) {
+        companion object : XdNaturalEntityType<IndexParent>("DeclarationCaptureIndexParent") {
+            val databaseNameProbe = Probe()
+        }
+
+        val inherited by object : XdConstrainedProperty<IndexParent, String?>(
+            null, emptyList(), XdPropertyRequirement.OPTIONAL, PRIMITIVE
+        ) {
+            override val dbPropertyName get() = databaseNameProbe.read("inherited_db")
+            override fun getValue(thisRef: IndexParent, property: KProperty<*>): String? = error("Inherited getter")
+            override fun isDefined(thisRef: IndexParent, property: KProperty<*>): Boolean = error("Inherited defined")
+        }
+    }
+
+    class IndexChild(entity: Entity) : IndexParent(entity) {
+        companion object : XdNaturalEntityType<IndexChild>("DeclarationCaptureIndexChild") {
+            override val compositeIndices: List<List<KProperty1<IndexChild, *>>> = listOf(listOf(IndexChild::inherited))
+        }
     }
 
     class ConstraintLists(entity: Entity) : XdEntity(entity) {
@@ -369,6 +403,143 @@ class ModelDeclarationCaptureTest {
     }
 
     @Test
+    fun `registered properties stay known after a reflection member cache rebuild`() {
+        val node = XdModel.registerNode(PropertyOrigin)
+        val slot = node.simpleProperties.getValue("value")
+        val property = slot.property
+        val delegate = slot.delegate
+        val link = node.linkProperties.getValue("target")
+        val ownerClass = PropertyOrigin::class
+        assertSame(property, ownerClass.declaredMemberProperties.single { it.name == "value" })
+        clearPropertyOriginMemberCache()
+        val rebuilt = ownerClass.declaredMemberProperties.associateBy { it.name }
+        val fresh = rebuilt.getValue("value")
+        assertNotSame(property, fresh)
+        assertNotSame(link.property, rebuilt.getValue("target"))
+        assertSame(node, XdModel[PropertyOrigin])
+        assertSame(slot, node.simpleProperties.getValue("value"))
+        assertSame(property, node.simpleProperties.getValue("value").property)
+        assertSame(delegate, node.simpleProperties.getValue("value").delegate)
+        val sameTypeOtherNode = XdHierarchyNode(PropertyOrigin, null)
+
+        withoutModelReads {
+            fun assertValue() {
+                val actual = node.captureTypeDeclaration().scalars.single { it.property.kotlinName == "value" }
+                assertEquals(DeclarationPropertyId("DeclarationCapturePropertyOrigin", "value"), actual.property)
+                assertEquals("String", actual.primitiveTypeName)
+            }
+            assertValue()
+            assertTrue(node.hasRegisteredPropertyOrigin("target", link))
+            for (fact in listOf(KOTLIN_NAME.at(node, "value", slot), LOGICAL_TYPE.at(node, LogicalScalarType("String"), slot))) {
+                val failure = assertFailsWith<IllegalArgumentException> { node.captureTypeDeclaration(fact) }
+                assertEquals("Cannot override declaration fact ${fact.kind.label} for ${PropertyOrigin.javaClass.name}::value", failure.message)
+            }
+            assertValue()
+
+            fun missing(owner: XdHierarchyNode, key: String) {
+                val failure = assertFailsWith<MissingDeclarationFact> { owner.captureTypeDeclaration() }
+                assertEquals("Missing declaration fact Kotlin name for ${PropertyOrigin.javaClass.name}::$key", failure.message)
+            }
+
+            sameTypeOtherNode.simpleProperties["value"] = slot
+            missing(sameTypeOtherNode, "value")
+
+            try {
+                node.simpleProperties["miskey"] = slot
+                missing(node, "miskey")
+            } finally {
+                node.simpleProperties.remove("miskey")
+            }
+            try {
+                node.simpleProperties["target"] = slot.copy(property = link.property)
+                missing(node, "target") // Same node, key and reference as a registered link, but a scalar slot.
+            } finally {
+                node.simpleProperties.remove("target")
+            }
+            try {
+                node.simpleProperties["value"] = slot.copy(property = rebuilt.getValue("other"))
+                missing(node, "value")
+                node.simpleProperties["value"] = slot.copy(property = fresh)
+                assertValue() // Independent fresh-member proof.
+                clearPropertyOriginMemberCache()
+                val current = ownerClass.declaredMemberProperties.single { it.name == "value" }
+                assertNotSame(fresh, current)
+                assertEquals(current, fresh)
+                missing(node, "value") // Equality does not make this stale replacement a proven reference.
+                node.simpleProperties["value"] = slot.copy()
+                assertValue() // Registration origin is not tied to the original slot object.
+            } finally {
+                node.simpleProperties["value"] = slot
+            }
+            assertValue()
+        }
+    }
+
+    private fun clearPropertyOriginMemberCache() {
+        // kotlin-reflect 2.1.0 layout. Clear only this fixture's actual declared instance member cache.
+        val klass: Any = PropertyOrigin::class
+        val data = (klass.javaClass.getMethod("getData").invoke(klass) as Lazy<*>).value!!
+        val members = data.javaClass.getDeclaredField("declaredNonStaticMembers\$delegate")
+            .apply { isAccessible = true }.get(data)
+        val reference = members.javaClass.getDeclaredField("value").apply { isAccessible = true }.get(members) as SoftReference<*>
+        checkNotNull(reference.get()) { "Expected a populated declared member cache" }
+        reference.clear()
+    }
+
+    @Test
+    fun `a distinct JVM return type does not obscure the audited index getter`() {
+        val plain = XdModel.registerNode(Plain)
+        val candidates = Plain.javaClass.methods.filter { it.name == "getCompositeIndices" && it.parameterCount == 0 }
+        assertEquals(setOf(String::class.java to Plain.javaClass, List::class.java to XdNaturalEntityType::class.java),
+            candidates.map { it.returnType to it.declaringClass }.toSet())
+        assertEquals("summary", Plain.summaryProbe.observe { Plain.indexSummary() })
+
+        withoutModelReads(Plain.summaryProbe) {
+            assertEquals(emptyList(), plain.captureTypeDeclaration().indexes)
+            for (indexes in listOf(ExplicitIndexFacts(), ExplicitIndexFacts(arrayOf("value")))) {
+                val failure = assertFailsWith<IllegalArgumentException> {
+                    plain.captureTypeDeclaration(INDEXES.at(plain, indexes))
+                }
+                assertEquals("Cannot override declaration fact explicit indexes for ${Plain.javaClass.name}", failure.message)
+            }
+        }
+    }
+
+    @Test
+    fun `inherited index database name evidence belongs to the declaring parent and current slot`() {
+        val node = XdModel.registerNode(IndexChild)
+        val declaring = checkNotNull(node.parentNode)
+        val slot = declaring.simpleProperties.getValue("inherited")
+        assertSame(IndexParent, declaring.entityType)
+        assertTrue(node.simpleProperties.isEmpty())
+        assertTrue(node.linkProperties.isEmpty())
+        val probe = IndexParent.databaseNameProbe
+        assertEquals("inherited_db", probe.observe { slot.delegate.dbPropertyName })
+        val keys = arrayOf("inherited")
+        val indexes = INDEXES.at(node, ExplicitIndexFacts(keys))
+        val name = "inherited_db"
+
+        withoutModelReads(probe) {
+            fun missing(vararg facts: DeclarationFact<*>) {
+                val failure = assertFailsWith<MissingDeclarationFact> { node.captureTypeDeclaration(indexes, *facts) }
+                assertEquals("Missing declaration fact database name for ${IndexParent.javaClass.name}::inherited", failure.message)
+            }
+            missing()
+            missing(DATABASE_NAME.at(node, name, slot))
+            missing(DATABASE_NAME.at(declaring, name, slot.copy()))
+            val result = node.captureTypeDeclaration(indexes, DATABASE_NAME.at(declaring, name, slot))
+            keys[0] = "unregistered"
+            assertTrue(result.scalars.isEmpty())
+            val index = result.indexes.single()
+            assertEquals("DeclarationCaptureIndexChild", index.owner)
+            assertEquals(listOf(IndexFieldDeclaration("inherited_db", true)), index.fields)
+            assertUnmodifiable(result.indexes)
+            assertUnmodifiable(index.fields)
+            missing()
+        }
+    }
+
+    @Test
     fun `known conditional membership survives opaque storage constraints`() {
         val node = XdModel.registerNode(WrappedConstraints)
         val slot = node.simpleProperties.getValue("double")
@@ -622,6 +793,12 @@ class ModelDeclarationCaptureTest {
 
     @Test
     fun `refusal and retry do not evaluate model metadata or traverse model collections`() {
+        // The exact dispatch descriptors are bridges to effectful covariant overrides.
+        for ((owner, getter) in listOf(S.javaClass to "getCompositeIndices", DirectTokenProperty::class.java to "getConstraints")) {
+            val bridge = owner.methods.single { it.name == getter && it.parameterCount == 0 && it.returnType === List::class.java }
+            assertSame(owner, bridge.declaringClass)
+            assertTrue(bridge.isBridge && bridge.isSynthetic)
+        }
         // Positive controls reach the real getter and both iterator acquisitions independently.
         val indexes = S.indexesProbe.observe { S.compositeIndices }
         assertSame(S.firstIndex, S.indexLists.traversal.observe { indexes.iterator() }.next())
@@ -712,10 +889,15 @@ class ModelDeclarationCaptureTest {
         val reference = object : KProperty1<S, Token?> by S::custom {
             override val name get() = probe.read("custom")
             override val returnType: KType get() = probe.read((S::custom).returnType)
-            override fun equals(other: Any?) = probe.read(false)
+            override fun equals(other: Any?) = probe.read(other === original.property)
             override fun hashCode() = probe.read(0)
             override fun toString() = probe.read("Custom reference")
         }
+        assertEquals("custom", probe.observe { reference.name })
+        probe.observe { reference.returnType }
+        assertTrue(probe.observe { reference.equals(original.property) })
+        probe.observe { reference.hashCode() }
+        probe.observe { reference.toString() }
         val slot = original.copy(property = reference)
         child.simpleProperties["custom"] = slot
         try {
@@ -733,6 +915,18 @@ class ModelDeclarationCaptureTest {
                 verifyOmissions()
                 assertDeclaration(expectedChild(), child.captureTypeDeclaration(*childFacts(), name, type))
                 verifyOmissions()
+
+                val copy = slot.copy()
+                child.simpleProperties["custom"] = copy
+                val copyName = KOTLIN_NAME.at(child, "custom", copy)
+                val copyType = LOGICAL_TYPE.at(child, LogicalScalarType("Token"), copy)
+                for ((stale, current) in listOf(name to copyType, type to copyName)) {
+                    val failure = assertFailsWith<MissingDeclarationFact> {
+                        child.captureTypeDeclaration(*childFacts(), stale, current)
+                    }
+                    assertEquals("Missing declaration fact ${stale.kind.label} for ${S.javaClass.name}::custom", failure.message)
+                }
+                assertDeclaration(expectedChild(), child.captureTypeDeclaration(*childFacts(), copyName, copyType))
             }
         } finally {
             child.simpleProperties["custom"] = original
