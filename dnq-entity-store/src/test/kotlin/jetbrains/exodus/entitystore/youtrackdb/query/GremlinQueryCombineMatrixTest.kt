@@ -25,6 +25,7 @@ import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.SortDirectio
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinQuery.*
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 /**
@@ -35,6 +36,7 @@ import org.junit.Test
  * Outcome codes:
  *   Labeled(Where)        – condition fused into a single where-filtered traversal
  *   Labeled(AndThen)      – O7: condition appended directly to a FollowLink traversal
+ *   AndThen               – complete typed membership applied to the original left query
  *   Order(Labeled(FL))    – O4: two FollowLink sources merged, wrapped with dedup
  *   SortBy(...)           – O3: left sort preserved after combining inner queries
  *   Order(UnionAll)       – union fallback: combineEfficient returned null
@@ -133,11 +135,25 @@ class GremlinQueryCombineMatrixTest {
     }
 
     @Test
-    fun `Labeled(Where) x Labeled(Where) — different labels fall back to UnionAll`() {
-        // combineEfficient detects label mismatch → returns null → union fallback
+    fun `Labeled(Where) x Labeled(Where) — different labels only optimize exclusion`() {
+        // Positive different-label intersection keeps both original operands.
         check(cond, "u", condDiffLabel, "Dedup(UnionAll)")
         check(cond, "i", condDiffLabel, "Aggregate")
-        check(cond, "d", condDiffLabel, "Aggregate")
+        check(cond, "d", condDiffLabel, "AndThen")
+
+        listOf(cond to condDiffLabel, condDiffLabel to cond).forEach { (left, right) ->
+            val fallback = left.intersect(right) as GremlinQuery.Aggregate
+            assertSame(left, fallback.left)
+            assertSame(right, fallback.right)
+            val filtered = left.difference(right) as GremlinQuery.AndThen
+            assertSame(left, filtered.inner)
+            val rightProperty = (right.inner as GremlinQuery.Where).block
+            // Negation encloses both the right property and its type.
+            assertEquals(
+                GremlinBlock.Not(GremlinBlock.And(rightProperty, GremlinBlock.HasLabel(right.label))),
+                filtered.block
+            )
+        }
     }
 
     // =========================================================================

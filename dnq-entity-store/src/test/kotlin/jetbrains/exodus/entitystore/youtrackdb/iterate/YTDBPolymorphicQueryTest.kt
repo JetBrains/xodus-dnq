@@ -39,6 +39,293 @@ class YTDBPolymorphicQueryTest : OTestMixin {
 
     override val youTrackDb = orientDbRule
 
+    @Test
+    fun `typed exclusion provider parity prerequisite`() {
+        givenUserHierarchy()
+        withStoreTx { tx ->
+            val entities = tx.getAll(BaseUser.CLASS).associateBy { it.getProperty("name").toString() }
+            val base = GremlinQuery.Labeled(GremlinQuery.all, BaseUser.CLASS)
+                .then(GremlinBlock.Sort(GremlinBlock.Sort.ByProp("name"), GremlinBlock.SortDirection.ASC))
+            for (poly in listOf(true, false)) {
+                for (label in listOf(BaseUser.CLASS, User.CLASS, Guest.CLASS, "UnknownTrack3Type")) {
+                    fun ids(query: GremlinQuery) =
+                        YTDBEntityIterable.query(tx.getStore(), query, poly).map { it.id }
+
+                    val source = GremlinQuery.Labeled(GremlinQuery.all, label)
+                    val local = GremlinQuery.AndThen(base, GremlinBlock.Not(GremlinBlock.HasLabel(label)))
+                    val sourceResult = runCatching { ids(GremlinQuery.Aggregate(base, source) { P.without(it) }) }
+                    val localResult = runCatching { ids(local) }
+                    val message = "Class-source versus local exclusion: $label poly=$poly"
+                    if (label == "UnknownTrack3Type") {
+                        assertEquals(sourceResult.exceptionOrNull()?.javaClass,
+                            localResult.exceptionOrNull()?.javaClass, message)
+                        if (sourceResult.isSuccess) {
+                            assertEquals(sourceResult.getOrThrow(), localResult.getOrThrow(), message)
+                        }
+                    } else {
+                        val expectedNames = when {
+                            label == BaseUser.CLASS -> emptyList()
+                            !poly -> listOf("base1")
+                            label == User.CLASS -> listOf("base1", "guest1")
+                            else -> listOf("base1", "user1")
+                        }
+                        val expectedIds = expectedNames.map { entities.getValue(it).id }
+                        assertEquals(expectedIds, sourceResult.getOrThrow(), "Class-source: $message")
+                        assertEquals(expectedIds, localResult.getOrThrow(), "Local exclusion: $message")
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `typed exclusion negates the complete property predicate and preserves ordered identities`() {
+        givenUserHierarchy()
+        val subclass = "PropertyCollisionUser"
+        youTrackDb.withSession { session ->
+            session.getOrCreateVertexClass(subclass)
+                .addSuperClass(session.getOrCreateVertexClass(User.CLASS))
+        }
+        // Unique ranks define the left order independently of class-scan and record-ID order.
+        val rows = listOf(
+            Triple(BaseUser.CLASS, "collision", 70),
+            Triple(subclass, "collision", 60),
+            Triple(User.CLASS, "other", 50),
+            Triple(Guest.CLASS, "collision", 40),
+            Triple(User.CLASS, "collision", 30),
+            Triple(subclass, "other", 20),
+            Triple(BaseUser.CLASS, "other", 10)
+        )
+        withStoreTx { tx ->
+            rows.forEach { (type, name, rank) ->
+                tx.newEntity(type).apply {
+                    setProperty("name", name)
+                    setProperty("collisionOrder", rank)
+                }
+            }
+        }
+        withStoreTx { tx ->
+            val idsByKey = tx.getAll(BaseUser.CLASS).associate {
+                (it.type to it.getProperty("name").toString()) to it.id
+            }
+            fun idsFor(vararg keys: Pair<String, String>) = keys.map { idsByKey.getValue(it) }
+
+            val baseCollision = BaseUser.CLASS to "collision"
+            val subclassCollision = subclass to "collision"
+            val userOther = User.CLASS to "other"
+            val guestCollision = Guest.CLASS to "collision"
+            val userCollision = User.CLASS to "collision"
+            val subclassOther = subclass to "other"
+            val baseOther = BaseUser.CLASS to "other"
+            val source = GremlinQuery.Labeled(
+                GremlinQuery.Where(GremlinBlock.PropNotNull("collisionOrder")), BaseUser.CLASS)
+            val order = GremlinBlock.Sort(
+                GremlinBlock.Sort.ByProp("collisionOrder"), GremlinBlock.SortDirection.DESC)
+            val left = source.then(order)
+            val right = GremlinQuery.Labeled(
+                GremlinQuery.Where(GremlinBlock.PropEqual("name", "collision")), User.CLASS)
+            val selected = left.difference(right)
+            val filteredSource = source.difference(right)
+            assertFalse(filteredSource.containsAggregate())
+            for (poly in listOf(true, false)) {
+                fun ids(query: GremlinQuery) =
+                    YTDBEntityIterable.query(tx.getStore(), query, poly).map { it.id }
+
+                val expectedLeft = if (poly) {
+                    idsFor(baseCollision, subclassCollision, userOther, guestCollision,
+                        userCollision, subclassOther, baseOther)
+                } else {
+                    idsFor(baseCollision, baseOther)
+                }
+                val expectedRight = if (poly) {
+                    idsFor(userCollision, subclassCollision)
+                } else {
+                    idsFor(userCollision)
+                }
+                val expectedKept = if (poly) {
+                    idsFor(baseCollision, userOther, guestCollision, subclassOther, baseOther)
+                } else {
+                    idsFor(baseCollision, baseOther)
+                }
+                assertEquals(expectedLeft, ids(left), "independent left order poly=$poly")
+                assertEquals(expectedRight.toSet(), ids(right).toSet(), "typed RHS identities poly=$poly")
+                assertEquals(expectedKept, ids(selected), "complete RHS exclusion poly=$poly")
+                assertEquals(expectedKept, ids(filteredSource.then(order)), "fused complete RHS poly=$poly")
+                assertEquals(expectedKept.take(2), ids(selected.then(GremlinBlock.Limit(2))),
+                    "first page poly=$poly")
+                assertEquals(expectedKept.drop(1).take(2),
+                    ids(selected.then(GremlinBlock.Skip(1)).then(GremlinBlock.Limit(2))),
+                    "offset page poly=$poly")
+            }
+        }
+    }
+
+    @Test
+    fun `typed membership identities composition terminals and left order`() {
+        givenUserHierarchy()
+        withStoreTx { tx ->
+            tx.createUser(User.CLASS, "user2")
+            tx.createUser(Guest.CLASS, "user1")
+        }
+        // Logical construction needs no session or schema read.
+        val base = GremlinQuery.Labeled(GremlinQuery.all, BaseUser.CLASS)
+        val user = GremlinQuery.Labeled(GremlinQuery.Where(GremlinBlock.PropEqual("name", "user1")), User.CLASS)
+        val guest = GremlinQuery.Labeled(GremlinQuery.all, Guest.CLASS)
+        val selected = base.difference(user)
+        withStoreTx { tx ->
+            // The two user1 names have different types and distinct identity-oracle keys.
+            val entities = tx.getAll(BaseUser.CLASS).associateBy {
+                if (it.type == Guest.CLASS && it.getProperty("name") == "user1") "guest-user1"
+                else it.getProperty("name").toString()
+            }
+            assertEquals(5, entities.size)
+            assertTrue(entities.getValue("user1").id != entities.getValue("guest-user1").id)
+            for (poly in listOf(true, false)) {
+                fun check(query: GremlinQuery, names: Set<String>, driver: GremlinQuery? = null) {
+                    val iterable = YTDBEntityIterable.query(tx.getStore(), query, poly)
+                    val expectedIds = names.map { entities.getValue(it).id }.toSet()
+                    assertEquals(expectedIds, iterable.map { it.id }.toSet(), "$query poly=$poly")
+                    entities.forEach { (name, entity) ->
+                        assertEquals(name in names, iterable.contains(entity), "contains $name poly=$poly")
+                    }
+                    if (driver != null) {
+                        val expectedOrder = YTDBEntityIterable.query(tx.getStore(), driver, poly)
+                            .map { it.id }.filter { it in expectedIds }
+                        assertEquals(expectedOrder, iterable.map { it.id }, "left order poly=$poly")
+                    }
+                }
+                val kept = if (poly) setOf("base1", "guest1", "user2", "guest-user1") else setOf("base1")
+                check(selected, kept, base)
+                check(selected.intersect(base), kept, selected)
+                check(selected.difference(guest), if (poly) setOf("base1", "user2") else setOf("base1"), selected)
+                // The complete right exclusion stays inside the outer negation.
+                val nestedExclusion = selected.difference(base.difference(guest))
+                assertFalse(nestedExclusion.containsAggregate())
+                check(nestedExclusion, if (poly) setOf("guest1", "guest-user1") else emptySet(), selected)
+                val catalogLike = selected.intersect(base.difference(guest))
+                assertFalse(catalogLike.containsAggregate())
+                check(catalogLike, if (poly) setOf("base1", "user2") else setOf("base1"), selected)
+                check(selected.union(user), if (poly) entities.keys else setOf("base1", "user1"))
+                check(base.intersect(user), if (poly) setOf("user1") else emptySet(), base)
+                check(user.intersect(base), if (poly) setOf("user1") else emptySet(), user)
+                val descending = base.then(GremlinBlock.Sort(
+                    GremlinBlock.Sort.ByProp("name"), GremlinBlock.SortDirection.DESC))
+                check(descending.difference(user), kept, descending)
+                val reversed = base.then(GremlinBlock.Reverse)
+                check(reversed.difference(user), kept, reversed)
+                val nested = GremlinQuery.Labeled(GremlinQuery.Where(GremlinBlock.Not(
+                    GremlinBlock.Or(GremlinBlock.PropEqual("name", "absent"),
+                        GremlinBlock.Not(GremlinBlock.PropEqual("name", "user1"))))), User.CLASS)
+                check(base.difference(nested), kept, base)
+                val fallbackOperands = listOf(
+                    base.then(GremlinBlock.Limit(1)),
+                    base.unionAll(user),
+                    base.then(GremlinBlock.OutLink("missing")),
+                    GremlinQuery.Labeled(base.then(GremlinBlock.Skip(1)), BaseUser.CLASS)
+                )
+                fallbackOperands.forEach { operand ->
+                    val rightIds = YTDBEntityIterable.query(tx.getStore(), operand, poly).map { it.id }.toSet()
+                    val expected = kept.filter { entities.getValue(it).id in rightIds }.toSet()
+                    check(selected.intersect(operand), expected, selected)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `null equality on an absent property keeps the class source fallback`() {
+        givenUserHierarchy()
+        withStoreTx { tx -> tx.newEntity(User.CLASS) }
+        withStoreTx { tx ->
+            val absentId = tx.getAll(User.CLASS).single { it.getProperty("name") == null }.id
+            val base = GremlinQuery.Labeled(GremlinQuery.all, BaseUser.CLASS)
+            val right = GremlinQuery.Labeled(
+                GremlinQuery.Where(GremlinBlock.PropEqual("name", null)), User.CLASS)
+            for (poly in listOf(true, false)) {
+                for (native in listOf(false, true)) {
+                    fun ids(query: GremlinQuery): List<jetbrains.exodus.entitystore.EntityId> {
+                        val iterable = YTDBEntityIterable.query(tx.getStore(), query, poly)
+                        if (!native) return iterable.map { it.id }
+                        val traversal = iterable.traversal()
+                        traversal.asAdmin().strategies.removeStrategies(
+                            com.jetbrains.youtrackdb.internal.core.gremlin.translator.strategy.GremlinToMatchStrategy::class.java)
+                        return YTDBEntityIterator.of(traversal, tx.getStore()).use { iterator ->
+                            iterator.asSequence().map { it.id }.toList()
+                        }
+                    }
+                    val positive = base.intersect(right) as GremlinQuery.Aggregate
+                    val negative = base.difference(right) as GremlinQuery.Aggregate
+                    assertSame(base, positive.left)
+                    assertSame(right, positive.right)
+                    assertSame(base, negative.left)
+                    assertSame(right, negative.right)
+                    val removed = if (poly) setOf(absentId) else emptySet()
+                    assertEquals(removed, ids(positive).toSet(), "intersection poly=$poly native=$native")
+                    assertEquals(ids(base).filter { it !in removed }, ids(negative),
+                        "difference poly=$poly native=$native")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `right dedup cannot swap the observed left identity order`() {
+        givenUserHierarchy()
+        withStoreTx { tx -> tx.createUser(User.CLASS, "user2") }
+        withStoreTx { tx ->
+            val left = GremlinQuery.Labeled(GremlinQuery.Where(GremlinBlock.PropNotNull("name")), BaseUser.CLASS)
+            val users = tx.getAll(User.CLASS).associateBy { it.id }
+            val expected = YTDBEntityIterable.query(tx.getStore(), left).map { it.id }.filter { it in users }
+            assertEquals(2, expected.size)
+            val firstName = users.getValue(expected.first()).getProperty("name").toString()
+            val direction = if (firstName == "user1") GremlinBlock.SortDirection.DESC else GremlinBlock.SortDirection.ASC
+            val right = GremlinQuery.Labeled(GremlinQuery.Where(GremlinBlock.PropNotNull("name")), User.CLASS)
+                .then(GremlinBlock.Sort(GremlinBlock.Sort.ByProp("name"), direction)).then(GremlinBlock.Dedup)
+            assertEquals(expected.reversed(), YTDBEntityIterable.query(tx.getStore(), right).map { it.id })
+            val result = left.intersect(right) as GremlinQuery.Aggregate
+            assertSame(left, result.left)
+            assertSame(right, result.right)
+            assertEquals(expected, YTDBEntityIterable.query(tx.getStore(), result).map { it.id })
+            assertEquals(expected.take(1), YTDBEntityIterable.query(tx.getStore(), result.then(GremlinBlock.Limit(1))).map { it.id })
+            assertEquals(expected.drop(1).take(1), YTDBEntityIterable.query(tx.getStore(),
+                result.then(GremlinBlock.Skip(1)).then(GremlinBlock.Limit(1))).map { it.id })
+
+            // Paging the oppositely ordered RHS must select its identity, not the left page.
+            val pagedRight = right.then(GremlinBlock.Skip(1)).then(GremlinBlock.Limit(1))
+            val expectedRightPage = expected.take(1)
+            assertEquals(expectedRightPage, YTDBEntityIterable.query(tx.getStore(), pagedRight).map { it.id })
+            val pagedResult = left.intersect(pagedRight) as GremlinQuery.Aggregate
+            assertSame(left, pagedResult.left)
+            assertSame(pagedRight, pagedResult.right)
+            assertEquals(expectedRightPage, YTDBEntityIterable.query(tx.getStore(), pagedResult).map { it.id })
+        }
+    }
+
+    @Test
+    fun `typed local conjunction includes shared multiple inheritance descendants`() {
+        givenUserHierarchy()
+        youTrackDb.withSession { session ->
+            val shared = session.getOrCreateVertexClass("SharedTrack3User")
+            shared.addSuperClass(session.getOrCreateVertexClass(User.CLASS))
+            shared.addSuperClass(session.getOrCreateVertexClass(Guest.CLASS))
+        }
+        withStoreTx { tx -> tx.createUser("SharedTrack3User", "shared") }
+        withStoreTx { tx ->
+            val sharedId = tx.getAll("SharedTrack3User").first()!!.id
+            val user = GremlinQuery.Labeled(GremlinQuery.all, User.CLASS)
+            val guest = GremlinQuery.Labeled(GremlinQuery.all, Guest.CLASS)
+            for (poly in listOf(true, false)) {
+                listOf(user.intersect(guest), guest.intersect(user)).forEach { query ->
+                    assertEquals(if (poly) listOf(sharedId) else emptyList(),
+                        YTDBEntityIterable.query(tx.getStore(), query, poly).map { it.id })
+                }
+                val explicit = GremlinQuery.Aggregate(user, guest) { P.within(it) }
+                assertEquals(YTDBEntityIterable.query(tx.getStore(), explicit, poly).map { it.id },
+                    YTDBEntityIterable.query(tx.getStore(), user.intersect(guest), poly).map { it.id })
+            }
+        }
+    }
+
     private fun givenUserHierarchy() {
         youTrackDb.withSession { session ->
             val baseClass = session.getOrCreateVertexClass(BaseUser.CLASS)

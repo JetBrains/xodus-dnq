@@ -16,6 +16,8 @@
 package kotlinx.dnq.query.coverage
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
+import com.jetbrains.youtrackdb.api.config.GlobalConfiguration
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock
 import jetbrains.exodus.entitystore.youtrackdb.gremlin.GremlinBlock.*
@@ -38,6 +40,7 @@ import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyGraph
 import kotlinx.dnq.DBTest
 import kotlinx.dnq.XdModel
 import kotlinx.dnq.XdEntity
+import kotlinx.dnq.query.*
 import org.junit.Before
 import org.junit.Test
 
@@ -64,8 +67,7 @@ import org.junit.Test
  *   Project --lead-->    Employee
  *   Sprint  --project--> Project
  *
- * No real database is used. Tests assert the Gremlin string produced by each query
- * using GroovyTranslator on top of EmptyGraph.
+ * Tests inspect Gremlin strings through EmptyGraph and execute against an isolated real store.
  */
 class GremlinQueryCoverageTest : DBTest() {
 
@@ -74,6 +76,20 @@ class GremlinQueryCoverageTest : DBTest() {
 
     private fun GremlinQuery.toGremlin(): String =
         queryTranslator.translate(start(gs).asAdmin().bytecode).script
+
+    private fun GremlinQuery.hasAggregate(): Boolean = when (this) {
+        is Aggregate -> true
+        is Labeled -> inner.hasAggregate()
+        is GremlinQuery.AndThen -> inner.hasAggregate()
+        is FollowLink -> inner.hasAggregate()
+        is SortBy -> inner.hasAggregate()
+        is GremlinQuery.Order -> inner.hasAggregate()
+        is ReversedOrder -> inner.hasAggregate()
+        is GremlinQuery.Slice -> inner.hasAggregate()
+        is UnionAll -> subqueries.any { it.hasAggregate() }
+        is NestedCondition -> condition.hasAggregate()
+        is Where, is ByIds -> false
+    }
 
     // -------------------------------------------------------------------------
     // Model helpers — thin wrappers to keep query definitions readable
@@ -126,6 +142,7 @@ class GremlinQueryCoverageTest : DBTest() {
 
     override fun registerEntityTypes() {
         XdModel.registerNodes(XdUser, Employee, Manager, Project, Issue, Sprint, Tag)
+        XdModel.registerNodes(Account, ServiceAccount, RobotAccount, CatalogItem, SystemItem, HiddenItem)
     }
 
     private lateinit var dataset: IssueTrackerDataset
@@ -133,6 +150,361 @@ class GremlinQueryCoverageTest : DBTest() {
     @Before
     fun setupDataset() {
         dataset = IssueTrackerDataset(store)
+    }
+
+    @Test
+    fun `typed filter independent ordering evidence`() {
+        val fixture = TypedFilterDataset(store, listOf(
+            TypedFilterDataset.Row("lower", TypedFilterDataset.Kind.CATALOG, "a"),
+            TypedFilterDataset.Row("upper", TypedFilterDataset.Kind.CATALOG, "A"),
+            TypedFilterDataset.Row("punct", TypedFilterDataset.Kind.CATALOG, "_"),
+            TypedFilterDataset.Row("unicode", TypedFilterDataset.Kind.CATALOG, "Ä"),
+            TypedFilterDataset.Row("z", TypedFilterDataset.Kind.CATALOG, "z"),
+            TypedFilterDataset.Row("null-1", TypedFilterDataset.Kind.CATALOG, null),
+            TypedFilterDataset.Row("null-2", TypedFilterDataset.Kind.CATALOG, null),
+            TypedFilterDataset.Row("tie-1", TypedFilterDataset.Kind.CATALOG, "same"),
+            TypedFilterDataset.Row("tie-2", TypedFilterDataset.Kind.CATALOG, "same"),
+            TypedFilterDataset.Row("recent-z", TypedFilterDataset.Kind.ACCOUNT, "z", 9L),
+            TypedFilterDataset.Row("recent-a", TypedFilterDataset.Kind.ACCOUNT, "A", 9L),
+            TypedFilterDataset.Row("old", TypedFilterDataset.Kind.ACCOUNT, "a", 1L),
+            TypedFilterDataset.Row("absent", TypedFilterDataset.Kind.ACCOUNT, "a", null),
+        ))
+        store.transactional {
+            assertThat(Account.all().sortedBy(Account::handle).sortedBy(Account::lastSeenAt, asc = false).toIdList())
+                .containsExactlyElementsIn(listOf("recent-a", "recent-z", "old", "absent").map { fixture.ids.getValue(it) })
+                .inOrder()
+            val nullKeys = listOf("null-1", "null-2").sortedWith { a, b -> fixture.rid(a).compareTo(fixture.rid(b)) }
+            val tieKeys = listOf("tie-1", "tie-2").sortedWith { a, b -> fixture.rid(a).compareTo(fixture.rid(b)) }
+            val caseKeys = listOf("lower", "upper").sortedWith { a, b -> fixture.rid(a).compareTo(fixture.rid(b)) }
+            val ascending = listOf("punct") + caseKeys + tieKeys + listOf("z", "unicode") + nullKeys
+            val descending = listOf("unicode", "z") + tieKeys.reversed() + caseKeys.reversed() + listOf("punct") + nullKeys.reversed()
+            listOf(true to ascending, false to descending).forEach { (asc, keys) ->
+                val actual = CatalogItem.all().sortedBy(CatalogItem::caption, asc).toIdList()
+                println("[typed ordering asc=$asc] ${keys.map { it to fixture.rid(it) }} actual=$actual")
+                assertThat(actual).containsExactlyElementsIn(keys.map { fixture.ids.getValue(it) }).inOrder()
+            }
+        }
+    }
+
+    private fun auditTypedFixture(fixture: TypedFilterDataset) {
+        assertThat(fixture.ids.keys).containsExactlyElementsIn(fixture.rows.map { it.key })
+        assertThat(fixture.ids.values.toSet()).hasSize(fixture.rows.size)
+        fixture.rows.forEach { row ->
+            val entity = fixture.entities.getValue(row.key)
+            assertThat(entity.entity.id).isEqualTo(fixture.ids.getValue(row.key))
+            val type = when (row.kind) {
+                TypedFilterDataset.Kind.ACCOUNT -> "Account"
+                TypedFilterDataset.Kind.SERVICE -> "ServiceAccount"
+                TypedFilterDataset.Kind.ROBOT -> "RobotAccount"
+                TypedFilterDataset.Kind.CATALOG -> "CatalogItem"
+                TypedFilterDataset.Kind.SYSTEM -> "SystemItem"
+                TypedFilterDataset.Kind.HIDDEN -> "HiddenItem"
+            }
+            assertWithMessage(row.key).that(entity.entity.type).isEqualTo(type)
+            when (entity) {
+                is Account -> {
+                    assertThat(entity.rowKey).isEqualTo(row.key)
+                    assertThat(entity.handle).isEqualTo(row.text)
+                    assertThat(entity.lastSeenAt).isEqualTo(row.lastSeen)
+                }
+                is CatalogItem -> {
+                    assertThat(entity.rowKey).isEqualTo(row.key)
+                    assertThat(entity.caption).isEqualTo(row.text)
+                }
+            }
+        }
+        assertThat(Account.all().toIdList()).containsExactlyElementsIn(fixture.rows
+            .filter { it.kind.isA(TypedFilterDataset.Kind.ACCOUNT, true) }.map { fixture.ids.getValue(it.key) })
+        assertThat(CatalogItem.all().toIdList()).containsExactlyElementsIn(fixture.rows
+            .filter { it.kind.isA(TypedFilterDataset.Kind.CATALOG, true) }.map { fixture.ids.getValue(it.key) })
+    }
+
+    @Test
+    fun `typed filter public ordered identity baseline`() {
+        val fixture = TypedFilterDataset(store)
+        assertThat(fixture.rows).containsExactlyElementsIn(TypedFilterDataset.generateRows()).inOrder()
+        assertThat(fixture.digest).isEqualTo("e8adfed38d18d75cbb4687362ac887e8aded717cf9d58aa6a4485143f8719ba5")
+        println("[typed fixture] rows=${fixture.rows.size} digest=${fixture.digest}")
+        store.transactional {
+            auditTypedFixture(fixture)
+            listOf(true, false).forEach { polymorphic ->
+                fun accounts(prefix: String, reverseOperands: Boolean): XdQuery<Account> {
+                    val excluded = Account.all(polymorphic) exclude ServiceAccount.all(polymorphic)
+                    val filtered = Account.all(polymorphic).filter { it.handle startsWith prefix }
+                    return (if (reverseOperands) filtered intersect excluded else excluded intersect filtered)
+                        .sortedBy(Account::handle).sortedBy(Account::lastSeenAt, asc = false)
+                }
+                fun catalog(reverseOperands: Boolean): XdQuery<CatalogItem> {
+                    val withoutSystem = CatalogItem.all(polymorphic) exclude SystemItem.all(polymorphic)
+                    val withoutHidden = CatalogItem.all(polymorphic) exclude HiddenItem.all(polymorphic)
+                    return (if (reverseOperands) withoutHidden intersect withoutSystem else withoutSystem intersect withoutHidden)
+                        .sortedBy(CatalogItem::caption)
+                }
+
+                val skips = listOf(0, 1, 48, 51, 70, 200)
+                listOf(false, true).forEach { reverseOperands ->
+                    // Both intersection orders must use local membership before result paging.
+                    listOf(accounts("a", reverseOperands), catalog(reverseOperands)).forEach { query ->
+                        val low = (query.entityIterable as jetbrains.exodus.entitystore.EntityIterable).unwrap() as YTDBEntityIterable
+                        assertThat(low.query.hasAggregate()).isFalse()
+                        assertThat(low.query.toGremlin()).doesNotContain(".aggregate(")
+                        println("[typed membership polymorphic=$polymorphic reverseOperands=$reverseOperands] ${low.query} gremlin=${low.query.toGremlin()}")
+                    }
+                    listOf("a", "A", "", "ä", "no-match").forEach { prefix ->
+                        skips.forEach { skip ->
+                            val expected = fixture.accountPage(prefix, polymorphic, skip)
+                            assertWithMessage("Accounts prefix='$prefix' polymorphic=$polymorphic reverseOperands=$reverseOperands skip=$skip")
+                                .that(accounts(prefix, reverseOperands).drop(skip).take(51).toIdList())
+                                .containsExactlyElementsIn(expected).inOrder()
+                        }
+                    }
+                    skips.forEach { skip ->
+                        assertWithMessage("Catalog polymorphic=$polymorphic reverseOperands=$reverseOperands skip=$skip")
+                            .that(catalog(reverseOperands).drop(skip).take(51).toIdList())
+                            .containsExactlyElementsIn(fixture.catalogPage(polymorphic, skip)).inOrder()
+                    }
+                }
+                // Guard the fixture's page-boundary and null-crossing coverage against accidental erosion.
+                assertThat(fixture.accountPage("a", polymorphic, limit = 1000).size).isGreaterThan(51)
+                assertThat(fixture.catalogPage(polymorphic, limit = 1000).size).isGreaterThan(51)
+                assertThat(fixture.accountPage("ä", polymorphic)).hasSize(1)
+                assertThat(fixture.accountPage("no-match", polymorphic)).isEmpty()
+                val byId = fixture.rows.associateBy { fixture.ids.getValue(it.key) }
+                val accountWindow = fixture.accountPage("a", polymorphic, skip = 48).map { byId.getValue(it) }
+                val catalogWindow = fixture.catalogPage(polymorphic, skip = 48).map { byId.getValue(it) }
+                assertThat(accountWindow.any { it.lastSeen == null }).isTrue()
+                assertThat(accountWindow.any { it.lastSeen != null }).isTrue()
+                assertThat(catalogWindow.any { it.text == null }).isTrue()
+                assertThat(catalogWindow.any { it.text != null }).isTrue()
+                assertThat(accountWindow.size).isLessThan(51)
+                assertThat(catalogWindow.size).isLessThan(51)
+                assertThat(fixture.accountPage("a", polymorphic, skip = 200)).isEmpty()
+                assertThat(fixture.catalogPage(polymorphic, skip = 200)).isEmpty()
+            }
+        }
+    }
+
+    @Test
+    fun `typed membership singleton work at 100 entities per domain`() = typedMembershipWork(100)
+
+    @Test
+    fun `typed membership singleton work at 200 entities per domain`() = typedMembershipWork(200)
+
+    private fun typedMembershipWork(size: Int) {
+        val rows = (0 until size).flatMap { i ->
+            listOf(
+                TypedFilterDataset.Row("work-a-$i", if (i == 0) TypedFilterDataset.Kind.SERVICE
+                    else TypedFilterDataset.Kind.ACCOUNT, "a${i.toString().padStart(4, '0')}", i.toLong()),
+                TypedFilterDataset.Row("work-c-$i", when (i) {
+                    0 -> TypedFilterDataset.Kind.SYSTEM
+                    1 -> TypedFilterDataset.Kind.HIDDEN
+                    else -> TypedFilterDataset.Kind.CATALOG
+                }, "c${i.toString().padStart(4, '0')}")
+            )
+        }
+        val fixture = TypedFilterDataset(store, rows)
+        typedMembershipWorkTransaction {
+            for (poly in listOf(true, false)) {
+                val queries = listOf(
+                    ((Account.all(poly) exclude ServiceAccount.all(poly)) intersect
+                        Account.all(poly).filter { it.handle startsWith "a" })
+                        .sortedBy(Account::handle).sortedBy(Account::lastSeenAt, asc = false).take(51),
+                    ((CatalogItem.all(poly) exclude SystemItem.all(poly)) intersect
+                        (CatalogItem.all(poly) exclude HiddenItem.all(poly)))
+                        .sortedBy(CatalogItem::caption).take(51)
+                )
+                val expected = listOf(fixture.accountPage("a", poly), fixture.catalogPage(poly))
+                queries.forEachIndexed { index, query ->
+                    val control = query.toIdList()
+                    assertThat(control).containsExactlyElementsIn(expected[index]).inOrder()
+                    val low = (query.entityIterable as jetbrains.exodus.entitystore.EntityIterable)
+                        .unwrap() as YTDBEntityIterable
+                    assertThat(low.query.hasAggregate()).isFalse()
+                    assertThat(low.query.toGremlin()).doesNotContain(".aggregate(")
+                    fun nativeTraversal() = low.traversal().also {
+                        it.asAdmin().strategies.removeStrategies(
+                            com.jetbrains.youtrackdb.internal.core.gremlin.translator.strategy.GremlinToMatchStrategy::class.java)
+                    }
+                    fun consume(traversal: org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal<*,
+                        com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex>): List<String> = try {
+                        val ids = mutableListOf<String>()
+                        while (traversal.hasNext()) ids += traversal.next().id().toString()
+                        ids
+                    } finally { traversal.close() }
+                    val expectedRids = expected[index].map { (it as RIDEntityId).asOId().toString() }
+                    val nativeControl = consume(nativeTraversal())
+                    assertThat(nativeControl).containsExactlyElementsIn(expectedRids).inOrder()
+                    println("[typed work mode] native forced by removing GremlinToMatchStrategy poly=$poly target=$index")
+                    val traversal = nativeTraversal()
+                    val evidence = TypedMembershipWorkEvidence()
+                    val observed = try {
+                        evidence.install(traversal.asAdmin())
+                        val ids = mutableListOf<String>()
+                        while (traversal.hasNext()) ids += traversal.next().id().toString()
+                        ids
+                    } finally { traversal.close() }
+                    assertThat(observed).containsExactlyElementsIn(nativeControl).inOrder()
+                    assertThat(observed).containsExactlyElementsIn(expectedRids).inOrder()
+                    evidence.verify(size)
+                }
+            }
+        }
+    }
+
+    private fun typedMembershipWorkTransaction(block: () -> Unit) {
+        val flag = GlobalConfiguration.QUERY_TX_RESULT_CACHE_ENABLED
+        val previous = flag.getValueAsBoolean()
+        // A cache hit can omit the execution plan these work measurements require.
+        flag.setValue(false)
+        try {
+            store.transactional(readonly = true) { block() }
+        } finally {
+            flag.setValue(previous)
+        }
+    }
+
+    /** Native source outputs are candidates, not physical scans or a scaling proof. */
+    private class TypedMembershipWorkEvidence {
+        private data class Source(
+            val path: String, var opened: Int = 0, var candidates: Int = 0,
+            var closed: Int = 0, var plans: Int = 0
+        )
+        private val sources = mutableListOf<Source>()
+        private val failures = mutableListOf<String>()
+
+        fun install(root: org.apache.tinkerpop.gremlin.process.traversal.Traversal.Admin<*, *>) {
+            root.applyStrategies()
+            val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<
+                org.apache.tinkerpop.gremlin.process.traversal.Traversal.Admin<*, *>, Boolean>())
+            fun walk(t: org.apache.tinkerpop.gremlin.process.traversal.Traversal.Admin<*, *>, path: String) {
+                if (!seen.add(t)) return
+                println("[typed work traversal] $path $t")
+                t.steps.forEachIndexed { i, step ->
+                    val location = "$path/$i:${step.javaClass.simpleName}"
+                    when (step) {
+                        is com.jetbrains.youtrackdb.internal.core.gremlin.translator.step.AbstractMatchPlanStep<*, *> ->
+                            failures += "MATCH work is not observable through native hooks at $location"
+                        is com.jetbrains.youtrackdb.internal.core.gremlin.traversal.step.sideeffect.YTDBGraphStep<*, *> ->
+                            observe(step, location)
+                        is org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep<*, *> ->
+                            failures += "Unknown source at $location"
+                    }
+                    if (step is org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent) {
+                        step.getLocalChildren<Any, Any>().forEachIndexed { c, child -> walk(child, "$location/local-$c") }
+                        step.getGlobalChildren<Any, Any>().forEachIndexed { c, child -> walk(child, "$location/global-$c") }
+                    }
+                }
+            }
+            walk(root, "root")
+        }
+
+        private fun observe(
+            step: com.jetbrains.youtrackdb.internal.core.gremlin.traversal.step.sideeffect.YTDBGraphStep<*, *>,
+            path: String
+        ) {
+            val source = Source(path).also { sources += it }
+            val field = org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep::class.java
+                .getDeclaredField("iteratorSupplier").apply { isAccessible = true }
+            @Suppress("UNCHECKED_CAST")
+            val supplier = field.get(step) as java.util.function.Supplier<Iterator<com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex>>
+            @Suppress("UNCHECKED_CAST")
+            val graphStep = step as com.jetbrains.youtrackdb.internal.core.gremlin.traversal.step.sideeffect.YTDBGraphStep<Any, com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex>
+            graphStep.setIteratorSupplier {
+                source.opened++
+                val delegate = supplier.get()
+                object : org.apache.tinkerpop.gremlin.structure.util.CloseableIterator<com.jetbrains.youtrackdb.api.gremlin.embedded.YTDBVertex> {
+                    private var closed = false
+                    override fun hasNext() = delegate.hasNext()
+                    override fun next() = delegate.next().also { source.candidates++ }
+                    override fun remove(): Unit = throw UnsupportedOperationException()
+                    override fun close() {
+                        if (closed) return
+                        closed = true
+                        try {
+                            val plan = graphStep.lastExecutionPlan
+                            if (plan == null) failures += "Missing executed plan at $path"
+                            else {
+                                source.plans++
+                                val seenSteps = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<
+                                    com.jetbrains.youtrackdb.internal.core.query.ExecutionStep, Boolean>())
+                                fun plans(p: com.jetbrains.youtrackdb.internal.core.query.ExecutionPlan) {
+                                    println("[typed work plan] $path ${p.prettyPrint(0, 2)}")
+                                    fun steps(items: List<com.jetbrains.youtrackdb.internal.core.query.ExecutionStep>) {
+                                        items.forEach { item ->
+                                            if (!seenSteps.add(item)) return@forEach
+                                            println("[typed work step] ${item.javaClass.name}")
+                                            steps(item.subSteps)
+                                            (item as? com.jetbrains.youtrackdb.internal.core.sql.executor.ExecutionStepInternal)
+                                                ?.subExecutionPlans?.forEach { plans(it) }
+                                        }
+                                    }
+                                    steps(p.steps)
+                                }
+                                plans(plan)
+                            }
+                        } finally {
+                            org.apache.tinkerpop.gremlin.structure.util.CloseableIterator.closeIterator(delegate)
+                            source.closed++
+                        }
+                    }
+                }
+            }
+        }
+
+        fun verify(population: Int) {
+            println("[typed work] population=$population sources=$sources failures=$failures")
+            check(failures.isEmpty()) { failures.joinToString() }
+            check(sources.size == 1) { "Local membership opened extra class sources: $sources" }
+            check(sources.all { it.opened == 1 && it.closed == 1 && it.plans == 1 }) { "$sources" }
+            check(sources.sumOf { it.candidates } <= population) { "Repeated source work: $sources" }
+        }
+    }
+
+    @Test
+    fun `typed membership observes transaction changes and mixed memory dispatch`() {
+        val fixture = TypedFilterDataset(store)
+        store.transactional {
+            val query = (Account.all() exclude ServiceAccount.all()) intersect
+                Account.all().filter { it.handle startsWith "a" }
+            val original = query.toIdList().toSet()
+            val changed = fixture.entities.getValue("a-0") as Account
+            changed.handle = "z-changed"
+            assertThat(query.toIdList().toSet()).isEqualTo(original - changed.entityId)
+            val added = Account.new { rowKey = "tx-added"; handle = "a-new" }
+            val now = original - changed.entityId + added.entityId
+            assertThat(query.toIdList().toSet()).isEqualTo(now)
+            val memory = listOf(changed.entity, added.entity).asQuery(Account)
+            assertThat((memory intersect query).toIdList()).containsExactly(added.entityId)
+            assertThat((query intersect memory).toIdList()).containsExactly(added.entityId)
+            assertThat((memory exclude query).toIdList()).containsExactly(changed.entityId)
+            assertThat(query.contains(added)).isTrue()
+            assertThat(query.contains(changed)).isFalse()
+        }
+    }
+
+    @Test
+    fun `typed membership accepts snapshot link wrappers without changing public session boundary`() {
+        kotlin.test.assertFails { XdUser.all() exclude Manager.all() }
+        val source = store.transactional {
+            Project.new { key = "snapshot-typed"; name = "snapshot-typed"; lead = dataset.users.getValue("Alice") as Employee }
+        }
+        val listener = kotlinx.dnq.CallbackListener()
+        store.addListener(listener)
+        listener.onFlush { changes ->
+            val snapshot = changes.single { it.transientEntity.id == source.entityId }.snapshotEntity
+            val links = snapshot.getLinks("lead")
+            assertThat(links.map { it.id }).containsExactly(dataset.users.getValue("Alice").entityId)
+            val typed = (XdUser.all() exclude Manager.all()).entityIterable
+                as jetbrains.exodus.entitystore.EntityIterable
+            assertThat(links.intersect(typed).map { it.id })
+                .containsExactly(dataset.users.getValue("Alice").entityId)
+            assertThat(typed.intersect(links).map { it.id })
+                .containsExactly(dataset.users.getValue("Alice").entityId)
+        }
+        try {
+            store.transactional { source.delete() }
+            listener.check()
+        } finally { store.removeListener(listener) }
     }
 
     private fun <R> withLowLevelTx(block: (YTDBStoreTransactionImpl) -> R): R =
@@ -2135,17 +2507,15 @@ class GremlinQueryCoverageTest : DBTest() {
 
         // Q108: users(All) ∩ Labeled(Labeled(Where(All), "Employee"), "User")
         // All Users who are also Employees.
-        // F3 shape: outer labels match ("User" == "User") — goes through the bottom condition combiner.
-        // After O19: extractCondition(right) = HasLabel("Employee"),
-        //   combineBlocks(All, HasLabel("Employee")) = HasLabel("Employee")
-        //   → Labeled(Where(HasLabel("Employee")), "User")
+        // The double-labeled operand uses the fallback with both original operands intact.
         val employeesAsUsers = Labeled(Labeled(Where.of(All), "Employee"), "User")
-        val q108 = users().intersect(employeesAsUsers)
+        val allUsers = users()
+        val q108 = allUsers.intersect(employeesAsUsers)
         println("[Q108 F3 users intersect double-labeled Employee] query  : $q108")
         println("[Q108 F3 users intersect double-labeled Employee] gremlin: ${q108.toGremlin()}")
-        assertThat(q108.toGremlin()).isEqualTo(
-            """g.V().hasLabel("Employee").hasLabel("User")"""
-        )
+        assertThat(q108).isInstanceOf(Aggregate::class.java)
+        assertThat((q108 as Aggregate).left).isSameInstanceAs(allUsers)
+        assertThat(q108.right).isSameInstanceAs(employeesAsUsers)
 
         // ---- Result assertions ----
         // All Employees (including Manager): Alice, Bob, Carol, Eve. Dave is User-only → excluded.
@@ -2159,18 +2529,15 @@ class GremlinQueryCoverageTest : DBTest() {
 
         // Q109: users(active) ∩ Labeled(Labeled(Where(All), "Employee"), "User")
         // Active Users who are also Employees.
-        // After O19: extractCondition(right) = HasLabel("Employee"),
-        //   combineBlocks(PropEqual("active",true), HasLabel("Employee")) = And(has("active",true), hasLabel("Employee"))
-        //   → Labeled(Where(And(...)), "User")
+        // The fallback preserves the original active-user stream and double-labeled operand.
         val employeesAsUsers = Labeled(Labeled(Where.of(All), "Employee"), "User")
-        val q109 = users(PropEqual("active", true)).intersect(employeesAsUsers)
+        val activeUsers = users(PropEqual("active", true))
+        val q109 = activeUsers.intersect(employeesAsUsers)
         println("[Q109 F3 users(active) intersect double-labeled Employee] query  : $q109")
         println("[Q109 F3 users(active) intersect double-labeled Employee] gremlin: ${q109.toGremlin()}")
-        // And(PropEqual, HasLabel) simplifies to a chain since both blocks are chainable —
-        // the traversal is has("active",true).hasLabel("Employee") rather than and(...).
-        assertThat(q109.toGremlin()).isEqualTo(
-            """g.V().has("active",true).hasLabel("Employee").hasLabel("User")"""
-        )
+        assertThat(q109).isInstanceOf(Aggregate::class.java)
+        assertThat((q109 as Aggregate).left).isSameInstanceAs(activeUsers)
+        assertThat(q109.right).isSameInstanceAs(employeesAsUsers)
 
         // ---- Result assertions ----
         // Active Employees: Alice (true), Bob (true), Eve (true). Carol is active=false → excluded.
@@ -2267,37 +2634,31 @@ class GremlinQueryCoverageTest : DBTest() {
     // outer intersection is Labeled(Where(All), T), the outer intersection is a no-op:
     // Aggregate already produces only T-labeled vertices.
     //
-    // This pattern arises when query DSL intersects a cross-label Aggregate (which cannot
-    // be combined efficiently) with an additional "all T" constraint.  The Aggregate was
-    // forced because the two inner queries have different labels (e.g. "User" vs "Employee").
-    //
-    // Real-world trigger example:
-    //   step1 = events(byId) ∩ eventsByType   → Aggregate (different labels, no efficient rule)
-    //   step2 = step1 ∩ allBaseEvents          → redundant outer Aggregate if step1.left is labeled "BaseEvent"
+    // These fixtures construct Aggregate explicitly to isolate O_B from typed membership fusion.
+    // An additional "all T" constraint is redundant when Aggregate.left is already labeled T.
     // =========================================================================
 
     @Test
     fun `group 16 - Q112 OB single-level redundant-All strip`() {
 
-        // Intersect two queries with different labels — forces Aggregate (O_B pre-condition).
-        //   activeUsers   = Labeled(Where(PropEqual("active",true)), "User")
-        //   engEmployees  = Labeled(Where(PropEqual("department","Engineering")), "Employee")
-        //   q_base        = Aggregate(activeUsers, engEmployees)   ← different labels, no efficient rule
+        // Explicit Aggregate supplies the O_B precondition with complete typed operands.
         val activeUsers  = users(PropEqual("active", true))
         val engEmployees = employees(PropEqual("department", "Engineering"))
-        val qBase        = activeUsers.intersect(engEmployees)
+        val qBase        = Aggregate(activeUsers, engEmployees) {
+            org.apache.tinkerpop.gremlin.process.traversal.P.within(it)
+        }
 
         // Intersecting qBase with Labeled(Where(All), "User") is a no-op:
         //   • qBase.left = activeUsers is labeled "User"
         //   • qBase already produces only User vertices
         //   • ∩ "all Users" cannot add or remove results
         //
-        // After O_B: q112 should produce the same query as qBase.
-        // Before O_B: q112 = Aggregate(qBase, users()) — doubly-nested, different gremlin.
+        // O_B keeps the exact qBase query without an outer membership operation.
         val q112 = qBase.intersect(users())
         println("[Q112 OB single-level] qBase  : $qBase")
         println("[Q112 OB single-level] q112   : $q112")
         println("[Q112 OB single-level] gremlin: ${q112.toGremlin()}")
+        assertThat(q112).isSameInstanceAs(qBase)
         assertThat(q112.toGremlin()).isEqualTo(qBase.toGremlin())
 
         // ---- Result assertions ----
@@ -2312,20 +2673,18 @@ class GremlinQueryCoverageTest : DBTest() {
     @Test
     fun `group 16 - Q113 OB multi-level redundant-All strip`() {
 
-        // Same base Aggregate as Q112; apply the redundant-All strip three times.
-        //
-        // Without O_B each .intersect(users()) adds another Aggregate wrapper:
-        //   q113 = Aggregate(Aggregate(Aggregate(qBase, users()), users()), users())
-        //
-        // With O_B every .intersect(users()) is a no-op → q113 = qBase.
+        // Same explicit Aggregate as Q112. Each redundant-All intersection keeps qBase.
         val activeUsers  = users(PropEqual("active", true))
         val engEmployees = employees(PropEqual("department", "Engineering"))
-        val qBase        = activeUsers.intersect(engEmployees)
+        val qBase        = Aggregate(activeUsers, engEmployees) {
+            org.apache.tinkerpop.gremlin.process.traversal.P.within(it)
+        }
 
         val q113 = qBase.intersect(users()).intersect(users()).intersect(users())
         println("[Q113 OB multi-level] qBase  : $qBase")
         println("[Q113 OB multi-level] q113   : $q113")
         println("[Q113 OB multi-level] gremlin: ${q113.toGremlin()}")
+        assertThat(q113).isSameInstanceAs(qBase)
         assertThat(q113.toGremlin()).isEqualTo(qBase.toGremlin())
 
         // ---- Result assertions ----
@@ -2340,16 +2699,35 @@ class GremlinQueryCoverageTest : DBTest() {
         // Sanity check: O_B must NOT fire when the outer label does not match qBase.left's label.
         //   qBase.left = activeUsers labeled "User"
         //   outer condition = projects() = Labeled(Where(All), "Project")
-        //   "User" != "Project" → O_B does not fire → q114 is a distinct Aggregate wrapping qBase
+        //   "User" != "Project": O_B does not fire. O21 retains Project as an outer label filter.
         val activeUsers  = users(PropEqual("active", true))
         val engEmployees = employees(PropEqual("department", "Engineering"))
-        val qBase        = activeUsers.intersect(engEmployees)
+        val qBase        = Aggregate(activeUsers, engEmployees) {
+            org.apache.tinkerpop.gremlin.process.traversal.P.within(it)
+        }
 
         val q114 = qBase.intersect(projects())
+        val q114Reversed = projects().intersect(qBase)
         println("[Q114 OB non-firing] qBase  : $qBase")
         println("[Q114 OB non-firing] q114   : $q114")
         println("[Q114 OB non-firing] gremlin: ${q114.toGremlin()}")
-        // q114 must NOT collapse to qBase — it wraps qBase in another Aggregate.
+        println("[Q114 OB non-firing reversed] query  : $q114Reversed")
+        println("[Q114 OB non-firing reversed] gremlin: ${q114Reversed.toGremlin()}")
+        // Both operand orders retain the Project filter around the exact base query.
+        assertThat(q114).isInstanceOf(Labeled::class.java)
+        assertThat((q114 as Labeled).label).isEqualTo("Project")
+        assertThat(q114.inner).isSameInstanceAs(qBase)
         assertThat(q114.toGremlin()).isNotEqualTo(qBase.toGremlin())
+        assertThat(q114Reversed).isInstanceOf(Labeled::class.java)
+        assertThat((q114Reversed as Labeled).label).isEqualTo("Project")
+        assertThat(q114Reversed.inner).isSameInstanceAs(qBase)
+        assertThat(q114Reversed.toGremlin()).isNotEqualTo(qBase.toGremlin())
+
+        // Active Engineering employees are Alice, Bob and Eve. None is a Project.
+        withLowLevelTx { tx ->
+            assertThat(qBase.resultNames(tx)).containsExactlyElementsIn(listOf("Alice", "Bob", "Eve"))
+            assertThat(q114.resultNames(tx)).isEmpty()
+            assertThat(q114Reversed.resultNames(tx)).isEmpty()
+        }
     }
 }
