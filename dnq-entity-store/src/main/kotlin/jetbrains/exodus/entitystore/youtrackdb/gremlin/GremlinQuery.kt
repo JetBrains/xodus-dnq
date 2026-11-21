@@ -29,6 +29,10 @@ import org.apache.tinkerpop.gremlin.process.traversal.util.DefaultTraversalStrat
 
 sealed class GremlinQuery {
 
+    // Labels inside filter blocks require whole-operand composition to preserve the driver.
+    // Query nodes are immutable. Reuse cached child boundaries when persistent trees are extended.
+    internal val membershipBoundary: Boolean by lazy { computeMembershipBoundary() }
+
     companion object {
         @JvmStatic
         val all = Where(GremlinBlock.All)

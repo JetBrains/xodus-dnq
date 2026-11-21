@@ -63,10 +63,125 @@ private fun extractCondition(q: GremlinQuery): GremlinBlock? =
     else if (q is Condition) q.asBlock()
     else null
 
+// This whitelist proves same-vertex filtering. CONDITION alone also includes link predicates.
+private fun GremlinBlock.isLocalMembership(afterClassSource: Boolean = false): Boolean = when (this) {
+    GremlinBlock.All, GremlinBlock.None -> true
+    // Source SQL null equality and local has(property, null) differ for absent properties.
+    is GremlinBlock.PropEqual -> value != null && value !is org.apache.tinkerpop.gremlin.process.traversal.P<*>
+    is GremlinBlock.PropNull, is GremlinBlock.PropNotNull, is GremlinBlock.PropInRange -> true
+    // Within uses linear comparison per candidate. Keep collection work on the source path.
+    is GremlinBlock.PropWithin, is GremlinBlock.IdWithin -> false
+    is GremlinBlock.MatchStringProp -> !isCollection
+    is GremlinBlock.And -> operands.all { it.isLocalMembership(afterClassSource) }
+    is GremlinBlock.Or -> operands.all { it.isLocalMembership() }
+    // Optimized exclusions append Not to an existing class source. A label-bearing Not
+    // inside the source's own Where is not evidence of that construction.
+    is GremlinBlock.Not -> query.isLocalMembership() || (afterClassSource && query.isTypedPredicate())
+    is GremlinBlock.Where -> inner.isLocalMembership()
+    is GremlinBlock.AndThen -> left.isLocalMembership() && right.isLocalMembership()
+    else -> false
+}
+
+// One source label plus proven same-vertex filters is a complete typed predicate.
+// Bare positive labels and labels inside arbitrary OR/WHERE/THEN trees are not local filters.
+private fun GremlinBlock.isTypedPredicate(): Boolean = when (this) {
+    is GremlinBlock.HasLabel -> true
+    is GremlinBlock.And -> operands.count { it is GremlinBlock.HasLabel } == 1 &&
+        operands.all { it is GremlinBlock.HasLabel || it.isLocalMembership(afterClassSource = true) }
+    else -> false
+}
+
+private data class TypedMembership(val residual: GremlinBlock, val labels: List<String>) {
+    fun completePredicate(): GremlinBlock =
+        membershipAnd(residual, GremlinBlock.HasLabel(labels.single()))
+}
+
+private fun membershipAnd(left: GremlinBlock, right: GremlinBlock): GremlinBlock =
+    GremlinBlock.And(left, right).let { it.simplify() ?: it }
+
+/** Extracts one unique class source and complete same-vertex membership, without schema access. */
+private fun GremlinQuery.typedMembership(): TypedMembership? = (when (this) {
+    is Where -> if (block.isLocalMembership()) {
+        TypedMembership(block.simplify() ?: block, emptyList())
+    } else null
+    is Labeled -> inner.typedMembership()?.let {
+        it.copy(labels = it.labels + label)
+    }
+    is AndThen -> inner.typedMembership()?.takeIf { block.isLocalMembership(afterClassSource = it.labels.size == 1) }
+        ?.let { it.copy(residual = membershipAnd(it.residual, block)) }
+    is SortBy -> if (sortBlocks.all { it.by is GremlinBlock.Sort.ByProp }) inner.typedMembership() else null
+    is ReversedOrder -> inner.typedMembership()
+    is Order -> if (orderBlock === GremlinBlock.Reverse) inner.typedMembership() else null
+    // Slices, links, unions, duplicate sources and arbitrary aggregates are not class filters.
+    else -> null
+})?.takeIf { it.residual.isLocalMembership(afterClassSource = it.labels.size == 1) } // Recheck after simplification.
+
+// A label inside a block is not a class source. Guard even unproved label-bearing forms.
+// Only typedMembership() can prove that the whole operand is safe to compose at entry.
+private fun GremlinBlock.hasMembershipBoundary(): Boolean = when (this) {
+    is GremlinBlock.HasLabel -> true
+    is GremlinBlock.And -> operands.any { it.hasMembershipBoundary() }
+    is GremlinBlock.Or -> operands.any { it.hasMembershipBoundary() }
+    is GremlinBlock.Not -> query.hasMembershipBoundary()
+    is GremlinBlock.Where -> inner.hasMembershipBoundary()
+    is GremlinBlock.AndThen -> left.hasMembershipBoundary() || right.hasMembershipBoundary()
+    else -> false
+}
+
+internal fun GremlinQuery.computeMembershipBoundary(): Boolean = when (this) {
+    is Where -> block.hasMembershipBoundary()
+    is Labeled -> inner.membershipBoundary
+    is AndThen -> inner.membershipBoundary || block.hasMembershipBoundary()
+    is SortBy -> inner.membershipBoundary
+    is Order -> inner.membershipBoundary || orderBlock.hasMembershipBoundary()
+    is ReversedOrder -> inner.membershipBoundary
+    is Slice -> inner.membershipBoundary || sliceBlock.hasMembershipBoundary()
+    is FollowLink -> inner.membershipBoundary
+    is Aggregate -> left.membershipBoundary || right.membershipBoundary
+    is UnionAll -> subqueries.any { it.membershipBoundary }
+    is NestedCondition -> condition.membershipBoundary
+    is ByIds -> false
+}
+
 internal fun GremlinQuery.combineEfficient(
     other: GremlinQuery,
     condCombiner: ConditionCombiner,
+): GremlinQuery? = combineEfficient(other, condCombiner, allowTypedMembership = true)
+
+private fun GremlinQuery.combineEfficient(
+    other: GremlinQuery,
+    condCombiner: ConditionCombiner,
+    allowTypedMembership: Boolean,
 ): GremlinQuery? {
+    val leftMembership = typedMembership()?.takeIf { it.labels.isNotEmpty() }
+    val rightMembership = other.typedMembership()?.takeIf { it.labels.isNotEmpty() }
+    val hasBoundary = membershipBoundary || other.membershipBoundary
+    val needsTypedMembership = hasBoundary ||
+        (leftMembership?.labels?.size ?: 0) > 1 || (rightMembership?.labels?.size ?: 0) > 1 ||
+        (leftMembership != null && rightMembership != null && leftMembership.labels != rightMembership.labels)
+    if (needsTypedMembership) {
+        // Only the original entry owns the left driver. Legacy recursion can strip or swap it.
+        if (allowTypedMembership && leftMembership?.labels?.size == 1 && rightMembership?.labels?.size == 1) {
+            // Type mode belongs to the calling iterable. Only equal proven source labels
+            // permit eliding the right positive label under single inheritance.
+            val residual = when (condCombiner) {
+                is ConditionCombiner.Intersect ->
+                    if (leftMembership.labels == rightMembership.labels) rightMembership.residual else return null
+                is ConditionCombiner.Difference -> {
+                    val predicate = rightMembership.completePredicate()
+                    // Simplification must retain the type proof for later composition.
+                    if (!predicate.isTypedPredicate()) return null
+                    GremlinBlock.Not(predicate)
+                }
+                else -> return null
+            }
+            // Do not use then(): it moves the residual inside Labeled and can change the driver.
+            return if (residual === GremlinBlock.All) this else AndThen(this, residual)
+        }
+        // Reject the whole shape. Legacy rules must not swap or strip a typed residual.
+        return null
+    }
+
     // O3: SortBy passthrough — strip sort wrappers, combine the inner queries, re-wrap.
     //
     // The right-side sort is always irrelevant for set operations.
@@ -85,14 +200,14 @@ internal fun GremlinQuery.combineEfficient(
     //   → issues(open ∨ critical)
     if (this is SortBy) {
         val otherInner = if (other is SortBy) other.inner else other
-        val combined = this.inner.combineEfficient(otherInner, condCombiner) ?: return null
+        val combined = this.inner.combineEfficient(otherInner, condCombiner, allowTypedMembership = false) ?: return null
         return if (condCombiner is ConditionCombiner.Union) combined
                else SortBy(combined, this.sortBlocks)
     }
 
     // Strip right-side sort and retry
     if (other is SortBy) {
-        return this.combineEfficient(other.inner, condCombiner)
+        return this.combineEfficient(other.inner, condCombiner, allowTypedMembership = false)
     }
 
     // O17: Order(Dedup) transparency — strip the Dedup wrapper, combine inner queries, re-wrap.
@@ -119,7 +234,7 @@ internal fun GremlinQuery.combineEfficient(
     //            → issues(open) \ issuesInProject(ENG)   ← then O11 fires
     if (this is Order && this.orderBlock === GremlinBlock.Dedup) {
         val otherInner = if (other is Order && other.orderBlock === GremlinBlock.Dedup) other.inner else other
-        val innerResult = this.inner.combineEfficient(otherInner, condCombiner)
+        val innerResult = this.inner.combineEfficient(otherInner, condCombiner, allowTypedMembership = false)
         if (innerResult != null) {
             return if (innerResult is Order && innerResult.orderBlock === GremlinBlock.Dedup)
                 innerResult  // inner path (e.g. O4 Labeled branch) already added Dedup
@@ -130,7 +245,7 @@ internal fun GremlinQuery.combineEfficient(
     // O17 symmetric: for commutative intersect, also try when only the right side is Order(Dedup).
     if (condCombiner is ConditionCombiner.Intersect &&
         other is Order && other.orderBlock === GremlinBlock.Dedup) {
-        val innerResult = other.inner.combineEfficient(this, condCombiner)
+        val innerResult = other.inner.combineEfficient(this, condCombiner, allowTypedMembership = false)
         if (innerResult != null) {
             return if (innerResult is Order && innerResult.orderBlock === GremlinBlock.Dedup)
                 innerResult
@@ -143,7 +258,7 @@ internal fun GremlinQuery.combineEfficient(
     // distinct vertex set, and difference is a set operation. Safe to delegate without Dedup.
     if (condCombiner is ConditionCombiner.Difference &&
         other is Order && other.orderBlock === GremlinBlock.Dedup) {
-        return this.combineEfficient(other.inner, condCombiner)
+        return this.combineEfficient(other.inner, condCombiner, allowTypedMembership = false)
     }
 
     // O4: FollowLink union shortcut — merge source queries and re-wrap with the shared traversal.
@@ -472,7 +587,7 @@ internal fun GremlinQuery.combineEfficient(
         if (other is UnionAll && other.subqueries.none { hasPaging(it) }) {
             val merged = mergeHomogeneousFL(other)
             if (merged != null) {
-                val result = combineEfficient(merged, condCombiner)
+                val result = combineEfficient(merged, condCombiner, allowTypedMembership = false)
                 if (result != null) return result.then(GremlinBlock.Dedup)
             }
             val condBlock = extractCondition(this)
@@ -493,7 +608,7 @@ internal fun GremlinQuery.combineEfficient(
         if (this is UnionAll && this.subqueries.none { hasPaging(it) }) {
             val merged = mergeHomogeneousFL(this)
             if (merged != null) {
-                val result = (merged as GremlinQuery).combineEfficient(other, condCombiner)
+                val result = (merged as GremlinQuery).combineEfficient(other, condCombiner, allowTypedMembership = false)
                 if (result != null) return result.then(GremlinBlock.Dedup)
             }
             val condBlock = extractCondition(other)

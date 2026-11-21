@@ -51,6 +51,252 @@ class GremlinQueryTest {
     private fun GremlinQuery.toGremlin(): String =
         queryTranslator.translate(start(gs).asAdmin().bytecode).script
 
+    private fun assertAggregateFallback(left: GremlinQuery, right: GremlinQuery) {
+        listOf("intersect" to left.intersect(right), "difference" to left.difference(right))
+            .forEach { (operation, query) ->
+                assertWithMessage("%s must keep the complete operands", operation)
+                    .that(query).isInstanceOf(GremlinQuery.Aggregate::class.java)
+                val fallback = query as GremlinQuery.Aggregate
+                assertThat(fallback.left).isSameInstanceAs(left)
+                assertThat(fallback.right).isSameInstanceAs(right)
+            }
+    }
+
+    @Test
+    fun `typed difference preserves the driver and complete property membership`() {
+        val left = allOf("Account")
+        val right = Labeled(GremlinQuery.Where.of(PropEqual("handle", "a")), "ServiceAccount")
+        val result = left.difference(right) as GremlinQuery.AndThen
+        assertThat(result.inner).isSameInstanceAs(left)
+        assertThat(result.containsAggregate()).isFalse()
+        assertThat(result.block)
+            .isEqualTo(Not(And(PropEqual("handle", "a"), HasLabel("ServiceAccount"))))
+        assertThat(result.toGremlin()).startsWith("g.V().hasLabel(\"Account\").not(")
+        assertThat(result.toGremlin()).contains("has(\"handle\",\"a\")")
+        assertThat(result.toGremlin()).contains("hasLabel(\"ServiceAccount\")")
+        assertThat(result.restrictToId(RID.of(34, 4))).isNull()
+    }
+
+    @Test
+    fun `typed exclusion uses one negation and survives inline filter strategy`() {
+        val member = Not(HasLabel("ServiceAccount"))
+        assertThat(member.simplify()).isNull()
+        assertThat(Not.of(Not(member))).isEqualTo(member)
+        assertThat(member.toGremlin()).isEqualTo("__.not(__.hasLabel(\"ServiceAccount\"))")
+        val traversal = member.traverse(Anon.start<Any>().asYT()).asAdmin()
+        org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.InlineFilterStrategy.instance()
+            .apply(traversal)
+        assertThat(traversal.steps.single())
+            .isInstanceOf(org.apache.tinkerpop.gremlin.process.traversal.step.filter.NotStep::class.java)
+    }
+
+    @Test
+    fun `both target trees stay on the original left source without aggregates in both orders`() {
+        val account = allOf("Account").difference(allOf("ServiceAccount"))
+        val handle = MatchStringProp("handle", StringCompare.Prefix, "a", false)
+        val matchingAccount = Labeled(GremlinQuery.Where.of(handle), "Account")
+        val catalog = allOf("CatalogItem").difference(allOf("SystemItem"))
+        val visibleCatalog = allOf("CatalogItem").difference(allOf("HiddenItem"))
+        val targets = listOf(
+            Triple(account, matchingAccount, handle),
+            Triple(matchingAccount, account, Not(HasLabel("ServiceAccount"))),
+            Triple(catalog, visibleCatalog, Not(HasLabel("HiddenItem"))),
+            Triple(visibleCatalog, catalog, Not(HasLabel("SystemItem")))
+        )
+        targets.forEach { (left, right, residual) ->
+            val query = left.intersect(right) as GremlinQuery.AndThen
+            assertThat(query.inner).isSameInstanceAs(left)
+            assertThat(query.block).isEqualTo(residual)
+            assertThat(query.containsAggregate()).isFalse()
+            assertThat(query.toGremlin()).startsWith(left.toGremlin())
+            assertThat(query.toGremlin()).doesNotContain("aggregate(")
+            assertThat(query.toGremlin()).doesNotContain(".not(__.not(")
+            assertThat(query.then(Limit(51)).toGremlin()).endsWith(".limit(51L)")
+        }
+        assertThat(account.intersect(allOf("Account"))).isSameInstanceAs(account)
+        val different = allOf("ServiceAccount")
+        listOf(account to different, different to account).forEach { (left, right) ->
+            val fallback = left.intersect(right) as GremlinQuery.Aggregate
+            assertThat(fallback.left).isSameInstanceAs(left)
+            assertThat(fallback.right).isSameInstanceAs(right)
+        }
+    }
+
+    @Test
+    fun `complete typed Not predicates compose with same-label filters in both orders`() {
+        val filter = PropNotNull("name")
+        val matchingAccount = Labeled(GremlinQuery.Where.of(filter), "Account")
+        val predicates = listOf(
+            HasLabel("ServiceAccount"),
+            And(PropEqual("handle", "a"), HasLabel("ServiceAccount"))
+        )
+        predicates.forEach { predicate ->
+            val exclusion = Not(predicate)
+            val excluded = GremlinQuery.AndThen(allOf("Account"), exclusion)
+            listOf(
+                Triple(matchingAccount, excluded, exclusion),
+                Triple(excluded, matchingAccount, filter)
+            ).forEach { (left, right, residual) ->
+                val result = left.intersect(right) as GremlinQuery.AndThen
+                assertThat(result.inner).isSameInstanceAs(left)
+                assertThat(result.block).isEqualTo(residual)
+                assertThat(result.containsAggregate()).isFalse()
+                assertThat(result.toGremlin()).doesNotContain(".not(__.not(")
+            }
+        }
+    }
+
+    @Test
+    fun `unproved label nesting keeps complete operands in both orders`() {
+        val left = allOf("Account").difference(allOf("ServiceAccount"))
+        val label = HasLabel("ServiceAccount")
+        val nestedLabels = listOf(
+            label,
+            Not(label),
+            And(label, HasLabel("Account")),
+            Or(PropEqual("p", 1), label),
+            Where(label),
+            AndThen(PropNotNull("name"), label),
+            Not(Or(PropEqual("p", 1), label)),
+            Not(Where(label)),
+            Not(AndThen(PropNotNull("name"), label))
+        )
+        val unsafe = listOf(Labeled(allOf("ServiceAccount"), "Account")) +
+            nestedLabels.map { Labeled(GremlinQuery.Where(it), "Account") }
+        unsafe.forEach { right ->
+            assertAggregateFallback(left, right)
+            assertAggregateFallback(right, left)
+        }
+    }
+
+    @Test
+    fun `typed exclusion boundary preserves sort dedup and slice fallback operands in both orders`() {
+        val left = allOf("Account")
+        val excluded = left.difference(allOf("ServiceAccount"))
+        val sort = Sort(Sort.ByProp("handle"), SortDirection.DESC)
+        val unsafe = listOf(
+            excluded.then(Dedup),
+            excluded.then(sort).then(Dedup),
+            excluded.then(Dedup).then(sort),
+            excluded.then(Skip(1)),
+            excluded.then(Limit(1)),
+            excluded.then(sort).then(Dedup).then(Skip(1)).then(Limit(2)),
+            excluded.then(Skip(1)).then(sort).then(Limit(2))
+        )
+        unsafe.forEach { right ->
+            assertAggregateFallback(left, right)
+            assertAggregateFallback(right, left)
+        }
+    }
+
+    @Test
+    fun `typed residual rejection keeps entire recursive fallback operands`() {
+        val fused = allOf("Account").difference(allOf("ServiceAccount"))
+        val unsafe = listOf(
+            allOf("Account").then(Skip(1)),
+            allOf("Account").then(Limit(1)),
+            allOf("Account").then(Tail(1)),
+            Labeled(allOf("Account").then(Limit(1)), "Account"),
+            GremlinQuery.AndThen(allOf("Account"), Where(AndThen(PropNotNull("name"), Limit(1)))),
+            allOf("Account").unionAll(allOf("ServiceAccount")),
+            allOf("Account").then(OutLink("owner")),
+            allOf("Account").then(InLink("owner")),
+            Labeled(GremlinQuery.Where(Where(OutLink("owner"))), "Account"),
+            allOf("Account").then(Dedup),
+            allOf("Account").then(Sort(Sort.ByLinked("owner", "name"), SortDirection.ASC)),
+            ByIds(listOf(RID.of(34, 4), RID.of(34, 4))),
+            GremlinQuery.Aggregate(allOf("Account"), allOf("ServiceAccount")) {
+                org.apache.tinkerpop.gremlin.process.traversal.P.within(it)
+            }
+        )
+        unsafe.forEach { operand ->
+            assertAggregateFallback(fused, operand)
+            assertAggregateFallback(operand, fused)
+        }
+        assertThat(fused.union(allOf("Account"))).isInstanceOf(GremlinQuery.Order::class.java)
+    }
+
+    @Test
+    fun `null equality and within lists reject complete typed operands recursively`() {
+        val unsafe = listOf<GremlinBlock>(
+            PropEqual("lastSeenAt", null),
+            PropWithin("handle", (0 until 10000).map { "a$it" }),
+            IdWithin((0 until 10000).map { RID.of(34, it.toLong()) }),
+            PropEqual("handle", org.apache.tinkerpop.gremlin.process.traversal.P.within("a", "b"))
+        )
+        unsafe.forEach { leaf ->
+            val predicates = listOf(leaf, And(PropNotNull("name"), leaf),
+                Or(PropEqual("name", "safe"), leaf), Not(leaf), Where(leaf),
+                AndThen(PropNotNull("name"), leaf), Not(And(HasLabel("ServiceAccount"), leaf)))
+            predicates.forEach { predicate ->
+                val operand = Labeled(GremlinQuery.Where(predicate), "ServiceAccount")
+                listOf(allOf("Account"), allOf("Account").difference(allOf("ServiceAccount")))
+                    .forEach { left ->
+                        assertAggregateFallback(left, operand)
+                        assertAggregateFallback(operand, left)
+                    }
+            }
+        }
+    }
+
+    @Test
+    fun `typed extraction rechecks within created by Boolean simplification`() {
+        val left = allOf("Account")
+        val right = Labeled(GremlinQuery.Where(Or(
+            PropEqual("handle", "a"), PropEqual("handle", "b"))), "ServiceAccount")
+        listOf(left.intersect(right), left.difference(right)).forEach { query ->
+            val fallback = query as GremlinQuery.Aggregate
+            assertThat(fallback.left).isSameInstanceAs(left)
+            assertThat(fallback.right).isSameInstanceAs(right)
+        }
+    }
+
+    @Test
+    fun `legacy recursion cannot enable typed fusion on a swapped or stripped driver`() {
+        val left = Labeled(GremlinQuery.Where(PropEqual("p", 1)), "A")
+        val right = Labeled(GremlinQuery.Where(PropEqual("q", 2)), "B").then(Dedup)
+        val wrappers: List<(GremlinQuery) -> GremlinQuery> = listOf(
+            { it }, { it.then(Sort(Sort.ByProp("name"), SortDirection.ASC)) }, { it.then(Dedup) }
+        )
+        wrappers.forEach { wrap ->
+            val originalLeft = wrap(left)
+            val fallback = originalLeft.intersect(right) as GremlinQuery.Aggregate
+            assertThat(fallback.left).isSameInstanceAs(originalLeft)
+            assertThat(fallback.right).isSameInstanceAs(right)
+        }
+    }
+
+    @Test
+    fun `noncondition aggregate chains reuse boundary metadata`() {
+        val right = allOf("ServiceAccount").then(OutLink("owner"))
+        var chain: GremlinQuery = allOf("Account").then(OutLink("owner"))
+        repeat(200) {
+            val left = chain
+            chain = left.intersect(right)
+            assertThat((chain as GremlinQuery.Aggregate).left).isSameInstanceAs(left)
+            assertThat(chain.membershipBoundary).isFalse()
+            assertThat(chain.membershipBoundary).isFalse()
+        }
+        val typed = allOf("Account").difference(allOf("ServiceAccount"))
+        val fallback = chain.intersect(typed) as GremlinQuery.Aggregate
+        assertThat(fallback.left).isSameInstanceAs(chain)
+        assertThat(fallback.right).isSameInstanceAs(typed)
+        assertThat(fallback.membershipBoundary).isTrue()
+    }
+
+    @Test
+    fun `typed exclusion preserves wrappers and different-label intersection falls back intact`() {
+        val left = allOf("Account").then(Sort(Sort.ByProp("handle"), SortDirection.DESC)).then(Reverse)
+        val result = left.difference(allOf("ServiceAccount")) as GremlinQuery.AndThen
+        assertThat(result.inner).isSameInstanceAs(left)
+        assertThat(result.toGremlin()).startsWith(left.toGremlin())
+        assertThat(result.toGremlin()).doesNotContain("aggregate(")
+        val right = allOf("ServiceAccount")
+        val fallback = left.intersect(right) as GremlinQuery.Aggregate
+        assertThat(fallback.left).isSameInstanceAs(left)
+        assertThat(fallback.right).isSameInstanceAs(right)
+    }
+
     @Test
     fun `All produces empty traversal`() {
         assertThat(All.toGremlin()).isEqualTo("__")
@@ -684,8 +930,10 @@ class GremlinQueryTest {
         // O21 is placed after O_B precisely so O_B wins here: O_B recognises that the Aggregate's
         // left branch is already labeled T and drops the redundant hasLabel entirely, rather than
         // O21 appending an AndThen(Aggregate, hasLabel). Guards the placement-after-O_B invariant.
-        val aggr = issueCondition("status", "open")
-            .intersect(Labeled(GremlinQuery.Where.of(PropEqual("key", "ENG")), "Project"))
+        val aggr = GremlinQuery.Aggregate(
+            issueCondition("status", "open"),
+            Labeled(GremlinQuery.Where.of(PropEqual("key", "ENG")), "Project")
+        ) { org.apache.tinkerpop.gremlin.process.traversal.P.within(it) }
         assertThat(aggr).isInstanceOf(GremlinQuery.Aggregate::class.java)
 
         // Both orders resolve to the bare Aggregate, not an O21 rewrite.

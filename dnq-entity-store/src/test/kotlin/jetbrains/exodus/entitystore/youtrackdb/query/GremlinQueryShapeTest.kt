@@ -128,6 +128,16 @@ class GremlinQueryShapeTest {
             .isEqualTo("""Labeled(Where(HasNoLink("assignee")), "Issue")""")
     }
 
+    @Test
+    fun `typed difference shape keeps the complete right predicate inside Not`() {
+        val q = issues().difference(projects(GremlinBlock.PropEqual("name", "X")))
+        assertThat(GremlinQueryShape.of(q))
+            .isEqualTo(
+                """AndThen(Labeled(Where(All), "Issue"), """ +
+                """Not(And(PropEqual("name", ?), HasLabel("Project"))))"""
+            )
+    }
+
     // ---- FollowLink shapes ----
 
     @Test
