@@ -51,8 +51,14 @@ import kotlin.reflect.jvm.javaType
 internal class MissingDeclarationFact(declaration: String, fact: DeclarationFactKind<*>) :
     IllegalArgumentException("Missing declaration fact ${fact.label} for $declaration")
 
-/** Keys pair a plain value with a current owner and, for property facts, its exact registered slot. */
 internal class DeclarationFactKind<T : Any> private constructor(val label: String) {
+    /**
+     * Pairs an already evaluated plain value with the exact registered owner node.
+     * For a property fact, use the node whose registered property map holds the resolved slot,
+     * even if that node's class does not declare the Kotlin property. Pass the exact current slot
+     * object from that map. An equal copy does not match.
+     * Leave the slot unset for type and index facts.
+     */
     fun at(owner: XdHierarchyNode, value: T, slot: XdHierarchyNode.MetaProperty? = null) =
         DeclarationFact(this, owner, slot, value)
 
@@ -114,8 +120,18 @@ private class FactAddress(
 }
 
 /**
- * Copies original local facts from a completed, stable hierarchy. The caller supplies only current
- * plain facts that the requested capture needs and cannot safely read. Each call consumes its own evidence.
+ * Captures a detached snapshot of this node's type and its local scalar and index declarations.
+ * Call after registration is complete and keep the hierarchy stable throughout capture.
+ *
+ * On each call, supply an already evaluated plain value from trusted input for every gap that
+ * capture cannot read safely. Each value must describe the current registered model. Do not call
+ * unsafe model getters to obtain these values. Use [DeclarationFactKind.at] to attach each value
+ * to its owner. Address matching checks identity, not whether the value is still current.
+ *
+ * Capture fails on missing, duplicate or unused facts and on attempts to override known facts,
+ * even with an equal value. Capture does not retain facts between calls. On retry, supply the
+ * full set of facts needed to fill the gaps again. Reuse a value only if it is still current,
+ * and bind it to the correct current address.
  */
 internal fun XdHierarchyNode.captureTypeDeclaration(vararg facts: DeclarationFact<*>): TypeDeclaration =
     TypeCapture(facts).capture(this)

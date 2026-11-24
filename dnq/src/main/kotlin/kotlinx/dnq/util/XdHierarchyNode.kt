@@ -63,6 +63,10 @@ class XdHierarchyNode(val entityType: XdEntityType<*>, val parentNode: XdHierarc
     private val declaredScalarOrigins = HashMap<String, KProperty1<*, *>>()
     private val declaredLinkOrigins = HashMap<String, KProperty1<*, *>>()
 
+    // Reflection cache rebuilds can return different member objects. Use the origin recorded
+    // by ordinary registration only if this is the current slot for this node, key and slot kind
+    // and it holds the same registered member object. A replacement slot can keep that member.
+    // Insertion and equality of different member objects do not prove origin.
     internal fun hasRegisteredPropertyOrigin(key: String, slot: MetaProperty): Boolean = when (slot) {
         is SimpleProperty -> simpleProperties[key] === slot && declaredScalarOrigins[key] === slot.property
         is LinkProperty -> linkProperties[key] === slot && declaredLinkOrigins[key] === slot.property
