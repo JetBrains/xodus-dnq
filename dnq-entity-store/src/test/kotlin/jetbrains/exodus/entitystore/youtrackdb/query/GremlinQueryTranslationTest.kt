@@ -41,21 +41,16 @@ class GremlinQueryTranslationTest : OTestMixin {
     override val youTrackDb = youTrackDbRule
 
     @Test
-    fun `hasLabel query is translated to MATCH`() {
+    fun `hasLabel query stays on native Gremlin`() {
         assertTranslationStatus(
             GremlinQuery.all.then(HasLabel("Issue")),
-            expectedTranslated = true
+            expectedTranslated = false
         )
     }
 
     @Test
     fun `hasLabel query with sort is translated to MATCH`() {
-        assertTranslationStatus(
-            GremlinQuery.all
-                .then(HasLabel("Issue"))
-                .then(Sort(Sort.ByProp("name"), SortDirection.ASC)),
-            expectedTranslated = true
-        )
+        assertTranslationStatus(issuesSortedByName(), expectedTranslated = true)
     }
 
     @Test
@@ -73,7 +68,7 @@ class GremlinQueryTranslationTest : OTestMixin {
     @Test
     fun `collector records translation outcomes and lets untranslated queries run`() {
         GremlinQueryCollector.enableForTests()
-        val translated = GremlinQuery.all.then(HasLabel("Issue"))
+        val translated = issuesSortedByName()
         val untranslated = GremlinQuery.Labeled(GremlinQuery.Where.of(HasLink("friend")), "BaseUser")
 
         withStoreTx { tx ->
@@ -87,7 +82,7 @@ class GremlinQueryTranslationTest : OTestMixin {
         val translatedEntry = outcomes.first { it.shape == GremlinQueryShape.of(translated) && it.translated }
         assertThat(translatedEntry.nativeGremlinShape).contains("hasLabel")
         assertThat(translatedEntry.nativeGremlinShape).doesNotContain("Issue")
-        assertThat(translatedEntry.executionExample).contains("Gremlin: g.V().hasLabel(\"Issue\")")
+        assertThat(translatedEntry.executionExample).contains("Gremlin: g.V().hasLabel(\"Issue\").order()")
         assertThat(translatedEntry.executionExample).contains("MatchPlanStep")
         val notTranslated = outcomes.first {
             it.shape == GremlinQueryShape.of(untranslated) && !it.translated &&
@@ -103,6 +98,10 @@ class GremlinQueryTranslationTest : OTestMixin {
             ).joinToString("\t").replace("\n", "\\n")
         )
     }
+
+    private fun issuesSortedByName() = GremlinQuery.all
+        .then(HasLabel("Issue"))
+        .then(Sort(Sort.ByProp("name"), SortDirection.ASC))
 
     private fun assertTranslationStatus(query: GremlinQuery, expectedTranslated: Boolean) {
         withStoreTx { tx ->
