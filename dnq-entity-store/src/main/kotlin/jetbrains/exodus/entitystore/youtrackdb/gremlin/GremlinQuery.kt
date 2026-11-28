@@ -20,12 +20,14 @@ import com.jetbrains.youtrackdb.api.gremlin.tokens.YTDBQueryConfigParam
 import com.jetbrains.youtrackdb.internal.core.db.record.record.RID
 import org.apache.tinkerpop.gremlin.process.traversal.P
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
+import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.OptionsStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.LazyBarrierStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.util.DefaultTraversalStrategies
+import java.util.concurrent.ConcurrentHashMap
 
 sealed class GremlinQuery {
 
@@ -39,6 +41,19 @@ sealed class GremlinQuery {
 
         @JvmStatic
         val none = Where(GremlinBlock.None)
+
+        /**
+         * Caps the number of stored orders to bound memory use.
+         * At the limit, a query with no stored order uses the sorting path.
+         */
+        private const val ROOT_STRATEGY_ORDER_LIMIT = 16
+
+        /**
+         * Query threads share this map for lookups and inserts. Entries are never removed.
+         * Each stored order holds the sorted strategy instances, with `null` in place of [OptionsStrategy].
+         * The map holds no query options, query shapes, or traversal strategy lists.
+         */
+        private val rootStrategyOrders = ConcurrentHashMap<RootStrategyKey, List<TraversalStrategy<*>?>>()
 
         private fun optionsWithNullsLast(strategies: TraversalStrategies): OptionsStrategy {
             val builder = OptionsStrategy.build()
@@ -185,6 +200,44 @@ sealed class GremlinQuery {
         return physical
     }
 
+    /**
+     * Matches queries that start with the same strategy instances in the same order and agree on
+     * whether they contain an [Aggregate], a query node that filters its left side using results
+     * collected from its right side. An Aggregate changes the root order by removing [LazyBarrierStrategy].
+     *
+     * Library strategy equality is class-based and can treat instances with different state as equal.
+     * The key compares instance identity at each position to keep those instances distinct.
+     * The library sorter uses only strategy classes, categories, and declared `applyPrior` and
+     * `applyPost` dependencies. Reuse assumes those dependencies stay stable for each instance.
+     * Every query installs [OptionsStrategy], and option values do not affect the order.
+     * The key therefore ignores the source [OptionsStrategy].
+     */
+    private class RootStrategyKey(strategies: TraversalStrategies, private val aggregate: Boolean) {
+        private val ordered = strategies.filterNot { it is OptionsStrategy }
+        private val identityHash = ordered.fold(aggregate.hashCode()) { hash, strategy ->
+            31 * hash + System.identityHashCode(strategy)
+        }
+
+        override fun hashCode(): Int = identityHash
+
+        override fun equals(other: Any?): Boolean =
+            other is RootStrategyKey && aggregate == other.aggregate && ordered.size == other.ordered.size &&
+                ordered.indices.all { ordered[it] === other.ordered[it] }
+    }
+
+    /**
+     * Gives each traversal its own strategy list and fills the `null` slot with that query's options.
+     * [DefaultTraversalStrategies] has no public way to load an already sorted order.
+     * The subclass fills the protected set directly to avoid sorting.
+     * Later `addStrategies`, `removeStrategies`, and `clone` calls keep the behavior of [DefaultTraversalStrategies].
+     */
+    private class OrderedRootStrategies(order: List<TraversalStrategy<*>?>, options: OptionsStrategy) :
+        DefaultTraversalStrategies() {
+        init {
+            order.forEach { traversalStrategies.add(it ?: options) }
+        }
+    }
+
     fun start(gs: GraphTraversalSource): YT = start(gs, this)
 
     private fun start(gs: GraphTraversalSource, physical: GremlinQuery): YT {
@@ -195,7 +248,24 @@ sealed class GremlinQuery {
         // source options are retained; DNQ overrides both sort directions to absolute NULLS LAST.
         // Provider strategies read root options for nested traversals as well.
         val admin = traversal.asAdmin()
+        // Build fresh options for every query on both paths.
         val options = optionsWithNullsLast(admin.strategies)
+        val aggregate = containsAggregate()
+        // The query collector records query shapes for diagnostics. When it is enabled, always sort
+        // so the strategy list includes the diagnostic strategy for this query's shape.
+        val key = if (shape == null) RootStrategyKey(admin.strategies, aggregate) else null
+        // Reuse path: install the stored order without calling the library sorter.
+        if (key != null) {
+            val order = rootStrategyOrders[key]
+            if (order != null) {
+                admin.strategies = OrderedRootStrategies(order, options)
+                return traversal
+            }
+        }
+
+        // Sorting path (XD-1312): DefaultTraversalStrategies.addStrategies calls the library sorter
+        // (TraversalStrategies.sortStrategies) on every call. The root update takes one sort and
+        // another if removeStrategies removes LazyBarrierStrategy for an Aggregate.
         admin.strategies = admin.strategies.clone().apply {
             addStrategies(
                 options,
@@ -203,7 +273,7 @@ sealed class GremlinQuery {
                 GremlinCaseInsensitiveOrderStrategy.instance()
             )
         }
-        if (containsAggregate()) {
+        if (aggregate) {
             // LazyBarrierStrategy inserts a `NoOpBarrierStep` after flat-map steps to bulk traversers.
             // An Aggregate already collects its whole right side into a side effect, and its left side
             // is an embedded child whose `V()` must stay directly followed by its `hasLabel(...)`
@@ -211,6 +281,13 @@ sealed class GremlinQuery {
             admin.strategies.removeStrategies(LazyBarrierStrategy::class.java)
         }
         if (shape != null) admin.strategies.addStrategies(GremlinTranslationOutcomeStrategy(shape))
+        // Guard the size check and insert together. Two threads can both sort for the same new key
+        // because sorting runs before either thread reaches the guarded write.
+        if (key != null) synchronized(rootStrategyOrders) {
+            if (rootStrategyOrders.size < ROOT_STRATEGY_ORDER_LIMIT) {
+                rootStrategyOrders.putIfAbsent(key, admin.strategies.map { if (it is OptionsStrategy) null else it })
+            }
+        }
         return traversal
     }
 
